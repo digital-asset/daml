@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -15,7 +15,7 @@ import com.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   TransactionVersion => TxVersion,
-  Transaction => Tx
+  Transaction => Tx,
 }
 import com.daml.lf.value.Value
 
@@ -33,7 +33,7 @@ private[lf] object PartialTransaction {
   final class Context private (
       val exeContext: Option[ExercisesContext], // empty if root context
       val children: BackStack[NodeId],
-      protected val childrenSeeds: Int => crypto.Hash
+      protected val childrenSeeds: Int => crypto.Hash,
   ) {
     def addChild(child: NodeId): Context =
       new Context(exeContext, children :+ child, childrenSeeds)
@@ -53,13 +53,14 @@ private[lf] object PartialTransaction {
             BackStack.empty,
             i =>
               (if (0 <= i && i < seeds.length) seeds(i) else None)
-                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided"))
+                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided")),
           )
         case InitialSeeding.NoSeed =>
           new Context(
             None,
             BackStack.empty,
-            _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
+            _ => throw new RuntimeException(s"the machine is not configure to create transaction"),
+          )
       }
 
     private[PartialTransaction] def apply(exeContext: ExercisesContext) =
@@ -109,7 +110,7 @@ private[lf] object PartialTransaction {
       choiceObservers: Set[Party],
       nodeId: NodeId,
       parent: Context,
-      byKey: Boolean
+      byKey: Boolean,
   )
 
   def initial(
@@ -250,7 +251,7 @@ private[lf] case class PartialTransaction(
     if (serializableErrs.nonEmpty) {
       Left(
         s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}""",
+          .mkString(",")}"""
       )
     } else {
       val nodeSeed = context.nextChildrenSeed
@@ -264,7 +265,7 @@ private[lf] case class PartialTransaction(
         signatories,
         stakeholders,
         key,
-        packageToTransactionVersion(coinst.template.packageId)
+        packageToTransactionVersion(coinst.template.packageId),
       )
       val nid = NodeId(nextNodeIdx)
       val ptx = copy(
@@ -313,7 +314,7 @@ private[lf] case class PartialTransaction(
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(node)
+      insertLeafNode(node),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
   }
 
@@ -355,7 +356,7 @@ private[lf] case class PartialTransaction(
     if (serializableErrs.nonEmpty) {
       Left(
         s"""Trying to exercise a choice with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}""",
+          .mkString(",")}"""
       )
     } else {
       val nid = NodeId(nextNodeIdx)
@@ -374,7 +375,7 @@ private[lf] case class PartialTransaction(
           choiceObservers = choiceObservers,
           nodeId = nid,
           parent = context,
-          byKey = byKey
+          byKey = byKey,
         )
 
       Right(

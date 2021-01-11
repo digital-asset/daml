@@ -1,20 +1,20 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML codegen
+Daml codegen
 ############
 
 Introduction
 ============
 
-You can use the DAML codegen to generate Java, Scala, and JavaScript/TypeScript classes representing DAML contract templates.
+You can use the Daml codegen to generate Java, Scala, and JavaScript/TypeScript classes representing Daml contract templates.
 These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``,
 ``com.daml.ledger.api.v1.ExerciseCommand``, ``com.daml.ledger.api.v1.ExerciseByKeyCommand``, and ``com.daml.ledger.api.v1.CreateAndExerciseCommand``.
 
-Running the DAML codegen
+Running the Daml codegen
 ========================
 
-The basic command to run the DAML codegen is::
+The basic command to run the Daml codegen is::
 
   $ daml codegen [java|scala|js] [options]
 
@@ -54,7 +54,7 @@ Help for each specific codegen::
 Project file configuration (Java and Scala)
 -------------------------------------------
 
-The above settings can be configured in the ``codegen`` element of the DAML project file
+The above settings can be configured in the ``codegen`` element of the Daml project file
 ``daml.yaml``.  See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on
 this feature.
 

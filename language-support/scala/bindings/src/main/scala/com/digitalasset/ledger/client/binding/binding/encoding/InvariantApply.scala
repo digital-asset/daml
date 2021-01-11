@@ -1,9 +1,8 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
 
-import scala.language.higherKinds
 import scalaz.{-\/, Apply, Divide, InvariantFunctor, \/, \/-}
 
 /** A variant of [[Apply]] that generalizes with [[Divide]].  Instead of lifting
@@ -35,8 +34,9 @@ trait InvariantApply[F[_]] extends InvariantFunctor[F] {
       (a, (b, c))
     }
 
-  def xmapN[A, B, C, D, Z](fa: F[A], fb: F[B], fc: F[C], fd: F[D])(f: (A, B, C, D) => Z)(
-      g: Z => (A, B, C, D)): F[Z] =
+  def xmapN[A, B, C, D, Z](fa: F[A], fb: F[B], fc: F[C], fd: F[D])(
+      f: (A, B, C, D) => Z
+  )(g: Z => (A, B, C, D)): F[Z] =
     xmapN(tupleN(fa, fb), tupleN(fc, fd)) { (ab, cd) =>
       val (a, b) = ab
       val (c, d) = cd
@@ -47,7 +47,8 @@ trait InvariantApply[F[_]] extends InvariantFunctor[F] {
     }
 
   def xmapN[A, B, C, D, E, Z](fa: F[A], fb: F[B], fc: F[C], fd: F[D], fe: F[E])(
-      f: (A, B, C, D, E) => Z)(g: Z => (A, B, C, D, E)): F[Z] =
+      f: (A, B, C, D, E) => Z
+  )(g: Z => (A, B, C, D, E)): F[Z] =
     xmapN(fa, tupleN(fb, fc), tupleN(fd, fe)) { (a, bc, de) =>
       val (b, c) = bc
       val (d, e) = de
@@ -104,7 +105,7 @@ object InvariantApply {
   private final class OneOr[F[_]](implicit F: InvariantApply[F])
       extends InvariantApply[Lambda[a => F[a] \/ a]] {
     override def xmap[A, B](fa: F[A] \/ A, f: A => B, g: B => A) =
-      fa bimap (F.xmap(_, f, g), f)
+      fa.bimap(F.xmap(_, f, g), f)
 
     override def xmapN[A, B, Z](faa: F[A] \/ A, fbb: F[B] \/ B)(f: (A, B) => Z)(g: Z => (A, B)) =
       (faa, fbb) match {

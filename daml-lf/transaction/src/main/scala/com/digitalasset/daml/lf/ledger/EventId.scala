@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,10 +12,10 @@ import scala.util.Try
 // transactionId should be small so the concatenation in toLedgerString does not exceed 255 chars
 case class EventId(
     transactionId: LedgerString,
-    nodeId: NodeId
+    nodeId: NodeId,
 ) {
   lazy val toLedgerString: LedgerString = {
-    val builder = StringBuilder.newBuilder
+    val builder = new StringBuilder()
     builder += '#'
     builder ++= transactionId
     builder += ':'

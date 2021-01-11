@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -52,7 +52,8 @@ object Main extends StrictLogging {
         s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
         s", wsConfig=${config.wsConfig.shows}" +
-        ")")
+        ")"
+    )
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: Materializer = Materializer(asys)

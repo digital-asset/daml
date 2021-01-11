@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger.sql
@@ -103,10 +103,14 @@ final class SqlLedgerSpec
     "refuse to create a new ledger when there is already one with a different ledger ID" in {
       for {
         _ <- createSqlLedger(ledgerId = "TheLedger", validatePartyAllocation = false)
-        throwable <- createSqlLedger(ledgerId = "AnotherLedger", validatePartyAllocation = false).failed
+        throwable <- createSqlLedger(
+          ledgerId = "AnotherLedger",
+          validatePartyAllocation = false,
+        ).failed
       } yield {
         throwable.getMessage should be(
-          "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
+          "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\"."
+        )
       }
     }
 
@@ -207,8 +211,7 @@ final class SqlLedgerSpec
       }
     }
 
-    /**
-      * Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
+    /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
       * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
       *
       * NOTE: This is needed for ensuring durability guarantees of DAML-on-SQL.
@@ -220,7 +223,8 @@ final class SqlLedgerSpec
         val jdbcLedgerDaoLogs =
           LogCollector.read[this.type]("com.daml.platform.store.dao.JdbcLedgerDao")
         jdbcLedgerDaoLogs should contain(
-          Level.INFO -> "Starting JdbcLedgerDao with async commit disabled")
+          Level.INFO -> "Starting JdbcLedgerDao with async commit disabled"
+        )
       }
     }
   }

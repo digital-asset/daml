@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.perf
@@ -37,12 +37,14 @@ trait TestHelper {
     Identifier(
       packageId = largeTxPackageId,
       moduleName = "LargeTransaction",
-      entityName = "RangeOfInts")
+      entityName = "RangeOfInts",
+    )
 
   val listUtilTemplateId = Identifier(
     packageId = largeTxPackageId,
     moduleName = "LargeTransaction",
-    entityName = "ListUtil")
+    entityName = "ListUtil",
+  )
 
   val setupTimeout = 30.seconds
   val perfTestTimeout = 20.minutes
@@ -59,14 +61,15 @@ trait TestHelper {
   def submitAndWaitRequest(
       command: Command.Command,
       commandId: String,
-      workflowId: String): SubmitAndWaitRequest = {
+      workflowId: String,
+  ): SubmitAndWaitRequest = {
     val commands = Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
       applicationId = applicationId,
       commandId = commandId,
       party = party,
-      commands = Seq(Command(command))
+      commands = Seq(Command(command)),
     )
     SubmitAndWaitRequest(Some(commands), traceContext = traceContext)
   }
@@ -74,7 +77,8 @@ trait TestHelper {
   def rangeOfIntsCreateCommand(
       state: PerfBenchState,
       workflowId: String,
-      contractSize: Int): Future[Unit] = {
+      contractSize: Int,
+  ): Future[Unit] = {
     val createCmd =
       LargeTransactionCommands.rangeOfIntsCreateCommand(rangeOfIntsTemplateId, 0, 1, contractSize)
     submit(state, createCmd, "create-" + uniqueId(), workflowId)
@@ -84,7 +88,8 @@ trait TestHelper {
       state: PerfBenchState,
       workflowId: String,
       choice: String,
-      args: Option[Value]): Future[Unit] = {
+      args: Option[Value],
+  ): Future[Unit] = {
     implicit val ec: ExecutionContext = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, rangeOfIntsTemplateId, workflowId)
@@ -92,7 +97,8 @@ trait TestHelper {
         rangeOfIntsTemplateId,
         contractId,
         choice,
-        args)
+        args,
+      )
       _ <- submit(state, exerciseCmd, "exercise-" + uniqueId(), workflowId)
     } yield ()
   }
@@ -100,14 +106,16 @@ trait TestHelper {
   def firstActiveContractId(
       state: PerfBenchState,
       templateId: Identifier,
-      workflowId: String): Future[String] =
+      workflowId: String,
+  ): Future[String] =
     activeContractIds(state, workflowId, templateId).runWith(Sink.head)(state.mat)
 
   def submit(
       state: PerfBenchState,
       command: Command.Command,
       commandId: String,
-      workflowId: String = ""): Future[Unit] = {
+      workflowId: String = "",
+  ): Future[Unit] = {
     val request: SubmitAndWaitRequest = submitAndWaitRequest(command, commandId, workflowId)
     state.ledger.commandService.submitAndWait(request).map(_ => ())(DirectExecutionContext)
   }
@@ -115,14 +123,16 @@ trait TestHelper {
   def activeContractIds(
       state: PerfBenchState,
       workflowId: String,
-      templateId: Identifier): Source[String, Future[String]] =
+      templateId: Identifier,
+  ): Source[String, Future[String]] =
     new ActiveContractSetClient(state.ledger.ledgerId, state.ledger.acsService)(state.esf)
       .getActiveContracts(transactionFilter)
       .filter(_.workflowId == workflowId)
       .mapConcat(extractContractId(templateId))
 
-  def extractContractId(templateId: Identifier)(
-      response: GetActiveContractsResponse): List[String] =
+  def extractContractId(
+      templateId: Identifier
+  )(response: GetActiveContractsResponse): List[String] =
     response.activeContracts.toList.collect {
       case CreatedEvent(_, contractId, Some(actualTemplateId), _, _, _, _, _, _)
           if IdentifierEqual.equal(actualTemplateId, templateId) =>
@@ -138,7 +148,8 @@ trait TestHelper {
       state: PerfBenchState,
       templateId: Identifier,
       workflowId: String,
-      n: Int): Future[Unit] = {
+      n: Int,
+  ): Future[Unit] = {
     implicit val ec: ExecutionContext = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, templateId, workflowId)

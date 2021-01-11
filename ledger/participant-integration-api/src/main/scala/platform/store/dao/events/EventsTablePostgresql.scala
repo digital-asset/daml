@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -13,8 +13,7 @@ import com.daml.platform.store.Conversions._
 
 object EventsTablePostgresql extends EventsTable {
 
-  /**
-    * Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
+  /** Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
     * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
     * faster than using JDBC batches.
     */
@@ -136,7 +135,7 @@ object EventsTablePostgresql extends EventsTable {
       exerciseArguments,
       exerciseResults,
       exerciseActors,
-      exerciseChildEventIds
+      exerciseChildEventIds,
     )
 
     val archivals =

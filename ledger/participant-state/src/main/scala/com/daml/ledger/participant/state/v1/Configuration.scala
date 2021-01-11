@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -23,8 +23,7 @@ final case class Configuration(
 object Configuration {
   import com.daml.ledger.participant.state.protobuf
 
-  /**
-    * Version history:
+  /** Version history:
     * V1: initial version
     * V2: added maxDeduplicationTime
     */
@@ -33,7 +32,6 @@ object Configuration {
   def decode(bytes: Array[Byte]): Either[String, Configuration] =
     Try(protobuf.LedgerConfiguration.parseFrom(bytes)).toEither.left
       .map(_.getMessage)
-      .right
       .flatMap(decode)
 
   def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
@@ -47,10 +45,11 @@ object Configuration {
 
     def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
       for {
-        tm <- if (config.hasTimeModel)
-          decodeTimeModel(config.getTimeModel)
-        else
-          Left("Missing time model")
+        tm <-
+          if (config.hasTimeModel)
+            decodeTimeModel(config.getTimeModel)
+          else
+            Left("Missing time model")
       } yield {
         Configuration(
           generation = config.getGeneration,
@@ -71,14 +70,16 @@ object Configuration {
 
     def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
       for {
-        tm <- if (config.hasTimeModel)
-          decodeTimeModel(config.getTimeModel)
-        else
-          Left("Missing time model")
-        maxDeduplicationTime <- if (config.hasMaxDeduplicationTime)
-          Right(parseDuration(config.getMaxDeduplicationTime))
-        else
-          Left("Missing maximum command time to live")
+        tm <-
+          if (config.hasTimeModel)
+            decodeTimeModel(config.getTimeModel)
+          else
+            Left("Missing time model")
+        maxDeduplicationTime <-
+          if (config.hasMaxDeduplicationTime)
+            Right(parseDuration(config.getMaxDeduplicationTime))
+          else
+            Left("Missing maximum command time to live")
       } yield {
         Configuration(
           generation = config.getGeneration,

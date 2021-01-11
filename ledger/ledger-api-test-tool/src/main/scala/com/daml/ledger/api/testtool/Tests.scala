@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -46,8 +46,7 @@ object Tests {
       new TransactionScaleIT,
     )
 
-  /**
-    * These are performance envelope tests that also provide benchmarks and are always run
+  /** These are performance envelope tests that also provide benchmarks and are always run
     * sequentially; they also must be specified explicitly with --perf-tests and will exclude
     * all other tests.
     */

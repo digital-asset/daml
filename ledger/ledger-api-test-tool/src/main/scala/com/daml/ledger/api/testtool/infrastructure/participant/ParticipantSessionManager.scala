@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
@@ -17,7 +17,7 @@ import scala.concurrent.duration.SECONDS
 import scala.concurrent.{ExecutionContext, Future}
 
 private[infrastructure] final class ParticipantSessionManager private (
-    sessions: immutable.Seq[Session],
+    sessions: immutable.Seq[Session]
 ) {
   val allSessions: immutable.Seq[ParticipantSession] = sessions.map(_.session)
 
@@ -30,15 +30,15 @@ private[infrastructure] final class ParticipantSessionManager private (
 object ParticipantSessionManager {
   private val logger = LoggerFactory.getLogger(classOf[ParticipantSessionManager])
 
-  def apply(configs: immutable.Seq[ParticipantSessionConfiguration])(
-      implicit executionContext: ExecutionContext
+  def apply(configs: immutable.Seq[ParticipantSessionConfiguration])(implicit
+      executionContext: ExecutionContext
   ): Future[ParticipantSessionManager] =
     Future
       .traverse(configs)(connect)
       .map(participantSessions => new ParticipantSessionManager(participantSessions))
 
   private def connect(
-      config: ParticipantSessionConfiguration,
+      config: ParticipantSessionConfiguration
   )(implicit ec: ExecutionContext): Future[Session] = {
     logger.info(s"Connecting to participant at ${config.address}...")
     val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
@@ -46,13 +46,13 @@ object ParticipantSessionManager {
     val threadFactory: DefaultThreadFactory =
       new DefaultThreadFactory(threadFactoryPoolName, daemonThreads)
     logger.info(
-      s"gRPC thread factory instantiated with pool '$threadFactoryPoolName' (daemon threads: $daemonThreads)",
+      s"gRPC thread factory instantiated with pool '$threadFactoryPoolName' (daemon threads: $daemonThreads)"
     )
     val threadCount = Runtime.getRuntime.availableProcessors
     val eventLoopGroup: NioEventLoopGroup =
       new NioEventLoopGroup(threadCount, threadFactory)
     logger.info(
-      s"gRPC event loop thread group instantiated with $threadCount threads using pool '$threadFactoryPoolName'",
+      s"gRPC event loop thread group instantiated with $threadCount threads using pool '$threadFactoryPoolName'"
     )
     val channelBuilder = NettyChannelBuilder
       .forAddress(config.host, config.port)
@@ -88,9 +88,11 @@ object ParticipantSessionManager {
         sys.error("Channel shutdown stuck. Unable to recover. Terminating.")
       }
       logger.info(s"Connection to participant at ${config.address} shut down.")
-      if (!eventLoopGroup
+      if (
+        !eventLoopGroup
           .shutdownGracefully(0, 0, SECONDS)
-          .await(10L, SECONDS)) {
+          .await(10L, SECONDS)
+      ) {
         sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
       }
       logger.info(s"Connection to participant at ${config.address} closed.")

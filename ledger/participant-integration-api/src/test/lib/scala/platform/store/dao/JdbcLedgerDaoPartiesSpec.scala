@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -38,7 +38,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.listKnownParties()
     } yield {
-      parties should contain allOf (alice, bob)
+      parties should contain.allOf(alice, bob)
     }
   }
 
@@ -90,7 +90,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(danParty, eveParty, nonExistentParty))
     } yield {
-      parties should contain only (dan, eve)
+      parties should contain.only(dan, eve)
     }
   }
 
@@ -118,18 +118,20 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     recoverToSucceededIf[LedgerEndUpdateError](
       ledgerDao.storePartyEntry(
         IncrementalOffsetStep(nextOffset(), nextOffset()),
-        allocationAccepted(fred)
-      ))
+        allocationAccepted(fred),
+      )
+    )
   }
 
   private def storePartyEntry(
       partyDetails: PartyDetails,
       offset: Offset,
-      shouldUpdateLegerEnd: Boolean = true) =
+      shouldUpdateLegerEnd: Boolean = true,
+  ) =
     ledgerDao
       .storePartyEntry(
         OffsetStep(previousOffset.get(), offset),
-        allocationAccepted(partyDetails)
+        allocationAccepted(partyDetails),
       )
       .map { response =>
         if (shouldUpdateLegerEnd) previousOffset.set(Some(offset))

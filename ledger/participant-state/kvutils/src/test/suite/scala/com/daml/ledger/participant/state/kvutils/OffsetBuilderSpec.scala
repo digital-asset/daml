@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -17,7 +17,8 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers {
       (
         OffsetBuilder.highestIndex(offset),
         OffsetBuilder.middleIndex(offset),
-        OffsetBuilder.lowestIndex(offset))
+        OffsetBuilder.lowestIndex(offset),
+      )
 
     "set 0 bytes" in {
       OffsetBuilder.fromLong(0).bytes shouldEqual zeroBytes

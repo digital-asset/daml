@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -28,7 +28,8 @@ object Transactions {
 
   def transactionFilterFor(
       parties: OneAnd[Set, lar.Party],
-      templateIds: List[TemplateId.RequiredPkg]): TransactionFilter = {
+      templateIds: List[TemplateId.RequiredPkg],
+  ): TransactionFilter = {
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(InclusiveFilters(templateIds.map(apiIdentifier))))

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.graphql
@@ -25,7 +25,8 @@ class GraphQLSchemaSpec extends AnyWordSpec with Matchers {
 
       if (changes.nonEmpty) {
         fail(
-          s"Schema definition does not match:\n- ${changes.map(_.description).mkString("\n- ")}\n")
+          s"Schema definition does not match:\n- ${changes.map(_.description).mkString("\n- ")}\n"
+        )
       }
     }
   }

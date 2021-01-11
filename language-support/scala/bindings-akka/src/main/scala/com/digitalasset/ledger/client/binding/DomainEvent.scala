@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -28,12 +28,12 @@ final case class DomainCreatedEvent(
     templateId: TemplateId,
     witnessParties: immutable.Seq[Party],
     createArguments: CreateArguments,
-    contractData: Contract.OfAny)
-    extends DomainEvent
+    contractData: Contract.OfAny,
+) extends DomainEvent
 
 final case class DomainArchivedEvent(
     eventId: EventId,
     contractId: ContractId,
     templateId: TemplateId,
-    witnessParties: immutable.Seq[Party])
-    extends DomainEvent
+    witnessParties: immutable.Seq[Party],
+) extends DomainEvent

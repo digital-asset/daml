@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -23,7 +23,6 @@ import scalaz.std.set._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 
-import scala.language.higherKinds
 import spray.json._
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
@@ -48,6 +47,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.value.Value
 import com.daml.script.converter.Converter.{JavaList, toContractId, unrollFree}
 import com.daml.script.converter.ConverterException
 
@@ -58,7 +58,8 @@ case class ApiParameters(
     host: String,
     port: Int,
     access_token: Option[String],
-    application_id: Option[ApplicationId])
+    application_id: Option[ApplicationId],
+)
 case class Participants[+T](
     default_participant: Option[T],
     participants: Map[Participant, T],
@@ -75,13 +76,15 @@ case class Participants[+T](
     for {
       participants <- NonEmptyList[Party](parties.head, parties.tail.toList: _*)
         .traverse(getPartyParticipant(_))
-      participant <- if (participants.all(_ == participants.head)) {
-        Right(participants.head)
-      } else {
-        Left(
-          s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
-            .zip(participants.toList)}")
-      }
+      participant <-
+        if (participants.all(_ == participants.head)) {
+          Right(participants.head)
+        } else {
+          Left(
+            s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
+              .zip(participants.toList)}"
+          )
+        }
     } yield participant
   }
 
@@ -100,12 +103,17 @@ case class Participants[+T](
 object Participants {
   implicit val darTraverse: Traverse[Participants] = new Traverse[Participants] {
     override def map[A, B](fa: Participants[A])(f: A => B): Participants[B] =
-      Participants[B](fa.default_participant.map(f), fa.participants.map({
-        case (k, v) => (k, f(v))
-      }), fa.party_participants)
+      Participants[B](
+        fa.default_participant.map(f),
+        fa.participants.map({ case (k, v) =>
+          (k, f(v))
+        }),
+        fa.party_participants,
+      )
 
-    override def traverseImpl[G[_]: Applicative, A, B](fa: Participants[A])(
-        f: A => G[B]): G[Participants[B]] = {
+    override def traverseImpl[G[_]: Applicative, A, B](
+        fa: Participants[A]
+    )(f: A => G[B]): G[Participants[B]] = {
       import scalaz.syntax.apply._
       import scalaz.syntax.traverse._
       val gb: G[Option[B]] = fa.default_participant.traverse(f)
@@ -136,7 +144,7 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
         JsString(obj.coid)
       override def read(json: JsValue) = json match {
         case JsString(s) =>
-          ContractId fromString s fold (deserializationError(_), identity)
+          ContractId.fromString(s).fold(deserializationError(_), identity)
         case _ => deserializationError("ContractId must be a string")
       }
     }
@@ -224,20 +232,25 @@ object Runner {
   def connect(
       participantParams: Participants[ApiParameters],
       tlsConfig: TlsConfiguration,
-      maxInboundMessageSize: Int)(
-      implicit ec: ExecutionContext,
-      seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
+      maxInboundMessageSize: Int,
+  )(implicit
+      ec: ExecutionContext,
+      seq: ExecutionSequencerFactory,
+  ): Future[Participants[GrpcLedgerClient]] = {
     for {
       defaultClient <- participantParams.default_participant.traverse(x =>
-        connectApiParameters(x, tlsConfig, maxInboundMessageSize))
+        connectApiParameters(x, tlsConfig, maxInboundMessageSize)
+      )
       participantClients <- participantParams.participants.traverse(v =>
-        connectApiParameters(v, tlsConfig, maxInboundMessageSize))
+        connectApiParameters(v, tlsConfig, maxInboundMessageSize)
+      )
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 
-  def jsonClients(participantParams: Participants[ApiParameters], envIface: EnvironmentInterface)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
+  def jsonClients(
+      participantParams: Participants[ApiParameters],
+      envIface: EnvironmentInterface,
+  )(implicit ec: ExecutionContext, system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
     def client(params: ApiParameters) = {
       val uri = Uri(params.host).withPort(params.port)
       params.access_token match {
@@ -245,9 +258,14 @@ object Runner {
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
           val client = new JsonLedgerClient(uri, Jwt(token), envIface, system)
-          if (params.application_id.isDefined && params.application_id != client.tokenPayload.applicationId) {
-            Future.failed(new RuntimeException(
-              s"ApplicationId specified in token ${client.tokenPayload.applicationId} must match ${params.application_id}"))
+          if (
+            params.application_id.isDefined && params.application_id != client.tokenPayload.applicationId
+          ) {
+            Future.failed(
+              new RuntimeException(
+                s"ApplicationId specified in token ${client.tokenPayload.applicationId} must match ${params.application_id}"
+              )
+            )
           } else {
             Future.successful(new JsonLedgerClient(uri, Jwt(token), envIface, system))
           }
@@ -269,10 +287,12 @@ object Runner {
       scriptId: Identifier,
       inputValue: Option[JsValue],
       initialClients: Participants[ScriptLedgerClient],
-      timeMode: ScriptTimeMode)(
-      implicit ec: ExecutionContext,
+      timeMode: ScriptTimeMode,
+  )(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[SValue] = {
+      mat: Materializer,
+  ): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = data.assertRight(PureCompiledPackages(darMap, Runner.compilerConfig))
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
@@ -287,7 +307,8 @@ object Runner {
             envIface,
             compiledPackages,
             script.param,
-            inputJson) match {
+            inputJson,
+          ) match {
           case Left(msg) => throw new ConverterException(msg)
           case Right(x) => x
         }
@@ -306,7 +327,8 @@ object Runner {
       readAs: List[SValue],
       freeAp: SValue,
       continue: SValue,
-      loc: Option[SValue])
+      loc: Option[SValue],
+  )
 
   private def submitPayload: SValue PartialFunction SubmitPayload = {
     // no location
@@ -318,14 +340,16 @@ object Runner {
 
     // multi-party actAs/readAs + location
     case SRecord(
-        _,
-        _,
-        JavaList(
-          SRecord(_, _, JavaList(hdAct, SList(tlAct))),
-          SList(read),
-          SRecord(_, _, JavaList(freeAp)),
-          continue,
-          loc)) =>
+          _,
+          _,
+          JavaList(
+            SRecord(_, _, JavaList(hdAct, SList(tlAct))),
+            SList(read),
+            SRecord(_, _, JavaList(freeAp)),
+            continue,
+            loc,
+          ),
+        ) =>
       SubmitPayload(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
 
   }
@@ -343,11 +367,13 @@ object Runner {
   // put the unique error message content right next to the pattern that
   // must have failed
   private def match2[A, B, Z](a: A, b: B)(
-      f: A => (String, B PartialFunction Future[Z])): Future[Z] = {
+      f: A => (String, B PartialFunction Future[Z])
+  ): Future[Z] = {
     val (expect, bz) = f(a)
     bz.applyOrElse(
       b,
-      (b: B) => Future failed (new ConverterException(s"Expected $expect but got $b")))
+      (b: B) => Future failed (new ConverterException(s"Expected $expect but got $b")),
+    )
   }
 }
 
@@ -397,7 +423,27 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         .toRight(s"Failed to find choice $choice in $id")
     } yield choice.returnType
 
+  private def lookupKeyTy(id: Identifier): Either[String, Type] =
+    for {
+      pkg <- compiledPackages
+        .getSignature(id.packageId)
+        .toRight(s"Failed to find package ${id.packageId}")
+      module <- pkg.modules
+        .get(id.qualifiedName.module)
+        .toRight(s"Failed to find module ${id.qualifiedName.module}")
+      tpl <- module.templates
+        .get(id.qualifiedName.name)
+        .toRight(s"Failed to find template ${id.qualifiedName.name}")
+      key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
+    } yield key.typ
+
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
+
+  private def translateKey(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
+    for {
+      keyTy <- lookupKeyTy(id)
+      translated <- valueTranslator.translateValue(keyTy, v).left.map(_.msg)
+    } yield translated
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
@@ -406,10 +452,11 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   // Returns the machine that will be used for execution as well as a Future for the result.
-  def runWithClients(initialClients: Participants[ScriptLedgerClient])(
-      implicit ec: ExecutionContext,
+  def runWithClients(initialClients: Participants[ScriptLedgerClient])(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): (Speedy.Machine, Future[SValue]) = {
+      mat: Materializer,
+  ): (Speedy.Machine, Future[SValue]) = {
     var clients = initialClients
     val machine =
       Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
@@ -454,13 +501,18 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       readAs <- Converter
                         .toFuture(payload.readAs.traverse(Converter.toParty(_)))
                         .map(_.toSet)
-                      commands <- Converter.toFuture(Converter
-                        .toCommands(extendedCompiledPackages, payload.freeAp))
-                      client <- Converter.toFuture(clients
-                        .getPartiesParticipant(actAs))
-                      commitLocation <- payload.loc cata (sLoc =>
-                        Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                      Future(None))
+                      commands <- Converter.toFuture(
+                        Converter
+                          .toCommands(extendedCompiledPackages, payload.freeAp)
+                      )
+                      client <- Converter.toFuture(
+                        clients
+                          .getPartiesParticipant(actAs)
+                      )
+                      commitLocation <- payload.loc.cata(
+                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
+                        Future(None),
+                      )
                       submitRes <- client.submit(actAs, readAs, commands, commitLocation)
                       _ = copyTracelog(client)
                       v <- submitRes match {
@@ -473,7 +525,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                                   lookupChoiceTy,
                                   valueTranslator,
                                   payload.freeAp,
-                                  results))
+                                  results,
+                                )
+                            )
                             v <- {
                               run(filled)
                             }
@@ -486,8 +540,10 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           // older SDK versions that didn't distinguish Submit
                           // and SubmitMustFail.
                           for {
-                            res <- Converter.toFuture(Converter
-                              .fromStatusException(script.scriptIds, statusEx))
+                            res <- Converter.toFuture(
+                              Converter
+                                .fromStatusException(script.scriptIds, statusEx)
+                            )
                             v <- {
                               run(SEApp(SEValue(payload.continue), Array(SEValue(res))))
                             }
@@ -508,13 +564,18 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       readAs <- Converter
                         .toFuture(payload.readAs.traverse(Converter.toParty(_)))
                         .map(_.toSet)
-                      commands <- Converter.toFuture(Converter
-                        .toCommands(extendedCompiledPackages, payload.freeAp))
-                      client <- Converter.toFuture(clients
-                        .getPartiesParticipant(actAs))
-                      commitLocation <- payload.loc cata (sLoc =>
-                        Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                      Future(None))
+                      commands <- Converter.toFuture(
+                        Converter
+                          .toCommands(extendedCompiledPackages, payload.freeAp)
+                      )
+                      client <- Converter.toFuture(
+                        clients
+                          .getPartiesParticipant(actAs)
+                      )
+                      commitLocation <- payload.loc.cata(
+                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
+                        Future(None),
+                      )
                       submitRes <- client.submitMustFail(actAs, readAs, commands, commitLocation)
                       _ = copyTracelog(client)
                       v <- submitRes match {
@@ -522,7 +583,8 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           run(SEApp(SEValue(payload.continue), Array(SEValue(SUnit))))
                         case Left(()) =>
                           Future.failed(
-                            new DamlEUserError("Expected submit to fail but it succeeded"))
+                            new DamlEUserError("Expected submit to fail but it succeeded")
+                          )
                       }
                     } yield v
                   }
@@ -531,17 +593,26 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 m2c("record with 3 fields") {
                   case SRecord(_, _, JavaList(sParties, sTplId, continue)) =>
                     for {
-                      parties <- Converter.toFuture(Converter
-                        .toParties(sParties))
-                      tplId <- Converter.toFuture(Converter
-                        .typeRepToIdentifier(sTplId))
-                      client <- Converter.toFuture(clients
-                        .getPartiesParticipant(parties))
+                      parties <- Converter.toFuture(
+                        Converter
+                          .toParties(sParties)
+                      )
+                      tplId <- Converter.toFuture(
+                        Converter
+                          .typeRepToIdentifier(sTplId)
+                      )
+                      client <- Converter.toFuture(
+                        clients
+                          .getPartiesParticipant(parties)
+                      )
                       acs <- client.query(parties, tplId)
                       res <- Converter.toFuture(
                         FrontStack(acs)
-                          .traverse(Converter
-                            .fromCreated(valueTranslator, _)))
+                          .traverse(
+                            Converter
+                              .fromCreated(valueTranslator, _)
+                          )
+                      )
                       v <- {
                         run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
                       }
@@ -550,20 +621,23 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
               case "AllocParty" =>
                 m2c("record with 4 fields") {
                   case SRecord(
-                      _,
-                      _,
-                      JavaList(
-                        SText(displayName),
-                        SText(partyIdHint),
-                        SOptional(sParticipantName),
-                        continue)) =>
+                        _,
+                        _,
+                        JavaList(
+                          SText(displayName),
+                          SText(partyIdHint),
+                          SOptional(sParticipantName),
+                          continue,
+                        ),
+                      ) =>
                     for {
                       participantName <- sParticipantName match {
                         case Some(SText(t)) => Future.successful(Some(Participant(t)))
                         case None => Future.successful(None)
                         case v =>
                           Future.failed(
-                            new ConverterException(s"Expected Option(SText) but got $v"))
+                            new ConverterException(s"Expected Option(SText) but got $v")
+                          )
                       }
                       client <- clients.getParticipant(participantName) match {
                         case Right(client) => Future.successful(client)
@@ -578,7 +652,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           case Some(participant) =>
                             clients = clients
                               .copy(
-                                party_participants = clients.party_participants + (party -> participant))
+                                party_participants =
+                                  clients.party_participants + (party -> participant)
+                              )
                         }
                         run(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
                       }
@@ -593,74 +669,77 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         case None => Future.successful(None)
                         case v =>
                           Future.failed(
-                            new ConverterException(s"Expected Option(SText) but got $v"))
+                            new ConverterException(s"Expected Option(SText) but got $v")
+                          )
                       }
                       client <- clients.getParticipant(participantName) match {
                         case Right(client) => Future.successful(client)
                         case Left(err) => Future.failed(new RuntimeException(err))
                       }
                       partyDetails <- client.listKnownParties()
-                      partyDetails_ <- Converter.toFuture(partyDetails.traverse(details =>
-                        Converter.fromPartyDetails(script.scriptIds, details)))
+                      partyDetails_ <- Converter.toFuture(
+                        partyDetails.traverse(details =>
+                          Converter.fromPartyDetails(script.scriptIds, details)
+                        )
+                      )
                       v <- {
                         run(
-                          SEApp(
-                            SEValue(continue),
-                            Array(SEValue(SList(FrontStack(partyDetails_))))))
+                          SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
+                        )
                       }
                     } yield v
                   }
                 }
               case "GetTime" =>
-                m2c("a function") {
-                  case continue =>
-                    for {
-                      time <- timeMode match {
-                        case ScriptTimeMode.Static => {
-                          // We don’t parametrize this by participant since this
-                          // is only useful in static time mode and using the time
-                          // service with multiple participants is very dodgy.
-                          for {
-                            client <- Converter.toFuture(clients.getParticipant(None))
-                            t <- client.getStaticTime()
-                          } yield t
-                        }
-                        case ScriptTimeMode.WallClock =>
-                          Future {
-                            Timestamp.assertFromInstant(utcClock.instant())
-                          }
+                m2c("a function") { case continue =>
+                  for {
+                    time <- timeMode match {
+                      case ScriptTimeMode.Static => {
+                        // We don’t parametrize this by participant since this
+                        // is only useful in static time mode and using the time
+                        // service with multiple participants is very dodgy.
+                        for {
+                          client <- Converter.toFuture(clients.getParticipant(None))
+                          t <- client.getStaticTime()
+                        } yield t
                       }
-                      v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
+                      case ScriptTimeMode.WallClock =>
+                        Future {
+                          Timestamp.assertFromInstant(utcClock.instant())
+                        }
+                    }
+                    v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
 
-                    } yield v
+                  } yield v
 
                 }
               case "SetTime" =>
-                m2c("SetTimePayload") {
-                  case SRecord(_, _, JavaList(sT, continue)) =>
-                    timeMode match {
-                      case ScriptTimeMode.Static =>
-                        for {
-                          // We don’t parametrize this by participant since this
-                          // is only useful in static time mode and using the time
-                          // service with multiple participants is very dodgy.
-                          client <- Converter.toFuture(clients.getParticipant(None))
-                          t <- Converter.toFuture(Converter.toTimestamp(sT))
-                          _ <- client.setStaticTime(t)
-                          v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
-                        } yield v
-                      case ScriptTimeMode.WallClock =>
-                        Future.failed(
-                          new RuntimeException("setTime is not supported in wallclock mode"))
+                m2c("SetTimePayload") { case SRecord(_, _, JavaList(sT, continue)) =>
+                  timeMode match {
+                    case ScriptTimeMode.Static =>
+                      for {
+                        // We don’t parametrize this by participant since this
+                        // is only useful in static time mode and using the time
+                        // service with multiple participants is very dodgy.
+                        client <- Converter.toFuture(clients.getParticipant(None))
+                        t <- Converter.toFuture(Converter.toTimestamp(sT))
+                        _ <- client.setStaticTime(t)
+                        v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                      } yield v
+                    case ScriptTimeMode.WallClock =>
+                      Future.failed(
+                        new RuntimeException("setTime is not supported in wallclock mode")
+                      )
 
-                    }
+                  }
                 }
               case "Sleep" =>
                 m2c("record with 2 fields") {
                   case SRecord(
-                      _,
-                      _,
-                      JavaList(SRecord(_, _, JavaList(SInt64(sleepMicros))), continue)) =>
+                        _,
+                        _,
+                        JavaList(SRecord(_, _, JavaList(SInt64(sleepMicros))), continue),
+                      ) =>
                     val sleepMillis = sleepMicros / 1000
                     val sleepNanos = (sleepMicros % 1000) * 1000
                     Thread.sleep(sleepMillis, sleepNanos.toInt)
@@ -676,7 +755,8 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       client <- Converter.toFuture(clients.getPartyParticipant(parties.head))
                       optR <- client.queryContractId(parties, tplId, cid)
                       optR <- Converter.toFuture(
-                        optR.traverse(Converter.fromContract(valueTranslator, _)))
+                        optR.traverse(Converter.fromContract(valueTranslator, _))
+                      )
                       v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
                     } yield v
                 }
@@ -688,9 +768,10 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
                       key <- Converter.toFuture(Converter.toAnyContractKey(sKey))
                       client <- Converter.toFuture(clients.getPartiesParticipant(parties))
-                      optR <- client.queryContractKey(parties, tplId, key.key)
+                      optR <- client.queryContractKey(parties, tplId, key.key, translateKey)
                       optR <- Converter.toFuture(
-                        optR.traverse(Converter.fromCreated(valueTranslator, _)))
+                        optR.traverse(Converter.fromCreated(valueTranslator, _))
+                      )
                       v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
                     } yield v
                 }
@@ -722,7 +803,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 new ConverterException(
                   "Mismatch in structure of Script type. " +
                     "This probably means that you tried to run a script built against an " +
-                    "SDK <= 0.13.55-snapshot.20200304.3329.6a1c75cf with a script runner from a newer SDK."))
+                    "SDK <= 0.13.55-snapshot.20200304.3329.6a1c75cf with a script runner from a newer SDK."
+                )
+              )
           }
         }
         case v => Future.failed(new ConverterException(s"Expected record with 1 field but got $v"))

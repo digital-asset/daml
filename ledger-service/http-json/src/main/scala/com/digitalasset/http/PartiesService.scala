@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -19,14 +19,14 @@ import scala.concurrent.{ExecutionContext, Future}
 class PartiesService(
     listAllParties: LedgerClientJwt.ListKnownParties,
     getParties: LedgerClientJwt.GetParties,
-    allocateParty: LedgerClientJwt.AllocateParty
+    allocateParty: LedgerClientJwt.AllocateParty,
 )(implicit ec: ExecutionContext) {
 
   import PartiesService._
 
   def allocate(
       jwt: Jwt,
-      request: domain.AllocatePartyRequest
+      request: domain.AllocatePartyRequest,
   ): Future[Error \/ domain.PartyDetails] = {
     val et: ET[domain.PartyDetails] = for {
       idHint <- either(
@@ -50,7 +50,7 @@ class PartiesService(
 
   def parties(
       jwt: Jwt,
-      identifiers: OneAnd[Set, domain.Party]
+      identifiers: OneAnd[Set, domain.Party],
   ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
       apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
@@ -65,7 +65,7 @@ class PartiesService(
 
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
-      requested: OneAnd[Set, domain.Party]
+      requested: OneAnd[Set, domain.Party],
   ): Set[domain.Party] = {
     import scalaz.std.iterable._
     import scalaz.syntax.foldable._

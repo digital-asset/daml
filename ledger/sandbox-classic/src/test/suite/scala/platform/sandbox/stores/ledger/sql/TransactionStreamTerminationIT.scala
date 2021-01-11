@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger.sql
@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServ
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -81,14 +81,27 @@ class TransactionStreamTerminationIT
             _.commands.ledgerId := actualLedgerId.unwrap,
             _.commands.applicationId := applicationId,
             _.commands.commands := List(
-              Command(Command.Command.Create(CreateCommand(
-                Some(templateIds.dummy),
-                Some(Record(
-                  Some(templateIds.dummy),
-                  Seq(RecordField(
-                    "operator",
-                    Option(Value(Value.Sum.Party(M.submitAndWaitRequest.commands.get.party)))))))
-              ))))
+              Command(
+                Command.Command.Create(
+                  CreateCommand(
+                    Some(templateIds.dummy),
+                    Some(
+                      Record(
+                        Some(templateIds.dummy),
+                        Seq(
+                          RecordField(
+                            "operator",
+                            Option(
+                              Value(Value.Sum.Party(M.submitAndWaitRequest.commands.get.party))
+                            ),
+                          )
+                        ),
+                      )
+                    ),
+                  )
+                )
+              )
+            ),
           )
 
         val commandClient = newCommandSubmissionClient(actualLedgerId)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -25,13 +25,14 @@ class HttpServiceWithPostgresIntTest
     url = postgresDatabase.url,
     user = "test",
     password = "",
-    createSchema = true)
+    createSchema = true,
+  )
 
   private lazy val dao = dbbackend.ContractDao(
     jdbcDriver = jdbcConfig_.driver,
     jdbcUrl = jdbcConfig_.url,
     username = jdbcConfig_.user,
-    password = jdbcConfig_.password
+    password = jdbcConfig_.password,
   )
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
@@ -39,15 +40,15 @@ class HttpServiceWithPostgresIntTest
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
-      encoder
+      encoder,
     ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
       discard { searchResult should have size 2 }
       discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
       selectAllDbContracts.flatMap { listFromDb =>
         discard { listFromDb should have size searchDataSet.size.toLong }
         val actualCurrencyValues: List[String] = listFromDb
-          .flatMap {
-            case (_, _, _, payload, _, _, _) => payload.asJsObject().getFields("currency")
+          .flatMap { case (_, _, _, payload, _, _, _) =>
+            payload.asJsObject().getFields("currency")
           }
           .collect { case JsString(a) => a }
         val expectedCurrencyValues = List("EUR", "EUR", "GBP", "BTC")
@@ -59,7 +60,7 @@ class HttpServiceWithPostgresIntTest
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def selectAllDbContracts
-    : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
+      : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
     import com.daml.http.dbbackend.Queries.Implicits._
     import dao.logHandler
     import doobie.implicits._

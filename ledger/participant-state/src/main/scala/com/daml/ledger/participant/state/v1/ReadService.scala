@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -18,7 +18,6 @@ import com.daml.ledger.api.health.ReportsHealth
   * See [[com.daml.ledger.participant.state.v1]] for further architectural
   * information. See [[Update]] for a description of the state updates
   * communicated by [[ReadService!.stateUpdates]].
-  *
   */
 trait ReadService extends ReportsHealth {
 
@@ -130,7 +129,6 @@ trait ReadService extends ReportsHealth {
     * - *persistent updates*: any update other than
     *   [[Update.CommandRejected]] in `s2` must also be present in `s1`.
     *
-    *
     * Last but not least, there is an expectation about the relation between streams visible
     * on *separate* participant state implementations connected to the same ledger.
     * The expectation is that two parties hosted on separate participant nodes are in sync
@@ -151,7 +149,6 @@ trait ReadService extends ReportsHealth {
     * host the same parties; and some implementations ensure data segregation on the ledger. Requiring
     * only the projections to sets of parties to be equal leaves just enough leeway for this
     * data segregation.
-    *
     */
   def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
 }

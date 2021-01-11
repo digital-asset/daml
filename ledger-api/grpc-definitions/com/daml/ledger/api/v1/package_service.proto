@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -12,7 +12,7 @@ option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
-// Allows clients to query the DAML-LF packages that are supported by the server.
+// Allows clients to query the Daml-LF packages that are supported by the server.
 service PackageService {
 
   // Returns the identifiers of all supported packages.
@@ -53,7 +53,7 @@ message ListPackagesRequest {
 
 message ListPackagesResponse {
 
-  // The IDs of all DAML-LF packages supported by the server.
+  // The IDs of all Daml-LF packages supported by the server.
   // Each element must be a valid PackageIdString (as described in ``value.proto``).
   // Required
   repeated string package_ids = 1;
@@ -121,7 +121,7 @@ enum PackageStatus {
   // The server is not aware of such a package.
   UNKNOWN = 0;
 
-  // The server is able to execute DAML commands operating on this package.
+  // The server is able to execute Daml commands operating on this package.
   REGISTERED = 1;
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -25,8 +25,9 @@ trait BatchingQueue {
   /** Instantiate a running batching queue for enqueueing submissions into a batch.
     * The batch is committed using the provided callback `commitBatch`.
     */
-  def run(commitBatch: BatchingQueue.CommitBatchFunction)(
-      implicit materializer: Materializer): RunningBatchingQueueHandle
+  def run(commitBatch: BatchingQueue.CommitBatchFunction)(implicit
+      materializer: Materializer
+  ): RunningBatchingQueueHandle
 }
 
 /** Handle for a running batching queue. */
@@ -75,18 +76,20 @@ case class DefaultBatchingQueue(
     maxQueueSize: Int,
     maxBatchSizeBytes: Long,
     maxWaitDuration: FiniteDuration,
-    maxConcurrentCommits: Int
+    maxConcurrentCommits: Int,
 ) extends BatchingQueue {
-  private val queue: Source[
-    Seq[DamlSubmissionBatch.CorrelatedSubmission],
-    SourceQueueWithComplete[DamlSubmissionBatch.CorrelatedSubmission]] =
+  private val queue: Source[Seq[DamlSubmissionBatch.CorrelatedSubmission], SourceQueueWithComplete[
+    DamlSubmissionBatch.CorrelatedSubmission
+  ]] =
     Source
       .queue(maxQueueSize, OverflowStrategy.dropNew)
       .groupedWeightedWithin(maxBatchSizeBytes, maxWaitDuration)(
-        (cs: DamlSubmissionBatch.CorrelatedSubmission) => cs.getSubmission.size.toLong)
+        (cs: DamlSubmissionBatch.CorrelatedSubmission) => cs.getSubmission.size.toLong
+      )
 
-  def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
-      implicit materializer: Materializer): RunningBatchingQueueHandle = {
+  def run(
+      commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit]
+  )(implicit materializer: Materializer): RunningBatchingQueueHandle = {
     val materializedQueue = queue
       .mapAsync(maxConcurrentCommits)(commitBatch)
       .to(Sink.ignore)
@@ -103,7 +106,8 @@ case class DefaultBatchingQueue(
       override def state: RunningBatchingQueueState = queueState.get()
 
       override def offer(
-          submission: DamlSubmissionBatch.CorrelatedSubmission): Future[SubmissionResult] = {
+          submission: DamlSubmissionBatch.CorrelatedSubmission
+      ): Future[SubmissionResult] = {
         materializedQueue
           .offer(submission)
           .map {
@@ -116,9 +120,12 @@ case class DefaultBatchingQueue(
       }
 
       override def stop(): Future[Unit] = {
-        if (queueState.compareAndSet(
+        if (
+          queueState.compareAndSet(
             RunningBatchingQueueState.Alive,
-            RunningBatchingQueueState.Closing)) {
+            RunningBatchingQueueState.Closing,
+          )
+        ) {
           materializedQueue.complete()
         }
         materializedQueue
@@ -126,7 +133,8 @@ case class DefaultBatchingQueue(
           .map { _ =>
             queueState.compareAndSet(
               RunningBatchingQueueState.Closing,
-              RunningBatchingQueueState.Complete)
+              RunningBatchingQueueState.Complete,
+            )
             ()
           }(DirectExecutionContext)
       }

@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
 
-/**
-  * Helper functions for generating 16 byte [[com.daml.ledger.participant.state.v1.Offset]]s from integers.
+/** Helper functions for generating 16 byte [[com.daml.ledger.participant.state.v1.Offset]]s from integers.
   * The created offset will look as follows:
   * | highest index (64 bits) | middle index (32 bits) | lowest index (32 bits) |
   * Leading zeros will be retained when generating the resulting offset bytes.
@@ -54,7 +53,8 @@ object OffsetBuilder {
     val highest = BigInt(first) << ((end - middleStart) * 8)
     val middle = BigInt(second) << ((end - lowestStart) * 8)
     val lowest = BigInt(third)
-    val bytes = (maxValuePlusOne | highest | middle | lowest).toByteArray.drop(1) // this retains leading zeros
+    val bytes = (maxValuePlusOne | highest | middle | lowest).toByteArray
+      .drop(1) // this retains leading zeros
     Offset.fromByteArray(bytes)
   }
 

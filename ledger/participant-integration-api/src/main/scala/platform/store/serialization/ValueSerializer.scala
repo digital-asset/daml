@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.serialization
@@ -26,16 +26,17 @@ private[platform] object ValueSerializer {
     ValueCoder
       .decodeVersionedValue(
         ValueCoder.CidDecoder,
-        ValueOuterClass.VersionedValue.parseFrom(
-          Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)))
+        ValueOuterClass.VersionedValue
+          .parseFrom(Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
+      )
       .fold(
         error =>
           sys.error(errorContext.fold(error.errorMessage)(ctx => s"$ctx (${error.errorMessage})")),
-        identity
+        identity,
       )
 
   def deserializeValue(
-      stream: InputStream,
+      stream: InputStream
   ): VersionedValue[ContractId] =
     deserializeValueHelper(stream, None)
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services
@@ -20,8 +20,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
 
   override protected def config: SandboxConfig =
     super.config.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex
     )
 
   protected def server: SandboxServer = suiteResource.value._1
@@ -35,8 +34,9 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
     new OwnedResource[ResourceContext, (SandboxServer, Channel)](
       for {
         jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
-            Some(info.jdbcUrl)))
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
+            _.map(info => Some(info.jdbcUrl))
+          )
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(server.port)
       } yield (server, channel),

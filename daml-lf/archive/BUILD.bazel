@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -11,6 +11,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_version_package")
 load(
@@ -95,7 +96,16 @@ da_haskell_library(
 da_scala_library(
     name = "daml_lf_archive_reader",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
     tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -103,7 +113,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -117,12 +126,24 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
+        ":daml_lf_1.11_archive_proto_srcs",
         ":daml_lf_1.6_archive_proto_srcs",
         ":daml_lf_1.7_archive_proto_srcs",
         ":daml_lf_1.8_archive_proto_srcs",
     ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
     scalacopts = lf_scalacopts,
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
+        ":daml_lf_1.11_archive_proto_java",
         ":daml_lf_1.6_archive_proto_java",
         ":daml_lf_1.7_archive_proto_java",
         ":daml_lf_1.8_archive_proto_java",
@@ -134,11 +155,6 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )
 
@@ -148,8 +164,13 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dar",
     ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
+        ":daml_lf_1.11_archive_proto_java",
         ":daml_lf_1.6_archive_proto_java",
         ":daml_lf_1.7_archive_proto_java",
         ":daml_lf_1.8_archive_proto_java",
@@ -158,8 +179,6 @@ da_scala_test_suite(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 

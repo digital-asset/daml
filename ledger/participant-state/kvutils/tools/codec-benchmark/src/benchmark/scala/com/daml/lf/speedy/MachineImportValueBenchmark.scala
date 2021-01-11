@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -16,7 +16,7 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
 
   // Construct a machine for testing.
   private def testingMachine(
-      compiledPackages: CompiledPackages,
+      compiledPackages: CompiledPackages
   ): Machine = Machine(
     compiledPackages = compiledPackages,
     submissionTime = Time.Timestamp.MinValue,

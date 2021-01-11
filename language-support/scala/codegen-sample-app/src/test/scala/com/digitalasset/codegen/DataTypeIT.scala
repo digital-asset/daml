@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -61,7 +61,7 @@ class DataTypeIT extends AnyWordSpec with Matchers {
       P.GenMap(
         pair1 -> VariantMod.Either.Left(1L),
         pair2 -> VariantMod.Either.Right(BigDecimal("-2.222")),
-        pair3 -> VariantMod.Either.Left(3L)
+        pair3 -> VariantMod.Either.Left(3L),
       )
 
     "idempotent on genMap" in {

@@ -3,7 +3,7 @@
 
 module DiscloseViaChoiceObserver where
 
--- @SINCE-LF 1.dev
+-- @SINCE-LF 1.11
 
 -- This example demonstrates the canonical use of choice-observers to achieve disclosure.
 

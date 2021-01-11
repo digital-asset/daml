@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -8,11 +8,15 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
+import scala.collection.compat.immutable.ArraySeq
+
 private[events] object EventsTableFlatEvents {
 
   private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -26,18 +30,20 @@ private[events] object EventsTableFlatEvents {
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
-            createSignatories = createSignatories,
-            createObservers = createObservers,
+            createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
+            createObservers = ArraySeq.unsafeWrapArray(createObservers),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
-            eventWitnesses = eventWitnesses,
-          )
+            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+          ),
         )
     }
 
   private val archivedFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
     EventsTable.archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -50,8 +56,8 @@ private[events] object EventsTableFlatEvents {
             eventId = eventId,
             contractId = contractId,
             templateId = templateId,
-            eventWitnesses = eventWitnesses,
-          )
+            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+          ),
         )
     }
 
@@ -159,11 +165,11 @@ private[events] object EventsTableFlatEvents {
   def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(
       range: EventsRange[(Offset, Long)],
       filter: FilterRelation,
-      pageSize: Int
+      pageSize: Int,
   ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] =
     getActiveContractsQueries(sqlFunctions)(
       range,
       filter,
-      pageSize
+      pageSize,
     )
 }

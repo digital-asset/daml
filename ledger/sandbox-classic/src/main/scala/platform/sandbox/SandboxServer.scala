@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -6,6 +6,7 @@ package com.daml.platform.sandbox
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -26,13 +27,13 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
-  TransactionCommitter
+  TransactionCommitter,
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -48,7 +49,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -141,12 +142,28 @@ final class SandboxServer(
 ) extends AutoCloseable {
 
   private[this] val engine = {
-    val engineConfig =
-      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
-        .copy(
-          profileDir = config.profileDir,
-          stackTraceMode = config.stackTraces,
-        )
+    val engineConfig = {
+      val baseConfig =
+        if (config.seeding.isEmpty) {
+          if (config.devMode) {
+            throw new InvalidConfigException(
+              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode"""
+            )
+          } else {
+            EngineConfig.Legacy
+          }
+        } else {
+          if (config.devMode) {
+            EngineConfig.Dev
+          } else {
+            EngineConfig.Stable
+          }
+        }
+      baseConfig.copy(
+        profileDir = config.profileDir,
+        stackTraceMode = config.stackTraces,
+      )
+    }
     getEngine(engineConfig)
   }
 
@@ -172,23 +189,24 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  def resetAndRestartServer()(
-      implicit executionContext: ExecutionContext,
+  def resetAndRestartServer()(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
-      _.reset(
-        (materializer, metrics, packageStore, port) =>
-          buildAndStartApiServer(
-            materializer = materializer,
-            metrics = metrics,
-            packageStore = packageStore,
-            startMode = SqlStartMode.AlwaysReset,
-            currentPort = Some(port),
-        )))
+      _.reset((materializer, metrics, packageStore, port) =>
+        buildAndStartApiServer(
+          materializer = materializer,
+          metrics = metrics,
+          packageStore = packageStore,
+          startMode = SqlStartMode.AlwaysReset,
+          currentPort = Some(port),
+        )
+      )
+    )
 
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
     // the reset will never be handled by the old one.
@@ -196,8 +214,10 @@ final class SandboxServer(
   }
 
   // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
-    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
+  private def createInitialState(
+      config: SandboxConfig,
+      packageStore: InMemoryPackageStore,
+  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {
@@ -206,13 +226,16 @@ final class SandboxServer(
         engine
           .preloadPackage(pkgId, pkg)
           .consume(
-            { _ =>
+            pcs = { _ =>
               sys.error("Unexpected request of contract")
             },
-            packageStore.getLfPackageSync, { _ =>
+            packages = packageStore.getLfPackageSync,
+            keys = { _ =>
               sys.error("Unexpected request of contract key")
-            }
+            },
           )
+          .left
+          .foreach(err => sys.error(err.detailMsg))
       }
     }
     config.scenario match {
@@ -316,6 +339,10 @@ final class SandboxServer(
       )
       ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
+        .acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = config.participantId,
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
@@ -327,9 +354,10 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          implicitPartyAllocation = config.implicitPartyAllocation,
+          implicitPartyAllocation = config.implicitPartyAllocation
         ),
         optTimeServiceBackend = timeServiceBackendO,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = seedingService,
@@ -347,7 +375,8 @@ final class SandboxServer(
           AuthorizationInterceptor(authService, executionContext),
           resetService,
         ),
-        metrics
+        servicesExecutionContext,
+        metrics,
       ).acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
     } yield {
@@ -372,7 +401,15 @@ final class SandboxServer(
       if (config.scenario.nonEmpty) {
         logger.withoutContext.warn(
           """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
-             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
+        )
+      }
+      if (config.seeding.isEmpty) {
+        logger.withoutContext.warn(
+          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with LF 1.11 languages or later. 
+              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
+              |Use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode and allow loading of any stable LF languages.""".stripMargin
+        )
       }
       apiServer
     }

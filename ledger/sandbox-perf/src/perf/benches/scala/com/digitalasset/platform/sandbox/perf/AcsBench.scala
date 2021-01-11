@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.perf
@@ -27,7 +27,8 @@ class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
       dummyCreates(ledger.ledgerId)
         .take(commandCount)
         .mapAsync(100)(ledger.commandService.submitAndWait)
-        .runWith(Sink.ignore)(mat))
+        .runWith(Sink.ignore)(mat)
+    )
     ()
   }
 }
@@ -41,7 +42,8 @@ class AcsBench extends TestCommands with InfAwait {
       sequenceNumber: Int,
       contractId: String,
       ledgerId: domain.LedgerId,
-      template: Identifier): SubmitAndWaitRequest = {
+      template: Identifier,
+  ): SubmitAndWaitRequest = {
     buildRequest(
       ledgerId = ledgerId,
       commandId = s"command-id-exercise-$sequenceNumber",
@@ -52,7 +54,8 @@ class AcsBench extends TestCommands with InfAwait {
 
   private def extractContractId(
       response: GetActiveContractsResponse,
-      template: Identifier): Option[String] = {
+      template: Identifier,
+  ): Option[String] = {
     val events = response.activeContracts.toSet
     events.collectFirst {
       case CreatedEvent(contractId, _, Some(id), _, _, _, _, _, _) if id == template => contractId
@@ -62,7 +65,8 @@ class AcsBench extends TestCommands with InfAwait {
   private def getContractIds(
       state: PerfBenchState,
       template: Identifier,
-      ledgerId: domain.LedgerId) =
+      ledgerId: domain.LedgerId,
+  ) =
     new ActiveContractSetClient(ledgerId, state.ledger.acsService)(state.esf)
       .getActiveContracts(MockMessages.transactionFilter)
       .map(extractContractId(_, template))
@@ -73,12 +77,12 @@ class AcsBench extends TestCommands with InfAwait {
     val template = templateIds.dummy
     await(
       getContractIds(state, template, ledgerId).zipWithIndex
-        .collect {
-          case (Some(contractId), i) =>
-            generateCommand(i.toInt, contractId, ledgerId, template)
+        .collect { case (Some(contractId), i) =>
+          generateCommand(i.toInt, contractId, ledgerId, template)
         }
         .mapAsync(100)(state.ledger.commandService.submitAndWait)
-        .runWith(Sink.ignore)(state.mat))
+        .runWith(Sink.ignore)(state.mat)
+    )
     ()
 
   }

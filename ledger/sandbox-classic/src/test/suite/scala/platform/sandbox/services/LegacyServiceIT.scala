@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services
@@ -8,36 +8,36 @@ import java.util.UUID
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
-  GetActiveContractsRequest
+  GetActiveContractsRequest,
 }
 import com.daml.ledger.api.v1.admin.config_management_service.{
   ConfigManagementServiceGrpc,
-  GetTimeModelRequest
+  GetTimeModelRequest,
 }
 import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
-  PackageManagementServiceGrpc
+  PackageManagementServiceGrpc,
 }
 import com.daml.ledger.api.v1.admin.party_management_service.{
   ListKnownPartiesRequest,
-  PartyManagementServiceGrpc
+  PartyManagementServiceGrpc,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
-  CompletionEndRequest
+  CompletionEndRequest,
 }
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
-  LedgerConfigurationServiceGrpc
+  LedgerConfigurationServiceGrpc,
 }
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 import com.daml.ledger.api.v1.package_service.{ListPackagesRequest, PackageServiceGrpc}
 import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -64,7 +64,8 @@ class LegacyServiceIT
     override def interceptCall[ReqT, RespT](
         method: grpc.MethodDescriptor[ReqT, RespT],
         callOptions: CallOptions,
-        next: Channel): ClientCall[ReqT, RespT] = {
+        next: Channel,
+    ): ClientCall[ReqT, RespT] = {
       val legacyMethod = method
         .toBuilder()
         .setFullMethodName(method.getFullMethodName.replace("com.daml", "com.digitalasset"))

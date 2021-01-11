@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -26,7 +26,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         Set.empty,
         defaultVersion,
-        None
+        None,
       )
       a[PackageError] shouldBe thrownBy(
         Package(
@@ -36,8 +36,9 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           Set.empty,
           defaultVersion,
-          None
-        ))
+          None,
+        )
+      )
 
     }
 
@@ -55,7 +56,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       key = None,
     )
     def exception = DefException(
-      message = eText,
+      message = eText
     )
     val recordDef = DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty))
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
@@ -71,7 +72,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           defName("def1") -> recordDef,
           defName("def2") -> recordDef,
           defName("def3") -> variantDef,
-          defName("def4") -> valDef
+          defName("def4") -> valDef,
         ),
         templates = List(defName("def3") -> template),
         exceptions = List.empty,
@@ -85,12 +86,13 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             defName("def1") -> recordDef,
             defName("def2") -> recordDef,
             defName("def3") -> variantDef,
-            defName("def1") -> valDef
+            defName("def1") -> valDef,
           ),
           templates = List(defName("def3") -> template),
           exceptions = List.empty,
           featureFlags = FeatureFlags.default,
-        ))
+        )
+      )
 
     }
 
@@ -103,7 +105,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           defName("defName2") -> recordDef,
         ),
         templates = List(
-          defName("defName1") -> template,
+          defName("defName1") -> template
         ),
         exceptions = List.empty,
         featureFlags = FeatureFlags.default,
@@ -135,7 +137,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         templates = List.empty,
         exceptions = List(
-          defName("defName1") -> exception,
+          defName("defName1") -> exception
         ),
         featureFlags = FeatureFlags.default,
       )
@@ -157,6 +159,40 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
     }
 
+    "catch collisions between exception and template" in {
+      Module.apply(
+        name = modName1,
+        definitions = List(
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
+        ),
+        templates = List(
+          defName("defName1") -> template
+        ),
+        exceptions = List(
+          defName("defName2") -> exception
+        ),
+        featureFlags = FeatureFlags.default,
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.apply(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+          ),
+          templates = List(
+            defName("defName1") -> template
+          ),
+          exceptions = List(
+            defName("defName1") -> exception
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    }
+
   }
 
   "Template.apply" should {
@@ -165,7 +201,9 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       name = name,
       consuming = true,
       controllers = eParties,
-      choiceObservers = None, //FIXME #7709: need test for the Some case
+      // TODO https://github.com/digital-asset/daml/issues/7709
+      //  need test for the Some case
+      choiceObservers = None,
       selfBinder = Name.assertFromString("self"),
       argBinder = Name.assertFromString("arg") -> TUnit,
       returnType = TUnit,
@@ -185,10 +223,10 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         choices = List(
           choice1 -> builder(choice1, TUnit, EUnit),
           choice2 -> builder(choice2, TBool, ETrue),
-          choice3 -> builder(choice3, TText, eText)
+          choice3 -> builder(choice3, TText, eText),
         ),
         observers = eParties,
-        key = None
+        key = None,
       )
 
       a[PackageError] shouldBe thrownBy(
@@ -200,11 +238,12 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           choices = List(
             choice1 -> builder(choice1, TUnit, EUnit),
             choice2 -> builder(choice2, TBool, ETrue),
-            choice1 -> builder(choice1, TText, eText)
+            choice1 -> builder(choice1, TText, eText),
           ),
           observers = eParties,
-          key = None
-        ))
+          key = None,
+        )
+      )
     }
   }
 

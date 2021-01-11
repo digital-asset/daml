@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -50,11 +50,10 @@ final case class CreateEvent[Cid](
     agreementText: String,
     signatories: Set[Party],
     observers: Set[Party],
-    witnesses: Set[Party])
-    extends Event[Nothing, Cid] {
+    witnesses: Set[Party],
+) extends Event[Nothing, Cid] {
 
-  /**
-    * Note that the stakeholders of each event node will always be a subset of the event witnesses. We perform this
+  /** Note that the stakeholders of each event node will always be a subset of the event witnesses. We perform this
     * narrowing since usually when consuming these events we only care about the parties that were included in the
     * disclosure information. Consumers should be aware that the stakeholders stored are _not_ all the stakeholders of
     * the contract, but just the stakeholders "up to witnesses".
@@ -97,14 +96,14 @@ object Event extends value.CidContainer2[Event] {
       f2: Cid => Cid2,
   ): Event[Nid, Cid] => Event[Nid2, Cid2] = {
     case CreateEvent(
-        contractId,
-        templateId,
-        contractKey,
-        argument,
-        agreementText,
-        signatories,
-        observers,
-        witnesses,
+          contractId,
+          templateId,
+          contractKey,
+          argument,
+          agreementText,
+          signatories,
+          observers,
+          witnesses,
         ) =>
       CreateEvent(
         contractId = f2(contractId),
@@ -118,16 +117,16 @@ object Event extends value.CidContainer2[Event] {
       )
 
     case ExerciseEvent(
-        contractId,
-        templateId,
-        choice,
-        choiceArgument,
-        actingParties,
-        isConsuming,
-        children,
-        stakeholders,
-        witnesses,
-        exerciseResult,
+          contractId,
+          templateId,
+          choice,
+          choiceArgument,
+          actingParties,
+          isConsuming,
+          children,
+          stakeholders,
+          witnesses,
+          exerciseResult,
         ) =>
       ExerciseEvent(
         contractId = f2(contractId),
@@ -148,30 +147,30 @@ object Event extends value.CidContainer2[Event] {
       f2: B => Unit,
   ): Event[A, B] => Unit = {
     case CreateEvent(
-        contractId,
-        templateId @ _,
-        contractKey,
-        argument,
-        agreementText @ _,
-        signatories @ _,
-        observers @ _,
-        witnesses @ _,
+          contractId,
+          templateId @ _,
+          contractKey,
+          argument,
+          agreementText @ _,
+          signatories @ _,
+          observers @ _,
+          witnesses @ _,
         ) =>
       f2(contractId)
       contractKey.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
       Value.foreach1(f2)(argument)
 
     case ExerciseEvent(
-        contractId,
-        templateId @ _,
-        choice @ _,
-        choiceArgument,
-        actingParties @ _,
-        isConsuming @ _,
-        children,
-        stakeholders @ _,
-        witnesses @ _,
-        exerciseResult,
+          contractId,
+          templateId @ _,
+          choice @ _,
+          choiceArgument,
+          actingParties @ _,
+          isConsuming @ _,
+          children,
+          stakeholders @ _,
+          witnesses @ _,
+          exerciseResult,
         ) =>
       f2(contractId)
       Value.map1(f2)(choiceArgument)
@@ -213,7 +212,8 @@ object Event extends value.CidContainer2[Event] {
     */
   def collectEvents[Nid, Cid](
       tx: GenTransaction[Nid, Cid],
-      disclosure: Relation[Nid, Party]): Events[Nid, Cid] = {
+      disclosure: Relation[Nid, Party],
+  ): Events[Nid, Cid] = {
     val evts =
       scala.collection.mutable.Map[Nid, Event[Nid, Cid]]()
 
@@ -241,7 +241,7 @@ object Event extends value.CidContainer2[Event] {
                   agreementText = nc.coinst.agreementText,
                   signatories = nc.signatories,
                   observers = nc.stakeholders diff nc.signatories,
-                  witnesses = disclosure(nodeId)
+                  witnesses = disclosure(nodeId),
                 )
               evts += (nodeId -> evt)
               go(remaining)
@@ -260,13 +260,14 @@ object Event extends value.CidContainer2[Event] {
                 relevantChildren,
                 ne.stakeholders,
                 disclosure(nodeId),
-                ne.exerciseResult
+                ne.exerciseResult,
               )
               evts += (nodeId -> evt)
               go(relevantChildren ++: remaining)
             case nf: NodeFetch[Cid] =>
               throw new RuntimeException(
-                s"Unexpected fetch node $nf, we purge them before we get here!")
+                s"Unexpected fetch node $nf, we purge them before we get here!"
+              )
             case nlbk: NodeLookupByKey[Cid] =>
               throw new RuntimeException(
                 s"Unexpected lookup by key node $nlbk, we purge them before we get here!"
@@ -285,22 +286,23 @@ object Event extends value.CidContainer2[Event] {
     override private[lf] def map2[Nid, Cid, Nid2, Cid2](
         f1: Nid => Nid2,
         f2: Cid => Cid2,
-    ): Events[Nid, Cid] => Events[Nid2, Cid2] = {
-      case Events(roots, events) =>
-        Events(roots.map(f1), events.map {
-          case (id, event) => f1(id) -> Event.map2(f1, f2)(event)
-        })
+    ): Events[Nid, Cid] => Events[Nid2, Cid2] = { case Events(roots, events) =>
+      Events(
+        roots.map(f1),
+        events.map { case (id, event) =>
+          f1(id) -> Event.map2(f1, f2)(event)
+        },
+      )
     }
 
     override private[lf] def foreach2[A, B](
         f1: A => Unit,
         f2: B => Unit,
-    ): Events[A, B] => Unit = {
-      case Events(roots, events) =>
-        roots.foreach(f1)
-        events.foreach {
-          case (id, event) => f1(id) -> Event.foreach2(f1, f2)(event)
-        }
+    ): Events[A, B] => Unit = { case Events(roots, events) =>
+      roots.foreach(f1)
+      events.foreach { case (id, event) =>
+        f1(id) -> Event.foreach2(f1, f2)(event)
+      }
     }
   }
 

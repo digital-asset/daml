@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -20,8 +20,7 @@ import com.daml.platform.store.serialization.ValueSerializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * @see [[ContractsTable]]
+/** @see [[ContractsTable]]
   */
 private[dao] sealed class ContractsReader(
     val committedContracts: PostCommitValidationData,
@@ -53,15 +52,14 @@ private[dao] sealed class ContractsReader(
         SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
           .as(contractRowParser.singleOpt)
       }
-      .map(_.map {
-        case (templateId, createArgument) =>
-          toContract(
-            contractId = contractId,
-            templateId = templateId,
-            createArgument = createArgument,
-            deserializationTimer =
-              metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
-          )
+      .map(_.map { case (templateId, createArgument) =>
+        toContract(
+          contractId = contractId,
+          templateId = templateId,
+          createArgument = createArgument,
+          deserializationTimer =
+            metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
+        )
       })
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
@@ -77,12 +75,13 @@ private[dao] sealed class ContractsReader(
             .as(contractWithoutValueRowParser.singleOpt)
       }
       .map(
-        _.map(
-          templateId =>
-            toContract(
-              templateId = templateId,
-              createArgument = createArgument,
-          )))
+        _.map(templateId =>
+          toContract(
+            templateId = templateId,
+            createArgument = createArgument,
+          )
+        )
+      )
 
   override def lookupActiveContract(
       readers: Set[Party],
@@ -112,8 +111,8 @@ private[dao] sealed class ContractsReader(
     SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
   }
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit loggingContext: LoggingContext,
+  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Instant]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
@@ -140,7 +139,7 @@ private[dao] object ContractsReader {
       dispatcher = dispatcher,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,
-      sqlFunctions = sqlFunctions
+      sqlFunctions = sqlFunctions,
     )
   }
 
@@ -164,7 +163,7 @@ private[dao] object ContractsReader {
           errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
         ),
       ),
-      agreementText = ""
+      agreementText = "",
     )
 
   private def toContract(
@@ -174,6 +173,6 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
-      agreementText = ""
+      agreementText = "",
     )
 }

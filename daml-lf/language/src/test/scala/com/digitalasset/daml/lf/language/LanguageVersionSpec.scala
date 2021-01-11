@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -23,13 +23,13 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     val versions = Table("version", versionInOrder: _*)
 
-    forEvery(versions)(
-      v1 =>
-        forEvery(versions)(
-          v2 =>
-            LV.Ordering
-              .compare(v1, v2)
-              .signum shouldBe (versionRank(v1) compareTo versionRank(v2)).signum))
+    forEvery(versions)(v1 =>
+      forEvery(versions)(v2 =>
+        LV.Ordering
+          .compare(v1, v2)
+          .signum shouldBe (versionRank(v1) compareTo versionRank(v2)).signum
+      )
+    )
 
   }
 

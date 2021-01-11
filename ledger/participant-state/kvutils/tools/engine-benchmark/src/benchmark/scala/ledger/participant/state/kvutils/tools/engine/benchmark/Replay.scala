@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.engine.benchmark
@@ -10,9 +10,9 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.export.{
   ProtobufBasedLedgerDataImporter,
-  SubmissionInfo
+  SubmissionInfo,
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
@@ -25,11 +25,10 @@ import com.daml.lf.transaction.{
   Node,
   SubmittedTransaction,
   Transaction => Tx,
-  TransactionCoder => TxCoder
+  TransactionCoder => TxCoder,
 }
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
-import com.google.protobuf.ByteString
 import org.openjdk.jmh.annotations._
 
 import scala.collection.JavaConverters._
@@ -115,7 +114,7 @@ class Replay {
         Replay.adapt(
           loadedPackages,
           engine.compiledPackages().packageLanguageVersion,
-          benchmarks(choiceName)
+          benchmarks(choiceName),
         )
       else benchmarks(choiceName)
 
@@ -145,8 +144,8 @@ object Replay {
       .readFile(darFile.toFile)
       .get
       .all
-      .map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+      .map { case (pkgId, pkgArchive) =>
+        Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
       }
       .toMap
   }
@@ -174,7 +173,8 @@ object Replay {
           .decodeTransaction(
             TxCoder.NidDecoder,
             ValCoder.CidDecoder,
-            submission.getTransactionEntry.getTransaction)
+            submission.getTransactionEntry.getTransaction,
+          )
           .fold(err => sys.error(err.toString), SubmittedTransaction(_))
         Stream(
           TxEntry(
@@ -184,15 +184,16 @@ object Replay {
               .map(Ref.Party.assertFromString),
             ledgerTime = parseTimestamp(entry.getLedgerEffectiveTime),
             submissionTime = parseTimestamp(entry.getSubmissionTime),
-            submissionSeed = parseHash(entry.getSubmissionSeed)
-          ))
+            submissionSeed = parseHash(entry.getSubmissionSeed),
+          )
+        )
       case _ =>
         Stream.empty
     }
 
   private[this] def decodeEnvelope(
       participantId: Ref.ParticipantId,
-      envelope: ByteString,
+      envelope: Raw.Value,
   ): Stream[TxEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
@@ -200,7 +201,9 @@ object Replay {
       case Envelope.SubmissionBatchMessage(batch) =>
         batch.getSubmissionsList.asScala.toStream
           .map(_.getSubmission)
-          .flatMap(decodeEnvelope(participantId, _))
+          .flatMap(submissionEnvelope =>
+            decodeEnvelope(participantId, Raw.Value(submissionEnvelope))
+          )
       case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
         Stream.empty
     }
@@ -217,20 +220,21 @@ object Replay {
 
       val createsNodes: Seq[Node.NodeCreate[ContractId]] =
         transactions.flatMap(entry =>
-          entry.tx.nodes.values.collect {
-            case create: Node.NodeCreate[ContractId] =>
-              create
-        })
+          entry.tx.nodes.values.collect { case create: Node.NodeCreate[ContractId] =>
+            create
+          }
+        )
 
       val allContracts: Map[ContractId, Value.ContractInst[Tx.Value[ContractId]]] =
         createsNodes.map(node => node.coid -> node.versionedCoinst).toMap
 
       val allContractsWithKey = createsNodes.flatMap { node =>
-        node.key.toList.map(
-          key =>
-            node.coid -> GlobalKey(
-              node.coinst.template,
-              key.key.assertNoCid(key => s"found cid in key $key")))
+        node.key.toList.map(key =>
+          node.coid -> GlobalKey(
+            node.coinst.template,
+            key.key.assertNoCid(key => s"found cid in key $key"),
+          )
+        )
       }.toMap
 
       val benchmarks = transactions.flatMap { entry =>
@@ -244,8 +248,9 @@ object Replay {
                 contracts = allContracts.filterKeys(inputContracts),
                 contractKeys = inputContracts.iterator
                   .flatMap(cid => allContractsWithKey.get(cid).toList.map(_ -> cid))
-                  .toMap
-              ))
+                  .toMap,
+              )
+            )
           case _ =>
             List.empty
         }

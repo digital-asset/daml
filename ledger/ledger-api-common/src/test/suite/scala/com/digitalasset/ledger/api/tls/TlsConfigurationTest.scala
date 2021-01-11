@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.tls
@@ -19,7 +19,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
     systemProperties = List(
       OcspProperties.CheckRevocationPropertySun,
-      OcspProperties.CheckRevocationPropertyIbm
+      OcspProperties.CheckRevocationPropertyIbm,
     ).map(name => name -> Option(System.getProperty(name))).toMap
 
     ocspSecurityProperty = Option(Security.getProperty(OcspProperties.EnableOcspProperty))
@@ -27,12 +27,11 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
   override def afterEach(): Unit = {
     super.afterEach()
-    systemProperties.map {
-      case (name, value) =>
-        value match {
-          case Some(v) => System.setProperty(name, v)
-          case None => System.clearProperty(name)
-        }
+    systemProperties.map { case (name, value) =>
+      value match {
+        case Some(v) => System.setProperty(name, v)
+        case None => System.clearProperty(name)
+      }
     }
 
     Security.setProperty(OcspProperties.EnableOcspProperty, ocspSecurityProperty.getOrElse("false"))
@@ -46,7 +45,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       TlsConfiguration.Empty
         .copy(
           enabled = true,
-          enableCertRevocationChecking = true
+          enableCertRevocationChecking = true,
         )
         .setJvmTlsProperties()
 

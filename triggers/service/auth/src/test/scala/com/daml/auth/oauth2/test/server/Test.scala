@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.oauth2.test.server
@@ -24,7 +24,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   private def requestToken(
       parties: Seq[String],
       admin: Boolean,
-      applicationId: Option[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+      applicationId: Option[String],
+  ): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -32,7 +33,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       method = HttpMethods.POST,
       entity = HttpEntity(
         MediaTypes.`application/json`,
-        Client.AccessParams(parties, admin, applicationId).toJson.compactPrint)
+        Client.AccessParams(parties, admin, applicationId).toJson.compactPrint,
+      ),
     )
     for {
       resp <- Http().singleRequest(req)
@@ -57,7 +59,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
               .decode(Jwt(token))
               .fold(
                 e => Future.failed(new IllegalArgumentException(e.toString)),
-                Future.successful(_))
+                Future.successful(_),
+              )
             payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
@@ -66,7 +69,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   }
 
   private def requestRefresh(
-      refreshToken: String): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+      refreshToken: String
+  ): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -74,7 +78,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       method = HttpMethods.POST,
       entity = HttpEntity(
         MediaTypes.`application/json`,
-        Client.RefreshParams(refreshToken).toJson.compactPrint)
+        Client.RefreshParams(refreshToken).toJson.compactPrint,
+      ),
     )
     for {
       resp <- Http().singleRequest(req)
@@ -87,7 +92,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
               .decode(Jwt(token))
               .fold(
                 e => Future.failed(new IllegalArgumentException(e.toString)),
-                Future.successful(_))
+                Future.successful(_),
+              )
             payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
@@ -98,7 +104,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   private def expectToken(
       parties: Seq[String],
       admin: Boolean = false,
-      applicationId: Option[String] = None): Future[(AuthServiceJWTPayload, String)] =
+      applicationId: Option[String] = None,
+  ): Future[(AuthServiceJWTPayload, String)] =
     requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
@@ -107,7 +114,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   private def expectError(
       parties: Seq[String],
       admin: Boolean = false,
-      applicationId: Option[String] = None): Future[String] =
+      applicationId: Option[String] = None,
+  ): Future[String] =
     requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => Future(error)
       case Right(_) => fail("Expected an error but got a token")

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _ledger-api-services:
@@ -119,7 +119,7 @@ Transactions detail the changes on the ledger, and contains all the events (crea
 
 Transactions contain a :ref:`transactionId <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the ``workflowId``, the ``commandId``, and the events in the transaction.
 
-Subscribe to the transaction service to read events from an arbitrary point on the ledger. This is important when starting or restarting and application, and to work in conjunction with the `active contracts service <#active-contract-service>`__.
+Subscribe to the transaction service to read events from an arbitrary point on the ledger. This arbitrary point is specified by the ledger offset. This is important when starting or restarting and application, and to work in conjunction with the `active contracts service <#active-contract-service>`__.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.TransactionService>`.
 
@@ -178,7 +178,7 @@ Allocating parties is necessary to interact with the ledger. For more informatio
 Package service
 ===============
 
-Use the **package service** to obtain information about DAML packages available on the ledger.
+Use the **package service** to obtain information about Daml packages available on the ledger.
 
 This is useful for obtaining type and metadata information that allow you to interpret event data in a more useful way.
 

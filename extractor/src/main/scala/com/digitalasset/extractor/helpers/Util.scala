@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.helpers
@@ -33,7 +33,7 @@ object Util {
     guesses
       .find(Files.exists(_))
       .getOrElse(throw new IllegalStateException(s"""Could not find ${filenames
-                                                      .mkString(", ")}, having searched:
+        .mkString(", ")}, having searched:
                                          |${guesses.mkString("\n")}""".stripMargin))
   }
 

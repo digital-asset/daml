@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.api.checks.ledgerid
@@ -21,7 +21,8 @@ class GetLedgerIdentityIT(service: => LedgerIdentityService, expectedLedgerId: S
       "return it" in {
 
         whenReady(service.getLedgerIdentity(GetLedgerIdentityRequest()))(
-          _.ledgerId shouldEqual expectedLedgerId)
+          _.ledgerId shouldEqual expectedLedgerId
+        )
       }
     }
   }

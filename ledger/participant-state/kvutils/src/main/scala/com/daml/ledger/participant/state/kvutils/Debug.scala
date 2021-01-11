@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -39,20 +39,20 @@ object Debug {
       participantId: String,
       entryId: DamlLogEntryId,
       logEntry: DamlLogEntry,
-      outputState: Map[DamlStateKey, DamlStateValue]): Unit =
+      outputState: Map[DamlStateKey, DamlStateValue],
+  ): Unit =
     optLedgerDumpStream.foreach { outs =>
       val dumpEntry = DamlKvutils.LedgerDumpEntry.newBuilder
-        .setSubmission(Envelope.enclose(submission))
+        .setSubmission(Envelope.enclose(submission).bytes)
         .setEntryId(entryId)
         .setParticipantId(participantId)
-        .setLogEntry(Envelope.enclose(logEntry))
+        .setLogEntry(Envelope.enclose(logEntry).bytes)
         .addAllOutputState(
-          outputState.map {
-            case (k, v) =>
-              DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
-                .setStateKey(k)
-                .setStateValue(Envelope.enclose(v))
-                .build
+          outputState.map { case (k, v) =>
+            DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
+              .setStateKey(k)
+              .setStateValue(Envelope.enclose(v).bytes)
+              .build
           }.asJava
         )
         .build

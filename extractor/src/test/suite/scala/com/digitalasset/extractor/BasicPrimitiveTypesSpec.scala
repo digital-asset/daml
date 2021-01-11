@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -80,7 +80,7 @@ class BasicPrimitiveTypesSpec
           "date_field" : "0001-01-01",
           "time_field" : "0001-01-01T00:00:00Z"
         }
-      """
+      """,
     ).traverse(parse)
 
     expected should be('right) // That should only fail if this JSON^^ is ill-formatted

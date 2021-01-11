@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -20,9 +20,7 @@ private[kvutils] object InputsAndEffects {
   /** The effects of the transaction, that is what contracts
     * were consumed and created, and what contract keys were updated.
     */
-  /**
-    *
-    * @param consumedContracts
+  /** @param consumedContracts
     * The contracts consumed by this transaction.
     * When committing the transaction these contracts must be marked consumed.
     * A contract should be marked consumed when the transaction is committed,
@@ -40,7 +38,7 @@ private[kvutils] object InputsAndEffects {
   final case class Effects(
       consumedContracts: List[DamlStateKey],
       createdContracts: List[(DamlStateKey, Node.NodeCreate[ContractId])],
-      updatedContractKeys: Map[DamlStateKey, Option[ContractId]]
+      updatedContractKeys: Map[DamlStateKey, Option[ContractId]],
   )
 
   object Effects {
@@ -82,7 +80,8 @@ private[kvutils] object InputsAndEffects {
 
     def addOrUpdateResolvedContractId(
         key: DamlStateKey,
-        contractId: Option[Value.ContractId]): Unit = {
+        contractId: Option[Value.ContractId],
+    ): Unit = {
       val contractKey = key.getContractKey
       resolvedContractIdsMap.get(contractKey) match {
         case None => resolvedContractIdsMap += (contractKey -> contractId)
@@ -102,7 +101,8 @@ private[kvutils] object InputsAndEffects {
 
     def stateKey(
         node: LeafOnlyNode[Value.ContractId],
-        keyWithMaintainers: KeyWithMaintainers[Value[Value.ContractId]]): DamlStateKey =
+        keyWithMaintainers: KeyWithMaintainers[Value[Value.ContractId]],
+    ): DamlStateKey =
       globalKeyToStateKey(GlobalKey(node.templateId, forceNoContractIds(keyWithMaintainers.key)))
 
     def updateMappingWithLeafNode(node: LeafOnlyNode[Value.ContractId]): Unit = {
@@ -126,37 +126,39 @@ private[kvutils] object InputsAndEffects {
     tx.foreachInExecutionOrder(
       (_, exercisesNode) => updateMappingWithExercisesNode(exercisesNode),
       (_, leafNode) => updateMappingWithLeafNode(leafNode),
-      (_, _) => ()
+      (_, _) => (),
     )
 
-    tx.foreach {
-      case (_, node) =>
-        node match {
-          case fetch: Node.NodeFetch[Value.ContractId] =>
-            addContractInput(fetch.coid)
-            fetch.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
-                GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key)))
-            }
-
-          case create: Node.NodeCreate[Value.ContractId] =>
-            create.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
-                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key)))
-            }
-
-          case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
-            addContractInput(exe.targetCoid)
-
-          case lookup: Node.NodeLookupByKey[Value.ContractId] =>
-            // We need both the contract key state and the contract state. The latter is used to verify
-            // that the submitter can access the contract.
-            lookup.result.foreach(addContractInput)
+    tx.foreach { case (_, node) =>
+      node match {
+        case fetch: Node.NodeFetch[Value.ContractId] =>
+          addContractInput(fetch.coid)
+          fetch.key.foreach { keyWithMaintainers =>
             inputs += globalKeyToStateKey(
-              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
-        }
+              GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key))
+            )
+          }
 
-        inputs ++= partyInputs(node.informeesOfNode)
+        case create: Node.NodeCreate[Value.ContractId] =>
+          create.key.foreach { keyWithMaintainers =>
+            inputs += globalKeyToStateKey(
+              GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key))
+            )
+          }
+
+        case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
+          addContractInput(exe.targetCoid)
+
+        case lookup: Node.NodeLookupByKey[Value.ContractId] =>
+          // We need both the contract key state and the contract state. The latter is used to verify
+          // that the submitter can access the contract.
+          lookup.result.foreach(addContractInput)
+          inputs += globalKeyToStateKey(
+            GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key))
+          )
+      }
+
+      inputs ++= partyInputs(node.informeesOfNode)
     }
 
     (inputs.toList, resolvedContractIdsMap.map(m => resolvedContractKeyIdPair(m._1, m._2)).toList)
@@ -166,51 +168,51 @@ private[kvutils] object InputsAndEffects {
   def computeEffects(tx: Transaction.Transaction): Effects = {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
-    tx.fold(Effects.empty) {
-      case (effects, (_, node)) =>
-        node match {
-          case _: Node.NodeFetch[Value.ContractId] =>
-            effects
-          case create: Node.NodeCreate[Value.ContractId] =>
-            effects.copy(
-              createdContracts = contractIdToStateKey(create.coid) -> create :: effects.createdContracts,
-              updatedContractKeys = create.key
-                .fold(effects.updatedContractKeys)(
-                  keyWithMaintainers =>
-                    effects.updatedContractKeys.updated(
-                      globalKeyToStateKey(
-                        GlobalKey
-                          .build(
-                            create.coinst.template,
-                            keyWithMaintainers.key
-                          )
-                          .fold(
-                            _ =>
-                              throw Err.InvalidSubmission(
-                                "Contract IDs are not supported in contract keys."),
-                            identity)),
-                      Some(create.coid)
-                  )
+    tx.fold(Effects.empty) { case (effects, (_, node)) =>
+      node match {
+        case _: Node.NodeFetch[Value.ContractId] =>
+          effects
+        case create: Node.NodeCreate[Value.ContractId] =>
+          effects.copy(
+            createdContracts =
+              contractIdToStateKey(create.coid) -> create :: effects.createdContracts,
+            updatedContractKeys = create.key
+              .fold(effects.updatedContractKeys)(keyWithMaintainers =>
+                effects.updatedContractKeys.updated(
+                  globalKeyToStateKey(
+                    GlobalKey
+                      .build(
+                        create.coinst.template,
+                        keyWithMaintainers.key,
+                      )
+                      .fold(
+                        _ =>
+                          throw Err
+                            .InvalidSubmission("Contract IDs are not supported in contract keys."),
+                        identity,
+                      )
+                  ),
+                  Some(create.coid),
                 )
-            )
+              ),
+          )
 
-          case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
-            if (exe.consuming) {
-              effects.copy(
-                consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
-                updatedContractKeys = exe.key
-                  .fold(effects.updatedContractKeys)(
-                    keyWithMaintainers =>
-                      effects.updatedContractKeys
-                        .updated(contractKeyStateKey(exe.templateId, keyWithMaintainers.key), None)
-                  )
-              )
-            } else {
-              effects
-            }
-          case _: Node.NodeLookupByKey[Value.ContractId] =>
+        case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
+          if (exe.consuming) {
+            effects.copy(
+              consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
+              updatedContractKeys = exe.key
+                .fold(effects.updatedContractKeys)(keyWithMaintainers =>
+                  effects.updatedContractKeys
+                    .updated(contractKeyStateKey(exe.templateId, keyWithMaintainers.key), None)
+                ),
+            )
+          } else {
             effects
-        }
+          }
+        case _: Node.NodeLookupByKey[Value.ContractId] =>
+          effects
+      }
     }
   }
 

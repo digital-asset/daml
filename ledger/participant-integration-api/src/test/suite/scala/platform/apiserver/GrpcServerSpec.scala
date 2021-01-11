@@ -1,7 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
+
+import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
@@ -9,7 +11,7 @@ import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
@@ -99,17 +101,13 @@ object GrpcServerSpec {
 
   private def resources(): ResourceOwner[ManagedChannel] =
     for {
-      eventLoopGroups <- new ServerEventLoopGroups.Owner(
-        classOf[GrpcServerSpec].getSimpleName,
-        workerParallelism = sys.runtime.availableProcessors(),
-        bossParallelism = 1,
-      )
+      executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
       server <- new GrpcServer.Owner(
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = new Metrics(new MetricRegistry),
-        eventLoopGroups = eventLoopGroups,
+        servicesExecutor = executor,
         services = Seq(new ReferenceImplementation),
       )
       channel <- new GrpcChannel.Owner(Port(server.getPort), clientConfiguration)

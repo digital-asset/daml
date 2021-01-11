@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -19,13 +19,12 @@ import com.daml.auth.oauth2.api.{Request => OAuthRequest, Response => OAuthRespo
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
-import com.daml.auth.middleware.api.{Request, Response}
+import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
@@ -37,17 +36,19 @@ object Server extends StrictLogging {
   import com.daml.auth.oauth2.api.JsonProtocol._
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
-  // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-  private def toRedirectUri(uri: Uri) =
-    Uri()
-      .withScheme(uri.scheme)
-      .withAuthority(uri.authority)
-      .withPath(Uri.Path./("cb"))
+  private def toRedirectUri(config: Config, uri: Uri) =
+    config.callbackUri.getOrElse {
+      Uri()
+        .withScheme(uri.scheme)
+        .withAuthority(uri.authority)
+        .withPath(Uri.Path./("cb"))
+    }
 
   def start(
-      config: Config)(implicit system: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
-    // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
-    val requests: TrieMap[UUID, Uri] = TrieMap()
+      config: Config
+  )(implicit system: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
+    val requests: RequestStore[UUID, Uri] =
+      new RequestStore(config.maxLoginRequests, config.loginTimeout)
     val route = concat(
       path("auth") {
         get {
@@ -119,44 +120,53 @@ object Server extends StrictLogging {
               Response
                 .Authorize(
                   accessToken = AccessToken(token.accessToken),
-                  refreshToken = RefreshToken.subst(token.refreshToken)))
+                  refreshToken = RefreshToken.subst(token.refreshToken),
+                )
+            )
           // TODO[AH] Include a `WWW-Authenticate` header.
           case _ => complete(StatusCodes.Unauthorized)
         }
       }
 
-  private def login(config: Config, requests: TrieMap[UUID, Uri]) =
+  private def login(config: Config, requests: RequestStore[UUID, Uri]) =
     parameters('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?)
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
-          requests += (requestId -> {
-            var query = login.redirectUri.query().to[Seq]
-            login.state.foreach(x => query ++= Seq("state" -> x))
-            login.redirectUri.withQuery(Uri.Query(query: _*))
-          })
-          val authorize = OAuthRequest.Authorize(
-            responseType = "code",
-            clientId = config.clientId,
-            redirectUri = toRedirectUri(request.uri),
-            // Auth0 will only issue a refresh token if the offline_access claim is present.
-            // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
-            scope = Some("offline_access " + login.claims.toQueryString),
-            state = Some(requestId.toString),
-            audience = Some("https://daml.com/ledger-api")
+          val stored = requests.put(
+            requestId, {
+              var query = login.redirectUri.query().to[Seq]
+              login.state.foreach(x => query ++= Seq("state" -> x))
+              login.redirectUri.withQuery(Uri.Query(query: _*))
+            },
           )
-          redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
+          if (stored) {
+            val authorize = OAuthRequest.Authorize(
+              responseType = "code",
+              clientId = config.clientId,
+              redirectUri = toRedirectUri(config, request.uri),
+              // Auth0 will only issue a refresh token if the offline_access claim is present.
+              // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
+              scope = Some("offline_access " + login.claims.toQueryString),
+              state = Some(requestId.toString),
+              audience = Some("https://daml.com/ledger-api"),
+            )
+            redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
+          } else {
+            complete(StatusCodes.ServiceUnavailable)
+          }
         }
       }
 
-  private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
-      implicit system: ActorSystem,
-      ec: ExecutionContext) = {
+  private def loginCallback(config: Config, requests: RequestStore[UUID, Uri])(implicit
+      system: ActorSystem,
+      ec: ExecutionContext,
+  ) = {
     def popRequest(optState: Option[String]): Directive1[Uri] = {
       val redirectUri = for {
         state <- optState
         requestId <- Try(UUID.fromString(state)).toOption
-        redirectUri <- requests.remove(requestId)
+        redirectUri <- requests.pop(requestId)
       } yield redirectUri
       redirectUri match {
         case Some(redirectUri) => provide(redirectUri)
@@ -167,40 +177,44 @@ object Server extends StrictLogging {
     concat(
       parameters('code, 'state ?)
         .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
-          popRequest(authorize.state) {
-            redirectUri =>
-              extractRequest {
-                request =>
-                  val body = OAuthRequest.Token(
-                    grantType = "authorization_code",
-                    code = authorize.code,
-                    redirectUri = toRedirectUri(request.uri),
-                    clientId = config.clientId,
-                    clientSecret = config.clientSecret)
-                  import com.daml.auth.oauth2.api.Request.Token.marshalRequestEntity
-                  val tokenRequest =
-                    for {
-                      entity <- Marshal(body).to[RequestEntity]
-                      req = HttpRequest(
-                        uri = config.oauthToken,
-                        entity = entity,
-                        method = HttpMethods.POST)
-                      resp <- Http().singleRequest(req)
-                      tokenResp <- if (resp.status != StatusCodes.OK) {
-                        Unmarshal(resp).to[String].flatMap { msg =>
-                          Future.failed(new RuntimeException(
-                            s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
-                        }
-                      } else {
-                        Unmarshal(resp).to[OAuthResponse.Token]
+          popRequest(authorize.state) { redirectUri =>
+            extractRequest { request =>
+              val body = OAuthRequest.Token(
+                grantType = "authorization_code",
+                code = authorize.code,
+                redirectUri = toRedirectUri(config, request.uri),
+                clientId = config.clientId,
+                clientSecret = config.clientSecret,
+              )
+              import com.daml.auth.oauth2.api.Request.Token.marshalRequestEntity
+              val tokenRequest =
+                for {
+                  entity <- Marshal(body).to[RequestEntity]
+                  req = HttpRequest(
+                    uri = config.oauthToken,
+                    entity = entity,
+                    method = HttpMethods.POST,
+                  )
+                  resp <- Http().singleRequest(req)
+                  tokenResp <-
+                    if (resp.status != StatusCodes.OK) {
+                      Unmarshal(resp).to[String].flatMap { msg =>
+                        Future.failed(
+                          new RuntimeException(
+                            s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"
+                          )
+                        )
                       }
-                    } yield tokenResp
-                  onSuccess(tokenRequest) { token =>
-                    setCookie(HttpCookie(cookieName, token.toCookieValue)) {
-                      redirect(redirectUri, StatusCodes.Found)
+                    } else {
+                      Unmarshal(resp).to[OAuthResponse.Token]
                     }
-                  }
+                } yield tokenResp
+              onSuccess(tokenRequest) { token =>
+                setCookie(HttpCookie(cookieName, token.toCookieValue)) {
+                  redirect(redirectUri, StatusCodes.Found)
+                }
               }
+            }
           }
         },
       parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
@@ -214,7 +228,7 @@ object Server extends StrictLogging {
             }
             redirect(uri, StatusCodes.Found)
           }
-        }
+        },
     )
   }
 
@@ -224,7 +238,8 @@ object Server extends StrictLogging {
         grantType = "refresh_token",
         refreshToken = RefreshToken.unwrap(refresh.refreshToken),
         clientId = config.clientId,
-        clientSecret = config.clientSecret)
+        clientSecret = config.clientSecret,
+      )
       import com.daml.auth.oauth2.api.Request.Refresh.marshalRequestEntity
       val tokenRequest =
         for {
@@ -239,7 +254,8 @@ object Server extends StrictLogging {
             val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
               Response.Authorize(
                 accessToken = AccessToken(token.accessToken),
-                refreshToken = RefreshToken.subst(token.refreshToken))
+                refreshToken = RefreshToken.subst(token.refreshToken),
+              )
             }
             complete(authResponse)
           // Forward client errors.
@@ -249,7 +265,8 @@ object Server extends StrictLogging {
           case _ =>
             onSuccess(Unmarshal(resp).to[String]) { msg =>
               failWith(
-                new RuntimeException(s"Failed to retrieve refresh token (${resp.status}): $msg"))
+                new RuntimeException(s"Failed to retrieve refresh token (${resp.status}): $msg")
+              )
             }
         }
       }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -42,8 +42,9 @@ final class TlsIT
               enabled = true,
               keyCertChainFile = clientCrt,
               keyFile = clientPem,
-              trustCertCollectionFile = caCrt
-            ))
+              trustCertCollectionFile = caCrt,
+            )
+          )
           _ <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),

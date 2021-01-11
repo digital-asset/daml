@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -13,8 +13,7 @@ private[platform] object SimpleSqlAsVectorOf {
 
   implicit final class SimpleSqlAsVectorOf(val sql: SimpleSql[Row]) extends AnyVal {
 
-    /**
-      * Returns the result of [[sql]] as a [[Vector]].
+    /** Returns the result of [[sql]] as a [[Vector]].
       *
       * Allows to avoid linear operations in lists when using the default
       * [[anorm.ResultSetParser]]s (e.g. when retrieving the result set

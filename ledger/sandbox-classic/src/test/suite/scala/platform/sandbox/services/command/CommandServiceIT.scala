@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.command
@@ -11,7 +11,7 @@ import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementA
 import com.daml.ledger.api.v1.admin.config_management_service.{
   ConfigManagementServiceGrpc,
   GetTimeModelRequest,
-  GetTimeModelResponse
+  GetTimeModelResponse,
 }
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
@@ -43,7 +43,10 @@ class CommandServiceIT
       Some(
         Record(
           Some(templateIds.dummy),
-          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party)))))))).wrap
+          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party))))),
+        )
+      ),
+    ).wrap
 
   private def submitAndWaitRequest(ledgerId: String) =
     MockMessages.submitAndWaitRequest
@@ -65,13 +68,15 @@ class CommandServiceIT
       start: Instant,
       end: Instant,
       minLedgerTimeRel: ProtoDuration,
-      timeModel: GetTimeModelResponse) = {
+      timeModel: GetTimeModelResponse,
+  ) = {
     val avgLatency = DurationConversion.fromProto(timeModel.timeModel.get.avgTransactionLatency.get)
     val expectedDuration = DurationConversion.fromProto(minLedgerTimeRel).minus(avgLatency)
     val actualDuration = Duration.between(start, end)
     assert(
       actualDuration.compareTo(expectedDuration) != -1,
-      s"Expected submission duration was $expectedDuration, actual duration way $actualDuration")
+      s"Expected submission duration was $expectedDuration, actual duration way $actualDuration",
+    )
   }
 
   "CommandSubmissionService" when {
@@ -119,7 +124,7 @@ class CommandServiceIT
 
   override protected def config: SandboxConfig =
     super.config.copy(
-      timeProviderType = Some(TimeProviderType.WallClock),
+      timeProviderType = Some(TimeProviderType.WallClock)
     )
 
 }

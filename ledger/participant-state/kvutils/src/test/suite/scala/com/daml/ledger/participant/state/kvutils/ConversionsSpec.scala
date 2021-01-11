@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -6,15 +6,15 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   commandDedupKey,
   decodeBlindingInfo,
-  encodeBlindingInfo
+  encodeBlindingInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmitterInfo,
-  DamlTransactionBlindingInfo
+  DamlTransactionBlindingInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
-  DivulgenceEntry
+  DivulgenceEntry,
 }
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash

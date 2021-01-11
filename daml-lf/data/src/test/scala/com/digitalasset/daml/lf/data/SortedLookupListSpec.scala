@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -16,15 +16,15 @@ class SortedLookupListSpec extends AnyWordSpec with Matchers with ScalaCheckProp
       ImmArray.empty[(String, Int)],
       ImmArray("1" -> 1),
       ImmArray("1" -> 1, "2" -> 2, "3" -> 3),
-      ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
+      ImmArray("2" -> 2, "3" -> 3, "1" -> 1),
     )
 
     val positiveTestCases =
       Table("list", ImmArray("1" -> 1, "1" -> 2), ImmArray("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2))
 
-    forAll(negativeTestCases)(l => SortedLookupList.fromImmArray(l) shouldBe 'right)
+    forAll(negativeTestCases)(l => SortedLookupList.fromImmArray(l) shouldBe a[Right[_, _]])
 
-    forAll(positiveTestCases)(l => SortedLookupList.fromImmArray(l) shouldBe 'left)
+    forAll(positiveTestCases)(l => SortedLookupList.fromImmArray(l) shouldBe a[Left[_, _]])
 
   }
 
@@ -35,18 +35,19 @@ class SortedLookupListSpec extends AnyWordSpec with Matchers with ScalaCheckProp
         "list",
         ImmArray.empty[(String, Int)],
         ImmArray("1" -> 1),
-        ImmArray("1" -> 1, "2" -> 2, "3" -> 3))
+        ImmArray("1" -> 1, "2" -> 2, "3" -> 3),
+      )
 
     val positiveTestCases = Table(
       "list",
       ImmArray("1" -> 1, "1" -> 2),
       ImmArray("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2),
-      ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
+      ImmArray("2" -> 2, "3" -> 3, "1" -> 1),
     )
 
-    forAll(negativeTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe 'right)
+    forAll(negativeTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe a[Right[_, _]])
 
-    forAll(positiveTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe 'left)
+    forAll(positiveTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe a[Left[_, _]])
 
   }
 

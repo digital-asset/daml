@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
@@ -9,6 +9,8 @@ import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
+
+import scala.collection.compat.immutable.LazyList
 
 private[migration] final class V38__Update_value_versions extends BaseJavaMigration {
 
@@ -71,16 +73,16 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
   private[this] def updateAndSerialize(
       nameValue: (String, Option[Value]),
       tableName: String,
-      rowKey: String
+      rowKey: String,
   ): NamedParameter = {
     val (label, oldValue) = nameValue
     val newValue =
-      oldValue.map(
-        value =>
-          ValueSerializer.serializeValue(
-            value = value.copy(stableValueVersion),
-            errorContext = s"failed to serialize $label for $tableName $rowKey",
-        ))
+      oldValue.map(value =>
+        ValueSerializer.serializeValue(
+          value = value.copy(stableValueVersion),
+          errorContext = s"failed to serialize $label for $tableName $rowKey",
+        )
+      )
     NamedParameter(label, newValue)
   }
 
@@ -103,19 +105,19 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
       rowType: String,
       rowKeyLabel: String,
       valueLabels: List[String],
-  )(implicit connection: Connection): Stream[List[NamedParameter]] = {
+  )(implicit connection: Connection): LazyList[List[NamedParameter]] = {
     val rows: ResultSet = connection.createStatement().executeQuery(sqlQuery)
-    def updates: Stream[List[NamedParameter]] =
+    def updates: LazyList[List[NamedParameter]] =
       if (rows.next())
         readAndUpdate(rows, rowType, rowKeyLabel, valueLabels) #:: updates
       else
-        Stream.empty
+        LazyList.empty
     updates.filter(_.nonEmpty)
   }
 
   private[this] def save(
       sqlUpdate: String,
-      statements: Stream[List[NamedParameter]]
+      statements: LazyList[List[NamedParameter]],
   )(implicit connection: Connection): Unit =
     statements.grouped(batchSize).foreach { batch =>
       BatchSql(
@@ -136,8 +138,8 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
         rowType = "event",
         rowKeyLabel = "event_id",
         valueLabels =
-          List("create_argument", "create_key_value", "exercise_argument", "exercise_result")
-      )
+          List("create_argument", "create_key_value", "exercise_argument", "exercise_result"),
+      ),
     )
 
     save(
@@ -147,7 +149,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
         rowType = "contract",
         rowKeyLabel = "contract_id",
         valueLabels = List("create_argument"),
-      )
+      ),
     )
   }
 

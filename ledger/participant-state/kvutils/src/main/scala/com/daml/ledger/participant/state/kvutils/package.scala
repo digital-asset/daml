@@ -1,12 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.metrics.MetricName
-import com.google.protobuf.ByteString
 
 /** The participant-state key-value utilities provide methods to succinctly implement
   * [[com.daml.ledger.participant.state.v1.ReadService]] and
@@ -30,24 +28,10 @@ import com.google.protobuf.ByteString
   */
 package object kvutils {
 
-  type Bytes = ByteString
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
 
   type CorrelationId = String
 
-  type Fingerprint = Bytes
-  type DamlStateMapWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
-  val FingerprintPlaceholder: Fingerprint = ByteString.EMPTY
-
   val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
-
-  implicit val `Bytes Ordering`: Ordering[Bytes] = Ordering.by(_.asReadOnlyByteBuffer)
-
-  implicit object `DamlStateValue with Fingerprint has DamlStateValue`
-      extends HasDamlStateValue[(Option[DamlStateValue], Fingerprint)] {
-    override def damlStateValue(
-        value: (Option[DamlStateValue], Fingerprint)
-    ): Option[DamlStateValue] = value._1
-  }
 
 }

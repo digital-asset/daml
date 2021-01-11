@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -24,25 +24,37 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     override def toString: String = l.mkString(" ")
   }
 
-  val id: Parser[Ref.Name] = accept("Identifier", Function unlift {
-    case Id(s) => Ref.Name.fromString(s).toOption
-    case _ => None
-  })
+  val id: Parser[Ref.Name] = accept(
+    "Identifier",
+    Function unlift {
+      case Id(s) => Ref.Name.fromString(s).toOption
+      case _ => None
+    },
+  )
   val text: Parser[String] = accept("Text", { case Text(s) => s })
-  val pkgId: Parser[Ref.PackageId] = accept("PackageId", Function unlift {
-    case SimpleString(s) => Ref.PackageId.fromString(s).toOption
-    case _ => None
-  })
+  val pkgId: Parser[Ref.PackageId] = accept(
+    "PackageId",
+    Function unlift {
+      case SimpleString(s) => Ref.PackageId.fromString(s).toOption
+      case _ => None
+    },
+  )
 
-  val pkgName: Parser[Ref.PackageName] = accept("PackageName", Function unlift {
-    case SimpleString(s) => Ref.PackageName.fromString(s).toOption
-    case _ => None
-  })
+  val pkgName: Parser[Ref.PackageName] = accept(
+    "PackageName",
+    Function unlift {
+      case SimpleString(s) => Ref.PackageName.fromString(s).toOption
+      case _ => None
+    },
+  )
 
-  val pkgVersion: Parser[Ref.PackageVersion] = accept("PackageVersion", Function unlift {
-    case SimpleString(s) => Ref.PackageVersion.fromString(s).toOption
-    case _ => None
-  })
+  val pkgVersion: Parser[Ref.PackageVersion] = accept(
+    "PackageVersion",
+    Function unlift {
+      case SimpleString(s) => Ref.PackageVersion.fromString(s).toOption
+      case _ => None
+    },
+  )
 
   val dottedName: Parser[Ref.DottedName] =
     rep1sep(id, `.`) ^^ (s => Ref.DottedName.assertFromSegments(s))

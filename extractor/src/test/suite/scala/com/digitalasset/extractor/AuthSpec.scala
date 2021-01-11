@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -54,7 +54,7 @@ final class AuthSpec
     exp = None,
     admin = true,
     actAs = List(operator),
-    readAs = List(operator)
+    readAs = List(operator),
   )
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
@@ -101,8 +101,8 @@ final class AuthSpec
   behavior of "Extractor against a Ledger API protected by authentication"
 
   it should "fail immediately with a UNAUTHENTICATED if no token is provided" in {
-    extractor(noAuth).run().failed.collect {
-      case GrpcException.UNAUTHENTICATED() => succeed
+    extractor(noAuth).run().failed.collect { case GrpcException.UNAUTHENTICATED() =>
+      succeed
     }
   }
 
@@ -114,30 +114,29 @@ final class AuthSpec
   it should "eventually succeed if an invalid token is replaced" in {
     val writtenTxs = ListBuffer.empty[String]
     val process =
-      new Extractor(tailWithAuth, None)(
-        (_, _, _) =>
-          new Writer {
-            private val lastOffset = new AtomicReference[String]
+      new Extractor(tailWithAuth, None)((_, _, _) =>
+        new Writer {
+          private val lastOffset = new AtomicReference[String]
 
-            override def init(): Future[Unit] = Future.unit
+          override def init(): Future[Unit] = Future.unit
 
-            override def handlePackages(packageStore: PackageStore): Future[Unit] =
-              Future.unit
+          override def handlePackages(packageStore: PackageStore): Future[Unit] =
+            Future.unit
 
-            override def handleTransaction(
-                transaction: TransactionTree
-            ): Future[Writer.RefreshPackages \/ Unit] = {
-              Future.successful {
-                \/.right {
-                  lastOffset.set {
-                    writtenTxs += transaction.transactionId
-                    transaction.offset
-                  }
+          override def handleTransaction(
+              transaction: TransactionTree
+          ): Future[Writer.RefreshPackages \/ Unit] = {
+            Future.successful {
+              \/.right {
+                lastOffset.set {
+                  writtenTxs += transaction.transactionId
+                  transaction.offset
                 }
               }
             }
-            override def getLastOffset: Future[Option[String]] =
-              Future.successful(Option(lastOffset.get()))
+          }
+          override def getLastOffset: Future[Option[String]] =
+            Future.successful(Option(lastOffset.get()))
         }
       )
     setToken(toHeader(expiringIn(Duration.ofSeconds(5), operatorPayload)))
@@ -148,7 +147,8 @@ final class AuthSpec
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(toHeader(operatorPayload)))
+            Option(toHeader(operatorPayload)),
+          )
           .map(_.transactionId)
       }
       .onComplete {
@@ -161,7 +161,8 @@ final class AuthSpec
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(toHeader(operatorPayload)))
+            Option(toHeader(operatorPayload)),
+          )
           .map(_.transactionId)
       }
       .onComplete {

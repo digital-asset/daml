@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package io.gatling.app
@@ -22,7 +22,7 @@ object CustomRunner extends StrictLogging {
   def runWith(
       system: ActorSystem,
       overrides: ConfigOverrides,
-      mbSimulation: Option[Class[Simulation]] = None
+      mbSimulation: Option[Class[Simulation]] = None,
   ): Try[(Int, File)] = {
     logger.trace("Starting")
 

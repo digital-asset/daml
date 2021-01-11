@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores
@@ -57,8 +57,8 @@ private[sandbox] object SandboxIndexAndWriteService {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       validatePartyAllocation: Boolean = false,
-  )(
-      implicit mat: Materializer,
+  )(implicit
+      mat: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexAndWriteService] =
     new SqlLedger.Owner(
@@ -89,8 +89,8 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
-  )(
-      implicit mat: Materializer,
+  )(implicit
+      mat: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexAndWriteService] = {
     val ledger =
@@ -109,8 +109,8 @@ private[sandbox] object SandboxIndexAndWriteService {
       ledger: Ledger,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
-  )(
-      implicit mat: Materializer,
+  )(implicit
+      mat: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexAndWriteService] = {
     val indexSvc = new LedgerBackedIndexService(ledger, participantId)
@@ -123,12 +123,11 @@ private[sandbox] object SandboxIndexAndWriteService {
         "deduplication cache maintenance",
         ledger.removeExpiredDeduplicationData,
       )
-    } yield
-      new IndexAndWriteService {
-        override val indexService: IndexService = indexSvc
+    } yield new IndexAndWriteService {
+      override val indexService: IndexService = indexSvc
 
-        override val writeService: WriteService = writeSvc
-      }
+      override val writeService: WriteService = writeSvc
+    }
   }
 
   private class HeartbeatScheduler(
@@ -146,15 +145,12 @@ private[sandbox] object SandboxIndexAndWriteService {
             logger.debug(s"Scheduling $name in intervals of {}", interval)
             Source
               .tick(0.seconds, interval, ())
-              .mapAsync[Unit](1)(
-                _ => onTimeChange(timeProvider.getCurrentTime)
-              )
+              .mapAsync[Unit](1)(_ => onTimeChange(timeProvider.getCurrentTime))
               .to(Sink.ignore)
               .run()
-          })(
-            cancellable =>
-              Future {
-                val _ = cancellable.cancel()
+          })(cancellable =>
+            Future {
+              val _ = cancellable.cancel()
             }
           ).map(_ => ())
         case _ =>

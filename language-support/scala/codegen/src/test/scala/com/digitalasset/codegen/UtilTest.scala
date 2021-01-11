@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -15,6 +15,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.collection.compat._
+
 class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
 
   val packageInterface =
@@ -25,7 +27,8 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
     lf.LFUtil(
       scalaPackage,
       I.EnvironmentInterface fromReaderInterfaces packageInterface,
-      outputDir.toFile)
+      outputDir.toFile,
+    )
 
   def damlScalaName(damlNameSpace: Array[String], name: String): util.DamlScalaName =
     util.DamlScalaName(damlNameSpace, name)
@@ -49,7 +52,7 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
   "partitionEithers" should "equal scalaz separate in simple cases" in forAll {
     iis: List[Either[Int, Int]] =>
       import scalaz.syntax.monadPlus._, scalaz.std.list._, scalaz.std.either._
-      Util.partitionEithers(iis) shouldBe iis.separate
+      iis.partitionMap(identity) shouldBe iis.separate
   }
 
 }
@@ -76,7 +79,7 @@ abstract class UtilTestHelpers extends AnyFlatSpec with Matchers with BeforeAndA
           Files.delete(file)
           FileVisitResult.CONTINUE
         }
-      }
+      },
     )
     ()
   }

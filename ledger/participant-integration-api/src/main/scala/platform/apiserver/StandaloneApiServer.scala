@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -23,7 +23,7 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
   PartyConfiguration,
-  ServerRole
+  ServerRole,
 }
 import com.daml.ports.{PortFiles}
 import com.daml.platform.index.JdbcIndex
@@ -34,6 +34,7 @@ import com.daml.ports.Port
 import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.immutable
+import scala.concurrent.ExecutionContextExecutor
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -51,6 +52,7 @@ final class StandaloneApiServer(
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine,
+    servicesExecutionContext: ExecutionContextExecutor,
     lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
@@ -88,11 +90,13 @@ final class StandaloneApiServer(
         timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
-            TimeProviderType.Static),
+            TimeProviderType.Static
+          ),
         ledgerConfiguration = ledgerConfig,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
@@ -106,12 +110,14 @@ final class StandaloneApiServer(
         config.address,
         config.tlsConfig,
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
-        metrics
+        servicesExecutionContext,
+        metrics,
       )
     } yield {
       writePortFile(apiServer.port)
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}")
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}"
+      )
       apiServer
     }
 
@@ -129,9 +135,10 @@ final class StandaloneApiServer(
           { _ =>
             sys.error("Unexpected request of contract")
           },
-          packageContainer.getLfPackageSync, { _ =>
+          packageContainer.getLfPackageSync,
+          { _ =>
             sys.error("Unexpected request of contract key")
-          }
+          },
         )
       ()
     }

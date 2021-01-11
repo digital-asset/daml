@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.perf
@@ -23,7 +23,8 @@ class SimpleBench extends DummyCommands with InfAwait {
       dummyCreates(state.ledger.ledgerId)
         .take(commandCount)
         .mapAsync(100)(state.ledger.commandService.submitAndWait _)
-        .runWith(Sink.ignore)(state.mat))
+        .runWith(Sink.ignore)(state.mat)
+    )
     ()
   }
 }

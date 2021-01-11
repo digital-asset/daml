@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -50,7 +50,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset,
         s"config-rejection-$offsetString",
         proposedConfig,
-        Some("bad config")
+        Some("bad config"),
       )
       storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
       entries <- ledgerDao
@@ -121,7 +121,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
           "Generation mismatch: expected=2, actual=0",
           config,
         ),
-        offset3 -> ConfigurationEntry.Accepted(s"refuse-config-$offsetString3", lastConfig)
+        offset3 -> ConfigurationEntry.Accepted(s"refuse-config-$offsetString3", lastConfig),
       )
     }
   }
@@ -132,7 +132,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         nextOffset(),
         s"submission-invalid-offsets",
         defaultConfig,
-        maybePreviousOffset = Some(nextOffset())
+        maybePreviousOffset = Some(nextOffset()),
       )
     )
   }
@@ -143,7 +143,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
       lastConfig: Configuration,
       rejectionReason: Option[String] = None,
       shouldUpdateLedgerEnd: Boolean = true,
-      maybePreviousOffset: Option[Offset] = Option.empty) =
+      maybePreviousOffset: Option[Offset] = Option.empty,
+  ) =
     ledgerDao
       .storeConfigurationEntry(
         offsetStep = maybePreviousOffset

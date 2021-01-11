@@ -1,18 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateOperations
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * An in-transasaction finalizer that persists both the ledger state and the log entry.
+/** An in-transasaction finalizer that persists both the ledger state and the log entry.
   *
   * This implementation verifies that the output respects the time bounds before writing to the
   * ledger. If the output is outside the time window, an alternative log entry is written to
@@ -44,7 +43,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   private def retrieveLogEntry(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
-  ): (Bytes, Bytes) = {
+  ): Raw.KeyValuePair = {
     val writeSet = if (withinTimeBounds) {
       preExecutionOutput.successWriteSet
     } else {
@@ -56,7 +55,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   private def retrieveState(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
-  ): Iterable[(Bytes, Bytes)] =
+  ): Iterable[Raw.KeyValuePair] =
     if (withinTimeBounds) {
       preExecutionOutput.successWriteSet.state
     } else {

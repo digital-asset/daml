@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-10 Intro to the DAML Standard Library
+10 Intro to the Daml Standard Library
 =====================================
 
-In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. DAML comes with the DAML Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing DAML code. Specifically, this chapter covers:
+In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. Daml comes with the Daml Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
 - The Prelude
 - Important types from the Standard Library, and associated functions and typeclasses
@@ -21,7 +21,7 @@ To go in depth on some of these topics, the literature referenced in :ref:`haske
 The Prelude
 -----------
 
-You've already used a lot of functions, types, and typeclasses without importing anything. Functions like ``create``, ``exercise``, and ``(==)``, types like ``[]``, ``(,)``, ``Optional``, and typeclasses like ``Eq``, ``Show``, and ``Ord``. These all come from the :doc:`Prelude </daml/stdlib/Prelude>`. The Prelude is module that gets implicitly imported into every other DAML module and contains both DAML specific machinery as well as the essentials needed to work with the inbuilt types and typeclasses.
+You've already used a lot of functions, types, and typeclasses without importing anything. Functions like ``create``, ``exercise``, and ``(==)``, types like ``[]``, ``(,)``, ``Optional``, and typeclasses like ``Eq``, ``Show``, and ``Ord``. These all come from the :doc:`Prelude </daml/stdlib/Prelude>`. The Prelude is module that gets implicitly imported into every other Daml module and contains both Daml specific machinery as well as the essentials needed to work with the inbuilt types and typeclasses.
 
 Important Types from the Prelude
 --------------------------------
@@ -67,7 +67,7 @@ Tuples, like lists have some syntactic magic. Both the types as well as the cons
 Optional
 ........
 
-The ``Optional`` type represents a value that may be missing. It's the closest thing DAML has to a "nullable" value. ``Optional`` has two constructors: ``Some``, which takes a value, and ``None``, which doesn't take a value. In many languages one would write code like this:
+The ``Optional`` type represents a value that may be missing. It's the closest thing Daml has to a "nullable" value. ``Optional`` has two constructors: ``Some``, which takes a value, and ``None``, which doesn't take a value. In many languages one would write code like this:
 
 .. code-block:: JavaScript
 
@@ -79,7 +79,7 @@ The ``Optional`` type represents a value that may be missing. It's the closest t
     // Do something else
   }
 
-In DAML the same thing would be expressed as
+In Daml the same thing would be expressed as
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
@@ -139,21 +139,21 @@ Show
 Functor
 .......
 
-:ref:`Functors <class-ghc-base-functor-73448>` are the closest thing to "containers" that DAML has. Whenever you see a type with a single type parameter, you are probably looking at a ``Functor``: ``[a]``, ``Optional a``, ``Either Text a``, ``Update a``. Functors are things that can be mapped over and as such, the key function of ``Functor`` is ``fmap``, which does generically what the ``map`` function does for lists.
+:ref:`Functors <class-ghc-base-functor-73448>` are the closest thing to "containers" that Daml has. Whenever you see a type with a single type parameter, you are probably looking at a ``Functor``: ``[a]``, ``Optional a``, ``Either Text a``, ``Update a``. Functors are things that can be mapped over and as such, the key function of ``Functor`` is ``fmap``, which does generically what the ``map`` function does for lists.
 
 Other classic examples of Functors are Sets, Maps, Trees, etc.
 
 Applicative Functor
 ...................
 
-:ref:`Applicative Functors <class-da-internal-prelude-applicative-43914>` are a bit like Actions, which you met in :doc:`5_Restrictions`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in DAML is the ``Commands`` type submitted in a ``submit`` block in DAML Script. That's why in order to use ``do`` notation in DAML Script, you have to enable the ``ApplicativeDo`` language extension.
+:ref:`Applicative Functors <class-da-internal-prelude-applicative-43914>` are a bit like Actions, which you met in :doc:`5_Restrictions`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in Daml is the ``Commands`` type submitted in a ``submit`` block in Daml Script. That's why in order to use ``do`` notation in Daml Script, you have to enable the ``ApplicativeDo`` language extension.
 
 Actions
 .......
 
 :ref:`Actions <class-da-internal-prelude-action-24943>` were already covered in :doc:`5_Restrictions`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
 
-The really important Actions in DAML are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
+The really important Actions in Daml are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
 
 Semigroups and Monoids
 ......................
@@ -190,7 +190,7 @@ Searching the Standard Library
 
 Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, or even less so to find a function that does a thing you need to do.
 
-DAML has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
+Daml has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 
 Searching for functions by Name
 ...............................
@@ -240,5 +240,5 @@ Let's try another search. Suppose you didn't want the first element, but the one
 Next up
 -------
 
-There's little more to learn about writing DAML at this point that isn't best learnt by practice and consulting reference material for both DAML and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with DAML code in :doc:`11_Testing`, and about the operational semantics of some keywords and common associated failures.
+There's little more to learn about writing Daml at this point that isn't best learnt by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`11_Testing`, and about the operational semantics of some keywords and common associated failures.
 

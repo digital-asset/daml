@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -12,7 +12,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
@@ -25,7 +25,8 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
     privateKeyFilePath,
     trustCertCollectionFilePath,
     clientCertChainFilePath,
-    clientPrivateKeyFilePath) = {
+    clientPrivateKeyFilePath,
+  ) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
       new File(rlocation("ledger/test-common/test-certificates/" + src))
     }
@@ -39,7 +40,8 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       enabled = true,
       Some(clientCertChainFilePath),
       Some(clientPrivateKeyFilePath),
-      Some(trustCertCollectionFilePath)).client
+      Some(trustCertCollectionFilePath),
+    ).client,
   )
 
   override protected lazy val config: SandboxConfig =
@@ -49,7 +51,10 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
           enabled = true,
           Some(certChainFilePath),
           Some(privateKeyFilePath),
-          Some(trustCertCollectionFilePath))))
+          Some(trustCertCollectionFilePath),
+        )
+      )
+    )
 
   private lazy val clientF = LedgerClient.singleHost(serverHost, serverPort.value, tlsEnabledConfig)
 

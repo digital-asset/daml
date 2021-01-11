@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -17,7 +17,7 @@ import com.daml.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
   DomainJsonEncoder,
-  JsValueToApiValueConverter
+  JsValueToApiValueConverter,
 }
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
@@ -30,7 +30,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
@@ -91,8 +91,8 @@ object HttpService extends StrictLogging {
       startSettings: StartSettings,
       contractDao: Option[ContractDao] = None,
       validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt,
-  )(
-      implicit asys: ActorSystem,
+  )(implicit
+      asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
@@ -122,8 +122,10 @@ object HttpService extends StrictLogging {
           ledgerHost,
           ledgerPort,
           packageMaxInboundMessageSize.fold(clientConfig)(size =>
-            clientConfig.copy(maxInboundMessageSize = size)),
-        )): ET[LedgerClient]
+            clientConfig.copy(maxInboundMessageSize = size)
+          ),
+        )
+      ): ET[LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
@@ -131,7 +133,7 @@ object HttpService extends StrictLogging {
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       packageService = new PackageService(
-        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder),
+        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder)
       )
 
       // load all packages right away
@@ -158,7 +160,7 @@ object HttpService extends StrictLogging {
       partiesService = new PartiesService(
         LedgerClientJwt.listKnownParties(client),
         LedgerClientJwt.getParties(client),
-        LedgerClientJwt.allocateParty(client)
+        LedgerClientJwt.allocateParty(client),
       )
 
       packageManagementService = new PackageManagementService(
@@ -166,13 +168,14 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.getPackage(pkgManagementClient),
         uploadDarAndReloadPackages(
           LedgerClientJwt.uploadDar(pkgManagementClient),
-          () => packageService.reload(ec))
+          () => packageService.reload(ec),
+        ),
       )
 
       healthService = new HealthService(
         getLedgerEnd(pkgManagementClient, tokenHolder),
         contractDao,
-        healthTimeoutSeconds
+        healthTimeoutSeconds,
       )
 
       (encoder, decoder) = buildJsonCodecs(packageService)
@@ -202,11 +205,12 @@ object HttpService extends StrictLogging {
         websocketService,
       )
 
-      defaultEndpoints = jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+      defaultEndpoints =
+        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
 
       allEndpoints = staticContentConfig.cata(
         c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
-        defaultEndpoints
+        defaultEndpoints,
       )
 
       binding <- liftET[Error](
@@ -221,7 +225,7 @@ object HttpService extends StrictLogging {
   }
 
   private[http] def refreshToken(
-      holderM: Option[TokenHolder],
+      holderM: Option[TokenHolder]
   )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
     Future(
       holderM
@@ -230,11 +234,11 @@ object HttpService extends StrictLogging {
           holder.token
             .map(\/-(_))
             .getOrElse(-\/(PackageService.ServerError("Unable to load token")))
-        },
+        }
     )
 
   private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
-      implicit ec: ExecutionContext,
+      implicit ec: ExecutionContext
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader
       .loadPackageStoreUpdates(packageClient, tokenM)(ids)
@@ -248,12 +252,14 @@ object HttpService extends StrictLogging {
 
   // We can reuse the token we use for packages since both
   // require only public claims
-  private[http] def getLedgerEnd(client: LedgerClient, holderM: Option[TokenHolder])(
-      implicit ec: ExecutionContext): () => Future[Unit] =
+  private[http] def getLedgerEnd(client: LedgerClient, holderM: Option[TokenHolder])(implicit
+      ec: ExecutionContext
+  ): () => Future[Unit] =
     () => {
       for {
         token <- refreshToken(holderM).flatMap(x =>
-          toFuture(x: PackageService.Error \/ Option[String]))
+          toFuture(x: PackageService.Error \/ Option[String])
+        )
         _ <- client.transactionClient.getLedgerEnd(token)
       } yield ()
     }
@@ -268,14 +274,14 @@ object HttpService extends StrictLogging {
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
-      packageService: PackageService,
+      packageService: PackageService
   ): (DomainJsonEncoder, DomainJsonDecoder) = {
 
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageService.packageStore _) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
 
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
-      ApiValueToLfValueConverter.apiValueToLfValue,
+      ApiValueToLfValueConverter.apiValueToLfValue
     )
 
     val encoder = new DomainJsonEncoder(
@@ -330,21 +336,21 @@ object HttpService extends StrictLogging {
     LedgerClient
       .singleHost(ledgerHost, ledgerPort, clientConfig)
       .map(_.right)
-      .recover {
-        case NonFatal(e) =>
-          \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
+      .recover { case NonFatal(e) =>
+        \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
 
   private def createPortFile(
       file: Path,
-      binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
+      binding: akka.http.scaladsl.Http.ServerBinding,
+  ): Error \/ Unit = {
     import util.ErrorOps._
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
   }
 
   private def uploadDarAndReloadPackages(
       f: LedgerClientJwt.UploadDarFile,
-      g: () => Future[PackageService.Error \/ Unit])(
-      implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
+      g: () => Future[PackageService.Error \/ Unit],
+  )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
     (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
 }

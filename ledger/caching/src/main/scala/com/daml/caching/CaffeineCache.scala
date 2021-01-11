@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
@@ -22,7 +22,7 @@ object CaffeineCache {
   }
 
   private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-      cache: caffeine.Cache[Key, Value],
+      cache: caffeine.Cache[Key, Value]
   ) extends ConcurrentCache[Key, Value] {
     override def put(key: Key, value: Value): Unit = cache.put(key, value)
 
@@ -39,7 +39,8 @@ object CaffeineCache {
   ) extends ConcurrentCache[Key, Value] {
     metrics.registerSizeGauge(() => cache.estimatedSize())
     metrics.registerWeightGauge(() =>
-      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0))
+      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
+    )
 
     private val delegate = new SimpleCaffeineCache(cache)
 

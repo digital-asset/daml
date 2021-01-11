@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
@@ -9,10 +9,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlPartyAllocationEntry,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingCommitStrategySupportSpec._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Version}
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.Inside
@@ -28,79 +28,85 @@ final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Match
     "parse a log entry" in {
       val key = aValidLogEntryId
       val value = aValidLogEntry
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Right(()) => succeed
+      inside(support.checkEntryIsReadable(key, value)) { case Right(()) =>
+        succeed
       }
     }
 
     "parse a state entry" in {
       val key = aValidStateKey
       val value = aValidStateValue
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Right(()) => succeed
+      inside(support.checkEntryIsReadable(key, value)) { case Right(()) =>
+        succeed
       }
     }
 
     "fail on an invalid envelope" in {
-      val value = ByteString.copyFromUtf8("invalid envelope")
-      inside(support.checkEntryIsReadable(noKey, value)) {
-        case Left(message) => message should startWith("Invalid value envelope:")
+      val value = Raw.Value(ByteString.copyFromUtf8("invalid envelope"))
+      inside(support.checkEntryIsReadable(noKey, value)) { case Left(message) =>
+        message should startWith("Invalid value envelope:")
       }
     }
 
     "fail on an unknown entry" in {
-      val value = DamlKvutils.Envelope.newBuilder
-        .setVersion(Version.version)
-        .build()
-        .toByteString
-      inside(support.checkEntryIsReadable(noKey, value)) {
-        case Left(_) => succeed
+      val value = Raw.Value(
+        DamlKvutils.Envelope.newBuilder
+          .setVersion(Version.version)
+          .build()
+          .toByteString
+      )
+      inside(support.checkEntryIsReadable(noKey, value)) { case Left(_) =>
+        succeed
       }
     }
 
     "fail on a submission entry" in {
-      val value = DamlKvutils.Envelope.newBuilder
-        .setVersion(Version.version)
-        .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
-        .build()
-        .toByteString
-      inside(support.checkEntryIsReadable(noKey, value)) {
-        case Left(message) => message should startWith("Unexpected submission message:")
+      val value = Raw.Value(
+        DamlKvutils.Envelope.newBuilder
+          .setVersion(Version.version)
+          .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
+          .build()
+          .toByteString
+      )
+      inside(support.checkEntryIsReadable(noKey, value)) { case Left(message) =>
+        message should startWith("Unexpected submission message:")
       }
     }
 
     "fail on a submission batch entry" in {
-      val value = DamlKvutils.Envelope.newBuilder
-        .setVersion(Version.version)
-        .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
-        .build()
-        .toByteString
-      inside(support.checkEntryIsReadable(noKey, value)) {
-        case Left(message) => message should startWith("Unexpected submission batch message:")
+      val value = Raw.Value(
+        DamlKvutils.Envelope.newBuilder
+          .setVersion(Version.version)
+          .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
+          .build()
+          .toByteString
+      )
+      inside(support.checkEntryIsReadable(noKey, value)) { case Left(message) =>
+        message should startWith("Unexpected submission batch message:")
       }
     }
 
     "fail on a log entry with an invalid payload" in {
       val key = aValidLogEntryId
       val value = Envelope.enclose(DamlLogEntry.newBuilder.build())
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Left(message) => message should be("Log entry payload not set.")
+      inside(support.checkEntryIsReadable(key, value)) { case Left(message) =>
+        message should be("Log entry payload not set.")
       }
     }
 
     "fail on a state entry with an invalid key" in {
-      val key = DamlStateKey.newBuilder.build().toByteString
+      val key = Raw.Key(DamlStateKey.newBuilder.build().toByteString)
       val value = aValidStateValue
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Left(message) => message should be("State key not set.")
+      inside(support.checkEntryIsReadable(key, value)) { case Left(message) =>
+        message should be("State key not set.")
       }
     }
 
     "fail on a state entry with an invalid value" in {
       val key = aValidStateKey
       val value = Envelope.enclose(DamlStateValue.newBuilder.build())
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Left(message) => message should be("State value not set.")
+      inside(support.checkEntryIsReadable(key, value)) { case Left(message) =>
+        message should be("State value not set.")
       }
     }
 
@@ -111,42 +117,51 @@ final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Match
     "unfortunately, allow a log entry ID with a state value" in {
       val key = aValidLogEntryId
       val value = aValidStateValue
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Right(()) => succeed
+      inside(support.checkEntryIsReadable(key, value)) { case Right(()) =>
+        succeed
       }
     }
 
     "unfortunately, allow a state key with a log entry" in {
       val key = aValidStateKey
       val value = aValidLogEntry
-      inside(support.checkEntryIsReadable(key, value)) {
-        case Right(()) => succeed
+      inside(support.checkEntryIsReadable(key, value)) { case Right(()) =>
+        succeed
       }
     }
   }
 }
 
 object LogAppendingCommitStrategySupportSpec {
-  private val noKey: ByteString = ByteString.EMPTY
+  private val noKey: Raw.Key =
+    Raw.Key(ByteString.EMPTY)
 
-  private val aValidLogEntryId: ByteString =
-    DamlLogEntryId.newBuilder.setEntryId(ByteString.copyFromUtf8("entry-id")).build().toByteString
+  private val aValidLogEntryId: Raw.Key =
+    Raw.Key(
+      DamlLogEntryId.newBuilder
+        .setEntryId(ByteString.copyFromUtf8("entry-id"))
+        .build()
+        .toByteString
+    )
 
-  private val aValidLogEntry: ByteString =
+  private val aValidLogEntry: Raw.Value =
     Envelope.enclose(
       DamlLogEntry.newBuilder
         .setPartyAllocationEntry(DamlPartyAllocationEntry.newBuilder.setParty("Alice"))
-        .build())
+        .build()
+    )
 
-  private val aValidStateKey: ByteString =
-    DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build().toByteString
+  private val aValidStateKey: Raw.Key =
+    Raw.Key(DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build().toByteString)
 
-  private val aValidStateValue: ByteString =
+  private val aValidStateValue: Raw.Value =
     Envelope.enclose(
       DamlStateValue.newBuilder
         .setConfigurationEntry(
           DamlConfigurationEntry.newBuilder
             .setParticipantId("participant")
-            .setConfiguration(LedgerConfiguration.newBuilder.setGeneration(1)))
-        .build())
+            .setConfiguration(LedgerConfiguration.newBuilder.setGeneration(1))
+        )
+        .build()
+    )
 }

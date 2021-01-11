@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,8 +13,14 @@ script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart 
 da_scala_library(
     name = "converter",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = script_scalacopts,
     tags = ["maven_coordinates=com.daml:script-converter:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
@@ -23,6 +29,5 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

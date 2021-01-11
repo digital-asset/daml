@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -22,7 +22,8 @@ object Config {
           new ProposeAccept(proposer, accepter, note)
         case _ =>
           throw new IllegalArgumentException(s"Illegal test name or parameters '$s'")
-    })
+      }
+    )
 
   val parser: OptionParser[Config] = new scopt.OptionParser[Config]("migration-step") {
     opt[Path]("dar")

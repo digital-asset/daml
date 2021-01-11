@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPartyAllocation,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
@@ -80,7 +80,7 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
       val expectedKey2 = aKeyWithContractId("a2")
       val expected = Map(
         expectedKey1 -> Some(aValue),
-        expectedKey2 -> None
+        expectedKey2 -> None,
       )
       val inputs = expected ++ Map(aKeyWithContractId("b") -> Some(aValue))
       val context = newInstance(inputs = inputs)
@@ -170,7 +170,8 @@ object CommitContextSpec {
 
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
-      inputs: DamlStateMap = Map.empty) =
+      inputs: DamlStateMap = Map.empty,
+  ) =
     CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =

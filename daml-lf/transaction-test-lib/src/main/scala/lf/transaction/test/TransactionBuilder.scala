@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,8 +14,9 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
-final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion = _ =>
-  TransactionVersion.minVersion) {
+final class TransactionBuilder(
+    pkgTxVersion: Ref.PackageId => TransactionVersion = _ => TransactionVersion.minVersion
+) {
 
   import TransactionBuilder._
 
@@ -50,7 +51,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
         children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
-          s"Node ${parentId.index} either does not exist or is not an exercise")
+          s"Node ${parentId.index} either does not exist or is not an exercise"
+        )
     }
     nodeId
   }
@@ -65,7 +67,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     }
     val finalRoots = roots.toImmArray
     val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      acc max finalNodes(nodeId).version)
+      acc max finalNodes(nodeId).version
+    )
     VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
 
@@ -99,7 +102,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       ),
       optLocation = None,
       signatories = signatories.map(Ref.Party.assertFromString).toSet,
-      stakeholders = signatories.union(observers).map(Ref.Party.assertFromString).toSet,
+      stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
       key = key.map(keyWithMaintainers(maintainers = signatories, _)),
       version = pkgTxVersion(templateId.packageId),
     )
@@ -204,11 +207,10 @@ object TransactionBuilder {
     LfValue.ValueRecord(
       tycon = None,
       fields = ImmArray(
-        fields.map {
-          case (name, value) =>
-            (Some(Ref.Name.assertFromString(name)), LfValue.ValueText(value))
-        },
-      )
+        fields.map { case (name, value) =>
+          (Some(Ref.Name.assertFromString(name)), LfValue.ValueText(value))
+        }
+      ),
     )
 
   def tuple(values: String*): Value =
@@ -247,7 +249,7 @@ object TransactionBuilder {
 
   def assignVersion[Cid](
       v0: Value,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.StableVersions
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.StableVersions,
   ): Either[String, TransactionVersion] = {
     @tailrec
     def go(
@@ -277,8 +279,8 @@ object TransactionBuilder {
                 go(currentVersion, values)
               // for things added after version 10, we raise the minimum if present
               case ValueGenMap(entries) =>
-                val newValues = entries.iterator.foldLeft(values) {
-                  case (acc, (key, value)) => key +: value +: acc
+                val newValues = entries.iterator.foldLeft(values) { case (acc, (key, value)) =>
+                  key +: value +: acc
                 }
                 go(currentVersion max TransactionVersion.minGenMap, newValues)
             }

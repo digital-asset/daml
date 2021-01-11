@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres
 
 // Copied here to make it safe against future refactoring
 // in production code
-/**
-  * Type aliases used throughout the package
+/** Type aliases used throughout the package
   */
 package object v29_fix_participant_events {
 

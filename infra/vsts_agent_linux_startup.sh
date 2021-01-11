@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Agent startup script
@@ -153,7 +153,7 @@ rm /etc/sudoers.d/nix_installation
 # legacy reasons; it bears no relation to the DNS hostname of the current
 # cache.
 cat <<NIX_CONF > /etc/nix/nix.conf
-binary-cache-public-keys = hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs=
+binary-cache-public-keys = hydra.da-int.net-2:91tXuJGf/ExbAz7IWsMsxQ5FsO6lG/EGM5QVt+xhZu0= hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs=
 binary-caches = https://nix-cache.da-ext.net https://cache.nixos.org
 build-users-group = nixbld
 cores = 1
@@ -163,7 +163,7 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
-# Warm up local caches by building dev-env and current daml master
+# Warm up local caches by building dev-env and current daml main
 # This is allowed to fail, as we still want to have CI machines
 # around, even when their caches are only warmed up halfway
 su --login vsts <<'CACHE_WARMUP'

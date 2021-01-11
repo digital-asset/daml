@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -37,7 +37,7 @@ private final class RingIterator[A](ringStart: Int, ringSize: Int, buffer: Array
   private var first = true
   private def nextPos: Int = (pos + 1) % ringSize
   def hasNext: Boolean = ringSize != 0 && (first || pos != ringStart)
-  def next: A = {
+  def next(): A = {
     val x = buffer(pos)
     first = false
     pos = nextPos

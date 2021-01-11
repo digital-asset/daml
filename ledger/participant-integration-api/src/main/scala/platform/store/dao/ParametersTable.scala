@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -37,12 +37,11 @@ private[dao] object ParametersTable {
     byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
 
   private val LedgerEndAndConfigurationParser: RowParser[Option[(Offset, Configuration)]] =
-    LedgerEndParser ~ ConfigurationParser map {
-      case ledgerEnd ~ configuration =>
-        for {
-          e <- ledgerEnd
-          c <- configuration
-        } yield (e, c)
+    LedgerEndParser ~ ConfigurationParser map { case ledgerEnd ~ configuration =>
+      for {
+        e <- ledgerEnd
+        c <- configuration
+      } yield (e, c)
     }
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
@@ -73,8 +72,7 @@ private[dao] object ParametersTable {
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
 
-  /**
-    * Updates the ledger end.
+  /** Updates the ledger end.
     *
     * When provided with a (previous, current) ledger end tuple ([[IncrementalOffsetStep]],
     * the update is performed conditioned by the match between the persisted ledger end and the
@@ -91,7 +89,8 @@ private[dao] object ParametersTable {
       case CurrentOffset(ledgerEnd) =>
         discard(
           SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
-            .execute())
+            .execute()
+        )
       case IncrementalOffsetStep(previousOffset, ledgerEnd) =>
         val sqlStatement =
           SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where #$LedgerEndColumnName = $previousOffset"
@@ -100,8 +99,8 @@ private[dao] object ParametersTable {
         }
     }
 
-  def updateConfiguration(configuration: Array[Byte])(
-      implicit connection: Connection,
+  def updateConfiguration(configuration: Array[Byte])(implicit
+      connection: Connection
   ): Unit =
     discard(SQL"update #$TableName set #$ConfigurationColumnName = $configuration".execute())
 
@@ -112,5 +111,6 @@ private[dao] object ParametersTable {
 
   case class LedgerEndUpdateError(expected: Offset)
       extends RuntimeException(
-        s"Could not update ledger end. Previous ledger end does not match expected ${expected.toHexString}")
+        s"Could not update ledger end. Previous ledger end does not match expected ${expected.toHexString}"
+      )
 }

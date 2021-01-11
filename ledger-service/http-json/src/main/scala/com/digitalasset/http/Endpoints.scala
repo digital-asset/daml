@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.headers.{
   ModeledCustomHeader,
   ModeledCustomHeaderCompanion,
   OAuth2BearerToken,
-  `X-Forwarded-Proto`
+  `X-Forwarded-Proto`,
 }
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -50,9 +50,8 @@ class Endpoints(
     healthService: HealthService,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
-    maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"))(
-    implicit ec: ExecutionContext,
-    mat: Materializer)
+    maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
+)(implicit ec: ExecutionContext, mat: Materializer)
     extends StrictLogging {
 
   import Endpoints._
@@ -178,36 +177,34 @@ class Endpoints(
 
   def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
-      _.map {
-        case (jwt, jwtPayload, _) =>
-          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
-            contractsService.retrieveAll(jwt, jwtPayload)
+      _.map { case (jwt, jwtPayload, _) =>
+        val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+          contractsService.retrieveAll(jwt, jwtPayload)
 
-          domain.SyncResponse.covariant.map(result) { source =>
-            source
-              .via(handleSourceFailure)
-              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
-          }
+        domain.SyncResponse.covariant.map(result) { source =>
+          source
+            .via(handleSourceFailure)
+            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+        }
       }
     }
 
   def query(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
-      _.flatMap {
-        case (jwt, jwtPayload, reqBody) =>
-          SprayJson
-            .decode[domain.GetActiveContractsRequest](reqBody)
-            .liftErr(InvalidUserInput)
-            .map { cmd =>
-              val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
-                contractsService.search(jwt, jwtPayload, cmd)
+      _.flatMap { case (jwt, jwtPayload, reqBody) =>
+        SprayJson
+          .decode[domain.GetActiveContractsRequest](reqBody)
+          .liftErr(InvalidUserInput)
+          .map { cmd =>
+            val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
+              contractsService.search(jwt, jwtPayload, cmd)
 
-              domain.SyncResponse.covariant.map(result) { source =>
-                source
-                  .via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-              }
+            domain.SyncResponse.covariant.map(result) { source =>
+              source
+                .via(handleSourceFailure)
+                .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
             }
+          }
       }
     }
 
@@ -216,7 +213,8 @@ class Endpoints(
 
   def parties(req: HttpRequest): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
     proxyWithCommand[NonEmptyList[domain.Party], (Set[domain.PartyDetails], Set[domain.Party])](
-      (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd)))(req)
+      (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
+    )(req)
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
   def allocateParty(req: HttpRequest): ET[domain.SyncResponse[domain.PartyDetails]] =
@@ -236,7 +234,8 @@ class Endpoints(
         HttpResponse(
           entity = HttpEntity.apply(
             ContentTypes.`application/octet-stream`,
-            ProtobufByteStrings.toSource(x.archivePayload))
+            ProtobufByteStrings.toSource(x.archivePayload),
+          )
         )
     }
   }
@@ -250,49 +249,47 @@ class Endpoints(
       _ <- eitherT(
         handleFutureFailure(
           packageManagementService.uploadDarFile(jwt, source.mapMaterializedValue(_ => NotUsed))
-        )): ET[Unit]
+        )
+      ): ET[Unit]
 
     } yield domain.OkResponse(())
 
   private def handleFutureEitherFailure[B](fa: Future[Error \/ B]): Future[Error \/ B] =
-    fa.recover {
-      case NonFatal(e) =>
-        logger.error("Future failed", e)
-        -\/(ServerError(e.description))
+    fa.recover { case NonFatal(e) =>
+      logger.error("Future failed", e)
+      -\/(ServerError(e.description))
     }
 
   private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
-    fa.map(_.liftErr(ServerError)).recover {
-      case NonFatal(e) =>
-        logger.error("Future failed", e)
-        -\/(ServerError(e.description))
+    fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
+      logger.error("Future failed", e)
+      -\/(ServerError(e.description))
     }
 
   private def handleFutureFailure[A](fa: Future[A]): Future[ServerError \/ A] =
-    fa.map(a => \/-(a)).recover {
-      case NonFatal(e) =>
-        logger.error("Future failed", e)
-        -\/(ServerError(e.description))
+    fa.map(a => \/-(a)).recover { case NonFatal(e) =>
+      logger.error("Future failed", e)
+      -\/(ServerError(e.description))
     }
 
   private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
     Flow
       .fromFunction((_: E \/ A).liftErr(ServerError))
-      .recover {
-        case NonFatal(e) =>
-          logger.error("Source failed", e)
-          -\/(ServerError(e.description))
+      .recover { case NonFatal(e) =>
+        logger.error("Source failed", e)
+        -\/(ServerError(e.description))
       }
 
   private def httpResponse(
-      output: Future[Error \/ SearchResult[Error \/ JsValue]]): Future[HttpResponse] =
+      output: Future[Error \/ SearchResult[Error \/ JsValue]]
+  ): Future[HttpResponse] =
     output
       .map {
         case -\/(e) => httpResponseError(e)
         case \/-(searchResult) => httpResponse(searchResult)
       }
-      .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.description))
+      .recover { case NonFatal(e) =>
+        httpResponseError(ServerError(e.description))
       }
 
   private def httpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
@@ -310,7 +307,7 @@ class Endpoints(
     HttpResponse(
       status = StatusCodes.OK,
       entity = HttpEntity
-        .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_)))
+        .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
     )
   }
 
@@ -322,16 +319,16 @@ class Endpoints(
         either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError))
       }.run
     fa.map {
-        case -\/(e) =>
-          httpResponseError(e)
-        case \/-((jsVal, status)) =>
-          HttpResponse(
-            entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
-            status = status)
-      }
-      .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.description))
-      }
+      case -\/(e) =>
+        httpResponseError(e)
+      case \/-((jsVal, status)) =>
+        HttpResponse(
+          entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
+          status = status,
+        )
+    }.recover { case NonFatal(e) =>
+      httpResponseError(ServerError(e.description))
+    }
   }
 
   private[http] def data(entity: RequestEntity): Future[String] =
@@ -353,8 +350,9 @@ class Endpoints(
       jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
     } yield (t2._1, jsVal)
 
-  private[http] def withJwtPayload[A, P](fa: (Jwt, A))(
-      implicit parse: ParsePayload[P]): Unauthorized \/ (Jwt, P, A) =
+  private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
+      parse: ParsePayload[P]
+  ): Unauthorized \/ (Jwt, P, A) =
     decodeAndParsePayload[P](fa._1, decodeJwt).map(t2 => (t2._1, t2._2, fa._2))
 
   private[http] def inputAndJwtPayload[P](
@@ -362,8 +360,9 @@ class Endpoints(
   )(implicit parse: ParsePayload[P]): Future[Unauthorized \/ (Jwt, P, String)] =
     input(req).map(_.flatMap(withJwtPayload[String, P]))
 
-  private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(
-      implicit parse: ParsePayload[P]): ET[(Jwt, P, JsValue)] =
+  private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
+      parse: ParsePayload[P]
+  ): ET[(Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
 
   private[http] def inputSource(
@@ -380,11 +379,12 @@ class Endpoints(
   private[this] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
     ensureHttpsForwarded(req) flatMap { _ =>
       req.headers
-        .collectFirst {
-          case Authorization(OAuth2BearerToken(token)) => Jwt(token)
+        .collectFirst { case Authorization(OAuth2BearerToken(token)) =>
+          Jwt(token)
         }
         .toRightDisjunction(
-          Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
+          Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token")
+        )
     }
 
   private[this] def ensureHttpsForwarded(req: HttpRequest): Unauthorized \/ Unit =
@@ -407,8 +407,8 @@ class Endpoints(
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      reference: domain.ContractLocator[LfValue])
-    : Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
+      reference: domain.ContractLocator[LfValue],
+  ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
@@ -426,8 +426,9 @@ class Endpoints(
       a <- eitherT(handleFutureFailure(fn(t3._1))): ET[A]
     } yield a
 
-  private def proxyWithCommand[A: JsonReader, R](fn: (Jwt, A) => Future[Error \/ R])(
-      req: HttpRequest): ET[R] =
+  private def proxyWithCommand[A: JsonReader, R](
+      fn: (Jwt, A) => Future[Error \/ R]
+  )(req: HttpRequest): ET[R] =
     for {
       t2 <- inputJsVal(req): ET[(Jwt, JsValue)]
       (jwt, reqBody) = t2
@@ -465,7 +466,7 @@ object Endpoints {
 
   private def partiesResponse(
       parties: List[domain.PartyDetails],
-      unknownParties: List[domain.Party]
+      unknownParties: List[domain.Party],
   ): domain.SyncResponse[List[domain.PartyDetails]] = {
 
     val warnings: Option[domain.UnknownParties] =

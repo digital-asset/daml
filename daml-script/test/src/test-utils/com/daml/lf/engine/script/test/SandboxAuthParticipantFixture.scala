@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -35,19 +35,26 @@ trait SandboxAuthParticipantFixture
             host = "localhost",
             port = serverPort.value,
             access_token = Some(getToken(parties, admin)),
-            application_id = Some(appId))),
+            application_id = Some(appId),
+          )
+        ),
         party_participants = Map.empty,
-        participants = Map.empty
+        participants = Map.empty,
       ),
       tlsConfig = TlsConfiguration(false, None, None, None),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize
+      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
     )
 
   private val secret = "secret"
   override def config = super.config.copy(
     timeProviderType = Some(TimeProviderType.WallClock),
-    authService = Some(AuthServiceJWT(HMAC256Verifier(secret).valueOr(err =>
-      sys.error(s"Failed to create HMAC256 verifierd $err")))),
+    authService = Some(
+      AuthServiceJWT(
+        HMAC256Verifier(secret).valueOr(err =>
+          sys.error(s"Failed to create HMAC256 verifierd $err")
+        )
+      )
+    ),
   )
   override def timeMode = ScriptTimeMode.WallClock
 
@@ -62,7 +69,7 @@ trait SandboxAuthParticipantFixture
       applicationId = Some(appId.unwrap),
       actAs = parties,
       admin = admin,
-      readAs = List()
+      readAs = List(),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))

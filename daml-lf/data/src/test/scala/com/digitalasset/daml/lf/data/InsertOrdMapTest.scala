@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -20,7 +20,8 @@ class InsertOrdMapTest extends AnyWordSpec with Matchers {
       InsertOrdMap(1 -> "a", 2 -> "b").updated(3, "c").toSeq shouldEqual Seq(
         1 -> "a",
         2 -> "b",
-        3 -> "c")
+        3 -> "c",
+      )
     }
 
     "insert without changing order if key is present" in {

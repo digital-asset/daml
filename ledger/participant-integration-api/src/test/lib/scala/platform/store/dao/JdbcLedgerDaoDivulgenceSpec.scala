@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -69,7 +69,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           chosenValue = someValueRecord,
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
-          choiceObservers = Set.empty, //FIXME #7709, also test the case of non-empty choice-observers
+          // TODO https://github.com/digital-asset/daml/issues/7709
+          //  also test the case of non-empty choice-observers
+          choiceObservers = Set.empty,
           children = ImmArray.empty,
           exerciseResult = None,
           key = None,
@@ -138,8 +140,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         agreementText = someContractInstance.agreementText,
         arg = VersionedValue(
           version = TransactionVersion.V10,
-          value = someContractInstance.arg
-        )
+          value = someContractInstance.arg,
+        ),
       )
 
     val t1 = Instant.now()
@@ -186,7 +188,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           recordedAt = t3,
           transaction = tx3,
           explicitDisclosure = Map.empty,
-        )
+        ),
       )
     } yield {
       succeed

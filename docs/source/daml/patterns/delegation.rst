@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Delegation
@@ -11,7 +11,7 @@ Motivation
 
 Delegation is prevalent in the business world. In fact, the entire custodian business is based on delegation. When a company chooses a custodian bank, it is effectively giving the bank the rights to hold their securities and settle transactions on their behalf. The securities are not legally possessed by the custodian banks, but the banks should have full rights to perform actions in the client's name, such as making payments or changing investments.
 
-The Delegation pattern enables DAML modelers to model the real-world business contractual agreements between custodian banks and their customers. Ownership and administration rights can be segregated easily and clearly.
+The Delegation pattern enables Daml modelers to model the real-world business contractual agreements between custodian banks and their customers. Ownership and administration rights can be segregated easily and clearly.
 
 Implementation
 **************
@@ -42,7 +42,7 @@ Delegation Contract
     :language: daml
     :lines: 74-76
 
-.. note:: The technique is likely to change in the future. DAML is actively researching future language features for contract disclosure.
+.. note:: The technique is likely to change in the future. Daml is actively researching future language features for contract disclosure.
 
 .. figure:: images/delegation.png
 

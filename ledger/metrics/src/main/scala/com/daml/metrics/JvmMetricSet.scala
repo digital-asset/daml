@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -10,12 +10,12 @@ import com.codahale.metrics.jvm.{
   GarbageCollectorMetricSet,
   JvmAttributeGaugeSet,
   MemoryUsageGaugeSet,
-  ThreadStatesGaugeSet
+  ThreadStatesGaugeSet,
 }
 import com.codahale.metrics.{Metric, MetricSet}
 import com.daml.metrics.JvmMetricSet._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class JvmMetricSet extends MetricSet {
   private val metricSets = Map(
@@ -27,13 +27,11 @@ class JvmMetricSet extends MetricSet {
   )
 
   override def getMetrics: util.Map[String, Metric] =
-    metricSets.flatMap {
-      case (metricSetName, metricSet) =>
-        val metricSetPrefix = Prefix :+ metricSetName
-        metricSet.getMetrics.asScala.map {
-          case (metricName, metric) =>
-            (metricSetPrefix :+ metricName).toString -> metric
-        }
+    metricSets.flatMap { case (metricSetName, metricSet) =>
+      val metricSetPrefix = Prefix :+ metricSetName
+      metricSet.getMetrics.asScala.map { case (metricName, metric) =>
+        (metricSetPrefix :+ metricName).toString -> metric
+      }
     }.asJava
 }
 

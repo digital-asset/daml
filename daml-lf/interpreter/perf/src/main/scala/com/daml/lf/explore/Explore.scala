@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -40,7 +40,7 @@ object PlaySpeedy {
   }
 
   final case class Config(
-      names: List[String],
+      names: List[String]
   )
 
   def usage(): Unit = {
@@ -111,23 +111,28 @@ object PlaySpeedy {
       (
         "sub", //11-33
         -22,
-        subtract2(num(11), num(33))),
+        subtract2(num(11), num(33)),
+      ),
       (
         "sub/sub", // (1-3)-(5-10)
         3,
-        subtract2(subtract2(num(1), num(3)), subtract2(num(5), num(10)))),
+        subtract2(subtract2(num(1), num(3)), subtract2(num(5), num(10))),
+      ),
       (
         "subF", //88-55
         33,
-        SEApp(subtract, Array(num(88), num(55)))),
+        SEApp(subtract, Array(num(88), num(55))),
+      ),
       (
         "thrice", // thrice (\x -> x - 1) 0
         -3,
-        SEApp(thrice, Array(decrement, num(0)))),
+        SEApp(thrice, Array(decrement, num(0))),
+      ),
       (
         "thrice-thrice", //thrice thrice (\x -> x - 1) 0
         -27,
-        SEApp(thrice, Array(thrice, decrement, num(0)))),
+        SEApp(thrice, Array(thrice, decrement, num(0))),
+      ),
       (
         "free", // let (a,b,c) = (30,100,21) in twice (\x -> x - (a-c)) b
         82,
@@ -139,9 +144,12 @@ object PlaySpeedy {
               num(21),
               SEApp(
                 twice,
-                Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)))) //100
-          ))
-      )
+                Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)),
+              ),
+            ), //100
+          ),
+        ),
+      ),
     )
 
     val res = examples.map { case (k, x, e) => (k, (x, e)) }.toMap

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -23,7 +23,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).right.get
+  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).toOption.get
 
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromPureExpr(noPackages, e)
@@ -119,7 +119,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
 
     a[Compiler.CompilationError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
+      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text""")
     )
   }
 
@@ -163,7 +163,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       log.add("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
-      iter.next shouldBe (("test", None))
+      iter.next() shouldBe (("test", None))
       iter.hasNext shouldBe false
     }
     "overflow" in {
@@ -173,9 +173,9 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       log.add("test3", None) // should replace "test1"
       val iter = log.iterator
       iter.hasNext shouldBe true
-      iter.next shouldBe (("test2", None))
+      iter.next() shouldBe (("test2", None))
       iter.hasNext shouldBe true
-      iter.next shouldBe (("test3", None))
+      iter.next() shouldBe (("test3", None))
       iter.hasNext shouldBe false
     }
   }
@@ -196,19 +196,19 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                   name = modName,
                   definitions = Map(
                     DottedName.assertFromString("bar") ->
-                      DValue(TBuiltin(BTBool), true, ETrue, false),
+                      DValue(TBuiltin(BTBool), true, ETrue, false)
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,
                   featureFlags = FeatureFlags.default,
-                ),
+                )
               ),
               Set.empty[PackageId],
               LanguageVersion.default,
               None,
-            ),
-        ),
-      ).right.get
+            )
+        )
+      ).toOption.get
     val pkgs3 = PureCompiledPackages(
       Map(
         dummyPkg ->
@@ -220,14 +220,14 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                 templates = Map.empty,
                 exceptions = Map.empty,
                 featureFlags = FeatureFlags.default,
-              ),
+              )
             ),
             Set.empty[PackageId],
             LanguageVersion.default,
             None,
-          ),
-      ),
-    ).right.get
+          )
+      )
+    ).toOption.get
 
     "succeeds" in {
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))

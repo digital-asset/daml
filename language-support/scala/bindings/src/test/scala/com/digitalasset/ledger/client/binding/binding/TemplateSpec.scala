@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -44,8 +44,8 @@ object TemplateSpec {
         template: P.Int64,
         create: P.Int64,
         namedArguments: P.Int64,
-        archive: P.Int64)
-        extends Template[CNA] {
+        archive: P.Int64,
+    ) extends Template[CNA] {
       protected[this] override def templateCompanion(implicit d: DummyImplicit) = CNA
     }
     // We've already passed the first test, by scalac checking that

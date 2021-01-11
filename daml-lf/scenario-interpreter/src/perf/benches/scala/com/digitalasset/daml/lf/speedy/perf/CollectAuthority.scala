@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -42,8 +42,8 @@ class CollectAuthorityState {
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
     val packages = UniversalArchiveReader().readFile(darFile).get
-    val packagesMap = packages.all.map {
-      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+    val packagesMap = packages.all.map { case (pkgId, pkgArchive) =>
+      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
     }.toMap
 
     val compilerConfig =
@@ -115,7 +115,7 @@ class CollectAuthorityState {
             ledger.currentTime,
             onLedger.commitLocation,
             tx,
-            ledger
+            ledger,
           ) match {
             case Left(fas) => crash(s"commitTransaction failed: $fas")
             case Right(result) =>
@@ -128,7 +128,8 @@ class CollectAuthorityState {
           ledger.lookupGlobalContract(
             ScenarioLedger.ParticipantView(committers, Set()),
             effectiveAt,
-            acoid) match {
+            acoid,
+          ) match {
             case ScenarioLedger.LookupOk(_, result, _) =>
               cachedContract = cachedContract + (step -> result)
               callback(result)

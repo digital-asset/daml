@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger.inmemory
@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.sandbox.stores.ledger.SandboxOffset
 
+import scala.collection.compat._
 import scala.collection.immutable.TreeMap
 
 private[inmemory] class LedgerEntries[T](identify: T => String) {
@@ -27,10 +28,9 @@ private[inmemory] class LedgerEntries[T](identify: T => String) {
   private val state = new AtomicReference(Entries(ledgerBeginning, TreeMap.empty))
 
   private def store(item: T): Offset = {
-    val Entries(newOffset, _) = state.updateAndGet({
-      case Entries(ledgerEnd, ledger) =>
-        val newEnd = SandboxOffset.toOffset(SandboxOffset.fromOffset(ledgerEnd) + 1)
-        Entries(newEnd, ledger + (newEnd -> item))
+    val Entries(newOffset, _) = state.updateAndGet({ case Entries(ledgerEnd, ledger) =>
+      val newEnd = SandboxOffset.toOffset(SandboxOffset.fromOffset(ledgerEnd) + 1)
+      Entries(newEnd, ledger + (newEnd -> item))
     })
     if (logger.isTraceEnabled())
       logger.trace("Recording `{}` at offset `{}`", identify(item): Any, newOffset.toApiString: Any)
@@ -38,10 +38,9 @@ private[inmemory] class LedgerEntries[T](identify: T => String) {
   }
 
   def incrementOffset(increment: Int): Offset = {
-    val Entries(newOffset, _) = state.updateAndGet({
-      case Entries(ledgerEnd, ledger) =>
-        val newEnd = SandboxOffset.toOffset(SandboxOffset.fromOffset(ledgerEnd) + increment)
-        Entries(newEnd, ledger)
+    val Entries(newOffset, _) = state.updateAndGet({ case Entries(ledgerEnd, ledger) =>
+      val newEnd = SandboxOffset.toOffset(SandboxOffset.fromOffset(ledgerEnd) + increment)
+      Entries(newEnd, ledger)
     })
     if (logger.isTraceEnabled())
       logger.trace("Bumping offset to `{}`", newOffset.toApiString)
@@ -52,15 +51,21 @@ private[inmemory] class LedgerEntries[T](identify: T => String) {
 
   def getSource(
       startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, T), NotUsed] =
+      endInclusive: Option[Offset],
+  ): Source[(Offset, T), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(ledgerBeginning),
-      RangeSource(
-        (exclusiveStart, inclusiveEnd) =>
-          Source[(Offset, T)](
-            state.get().items.from(exclusiveStart).filter(_._1 > exclusiveStart).to(inclusiveEnd)),
+      RangeSource((exclusiveStart, inclusiveEnd) =>
+        Source[(Offset, T)](
+          state
+            .get()
+            .items
+            .rangeFrom(exclusiveStart)
+            .filter(_._1 > exclusiveStart)
+            .rangeTo(inclusiveEnd)
+        )
       ),
-      endInclusive
+      endInclusive,
     )
 
   def publish(item: T): Offset = {

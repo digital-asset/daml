@@ -1,9 +1,8 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
@@ -13,11 +12,12 @@ import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.Function.const
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
-    val ledgerId: LedgerId)
+    val ledgerId: LedgerId,
+)(implicit executionContext: ExecutionContext)
     extends PackageService
     with ProxyCloseable
     with GrpcApiService
@@ -30,7 +30,7 @@ class PackageServiceValidation(
       .map(const(request))
       .fold(
         Future.failed,
-        service.listPackages
+        service.listPackages,
       )
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
@@ -38,19 +38,20 @@ class PackageServiceValidation(
       .map(const(request))
       .fold(
         Future.failed,
-        service.getPackage
+        service.getPackage,
       )
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
+      request: GetPackageStatusRequest
+  ): Future[GetPackageStatusResponse] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         Future.failed,
-        service.getPackageStatus
+        service.getPackageStatus,
       )
   override def bindService(): ServerServiceDefinition =
-    PackageServiceGrpc.bindService(this, DirectExecutionContext)
+    PackageServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

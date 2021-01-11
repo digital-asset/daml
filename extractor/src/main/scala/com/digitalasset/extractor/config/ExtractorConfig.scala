@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.config
@@ -33,7 +33,7 @@ final case class ExtractorConfig(
     templateConfigs: Set[TemplateConfig],
     tlsConfig: TlsConfiguration,
     accessTokenFile: Option[Path],
-    appId: String = s"Extractor-${UUID.randomUUID().toString}"
+    appId: String = s"Extractor-${UUID.randomUUID().toString}",
 ) {
   def partySpec: String = parties.widen[String] intercalate ","
 }

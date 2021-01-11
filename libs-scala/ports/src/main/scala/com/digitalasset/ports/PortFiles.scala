@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ports
@@ -23,8 +23,7 @@ object PortFiles {
     }
   }
 
-  /**
-    * Creates a port file and requests that the created file be deleted when the virtual machine terminates.
+  /** Creates a port file and requests that the created file be deleted when the virtual machine terminates.
     * See [[java.io.File#deleteOnExit()]].
     */
   def write(path: Path, port: Port): Error \/ Unit =

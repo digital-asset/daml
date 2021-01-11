@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -63,7 +63,8 @@ object Generators {
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
     scalazEitherGen(
       Gen.zip(genDomainTemplateIdO[Option[String]], lfv),
-      Gen.zip(Gen.option(genDomainTemplateIdO[Option[String]]), contractIdGen))
+      Gen.zip(Gen.option(genDomainTemplateIdO[Option[String]]), contractIdGen),
+    )
 
   def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
     inputContractRefGen(lfv) map (domain.ContractLocator.structure.from(_))
@@ -80,26 +81,24 @@ object Generators {
       signatories <- Gen.listOf(partyGen)
       observers <- Gen.listOf(partyGen)
       agreementText <- Gen.identifier
-    } yield
-      domain.ActiveContract[JsValue](
-        contractId = contractId,
-        templateId = templateId,
-        key = key,
-        payload = argument,
-        signatories = signatories,
-        observers = observers,
-        agreementText = agreementText
-      )
+    } yield domain.ActiveContract[JsValue](
+      contractId = contractId,
+      templateId = templateId,
+      key = key,
+      payload = argument,
+      signatories = signatories,
+      observers = observers,
+      agreementText = agreementText,
+    )
 
   def archivedContractGen: Gen[domain.ArchivedContract] =
     for {
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
-    } yield
-      domain.ArchivedContract(
-        contractId = contractId,
-        templateId = templateId
-      )
+    } yield domain.ArchivedContract(
+      contractId = contractId,
+      templateId = templateId,
+    )
 
   def contractLocatorGen: Gen[domain.ContractLocator[JsObject]] =
     Gen.oneOf(enrichedContractIdGen, enrichedContractKeyGen)
@@ -140,7 +139,7 @@ object Generators {
 
   private def genJsValue: Gen[JsValue] = Gen.oneOf(
     Gen.identifier.map(JsString(_): JsValue),
-    Gen.posNum[Int].map(JsNumber(_): JsValue)
+    Gen.posNum[Int].map(JsNumber(_): JsValue),
   )
 
   def absoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =

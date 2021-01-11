@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -14,8 +14,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.{Metrics, Timed}
 
-/**
-  * Adapts a [[LedgerReader]] instance to [[ReadService]].
+/** Adapts a [[LedgerReader]] instance to [[ReadService]].
   * Performs translation between the offsets required by the underlying reader and [[ReadService]]:
   *   * a 3 component integer offset is exposed to [[ReadService]] (see [[OffsetBuilder.fromLong]]),
   *   * a max. 2 component integer offset is expected from the underlying [[LedgerReader]], and
@@ -41,32 +40,32 @@ class KeyValueParticipantStateReader private[api] (
     Source
       .single(beginAfter.map(OffsetBuilder.dropLowestIndex))
       .flatMapConcat(reader.events)
-      .flatMapConcat {
-        case LedgerRecord(offset, entryId, envelope) =>
-          Timed
-            .value(metrics.daml.kvutils.reader.openEnvelope, Envelope.open(envelope))
-            .flatMap {
-              case Envelope.LogEntryMessage(logEntry) =>
-                Timed.value(
-                  metrics.daml.kvutils.reader.parseUpdates, {
-                    val logEntryId = DamlLogEntryId.parseFrom(entryId)
-                    val updates =
-                      logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
-                    val updatesWithOffsets = Source(updates).zipWithIndex.map {
-                      case (update, index) =>
-                        offsetForUpdate(offset, index.toInt, updates.size) -> update
+      .flatMapConcat { case LedgerRecord(offset, entryId, envelope) =>
+        Timed
+          .value(metrics.daml.kvutils.reader.openEnvelope, Envelope.open(envelope))
+          .flatMap {
+            case Envelope.LogEntryMessage(logEntry) =>
+              Timed.value(
+                metrics.daml.kvutils.reader.parseUpdates, {
+                  val logEntryId = DamlLogEntryId.parseFrom(entryId.bytes)
+                  val updates =
+                    logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
+                  val updatesWithOffsets =
+                    Source(updates).zipWithIndex.map { case (update, index) =>
+                      offsetForUpdate(offset, index.toInt, updates.size) -> update
                     }
-                    Right(updatesWithOffsets)
-                  }
-                )
-              case _ =>
-                if (failOnUnexpectedEvent)
-                  Left("Envelope does not contain a log entry")
-                else
-                  Right(Source.empty)
-            }
-            .getOrElse(throw new IllegalArgumentException(
-              s"Invalid log entry received at offset $offset"))
+                  Right(updatesWithOffsets)
+                },
+              )
+            case _ =>
+              if (failOnUnexpectedEvent)
+                Left("Envelope does not contain a log entry")
+              else
+                Right(Source.empty)
+          }
+          .getOrElse(
+            throw new IllegalArgumentException(s"Invalid log entry received at offset $offset")
+          )
       }
   }
 
@@ -77,7 +76,8 @@ class KeyValueParticipantStateReader private[api] (
     LedgerInitialConditions(
       reader.ledgerId(),
       LedgerReader.DefaultConfiguration,
-      Time.Timestamp.Epoch)
+      Time.Timestamp.Epoch,
+    )
 }
 
 object KeyValueParticipantStateReader {
@@ -98,7 +98,8 @@ object KeyValueParticipantStateReader {
   private[api] def offsetForUpdate(
       offsetFromRecord: Offset,
       index: Int,
-      totalUpdates: Int): Offset =
+      totalUpdates: Int,
+  ): Offset =
     if (totalUpdates > 1) {
       OffsetBuilder.setLowestIndex(offsetFromRecord, index)
     } else {

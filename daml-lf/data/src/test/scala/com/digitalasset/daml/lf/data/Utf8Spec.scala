@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -8,7 +8,8 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
@@ -30,7 +31,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       5 -> asciiCodepoints,
       5 -> twoWordsCodepoints,
       1 -> lowCodepoints,
-      1 -> highCodepoints
+      1 -> highCodepoints,
     )
 
   private val strings =
@@ -51,7 +52,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "explode in a same way a naive implementation" in {
       def naiveExplode(s: String) =
-        ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).toIterable)
+        ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).iterator.to(Iterable))
 
       forAll(strings) { s =>
         naiveExplode(s) shouldBe Utf8.explode(s)
@@ -111,8 +112,9 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     "respect Unicode ordering on complex string" in {
 
       // a naive inefficient Unicode ordering
+      import Ordering.Implicits._
       val naiveOrdering =
-        Ordering.by((s: String) => s.codePoints().toArray.toIterable)
+        Ordering.by((s: String) => s.codePoints().toArray.toSeq)
 
       forAll { list: List[String] =>
         list.sorted(naiveOrdering) shouldBe list.sorted(Utf8.Ordering)
@@ -121,8 +123,8 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "be strict on individual code points" in {
-      (legalCodePoints zip legalCodePoints.tail).foreach {
-        case (x, y) => Utf8.Ordering.compare(x, y) should be < 0
+      (legalCodePoints zip legalCodePoints.tail).foreach { case (x, y) =>
+        Utf8.Ordering.compare(x, y) should be < 0
       }
     }
 
@@ -133,8 +135,10 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     def makeImmArray(cp: Long) = ImmArray('-'.toLong, cp, '-'.toLong)
 
     "properly converts any legal code points" in {
-      for (cp <- (Character.MIN_CODE_POINT until Character.MIN_SURROGATE) ++
-          ((Character.MAX_SURROGATE + 1) to Character.MAX_CODE_POINT))
+      for (
+        cp <- (Character.MIN_CODE_POINT until Character.MIN_SURROGATE) ++
+          ((Character.MAX_SURROGATE + 1) to Character.MAX_CODE_POINT)
+      )
         Utf8.pack(makeImmArray(cp.toLong)) shouldBe "-" + new String(Character.toChars(cp)) + "-"
     }
 
@@ -152,7 +156,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
         Character.MAX_CODE_POINT + 1L,
         Character.MAX_CODE_POINT + 2L,
         Int.MaxValue.toLong,
-        Long.MaxValue
+        Long.MaxValue,
       )
 
       for (cp <- testCases)

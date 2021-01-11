@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -9,8 +9,7 @@ import java.util.concurrent.TimeUnit
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 
-/**
-  * Test application for decoding DARs. Useful for testing decoder performance and memory usage.
+/** Test application for decoding DARs. Useful for testing decoder performance and memory usage.
   */
 object DecodeMain extends App {
   if (args.length != 1) {

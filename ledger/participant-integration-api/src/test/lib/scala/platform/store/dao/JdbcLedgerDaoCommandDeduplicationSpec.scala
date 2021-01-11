@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -9,7 +9,7 @@ import java.util.UUID
 import com.daml.ledger.api.domain.CommandId
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
-  CommandDeduplicationNew
+  CommandDeduplicationNew,
 }
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -40,7 +40,8 @@ private[dao] trait JdbcLedgerDaoCommandDeduplicationSpec {
         commandId,
         List(alice, bob, alice),
         t(500),
-        t(5500))
+        t(5500),
+      )
     } yield {
       original shouldBe CommandDeduplicationNew
       duplicate1 shouldBe CommandDeduplicationDuplicate(t(5000))

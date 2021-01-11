@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.util
@@ -11,8 +11,8 @@ final case class Slf4JLogger[T, U](
     logger: Logger,
     prefix: String,
     project: T => U,
-    logDemand: Boolean = false)
-    extends GraphStage[FlowShape[T, T]] {
+    logDemand: Boolean = false,
+) extends GraphStage[FlowShape[T, T]] {
 
   override def toString = "Slf4JLog"
 

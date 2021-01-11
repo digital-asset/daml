@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -34,7 +34,7 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValue
       "agreementText" -> optionalString,
       "key" -> optionalContractKey,
       "signatories" -> setOfStrings,
-      "observers" -> setOfStrings
+      "observers" -> setOfStrings,
     )
   }
 
@@ -46,7 +46,8 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValue
       "record$" -> record,
       "agreementText" -> optionalString,
       "signatories" -> setOfStrings,
-      "observers" -> setOfStrings)
+      "observers" -> setOfStrings,
+    )
   }
 
   private[this] val className = ClassName.bestGuess("Test")
@@ -58,7 +59,8 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValue
       className,
       templateClassName,
       idClassName,
-      Some(ckClassName))
+      Some(ckClassName),
+    )
   private[this] val fromIdAndRecordWithoutKey =
     TemplateClass.generateFromIdAndRecord(className, templateClassName, idClassName, None)
   private[this] val string = TypeName.get(classOf[String])

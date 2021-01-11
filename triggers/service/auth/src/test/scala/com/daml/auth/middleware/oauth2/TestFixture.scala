@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -19,7 +19,7 @@ import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
   Resource,
-  SuiteResource
+  SuiteResource,
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
@@ -29,34 +29,43 @@ import org.scalatest.{BeforeAndAfterEach, Suite}
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
+case class TestResources(
+    clock: AdjustableClock,
+    authServer: OAuthServer,
+    authServerBinding: ServerBinding,
+    authMiddlewareBinding: ServerBinding,
+    authMiddlewareClient: Client,
+    authMiddlewareClientBinding: ServerBinding,
+)
+
 trait TestFixture
     extends AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
-    with SuiteResource[(AdjustableClock, OAuthServer, ServerBinding, ServerBinding)] {
+    with SuiteResource[TestResources] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val jwtSecret: String = "secret"
-  lazy protected val clock: AdjustableClock = suiteResource.value._1
-  lazy protected val server: OAuthServer = suiteResource.value._2
-  lazy protected val serverBinding: ServerBinding = suiteResource.value._3
-  lazy protected val middlewareBinding: ServerBinding = suiteResource.value._4
-  lazy protected val middlewareClient: Client = Client(
-    Client.Config(
-      authMiddlewareUri = Uri()
-        .withScheme("http")
-        .withAuthority(
-          middlewareBinding.localAddress.getHostName,
-          middlewareBinding.localAddress.getPort),
-      callbackUri = Uri("http://localhost/CALLBACK"),
-      maxHttpEntityUploadSize = 4194304,
-      httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES)
-    ))
-  override protected lazy val suiteResource
-    : Resource[(AdjustableClock, OAuthServer, ServerBinding, ServerBinding)] = {
+  protected val maxMiddlewareLogins: Int = Config.DefaultMaxLoginRequests
+  protected val maxClientAuthCallbacks: Int = 1000
+  protected val middlewareCallbackUri: Option[Uri] = None
+  lazy protected val clock: AdjustableClock = suiteResource.value.clock
+  lazy protected val server: OAuthServer = suiteResource.value.authServer
+  lazy protected val serverBinding: ServerBinding = suiteResource.value.authServerBinding
+  lazy protected val middlewareBinding: ServerBinding = suiteResource.value.authMiddlewareBinding
+  lazy protected val middlewareClient: Client = suiteResource.value.authMiddlewareClient
+  lazy protected val middlewareClientBinding: ServerBinding = {
+    suiteResource.value.authMiddlewareClientBinding
+  }
+  lazy protected val middlewareClientCallbackUri: Uri = {
+    val host = middlewareClientBinding.localAddress
+    Uri()
+      .withScheme("http")
+      .withAuthority("localhost", host.getPort)
+      .withPath(Uri.Path./("cb"))
+  }
+  override protected lazy val suiteResource: Resource[TestResources] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[
-      ResourceContext,
-      (AdjustableClock, OAuthServer, ServerBinding, ServerBinding)](
+    new OwnedResource[ResourceContext, TestResources](
       for {
         clock <- Resources.clock(Instant.now(), ZoneId.systemDefault())
         server = OAuthServer(
@@ -65,16 +74,21 @@ trait TestFixture
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
             clock = Some(clock),
-          ))
+          )
+        )
         serverBinding <- Resources.authServerBinding(server)
         serverUri = Uri()
           .withScheme("http")
           .withAuthority(
             serverBinding.localAddress.getHostString,
-            serverBinding.localAddress.getPort)
+            serverBinding.localAddress.getPort,
+          )
         middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
             port = Port.Dynamic,
+            callbackUri = middlewareCallbackUri,
+            maxLoginRequests = maxMiddlewareLogins,
+            loginTimeout = Config.DefaultLoginTimeout,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
             clientId = "middleware",
@@ -86,9 +100,37 @@ trait TestFixture
                 .build(new Auth0Clock {
                   override def getToday: Date = Date.from(clock.instant())
                 })
-            )
-          ))
-      } yield { (clock, server, serverBinding, middlewareBinding) }
+            ),
+          )
+        )
+        middlewareClientPort <- Resources.port()
+        middlewareClientConfig = Client.Config(
+          authMiddlewareUri = Uri()
+            .withScheme("http")
+            .withAuthority(
+              middlewareBinding.localAddress.getHostName,
+              middlewareBinding.localAddress.getPort,
+            ),
+          callbackUri = Uri()
+            .withScheme("http")
+            .withAuthority("localhost", middlewareClientPort.value)
+            .withPath(Uri.Path./("cb")),
+          maxAuthCallbacks = maxClientAuthCallbacks,
+          authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
+          maxHttpEntityUploadSize = 4194304,
+          httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES),
+        )
+        middlewareClient = Client(middlewareClientConfig)
+        middlewareClientBinding <- Resources
+          .authMiddlewareClientBinding(middlewareClientConfig, middlewareClient)
+      } yield TestResources(
+        clock = clock,
+        authServer = server,
+        authServerBinding = serverBinding,
+        authMiddlewareBinding = middlewareBinding,
+        authMiddlewareClient = middlewareClient,
+        authMiddlewareClientBinding = middlewareClientBinding,
+      )
     )
   }
 

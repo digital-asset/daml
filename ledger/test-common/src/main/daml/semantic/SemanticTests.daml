@@ -1,12 +1,12 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
--- These DAML scenarios test, where possible, the semantics of the underlying Ledger API implementation
+-- These Daml scenarios test, where possible, the semantics of the underlying Ledger API implementation
 -- with respect to consistency, authorization and privacy (including divulgence).
 --
 -- Notes: many of the ledger model properties are correct-by-construction
--- in DAML, therefore we do not test model conformance such as the behavior
+-- in Daml, therefore we do not test model conformance such as the behavior
 -- of malformed transactions or transactions with exercise before create
 -- inconsistency.
 module SemanticTests where

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -54,7 +54,7 @@ object FlywayMigrationsSpec {
 
       assert(
         currentDigest == expectedDigest,
-        s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!"
+        s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!",
       )
     }
   }
@@ -82,7 +82,8 @@ object FlywayMigrationsSpec {
            | - shasum -a 256 $sourceFile | awk '{print $$1}' > $digestFile (under the db/migration folder)
            | - or ledger/sandbox/src/main/resources/db/migration/recompute-sha256sums.sh
            |""".stripMargin))
-        .read())
+        .read()
+    )
 
   private def getCurrentDigest(res: LoadableResource, encoding: Charset) = {
     val digest = digester.digest(IOUtils.toByteArray(res.read(), encoding))

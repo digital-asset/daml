@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -10,7 +10,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
-import com.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.validation.iterable.TypeIterable
 
 import scala.annotation.tailrec
 
@@ -24,15 +24,13 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
+        BTAnyException | BTGeneralError | BTArithmeticError | BTContractError =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
-    case BTAnyException | BTArithmeticError | BTContractError | BTGeneralError =>
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("exceptions not supported")
   }
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
@@ -55,7 +53,9 @@ private[validation] object Typing {
         alpha.name -> KNat,
         TForall(
           beta.name -> KNat,
-          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
+          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
+        ),
+      )
     val tNumConversion =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
@@ -89,46 +89,45 @@ private[validation] object Typing {
       BFoldl ->
         TForall(
           alpha.name -> KStar,
-          TForall(
-            beta.name -> KStar,
-            (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+          TForall(beta.name -> KStar, (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
       BFoldr ->
         TForall(
           alpha.name -> KStar,
-          TForall(
-            beta.name -> KStar,
-            (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+          TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
       // Maps
       BTextMapEmpty ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha)
+          TTextMap(alpha),
         ),
       BTextMapInsert ->
         TForall(
           alpha.name -> KStar,
-          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha)
+          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha),
         ),
       BTextMapLookup ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TTextMap(alpha) ->: TOptional(alpha)
+          TText ->: TTextMap(alpha) ->: TOptional(alpha),
         ),
       BTextMapDelete ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TTextMap(alpha) ->: TTextMap(alpha)
+          TText ->: TTextMap(alpha) ->: TTextMap(alpha),
         ),
       BTextMapToList ->
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TList(
-            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha))))
+            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha)))
+          ),
         ),
       BTextMapSize ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha) ->: TInt64
+          TTextMap(alpha) ->: TInt64,
         ),
       // GenMaps
       BGenMapEmpty ->
@@ -138,42 +137,49 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta))),
+            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
+          ),
+        ),
       BGenMapLookup ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta)
-          )),
+            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta),
+          ),
+        ),
       BGenMapDelete ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
-          )),
+            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
+          ),
+        ),
       BGenMapKeys ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TList(alpha)
-          )),
+            TGenMap(alpha, beta) ->: TList(alpha),
+          ),
+        ),
       BGenMapValues ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TList(beta)
-          )),
+            TGenMap(alpha, beta) ->: TList(beta),
+          ),
+        ),
       BGenMapSize ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TInt64
-          )),
+            TGenMap(alpha, beta) ->: TInt64,
+          ),
+        ),
       // Text functions
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),
@@ -202,7 +208,8 @@ private[validation] object Typing {
       BEqualList ->
         TForall(
           alpha.name -> KStar,
-          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
+          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool,
+        ),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
       BEqual -> tComparison,
@@ -213,7 +220,16 @@ private[validation] object Typing {
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
-          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
+          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta)),
+        ),
+      // Exception functions
+      BMakeGeneralError -> (TText ->: TGeneralError),
+      BMakeArithmeticError -> (TText ->: TArithmeticError),
+      BMakeContractError -> (TText ->: TContractError),
+      BAnyExceptionMessage -> (TAnyException ->: TText),
+      BGeneralErrorMessage -> (TGeneralError ->: TText),
+      BArithmeticErrorMessage -> (TArithmeticError ->: TText),
+      BContractErrorMessage -> (TContractError ->: TText),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),
@@ -258,16 +274,25 @@ private[validation] object Typing {
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
-    mod.templates.foreach {
-      case (dfnName, template) =>
-        val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-        val env = Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), Map.empty)
-        world.lookupDataType(env.ctx, tyConName) match {
-          case DDataType(_, ImmArray(), DataRecord(_)) =>
-            env.checkTemplate(tyConName, template)
-          case _ =>
-            throw EExpectedTemplatableType(env.ctx, tyConName)
-        }
+    mod.templates.foreach { case (dfnName, template) =>
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+      val env = Env(languageVersion, world, ContextTemplate(tyConName), Map.empty)
+      world.lookupDataType(env.ctx, tyConName) match {
+        case DDataType(_, ImmArray(), DataRecord(_)) =>
+          env.checkTemplate(tyConName, template)
+        case _ =>
+          throw EExpectedTemplatableType(env.ctx, tyConName)
+      }
+    }
+    mod.exceptions.foreach { case (exnName, message) =>
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
+      val env = Env(languageVersion, world, ContextDefException(tyConName), Map.empty)
+      world.lookupDataType(env.ctx, tyConName) match {
+        case DDataType(_, ImmArray(), DataRecord(_)) =>
+          env.checkDefException(tyConName, message)
+        case _ =>
+          throw EExpectedExceptionableType(env.ctx, tyConName)
+      }
     }
   }
 
@@ -276,7 +301,7 @@ private[validation] object Typing {
       world: World,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
-      eVars: Map[ExprVarName, Type] = Map.empty
+      eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
     import world._
@@ -330,7 +355,7 @@ private[validation] object Typing {
     def checkEnumType[X](
         tyConName: => TypeConName,
         params: ImmArray[X],
-        values: ImmArray[EnumConName]
+        values: ImmArray[EnumConName],
     ): Unit = {
       if (params.nonEmpty) throw EIllegalHigherEnumType(ctx, tyConName)
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
@@ -362,14 +387,15 @@ private[validation] object Typing {
     private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
       choice match {
         case TemplateChoice(
-            name @ _,
-            consuming @ _,
-            controllers,
-            choiceObservers @ _,
-            selfBinder,
-            (param, paramType),
-            returnType,
-            update) =>
+              name @ _,
+              consuming @ _,
+              controllers,
+              choiceObservers @ _,
+              selfBinder,
+              (param, paramType),
+              returnType,
+              update,
+            ) =>
           checkType(paramType, KStar)
           checkType(returnType, KStar)
           introExprVar(param, paramType).checkExpr(controllers, TParties)
@@ -397,6 +423,12 @@ private[validation] object Typing {
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
+    }
+
+    def checkDefException(excepName: TypeConName, defException: DefException): Unit = {
+      val DefException(message) = defException
+      checkExpr(message, TTyCon(excepName) ->: TText)
+      ()
     }
 
     private def checkTypConApp(app: TypeConApp): DataCons = app match {
@@ -587,7 +619,7 @@ private[validation] object Typing {
         scrutTCon: TypeConName,
         scrutTArgs: ImmArray[Type],
         tparams: ImmArray[TypeVarName],
-        cons: ImmArray[(VariantConName, Type)]
+        cons: ImmArray[(VariantConName, Type)],
     ): PartialFunction[CasePat, Env] = {
       case CPVariant(patnTCon, con, bodyVar) if scrutTCon == patnTCon =>
         val conArgType = cons.lookup(con, EUnknownVariantCon(ctx, con))
@@ -696,12 +728,12 @@ private[validation] object Typing {
                 case DataVariant(cons) =>
                   (
                     variantExpectedPatterns(scrutTCon, cons),
-                    introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons)
+                    introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons),
                   )
                 case DataEnum(cons) =>
                   (
                     enumExpectedPatterns(scrutTCon, cons),
-                    introPatternEnum(scrutTCon, cons)
+                    introPatternEnum(scrutTCon, cons),
                   )
               }
           }
@@ -717,12 +749,15 @@ private[validation] object Typing {
           (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
       }
 
-      val types = alts.iterator.map { case CaseAlt(patn, rhs) => introPattern(patn).typeOf(rhs) }.toList
+      val types = alts.iterator.map { case CaseAlt(patn, rhs) =>
+        introPattern(patn).typeOf(rhs)
+      }.toList
 
       types match {
         case t :: ts =>
           ts.foreach(otherType =>
-            if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None))
+            if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
+          )
           checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
           t
         case Nil =>
@@ -754,11 +789,10 @@ private[validation] object Typing {
     }
 
     private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Type = {
-      val env = bindings.foldLeft(this) {
-        case (env, Binding(vName, typ, bound)) =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TScenario(typ))
-          env.introExprVar(vName, typ)
+      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
+        env.checkType(typ, KStar)
+        env.checkExpr(bound, TScenario(typ))
+        env.introExprVar(vName, typ)
       }
       env.typeOf(body) match {
         case bodyTyp @ TScenario(_) => bodyTyp
@@ -767,11 +801,10 @@ private[validation] object Typing {
     }
 
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Type = {
-      val env = bindings.foldLeft(this) {
-        case (env, Binding(vName, typ, bound)) =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TUpdate(typ))
-          env.introExprVar(vName, typ)
+      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
+        env.checkType(typ, KStar)
+        env.checkExpr(bound, TUpdate(typ))
+        env.introExprVar(vName, typ)
       }
       env.typeOf(body) match {
         case bodyTyp @ TUpdate(_) => bodyTyp
@@ -789,7 +822,7 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        arg: Expr
+        arg: Expr,
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
@@ -801,7 +834,7 @@ private[validation] object Typing {
         tmplId: TypeConName,
         chName: ChoiceName,
         key: Expr,
-        arg: Expr
+        arg: Expr,
     ): Type = {
       checkByKey(tmplId, key)
       val choice = lookupChoice(ctx, tmplId, chName)
@@ -852,14 +885,20 @@ private[validation] object Typing {
             Struct.assertFromSeq(
               List(
                 contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
-                contractFieldName -> TTyCon(retrieveByKey.templateId)
-              ))))
+                contractFieldName -> TTyCon(retrieveByKey.templateId),
+              )
+            )
+          )
+        )
       case UpdateLookupByKey(retrieveByKey) =>
         checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
-      case UpdateTryCatch(_, _, _, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("exception not supported")
+      case UpdateTryCatch(typ, body, binder, handler) =>
+        checkType(typ, KStar)
+        val updTyp = TUpdate(typ)
+        checkExpr(body, updTyp)
+        introExprVar(binder, TAnyException).checkExpr(handler, TOptional(updTyp))
+        updTyp
     }
 
     private def typeOfCommit(typ: Type, party: Expr, update: Expr): Type = {
@@ -904,13 +943,25 @@ private[validation] object Typing {
         case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkAnyType_)
+          TypeIterable(typ).foreach(checkAnyType_)
       }
     }
 
     private def checkAnyType(typ: Type): Unit = {
       checkAnyType_(typ)
       checkType(typ, KStar)
+    }
+
+    private def checkExceptionType(typ: Type): Unit = {
+      typ match {
+        case TGeneralError | TArithmeticError | TContractError =>
+          ()
+        case TTyCon(tyCon) =>
+          lookupException(ctx, tyCon)
+          ()
+        case _ =>
+          throw EExpectedExceptionType(ctx, typ)
+      }
     }
 
     def typeOf(expr: Expr): Type = {
@@ -990,9 +1041,19 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkAnyType(typ)
         TTypeRep
-      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("exception not supported")
+      case EThrow(returnTyp, excepTyp, body) =>
+        checkType(returnTyp, KStar)
+        checkExceptionType(excepTyp)
+        checkExpr(body, excepTyp)
+        returnTyp
+      case EToAnyException(typ, value) =>
+        checkExceptionType(typ)
+        checkExpr(value, typ)
+        TAnyException
+      case EFromAnyException(typ, value) =>
+        checkExceptionType(typ)
+        checkExpr(value, TAnyException)
+        TOptional(typ)
     }
 
     def checkExpr(expr: Expr, typ0: Type): Type = {

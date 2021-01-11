@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.value
@@ -60,14 +60,15 @@ class ValueCoderSpec
                   .encodeValue[ContractId](
                     ValueCoder.CidEncoder,
                     TransactionVersion.minVersion,
-                    value),
+                    value,
+                  )
               ),
             ) match {
               case Right(ValueNumeric(x)) => x
               case x => fail(s"should have got a numeric back, got $x")
             }
             Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
-              recoveredDecimal,
+              recoveredDecimal
             )
           }
       }
@@ -190,13 +191,14 @@ class ValueCoderSpec
 
   def testRoundTripWithVersion(
       value0: Value[ContractId],
-      version: TransactionVersion): Assertion = {
+      version: TransactionVersion,
+  ): Assertion = {
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0)),
+        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0))
     )
     val decoded: VersionedValue[ContractId] = assertRight(
-      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded),
+      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded)
     )
 
     decoded.value shouldEqual value0
@@ -207,7 +209,7 @@ class ValueCoderSpec
     val encodedSentOverWire: proto.VersionedValue =
       proto.VersionedValue.parseFrom(encoded.toByteArray)
     val decodedSentOverWire: VersionedValue[ContractId] = assertRight(
-      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire),
+      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire)
     )
 
     decodedSentOverWire.value shouldEqual value0

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands.tracker
@@ -19,8 +19,8 @@ private[tracker] final case class CommandTrackerShape[Context](
     submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]],
     commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
     resultOut: Outlet[Ctx[Context, Completion]],
-    offsetOut: Outlet[LedgerOffset])
-    extends Shape {
+    offsetOut: Outlet[LedgerOffset],
+) extends Shape {
 
   override def inlets: immutable.Seq[Inlet[_]] = Vector(submitRequestIn, commandResultIn)
 
@@ -32,5 +32,6 @@ private[tracker] final case class CommandTrackerShape[Context](
       submitRequestOut.carbonCopy(),
       commandResultIn.carbonCopy(),
       resultOut.carbonCopy(),
-      offsetOut.carbonCopy())
+      offsetOut.carbonCopy(),
+    )
 }

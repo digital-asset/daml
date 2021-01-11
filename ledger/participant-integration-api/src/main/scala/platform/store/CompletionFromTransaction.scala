@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -27,7 +27,9 @@ private[platform] object CompletionFromTransaction {
     Some(
       Checkpoint(
         recordTime = Some(fromInstant(recordTime)),
-        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toApiString)))))
+        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toApiString))),
+      )
+    )
 
   // We _rely_ on the following compiler flags for this to be safe:
   // * -Xno-patmat-analysis _MUST NOT_ be enabled
@@ -65,23 +67,27 @@ private[platform] object CompletionFromTransaction {
   // But for an api server that is part of a distributed ledger network, we might see
   // transactions that originated from some other api server. These transactions don't contain the submitter information,
   // and therefore we don't emit CommandAccepted completions for those
-  def apply(appId: ApplicationId, parties: Set[Ref.Party])
-    : PartialFunction[(Offset, LedgerEntry), (Offset, CompletionStreamResponse)] = {
+  def apply(
+      appId: ApplicationId,
+      parties: Set[Ref.Party],
+  ): PartialFunction[(Offset, LedgerEntry), (Offset, CompletionStreamResponse)] = {
     case (
-        offset,
-        LedgerEntry.Transaction(
-          Some(commandId),
-          transactionId,
-          Some(`appId`),
-          actAs,
-          _,
-          _,
-          recordTime,
-          _,
-          _)) if actAs.exists(parties) =>
+          offset,
+          LedgerEntry.Transaction(
+            Some(commandId),
+            transactionId,
+            Some(`appId`),
+            actAs,
+            _,
+            _,
+            recordTime,
+            _,
+            _,
+          ),
+        ) if actAs.exists(parties) =>
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Some(Status()), transactionId))
+        Seq(Completion(commandId, Some(Status()), transactionId)),
       )
     case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, actAs, reason))
         if actAs.exists(parties) =>
@@ -90,9 +96,9 @@ private[platform] object CompletionFromTransaction {
         Seq(
           Completion(
             commandId,
-            Some(Status(toErrorCode(toParticipantRejection(reason)).value(), reason.description))
+            Some(Status(toErrorCode(toParticipantRejection(reason)).value(), reason.description)),
           )
-        )
+        ),
       )
   }
 

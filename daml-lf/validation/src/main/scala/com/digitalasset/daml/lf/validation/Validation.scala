@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -35,7 +35,7 @@ object Validation {
   private def unsafeCheckPackage(
       world: World,
       pkgId: PackageId,
-      pkg: Package
+      pkg: Package,
   ): Unit = {
     Collision.checkPackage(pkgId, pkg)
     Recursion.checkPackage(pkgId, pkg)
@@ -46,7 +46,7 @@ object Validation {
   private[lf] def checkModule(
       pkgs: PartialFunction[PackageId, GenPackage[_]],
       pkgId: PackageId,
-      module: Module
+      module: Module,
   ): Either[ValidationError, Unit] =
     runSafely {
       val world = new World(pkgs)

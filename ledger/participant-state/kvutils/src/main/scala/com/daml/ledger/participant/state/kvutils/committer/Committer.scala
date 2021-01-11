@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlOutOfTimeBoundsEntry,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
+  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -71,9 +71,8 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   private lazy val preExecutionRunTimer: Timer =
     metrics.daml.kvutils.committer.preExecutionRunTimer(committerName)
   private lazy val stepTimers: Map[StepInfo, Timer] =
-    steps.map {
-      case (info, _) =>
-        info -> metrics.daml.kvutils.committer.stepTimer(committerName, info)
+    steps.map { case (info, _) =>
+      info -> metrics.daml.kvutils.committer.stepTimer(committerName, info)
     }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */
@@ -112,7 +111,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       minimumRecordTime = commitContext.minimumRecordTime
         .map(Timestamp.assertFromInstant),
       maximumRecordTime = commitContext.maximumRecordTime
-        .map(Timestamp.assertFromInstant)
+        .map(Timestamp.assertFromInstant),
     )
   }
 
@@ -137,16 +136,20 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       .orElse {
         // In case no min & max record time is set we won't be checking time bounds at post-execution
         // so the contents of this log entry does not matter.
-        PartialFunction.condOpt((commitContext.minimumRecordTime, commitContext.maximumRecordTime)) {
-          case (None, None) => DamlLogEntry.getDefaultInstance
+        PartialFunction.condOpt(
+          (commitContext.minimumRecordTime, commitContext.maximumRecordTime)
+        ) { case (None, None) =>
+          DamlLogEntry.getDefaultInstance
         }
       }
-      .getOrElse(throw new IllegalArgumentException(
-        "Committer did not set an out-of-time-bounds log entry"))
+      .getOrElse(
+        throw new IllegalArgumentException("Committer did not set an out-of-time-bounds log entry")
+      )
 
   private[committer] def runSteps(
       commitContext: CommitContext,
-      submission: DamlSubmission): DamlLogEntry =
+      submission: DamlSubmission,
+  ): DamlLogEntry =
     steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
       case (state, (info, step)) =>
         state match {
@@ -165,23 +168,28 @@ object Committer {
   def getCurrentConfiguration(
       defaultConfig: Configuration,
       commitContext: CommitContext,
-      logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
+      logger: Logger,
+  ): (Option[DamlConfigurationEntry], Configuration) =
     commitContext
       .get(Conversions.configurationStateKey)
       .flatMap { v =>
         val entry = v.getConfigurationEntry
         Configuration
           .decode(entry.getConfiguration)
-          .fold({ err =>
-            logger.error(s"Failed to parse configuration: $err, using default configuration.")
-            None
-          }, conf => Some(Some(entry) -> conf))
+          .fold(
+            { err =>
+              logger.error(s"Failed to parse configuration: $err, using default configuration.")
+              None
+            },
+            conf => Some(Some(entry) -> conf),
+          )
       }
       .getOrElse(None -> defaultConfig)
 
   def buildLogEntryWithOptionalRecordTime(
       recordTime: Option[Timestamp],
-      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder): DamlLogEntry = {
+      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder,
+  ): DamlLogEntry = {
     val logEntryBuilder = DamlLogEntry.newBuilder
     addSubmissionSpecificEntry(logEntryBuilder)
     setRecordTimeIfAvailable(recordTime, logEntryBuilder)
@@ -190,7 +198,9 @@ object Committer {
 
   private def setRecordTimeIfAvailable(
       recordTime: Option[Timestamp],
-      logEntryBuilder: DamlLogEntry.Builder): DamlLogEntry.Builder =
+      logEntryBuilder: DamlLogEntry.Builder,
+  ): DamlLogEntry.Builder =
     recordTime.fold(logEntryBuilder)(timestamp =>
-      logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+      logEntryBuilder.setRecordTime(buildTimestamp(timestamp))
+    )
 }

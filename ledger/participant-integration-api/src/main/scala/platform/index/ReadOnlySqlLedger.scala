@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -56,8 +56,8 @@ private[platform] object ReadOnlySqlLedger {
     private def verifyLedgerId(
         ledgerDao: LedgerReadDao,
         initialLedgerId: LedgerId,
-    )(
-        implicit executionContext: ExecutionContext,
+    )(implicit
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
@@ -82,10 +82,12 @@ private[platform] object ReadOnlySqlLedger {
               case Some(foundLedgerId) =>
                 Future.failed(
                   new MismatchException.LedgerId(foundLedgerId, initialLedgerId)
-                  with StartupException)
+                    with StartupException
+                )
               case None =>
                 logger.info(
-                  s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay.")
+                  s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay."
+                )
                 Future.failed(new LedgerIdNotFoundException(attempt))
             }
       }
@@ -121,11 +123,12 @@ private final class ReadOnlySqlLedger(
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
       .withBackoff(
-        RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2))(
-        () =>
-          Source
-            .tick(0.millis, 100.millis, ())
-            .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd()))
+        RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)
+      )(() =>
+        Source
+          .tick(0.millis, 100.millis, ())
+          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+      )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
       .run()

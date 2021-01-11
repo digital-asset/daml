@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -149,7 +149,8 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
       checkModule(
         world,
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString("NegativeTestCase")))
+        pkg.modules(DottedName.assertFromString("NegativeTestCase")),
+      )
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
           checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))

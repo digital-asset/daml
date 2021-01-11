@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -83,7 +83,7 @@ object ExerciseOnSpec {
       * behave. Do *not* import `Sth syntax`; the whole point is to make sure
       * this all works without doing that.
       */
-    implicit final class `Sth syntax`[+` ExOn`](private val id: ` ExOn`) extends AnyVal {
+    implicit final class `Sth syntax`[+ ` ExOn`](private val id: ` ExOn`) extends AnyVal {
       @silent("(controller|exOn) .* is never used") // used only for arg typechecking
       def exerciseFoo(controller: P.Party)(implicit ` exOn`: ExerciseOn[` ExOn`, Sth]): Unit = ()
     }

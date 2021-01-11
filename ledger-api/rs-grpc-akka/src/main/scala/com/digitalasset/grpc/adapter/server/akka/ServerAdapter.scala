@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.server.akka
@@ -12,12 +12,14 @@ import scala.concurrent.{Future, Promise}
 
 object ServerAdapter {
 
-  def toSink[Resp](streamObserver: StreamObserver[Resp])(
-      implicit executionSequencerFactory: ExecutionSequencerFactory): Sink[Resp, Future[Unit]] = {
+  def toSink[Resp](
+      streamObserver: StreamObserver[Resp]
+  )(implicit executionSequencerFactory: ExecutionSequencerFactory): Sink[Resp, Future[Unit]] = {
     val subscriber =
       new ServerSubscriber[Resp](
         streamObserver.asInstanceOf[ServerCallStreamObserver[Resp]],
-        executionSequencerFactory.getExecutionSequencer)
+        executionSequencerFactory.getExecutionSequencer,
+      )
     Sink
       .fromSubscriber(subscriber)
       .mapMaterializedValue(_ => {

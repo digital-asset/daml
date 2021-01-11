@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -199,24 +199,35 @@ def _wrap_rule(
         deps = [],
         scala_deps = [],
         versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        exports = [],
+        scala_exports = [],
         silent_annotations = False,
         **kwargs):
     deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+    runtime_deps = runtime_deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_runtime_deps]
+    exports = exports + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_exports]
     if silent_annotations:
         scalacopts = ["-P:silencer:checkUnused"] + scalacopts
         plugins = [silencer_plugin] + plugins
         deps = [silencer_lib] + deps
+    if (len(exports) > 0):
+        kwargs["exports"] = exports
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 
-def _wrap_rule_no_plugins(rule, scalacopts = [], **kwargs):
+def _wrap_rule_no_plugins(rule, deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
     rule(
         scalacopts = common_scalacopts + scalacopts,
+        deps = deps,
         **kwargs
     )
 

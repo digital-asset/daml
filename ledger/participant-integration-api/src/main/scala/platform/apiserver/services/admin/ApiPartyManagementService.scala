@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -8,14 +8,13 @@ import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
-  LedgerEndService
+  LedgerEndService,
 }
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
@@ -34,15 +33,14 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     managementServiceTimeout: Duration,
+)(implicit
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
-    extends PartyManagementService
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
+) extends PartyManagementService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  // Execute subsequent transforms in the thread of the previous operation.
-  private implicit val executionContext: ExecutionContext = DirectExecutionContext
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
@@ -52,7 +50,7 @@ private[apiserver] final class ApiPartyManagementService private (
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PartyManagementServiceGrpc.bindService(this, DirectExecutionContext)
+    PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def getParticipantId(
       request: GetParticipantIdRequest
@@ -95,16 +93,17 @@ private[apiserver] final class ApiPartyManagementService private (
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
     synchronousResponse
-      .submitAndWait(submissionId, (party, displayName))(executionContext, materializer)
-      .map {
-        case PartyEntry.AllocationAccepted(_, partyDetails) =>
-          AllocatePartyResponse(
-            Some(
-              PartyDetails(
-                partyDetails.party,
-                partyDetails.displayName.getOrElse(""),
-                partyDetails.isLocal,
-              )))
+      .submitAndWait(submissionId, (party, displayName))
+      .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+        AllocatePartyResponse(
+          Some(
+            PartyDetails(
+              partyDetails.party,
+              partyDetails.displayName.getOrElse(""),
+              partyDetails.isLocal,
+            )
+          )
+        )
       }
       .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
@@ -118,14 +117,16 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
       managementServiceTimeout: Duration,
-  )(implicit mat: Materializer, loggingContext: LoggingContext)
-    : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,
       writeBackend,
       managementServiceTimeout,
-      mat,
     )
 
   private final class SynchronousResponseStrategy(
@@ -154,13 +155,13 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementService.partyEntries(offset)
 
     override def accept(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
       case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
     }
 
     override def reject(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
         ErrorFactories.invalidArgument(reason)

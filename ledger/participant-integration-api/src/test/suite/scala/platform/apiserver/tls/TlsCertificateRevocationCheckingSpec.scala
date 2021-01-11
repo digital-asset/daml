@@ -1,32 +1,32 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.tls
 
 import java.io.File
+import java.util.concurrent.Executors
 
-import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
-import com.daml.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
-import io.grpc.{BindableService, ManagedChannel}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
-import com.daml.metrics.Metrics
-import com.daml.ports.Port
-import org.mockito.MockitoSugar
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.ports.Port
+import io.grpc.{BindableService, ManagedChannel}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -72,7 +72,8 @@ final class TlsCertificateRevocationCheckingSpec
           serverKey,
           caCrt,
           clientRevokedCrt,
-          clientRevokedKey)
+          clientRevokedKey,
+        )
           .makeARequest()
           .failed
           .collect {
@@ -98,7 +99,8 @@ final class TlsCertificateRevocationCheckingSpec
           serverKey,
           caCrt,
           clientRevokedCrt,
-          clientRevokedKey)
+          clientRevokedKey,
+        )
           .makeARequest()
           .map(_ => succeed)
       }
@@ -115,7 +117,7 @@ object TlsCertificateRevocationCheckingSpec {
       caCrt: File,
       clientCrt: File,
       clientKey: File,
-  )(implicit rc: ResourceContext, actorSystem: ActorSystem) {
+  )(implicit rc: ResourceContext) {
 
     def makeARequest(): Future[HelloResponse] =
       resources().use { channel =>
@@ -144,7 +146,7 @@ object TlsCertificateRevocationCheckingSpec {
       keyCertChainFile = Some(serverCrt),
       keyFile = Some(serverKey),
       trustCertCollectionFile = Some(caCrt),
-      enableCertRevocationChecking = true
+      enableCertRevocationChecking = true,
     )
 
     private def apiServerOwner(): ResourceOwner[ApiServer] = {
@@ -152,14 +154,19 @@ object TlsCertificateRevocationCheckingSpec {
       val owner = new MockApiServices(apiServices)
 
       LoggingContext.newLoggingContext { implicit loggingContext =>
-        new LedgerApiServer(
-          apiServicesOwner = owner,
-          desiredPort = Port.Dynamic,
-          maxInboundMessageSize = DefaultMaxInboundMessageSize,
-          address = None,
-          tlsConfiguration = Some(serverTlsConfiguration),
-          metrics = new Metrics(new MetricRegistry),
-        )
+        ResourceOwner
+          .forExecutorService(() => Executors.newCachedThreadPool())
+          .flatMap(servicesExecutor =>
+            new LedgerApiServer(
+              apiServicesOwner = owner,
+              desiredPort = Port.Dynamic,
+              maxInboundMessageSize = DefaultMaxInboundMessageSize,
+              address = None,
+              tlsConfiguration = Some(serverTlsConfiguration),
+              servicesExecutor = servicesExecutor,
+              metrics = new Metrics(new MetricRegistry),
+            )
+          )
       }
     }
 
@@ -168,7 +175,7 @@ object TlsCertificateRevocationCheckingSpec {
         enabled = tlsEnabled,
         keyCertChainFile = Some(clientCrt),
         keyFile = Some(clientKey),
-        trustCertCollectionFile = Some(caCrt)
+        trustCertCollectionFile = Some(caCrt),
       )
 
     private val ledgerClientConfiguration = LedgerClientConfiguration(
@@ -176,7 +183,7 @@ object TlsCertificateRevocationCheckingSpec {
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = clientTlsConfiguration.client,
-      token = None
+      token = None,
     )
 
     private def resources(): ResourceOwner[ManagedChannel] =

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
@@ -8,8 +8,7 @@ import com.daml.ledger.validator.LedgerStateOperations
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * An in-transasaction finalizer that persists both the ledger state and the log entry.
+/** An in-transasaction finalizer that persists both the ledger state and the log entry.
   *
   * The implementation may optionally perform checks before writing, and return a failure if the
   * checks failed.

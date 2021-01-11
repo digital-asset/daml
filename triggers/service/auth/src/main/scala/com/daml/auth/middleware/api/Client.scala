@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.api
@@ -17,7 +17,7 @@ import akka.http.scaladsl.model.{
   StatusCode,
   StatusCodes,
   Uri,
-  headers
+  headers,
 }
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.http.scaladsl.server.Directives._
@@ -25,31 +25,31 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.Client.{AuthException, RefreshException}
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 
-import scala.collection.concurrent.TrieMap
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 class Client(config: Client.Config) {
-  // TODO[AH] Make sure this is bounded in size.
-  private val callbacks: TrieMap[UUID, Response.Login => Route] = TrieMap()
+  private val callbacks: RequestStore[UUID, Response.Login => Route] = new RequestStore(
+    config.maxAuthCallbacks,
+    config.authCallbackTimeout,
+  )
 
-  /**
-    * Handler for the callback in a login flow.
+  /** Handler for the callback in a login flow.
     *
     * Note, a GET request on the `callbackUri` must map to this route.
     */
   val callbackHandler: Route =
     parameters('state.as[UUID]) { requestId =>
-      callbacks.remove(requestId) match {
-        case None => complete(StatusCodes.NotFound)
+      callbacks.pop(requestId) match {
+        case None =>
+          complete(StatusCodes.NotFound)
         case Some(callback) =>
           Response.Login.callbackParameters { callback }
       }
     }
 
-  /**
-    * This directive requires authorization for the given claims via the auth middleware.
+  /** This directive requires authorization for the given claims via the auth middleware.
     *
     * Authorization follows the steps defined in `triggers/service/authentication.md`.
     * First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
@@ -90,8 +90,7 @@ class Client(config: Client.Config) {
     }
   }
 
-  /**
-    * This directive attempts to obtain an access token from the middleware's auth endpoint for the given claims.
+  /** This directive attempts to obtain an access token from the middleware's auth endpoint for the given claims.
     *
     * Forwards the current request's cookies. Completes with 500 on an unexpected response from the auth middleware.
     *
@@ -106,32 +105,37 @@ class Client(config: Client.Config) {
       }
     }
 
-  /**
-    * Redirect the client to login with the auth middleware.
+  /** Redirect the client to login with the auth middleware.
+    *
+    * Will respond with 503 if the callback store is full ([[Client.Config.maxAuthCallbacks]]).
     *
     * @param callback Will be stored and executed once the login flow completed.
     */
   def login(claims: Request.Claims, callback: Response.Login => Route): Route = {
     val requestId = UUID.randomUUID()
-    callbacks.update(requestId, callback)
-    redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
+    if (callbacks.put(requestId, callback)) {
+      redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
+    } else {
+      complete(StatusCodes.ServiceUnavailable)
+    }
   }
 
-  /**
-    * Request authentication/authorization on the auth middleware's auth endpoint.
+  /** Request authentication/authorization on the auth middleware's auth endpoint.
     *
     * @return `None` if the request was denied otherwise `Some` access and optionally refresh token.
     */
-  def requestAuth(claims: Request.Claims, cookies: immutable.Seq[headers.Cookie])(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Future[Option[Response.Authorize]] =
+  def requestAuth(claims: Request.Claims, cookies: immutable.Seq[headers.Cookie])(implicit
+      ec: ExecutionContext,
+      system: ActorSystem,
+  ): Future[Option[Response.Authorize]] =
     for {
       response <- Http().singleRequest(
         HttpRequest(
           method = HttpMethods.GET,
           uri = authUri(claims),
           headers = cookies,
-        ))
+        )
+      )
       authorize <- response.status match {
         case StatusCodes.OK =>
           import JsonProtocol.responseAuthorizeFormat
@@ -145,12 +149,11 @@ class Client(config: Client.Config) {
       }
     } yield authorize
 
-  /**
-    * Request a token refresh on the auth middleware's refresh endpoint.
+  /** Request a token refresh on the auth middleware's refresh endpoint.
     */
-  def requestRefresh(refreshToken: RefreshToken)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Future[Response.Authorize] =
+  def requestRefresh(
+      refreshToken: RefreshToken
+  )(implicit ec: ExecutionContext, system: ActorSystem): Future[Response.Authorize] =
     for {
       requestEntity <- {
         import JsonProtocol.requestRefreshFormat
@@ -162,7 +165,8 @@ class Client(config: Client.Config) {
           method = HttpMethods.POST,
           uri = refreshUri,
           entity = requestEntity,
-        ))
+        )
+      )
       authorize <- response.status match {
         case StatusCodes.OK =>
           import JsonProtocol._
@@ -203,6 +207,8 @@ object Client {
   case class Config(
       authMiddlewareUri: Uri,
       callbackUri: Uri,
+      maxAuthCallbacks: Int,
+      authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
   )

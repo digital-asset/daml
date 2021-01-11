@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -50,7 +50,8 @@ object KVTest {
   private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
   private[this] val DefaultAdditionalContractDataType: String = "Party"
   private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage(
-    DefaultAdditionalContractDataType)
+    DefaultAdditionalContractDataType
+  )
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
@@ -99,7 +100,10 @@ object KVTest {
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
       _ <- modify[KVTestState](state =>
         state.copy(
-          uploadedPackages = state.uploadedPackages + (simplePackage.packageId -> simplePackage.damlPackageWithContractData)))
+          uploadedPackages =
+            state.uploadedPackages + (simplePackage.packageId -> simplePackage.damlPackageWithContractData)
+        )
+      )
     } yield ()
 
   def freshEntryId: KVTest.KVTest[DamlLogEntryId] =
@@ -191,7 +195,7 @@ object KVTest {
               .get(Conversions.contractIdToStateKey(contractId))
               .map { v =>
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
-            },
+              },
           packages = state.uploadedPackages.get,
           keys = globalKey =>
             state.damlState
@@ -268,14 +272,14 @@ object KVTest {
         optNodeSeeds = None,
         optByKeyNodes = None,
       ),
-      tx = tx
+      tx = tx,
     )
   }
 
   def submitConfig(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
-      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta
+      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
   ): KVTest[DamlLogEntry] =
     for {
       testState <- get[KVTestState]
@@ -286,14 +290,15 @@ object KVTest {
           submissionId,
           minMaxRecordTimeDelta,
           testState,
-          oldConf)
+          oldConf,
+        )
       )
     } yield result._2
 
   def preExecuteConfig(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
-      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta
+      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
   ): KVTest[PreExecutionResult] =
     for {
       testState <- get[KVTestState]
@@ -304,7 +309,8 @@ object KVTest {
           submissionId,
           minMaxRecordTimeDelta,
           testState,
-          oldConf)
+          oldConf,
+        )
       )
     } yield result._2
 
@@ -324,7 +330,8 @@ object KVTest {
   ): KVTest[PreExecutionResult] =
     get[KVTestState]
       .flatMap(testState =>
-        preExecute(createPartySubmission(subId, hint, participantId, testState)))
+        preExecute(createPartySubmission(subId, hint, participantId, testState))
+      )
       .map(_._2)
 
   def allocateParty(subId: String, hint: String): KVTest[Party] =
@@ -374,7 +381,8 @@ object KVTest {
         participantId = testState.participantId,
         inputState = inputState,
       )
-      PreExecutionResult(readSet, successfulLogEntry, newState, outOfTimeBoundsLogEntry, _, _) = preExecutionResult
+      PreExecutionResult(readSet, successfulLogEntry, newState, outOfTimeBoundsLogEntry, _, _) =
+        preExecutionResult
       _ <- addDamlState(newState)
     } yield {
       assert(
@@ -384,17 +392,19 @@ object KVTest {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         successfulLogEntry,
-        recordTimeFromTimeUpdateLogEntry)
+        recordTimeFromTimeUpdateLogEntry,
+      )
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         outOfTimeBoundsLogEntry,
-        recordTimeFromTimeUpdateLogEntry)
+        recordTimeFromTimeUpdateLogEntry,
+      )
 
       entryId -> preExecutionResult
     }
 
   private[this] def createInputState(
-      inputKeys: Seq[DamlStateKey],
+      inputKeys: Seq[DamlStateKey]
   ): KVTest[Map[DamlStateKey, Option[DamlStateValue]]] = KVReader { state =>
     inputKeys.view
       .map(key => key -> state.damlState.get(key))
@@ -424,7 +434,8 @@ object KVTest {
       Ref.LedgerString.assertFromString(subId),
       Some(hint),
       None,
-      participantId)
+      participantId,
+    )
 
   private[this] def createConfigurationSubmission(
       configModify: Configuration => Configuration,
@@ -437,19 +448,19 @@ object KVTest {
       maxRecordTime = testState.recordTime.addMicros(minMaxRecordTimeDelta.toNanos / 1000),
       submissionId = submissionId,
       participantId = testState.participantId,
-      config = configModify(oldConf)
+      config = configModify(oldConf),
     )
 
   private[this] def createArchiveSubmission(
       submissionId: String,
       testState: KVTestState,
-      archives: DamlLf.Archive*,
+      archives: DamlLf.Archive*
   ): DamlSubmission =
     testState.keyValueSubmission.archivesToSubmission(
       submissionId = submissionId,
       archives = archives.toList,
       sourceDescription = "description",
-      participantId = testState.participantId
+      participantId = testState.participantId,
     )
 
   private[this] def recordTimeFromTimeUpdateLogEntry: Option[Timestamp] =

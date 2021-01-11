@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.perf
@@ -19,31 +19,37 @@ object LargeTransactionCommands {
     Command.Create(
       CreateCommand(
         templateId = Some(templateId),
-        createArguments = Some(Record(Some(templateId), fields))))
+        createArguments = Some(Record(Some(templateId), fields)),
+      )
+    )
   }
 
   def rangeOfIntsCreateCommand(
       templateId: Identifier,
       start: Int,
       step: Int,
-      number: Int): Command.Create = {
+      number: Int,
+  ): Command.Create = {
     val fields = Seq(
       RecordField("party", Some(Value(party))),
       RecordField("start", Some(Value(P.Int64(start.toLong)))),
       RecordField("step", Some(Value(P.Int64(step.toLong)))),
-      RecordField("size", Some(Value(P.Int64(number.toLong))))
+      RecordField("size", Some(Value(P.Int64(number.toLong)))),
     )
     Command.Create(
       CreateCommand(
         templateId = Some(templateId),
-        createArguments = Some(Record(Some(templateId), fields))))
+        createArguments = Some(Record(Some(templateId), fields)),
+      )
+    )
   }
 
   def exerciseCommand(
       templateId: Identifier,
       contractId: String,
       choice: String,
-      arguments: Option[Value]): Command.Exercise = {
+      arguments: Option[Value],
+  ): Command.Exercise = {
     val choiceArgument: Some[Value] = arguments match {
       case None => Some(emptyChoiceArgs(choice))
       case x @ Some(_) => x
@@ -53,19 +59,22 @@ object LargeTransactionCommands {
         templateId = Some(templateId),
         contractId = contractId,
         choice = choice,
-        choiceArgument = choiceArgument
-      ))
+        choiceArgument = choiceArgument,
+      )
+    )
   }
 
   def exerciseSizeCommand(
       templateId: Identifier,
       contractId: String,
-      size: Int): Command.Exercise = {
+      size: Int,
+  ): Command.Exercise = {
     val choice = "Size"
     val choiceId = Identifier(
       packageId = templateId.packageId,
       moduleName = templateId.moduleName,
-      entityName = choice)
+      entityName = choice,
+    )
 
     val scalaList = scala.List.range(0L, size.toLong).map(x => Value(P.Int64(x)))
     val damlList = P.List(List(scalaList))
@@ -75,8 +84,7 @@ object LargeTransactionCommands {
     exerciseCommand(templateId, contractId, choice, Some(args))
   }
 
-  /**
-    * - daml 1.1 encodes empty choices as a unit `Value(Sum.Unit(Empty())))`
+  /** - daml 1.1 encodes empty choices as a unit `Value(Sum.Unit(Empty())))`
     * - daml 1.2 prior to DEL-6677 fix, encodes empty choices as variants: `Value(P.Variant(Variant(None, choice, Option(Value(P.Unit(Empty()))))))`
     * - daml 1.2 with DEL-6677 fix, encodes empty choices as empty records: `Value(P.Record(Record(recordId = None, fields = Seq())))`
     *

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -44,7 +44,10 @@ class TlsNoClientAuthSpec
             serverCrt,
             serverPem,
             caCrt,
-            clientAuth = ClientAuth.NONE)))
+            clientAuth = ClientAuth.NONE,
+          )
+        )
+      )
 
   "Extractor" should "be able to connect with TLS enabled but no client cert" in {
     val config = baseConfig.copy(

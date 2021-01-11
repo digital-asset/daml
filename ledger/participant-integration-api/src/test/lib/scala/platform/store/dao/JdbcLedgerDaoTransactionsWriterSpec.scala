@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -29,7 +29,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         lookup.commandId.get -> ok,
       )
@@ -47,7 +47,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         fetch.commandId.get -> ok,
       )

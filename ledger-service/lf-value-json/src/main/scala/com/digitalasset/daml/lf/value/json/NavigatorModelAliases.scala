@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,8 +12,7 @@ import value.{Value => V}
   */
 trait NavigatorModelAliases[Cid] {
 
-  /**
-    * An absolute reference of a DAML-LF entity.
+  /** An absolute reference of a DAML-LF entity.
     * Contains a DAML-LF package ID and a qualified name.
     * Currently, such identifiers can point to:
     * - Templates
@@ -23,8 +22,7 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfIdentifier = DamlLfRef.Identifier
   val DamlLfIdentifier = DamlLfRef.Identifier
 
-  /**
-    * A simple DAML-LF type
+  /** A simple DAML-LF type
     * Currently, these can be:
     * - Primitive types
     * - Type constructor applications (i.e., dereferencing a DamlLfIdentifier)
@@ -67,7 +65,6 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfEnum = iface.Enum
   val DamlLfEnum = iface.Enum
 
-  import scala.language.higherKinds
   type OfCid[F[_]] = F[Cid]
   type ApiValue = OfCid[V]
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)

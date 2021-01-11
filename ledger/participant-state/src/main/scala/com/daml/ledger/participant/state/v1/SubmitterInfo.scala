@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -11,7 +11,6 @@ import java.time.Instant
   * usually issued via the Ledger API.
   *
   * @param actAs: the non-empty set of parties that submitted the change.
-  *
   *
   * @param applicationId: an identifier for the DAML application that
   *   submitted the command. This is used for monitoring and to allow DAML

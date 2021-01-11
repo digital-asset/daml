@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -17,16 +17,21 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
 
-class DevModeIT extends AsyncWordSpec with Matchers with TestResourceContext with SandboxFixture {
+class DevModeIT
+    extends AsyncWordSpec
+    with Matchers
+    with Inside
+    with TestResourceContext
+    with SandboxFixture {
   private[this] implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
 
@@ -43,15 +48,16 @@ class DevModeIT extends AsyncWordSpec with Matchers with TestResourceContext wit
       ledgerIdRequirement = ledger.client.configuration.LedgerIdRequirement.none,
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
       sslContext = None,
-      token = None
+      token = None,
     )
 
   private[this] def buildServer(devMode: Boolean) =
     SandboxServer.owner(
-      SandboxConfig.defaultConfig.copy(
+      DefaultConfig.copy(
         port = Port.Dynamic,
         devMode = devMode,
-      ))
+      )
+    )
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
@@ -65,10 +71,12 @@ class DevModeIT extends AsyncWordSpec with Matchers with TestResourceContext wit
             tmplId,
             Seq(
               RecordField(value = Some(Value().withUnit(protobuf.empty.Empty()))),
-              RecordField(value = Some(Value().withParty(party)))
+              RecordField(value = Some(Value().withParty(party))),
             ),
-          ))
-      ))
+          )
+        ),
+      )
+    )
     SubmitAndWaitRequest(
       Some(
         Commands(
@@ -76,8 +84,10 @@ class DevModeIT extends AsyncWordSpec with Matchers with TestResourceContext wit
           applicationId = applicationId.unwrap,
           ledgerId = ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          commands = Seq(cmd)
-        )))
+          commands = Seq(cmd),
+        )
+      )
+    )
   }
 
   private[this] def run(darPath: Path, server: SandboxServer) =
@@ -101,20 +111,26 @@ class DevModeIT extends AsyncWordSpec with Matchers with TestResourceContext wit
   "SandboxServer" should {
 
     "accept stable DAML LF when devMode is disable" in
-      buildServer(devMode = false).use(run(stableDar, _)).map(_ shouldBe a[Success[_]])
+      buildServer(devMode = false)
+        .use(run(stableDar, _))
+        .map(inside(_) { case Success(_) => succeed })
 
     "accept stable DAML LF when devMode is enable" in
-      buildServer(devMode = true).use(run(stableDar, _)).map(_ shouldBe a[Success[_]])
+      buildServer(devMode = true)
+        .use(run(stableDar, _))
+        .map(inside(_) { case Success(_) => succeed })
 
     "reject dev DAML LF when devMode is disable" in
-      buildServer(devMode = false).use(run(devDar, _)).map { res =>
-        res shouldBe a[Failure[_]]
-        res.asInstanceOf[Failure[Nothing]].exception.getMessage should include(
-          "Disallowed language version")
+      buildServer(devMode = false).use(run(devDar, _)).map {
+        inside(_) { case Failure(exception) =>
+          exception.getMessage should include("Disallowed language version")
+        }
       }
 
     "accept dev DAML LF when devMode is enable" in
-      buildServer(devMode = true).use(run(devDar, _)).map(_ shouldBe a[Success[_]])
+      buildServer(devMode = true)
+        .use(run(devDar, _))
+        .map(inside(_) { case Success(_) => succeed })
 
   }
 

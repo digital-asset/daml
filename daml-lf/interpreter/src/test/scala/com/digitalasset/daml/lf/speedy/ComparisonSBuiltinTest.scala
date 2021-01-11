@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -202,7 +202,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
               e"Mod:Tuple @Int64 @Int64 {fst = 0, snd = 0}",
               e"Mod:Tuple @Int64 @Int64 {fst = 0, snd = 1}",
               e"Mod:Tuple @Int64 @Int64 {fst = 1, snd = 0}",
-              e"Mod:Tuple @Int64 @Int64 {fst = 1, snd = 1}"
+              e"Mod:Tuple @Int64 @Int64 {fst = 1, snd = 1}",
             ),
           t"Mod:Either Text Int64" -> List(
             e"""Mod:Either:Left @Text @Int64 "a" """,
@@ -215,7 +215,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
               e"<fst = 0, snd = 0>",
               e"<fst = 0, snd = 1>",
               e"<fst = 1, snd = 0>",
-              e"<fst = 1, snd = 1>"
+              e"<fst = 1, snd = 1>",
             ),
           t"Option Text" ->
             List(
@@ -355,20 +355,18 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           ),
         )
 
-      forEvery(comparableValues) {
-        case (typ, expr) =>
-          for {
-            xi <- expr.zipWithIndex
-            (x, i) = xi
-            yj <- expr.zipWithIndex
-            (y, j) = yj
-          } {
-            val diff = i compare j
-            forEvery(builtins) {
-              case (bi, result) =>
-                eval(bi, typ, x, y) shouldBe Right(SValue.SBool(result(diff)))
-            }
+      forEvery(comparableValues) { case (typ, expr) =>
+        for {
+          xi <- expr.zipWithIndex
+          (x, i) = xi
+          yj <- expr.zipWithIndex
+          (y, j) = yj
+        } {
+          val diff = i compare j
+          forEvery(builtins) { case (bi, result) =>
+            eval(bi, typ, x, y) shouldBe Right(SValue.SBool(result(diff)))
           }
+        }
       }
     }
 
@@ -384,15 +382,14 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         e"""<first = 1, third = 3, second = 2>""",
       )
 
-      forEvery(builtins) {
-        case (bi, result) =>
-          val expectedResult = Right(SValue.SBool(result(0)))
-          forEvery(values) { x =>
-            forEvery(values) { y =>
-              eval(bi, typ, x, y) shouldBe expectedResult
-              eval(bi, typ, y, x) shouldBe expectedResult
-            }
+      forEvery(builtins) { case (bi, result) =>
+        val expectedResult = Right(SValue.SBool(result(0)))
+        forEvery(values) { x =>
+          forEvery(values) { y =>
+            eval(bi, typ, x, y) shouldBe expectedResult
+            eval(bi, typ, y, x) shouldBe expectedResult
           }
+        }
       }
 
     }
@@ -435,21 +432,20 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       def tupleR(fstT: Type, sndT: Type)(fst: Expr, snd: Expr) =
         ERecCon(
           TypeConApp(tupleTyCon, ImmArray(fstT, sndT)),
-          ImmArray(fstName -> fst, sndName -> snd))
+          ImmArray(fstName -> fst, sndName -> snd),
+        )
 
       def list(t: Type)(es: Expr*) =
         if (es.isEmpty) ENil(t) else ECons(t, ImmArray(es), ENil(t))
 
       def textMap(T: Type)(entries: (String, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) {
-          case ((key, value), acc) =>
-            eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
+        entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) { case ((key, value), acc) =>
+          eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
         }
 
       def genMap(kT: Type, vT: Type)(entries: (Expr, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) {
-          case ((key, value), acc) =>
-            eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
+        entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
+          eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
         }
 
       def tupleS(fst: Expr, snd: Expr) =
@@ -472,7 +468,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         Test(
           typ = funT,
           negativeTestCases = List.empty,
-          positiveTestCases = List(fun1 -> fun1, fun1 -> fun2)
+          positiveTestCases = List(fun1 -> fun1, fun1 -> fun2),
         ),
         Test(
           typ = T,
@@ -487,7 +483,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           positiveTestCases = List(
             tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X1),
             tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X2),
-            tupleR(T, T)(X1, U) -> tupleR(T, T)(X1, U)
+            tupleR(T, T)(X1, U) -> tupleR(T, T)(X1, U),
           ),
         ),
         Test(
@@ -495,7 +491,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           negativeTestCases = List(
             list(T)(X1, U) -> list(T)(X2, U),
             list(T)(U) -> list(T)(),
-            list(T)() -> list(T)(U)
+            list(T)() -> list(T)(U),
           ),
           positiveTestCases = List(
             list(T)(U) -> list(T)(U),
@@ -508,7 +504,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           typ = TOptional(T),
           negativeTestCases = List(
             ENone(T) -> ESome(T, U),
-            ESome(T, X1) -> ESome(T, U)
+            ESome(T, X1) -> ESome(T, U),
           ),
           positiveTestCases = List(
             ESome(T, U) -> ESome(T, U)
@@ -530,7 +526,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
             textMap(T)("a" -> X1, "b" -> U) ->
               textMap(T)("b" -> X1, "c" -> U),
             textMap(T)("a" -> U) ->
-              textMap(T)()
+              textMap(T)(),
           ),
           positiveTestCases = List(
             textMap(T)("a" -> U) ->
@@ -561,7 +557,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
             genMap(T, T)(X1 -> X1, X2 -> U) ->
               genMap(T, T)(X2 -> X1, X3 -> U),
             genMap(T, T)(X1 -> U) ->
-              genMap(T, T)()
+              genMap(T, T)(),
           ),
           positiveTestCases = List(
             genMap(T, T)(X1 -> U) ->
@@ -579,13 +575,13 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         Test(
           typ = TStruct(Struct.assertFromSeq(List(fstName -> T, sndName -> T))),
           negativeTestCases = List(
-            tupleS(X1, U) -> tupleS(X2, U),
+            tupleS(X1, U) -> tupleS(X2, U)
           ),
           positiveTestCases = List(
             tupleS(U, X1) -> tupleS(U, X1),
             tupleS(U, X1) -> tupleS(U, X2),
-            tupleS(X1, U) -> tupleS(X1, U)
-          )
+            tupleS(X1, U) -> tupleS(X1, U),
+          ),
         ),
         Test(
           typ = TAny,
@@ -596,28 +592,23 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           positiveTestCases = List(
             EToAny(T, U) -> EToAny(T, U)
           ),
-        )
+        ),
       )
 
-      forEvery(tests) {
-        case Test(typ, negativeTestCases, positiveTestCases) =>
-          negativeTestCases.foreach {
-            case (x, y) =>
-              forEvery(builtins) {
-                case (bi, _) =>
-                  eval(bi, typ, x, y) shouldBe 'right
-                  if (x != y) eval(bi, typ, y, x) shouldBe 'right
-              }
+      forEvery(tests) { case Test(typ, negativeTestCases, positiveTestCases) =>
+        negativeTestCases.foreach { case (x, y) =>
+          forEvery(builtins) { case (bi, _) =>
+            eval(bi, typ, x, y) shouldBe a[Right[_, _]]
+            if (x != y) eval(bi, typ, y, x) shouldBe a[Right[_, _]]
           }
+        }
 
-          positiveTestCases.foreach {
-            case (x, y) =>
-              forEvery(builtins) {
-                case (bi, _) =>
-                  eval(bi, typ, x, y) shouldBe 'left
-                  if (x != y) eval(bi, typ, y, x) shouldBe 'left
-              }
+        positiveTestCases.foreach { case (x, y) =>
+          forEvery(builtins) { case (bi, _) =>
+            eval(bi, typ, x, y) shouldBe a[Left[_, _]]
+            if (x != y) eval(bi, typ, y, x) shouldBe a[Left[_, _]]
           }
+        }
 
       }
 
@@ -625,7 +616,9 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
 
   }
 
-  private[this] val compiledPackages = PureCompiledPackages(Map(pkgId1 -> pkg1, pkgId2 -> pkg2)).right.get
+  private[this] val compiledPackages = PureCompiledPackages(
+    Map(pkgId1 -> pkg1, pkgId2 -> pkg2)
+  ).toOption.get
 
   private[this] val binderType = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1
@@ -651,8 +644,10 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         Ast.EAbs(
           binder2,
           Ast.EAbs(binder3, Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y), None),
-          None),
-        None)
+          None,
+        ),
+        None,
+      )
     )
     val machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SExpr.SEApp(sexpr, contractIds))

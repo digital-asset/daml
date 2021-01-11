@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -31,8 +31,9 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       }
     }
 
-  def migrate(allowExistingSchema: Boolean = false)(
-      implicit resourceContext: ResourceContext): Future[Unit] =
+  def migrate(
+      allowExistingSchema: Boolean = false
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
         val flyway = configurationBase(dbType)

@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Manually installing the SDK
 ***************************
 
-If you require a higher level of security, you can instead install the DAML Connect SDK by manually downloading the compressed tarball, verifying its signature, extracting it and manually running the install script.
+If you require a higher level of security, you can instead install the Daml Connect SDK by manually downloading the compressed tarball, verifying its signature, extracting it and manually running the install script.
 
 Note that the Windows installer is already signed (within the binary itself), and that signature is checked by Windows before starting it. Nevertheless, you can still follow the steps below to check its external signature file.
 

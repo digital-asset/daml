@@ -1,21 +1,21 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML-LF Value Specification
+Daml-LF Value Specification
 ===========================
 
 **version 6, 10 Dec 2020**
 
-The DAML-LF language includes ways to define *data types*,
+The Daml-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
 subset of those data types are considered *serializable*.
 
 This specification, in concert with the ``value.proto`` machine-readable
-definition, defines a format by which *values* of *serializable DAML-LF
+definition, defines a format by which *values* of *serializable Daml-LF
 types* may be represented.  Only such *serializable values* may be
 stored on a ledger.
 
-Values are typically consumed in tandem with related DAML-LF type
+Values are typically consumed in tandem with related Daml-LF type
 information, so many fields that may be inferred with this information
 are optional.  For example, `message RecordField`_ names are defined as
 part of their respective LF datatypes, so there is no need to repeat
@@ -26,7 +26,7 @@ Do not read this without ``value.proto``
 
 ``value.proto`` defines the baseline rules for values; that file must be
 consulted in concert with this document for a full specification of
-DAML-LF values.  Except where required for clarity, we do not repeat
+Daml-LF values.  Except where required for clarity, we do not repeat
 rules defined and enforced in that file within this document.  When
 consulting the section on each message type, you must also refer to the
 same definition in ``value.proto`` for a full definition of the
@@ -43,16 +43,16 @@ full specification of the value format, because it is impossible to
 define all the requirements for values in the ``.proto`` format.  All
 such rules are included in this document, instead.
 
-If you are constructing a DAML-LF value, it is not sufficient to merely
+If you are constructing a Daml-LF value, it is not sufficient to merely
 conform to the structure defined in ``value.proto``; you must also
 conform to the rules defined in this document.  A value that happens to
 conform to ``value.proto``, yet violates some rule of this document, is
-not a valid DAML-LF value.
+not a valid Daml-LF value.
 
 Backward compatibility
 ^^^^^^^^^^^^^^^^^^^^^^
 
-DAML-LF values are accompanied by a version identifier; every change to
+Daml-LF values are accompanied by a version identifier; every change to
 ``value.proto`` entails a change to this specification, and every change
 to this specification introduces a unique new version.  `Version
 history`_ defines a total ordering of all past versions; any version *y*
@@ -104,7 +104,7 @@ must be ignored entirely.
 Changing this specification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Future versions of this specification must conform to the `DAML-LF
+Future versions of this specification must conform to the `Daml-LF
 Governance process`_ and preserve all invariants described above.  Where
 these are in conflict, the governance process takes priority.
 
@@ -137,7 +137,7 @@ important subtlety in the comparison.
 
 Additionally, you should update the following `Version history`_.
 
-.. _`DAML-LF Governance process`: ../governance.rst
+.. _`Daml-LF Governance process`: ../governance.rst
 .. _`transaction`: transaction.rst
 
 Version history
@@ -157,7 +157,9 @@ later.
 +--------------------+-----------------+
 |                  6 |      2019-11-07 |
 +--------------------+-----------------+
-|                dev |      2019-11-07 |
+|       11 (preview) |      2019-12-14 |
++--------------------+-----------------+
+|                dev |      2019-12-14 |
 +--------------------+-----------------+
 
 message VersionedValue
@@ -194,7 +196,7 @@ message Value
 
 *since version 6*
  
-An actual DAML-LF *serializable value*.
+An actual Daml-LF *serializable value*.
 
 As of version 6, may be any one of these:
 
@@ -220,9 +222,9 @@ cases, e.g. ``list`` contains any number of ``Value``. The maximum depth
 of nested ``Value``, including the outermost, is 100; any more yields an
 invalid value.
 
-*since version dev*
+*since version 11*
 
-As of version dev, may be any one of the above, or this:
+As of version 11, may be any one of the above, or this:
 
 * `message GenMap`_ gen_map
 
@@ -286,7 +288,7 @@ field unit
 
 While ``Empty`` contains no information, conforming consumers are
 permitted to expect this member of `message Value`_ to be chosen
-correctly in appropriate contexts.  So if the ``Value``'s DAML-LF type
+correctly in appropriate contexts.  So if the ``Value``'s Daml-LF type
 is ``Unit``, a consumer *may* reject the message if the ``Value`` is not
 the ``unit`` member of the sum, so value producers must take care to
 select this member and not another value as a placeholder (e.g. 0,
@@ -320,7 +322,7 @@ field record_id
 
 *since version 6*
 
-The fully-qualified `message Identifier`_ of the DAML-LF record type.
+The fully-qualified `message Identifier`_ of the Daml-LF record type.
 It may be omitted.
 
 field fields
@@ -330,13 +332,13 @@ field fields
 
 Zero or more `message RecordField`_ values.
 
-The number and types of values in the fields must match the DAML-LF
+The number and types of values in the fields must match the Daml-LF
 record type associated with the `message Record`_, whether that record
 type is inferred from context or explicitly supplied as a `field
 record_id`_.
 
 Additionally, the *order* of fields must match the order in which they
-are declared in DAML-LF for that record type.  Neither producers nor
+are declared in Daml-LF for that record type.  Neither producers nor
 consumers are permitted to use ``label`` to reorder the fields.
 
 So, for example, it is unsafe to use a ``Map``, ``HashMap``, or some
@@ -358,7 +360,7 @@ As of version 6, these fields are included:
 * `message Value`_ value
 
 ``label`` may be an empty string.  However, if ``label`` is non-empty,
-it must match the name of the field in this position in the DAML-LF
+it must match the name of the field in this position in the Daml-LF
 record type under consideration.  For example, if the second field of an
 LF record type is named ``bar``, then label of the second element of
 `field fields`_ may be ``"bar"``, or an empty string in circumstances
@@ -373,7 +375,7 @@ message Identifier
 
 *since version 6*
 
-A reference to a DAML-LF record or variant type.
+A reference to a Daml-LF record or variant type.
 
 As of version 1, these fields are included, all required to be
 non-empty:
@@ -382,7 +384,7 @@ non-empty:
 * repeated ``string`` module_name
 * repeated ``string`` name
 
-``package_id`` is a DAML-LF package ID, indicating the LF package in
+``package_id`` is a Daml-LF package ID, indicating the LF package in
 which the type is defined. package ID are restricted to be a
 non-empty string of printable US-ASCII characters (characters ranging
 from '\32' to '\127').
@@ -425,7 +427,7 @@ field variant_id
 
 *since version 6*
 
-The fully-qualified `message Identifier`_ of the DAML-LF variant type.
+The fully-qualified `message Identifier`_ of the Daml-LF variant type.
 It may be omitted.
 
 field constructor
@@ -543,11 +545,11 @@ of the enum type to which this ``message Enum`` conforms.
 message GenMap.Entry
 ^^^^^^^^^^^^^^^^^
 
-*since version dev*
+*since version 11*
 
 A map entry (key-value pair) used to build `message GenMap`_.
 
-As of version dev, these fields are included:
+As of version 11, these fields are included:
 
 * `message Value`_  key
 
@@ -558,7 +560,7 @@ Both ``key`` and ``value`` are required.
 message GenMap
 ^^^^^^^^^^^
 
-*since version dev*
+*since version 11*
 
 A map where keys and values are homogeneous.
 

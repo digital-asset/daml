@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -10,8 +10,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, Su
 
 import scala.concurrent.Future
 
-/**
-  * This package contains interfaces simplifying implementation of a participant server.
+/** This package contains interfaces simplifying implementation of a participant server.
   *
   * =Interfaces=
   * The main interfaces that you need to implement to be able to run a participant server are as follows:
@@ -67,7 +66,7 @@ package object api {
 
       override def commit(
           correlationId: String,
-          envelope: Bytes,
+          envelope: Raw.Value,
           metadata: CommitMetadata,
       ): Future[SubmissionResult] =
         writer.commit(correlationId, envelope, metadata)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   ParticipantAllocation,
-  Participants
+  Participants,
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
@@ -14,15 +14,14 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.immutable
 
 private[testtool] final class LedgerTestContext private[infrastructure] (
-    participants: immutable.Seq[ParticipantTestContext],
+    participants: immutable.Seq[ParticipantTestContext]
 )(implicit ec: ExecutionContext) {
 
   require(participants.nonEmpty, "At least one participant must be provided.")
 
   private[this] val participantsRing = Iterator.continually(participants).flatten
 
-  /**
-    * This allocates participants and a specified number of parties for each participant.
+  /** This allocates participants and a specified number of parties for each participant.
     *
     * e.g. `allocate(ParticipantAllocation(SingleParty, Parties(3), NoParties, TwoParties))`
     * will eventually return:

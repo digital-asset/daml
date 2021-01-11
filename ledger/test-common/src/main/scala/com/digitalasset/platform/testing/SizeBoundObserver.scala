@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.testing
@@ -11,7 +11,8 @@ private[testing] final class SizeBoundObserver[A](sizeCap: Int)(delegate: Stream
 
   if (sizeCap < 0) {
     throw new IllegalArgumentException(
-      s"sizeCap = $sizeCap. The size of the stream cannot be less than 0.")
+      s"sizeCap = $sizeCap. The size of the stream cannot be less than 0."
+    )
   } else if (sizeCap == 0) {
     delegate.onCompleted()
   }

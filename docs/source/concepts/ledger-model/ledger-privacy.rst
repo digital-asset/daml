@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-privacy:
@@ -9,9 +9,9 @@ Privacy
 The previous sections have addressed two out of three questions posed in the
 introduction: "what the ledger looks like", and "who may request which changes".
 This section addresses the last one, "who sees which changes and data". That is,
-it explains the privacy model for DAML ledgers.
+it explains the privacy model for Daml ledgers.
 
-The privacy model of DAML Ledgers is based on a **need-to-know
+The privacy model of Daml Ledgers is based on a **need-to-know
 basis**, and provides privacy **on the level of subtransactions**. Namely, a party learns only those
 parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
@@ -31,7 +31,7 @@ Signatories are already determined by the contract model discussed so far.
 The full **contract model** additionally specifies the observers on each contract.
 A **stakeholder** of a contract (according to a given
 contract model) is then either a signatory or an observer on the contract.
-Note that in DAML, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made observers whenever possible.
+Note that in Daml, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made observers whenever possible.
 
 In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
 
@@ -85,7 +85,7 @@ for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, DAML Ledgers show to observers on a contract only the
+As a design choice, Daml Ledgers show to observers on a contract only the
 :ref:`state changing <def-contract-state>` actions on the contract.
 More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to the observers - except when they are
 the actors of these actions.
@@ -94,7 +94,7 @@ This motivates the following definition: a party `p` is an **informee** of an ac
   * `A` is a **Create** on a contract `c` and `p` is a stakeholder of `c`.
 
   * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c` or an actor on `A`.
-    Note that a DAML "flexible controller" :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
+    Note that a Daml "flexible controller" :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
 
   * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
@@ -165,7 +165,7 @@ In other words,
 contract model is **subaction-closed**, which
 means that for every action `act` in the model, all subactions of
 `act` are also in the model, then the projection is guaranteed to be
-conformant. As we will see shortly, DAML-based contract models are
+conformant. As we will see shortly, Daml-based contract models are
 conformant. Lastly, as projections carry no information about the
 requesters, we cannot talk about authorization on the level of
 projections.
@@ -202,7 +202,7 @@ Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the prob
 Divulgence: When Non-Stakeholders See Contracts
 +++++++++++++++++++++++++++++++++++++++++++++++
 
-The guiding principle for the privacy model of DAML ledgers is that
+The guiding principle for the privacy model of Daml ledgers is that
 contracts should only be shown to their stakeholders. However,
 ledger projections can cause contracts to become visible to other
 parties as well.
@@ -218,7 +218,7 @@ and `Iou Bank P` was shown to Alice.
 
 Showing contracts to non-stakeholders through ledger projections is
 called **divulgence**. Divulgence is a deliberate choice in the design
-of DAML ledgers. In the paint offer example, the only proper way to
+of Daml ledgers. In the paint offer example, the only proper way to
 accept the offer is to transfer the money from Alice to the painter.
 Conceptually, at the instant where the offer is accepted, its
 stakeholders also gain a temporary stake in the actions on the two

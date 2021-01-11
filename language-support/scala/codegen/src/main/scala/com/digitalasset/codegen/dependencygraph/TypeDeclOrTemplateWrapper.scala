@@ -1,9 +1,7 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen.dependencygraph
-
-import scala.language.higherKinds
 
 import com.daml.lf.iface.DefDataType
 
@@ -16,8 +14,9 @@ sealed abstract class TypeDeclOrTemplateWrapper[+TmplI] extends Product with Ser
 object TypeDeclOrTemplateWrapper {
   implicit val `TD covariant`: Traverse[TypeDeclOrTemplateWrapper] =
     new Traverse[TypeDeclOrTemplateWrapper] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: TypeDeclOrTemplateWrapper[A])(
-          f: A => G[B]) =
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: TypeDeclOrTemplateWrapper[A]
+      )(f: A => G[B]) =
         fa match {
           case fa @ TypeDeclWrapper(_) => Applicative[G].point(fa)
           case TemplateWrapper(t) => f(t) map (TemplateWrapper(_))

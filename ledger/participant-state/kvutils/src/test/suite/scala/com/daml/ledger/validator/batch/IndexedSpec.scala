@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
@@ -35,10 +35,9 @@ class IndexedSpec extends AsyncWordSpec with Matchers with Inside with MockitoSu
       val seq = Seq(1, 2, 3)
       val indexedSeq = Indexed.fromSeq(seq)
       indexedSeq should have size (3)
-      seq.zipWithIndex.foreach {
-        case (x, i) =>
-          indexedSeq(i).value should be(x)
-          indexedSeq(i).index should be(i)
+      seq.zipWithIndex.foreach { case (x, i) =>
+        indexedSeq(i).value should be(x)
+        indexedSeq(i).index should be(i)
       }
       succeed
     }

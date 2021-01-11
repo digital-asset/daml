@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.common
@@ -6,7 +6,6 @@ package com.daml.platform.common
 import com.daml.lf.transaction.{Node => N}
 import com.daml.lf.{engine => E}
 import com.daml.lf.data.Ref
-import scala.collection.breakOut
 
 object PlatformTypes {
 
@@ -45,7 +44,7 @@ object PlatformTypes {
 
   def party(str: String): Ref.Party = Ref.Party.assertFromString(str)
 
-  def parties(as: Iterable[String]): Set[Ref.Party] = as.map(a => party(a))(breakOut)
+  def parties(as: Iterable[String]): Set[Ref.Party] = as.view.map(a => party(a)).toSet
 
   def ss(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 

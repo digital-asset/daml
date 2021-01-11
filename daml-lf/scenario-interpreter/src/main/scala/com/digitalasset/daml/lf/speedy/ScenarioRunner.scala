@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -29,7 +29,8 @@ private case class SRunnerException(err: SError) extends RuntimeException(err.to
   */
 final case class ScenarioRunner(
     machine: Speedy.Machine,
-    partyNameMangler: (String => String) = identity) {
+    partyNameMangler: (String => String) = identity,
+) {
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   val onLedger = machine.ledgerMode match {
     case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
@@ -39,7 +40,7 @@ final case class ScenarioRunner(
   import scala.util.{Try, Success, Failure}
 
   def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
-    handleUnsafe(runUnsafe) match {
+    handleUnsafe(runUnsafe()) match {
       case Left(err) => Left((err, ledger))
       case Right(t) => Right(t)
     }
@@ -122,15 +123,18 @@ final case class ScenarioRunner(
   private def mustFail(tx: SubmittedTransaction, actAs: Set[Party], readAs: Set[Party]) = {
     // Update expression evaluated successfully,
     // however we might still have an authorization failure.
-    if (ScenarioLedger
+    if (
+      ScenarioLedger
         .commitTransaction(
           actAs = actAs,
           readAs = readAs,
           effectiveAt = ledger.currentTime,
           optLocation = onLedger.commitLocation,
           tx = tx,
-          l = ledger)
-        .isRight) {
+          l = ledger,
+        )
+        .isRight
+    ) {
       throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
     }
     ledger = ledger.insertAssertMustFail(actAs, readAs, onLedger.commitLocation)
@@ -141,14 +145,15 @@ final case class ScenarioRunner(
       tx: SubmittedTransaction,
       actAs: Set[Party],
       readAs: Set[Party],
-      callback: SValue => Unit) = {
+      callback: SValue => Unit,
+  ) = {
     ScenarioLedger.commitTransaction(
       actAs = actAs,
       readAs = readAs,
       effectiveAt = ledger.currentTime,
       optLocation = onLedger.commitLocation,
       tx = tx,
-      l = ledger
+      l = ledger,
     ) match {
       case Left(fas) =>
         throw SRunnerException(ScenarioErrorCommitError(fas))
@@ -168,7 +173,8 @@ final case class ScenarioRunner(
       actAs: Set[Party],
       readAs: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit): Either[SError, Unit] =
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+  ): Either[SError, Unit] =
     handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbMissing, cbPresent))
 
   private def lookupContractUnsafe(
@@ -188,7 +194,8 @@ final case class ScenarioRunner(
     ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(actAs, readAs),
       effectiveAt = effectiveAt,
-      acoid) match {
+      acoid,
+    ) match {
       case ScenarioLedger.LookupOk(_, coinst, _) =>
         cbPresent(coinst)
 
@@ -240,7 +247,8 @@ final case class ScenarioRunner(
         ledger.lookupGlobalContract(
           view = ScenarioLedger.ParticipantView(actAs, readAs),
           effectiveAt = effectiveAt,
-          acoid) match {
+          acoid,
+        ) match {
           case ScenarioLedger.LookupOk(_, _, stakeholders) =>
             if (!readers.intersect(stakeholders).isEmpty)
               // We should always be able to continue with a SKeyLookupResult.Found.
@@ -248,7 +256,8 @@ final case class ScenarioRunner(
               assert(canContinue(SKeyLookupResult.Found(acoid)))
             else
               notVisibleWith(
-                ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders))
+                ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
+              )
           case ScenarioLedger.LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
           case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
@@ -256,13 +265,14 @@ final case class ScenarioRunner(
           case ScenarioLedger.LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
           case ScenarioLedger.LookupContractNotVisible(
-              coid,
-              tid @ _,
-              observers @ _,
-              stakeholders,
+                coid,
+                tid @ _,
+                observers @ _,
+                stakeholders,
               ) =>
             notVisibleWith(
-              ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders))
+              ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
+            )
         }
     }
   }
@@ -292,15 +302,18 @@ object ScenarioRunner {
 
   private[this] def getScenarioExpr(
       scenarioRef: Ref.DefinitionRef,
-      scenarioDef: Ast.Definition): Ast.Expr = {
+      scenarioDef: Ast.Definition,
+  ): Ast.Expr = {
     scenarioDef match {
       case Ast.DValue(_, _, body, _) => body
       case _: Ast.DTypeSyn =>
         throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a type synonym, not a definition")
+          s"Requested scenario $scenarioRef is a type synonym, not a definition"
+        )
       case _: Ast.DDataType =>
         throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a data type, not a definition")
+          s"Requested scenario $scenarioRef is a data type, not a definition"
+        )
     }
   }
 }

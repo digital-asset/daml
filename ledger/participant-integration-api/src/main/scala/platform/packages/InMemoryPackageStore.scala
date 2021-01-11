@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.packages
@@ -28,7 +28,8 @@ private[platform] object InMemoryPackageStore {
 private[platform] case class InMemoryPackageStore(
     packageInfos: Map[PackageId, PackageDetails],
     packages: Map[PackageId, Ast.Package],
-    archives: Map[PackageId, Archive]) {
+    archives: Map[PackageId, Archive],
+) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
@@ -52,15 +53,18 @@ private[platform] case class InMemoryPackageStore(
   def withPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      packages: List[Archive]): Either[String, InMemoryPackageStore] =
+      packages: List[Archive],
+  ): Either[String, InMemoryPackageStore] =
     addArchives(knownSince, sourceDescription, packages)
 
   def withDarFile(
       knownSince: Instant,
       sourceDescription: Option[String],
-      file: File): Either[String, InMemoryPackageStore] = {
+      file: File,
+  ): Either[String, InMemoryPackageStore] = {
     val archivesTry = for {
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(file)
+      dar <- DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchiveFromFile(file)
     } yield dar.all
 
     for {
@@ -73,25 +77,27 @@ private[platform] case class InMemoryPackageStore(
       pkgId: PackageId,
       details: PackageDetails,
       archive: Archive,
-      pkg: Ast.Package): InMemoryPackageStore =
+      pkg: Ast.Package,
+  ): InMemoryPackageStore =
     packageInfos.get(pkgId) match {
       case None =>
         new InMemoryPackageStore(
           packageInfos + (pkgId -> details),
           packages + (pkgId -> pkg),
-          archives + (pkgId -> archive)
+          archives + (pkgId -> archive),
         )
       case Some(oldDetails) =>
         // Note: we are discarding the new metadata (size, known since, source description)
         logger.debug(
-          s"Ignoring duplicate upload of package $pkgId. Existing package: $oldDetails, new package: $details")
+          s"Ignoring duplicate upload of package $pkgId. Existing package: $oldDetails, new package: $details"
+        )
         this
     }
 
   private def addArchives(
       knownSince: Instant,
       sourceDescription: Option[String],
-      archives: List[Archive]
+      archives: List[Archive],
   ): Either[String, InMemoryPackageStore] =
     archives
       .traverse(archive =>
@@ -99,14 +105,15 @@ private[platform] case class InMemoryPackageStore(
           Right((archive, Decode.decodeArchive(archive)._2))
         } catch {
           case err: ParseError => Left(s"Could not parse archive ${archive.getHash}: $err")
-      })
+        }
+      )
       .map(pkgs =>
-        pkgs.foldLeft(this) {
-          case (store, (archive, pkg)) =>
-            val pkgId = PackageId.assertFromString(archive.getHash)
-            val details =
-              PackageDetails(archive.getPayload.size.toLong, knownSince, sourceDescription)
-            store.addPackage(pkgId, details, archive, pkg)
-      })
+        pkgs.foldLeft(this) { case (store, (archive, pkg)) =>
+          val pkgId = PackageId.assertFromString(archive.getHash)
+          val details =
+            PackageDetails(archive.getPayload.size.toLong, knownSince, sourceDescription)
+          store.addPackage(pkgId, details, archive, pkg)
+        }
+      )
 
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.lf.data
 
@@ -75,19 +75,19 @@ sealed abstract class IdString {
   type PackageVersion <: String
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-      underscore. We use them to represent [Party] literals. In this way, we avoid
-      empty identifiers, escaping problems, and other similar pitfalls.
+    *      underscore. We use them to represent [Party] literals. In this way, we avoid
+    *      empty identifiers, escaping problems, and other similar pitfalls.
     */
   type Party <: String
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
-    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
+    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive.
+    */
   type PackageId <: String
 
   type ParticipantId <: String
 
-  /**
-    * Used to reference to leger objects like legacy contractIds, ledgerIds,
+  /** Used to reference to leger objects like legacy contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
@@ -216,8 +216,9 @@ private final class ConcatenableMatchingStringModule(
     while (i < s.length) {
       val c = s(i).toInt
       if (c > 0x7f || disallowedChar(c))
-        throw new IllegalArgumentException(
-          s"""non expected character 0x${s(i).toInt.toHexString} in $description "$s"""")
+        throw new IllegalArgumentException(s"""non expected character 0x${s(
+          i
+        ).toInt.toHexString} in $description "$s"""")
       i += 1
     }
     s
@@ -228,7 +229,7 @@ private final class ConcatenableMatchingStringModule(
   override def fromInt(i: Int): T = fromLong(i.toLong)
 
   override def concat(s: T, ss: T*): Either[String, T] = {
-    val b = StringBuilder.newBuilder
+    val b = new StringBuilder
     b ++= s
     ss.foreach(b ++= _)
     if (b.length <= maxLength) Right(b.result()) else Left(s"id ${b.result()} too Long")
@@ -265,13 +266,15 @@ private[data] final class IdStringImpl extends IdString {
       val c = s(0).toInt
       if (c > 0x7f || disallowedFirstChar(c))
         throw new IllegalArgumentException(
-          s"""non expected first character 0x${c.toHexString} in DAML LF Name "$s"""")
+          s"""non expected first character 0x${c.toHexString} in DAML LF Name "$s""""
+        )
       var i = 1
       while (i < s.length) {
         val c = s(i).toInt
         if (c > 0x7f || disallowedOtherChar(c))
           throw new IllegalArgumentException(
-            s"""non expected non first character 0x${c.toHexString} in DAML LF Name "$s"""")
+            s"""non expected non first character 0x${c.toHexString} in DAML LF Name "$s""""
+          )
         i += 1
       }
       s
@@ -285,7 +288,7 @@ private[data] final class IdStringImpl extends IdString {
     new ConcatenableMatchingStringModule("DAML LF Package Name", "-_")
 
   /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
-      separated by dots.
+    *      separated by dots.
     */
   override type PackageVersion = String
   override val PackageVersion: StringModule[PackageVersion] =
@@ -300,13 +303,13 @@ private[data] final class IdStringImpl extends IdString {
     new ConcatenableMatchingStringModule("DAML LF Party", ":-_ ", 255)
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
-    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
+    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive.
+    */
   override type PackageId = String
   override val PackageId: ConcatenableStringModule[PackageId, HexString] =
     new ConcatenableMatchingStringModule("DAML LF Package ID", "-_ ")
 
-  /**
-    * Used to reference to leger objects like contractIds, ledgerIds,
+  /** Used to reference to leger objects like contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
@@ -318,8 +321,7 @@ private[data] final class IdStringImpl extends IdString {
   override type ParticipantId = String
   override val ParticipantId = LedgerString
 
-  /**
-    * Legacy contractIds.
+  /** Legacy contractIds.
     */
   override type ContractIdString = String
   override val ContractIdString: StringModule[ContractIdString] =

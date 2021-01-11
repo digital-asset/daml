@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -15,13 +15,13 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
   InternalError,
   NotSupported,
-  Overloaded
+  Overloaded,
 }
 import com.daml.ledger.participant.state.v1.{
   Configuration,
   SeedService,
   SubmissionResult,
-  WriteService
+  WriteService,
 }
 import com.daml.lf.crypto
 import com.daml.lf.transaction.SubmittedTransaction
@@ -57,8 +57,8 @@ private[apiserver] object ApiSubmissionService {
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
@@ -77,13 +77,13 @@ private[apiserver] object ApiSubmissionService {
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime =
-        () => ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+      maxDeduplicationTime = () =>
+        ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
       metrics = metrics,
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean,
+      implicitPartyAllocation: Boolean
   )
 
 }
@@ -99,7 +99,7 @@ private[apiserver] final class ApiSubmissionService private (
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-)(implicit ec: ExecutionContext, loggingContext: LoggingContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {
@@ -133,11 +133,10 @@ private[apiserver] final class ApiSubmissionService private (
         case CommandDeduplicationNew =>
           evaluateAndSubmit(seed, commands, ledgerConfig)
             .transform(handleSubmissionResult)
-            .recoverWith {
-              case NonFatal(originalCause) =>
-                submissionService
-                  .stopDeduplicatingCommand(commands.commandId, commands.actAs.toList)
-                  .transform(_ => Failure(originalCause))
+            .recoverWith { case NonFatal(originalCause) =>
+              submissionService
+                .stopDeduplicatingCommand(commands.commandId, commands.actAs.toList)
+                .transform(_ => Failure(originalCause))
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
@@ -145,8 +144,8 @@ private[apiserver] final class ApiSubmissionService private (
           Future.failed(DuplicateCommand.asRuntimeException)
       }
 
-  private def handleSubmissionResult(result: Try[SubmissionResult])(
-      implicit loggingContext: LoggingContext,
+  private def handleSubmissionResult(result: Try[SubmissionResult])(implicit
+      loggingContext: LoggingContext
   ): Try[Unit] = result match {
     case Success(Acknowledged) =>
       logger.debug("Success")
@@ -170,12 +169,15 @@ private[apiserver] final class ApiSubmissionService private (
   }
 
   private def handleCommandExecutionResult(
-      result: Either[ErrorCause, CommandExecutionResult],
+      result: Either[ErrorCause, CommandExecutionResult]
   ): Future[CommandExecutionResult] =
-    result.fold(error => {
-      metrics.daml.commands.failedCommandInterpretations.mark()
-      Future.failed(grpcError(toStatus(error)))
-    }, Future.successful)
+    result.fold(
+      error => {
+        metrics.daml.commands.failedCommandInterpretations.mark()
+        Future.failed(grpcError(toStatus(error)))
+      },
+      Future.successful,
+    )
 
   private def evaluateAndSubmit(
       submissionSeed: crypto.Hash,
@@ -191,7 +193,7 @@ private[apiserver] final class ApiSubmissionService private (
 
   // Takes the whole transaction to ensure to traverse it only if necessary
   private def allocateMissingInformees(
-      transaction: SubmittedTransaction,
+      transaction: SubmittedTransaction
   )(implicit loggingContext: LoggingContext): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
       val partiesInTransaction = transaction.nodes.valuesIterator.flatMap(_.informeesOfNode).toSeq
@@ -257,7 +259,7 @@ private[apiserver] final class ApiSubmissionService private (
     }
 
   private def submitTransaction(
-      result: CommandExecutionResult,
+      result: CommandExecutionResult
   ): Future[SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
     writeService

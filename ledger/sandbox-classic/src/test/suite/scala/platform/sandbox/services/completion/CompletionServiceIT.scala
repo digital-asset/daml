@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.completion
@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionEndRequest,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
@@ -51,7 +51,10 @@ class CompletionServiceIT
       Some(
         Record(
           Some(templateIds.dummy),
-          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party)))))))).wrap
+          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party))))),
+        )
+      ),
+    ).wrap
 
   private[this] def submitAndWaitRequest(ledgerId: String, party: String, commandId: String) =
     MockMessages.submitAndWaitRequest
@@ -81,7 +84,7 @@ class CompletionServiceIT
     new StreamConsumer[CompletionStreamResponse](
       completionService.completionStream(
         CompletionStreamRequest(ledgerId, applicationId, parties, Some(MockMessages.ledgerBegin)),
-        _
+        _,
       )
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))
@@ -98,8 +101,9 @@ class CompletionServiceIT
           ledgerId,
           applicationId,
           parties,
-          Some(LedgerOffset(LedgerOffset.Value.Absolute(offset)))),
-        _
+          Some(LedgerOffset(LedgerOffset.Value.Absolute(offset))),
+        ),
+        _,
       )
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))
@@ -146,7 +150,7 @@ class CompletionServiceIT
       commandConfig = super.config.commandConfig.copy(
         inputBufferSize = 1,
         maxParallelSubmissions = 2,
-        maxCommandsInFlight = 2
+        maxCommandsInFlight = 2,
       )
     )
 

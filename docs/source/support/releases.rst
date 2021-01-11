@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Releases and Versioning
@@ -9,7 +9,7 @@ Releases and Versioning
 Versioning
 ----------
 
-All DAML components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API", changes or breakages to which are indicated by the version number.
+All Daml components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API", changes or breakages to which are indicated by the version number.
 
 Stable releases have versions MAJOR.MINOR.PATCH. Segments of the version are incremented according to the following rules:
 
@@ -17,18 +17,18 @@ Stable releases have versions MAJOR.MINOR.PATCH. Segments of the version are inc
 #. MINOR version when functionality is added in a backwards compatible manner, and
 #. PATCH version when there are only backwards compatible bug fixes.
 
-DAML's "public API" is laid out in the :doc:`overview`.
+Daml's "public API" is laid out in the :doc:`overview`.
 
 Cadence
 -------
 
-Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain DAML Connect and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
+Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain Daml Connect and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
 Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely. 
 
 No more than one major version is released every six months, barring exceptional circumstances.
 
-Individual DAML drivers follow their own release cadence, using already released Integration Components as a dependency.
+Individual Daml drivers follow their own release cadence, using already released Integration Components as a dependency.
 
 .. _support_duration:
 
@@ -42,27 +42,27 @@ Major versions will be supported for a minimum of one year after a subsequent Ma
 Release Notes
 -------------
 
-Release notes for each release are published on the `Release Notes section of the DAML Driven blog <https://daml.com/release-notes/>`_.
+Release notes for each release are published on the `Release Notes section of the Daml Driven blog <https://daml.com/release-notes/>`_.
 
 .. _roadmap:
 
 Roadmap
 -------
 
-Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `DAML Driven Blog <https://daml.com/daml-driven>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.
+Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `Daml Driven Blog <https://daml.com/daml-driven>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.
 
 .. _release_process:
 
 Process
 -------
 
-Weekly snapshot and monthly stable releases follow a regular process and schedule. The process is documented `in the DAML repository <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md>`_ so only the schedule for monthly releases is covered here.
+Weekly snapshot and monthly stable releases follow a regular process and schedule. The process is documented `in the Daml repository <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md>`_ so only the schedule for monthly releases is covered here.
 
 Selecting a Release Candidate
 
-  This is done by the DAML core engineering teams on the **first Monday of every month**.
+  This is done by the Daml core engineering teams on the **first Monday of every month**.
 
-  The monthly releases are time-based, not scope-based. Furthermore, DAML development is fully HEAD-based so both the repository and every snapshot are intended to be in a fully releasable state at every point. The release process therefore starts with "selecting a release candidate". Typically the Snapshot from the preceding Wednesday is selected as the release candidate.
+  The monthly releases are time-based, not scope-based. Furthermore, Daml development is fully HEAD-based so both the repository and every snapshot are intended to be in a fully releasable state at every point. The release process therefore starts with "selecting a release candidate". Typically the Snapshot from the preceding Wednesday is selected as the release candidate.
 
 Release Notes and Candidate Review
 

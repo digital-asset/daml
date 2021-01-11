@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger
@@ -13,7 +13,7 @@ import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   MultiResourceBase,
   Resource,
-  SuiteResourceManagementAroundEach
+  SuiteResourceManagementAroundEach,
 }
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.participant.state.v1.{
@@ -21,7 +21,7 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   SubmitterInfo,
   TimeModel,
-  TransactionMeta
+  TransactionMeta,
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
@@ -71,7 +71,8 @@ class TransactionTimeModelComplianceIT
       recordTime: Instant,
       generation: Long,
       minSkew: JDuration,
-      maxSkew: JDuration) = {
+      maxSkew: JDuration,
+  ) = {
     val config = Configuration(
       generation = generation,
       timeModel = TimeModel(JDuration.ZERO, minSkew, maxSkew).get,
@@ -80,7 +81,8 @@ class TransactionTimeModelComplianceIT
     ledger.publishConfiguration(
       Time.Timestamp.assertFromInstant(recordTime.plusSeconds(3600)),
       UUID.randomUUID().toString,
-      config)
+      config,
+    )
   }
 
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
@@ -90,7 +92,7 @@ class TransactionTimeModelComplianceIT
       actAs = List(Ref.Party.assertFromString("submitter")),
       applicationId = Ref.LedgerString.assertFromString("appId"),
       commandId = Ref.LedgerString.assertFromString(commandId + UUID.randomUUID().toString),
-      deduplicateUntil = Instant.EPOCH
+      deduplicateUntil = Instant.EPOCH,
     )
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerTime),
@@ -99,7 +101,7 @@ class TransactionTimeModelComplianceIT
       submissionSeed = submissionSeed,
       optUsedPackages = None,
       optNodeSeeds = None,
-      optByKeyNodes = None
+      optByKeyNodes = None,
     )
 
     val offset = ledger.ledgerEnd
@@ -108,7 +110,8 @@ class TransactionTimeModelComplianceIT
       submissionResult <- ledger.publishTransaction(
         submitterInfo,
         transactionMeta,
-        dummyTransaction)
+        dummyTransaction,
+      )
       completion <- ledger
         .completions(
           Some(offset),

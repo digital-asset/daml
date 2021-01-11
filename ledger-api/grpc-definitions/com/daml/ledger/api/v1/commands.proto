@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -86,10 +86,10 @@ message Commands {
   repeated string act_as = 12;
 
   // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
-  // This affects DAML operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
-  // Note: A participant node of a DAML network can host multiple parties. Each contract present on the participant
+  // This affects Daml operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
+  // Note: A participant node of a Daml network can host multiple parties. Each contract present on the participant
   // node is only visible to a subset of these parties. A command can only use contracts that are visible to at least
-  // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the DAML authorization
+  // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the Daml authorization
   // rules for fetch operations.
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
   // to read contract data on behalf of each of the given parties.

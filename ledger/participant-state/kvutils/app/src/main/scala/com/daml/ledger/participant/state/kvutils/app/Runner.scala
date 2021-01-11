@@ -1,11 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.nio.file.Path
 import java.util.UUID
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -51,37 +51,35 @@ final class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def dumpIndexMetadata(jdbcUrls: Seq[String])(
-      implicit resourceContext: ResourceContext): Resource[Unit] = {
+  private def dumpIndexMetadata(
+      jdbcUrls: Seq[String]
+  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
-      newLoggingContext("jdbcUrl" -> jdbcUrl) {
-        implicit loggingContext: LoggingContext =>
-          Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
-            case Failure(exception) =>
-              logger.error("Error while retrieving the index metadata", exception)
-            case Success(metadata) =>
-              logger.warn(s"ledger_id: ${metadata.ledgerId}")
-              logger.warn(s"participant_id: ${metadata.participantId}")
-              logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
-              logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
-          })
+      newLoggingContext("jdbcUrl" -> jdbcUrl) { implicit loggingContext: LoggingContext =>
+        Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
+          case Failure(exception) =>
+            logger.error("Error while retrieving the index metadata", exception)
+          case Success(metadata) =>
+            logger.warn(s"ledger_id: ${metadata.ledgerId}")
+            logger.warn(s"participant_id: ${metadata.participantId}")
+            logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
+            logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
+        })
       }
     })
   }
 
-  private def run(config: Config[Extra])(
-      implicit resourceContext: ResourceContext): Resource[Unit] = {
+  private def run(
+      config: Config[Extra]
+  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(
-      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
+      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
+    )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    // share engine between the kvutils committer backend and the ledger api server
-    // this avoids duplicate compilation of packages as well as keeping them in memory twice
-    // FIXME: https://github.com/digital-asset/daml/issues/5164
-    // This should be made configurable
-    val sharedEngine = Engine.DevEngine()
+    val sharedEngine = Engine.StableEngine()
 
     newLoggingContext { implicit loggingContext =>
       for {
@@ -101,12 +99,12 @@ final class Runner[T <: ReadWriteService, Extra](
               metrics = metrics,
             )
           for {
-            _ <- config.metricsReporter.fold(Resource.unit)(
-              reporter =>
-                ResourceOwner
-                  .forCloseable(() => reporter.register(metrics.registry))
-                  .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-                  .acquire())
+            _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
+              ResourceOwner
+                .forCloseable(() => reporter.register(metrics.registry))
+                .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+                .acquire()
+            )
             ledger <- factory
               .readWriteServiceOwner(config, participantConfig, sharedEngine)
               .acquire()
@@ -116,8 +114,15 @@ final class Runner[T <: ReadWriteService, Extra](
               "read" -> readService,
               "write" -> writeService,
             )
-            _ <- Resource.sequence(config.archiveFiles.map(path =>
-              Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))))
+            _ <- Resource.sequence(
+              config.archiveFiles.map(path =>
+                Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))
+              )
+            )
+            servicesExecutionContext <- ResourceOwner
+              .forExecutorService(() => Executors.newWorkStealingPool())
+              .map(ExecutionContext.fromExecutorService)
+              .acquire()
             _ <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                 new StandaloneIndexerServer(
@@ -144,6 +149,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   timeServiceBackend = factory.timeServiceBackend(config),
                   otherInterceptors = factory.interceptors(config),
                   engine = sharedEngine,
+                  servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
               case ParticipantRunMode.Indexer =>
@@ -155,13 +161,14 @@ final class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def uploadDar(from: Path, to: WritePackagesService)(
-      implicit executionContext: ExecutionContext
+  private def uploadDar(from: Path, to: WritePackagesService)(implicit
+      executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
+        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get
+      )
       _ <- to.uploadPackages(submissionId, dar.all, None).toScala
     } yield ()
   }

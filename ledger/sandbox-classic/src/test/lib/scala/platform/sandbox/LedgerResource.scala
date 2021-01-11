@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -44,7 +44,9 @@ private[sandbox] object LedgerResource {
           transactionCommitter = StandardTransactionCommitter,
           packageStoreInit = packages,
           ledgerEntries = entries,
-      )))
+        )
+      )
+    )
 
   private val TestParticipantId =
     domain.ParticipantId(Ref.ParticipantId.assertFromString("test-participant-id"))
@@ -55,8 +57,8 @@ private[sandbox] object LedgerResource {
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-  )(
-      implicit resourceContext: ResourceContext,
+  )(implicit
+      resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): Resource[Ledger] =

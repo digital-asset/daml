@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.json
@@ -42,14 +42,16 @@ class DamlLfCodecSpec extends AnyWordSpec with Matchers {
       }
       "work for DamlLfDefDataType(SimpleRecord)" in {
         serializeAndParse[model.DamlLfDefDataType](C.simpleRecordGC) shouldBe Success(
-          C.simpleRecordGC)
+          C.simpleRecordGC
+        )
       }
       "work for DamlLfDefDataType(Tree)" in {
         serializeAndParse[model.DamlLfDefDataType](C.treeGC) shouldBe Success(C.treeGC)
       }
       "work for DamlLfDefDataType(ComplexRecord)" in {
         serializeAndParse[model.DamlLfDefDataType](C.complexRecordGC) shouldBe Success(
-          C.complexRecordGC)
+          C.complexRecordGC
+        )
       }
     }
   }

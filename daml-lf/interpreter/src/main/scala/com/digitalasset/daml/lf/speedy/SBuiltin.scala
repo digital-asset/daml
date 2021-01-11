@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -16,24 +16,23 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 
-/**
-  Speedy builtins are stratified into two layers:
-  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
-
-  Effectful builtin functions may raise `SpeedyHungry` exceptions or change machine state.
-  Pure builtins can be treated specially because their evaluation is immediate.
-  This fact is used by the execution of the ANF expression form: `SELet1Builtin`.
-
-  Most builtins are pure, and so they extend `SBuiltinPure`
+/**  Speedy builtins are stratified into two layers:
+  *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
+  *
+  *  Effectful builtin functions may raise `SpeedyHungry` exceptions or change machine state.
+  *  Pure builtins can be treated specially because their evaluation is immediate.
+  *  This fact is used by the execution of the ANF expression form: `SELet1Builtin`.
+  *
+  *  Most builtins are pure, and so they extend `SBuiltinPure`
   */
 private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   // Helper for constructing expressions applying this builtin.
@@ -42,7 +41,8 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
     SEApp(SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
-    * Updates the machine state accordingly. */
+    * Updates the machine state accordingly.
+    */
   private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 }
 
@@ -56,7 +56,8 @@ private[speedy] sealed abstract class SBuiltinPure(val arity1: Int) extends SBui
   }
 
   /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
-    Returns the resulting value */
+    *    Returns the resulting value
+    */
   private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 }
 
@@ -67,7 +68,7 @@ private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
   protected def execute(
       args: util.ArrayList[SValue],
       machine: Machine,
-      onLedger: OnLedger
+      onLedger: OnLedger,
   ): Unit
 
   final override def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
@@ -141,7 +142,7 @@ private[lf] object SBuiltin {
       } catch {
         case _: ArithmeticException =>
           throw DamlEArithmeticError(
-            s"Int64 overflow when raising $base to the exponent $exponent.",
+            s"Int64 overflow when raising $base to the exponent $exponent."
           )
       }
 
@@ -183,7 +184,7 @@ private[lf] object SBuiltin {
   private[this] def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
     if (y.signum() == 0)
       throw DamlEArithmeticError(
-        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
+        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}."
       )
     else
       rightOrArithmeticError(
@@ -226,7 +227,7 @@ private[lf] object SBuiltin {
       val prec = args.get(1).asInstanceOf[SInt64].value
       val x = args.get(2).asInstanceOf[SNumeric].value
       SNumeric(
-        rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)),
+        rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x))
       )
     }
   }
@@ -240,7 +241,7 @@ private[lf] object SBuiltin {
         rightOrArithmeticError(
           s"Error while casting (Numeric $inputScale) to (Numeric $outputScale)",
           Numeric.fromBigDecimal(outputScale, x),
-        ),
+        )
       )
     }
   }
@@ -254,7 +255,7 @@ private[lf] object SBuiltin {
         rightOrArithmeticError(
           s"Error while shifting (Numeric $inputScale) to (Numeric $outputScale)",
           Numeric.fromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale)),
-        ),
+        )
       )
     }
   }
@@ -323,7 +324,8 @@ private[lf] object SBuiltin {
   final case object SBToTextContractId extends SBuiltin(1) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       args.get(0) match {
         case SContractId(cid) =>
           machine.ledgerMode match {
@@ -379,7 +381,8 @@ private[lf] object SBuiltin {
         } catch {
           case _: NumberFormatException =>
             SV.None
-        } else
+        }
+      else
         SV.None
     }
   }
@@ -402,7 +405,9 @@ private[lf] object SBuiltin {
           // are doomed to failure.
           val significantIntDigits = if (intPart == "0") 0 else intPart.length
           val significantDecDigits = decPart.length
-          if (significantIntDigits <= Numeric.maxPrecision - scale && significantDecDigits <= scale) {
+          if (
+            significantIntDigits <= Numeric.maxPrecision - scale && significantDecDigits <= scale
+          ) {
             // Then, we reconstruct the string dropping non significant '0's to avoid unnecessary and
             // potentially very costly String to BigDecimal conversions. Take for example the String
             // "1." followed by millions of '0's
@@ -479,7 +484,8 @@ private[lf] object SBuiltin {
   final case object SBFoldr extends SBuiltin(3) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       val func = args.get(0).asInstanceOf[SPAP]
       val init = args.get(1)
       val list = args.get(2)
@@ -595,7 +601,7 @@ private[lf] object SBuiltin {
         rightOrArithmeticError(
           s"overflow when converting $x to (Numeric $scale)",
           Numeric.fromLong(scale, x),
-        ),
+        )
       )
     }
   }
@@ -607,7 +613,7 @@ private[lf] object SBuiltin {
         rightOrArithmeticError(
           s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
           Numeric.toLong(x),
-        ),
+        )
       )
     }
   }
@@ -630,7 +636,7 @@ private[lf] object SBuiltin {
             rightOrArithmeticError(
               s"Could not convert Int64 $days to Date.",
               Time.Date.asInt(days) flatMap Time.Date.fromDaysSinceEpoch,
-            ),
+            )
           )
         case _ =>
           throw SErrorCrash(s"type mismatch unixDaysToDate: $args")
@@ -656,7 +662,7 @@ private[lf] object SBuiltin {
             rightOrArithmeticError(
               s"Could not convert Int64 $t to Timestamp.",
               Time.Timestamp.fromLong(t),
-            ),
+            )
           )
         case _ =>
           throw SErrorCrash(s"type mismatch unixMicrosecondsToTimestamp: $args")
@@ -882,7 +888,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val createArg = args.get(0)
       val createArgValue = createArg.toValue
@@ -893,10 +899,9 @@ private[lf] object SBuiltin {
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
       val mbKey = extractOptionalKeyWithMaintainers(args.get(4))
-      mbKey.foreach {
-        case Node.KeyWithMaintainers(key, maintainers) =>
-          if (maintainers.isEmpty)
-            throw DamlECreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+      mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
+        if (maintainers.isEmpty)
+          throw DamlECreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
       }
       val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
@@ -939,7 +944,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
@@ -984,7 +989,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val exerciseResult = args.get(0).toValue
       onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
@@ -1001,7 +1006,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1021,18 +1026,17 @@ private[lf] object SBuiltin {
               templateId,
               onLedger.committers,
               cbMissing = _ => machine.tryHandleException(),
-              cbPresent = {
-                case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
-                  // Note that we cannot throw in this continuation -- instead
-                  // set the control appropriately which will crash the machine
-                  // correctly later.
-                  machine.ctrl =
-                    if (actualTmplId != templateId)
-                      SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                    else
-                      SEImportValue(arg)
+              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
+                // Note that we cannot throw in this continuation -- instead
+                // set the control appropriately which will crash the machine
+                // correctly later.
+                machine.ctrl =
+                  if (actualTmplId != templateId)
+                    SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                  else
+                    SEImportValue(arg)
               },
-            ),
+            )
           )
       }
     }
@@ -1050,7 +1054,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1086,7 +1090,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
@@ -1102,7 +1106,8 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers, {
+              onLedger.committers,
+              {
                 case SKeyLookupResult.Found(cid) =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
                   // We have to check that the discriminator of cid does not conflict with a local ones
@@ -1117,7 +1122,7 @@ private[lf] object SBuiltin {
                 case SKeyLookupResult.NotVisible =>
                   machine.tryHandleException()
               },
-            ),
+            )
           )
       }
     }
@@ -1132,7 +1137,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val mbCoid = args.get(1) match {
@@ -1167,7 +1172,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
@@ -1185,7 +1190,8 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers, {
+              onLedger.committers,
+              {
                 case SKeyLookupResult.Found(cid) =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
                   // We have to check that the discriminator of cid does not conflict with a local ones
@@ -1197,7 +1203,7 @@ private[lf] object SBuiltin {
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
                   machine.tryHandleException()
               },
-            ),
+            )
           )
       }
     }
@@ -1212,7 +1218,7 @@ private[lf] object SBuiltin {
       checkToken(args.get(0))
       // $ugettime :: Token -> Timestamp
       throw SpeedyHungry(
-        SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)),
+        SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp))
       )
     }
   }
@@ -1222,7 +1228,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       checkToken(args.get(1))
       onLedger.localContracts = Map.empty
@@ -1238,7 +1244,7 @@ private[lf] object SBuiltin {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger
+        onLedger: OnLedger,
     ): Unit = {
       checkToken(args.get(1))
       if (mustFail) executeMustFail(args, machine, onLedger)
@@ -1248,7 +1254,8 @@ private[lf] object SBuiltin {
     private[this] final def executeMustFail(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger): Unit = {
+        onLedger: OnLedger,
+    ): Unit = {
       // A mustFail commit evaluated the update with
       // a catch. The second argument is a boolean
       // that marks whether an exception was thrown
@@ -1273,7 +1280,8 @@ private[lf] object SBuiltin {
               // do that.
               machine.returnValue = SV.Unit
               throw SpeedyHungry(
-                SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
+                SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit)
+              )
             case PartialTransaction.IncompleteTransaction(_) =>
               machine.clearCommit
               machine.returnValue = SV.Unit
@@ -1286,7 +1294,8 @@ private[lf] object SBuiltin {
     private[this] def executeCommit(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger): Unit =
+        onLedger: OnLedger,
+    ): Unit =
       onLedger.ptx.finish match {
         case PartialTransaction.CompleteTransaction(tx) =>
           throw SpeedyHungry(
@@ -1297,7 +1306,7 @@ private[lf] object SBuiltin {
               callback = newValue => {
                 machine.clearCommit
                 machine.returnValue = newValue
-              }
+              },
             )
           )
         case PartialTransaction.IncompleteTransaction(ptx) =>
@@ -1322,7 +1331,7 @@ private[lf] object SBuiltin {
         SResultScenarioPassTime(
           relTime,
           timestamp => machine.returnValue = STimestamp(timestamp),
-        ),
+        )
       )
     }
   }
@@ -1337,7 +1346,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SText(name) =>
           throw SpeedyHungry(
-            SResultScenarioGetParty(name, party => machine.returnValue = SParty(party)),
+            SResultScenarioGetParty(name, party => machine.returnValue = SParty(party))
           )
         case v =>
           crash(s"invalid argument to GetParty: $v")
@@ -1466,7 +1475,8 @@ private[lf] object SBuiltin {
               if (n < 0) {
                 SOptional(None)
               } else {
-                val rn = t.codePointCount(0, n).toLong // we want to return the number of codepoints!
+                val rn =
+                  t.codePointCount(0, n).toLong // we want to return the number of codepoints!
                 SOptional(Some(SInt64(rn)))
               }
             case x =>
@@ -1558,7 +1568,7 @@ private[lf] object SBuiltin {
                   case SText(t) => t
                   case x =>
                     throw SErrorCrash(
-                      s"type mismatch SBTextIntercalate, expected Text in list, got $x",
+                      s"type mismatch SBTextIntercalate, expected Text in list, got $x"
                     )
                 }
               }
@@ -1618,7 +1628,7 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
-      v: SValue,
+      v: SValue
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
       case SStruct(_, vals) =>
@@ -1630,16 +1640,16 @@ private[lf] object SBuiltin {
               .ensureNoCid
               .left
               .map(coid => s"Contract IDs are not supported in contract keys: $coid")
-          } yield
-            Node.KeyWithMaintainers(
-              key = keyVal,
-              maintainers = extractParties(vals.get(maintainerIdx))
-            ))
+          } yield Node.KeyWithMaintainers(
+            key = keyVal,
+            maintainers = extractParties(vals.get(maintainerIdx)),
+          )
+        )
       case _ => crash(s"Invalid key with maintainers: $v")
     }
 
   private[this] def extractOptionalKeyWithMaintainers(
-      optKey: SValue,
+      optKey: SValue
   ): Option[Node.KeyWithMaintainers[V[Nothing]]] =
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)

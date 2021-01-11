@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -7,14 +7,14 @@ import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedu
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.{
   StepInfo,
-  buildLogEntryWithOptionalRecordTime
+  buildLogEntryWithOptionalRecordTime,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
 private[kvutils] class PartyAllocationCommitter(
-    override protected val metrics: Metrics,
+    override protected val metrics: Metrics
 ) extends Committer[DamlPartyAllocationEntry.Builder] {
 
   override protected val committerName = "party_allocation"
@@ -24,7 +24,8 @@ private[kvutils] class PartyAllocationCommitter(
       partyAllocationEntry: DamlPartyAllocationEntry.Builder,
   ): Unit =
     logger.trace(
-      s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}")
+      s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}"
+    )
 
   private val authorizeSubmission: Step = (ctx, partyAllocationEntry) => {
     if (ctx.participantId == partyAllocationEntry.getParticipantId) {
@@ -39,7 +40,7 @@ private[kvutils] class PartyAllocationCommitter(
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
             .setDetails(msg)
-        )
+        ),
       )
     }
   }
@@ -57,7 +58,7 @@ private[kvutils] class PartyAllocationCommitter(
         _.setInvalidName(
           Invalid.newBuilder
             .setDetails(msg)
-        )
+        ),
       )
     }
   }
@@ -73,7 +74,7 @@ private[kvutils] class PartyAllocationCommitter(
       reject(
         ctx.recordTime,
         partyAllocationEntry,
-        _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(msg))
+        _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(msg)),
       )
     }
   }
@@ -89,7 +90,7 @@ private[kvutils] class PartyAllocationCommitter(
       reject(
         ctx.recordTime,
         partyAllocationEntry,
-        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
+        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg)),
       )
     }
   }
@@ -100,7 +101,8 @@ private[kvutils] class PartyAllocationCommitter(
 
     metrics.daml.kvutils.committer.partyAllocation.accepts.inc()
     logger.trace(
-      s"Party allocated, party=$party correlationId=${partyAllocationEntry.getSubmissionId}")
+      s"Party allocated, party=$party correlationId=${partyAllocationEntry.getSubmissionId}"
+    )
 
     ctx.set(
       partyKey,
@@ -109,19 +111,20 @@ private[kvutils] class PartyAllocationCommitter(
           DamlPartyAllocation.newBuilder
             .setParticipantId(ctx.participantId)
         )
-        .build
+        .build,
     )
 
     ctx.set(
       partyAllocationDedupKey(ctx.participantId, partyAllocationEntry.getSubmissionId),
       DamlStateValue.newBuilder
         .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
-        .build
+        .build,
     )
 
     val successLogEntry = buildLogEntryWithOptionalRecordTime(
       ctx.recordTime,
-      _.setPartyAllocationEntry(partyAllocationEntry))
+      _.setPartyAllocationEntry(partyAllocationEntry),
+    )
     if (ctx.preExecute) {
       setOutOfTimeBoundsLogEntry(partyAllocationEntry, ctx)
     }
@@ -150,13 +153,14 @@ private[kvutils] class PartyAllocationCommitter(
             .setSubmissionId(partyAllocationEntry.getSubmissionId)
             .setParticipantId(partyAllocationEntry.getParticipantId)
         )
-      )
+      ),
     )
   }
 
   private def setOutOfTimeBoundsLogEntry(
       partyAllocationEntry: DamlPartyAllocationEntry.Builder,
-      commitContext: CommitContext): Unit = {
+      commitContext: CommitContext,
+  ): Unit = {
     commitContext.outOfTimeBoundsLogEntry = Some(
       buildRejectionLogEntry(recordTime = None, partyAllocationEntry, identity)
     )
@@ -173,7 +177,7 @@ private[kvutils] class PartyAllocationCommitter(
     "validate_party" -> validateParty,
     "deduplicate_submission" -> deduplicateSubmission,
     "deduplicate_party" -> deduplicateParty,
-    "build_log_entry" -> buildLogEntry
+    "build_log_entry" -> buildLogEntry,
   )
 
 }

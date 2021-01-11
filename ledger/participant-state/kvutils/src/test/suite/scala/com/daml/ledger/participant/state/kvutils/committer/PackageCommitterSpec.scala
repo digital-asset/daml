@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -102,7 +102,8 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
           Some(com.daml.lf.data.Time.Timestamp.now()),
           submission,
           participantId,
-          wrapMap(state))
+          wrapMap(state),
+        )
       if (log2.hasPackageUploadRejectionEntry)
         assert(output1.isEmpty)
       else
@@ -163,7 +164,8 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   private[this] def shouldSucceedWith(
       output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]),
-      committedPackages: Set[Ref.PackageId]) = {
+      committedPackages: Set[Ref.PackageId],
+  ) = {
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
@@ -180,7 +182,8 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         Some(theRecordTime),
         submission1,
         participantId,
-        emptyState)
+        emptyState,
+      )
       shouldSucceed(output)
       output._1.hasRecordTime shouldBe true
       output._1.getRecordTime shouldBe buildTimestamp(theRecordTime)

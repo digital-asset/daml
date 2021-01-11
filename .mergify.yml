@@ -1,11 +1,11 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 pull_request_rules:
   - name: "strict rebase"
     conditions:
       # All Azure builds should be green:
-      - "status-success=digital-asset.daml"
+      - "status-success=PRs"
         # CLA check must pass:
       - "status-success=license/cla"
       # Special label to request automerge:
@@ -24,7 +24,7 @@ pull_request_rules:
   - name: "unsafe squash"
     conditions:
       # All Azure builds should be green:
-      - "status-success=digital-asset.daml"
+      - "status-success=PRs"
         # CLA check must pass:
       - "status-success=license/cla"
       # Special label to request automerge:

@@ -1,15 +1,15 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-How DAML types are translated to protobuf
+How Daml types are translated to protobuf
 #########################################
 
-This page gives an overview and reference on how DAML types and contracts are represented by the Ledger API as protobuf messages, most notably:
+This page gives an overview and reference on how Daml types and contracts are represented by the Ledger API as protobuf messages, most notably:
 
 - in the stream of transactions from the :ref:`com.daml.ledger.api.v1.transactionservice`
 - as payload for :ref:`com.daml.ledger.api.v1.createcommand` and :ref:`com.daml.ledger.api.v1.exercisecommand` sent to :ref:`com.daml.ledger.api.v1.commandsubmissionservice` and :ref:`com.daml.ledger.api.v1.commandservice`.
 
-The DAML code in the examples below is written in DAML *1.1*.
+The Daml code in the examples below is written in Daml *1.1*.
 
 Notation
 ********
@@ -30,7 +30,7 @@ The name of messages is added as a comment after the opening curly brace.
 Records and primitive types
 ***************************
 
-Records or product types are translated to :ref:`com.daml.ledger.api.v1.record`. Here's an example DAML record type that contains a field for each primitive type:
+Records or product types are translated to :ref:`com.daml.ledger.api.v1.record`. Here's an example Daml record type that contains a field for each primitive type:
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
@@ -42,7 +42,7 @@ And here's an example of creating a value of type `MyProductType`:
 	:language: daml
 	:lines: 29,31,33-41
 
-For this data, the respective data on the Ledger API is shown below. Note that this value would be enclosed by a particular contract containing a field of type `MyProductType`. See `Contract templates`_ for the translation of DAML contracts to the representation by the Ledger API.
+For this data, the respective data on the Ledger API is shown below. Note that this value would be enclosed by a particular contract containing a field of type `MyProductType`. See `Contract templates`_ for the translation of Daml contracts to the representation by the Ledger API.
 
 .. literalinclude:: ../code-snippets/records.payload
 

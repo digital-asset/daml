@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter
@@ -23,7 +23,8 @@ class AkkaExecutionSequencerPool(
 
   private val pool =
     Array.fill(actorCount)(
-      AkkaExecutionSequencer(s"$poolName-${counter.getAndIncrement()}", terminationTimeout))
+      AkkaExecutionSequencer(s"$poolName-${counter.getAndIncrement()}", terminationTimeout)
+    )
 
   override def getExecutionSequencer: ExecutionSequencer =
     pool(counter.getAndIncrement() % actorCount)
@@ -46,6 +47,7 @@ class AkkaExecutionSequencerPool(
 object AkkaExecutionSequencerPool {
 
   /** Spread 8 actors per virtual core in order to mitigate head of line blocking.
-    * The number 8 was chosen somewhat arbitrarily, but seems to help performance. */
+    * The number 8 was chosen somewhat arbitrarily, but seems to help performance.
+    */
   private val defaultActorCount: Int = Runtime.getRuntime.availableProcessors() * 8
 }

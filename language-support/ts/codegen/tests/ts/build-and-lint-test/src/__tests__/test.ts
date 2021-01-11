@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChildProcess, spawn } from 'child_process';
@@ -56,7 +56,15 @@ beforeAll(async () => {
   const darPath = getEnv('DAR');
   sandboxProcess = spawnJvm(
     getEnv('SANDBOX'),
-    ['--port', "0", '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
+    [
+      '--dev-mode-unsafe',
+      '--contract-id-seeding', 'testing-weak',
+      '--port', "0",
+      '--port-file', SANDBOX_PORT_FILE,
+      '--ledgerid', LEDGER_ID,
+      '--wall-clock-time',
+      darPath
+    ],
   );
   await waitOn({resources: [`file:${SANDBOX_PORT_FILE}`]})
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -22,8 +22,8 @@ import GHC.Types()
 data Either a b = Left a | Right b
 
 
--- NOTE(MH): These types are not supposed to be used in DAML. The converter to
--- DAML-LF rewrites the types above to them, so they are visible to non-DAML users.
+-- NOTE(MH): These types are not supposed to be used in Daml. The converter to
+-- Daml-LF rewrites the types above to them, so they are visible to non-Daml users.
 data Tuple2 a b =
     Tuple2{_1 : a; _2 : b}
 data Tuple3 a b c =

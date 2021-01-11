@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -22,6 +22,6 @@ class VoidValueRefSpec extends AnyWordSpec with Matchers {
     "never succeed decoding" in forAll(argumentValueGen(1)) { av =>
       Value.decode[TestVoid](av) shouldBe None
     }
-   */
+     */
   }
 }

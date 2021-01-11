@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger
@@ -57,7 +57,7 @@ private[sandbox] object Ledger {
   def convertToCommittedTransaction(
       committer: TransactionCommitter,
       transactionId: TransactionId,
-      transaction: SubmittedTransaction
+      transaction: SubmittedTransaction,
   ): (CommittedTransaction, Relation[NodeId, Party], Divulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones

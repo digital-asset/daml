@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -31,7 +31,8 @@ class ValuePredicateTest
   import ValuePredicateTest._
   type Cid = V.ContractId
   private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(
-    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t)))
+    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t))
+  )
   // only V0 supported in this test atm
   private[this] implicit val ordCid: Order[Cid] = Order[V.ContractId.V0] contramap (inside(_) {
     case a0 @ V.ContractId.V0(_) => a0
@@ -39,21 +40,25 @@ class ValuePredicateTest
 
   private[this] val dummyId = Ref.Identifier(
     Ref.PackageId assertFromString "dummy-package-id",
-    Ref.QualifiedName assertFromString "Foo:Bar")
+    Ref.QualifiedName assertFromString "Foo:Bar",
+  )
   private[this] val dummyFieldName = Ref.Name assertFromString "foo"
   private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
   private[this] def valueAndTypeInObject(
       v: V[Cid],
-      ty: iface.Type): (V[Cid], ValuePredicate.TypeLookup) =
+      ty: iface.Type,
+  ): (V[Cid], ValuePredicate.TypeLookup) =
     (V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))), typeInObject(ty))
   private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
     Map(
       dummyId -> iface
-        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))).lift
+        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))
+    ).lift
 
   "fromJsObject" should {
-    def c[M](query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: M)(
-        implicit pos: source.Position) =
+    def c[M](query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: M)(implicit
+        pos: source.Position
+    ) =
       (pos.lineNumber, query.parseJson, ty, ty.inj(expected), shouldMatch)
 
     object VAs {
@@ -116,32 +121,40 @@ class ValuePredicateTest
       c("""{"%gt": "bar", "%lt": "foo"}""", VA.text)("baz", true),
       c("""{"%gte": "1980-01-01", "%lt": "2000-01-01"}""", VA.date)(
         Time.Date assertFromString "1986-06-21",
-        true),
+        true,
+      ),
       c("""{"%gte": "1980-01-01T00:00:00Z", "%lt": "2000-01-01T00:00:00Z"}""", VA.timestamp)(
         Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
-        true),
+        true,
+      ),
     )
 
     val failures = Table(
       ("line#", "query", "type", "expected", "error message"),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"b": 2, "a": 1}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "c" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
         SortedLookupList(Map()),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"a": 1}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{}""", VA.genMap(VA.int64, VA.int64))(Map(), "PrimTypeGenMap not supported"),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), "PrimTypeList not supported"),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), "PrimTypeList not supported"),
@@ -172,7 +185,7 @@ class ValuePredicateTest
         val vp = ValuePredicate.fromJsObject(
           Map((dummyFieldName: String) -> query),
           dummyTypeCon,
-          defs
+          defs,
         )
         vp.toFunPredicate(wrappedExpected) shouldBe shouldMatch
     }
@@ -184,7 +197,7 @@ class ValuePredicateTest
           ValuePredicate.fromJsObject(
             Map((dummyFieldName: String) -> query),
             dummyTypeCon,
-            defs
+            defs,
           )
         }
         ex.getMessage should include(shouldMatch)
@@ -192,7 +205,8 @@ class ValuePredicateTest
 
     "examine all sorts of primitives literally, except lists and maps" in forAll(
       genAddendNoListMap,
-      minSuccessful(100)) { va =>
+      minSuccessful(100),
+    ) { va =>
       import va.injshrink
       implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb
       forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
@@ -213,7 +227,8 @@ class ValuePredicateTest
         (
           """{"%lte": 42}""",
           VA.int64,
-          sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb"),
+          sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
+        ),
       )
     }
 
@@ -222,12 +237,14 @@ class ValuePredicateTest
       val vp = ValuePredicate.fromJsObject(
         Map((dummyFieldName: String) -> query.parseJson),
         dummyTypeCon,
-        defs)
+        defs,
+      )
       val frag = vp.toSqlWhereClause
       frag.toString should ===(sql.toString)
       import language.reflectiveCalls
       frag.asInstanceOf[{ def elems: FragmentElems }].elems should ===(
-        sql.asInstanceOf[{ def elems: FragmentElems }].elems)
+        sql.asInstanceOf[{ def elems: FragmentElems }].elems
+      )
     }
   }
 }

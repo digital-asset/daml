@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -39,20 +39,24 @@ object LoggingContextOf {
 
   @silent(" label .* is never used") // Proxy only
   def newLoggingContext[P, Z](label: label[P], kvs: Map[String, String])(
-      f: LoggingContextOf[P] => Z): Z =
+      f: LoggingContextOf[P] => Z
+  ): Z =
     LoggingContext.newLoggingContext(kvs)(lc => f((lc: LoggingContextOf[Any]).extend[P]))
 
   @silent(" label .* is never used") // Proxy only
-  def withEnrichedLoggingContext[P, A](label: label[P], kvs: Map[String, String])(
-      implicit loggingContext: LoggingContextOf[A]): withEnrichedLoggingContext[P, A] =
+  def withEnrichedLoggingContext[P, A](label: label[P], kvs: Map[String, String])(implicit
+      loggingContext: LoggingContextOf[A]
+  ): withEnrichedLoggingContext[P, A] =
     new withEnrichedLoggingContext(kvs, loggingContext.extend[P])
 
   final class withEnrichedLoggingContext[P, A] private[LoggingContextOf] (
       kvs: Map[String, String],
-      loggingContext: LoggingContextOf[P with A]) {
+      loggingContext: LoggingContextOf[P with A],
+  ) {
     def run[Z](f: LoggingContextOf[P with A] => Z): Z =
       LoggingContext.withEnrichedLoggingContext(kvs)(lc =>
-        f((lc: LoggingContextOf[Any]).extend[P with A]))(loggingContext)
+        f((lc: LoggingContextOf[Any]).extend[P with A])
+      )(loggingContext)
   }
 
   sealed abstract class Module {

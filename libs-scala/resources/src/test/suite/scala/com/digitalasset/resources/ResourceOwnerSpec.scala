@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -568,9 +568,12 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val resource = for {
         timer <- Factories.forTimer(() => new Timer("test timer")).acquire()
       } yield {
-        timer.schedule(new TimerTask {
-          override def run(): Unit = testPromise.success(())
-        }, 0)
+        timer.schedule(
+          new TimerTask {
+            override def run(): Unit = testPromise.success(())
+          },
+          0,
+        )
         timer
       }
 
@@ -580,9 +583,12 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         _ <- resource.release()
         timer <- resource.asFuture
       } yield {
-        an[IllegalStateException] should be thrownBy timer.schedule(new TimerTask {
-          override def run(): Unit = ()
-        }, 0)
+        an[IllegalStateException] should be thrownBy timer.schedule(
+          new TimerTask {
+            override def run(): Unit = ()
+          },
+          0,
+        )
       }
     }
   }
@@ -598,9 +604,11 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
             Resource(Future(value))(v =>
               Future {
                 released += v
-            })
+              }
+            )
           }
-      })
+        }
+      )
       val resources = owners.map(_.acquire())
 
       val resource = for {
@@ -635,8 +643,10 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
             })(v =>
               Future {
                 released += v
-            })
-      })
+              }
+            )
+        }
+      )
       val resources = owners.map(_.acquire())
 
       val resource = for {
@@ -671,7 +681,8 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
               }
             }
           }
-      })
+        }
+      )
       val resources = owners.map(_.acquire())
 
       val resource = for {

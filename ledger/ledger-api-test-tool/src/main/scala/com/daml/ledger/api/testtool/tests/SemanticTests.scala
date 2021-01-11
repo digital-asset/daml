@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -48,8 +48,9 @@ final class SemanticTests extends LedgerTestSuite {
     allocate(TwoParties, TwoParties),
   )(implicit ec => {
     case Participants(
-        Participant(alpha, payer, owner),
-        Participant(_, newOwner, leftWithNothing)) =>
+          Participant(alpha, payer, owner),
+          Participant(_, newOwner, leftWithNothing),
+        ) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
         _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
@@ -71,31 +72,34 @@ final class SemanticTests extends LedgerTestSuite {
       val archives = 10 // Number of concurrent archives per contract
       // Each created contract is archived in parallel,
       // Next contract is created only when previous one is archived
-      (1 to creates).foldLeft(Future(())) { (f, c) =>
-        f.flatMap(
-          _ =>
-            for {
-              shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
-              _ <- synchronize(alpha, beta)
-              results <- Future.traverse(1 to archives) {
-                case i if i % 2 == 0 =>
-                  alpha
-                    .exercise(owner1, shared.exerciseSharedContract_Consume1)
-                    .transform(Success(_))
-                case _ =>
-                  beta
-                    .exercise(owner2, shared.exerciseSharedContract_Consume2)
-                    .transform(Success(_))
+      (1 to creates)
+        .foldLeft(Future(())) {
+          (f, c) =>
+            f.flatMap(_ =>
+              for {
+                shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+                _ <- synchronize(alpha, beta)
+                results <- Future.traverse(1 to archives) {
+                  case i if i % 2 == 0 =>
+                    alpha
+                      .exercise(owner1, shared.exerciseSharedContract_Consume1)
+                      .transform(Success(_))
+                  case _ =>
+                    beta
+                      .exercise(owner2, shared.exerciseSharedContract_Consume2)
+                      .transform(Success(_))
+                }
+              } yield {
+                assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
+                assertLength(
+                  s"Contract $c failed archives",
+                  archives - 1,
+                  results.filter(_.isFailure),
+                )
+                ()
               }
-            } yield {
-              assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
-              assertLength(
-                s"Contract $c failed archives",
-                archives - 1,
-                results.filter(_.isFailure))
-              ()
-          })
-      }
+            )
+        }
   })
 
   test(
@@ -215,13 +219,12 @@ final class SemanticTests extends LedgerTestSuite {
     "SemanticPartialSignatories",
     "A signatory should not be able to create a contract on behalf of two parties",
     allocate(SingleParty, SingleParty),
-  )(implicit ec => {
-    case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
-      for {
-        failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
-      } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
-      }
+  )(implicit ec => { case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
+    for {
+      failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
+    } yield {
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+    }
   })
 
   test(
@@ -273,7 +276,7 @@ final class SemanticTests extends LedgerTestSuite {
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
         (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
-          _.getTemplateId == Tag.unwrap(Iou.id),
+          _.getTemplateId == Tag.unwrap(Iou.id)
         )
         newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
         agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
@@ -370,5 +373,6 @@ final class SemanticTests extends LedgerTestSuite {
         } yield {
           assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
         }
-    })
+    }
+  )
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -68,8 +68,7 @@ object Hash {
   // Thread safe
   def secureRandom(seed: Hash): () => Hash = {
     val counter = new AtomicLong
-    () =>
-      hMacBuilder(seed).add(counter.getAndIncrement()).build
+    () => hMacBuilder(seed).add(counter.getAndIncrement()).build
   }
 
   implicit val ordering: Ordering[Hash] =
@@ -220,7 +219,8 @@ object Hash {
           add(v)
         case Value.ValueGenMap(entries) =>
           iterateOver(entries.iterator, entries.length)((acc, x) =>
-            acc.addTypedValue(x._1).addTypedValue(x._2))
+            acc.addTypedValue(x._1).addTypedValue(x._2)
+          )
       }
   }
 

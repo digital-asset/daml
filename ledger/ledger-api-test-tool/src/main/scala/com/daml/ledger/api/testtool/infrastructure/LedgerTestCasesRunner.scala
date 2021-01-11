@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -13,7 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.Result.Retired
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSessionManager,
-  ParticipantTestContext
+  ParticipantTestContext,
 }
 import org.slf4j.LoggerFactory
 
@@ -50,8 +50,8 @@ final class LedgerTestCasesRunner(
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
-  private def start(test: LedgerTestCase, session: LedgerSession)(
-      implicit ec: ExecutionContext,
+  private def start(test: LedgerTestCase, session: LedgerSession)(implicit
+      ec: ExecutionContext
   ): Future[Duration] = {
     val execution = Promise[Duration]
     val scaledTimeout = DefaultTimeout * suiteTimeoutScale * test.timeoutScale
@@ -82,8 +82,9 @@ final class LedgerTestCasesRunner(
     execution.completeWith(startedTest).future
   }
 
-  private def result(startedTest: Future[Duration])(
-      implicit ec: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
+  private def result(
+      startedTest: Future[Duration]
+  )(implicit ec: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
     startedTest
       .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
       .recover[Either[Result.Failure, Result.Success]] {
@@ -111,18 +112,19 @@ final class LedgerTestCasesRunner(
   ): LedgerTestSummary =
     LedgerTestSummary(suite.name, test.name, test.description, config, result)
 
-  private def run(test: LedgerTestCase, session: LedgerSession)(
-      implicit ec: ExecutionContext,
+  private def run(test: LedgerTestCase, session: LedgerSession)(implicit
+      ec: ExecutionContext
   ): Future[Either[Result.Failure, Result.Success]] =
     result(start(test, session))
 
-  private def uploadDarsIfRequired(participantSessionManager: ParticipantSessionManager)(
-      implicit ec: ExecutionContext): Future[Unit] =
+  private def uploadDarsIfRequired(
+      participantSessionManager: ParticipantSessionManager
+  )(implicit ec: ExecutionContext): Future[Unit] =
     if (uploadDars) {
       def uploadDar(context: ParticipantTestContext, name: String): Future[Unit] = {
         logger.info(s"""Uploading DAR "$name"...""")
-        context.uploadDarFile(Dars.read(name)).andThen {
-          case _ => logger.info(s"""Uploaded DAR "$name".""")
+        context.uploadDarFile(Dars.read(name)).andThen { case _ =>
+          logger.info(s"""Uploaded DAR "$name".""")
         }
       }
 
@@ -152,9 +154,8 @@ final class LedgerTestCasesRunner(
       val testCount = testCases.size
       logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
       Source(testCases.zipWithIndex)
-        .mapAsyncUnordered(concurrency) {
-          case (test, index) =>
-            run(test, ledgerSession).map(summarize(test.suite, test, _) -> index)
+        .mapAsyncUnordered(concurrency) { case (test, index) =>
+          run(test, ledgerSession).map(summarize(test.suite, test, _) -> index)
         }
         .runWith(Sink.seq)
         .map(_.toVector.sortBy(_._2).map(_._1))
@@ -183,12 +184,11 @@ final class LedgerTestCasesRunner(
           .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
           .andThen { case _ => participantSessionManager.disconnectAll() }
       }
-      .andThen {
-        case _ =>
-          materializer.shutdown()
-          system.terminate().failed.foreach { throwable =>
-            logger.error("The actor system failed to terminate.", throwable)
-          }
+      .andThen { case _ =>
+        materializer.shutdown()
+        system.terminate().failed.foreach { throwable =>
+          logger.error("The actor system failed to terminate.", throwable)
+        }
       }
       .onComplete { result =>
         completionCallback(result)

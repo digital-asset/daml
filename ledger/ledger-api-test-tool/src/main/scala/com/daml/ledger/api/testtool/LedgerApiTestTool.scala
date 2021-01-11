@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -14,7 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCase,
   LedgerTestCasesRunner,
   LedgerTestSuite,
-  LedgerTestSummary
+  LedgerTestSummary,
 }
 import org.slf4j.LoggerFactory
 
@@ -89,7 +89,8 @@ object LedgerApiTestTool {
     val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
     val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
-      allTestCaseNames.exists(_.startsWith(prefix)))
+      allTestCaseNames.exists(_.startsWith(prefix))
+    )
     if (missingTests.nonEmpty) {
       println("The following exclusion or inclusion does not match any test:")
       missingTests.foreach { testName =>
@@ -176,7 +177,8 @@ object LedgerApiTestTool {
   private[this] def newLedgerCasesRunner(
       config: Config,
       cases: Iterable[LedgerTestCase],
-      concurrencyOverride: Option[Int] = None): LedgerTestCasesRunner =
+      concurrencyOverride: Option[Int] = None,
+  ): LedgerTestCasesRunner =
     new LedgerTestCasesRunner(
       new LedgerSessionConfiguration(
         config.participants,

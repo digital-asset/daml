@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres.v25_backfill_participant_events
@@ -25,12 +25,12 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
     )
 
   private def serializeNullableKeyOrThrow(node: Create): Option[Array[Byte]] =
-    node.versionedKey.map(
-      k =>
-        serialize(
-          value = k.key,
-          errorContext = cantSerialize(attribute = "key", forContract = node.coid),
-      ))
+    node.versionedKey.map(k =>
+      serialize(
+        value = k.key,
+        errorContext = cantSerialize(attribute = "key", forContract = node.coid),
+      )
+    )
 
   private def serializeExerciseArgOrThrow(node: Exercise): Array[Byte] =
     serialize(
@@ -43,7 +43,8 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       serialize(
         value = exerciseResult,
         errorContext = cantSerialize(attribute = "exercise result", forContract = node.targetCoid),
-    ))
+      )
+    )
 
   private def insertEvent(columnNameAndValues: (String, String)*): String = {
     val (columns, values) = columnNameAndValues.unzip
@@ -70,7 +71,7 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "create_observers" -> "{create_observers}",
       "create_agreement_text" -> "{create_agreement_text}",
       "create_consumed_at" -> "null",
-      "create_key_value" -> "{create_key_value}"
+      "create_key_value" -> "{create_key_value}",
     )
 
   private def create(
@@ -126,7 +127,7 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "exercise_argument" -> "{exercise_argument}",
       "exercise_result" -> "{exercise_result}",
       "exercise_actors" -> "{exercise_actors}",
-      "exercise_child_event_ids" -> "{exercise_child_event_ids}"
+      "exercise_child_event_ids" -> "{exercise_child_event_ids}",
     )
 
   private def exercise(
@@ -228,8 +229,7 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
     )
   }
 
-  /**
-    * @throws RuntimeException If a value cannot be serialized into an array of bytes
+  /** @throws RuntimeException If a value cannot be serialized into an array of bytes
     */
   @throws[RuntimeException]
   def prepareBatchInsert(

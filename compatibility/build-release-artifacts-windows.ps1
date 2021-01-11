@@ -1,6 +1,6 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Build the release artifacts required for running the compatibility

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -372,15 +372,19 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
-          "initialize_ledger_parameters")
+          "initialize_ledger_parameters"
+        )
         val initializeParticipantId: DatabaseMetrics = createDbMetrics("initialize_participant_id")
         val lookupConfiguration: DatabaseMetrics = createDbMetrics("lookup_configuration")
         val loadConfigurationEntries: DatabaseMetrics = createDbMetrics(
-          "load_configuration_entries")
+          "load_configuration_entries"
+        )
         val storeConfigurationEntryDbMetrics: DatabaseMetrics = createDbMetrics(
-          "store_configuration_entry") // FIXME Base name conflicts with storeConfigurationEntry
-        val storePartyEntryDbMetrics
-          : DatabaseMetrics = createDbMetrics("store_party_entry") // FIXME Base name conflicts with storePartyEntry
+          "store_configuration_entry"
+        ) // FIXME Base name conflicts with storeConfigurationEntry
+        val storePartyEntryDbMetrics: DatabaseMetrics = createDbMetrics(
+          "store_party_entry"
+        ) // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
 
         object storeTransactionDbMetrics
@@ -401,39 +405,51 @@ final class Metrics(val registry: MetricRegistry) {
           val insertCompletion: Timer = registry.timer(dbPrefix :+ "insert_completion")
           val updateLedgerEnd: Timer = registry.timer(dbPrefix :+ "update_ledger_end")
         }
-        val storeRejectionDbMetrics
-          : DatabaseMetrics = createDbMetrics("store_rejection") // FIXME Base name conflicts with storeRejection
+        val storeRejectionDbMetrics: DatabaseMetrics = createDbMetrics(
+          "store_rejection"
+        ) // FIXME Base name conflicts with storeRejection
         val storeInitialStateFromScenario: DatabaseMetrics = createDbMetrics(
-          "store_initial_state_from_scenario")
+          "store_initial_state_from_scenario"
+        )
         val loadParties: DatabaseMetrics = createDbMetrics("load_parties")
         val loadAllParties: DatabaseMetrics = createDbMetrics("load_all_parties")
         val loadPackages: DatabaseMetrics = createDbMetrics("load_packages")
         val loadArchive: DatabaseMetrics = createDbMetrics("load_archive")
-        val storePackageEntryDbMetrics
-          : DatabaseMetrics = createDbMetrics("store_package_entry") // FIXME Base name conflicts with storePackageEntry
+        val storePackageEntryDbMetrics: DatabaseMetrics = createDbMetrics(
+          "store_package_entry"
+        ) // FIXME Base name conflicts with storePackageEntry
         val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
-        val deduplicateCommandDbMetrics
-          : DatabaseMetrics = createDbMetrics("deduplicate_command") // FIXME Base name conflicts with deduplicateCommand
+        val deduplicateCommandDbMetrics: DatabaseMetrics = createDbMetrics(
+          "deduplicate_command"
+        ) // FIXME Base name conflicts with deduplicateCommand
         val removeExpiredDeduplicationDataDbMetrics: DatabaseMetrics = createDbMetrics(
-          "remove_expired_deduplication_data") // FIXME Base name conflicts with removeExpiredDeduplicationData
+          "remove_expired_deduplication_data"
+        ) // FIXME Base name conflicts with removeExpiredDeduplicationData
         val stopDeduplicatingCommandDbMetrics: DatabaseMetrics = createDbMetrics(
-          "stop_deduplicating_command") // FIXME Base name conflicts with stopDeduplicatingCommand
-        val pruneDbMetrics
-          : DatabaseMetrics = createDbMetrics("prune") // FIXME Base name conflicts with prune
+          "stop_deduplicating_command"
+        ) // FIXME Base name conflicts with stopDeduplicatingCommand
+        val pruneDbMetrics: DatabaseMetrics = createDbMetrics(
+          "prune"
+        ) // FIXME Base name conflicts with prune
         val truncateAllTables: DatabaseMetrics = createDbMetrics("truncate_all_tables")
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_active_contract") // FIXME Base name conflicts with lookupActiveContract
+          "lookup_active_contract"
+        ) // FIXME Base name conflicts with lookupActiveContract
         val lookupActiveContractWithCachedArgumentDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_active_contract_with_cached_argument")
+          "lookup_active_contract_with_cached_argument"
+        )
         val lookupContractByKey: DatabaseMetrics = createDbMetrics("lookup_contract_by_key")
         val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_maximum_ledger_time") // FIXME Base name conflicts with lookupActiveContract
+          "lookup_maximum_ledger_time"
+        ) // FIXME Base name conflicts with lookupActiveContract
         val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")
         val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
-          "lookup_flat_transaction_by_id")
+          "lookup_flat_transaction_by_id"
+        )
         val getTransactionTrees: DatabaseMetrics = createDbMetrics("get_transaction_trees")
         val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
-          "lookup_transaction_tree_by_id")
+          "lookup_transaction_tree_by_id"
+        )
         val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
         val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
         val getAcsEventSeqIdRange: DatabaseMetrics =

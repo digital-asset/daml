@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -14,11 +14,10 @@ final class IdentityIT extends LedgerTestSuite {
     "A ledger should return a non-empty string as its identity",
     allocate(NoParties),
   ) { implicit ec =>
-    {
-      case Participants(Participant(ledger)) =>
-        Future {
-          assert(ledger.ledgerId.nonEmpty, "The returned ledger identifier was empty")
-        }
+    { case Participants(Participant(ledger)) =>
+      Future {
+        assert(ledger.ledgerId.nonEmpty, "The returned ledger identifier was empty")
+      }
     }
   }
 }

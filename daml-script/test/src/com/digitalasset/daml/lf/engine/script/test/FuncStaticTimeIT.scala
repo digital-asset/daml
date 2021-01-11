@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -18,7 +18,8 @@ final class FuncStaticTimeIT extends AbstractFuncIT {
         SRecord(_, _, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:testSetTime"),
-          dar = stableDar)
+          dar = stableDar,
+        )
       } yield {
         assert(vals.size == 2)
         val t0 = assertSTimestamp(vals.get(0))

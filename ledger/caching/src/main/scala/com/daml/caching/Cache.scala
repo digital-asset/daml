@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
 
-/**
-  * A cache. Used for caching values.
+/** A cache. Used for caching values.
   *
   * The strategy used for eviction is implementation-dependent.
   *
@@ -13,20 +12,17 @@ package com.daml.caching
   */
 abstract class Cache[Key, Value] {
 
-  /**
-    * Put a value into the cache.
+  /** Put a value into the cache.
     *
     * This may cause values to be evicted at some point in the future.
     */
   def put(key: Key, value: Value): Unit
 
-  /**
-    * Retrieve a value by key, if it's present.
+  /** Retrieve a value by key, if it's present.
     */
   def getIfPresent(key: Key): Option[Value]
 
-  /**
-    * Transform values when reading from or writing to the cache.
+  /** Transform values when reading from or writing to the cache.
     *
     * Optionally allows the mapping to discard values by returning [[None]] when transforming before
     * writing.
@@ -43,8 +39,7 @@ abstract class Cache[Key, Value] {
     new MappedCache(mapAfterReading, mapBeforeWriting)(this)
 }
 
-/**
-  * A cache that is concurrency-safe. This means it is able to look up a value, and if it does not
+/** A cache that is concurrency-safe. This means it is able to look up a value, and if it does not
   * exist, populate the value at that key, in a single, atomic action.
   *
   * @tparam Key   The type of the key used to look up values.
@@ -52,8 +47,7 @@ abstract class Cache[Key, Value] {
   */
 abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
 
-  /**
-    * Retrieve a value by key if it's present. If there is no value, atomically computes the value
+  /** Retrieve a value by key if it's present. If there is no value, atomically computes the value
     * using the provided function, writes it to the cache, and returns it.
     */
   def getOrAcquire(key: Key, acquire: Key => Value): Value

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -37,7 +37,8 @@ final class ContextualizedLoggerSpec
       verify(logger.withoutContext).error(
         toStringEqTo[Marker]("{id=foo}"),
         eqTo("a (context: {id=foo})"),
-        withMessage[IllegalArgumentException]("quux"))
+        withMessage[IllegalArgumentException]("quux"),
+      )
     }
 
   def thisThrows(): String = throw new RuntimeException("failed on purpose")

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -7,7 +7,7 @@ import com.daml.lf.transaction.TransactionCoder.{
   NidDecoder,
   NidEncoder,
   decodeTransaction,
-  encodeTransaction
+  encodeTransaction,
 }
 import com.daml.lf.transaction.TransactionOuterClass.Transaction
 import com.daml.lf.transaction.{NodeId, TransactionVersion, VersionedTransaction}
@@ -19,8 +19,7 @@ import com.google.protobuf.ByteString
 
 package object benchmark {
 
-  /**
-    * This is the output of a successful call to
+  /** This is the output of a successful call to
     * [[com.daml.lf.transaction.TransactionCoder.encodeTransaction]].
     * It's the in-memory representation of the Protobuf message that
     * describes a transaction, not its serialized form.
@@ -30,8 +29,7 @@ package object benchmark {
     def deserialize(bytes: ByteString): EncodedTransaction = Transaction.parseFrom(bytes)
   }
 
-  /**
-    * This is the output of a successful call to
+  /** This is the output of a successful call to
     * [[com.daml.lf.value.ValueCoder.encodeVersionedValue]].
     * It's the in-memory representation of the Protobuf message that
     * describes a value, not its serialized form.
@@ -44,15 +42,13 @@ package object benchmark {
   private[lf] type EncodedValueWithType = TypedValue[EncodedValue]
   private[lf] type DecodedValueWithType = TypedValue[DecodedValue]
 
-  /**
-    * This is the output of a successful call to
+  /** This is the output of a successful call to
     * [[com.daml.lf.transaction.TransactionCoder.decodeTransaction]].
     * It's the DAML-LF representation of a transaction.
     */
   private[lf] type DecodedTransaction = VersionedTransaction[NodeId, ContractId]
 
-  /**
-    * This is the output of a successful call to
+  /** This is the output of a successful call to
     * [[com.daml.lf.value.ValueCoder.decodeValue]].
     * It's the DAML-LF representation of a value.
     */

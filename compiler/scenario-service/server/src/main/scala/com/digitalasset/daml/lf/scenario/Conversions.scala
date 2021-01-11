@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.scenario
@@ -11,7 +11,7 @@ import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class Conversions(
     homePackageId: Ref.PackageId,
@@ -30,9 +30,8 @@ final class Conversions(
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
   private val ptxCoidToNodeId = ptx.nodes
-    .collect {
-      case (nodeId, node: N.NodeCreate[V.ContractId]) =>
-        node.coid -> ledger.ptxEventId(nodeId)
+    .collect { case (nodeId, node: N.NodeCreate[V.ContractId]) =>
+      node.coid -> ledger.ptxEventId(nodeId)
     }
 
   private val coidToEventId = ledger.ledgerData.coidToNodeId ++ ptxCoidToNodeId
@@ -40,8 +39,8 @@ final class Conversions(
   private val nodes =
     ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
 
-  private val steps = ledger.scenarioSteps.map {
-    case (idx, step) => convertScenarioStep(idx.toInt, step)
+  private val steps = ledger.scenarioSteps.map { case (idx, step) =>
+    convertScenarioStep(idx.toInt, step)
   }
 
   def convertScenarioResult(svalue: SValue): proto.ScenarioResult = {
@@ -57,7 +56,7 @@ final class Conversions(
   }
 
   def convertScenarioError(
-      err: SError.SError,
+      err: SError.SError
   ): proto.ScenarioError = {
     val builder = proto.ScenarioError.newBuilder
       .addAllNodes(nodes.asJava)
@@ -77,7 +76,7 @@ final class Conversions(
     builder.addAllStackTrace(stackTrace.map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
-      convertPartialTransaction(ptx),
+      convertPartialTransaction(ptx)
     )
 
     err match {
@@ -101,14 +100,14 @@ final class Conversions(
           uepvBuilder
             .setTemplateId(convertIdentifier(tid))
             .setArg(convertValue(arg))
-            .build,
+            .build
         )
       case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
         builder.setUpdateLocalContractNotActive(
           proto.ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
             .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
-            .build,
+            .build
         )
       case SError.DamlEFailedAuthorization(nid, fa) =>
         builder.setScenarioCommitError(
@@ -137,7 +136,7 @@ final class Conversions(
           proto.ScenarioError.ContractNotEffective.newBuilder
             .setEffectiveAt(effectiveAt.micros)
             .setContractRef(mkContractRef(coid, tid))
-            .build,
+            .build
         )
 
       case SError.ScenarioErrorContractNotActive(coid, tid, consumedBy) =>
@@ -145,7 +144,7 @@ final class Conversions(
           proto.ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
             .setConsumedBy(convertEventId(consumedBy))
-            .build,
+            .build
         )
 
       case SError.ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers) =>
@@ -155,7 +154,7 @@ final class Conversions(
             .addAllActAs(actAs.map(convertParty(_)).asJava)
             .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllObservers(observers.map(convertParty).asJava)
-            .build,
+            .build
         )
 
       case SError.ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
@@ -166,12 +165,12 @@ final class Conversions(
             .addAllActAs(actAs.map(convertParty(_)).asJava)
             .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllStakeholders(stakeholders.map(convertParty).asJava)
-            .build,
+            .build
         )
 
       case SError.ScenarioErrorCommitError(commitError) =>
         builder.setScenarioCommitError(
-          convertCommitError(commitError),
+          convertCommitError(commitError)
         )
       case SError.ScenarioErrorMustFailSucceeded(tx @ _) =>
         builder.setScenarioMustfailSucceeded(empty)
@@ -184,7 +183,7 @@ final class Conversions(
 
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
-          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",
+          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked."
         )
     }
     builder.build
@@ -240,10 +239,10 @@ final class Conversions(
       faBuilder.setNodeId(convertTxNodeId(nodeId))
       fa match {
         case FailedAuthorization.CreateMissingAuthorization(
-            templateId,
-            optLocation,
-            authParties,
-            reqParties,
+              templateId,
+              optLocation,
+              authParties,
+              reqParties,
             ) =>
           val cmaBuilder =
             proto.FailedAuthorization.CreateMissingAuthorization.newBuilder
@@ -254,10 +253,10 @@ final class Conversions(
           faBuilder.setCreateMissingAuthorization(cmaBuilder.build)
 
         case FailedAuthorization.MaintainersNotSubsetOfSignatories(
-            templateId,
-            optLocation,
-            signatories,
-            maintainers,
+              templateId,
+              optLocation,
+              signatories,
+              maintainers,
             ) =>
           val maintNotSignBuilder =
             proto.FailedAuthorization.MaintainersNotSubsetOfSignatories.newBuilder
@@ -277,11 +276,11 @@ final class Conversions(
           faBuilder.setFetchMissingAuthorization(fmaBuilder.build)
 
         case FailedAuthorization.ExerciseMissingAuthorization(
-            templateId,
-            choiceId,
-            optLocation,
-            authParties,
-            reqParties,
+              templateId,
+              choiceId,
+              optLocation,
+              authParties,
+              reqParties,
             ) =>
           val emaBuilder =
             proto.FailedAuthorization.ExerciseMissingAuthorization.newBuilder
@@ -307,10 +306,10 @@ final class Conversions(
           faBuilder.setNoControllers(ncBuilder.build)
 
         case FailedAuthorization.LookupByKeyMissingAuthorization(
-            templateId,
-            optLocation,
-            maintainers,
-            authorizers,
+              templateId,
+              optLocation,
+              maintainers,
+              authorizers,
             ) =>
           val lbkmaBuilder =
             proto.FailedAuthorization.LookupByKeyMissingAuthorization.newBuilder
@@ -349,7 +348,7 @@ final class Conversions(
           commitBuilder
             .setTxId(txId.index)
             .setTx(convertTransaction(rtx))
-            .build,
+            .build
         )
       case ScenarioLedger.PassTime(dt) =>
         builder.setPassTime(dt)
@@ -365,14 +364,14 @@ final class Conversions(
               .addAllReadAs(readAs.map(convertParty(_)).asJava)
               .setTime(time.micros)
               .setTxId(txId.index)
-              .build,
+              .build
           )
     }
     builder.build
   }
 
   def convertTransaction(
-      rtx: ScenarioLedger.RichTransaction,
+      rtx: ScenarioLedger.RichTransaction
   ): proto.Transaction = {
     proto.Transaction.newBuilder
       .addAllActAs(rtx.actAs.map(convertParty(_)).asJava)
@@ -390,7 +389,7 @@ final class Conversions(
     val builder = proto.PartialTransaction.newBuilder
       .addAllNodes(ptx.nodes.map(convertNode).asJava)
       .addAllRoots(
-        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava,
+        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
       )
 
     ptx.context.exeContext match {
@@ -443,7 +442,7 @@ final class Conversions(
               proto.ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
                 .setValue(convertValue(create.coinst.arg))
-                .build,
+                .build
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
@@ -457,7 +456,7 @@ final class Conversions(
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build,
+            .build
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -475,9 +474,9 @@ final class Conversions(
               ex.children
                 .map(convertNodeId(eventId.transactionId, _))
                 .toSeq
-                .asJava,
+                .asJava
             )
-            .build,
+            .build
         )
 
       case lbk: N.NodeLookupByKey[V.ContractId] =>
@@ -493,7 +492,7 @@ final class Conversions(
   }
 
   def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]],
+      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]]
   ): proto.KeyWithMaintainers = {
     proto.KeyWithMaintainers
       .newBuilder()
@@ -503,7 +502,7 @@ final class Conversions(
   }
 
   def convertNode(
-      nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId]),
+      nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId])
   ): proto.Node = {
     val (nodeId, node) = nodeWithId
     val builder = proto.Node.newBuilder
@@ -518,12 +517,13 @@ final class Conversions(
               proto.ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
                 .setValue(convertValue(create.coinst.arg))
-                .build,
+                .build
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
         create.versionedKey.foreach(key =>
-          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)))
+          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key))
+        )
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: N.NodeFetch[V.ContractId] =>
@@ -533,7 +533,7 @@ final class Conversions(
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build,
+            .build
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -551,9 +551,9 @@ final class Conversions(
               ex.children
                 .map(nid => proto.NodeId.newBuilder.setId(nid.index.toString).build)
                 .toSeq
-                .asJava,
+                .asJava
             )
-            .build,
+            .build
         )
 
       case lookup: N.NodeLookupByKey[V.ContractId] =>
@@ -608,16 +608,15 @@ final class Conversions(
         builder.setRecord(
           rbuilder
             .addAllFields(
-              fields.toSeq.map {
-                case (optName, fieldValue) =>
-                  val builder = proto.Field.newBuilder
-                  optName.foreach(builder.setLabel)
-                  builder
-                    .setValue(convertValue(fieldValue))
-                    .build
-              }.asJava,
+              fields.toSeq.map { case (optName, fieldValue) =>
+                val builder = proto.Field.newBuilder
+                optName.foreach(builder.setLabel)
+                builder
+                  .setValue(convertValue(fieldValue))
+                  .build
+              }.asJava
             )
-            .build,
+            .build
         )
       case V.ValueVariant(tycon, variant, value) =>
         val vbuilder = proto.Variant.newBuilder
@@ -626,7 +625,7 @@ final class Conversions(
           vbuilder
             .setConstructor(variant)
             .setValue(convertValue(value))
-            .build,
+            .build
         )
       case V.ValueEnum(tycon, constructor) =>
         val eBuilder = proto.Enum.newBuilder.setConstructor(constructor)
@@ -642,9 +641,9 @@ final class Conversions(
                 .map(convertValue)
                 .toImmArray
                 .toSeq
-                .asJava,
+                .asJava
             )
-            .build,
+            .build
         )
       case V.ValueInt64(v) => builder.setInt64(v)
       case V.ValueNumeric(d) => builder.setDecimal(Numeric.toString(d))
@@ -663,20 +662,18 @@ final class Conversions(
         builder.setOptional(optionalBuilder)
       case V.ValueTextMap(map) =>
         val mapBuilder = proto.Map.newBuilder
-        map.toImmArray.foreach {
-          case (k, v) =>
-            mapBuilder.addEntries(proto.Map.Entry.newBuilder().setKey(k).setValue(convertValue(v)))
-            ()
+        map.toImmArray.foreach { case (k, v) =>
+          mapBuilder.addEntries(proto.Map.Entry.newBuilder().setKey(k).setValue(convertValue(v)))
+          ()
         }
         builder.setMap(mapBuilder)
       case V.ValueGenMap(entries) =>
         val mapBuilder = proto.GenMap.newBuilder
-        entries.foreach {
-          case (k, v) =>
-            mapBuilder.addEntries(
-              proto.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v)),
-            )
-            ()
+        entries.foreach { case (k, v) =>
+          mapBuilder.addEntries(
+            proto.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v))
+          )
+          ()
         }
         builder.setGenMap(mapBuilder)
     }

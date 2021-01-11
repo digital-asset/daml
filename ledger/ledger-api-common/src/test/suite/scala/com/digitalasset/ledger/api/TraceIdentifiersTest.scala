@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api
@@ -13,13 +13,14 @@ class TraceIdentifiersTest extends AnyWordSpec {
     (SpanAttribute.TransactionId.key, "transaction-id"),
     (SpanAttribute.CommandId.key, "command-id"),
     (SpanAttribute.WorkflowId.key, "workflow-id"),
-    (SpanAttribute.Offset.key, "offset")
+    (SpanAttribute.Offset.key, "offset"),
   )
 
   "extract identifiers from Transaction" should {
     "set non-empty values" in {
       val observed = TraceIdentifiers.fromTransaction(
-        Transaction("transaction-id", "command-id", "workflow-id", None, Seq(), "offset", None))
+        Transaction("transaction-id", "command-id", "workflow-id", None, Seq(), "offset", None)
+      )
       observed shouldEqual expected
     }
 
@@ -33,7 +34,8 @@ class TraceIdentifiersTest extends AnyWordSpec {
   "extract identifiers from TransactionTree" should {
     "set non-empty values" in {
       val observed = TraceIdentifiers.fromTransactionTree(
-        TransactionTree("transaction-id", "command-id", "workflow-id", None, "offset", Map()))
+        TransactionTree("transaction-id", "command-id", "workflow-id", None, "offset", Map())
+      )
       observed shouldEqual expected
     }
 

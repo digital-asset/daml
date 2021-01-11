@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -97,13 +97,13 @@ object Application {
           Command().withCreate(
             CreateCommand(
               Some(template.identifier),
-              Some(argument)
+              Some(argument),
             )
           )
         ),
         ledgerId = client.ledgerId.unwrap,
         applicationId = applicationId,
-        commandId = UUID.randomUUID.toString
+        commandId = UUID.randomUUID.toString,
       )
       for {
         tree <- submitAndWait(commands)
@@ -128,7 +128,7 @@ object Application {
         ),
         ledgerId = client.ledgerId.unwrap,
         applicationId = applicationId,
-        commandId = UUID.randomUUID.toString
+        commandId = UUID.randomUUID.toString,
       )
       for {
         tree <- submitAndWait(commands)
@@ -140,7 +140,8 @@ object Application {
 
     def activeContracts(template: Template): Future[Seq[CreatedEvent]] = {
       val filter = TransactionFilter(
-        List((name, Filters(Some(InclusiveFilters(Seq(template.identifier)))))).toMap)
+        List((name, Filters(Some(InclusiveFilters(Seq(template.identifier)))))).toMap
+      )
       client.activeContractSetClient
         .getActiveContracts(filter, verbose = true)
         .runWith(Sink.seq)
@@ -152,14 +153,23 @@ object Application {
         List(
           (
             name,
-            Filters(Some(InclusiveFilters(templates
-              .map(_.identifier)))))).toMap)
+            Filters(
+              Some(
+                InclusiveFilters(
+                  templates
+                    .map(_.identifier)
+                )
+              )
+            ),
+          )
+        ).toMap
+      )
       client.transactionClient
         .getTransactions(
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
           Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))),
           filter,
-          verbose = true
+          verbose = true,
         )
         .runWith(Sink.seq[Transaction])
     }

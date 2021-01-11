@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -54,7 +54,8 @@ class MultiPartySpec
 
   "Party parser" should "permit spaces in parties" in {
     readParties.reads("foo bar,baz quux, a b ") should ===(
-      OneAnd("foo bar", List("baz quux", " a b ")))
+      OneAnd("foo bar", List("baz quux", " a b "))
+    )
   }
 
   "Party parser" should "reject non-comma bad characters" in {

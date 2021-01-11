@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
@@ -29,8 +29,10 @@ object DamlDecimalGen {
       MinDamlDecimal,
       BigDecimal(0).setScale(scale),
       BigDecimal(1).setScale(scale),
-      BigDecimal(-1).setScale(scale))
+      BigDecimal(-1).setScale(scale),
+    )
 
   lazy val arbDamlDecimal: Arbitrary[P.Numeric] = Arbitrary(
-    Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal)))
+    Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal))
+  )
 }

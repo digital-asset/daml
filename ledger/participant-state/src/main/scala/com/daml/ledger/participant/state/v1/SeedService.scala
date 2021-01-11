@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -43,7 +43,9 @@ object SeedService {
     override val nextSeed: () => crypto.Hash =
       crypto.Hash.secureRandom(
         crypto.Hash.assertFromByteArray(
-          SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)))
+          SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)
+        )
+      )
   }
 
   // Pseudo random generator seeded with low entropy seed.

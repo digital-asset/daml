@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,17 +12,15 @@ import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
-/**
-  * Utilities to serialize and de-serialize Values
+/** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
   */
 object ValueCoder {
   import Value.MAXIMUM_NESTING
 
-  /**
-    * Error type for signalling errors occurring during decoding serialized values
+  /** Error type for signalling errors occurring during decoding serialized values
     * @param errorMessage description
     */
   final case class DecodeError(errorMessage: String)
@@ -32,8 +30,7 @@ object ValueCoder {
       DecodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
-  /**
-    * Error type for signalling errors occurring during encoding values
+  /** Error type for signalling errors occurring during encoding values
     * @param errorMessage description
     */
   final case class EncodeError(errorMessage: String)
@@ -57,11 +54,11 @@ object ValueCoder {
 
   abstract class DecodeCid[Cid] private[lf] {
     def decodeOptional(
-        structForm: proto.ContractId,
+        structForm: proto.ContractId
     ): Either[DecodeError, Option[Cid]]
 
     final def decode(
-        structForm: proto.ContractId,
+        structForm: proto.ContractId
     ): Either[DecodeError, Cid] =
       decodeOptional(structForm).flatMap {
         case Some(cid) => Right(cid)
@@ -76,10 +73,11 @@ object ValueCoder {
         .fromString(s)
         .left
         .map(_ => //
-          DecodeError(s"""cannot parse contractId "$s""""))
+          DecodeError(s"""cannot parse contractId "$s"""")
+        )
 
     override def decodeOptional(
-        structForm: proto.ContractId,
+        structForm: proto.ContractId
     ): Either[DecodeError, Option[ContractId]] =
       if (structForm.getContractId.isEmpty)
         Right(None)
@@ -87,8 +85,7 @@ object ValueCoder {
         stringToCidString(structForm.getContractId).map(Some(_))
   }
 
-  /**
-    * Simple encoding to wire of identifiers
+  /** Simple encoding to wire of identifiers
     * @param id identifier value
     * @return wire format identifier
     */
@@ -99,8 +96,7 @@ object ValueCoder {
     builder.build()
   }
 
-  /**
-    * Decode identifier from wire format
+  /** Decode identifier from wire format
     * @param id proto identifier
     * @return identifier
     */
@@ -141,8 +137,7 @@ object ValueCoder {
       case _ => TransactionVersion.fromString(vs).left.map(DecodeError)
     }
 
-  /**
-    * Reads a serialized protobuf versioned value,
+  /** Reads a serialized protobuf versioned value,
     * checks if the value version is currently supported and
     * converts the value to the type usable by engine/interpreter.
     *
@@ -166,8 +161,7 @@ object ValueCoder {
   ): Either[DecodeError, Value[Cid]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
 
-  /**
-    * Method to read a serialized protobuf value
+  /** Method to read a serialized protobuf value
     * to engine/interpreter usable Value type
     *
     * @param protoValue0 the value to be read
@@ -197,7 +191,7 @@ object ValueCoder {
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
-          s"Provided proto value to decode exceeds maximum nesting level of $MAXIMUM_NESTING",
+          s"Provided proto value to decode exceeds maximum nesting level of $MAXIMUM_NESTING"
         )
       } else {
         val newNesting = nesting + 1
@@ -228,12 +222,13 @@ object ValueCoder {
             val cid = decodeCid.decode(protoValue.getContractIdStruct)
             cid.fold(
               e => throw Err("error decoding contractId: " + e.errorMessage),
-              ValueContractId(_))
+              ValueContractId(_),
+            )
           case proto.Value.SumCase.LIST =>
             ValueList(
               FrontStack(
-                ImmArray(protoValue.getList.getElementsList.asScala.map(go(newNesting, _))),
-              ),
+                ImmArray(protoValue.getList.getElementsList.asScala.map(go(newNesting, _)))
+              )
             )
 
           case proto.Value.SumCase.VARIANT =>
@@ -244,7 +239,8 @@ object ValueCoder {
                 decodeIdentifier(variant.getVariantId).fold(
                   { err =>
                     throw Err(err.errorMessage)
-                  }, { id =>
+                  },
+                  { id =>
                     Some(id)
                   },
                 )
@@ -258,7 +254,8 @@ object ValueCoder {
                 decodeIdentifier(enum.getEnumId).fold(
                   { err =>
                     throw Err(err.errorMessage)
-                  }, { id =>
+                  },
+                  { id =>
                     Some(id)
                   },
                 )
@@ -272,7 +269,8 @@ object ValueCoder {
                 decodeIdentifier(record.getRecordId).fold(
                   { err =>
                     throw Err(err.errorMessage)
-                  }, { id =>
+                  },
+                  { id =>
                     Some(id)
                   },
                 )
@@ -294,7 +292,8 @@ object ValueCoder {
           case proto.Value.SumCase.MAP =>
             val entries = ImmArray(
               protoValue.getMap.getEntriesList.asScala.map(entry =>
-                entry.getKey -> go(newNesting, entry.getValue)),
+                entry.getKey -> go(newNesting, entry.getValue)
+              )
             )
 
             val map = SortedLookupList
@@ -308,7 +307,8 @@ object ValueCoder {
           case proto.Value.SumCase.GEN_MAP =>
             assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
-              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
+              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue)
+            )
             ValueGenMap(ImmArray(genMap))
 
           case proto.Value.SumCase.SUM_NOT_SET =>
@@ -324,8 +324,7 @@ object ValueCoder {
     }
   }
 
-  /**
-    * Serializes [[VersionedValue]] to protobuf.
+  /** Serializes [[VersionedValue]] to protobuf.
     *
     * @param versionedValue value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
@@ -350,8 +349,7 @@ object ValueCoder {
       builder.setVersion(encodeValueVersion(version)).setValue(protoValue).build()
     }
 
-  /**
-    * Serialize a Value to protobuf
+  /** Serialize a Value to protobuf
     *
     * @param v0 value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
@@ -373,7 +371,7 @@ object ValueCoder {
     def go(nesting: Int, v: Value[Cid]): proto.Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
-          s"Provided DAML-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING",
+          s"Provided DAML-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING"
         )
       } else {
         val newNesting = nesting + 1
@@ -445,30 +443,28 @@ object ValueCoder {
 
           case ValueTextMap(map) =>
             val protoMap = proto.Map.newBuilder()
-            map.toImmArray.foreach {
-              case (key, value) =>
-                protoMap.addEntries(
-                  proto.Map.Entry
-                    .newBuilder()
-                    .setKey(key)
-                    .setValue(go(newNesting, value)),
-                )
-                ()
+            map.toImmArray.foreach { case (key, value) =>
+              protoMap.addEntries(
+                proto.Map.Entry
+                  .newBuilder()
+                  .setKey(key)
+                  .setValue(go(newNesting, value))
+              )
+              ()
             }
             builder.setMap(protoMap).build()
 
           case ValueGenMap(entries) =>
             assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val protoMap = proto.GenMap.newBuilder()
-            entries.foreach {
-              case (key, value) =>
-                protoMap.addEntries(
-                  proto.GenMap.Entry
-                    .newBuilder()
-                    .setKey(go(newNesting, key))
-                    .setValue(go(newNesting, value)),
-                )
-                ()
+            entries.foreach { case (key, value) =>
+              protoMap.addEntries(
+                proto.GenMap.Entry
+                  .newBuilder()
+                  .setKey(go(newNesting, key))
+                  .setValue(go(newNesting, value))
+              )
+              ()
             }
             builder.setGenMap(protoMap).build()
 

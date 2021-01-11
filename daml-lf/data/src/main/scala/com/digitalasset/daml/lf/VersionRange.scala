@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 
 import scala.Ordering.Implicits.infixOrderingOps
 
-/**
-  * [[VersionRange]] represents a range of versions of
+/** [[VersionRange]] represents a range of versions of
   * [[com.daml.lf.language.LanguageVersion]] or
   * [[com.daml.lf.transaction.TransactionVersion]].
   *

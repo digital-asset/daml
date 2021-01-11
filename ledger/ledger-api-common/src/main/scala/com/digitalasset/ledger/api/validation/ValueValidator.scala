@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -18,11 +18,13 @@ import scalaz.std.either._
 
 object ValueValidator {
 
-  private[validation] def validateRecordFields(recordFields: Seq[api.RecordField])
-    : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
+  private[validation] def validateRecordFields(
+      recordFields: Seq[api.RecordField]
+  ): Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
     recordFields
       .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
-        Right(BackStack.empty))((acc, rf) => {
+        Right(BackStack.empty)
+      )((acc, rf) => {
         for {
           fields <- acc
           v <- requirePresence(rf.value, "value")
@@ -85,22 +87,24 @@ object ValueValidator {
             for {
               values <- valuesE
               validatedValue <- validateValue(v)
-            } yield values :+ validatedValue)
+            } yield values :+ validatedValue
+        )
         .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
     case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
       o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueNone))(
-        validateValue(_).map(v => Lf.ValueOptional(Some(v))))
+        validateValue(_).map(v => Lf.ValueOptional(Some(v)))
+      )
     case Sum.Map(map0) =>
       val map = map0.entries
         .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
-          Right(FrontStack.empty)) {
-          case (acc, api.Map.Entry(key, value0)) =>
-            for {
-              tail <- acc
-              v <- requirePresence(value0, "value")
-              validatedValue <- validateValue(v)
-            } yield (key -> validatedValue) +: tail
+          Right(FrontStack.empty)
+        ) { case (acc, api.Map.Entry(key, value0)) =>
+          for {
+            tail <- acc
+            v <- requirePresence(value0, "value")
+            validatedValue <- validateValue(v)
+          } yield (key -> validatedValue) +: tail
         }
       for {
         entries <- map
@@ -110,15 +114,15 @@ object ValueValidator {
     case Sum.GenMap(genMap0) =>
       val genMap = genMap0.entries
         .foldLeft[Either[StatusRuntimeException, BackStack[(domain.Value, domain.Value)]]](
-          Right(BackStack.empty)) {
-          case (acc, api.GenMap.Entry(key0, value0)) =>
-            for {
-              stack <- acc
-              key <- requirePresence(key0, "key")
-              value <- requirePresence(value0, "value")
-              validatedKey <- validateValue(key)
-              validatedValue <- validateValue(value)
-            } yield stack :+ (validatedKey -> validatedValue)
+          Right(BackStack.empty)
+        ) { case (acc, api.GenMap.Entry(key0, value0)) =>
+          for {
+            stack <- acc
+            key <- requirePresence(key0, "key")
+            value <- requirePresence(value0, "value")
+            validatedKey <- validateValue(key)
+            validatedValue <- validateValue(value)
+          } yield stack :+ (validatedKey -> validatedValue)
         }
       genMap.map(entries => Lf.ValueGenMap(entries.toImmArray))
 
@@ -126,7 +130,8 @@ object ValueValidator {
   }
 
   private[validation] def validateOptionalIdentifier(
-      variantIdO: Option[api.Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] =
+      variantIdO: Option[api.Identifier]
+  ): Either[StatusRuntimeException, Option[Ref.Identifier]] =
     variantIdO.map(validateIdentifier(_).map(Some.apply)).getOrElse(Right(None))
 
 }

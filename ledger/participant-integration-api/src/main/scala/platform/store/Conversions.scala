@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -18,7 +18,8 @@ private[platform] object Conversions {
 
   private def stringColumnToX[X](f: String => Either[String, X]): Column[X] =
     Column.nonNull((value: Any, meta) =>
-      Column.columnToString(value, meta).flatMap(x => f(x).left.map(SqlMappingError)))
+      Column.columnToString(value, meta).flatMap(x => f(x).left.map(SqlMappingError))
+    )
 
   private final class SubTypeOfStringToStatement[S <: String] extends ToStatement[S] {
     override def set(s: PreparedStatement, i: Int, v: S): Unit =
@@ -160,7 +161,8 @@ private[platform] object Conversions {
 
   implicit val columnToOffset: Column[Offset] =
     Column.nonNull((value: Any, meta) =>
-      Column.columnToByteArray(value, meta).map(Offset.fromByteArray))
+      Column.columnToByteArray(value, meta).map(Offset.fromByteArray)
+    )
 
   // Instant
 
@@ -176,7 +178,8 @@ private[platform] object Conversions {
 
   implicit val columnToHash: Column[Hash] =
     Column.nonNull((value: Any, meta) =>
-      Column.columnToByteArray(value, meta).map(Hash.assertFromByteArray))
+      Column.columnToByteArray(value, meta).map(Hash.assertFromByteArray)
+    )
 
   implicit object HashMetaParameter extends ParameterMetaData[Hash] {
     override val sqlType: String = ParameterMetaData.ByteArrayParameterMetaData.sqlType

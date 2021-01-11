@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.util.context
@@ -15,7 +15,7 @@ object TraceContextConversions {
       spanId = braveContext.spanId(),
       parentSpanId =
         if (braveContext.parentId == null) None else Some(braveContext.parentId.toLong),
-      sampled = braveContext.sampled()
+      sampled = braveContext.sampled(),
     )
 
   def toBrave(protoContext: ProtoContext): BraveContext =

@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.7
--- Make sure that invalid kinds are reported as errors by the DAML compiler.
+-- Make sure that invalid kinds are reported as errors by the Daml compiler.
 module KindChecking where
 
 -- @ERROR range=10:1-10:4; Nat kind on the right-hand side of kind arrow

@@ -1,11 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
 package binding
 package encoding
 
-import scala.language.higherKinds
 import scala.collection.immutable.Map
 
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -33,9 +32,10 @@ class LfTypeEncodingSpec extends AnyWordSpec with Matchers with ScalaCheckDriven
     * just like our bespoke codegenned [[Value]]s, but in a purely tagless-final
     * way?
     */
-  private def deriveSameValueAbstractlyAsConcretely[A](abstractly: Value[A], concretely: Value[A])(
-      implicit arbA: Arbitrary[A],
-      shrA: Shrink[A]) =
+  private def deriveSameValueAbstractlyAsConcretely[A](
+      abstractly: Value[A],
+      concretely: Value[A],
+  )(implicit arbA: Arbitrary[A], shrA: Shrink[A]) =
     forAll { a: A =>
       val ca = concretely.write(a)
       concretely.read(ca) shouldBe Some(a)
@@ -47,28 +47,28 @@ class LfTypeEncodingSpec extends AnyWordSpec with Matchers with ScalaCheckDriven
   "TrialVariant" should {
     "derive same Value abstractly as concretely" in deriveSameValueAbstractlyAsConcretely(
       abstractly = LfEncodable.encoding[TrialVariant[P.Int64, P.Text]](ValueLfTypeEncoding),
-      concretely = TrialVariant.`TrialVariant value`[P.Int64, P.Text]
+      concretely = TrialVariant.`TrialVariant value`[P.Int64, P.Text],
     )
   }
 
   "TrialSubRec" should {
     "derive same Value abstractly as concretely" in deriveSameValueAbstractlyAsConcretely(
       abstractly = LfEncodable.encoding[TrialSubRec[P.Int64]](ValueLfTypeEncoding),
-      concretely = TrialSubRec.`TrialSubRec value`[P.Int64]
+      concretely = TrialSubRec.`TrialSubRec value`[P.Int64],
     )
   }
 
   "TrialEmptyRec" should {
     "derive same Value abstractly as concretely" in deriveSameValueAbstractlyAsConcretely(
       abstractly = LfEncodable.encoding[TrialEmptyRec](ValueLfTypeEncoding),
-      concretely = TrialEmptyRec.`TrialEmptyRec value`
+      concretely = TrialEmptyRec.`TrialEmptyRec value`,
     )
   }
 
   "CallablePayout" should {
     "derive same Value abstractly as concretely" in deriveSameValueAbstractlyAsConcretely(
       abstractly = LfEncodable.encoding[CallablePayout](ValueLfTypeEncoding),
-      concretely = CallablePayout.`the template Value`
+      concretely = CallablePayout.`the template Value`,
     )
   }
 }
@@ -88,13 +88,18 @@ object LfTypeEncodingSpec {
       Arbitrary(
         Gen.oneOf(
           arbitrary[A] map (TLeft[A, B](_)),
-          Gen.zip(arbitrary[B], arbitrary[B]) map ((TRight[A, B] _).tupled)))
+          Gen.zip(arbitrary[B], arbitrary[B]) map ((TRight[A, B] _).tupled),
+        )
+      )
 
     implicit def `TrialVariant shrink`[A: Shrink, B: Shrink]: Shrink[TrialVariant[A, B]] =
-      Shrink.xmap((_: A Either (B, B)).fold(TLeft(_), { case (o, t) => TRight(o, t) }), {
-        case TLeft(body) => Left(body)
-        case TRight(one, two) => Right((one, two))
-      })
+      Shrink.xmap(
+        (_: A Either (B, B)).fold(TLeft(_), { case (o, t) => TRight(o, t) }),
+        {
+          case TLeft(body) => Left(body)
+          case TRight(one, two) => Right((one, two))
+        },
+      )
 
     implicit def `TrialVariant value`[A: Value, B: Value]: Value[TrialVariant[A, B]] =
       new `Value ValueRef`[TrialVariant[A, B]] {
@@ -104,7 +109,8 @@ object LfTypeEncodingSpec {
             ` createVariantOfSynthRecord`(
               "TRight",
               ("one", Value.encode(one)),
-              ("two", Value.encode(two)))
+              ("two", Value.encode(two)),
+            )
         }
 
         override def read(av: VSum) = av.variant flatMap { obj =>
@@ -114,8 +120,9 @@ object LfTypeEncodingSpec {
               obj.value flatMap (_.sum.record) flatMap { o2 =>
                 o2.fields match {
                   case Seq(
-                      rpcvalue.RecordField("" | "one", Some(one)),
-                      rpcvalue.RecordField("" | "two", Some(two))) =>
+                        rpcvalue.RecordField("" | "one", Some(one)),
+                        rpcvalue.RecordField("" | "two", Some(two)),
+                      ) =>
                     Apply[Option].apply2(Value.decode[B](one), Value.decode[B](two))(TRight(_, _))
                 }
               }
@@ -134,15 +141,16 @@ object LfTypeEncodingSpec {
       * `lte`.
       */
     implicit def `TrialVariant LfEncodable`[A: LfEncodable, B: LfEncodable]
-      : LfEncodable[TrialVariant[A, B]] =
+        : LfEncodable[TrialVariant[A, B]] =
       new LfEncodable[TrialVariant[A, B]] {
         override def encoding(lte: LfTypeEncoding): lte.Out[TrialVariant[A, B]] = {
           import lte.{field, fields}
           val tright: lte.RecordFields[TRight[A, B]] =
             lte.RecordFields.xmapN(
               fields(field("one", LfEncodable.encoding[B](lte))),
-              fields(field("two", LfEncodable.encoding[B](lte))))(TRight[A, B](_, _)) {
-              case TRight(one, two) => (one, two)
+              fields(field("two", LfEncodable.encoding[B](lte))),
+            )(TRight[A, B](_, _)) { case TRight(one, two) =>
+              (one, two)
             }
           lte.variantAll(
             ` dataTypeId`,
@@ -150,9 +158,13 @@ object LfTypeEncodingSpec {
               .variantCase[A, TrialVariant[A, B]]("TLeft", LfEncodable.encoding[A](lte))(TLeft(_)) {
                 case TLeft(body) => body
               },
-            lte.variantRecordCase[TRight[A, B], TrialVariant[A, B]]("TRight", ` dataTypeId`, tright) {
-              case rec @ TRight(_, _) => rec
-            }
+            lte.variantRecordCase[TRight[A, B], TrialVariant[A, B]](
+              "TRight",
+              ` dataTypeId`,
+              tright,
+            ) { case rec @ TRight(_, _) =>
+              rec
+            },
           )
         }
       }
@@ -172,10 +184,12 @@ object LfTypeEncodingSpec {
           av.record flatMap { r =>
             r.fields match {
               case Seq(
-                  rpcvalue.RecordField("" | "num", Some(num)),
-                  rpcvalue.RecordField("" | "a", Some(a))) =>
+                    rpcvalue.RecordField("" | "num", Some(num)),
+                    rpcvalue.RecordField("" | "a", Some(a)),
+                  ) =>
                 Apply[Option].apply2(Value.decode[P.Int64](num), Value.decode[A](a))(
-                  TrialSubRec(_, _))
+                  TrialSubRec(_, _)
+                )
               case _ => None
             }
           }
@@ -198,9 +212,12 @@ object LfTypeEncodingSpec {
           import lte.{RecordFields, field, fields}
           val num = field("num", LfEncodable.encoding[P.Int64](lte))
           val a = field("a", LfEncodable.encoding[A](lte))
-          lte.record(` dataTypeId`, RecordFields.xmapN(fields(num), fields(a))(TrialSubRec(_, _)) {
-            case TrialSubRec(num, a) => (num, a)
-          })
+          lte.record(
+            ` dataTypeId`,
+            RecordFields.xmapN(fields(num), fields(a))(TrialSubRec(_, _)) {
+              case TrialSubRec(num, a) => (num, a)
+            },
+          )
         }
       }
   }
@@ -232,8 +249,8 @@ object LfTypeEncodingSpec {
       subr: TrialSubRec[P.Int64],
       lst: P.List[P.Int64],
       emptyRec: TrialEmptyRec,
-      variant: TrialVariant[P.Text, P.ContractId[CallablePayout]])
-      extends Template[CallablePayout] {
+      variant: TrialVariant[P.Text, P.ContractId[CallablePayout]],
+  ) extends Template[CallablePayout] {
     protected[this] override def templateCompanion(implicit d: DummyImplicit) = CallablePayout
   }
 
@@ -258,12 +275,15 @@ object LfTypeEncodingSpec {
       implicit val PA: Arbitrary[P.Party] = Arbitrary(GenEncoding.primitive.valueParty)
       implicit val CA: Arbitrary[P.ContractId[CallablePayout]] =
         Arbitrary(GenEncoding.primitive.valueContractId)
-      arbitrary[(
-          P.Party,
-          TrialSubRec[P.Int64],
-          P.List[P.Int64],
-          TrialEmptyRec,
-          TrialVariant[P.Text, P.ContractId[CallablePayout]])] map (CallablePayout.apply _).tupled
+      arbitrary[
+        (
+            P.Party,
+            TrialSubRec[P.Int64],
+            P.List[P.Int64],
+            TrialEmptyRec,
+            TrialVariant[P.Text, P.ContractId[CallablePayout]],
+        )
+      ] map (CallablePayout.apply _).tupled
     }
 
     override val id = ` templateId`("hello", "MyMain", "CallablePayout")
@@ -276,23 +296,24 @@ object LfTypeEncodingSpec {
         ("subr", Value.encode(cp.subr)),
         ("lst", Value.encode(cp.lst)),
         ("emptyRec", Value.encode(cp.emptyRec)),
-        ("variant", Value.encode(cp.variant))
+        ("variant", Value.encode(cp.variant)),
       )
 
     override def fromNamedArguments(r: rpcvalue.Record): Option[CallablePayout] =
       r.fields match {
         case Seq(
-            rpcvalue.RecordField("" | "receiver", Some(receiver)),
-            rpcvalue.RecordField("" | "subr", Some(subr)),
-            rpcvalue.RecordField("" | "lst", Some(lst)),
-            rpcvalue.RecordField("" | "emptyRec", Some(emptyRec)),
-            rpcvalue.RecordField("" | "variant", Some(variant))) =>
+              rpcvalue.RecordField("" | "receiver", Some(receiver)),
+              rpcvalue.RecordField("" | "subr", Some(subr)),
+              rpcvalue.RecordField("" | "lst", Some(lst)),
+              rpcvalue.RecordField("" | "emptyRec", Some(emptyRec)),
+              rpcvalue.RecordField("" | "variant", Some(variant)),
+            ) =>
           Apply[Option].apply5(
             Value.decode[P.Party](receiver),
             Value.decode[TrialSubRec[P.Int64]](subr),
             Value.decode[P.List[P.Int64]](lst),
             Value.decode[TrialEmptyRec](emptyRec),
-            Value.decode[TrialVariant[P.Text, P.ContractId[CallablePayout]]](variant)
+            Value.decode[TrialVariant[P.Text, P.ContractId[CallablePayout]]](variant),
           )(CallablePayout.apply)
         case _ => None
       }
@@ -324,7 +345,8 @@ object LfTypeEncodingSpec {
         override val variant =
           field(
             "variant",
-            LfEncodable.encoding[TrialVariant[P.Text, P.ContractId[CallablePayout]]](lte))
+            LfEncodable.encoding[TrialVariant[P.Text, P.ContractId[CallablePayout]]](lte),
+          )
       }
     }
 
@@ -340,9 +362,10 @@ object LfTypeEncodingSpec {
             fields(view.receiver),
             fields(view.subr),
             fields(view.lst),
-            RecordFields.tupleN(fields(view.emptyRec), fields(view.variant))) {
-            case (r, s, l, (e, v)) => CallablePayout(r, s, l, e, v)
-          } { case CallablePayout(r, s, l, e, v) => (r, s, l, (e, v)) }
+            RecordFields.tupleN(fields(view.emptyRec), fields(view.variant)),
+          ) { case (r, s, l, (e, v)) =>
+            CallablePayout(r, s, l, e, v)
+          } { case CallablePayout(r, s, l, e, v) => (r, s, l, (e, v)) },
         )
       out
     }
@@ -361,11 +384,13 @@ object LfTypeEncodingSpec {
     final case class RecordFields[A](
         fieldNames: Vector[String],
         writers: A => Vector[rpcvalue.Value],
-        reader: Seq[rpcvalue.RecordField] => (Option[A], Seq[rpcvalue.RecordField]))
+        reader: Seq[rpcvalue.RecordField] => (Option[A], Seq[rpcvalue.RecordField]),
+    )
 
     final case class VariantCases[A](
         readers: Map[String, VSum => Option[A]],
-        writers: Vector[(String, A => Option[VSum])])
+        writers: Vector[(String, A => Option[VSum])],
+    )
 
     override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] =
       new Value.InternalImpl[A] {
@@ -374,10 +399,12 @@ object LfTypeEncodingSpec {
 
         override def read(av: VSum): Option[A] =
           av.record flatMap { r =>
-            if (fi.fieldNames.size == r.fields.size ||
-              (fi.fieldNames zip r.fields forall {
-                case (fn, rpcvalue.RecordField(rfn, _)) => rfn == "" || rfn == fn
-              })) {
+            if (
+              fi.fieldNames.size == r.fields.size ||
+              (fi.fieldNames zip r.fields forall { case (fn, rpcvalue.RecordField(rfn, _)) =>
+                rfn == "" || rfn == fn
+              })
+            ) {
               val (oa, s) = fi.reader(r.fields)
               if (s.isEmpty) oa else None
             } else None
@@ -394,11 +421,15 @@ object LfTypeEncodingSpec {
 
     override def fields[A](fi: Field[A]) = {
       val (fn, v) = fi
-      RecordFields(Vector(fn), a => Vector(rpcvalue.Value(v.write(a))), {
-        case rpcvalue.RecordField(_, sv) +: tail =>
-          (sv flatMap (Value.decode(_)(v)), tail)
-        case all => (None, all)
-      })
+      RecordFields(
+        Vector(fn),
+        a => Vector(rpcvalue.Value(v.write(a))),
+        {
+          case rpcvalue.RecordField(_, sv) +: tail =>
+            (sv flatMap (Value.decode(_)(v)), tail)
+          case all => (None, all)
+        },
+      )
     }
 
     override def enumAll[A](
@@ -425,16 +456,17 @@ object LfTypeEncodingSpec {
           cases.writers
             .collectFirst(Function unlift (_ traverse (_(a))))
             .cata(
-              {
-                case (cName, v) =>
-                  VSum.Variant(
-                    rpcvalue
-                      .Variant(
-                        variantId = Some(variantId),
-                        constructor = cName,
-                        Some(rpcvalue.Value(v))))
+              { case (cName, v) =>
+                VSum.Variant(
+                  rpcvalue
+                    .Variant(
+                      variantId = Some(variantId),
+                      constructor = cName,
+                      Some(rpcvalue.Value(v)),
+                    )
+                )
               },
-              sys.error(s"Missing case for $variantId: ${cases.readers.keySet} is not exhaustive")
+              sys.error(s"Missing case for $variantId: ${cases.readers.keySet} is not exhaustive"),
             )
 
         override def read(av: VSum): Option[A] =
@@ -443,18 +475,21 @@ object LfTypeEncodingSpec {
           }
       }
 
-    def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-        select: A PartialFunction B): VariantCases[A] =
+    def variantCase[B, A](caseName: String, o: Out[B])(
+        inject: B => A
+    )(select: A PartialFunction B): VariantCases[A] =
       VariantCases(
         readers = Map((caseName, (o.read _) andThen (_ map inject))),
-        writers = Vector((caseName, select.lift andThen (_ map o.write))))
+        writers = Vector((caseName, select.lift andThen (_ map o.write))),
+      )
 
     object RecordFields extends InvariantApply[RecordFields] {
       override def xmap[A, Z](fa: RecordFields[A], f: A => Z, g: Z => A): RecordFields[Z] =
-        fa copy (writers = g andThen fa.writers, reader = fa.reader andThen (_ leftMap (_ map f)))
+        fa.copy(writers = g andThen fa.writers, reader = fa.reader andThen (_ leftMap (_ map f)))
 
       override def xmapN[A, B, Z](fa: RecordFields[A], fb: RecordFields[B])(f: (A, B) => Z)(
-          g: Z => (A, B)): RecordFields[Z] =
+          g: Z => (A, B)
+      ): RecordFields[Z] =
         RecordFields(
           fa.fieldNames |+| fb.fieldNames,
           writers = { z =>
@@ -465,7 +500,7 @@ object LfTypeEncodingSpec {
             val (oa, s1) = fa.reader(s0)
             val (ob, s2) = fb.reader(s1)
             (^(oa, ob)(f), s2)
-          }
+          },
         )
     }
 

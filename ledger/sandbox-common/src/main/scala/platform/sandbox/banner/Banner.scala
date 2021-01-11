@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.banner
@@ -14,8 +14,9 @@ object Banner {
       out.println(
         Source
           .fromResource(resourceName)
-          .getLines
-          .mkString("\n"))
+          .getLines()
+          .mkString("\n")
+      )
     else
       out.println("Banner resource missing from classpath.")
   }

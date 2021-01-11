@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams.dispatcher
@@ -55,12 +55,11 @@ class DispatcherTest
 
         d.close()
 
-        subscriptions.zip(1 until 10) foreach {
-          case (f, i) =>
-            whenReady(f) { vals =>
-              vals.map(_._1) should contain theSameElementsAs (i to 9)
-              vals.map(_._2) should contain theSameElementsAs (i until 10)
-            }
+        subscriptions.zip(1 until 10) foreach { case (f, i) =>
+          whenReady(f) { vals =>
+            vals.map(_._1) should contain theSameElementsAs (i to 9)
+            vals.map(_._2) should contain theSameElementsAs (i until 10)
+          }
         }
       }
     }

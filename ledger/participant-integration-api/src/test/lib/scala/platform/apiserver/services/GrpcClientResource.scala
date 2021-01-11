@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -46,16 +46,19 @@ object GrpcClientResource {
 
           sslContext
             .fold(builder.usePlaintext())(
-              builder.sslContext(_).negotiationType(NegotiationType.TLS))
+              builder.sslContext(_).negotiationType(NegotiationType.TLS)
+            )
             .build()
         })(channel =>
           Future {
             channel.shutdownNow()
             if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
               sys.error(
-                "Unable to shutdown channel to a remote API under tests. Unable to recover. Terminating.")
+                "Unable to shutdown channel to a remote API under tests. Unable to recover. Terminating."
+              )
             }
-        })
+          }
+        )
       }
     }
 }

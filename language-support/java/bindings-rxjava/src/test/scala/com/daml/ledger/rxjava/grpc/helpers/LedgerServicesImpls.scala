@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -7,18 +7,18 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse
+  SubmitAndWaitForTransactionTreeResponse,
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
-  ListPackagesResponse
+  ListPackagesResponse,
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.empty.Empty
@@ -36,7 +36,8 @@ case class LedgerServicesImpls(
     commandServiceImpl: CommandServiceImpl,
     ledgerConfigurationServiceImpl: LedgerConfigurationServiceImpl,
     timeServiceImpl: TimeServiceImpl,
-    packageServiceImpl: PackageServiceImpl)
+    packageServiceImpl: PackageServiceImpl,
+)
 
 object LedgerServicesImpls {
 
@@ -56,8 +57,8 @@ object LedgerServicesImpls {
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
-      authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
+      authorizer: Authorizer,
+  )(implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
     val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
     val (acsServiceDef, acsService) =
       ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse, authorizer)(ec)
@@ -72,7 +73,8 @@ object LedgerServicesImpls {
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
-      authorizer)(ec)
+      authorizer,
+    )(ec)
     val (lcServiceDef, lcService) =
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses, authorizer)(ec)
     val (timeServiceDef, timeService) =
@@ -82,7 +84,8 @@ object LedgerServicesImpls {
         listPackagesResponse,
         getPackageResponse,
         getPackageStatusResponse,
-        authorizer)(ec)
+        authorizer,
+      )(ec)
 
     val services = Seq(
       iServiceDef,
@@ -93,7 +96,8 @@ object LedgerServicesImpls {
       cServiceDef,
       lcServiceDef,
       timeServiceDef,
-      packageServiceDef)
+      packageServiceDef,
+    )
     val impls = new LedgerServicesImpls(
       iService,
       acsService,
@@ -103,7 +107,8 @@ object LedgerServicesImpls {
       cService,
       lcService,
       timeService,
-      packageService)
+      packageService,
+    )
     (services, impls)
   }
 }

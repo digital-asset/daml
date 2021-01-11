@@ -1,8 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml;
 
+import com.daml.ledger.api.v1.ValueOuterClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
@@ -12,16 +13,16 @@ import org.junit.runners.Suite;
  */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
+        ContractKeysTest.class,
         DecoderTest.class,
-        RecordTest.class,
-        VariantTest.class,
-        SerializableTest.class,
-        TemplateMethodTest.class,
         ListTest.class,
-        MapTest.class,
         OptionalTest.class,
         ParametrizedContractIdTest.class,
-        ContractKeysTest.class
+        RecordTest.class,
+        SerializableTest.class,
+        TemplateMethodTest.class,
+        TextMapTest.class,
+        VariantTest.class,
 })
 public class AllGenericTests {
 }

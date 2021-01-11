@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.util.akkastreams
@@ -74,13 +74,16 @@ class MaxInFlightTest
             }
 
             override def onUpstreamFinish(): Unit = ()
-          }
+          },
         )
 
-        setHandler(out, new OutHandler {
-          // Initial handler is noop, we keep accumulating elements until the handler is replaced.
-          override def onPull(): Unit = ()
-        })
+        setHandler(
+          out,
+          new OutHandler {
+            // Initial handler is noop, we keep accumulating elements until the handler is replaced.
+            override def onPull(): Unit = ()
+          },
+        )
 
         private def flush() = {
           accumulator match {
@@ -101,12 +104,15 @@ class MaxInFlightTest
         override protected def onTimer(timerKey: Any): Unit = {
           timerKey match {
             case `replaceHandlerTimerKey` =>
-              setHandler(out, new OutHandler {
-                override def onPull(): Unit = {
-                  flush()
-                  if (isClosed(in)) completeStage()
-                }
-              })
+              setHandler(
+                out,
+                new OutHandler {
+                  override def onPull(): Unit = {
+                    flush()
+                    if (isClosed(in)) completeStage()
+                  }
+                },
+              )
               if (isAvailable(out)) flush()
             case `scheduledFlushTimerKey` =>
               flush()

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.util
@@ -14,19 +14,16 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-/**
-  * Configuration values for initial service binding retrial
+/** Configuration values for initial service binding retrial
   */
 trait IRetryConfig {
 
-  /**
-    * @return The interval between retries.
+  /** @return The interval between retries.
     */
   def intervalMs: Long
   def interval: FiniteDuration = intervalMs.millis
 
-  /**
-    * @return The total timeout we allow for the operation to succeed.
+  /** @return The total timeout we allow for the operation to succeed.
     */
   def timeoutMs: Long
   def timeout: FiniteDuration = timeoutMs.millis
@@ -34,16 +31,14 @@ trait IRetryConfig {
 
 object RetryHelper extends LazyLogging {
 
-  /**
-    * Return '''true''' if you want to re-try a statement that caused the specified exception.
+  /** Return '''true''' if you want to re-try a statement that caused the specified exception.
     */
   type RetryStrategy = PartialFunction[Throwable, Boolean]
 
-  /**
-    * Always retries if exception is `NonFatal`.
+  /** Always retries if exception is `NonFatal`.
     */
-  val always: RetryStrategy = {
-    case NonFatal(_) => true
+  val always: RetryStrategy = { case NonFatal(_) =>
+    true
   }
 
   val failFastOnPermissionDenied: RetryStrategy = {
@@ -51,8 +46,9 @@ object RetryHelper extends LazyLogging {
     case NonFatal(_) => true
   }
 
-  def retry[T](retryConfig: Option[(Scheduler, IRetryConfig)])(retryStrategy: RetryStrategy)(
-      f: => Future[T])(implicit ec: ExecutionContext): Future[T] = {
+  def retry[T](
+      retryConfig: Option[(Scheduler, IRetryConfig)]
+  )(retryStrategy: RetryStrategy)(f: => Future[T])(implicit ec: ExecutionContext): Future[T] = {
     retryConfig match {
       case None =>
         f
@@ -62,8 +58,9 @@ object RetryHelper extends LazyLogging {
     }
   }
 
-  def retry[T](retryConfig: Option[IRetryConfig])(retryStrategy: RetryStrategy)(
-      f: => Future[T])(implicit ec: ExecutionContext, s: Scheduler): Future[T] = {
+  def retry[T](retryConfig: Option[IRetryConfig])(
+      retryStrategy: RetryStrategy
+  )(f: => Future[T])(implicit ec: ExecutionContext, s: Scheduler): Future[T] = {
     retryConfig match {
       case None =>
         f
@@ -73,8 +70,9 @@ object RetryHelper extends LazyLogging {
     }
   }
 
-  def retry[T](maxAttempts: Int, delay: FiniteDuration)(retryStrategy: RetryStrategy)(
-      f: => Future[T])(implicit ec: ExecutionContext, s: Scheduler): Future[T] = {
+  def retry[T](maxAttempts: Int, delay: FiniteDuration)(
+      retryStrategy: RetryStrategy
+  )(f: => Future[T])(implicit ec: ExecutionContext, s: Scheduler): Future[T] = {
 
     def shouldRetry(n: Int, e: Throwable): Boolean =
       n > 0 && retryStrategy.applyOrElse(e, (_: Throwable) => false)
@@ -90,6 +88,7 @@ object RetryHelper extends LazyLogging {
 
   private def logWarning(remainingAttempts: Int, e: Throwable): Unit = {
     logger.warn(
-      s"Retrying after failure. Attempts remaining: $remainingAttempts. Error: ${e.getMessage}")
+      s"Retrying after failure. Attempts remaining: $remainingAttempts. Error: ${e.getMessage}"
+    )
   }
 }

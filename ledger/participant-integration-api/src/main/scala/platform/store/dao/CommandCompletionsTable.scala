@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -30,7 +30,8 @@ private[platform] object CommandCompletionsTable {
       case offset ~ recordTime ~ commandId ~ transactionId =>
         CompletionStreamResponse(
           checkpoint = toApiCheckpoint(recordTime, offset),
-          completions = Seq(Completion(commandId, Some(Status()), transactionId)))
+          completions = Seq(Completion(commandId, Some(Status()), transactionId)),
+        )
     }
 
   private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
@@ -38,7 +39,8 @@ private[platform] object CommandCompletionsTable {
       case offset ~ recordTime ~ commandId ~ statusCode ~ statusMessage =>
         CompletionStreamResponse(
           checkpoint = toApiCheckpoint(recordTime, offset),
-          completions = Seq(Completion(commandId, Some(Status(statusCode, statusMessage)))))
+          completions = Seq(Completion(commandId, Some(Status(statusCode, statusMessage)))),
+        )
     }
 
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser

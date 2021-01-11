@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
@@ -80,6 +80,7 @@ data Command
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
+    | LedgerReset {flags :: LedgerFlags}
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
@@ -168,7 +169,7 @@ commandParser = subparser $ fold
         <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
         <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
-        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
+        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter")))
         <*> stdinCloseOpt
         <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
 
@@ -197,7 +198,7 @@ commandParser = subparser $ fold
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
-              [ "Deploy the current DAML project to a remote DAML ledger. "
+              [ "Deploy the current Daml project to a remote Daml ledger. "
               , "This will allocate the project's parties on the ledger "
               , "(if missing) and upload the project's built DAR file. You "
               , "can specify the ledger in daml.yaml with the ledger.host and "
@@ -244,7 +245,7 @@ commandParser = subparser $ fold
     ledgerCmdInfo = mconcat
         [ forwardOptions
         , progDesc $ concat
-              [ "Interact with a remote DAML ledger. You can specify "
+              [ "Interact with a remote Daml ledger. You can specify "
               , "the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host "
               , "and --port flags to each command below. "
@@ -277,6 +278,9 @@ commandParser = subparser $ fold
             [ command "allocate-party" $ info
                 (ledgerAllocatePartyCmd <**> helper)
                 (progDesc "Allocate a single party on ledger")
+            , command "reset" $ info
+                (ledgerResetCmd <**> helper)
+                (progDesc "Archive all currently active contracts.")
             ]
         ]
 
@@ -301,6 +305,9 @@ commandParser = subparser $ fold
         <$> ledgerFlags (ShowJsonApi True)
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
+
+    ledgerResetCmd = LedgerReset
+        <$> ledgerFlags (ShowJsonApi True)
 
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags (ShowJsonApi False)
@@ -431,5 +438,6 @@ runCommand = \case
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
+    LedgerReset {..} -> runLedgerReset flags
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments

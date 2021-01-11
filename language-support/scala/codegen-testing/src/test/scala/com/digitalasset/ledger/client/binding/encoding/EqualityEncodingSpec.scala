@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
@@ -29,7 +29,8 @@ class EqualityEncodingSpec extends AnyWordSpec with Matchers {
         t.TrialSubRec(10, 100),
         List(1, 2, 3),
         t.TrialEmptyRec(),
-        t.TrialVariant.TLeft[P.Text, P.ContractId[t.CallablePayout]]("schön"))
+        t.TrialVariant.TLeft[P.Text, P.ContractId[t.CallablePayout]]("schön"),
+      )
 
     val contract2 = t.CallablePayout(
       alice,
@@ -38,7 +39,8 @@ class EqualityEncodingSpec extends AnyWordSpec with Matchers {
       t.TrialEmptyRec(),
       t.TrialVariant.TRight[P.Text, P.ContractId[t.CallablePayout]](
         P.ContractId("abc123"),
-        P.ContractId("def456"))
+        P.ContractId("def456"),
+      ),
     )
 
     "t.CallablePayout equality" in {
@@ -54,11 +56,14 @@ class EqualityEncodingSpec extends AnyWordSpec with Matchers {
       equality.apply(contract2, contract2) should ===(true)
       equality.apply(contract2, contract2.copy()) should ===(true)
       equality.apply(contract2, contract2.copy(variant = t.TrialVariant.TLeft("schön"))) should ===(
-        false)
+        false
+      )
       equality.apply(
         contract2,
         contract2.copy(variant =
-          t.TrialVariant.TRight(P.ContractId("ABC123"), P.ContractId("DEF456")))) should ===(false)
+          t.TrialVariant.TRight(P.ContractId("ABC123"), P.ContractId("DEF456"))
+        ),
+      ) should ===(false)
 
       equality.apply(contract1, contract2) should ===(false)
     }

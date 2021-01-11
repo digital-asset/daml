@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Trigger Service
@@ -6,7 +6,7 @@ Trigger Service
 
 The Trigger Service is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`. At this time, the documentation is limited to basic usage. As more features become available the documentation will be updated to include them. We welcome feedback about the Trigger Service on our `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_, or `on our forum <https://discuss.daml.com>`_.
 
-The `DAML triggers <../triggers/index.html#running-a-daml-trigger>`_ documentation shows a simple method using the ``daml trigger`` command to arrange for the execution of a single trigger. Using this method, a dedicated process is launched to host the trigger.
+The `Daml triggers <../triggers/index.html#running-a-daml-trigger>`_ documentation shows a simple method using the ``daml trigger`` command to arrange for the execution of a single trigger. Using this method, a dedicated process is launched to host the trigger.
 
 Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process per trigger model becomes unwieldy. The Trigger Service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
 

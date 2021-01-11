@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupK
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.{
   StepInfo,
-  buildLogEntryWithOptionalRecordTime
+  buildLogEntryWithOptionalRecordTime,
 }
 import com.daml.lf
 import com.daml.lf.data.Ref
@@ -74,12 +74,13 @@ final private[kvutils] class PackageCommitter(
             .setSubmissionId(submissionId)
             .setParticipantId(participantId)
         )
-      )
+      ),
     )
 
   private[this] def setOutOfTimeBoundsLogEntry(
       uploadEntry: DamlPackageUploadEntry.Builder,
-      commitContext: CommitContext): Unit =
+      commitContext: CommitContext,
+  ): Unit =
     commitContext.outOfTimeBoundsLogEntry = Some(
       buildRejectionLogEntry(
         recordTime = None,
@@ -89,77 +90,74 @@ final private[kvutils] class PackageCommitter(
       )
     )
 
-  private[this] def authorizeSubmission: Step = {
-    case (ctx, partialResult @ (uploadEntry, _)) =>
-      if (ctx.participantId == uploadEntry.getParticipantId) {
-        StepContinue(partialResult)
-      } else {
-        val msg =
-          s"Participant ID '${uploadEntry.getParticipantId}' did not match authorized participant ID '${ctx.participantId}'"
-        rejectionTraceLog(msg, uploadEntry)
-        reject(
-          ctx.recordTime,
-          uploadEntry.getSubmissionId,
-          uploadEntry.getParticipantId,
-          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(msg))
-        )
-      }
+  private[this] def authorizeSubmission: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
+    if (ctx.participantId == uploadEntry.getParticipantId) {
+      StepContinue(partialResult)
+    } else {
+      val msg =
+        s"Participant ID '${uploadEntry.getParticipantId}' did not match authorized participant ID '${ctx.participantId}'"
+      rejectionTraceLog(msg, uploadEntry)
+      reject(
+        ctx.recordTime,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(msg)),
+      )
+    }
   }
 
-  private[this] def deduplicateSubmission: Step = {
-    case (ctx, partialResult @ (uploadEntry, _)) =>
-      val submissionKey = packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId)
-      if (ctx.get(submissionKey).isEmpty) {
-        StepContinue(partialResult)
-      } else {
-        val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
-        rejectionTraceLog(msg, uploadEntry)
-        reject(
-          ctx.recordTime,
-          uploadEntry.getSubmissionId,
-          uploadEntry.getParticipantId,
-          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
-        )
-      }
+  private[this] def deduplicateSubmission: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
+    val submissionKey = packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId)
+    if (ctx.get(submissionKey).isEmpty) {
+      StepContinue(partialResult)
+    } else {
+      val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
+      rejectionTraceLog(msg, uploadEntry)
+      reject(
+        ctx.recordTime,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg)),
+      )
+    }
   }
 
 // Checks that packages are not repeated in the submission.
-  private[this] def checkForDuplicates: Step = {
-    case (ctx, partialResult @ (uploadEntry, _)) =>
-      val (seenOnce, duplicates) = uploadEntry.getArchivesList
-        .iterator()
-        .asScala
-        .foldLeft((Set.empty[ByteString], Set.empty[ByteString])) {
-          case ((seenOnce, duplicates), pkg) =>
-            val hash = pkg.getHashBytes
-            if (seenOnce(hash))
-              (seenOnce, duplicates + hash)
-            else
-              (seenOnce + hash, duplicates)
-        }
-
-      if (seenOnce.isEmpty || duplicates.nonEmpty) {
-        val validationError =
-          if (seenOnce.isEmpty)
-            "No archives in submission"
+  private[this] def checkForDuplicates: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
+    val (seenOnce, duplicates) = uploadEntry.getArchivesList
+      .iterator()
+      .asScala
+      .foldLeft((Set.empty[ByteString], Set.empty[ByteString])) {
+        case ((seenOnce, duplicates), pkg) =>
+          val hash = pkg.getHashBytes
+          if (seenOnce(hash))
+            (seenOnce, duplicates + hash)
           else
-            duplicates.iterator
-              .map(pkgId => s"package ${pkgId.toStringUtf8} appears more than once")
-              .mkString(", ")
-        rejectionTraceLog(validationError, uploadEntry)
-        reject(
-          ctx.recordTime,
-          uploadEntry.getSubmissionId,
-          uploadEntry.getParticipantId,
-          _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(validationError))
-        )
-      } else {
-        StepContinue(partialResult)
+            (seenOnce + hash, duplicates)
       }
+
+    if (seenOnce.isEmpty || duplicates.nonEmpty) {
+      val validationError =
+        if (seenOnce.isEmpty)
+          "No archives in submission"
+        else
+          duplicates.iterator
+            .map(pkgId => s"package ${pkgId.toStringUtf8} appears more than once")
+            .mkString(", ")
+      rejectionTraceLog(validationError, uploadEntry)
+      reject(
+        ctx.recordTime,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(validationError)),
+      )
+    } else {
+      StepContinue(partialResult)
+    }
   }
 
   private[this] def decodePackages(
-      archives: Traversable[DamlLf.Archive],
+      archives: Traversable[DamlLf.Archive]
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
@@ -179,7 +177,8 @@ final private[kvutils] class PackageCommitter(
             case NonFatal(e) =>
               Left(
                 s"Cannot decode archive ${arch.getHash}: ${e.getMessage}" :: acc.left
-                  .getOrElse(Nil))
+                  .getOrElse(Nil)
+              )
           }
         }
         .left
@@ -209,24 +208,23 @@ final private[kvutils] class PackageCommitter(
     }
 
   // Strict validation
-  private[this] def strictlyValidatePackages: Step = {
-    case (ctx, (uploadEntry, pkgsCache)) =>
-      val result = for {
-        pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
-        _ <- validatePackages(uploadEntry, pkgs)
-      } yield StepContinue((uploadEntry, pkgs))
+  private[this] def strictlyValidatePackages: Step = { case (ctx, (uploadEntry, pkgsCache)) =>
+    val result = for {
+      pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
+      _ <- validatePackages(uploadEntry, pkgs)
+    } yield StepContinue((uploadEntry, pkgs))
 
-      result match {
-        case Right(result) => result
-        case Left(msg) =>
-          rejectionTraceLog(msg, uploadEntry)
-          reject(
-            ctx.recordTime,
-            uploadEntry.getSubmissionId,
-            uploadEntry.getParticipantId,
-            _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg))
-          )
-      }
+    result match {
+      case Right(result) => result
+      case Left(msg) =>
+        rejectionTraceLog(msg, uploadEntry)
+        reject(
+          ctx.recordTime,
+          uploadEntry.getSubmissionId,
+          uploadEntry.getParticipantId,
+          _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg)),
+        )
+    }
   }
 
   // Minimal validation.
@@ -253,48 +251,47 @@ final private[kvutils] class PackageCommitter(
           ctx.recordTime,
           uploadEntry.getSubmissionId,
           uploadEntry.getParticipantId,
-          _.setInvalidPackage(Invalid.newBuilder.setDetails(msg))
+          _.setInvalidPackage(Invalid.newBuilder.setDetails(msg)),
         )
       }
   }
 
   private[this] def uploadPackages(pkgs: Map[Ref.PackageId, Ast.Package]): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.preloadTimer.time { () =>
-      val errors = pkgs.flatMap {
-        case (pkgId, pkg) =>
-          engine
-            .preloadPackage(pkgId, pkg)
-            .consume(_ => None, pkgs.get, _ => None)
-            .fold(err => List(err.detailMsg), _ => List.empty)
+      val errors = pkgs.flatMap { case (pkgId, pkg) =>
+        engine
+          .preloadPackage(pkgId, pkg)
+          .consume(_ => None, pkgs.get, _ => None)
+          .fold(err => List(err.detailMsg), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
-        engine.compiledPackages().packageIds.size)
+        engine.compiledPackages().packageIds.size
+      )
       Either.cond(
         errors.isEmpty,
         (),
-        errors.mkString(", ")
+        errors.mkString(", "),
       )
     }
 
-  private[this] def preloadSynchronously: Step = {
-    case (ctx, (uploadEntry, pkgsCache)) =>
-      val result = for {
-        pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
-        _ <- uploadPackages(pkgs)
-      } yield StepContinue((uploadEntry, pkgs))
+  private[this] def preloadSynchronously: Step = { case (ctx, (uploadEntry, pkgsCache)) =>
+    val result = for {
+      pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
+      _ <- uploadPackages(pkgs)
+    } yield StepContinue((uploadEntry, pkgs))
 
-      result match {
-        case Right(partialResult) =>
-          partialResult
-        case Left(msg) =>
-          rejectionTraceLog(msg, uploadEntry)
-          reject(
-            ctx.recordTime,
-            uploadEntry.getSubmissionId,
-            uploadEntry.getParticipantId,
-            _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg))
-          )
-      }
+    result match {
+      case Right(partialResult) =>
+        partialResult
+      case Left(msg) =>
+        rejectionTraceLog(msg, uploadEntry)
+        reject(
+          ctx.recordTime,
+          uploadEntry.getSubmissionId,
+          uploadEntry.getParticipantId,
+          _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg)),
+        )
+    }
   }
 
   private[this] def preloadExecutor =
@@ -334,41 +331,40 @@ final private[kvutils] class PackageCommitter(
 // Filter out packages already on the ledger.
 // Should be done after decoding, validation or preloading, as those step may
 // require packages on the ledger by not loaded by the engine.
-  private[this] def filterKnownPackages: Step = {
-    case (ctx, (uploadEntry, pkgs)) =>
-      val archives = uploadEntry.getArchivesList.asScala.filter { archive =>
-        val stateKey = DamlStateKey.newBuilder
-          .setPackageId(archive.getHash)
-          .build
-        ctx.get(stateKey).isEmpty
-      }
-      StepContinue(uploadEntry.clearArchives().addAllArchives(archives.asJava) -> pkgs)
+  private[this] def filterKnownPackages: Step = { case (ctx, (uploadEntry, pkgs)) =>
+    val archives = uploadEntry.getArchivesList.asScala.filter { archive =>
+      val stateKey = DamlStateKey.newBuilder
+        .setPackageId(archive.getHash)
+        .build
+      ctx.get(stateKey).isEmpty
+    }
+    StepContinue(uploadEntry.clearArchives().addAllArchives(archives.asJava) -> pkgs)
   }
 
-  private[committer] def buildLogEntry: Step = {
-    case (ctx, (uploadEntry, _)) =>
-      metrics.daml.kvutils.committer.packageUpload.accepts.inc()
-      logger.trace(
-        s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=${uploadEntry.getSubmissionId}")
+  private[committer] def buildLogEntry: Step = { case (ctx, (uploadEntry, _)) =>
+    metrics.daml.kvutils.committer.packageUpload.accepts.inc()
+    logger.trace(
+      s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=${uploadEntry.getSubmissionId}"
+    )
 
-      uploadEntry.getArchivesList.forEach { archive =>
-        ctx.set(
-          DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
-          DamlStateValue.newBuilder.setArchive(archive).build
-        )
-      }
+    uploadEntry.getArchivesList.forEach { archive =>
       ctx.set(
-        packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId),
-        DamlStateValue.newBuilder
-          .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
-          .build
+        DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
+        DamlStateValue.newBuilder.setArchive(archive).build,
       )
-      val successLogEntry =
-        buildLogEntryWithOptionalRecordTime(ctx.recordTime, _.setPackageUploadEntry(uploadEntry))
-      if (ctx.preExecute) {
-        setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
-      }
-      StepStop(successLogEntry)
+    }
+    ctx.set(
+      packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId),
+      DamlStateValue.newBuilder
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
+        .build,
+    )
+    val successLogEntry =
+      buildLogEntryWithOptionalRecordTime(ctx.recordTime, _.setPackageUploadEntry(uploadEntry))
+    if (ctx.preExecute) {
+      setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
+    }
+    StepStop(successLogEntry)
   }
 
   override protected val committerName: String = "package_upload"

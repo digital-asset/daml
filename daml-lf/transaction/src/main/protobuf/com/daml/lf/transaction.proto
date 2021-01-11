@@ -1,12 +1,12 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Please refer to the transaction spec (in daml-foundations/daml-lf/spec/transaction.rst)
-// which describes the semantics of DAML-LF transactions in more detail.
+// which describes the semantics of Daml-LF transactions in more detail.
 //
 // [one-line] version summary
 // * 10:  new field key_with_maintainers in NodeFetch
-// * dev: add choice observer
+// * 11: add choice observer
 syntax = "proto3";
 
 package com.daml.lf.transaction;
@@ -15,7 +15,7 @@ option java_package = "com.daml.lf.transaction";
 
 import "com/daml/lf/value.proto";
 
-// data structure represent an update to the ledger. executing a DAML-LF action of type
+// data structure represent an update to the ledger. executing a Daml-LF action of type
 // Update A produces produces one of these.
 // architecture-handbook-entry-begin: Transaction
 message Transaction {
@@ -45,7 +45,7 @@ message Node {
         NodeLookupByKey lookup_by_key = 6;
     }
 
-    string version = 63; // optional *since dev*
+    string version = 63; // optional *since 11*
 }
 
 message KeyWithMaintainers {
@@ -88,7 +88,7 @@ message NodeExercise {
     com.daml.lf.value.VersionedValue return_value = 12;
     reserved 13; // was contract_key
     KeyWithMaintainers key_with_maintainers = 14; // optional
-    repeated string observers = 15;  // *Available in versions >= 1.dev*
+    repeated string observers = 15;  // *Available in versions >= 11*
 }
 
 message NodeLookupByKey {

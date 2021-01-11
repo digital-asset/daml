@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -42,8 +42,7 @@ object Bytes {
 
   implicit val ordering: Ordering[Bytes] = {
     val comparator = ByteString.unsignedLexicographicalComparator()
-    (x, y) =>
-      comparator.compare(x.value, y.value)
+    (x, y) => comparator.compare(x.value, y.value)
   }
 
   implicit val order: Order[Bytes] = Order.fromScalaOrdering

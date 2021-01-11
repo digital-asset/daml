@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams.dispatcher
@@ -22,19 +22,19 @@ sealed abstract class SubSource[Index: Ordering, T]
 
 object SubSource {
 
-  /**
-    * Useful when range queries are not possible. For instance streaming a linked-list from Cassandra
+  /** Useful when range queries are not possible. For instance streaming a linked-list from Cassandra
     *
     * @param readSuccessor extracts the next index
     * @param readElement   reads the element on the given index
     */
   final case class OneAfterAnother[Index: Ordering, T](
       readSuccessor: Index => Index,
-      readElement: Index => Future[T])
-      extends SubSource[Index, T] {
+      readElement: Index => Future[T],
+  ) extends SubSource[Index, T] {
     override def subSource(
         startExclusive: Index,
-        endInclusive: Index): Source[(Index, T), NotUsed] = {
+        endInclusive: Index,
+    ): Source[(Index, T), NotUsed] = {
       Source
         .unfoldAsync[Index, (Index, T)](readSuccessor(startExclusive)) { index =>
           if (Ordering[Index].gt(index, endInclusive)) Future.successful(None)
@@ -48,17 +48,17 @@ object SubSource {
     }
   }
 
-  /**
-    * Applicable when the persistence layer supports efficient range queries.
+  /** Applicable when the persistence layer supports efficient range queries.
     *
     * @param getRange (startExclusive, endInclusive) => Source[(Index, T), NotUsed]
     */
   final case class RangeSource[Index: Ordering, T](
-      getRange: (Index, Index) => Source[(Index, T), NotUsed])
-      extends SubSource[Index, T] {
+      getRange: (Index, Index) => Source[(Index, T), NotUsed]
+  ) extends SubSource[Index, T] {
     override def subSource(
         startExclusive: Index,
-        endInclusive: Index): Source[(Index, T), NotUsed] = getRange(startExclusive, endInclusive)
+        endInclusive: Index,
+    ): Source[(Index, T), NotUsed] = getRange(startExclusive, endInclusive)
   }
 
 }

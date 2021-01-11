@@ -1,10 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.Fingerprint
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.value.ValueOuterClass.Identifier
 import com.google.protobuf.{ByteString, Empty}
@@ -17,7 +17,8 @@ private[validator] object TestHelper {
     DamlLogEntry
       .newBuilder()
       .setPartyAllocationEntry(
-        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId(aParticipantId))
+        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId(aParticipantId)
+      )
       .build()
 
   lazy val allDamlStateKeyTypes: Seq[DamlStateKey] = Seq(
@@ -32,14 +33,15 @@ private[validator] object TestHelper {
     DamlStateKey.newBuilder
       .setContractKey(
         DamlContractKey.newBuilder
-          .setTemplateId(Identifier.newBuilder.addName("a name"))),
+          .setTemplateId(Identifier.newBuilder.addName("a name"))
+      ),
     DamlStateKey.newBuilder
       .setConfiguration(Empty.getDefaultInstance),
     DamlStateKey.newBuilder
       .setSubmissionDedup(DamlSubmissionDedupKey.newBuilder.setSubmissionId("a submission ID")),
   ).map(_.build)
 
-  lazy val anInvalidEnvelope: ByteString = ByteString.copyFromUtf8("invalid data")
+  lazy val anInvalidEnvelope: Raw.Value = Raw.Value(ByteString.copyFromUtf8("invalid data"))
 
   def makePartySubmission(party: String): DamlSubmission = {
     val builder = DamlSubmission.newBuilder
@@ -59,9 +61,6 @@ private[validator] object TestHelper {
     builder.build
   }
 
-  def fingerprint(string: String): Fingerprint =
-    ByteString.copyFromUtf8(string)
-
   def makeContractIdStateKey(id: String): DamlStateKey =
     DamlStateKey.newBuilder.setContractId(id).build
 
@@ -71,7 +70,8 @@ private[validator] object TestHelper {
   def makeContractKeyStateKey(templateId: String): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractKey(
-        DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName(templateId)))
+        DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName(templateId))
+      )
       .build
 
   def makeContractKeyStateValue(contractId: String): DamlStateValue =

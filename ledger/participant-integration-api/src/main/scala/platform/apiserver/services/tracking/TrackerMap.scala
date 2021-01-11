@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.tracking
@@ -16,12 +16,11 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/**
-  * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
+/** A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
-    implicit loggingContext: LoggingContext,
+private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implicit
+    loggingContext: LoggingContext
 ) extends AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -34,7 +33,7 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
   val cleanup: Runnable = {
     require(
       retentionPeriod < Long.MaxValue.nanoseconds,
-      s"Retention period$retentionPeriod is too long. Must be below ${Long.MaxValue} nanoseconds."
+      s"Retention period$retentionPeriod is too long. Must be below ${Long.MaxValue} nanoseconds.",
     )
 
     val retentionNanos = retentionPeriod.toNanos
@@ -42,22 +41,24 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
     { () =>
       lock.synchronized {
         val nanoTime = System.nanoTime()
-        trackerBySubmitter foreach {
-          case (submitter, trackerResource) =>
-            trackerResource.ifPresent(tracker =>
-              if (nanoTime - tracker.getLastSubmission > retentionNanos) {
-                logger.info(
-                  s"Shutting down tracker for $submitter after inactivity of $retentionPeriod")
-                remove(submitter)
-                tracker.close()
-            })
+        trackerBySubmitter foreach { case (submitter, trackerResource) =>
+          trackerResource.ifPresent(tracker =>
+            if (nanoTime - tracker.getLastSubmission > retentionNanos) {
+              logger.info(
+                s"Shutting down tracker for $submitter after inactivity of $retentionPeriod"
+              )
+              remove(submitter)
+              tracker.close()
+            }
+          )
         }
       }
     }
   }
 
   def track(submitter: TrackerMap.Key, request: SubmitAndWaitRequest)(
-      newTracker: => Future[Tracker])(implicit ec: ExecutionContext): Future[Completion] =
+      newTracker: => Future[Tracker]
+  )(implicit ec: ExecutionContext): Future[Completion] =
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
@@ -73,9 +74,9 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
               trackerBySubmitter += submitter -> r
 
               r
-            }
+            },
           )
-        }
+        },
       )
       .flatMap(_.track(request))
 
@@ -101,8 +102,7 @@ private[services] object TrackerMap {
   final case object Closed extends AsyncResourceState[Nothing]
   final case class Ready[T <: AutoCloseable](t: T) extends AsyncResourceState[T]
 
-  /**
-    * A holder for an AutoCloseable that can be opened and closed async.
+  /** A holder for an AutoCloseable that can be opened and closed async.
     * If closed before the underlying Future completes, will close the resource on completion.
     */
   final class AsyncResource[T <: AutoCloseable](future: Future[T]) {

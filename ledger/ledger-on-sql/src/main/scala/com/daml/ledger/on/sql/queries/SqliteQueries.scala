@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
@@ -9,8 +9,8 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.LedgerId
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.util.Try
 
@@ -24,7 +24,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
       .as(str("ledger_id").single)
   }
 
-  override def insertRecordIntoLog(key: Key, value: Value): Try[Index] =
+  override def insertRecordIntoLog(key: Raw.Key, value: Raw.Value): Try[Index] =
     Try {
       SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
         .executeInsert()
@@ -39,7 +39,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
       .as(long("row_id").single)
   }
 
-  override final def truncate(): Try[Unit] = Try {
+  override def truncate(): Try[Unit] = Try {
     SQL"delete from #$StateTable".executeUpdate()
     SQL"delete from #$LogTable".executeUpdate()
     SQL"delete from #$MetaTable".executeUpdate()

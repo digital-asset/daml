@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app.batch
@@ -25,13 +25,15 @@ class BatchingLedgerWriterConfigReaderSpec extends AnyWordSpec with Matchers {
 
     "parse options specified" in {
       val actual = optionsReader.reads(
-        "enable=true,max-queue-size=1,max-batch-size-bytes=10,max-wait-millis=100,max-concurrent-commits=1000")
+        "enable=true,max-queue-size=1,max-batch-size-bytes=10,max-wait-millis=100,max-concurrent-commits=1000"
+      )
       actual shouldBe BatchingLedgerWriterConfig(
         enableBatching = true,
         maxBatchQueueSize = 1,
         maxBatchSizeBytes = 10L,
         maxBatchWaitDuration = Duration(100, MILLISECONDS),
-        maxBatchConcurrentCommits = 1000)
+        maxBatchConcurrentCommits = 1000,
+      )
     }
   }
 }

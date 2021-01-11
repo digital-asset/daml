@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.oauth2.test.server
@@ -133,32 +133,33 @@ class Server(config: Config) {
           'redirect_uri.as[Uri],
           'scope ?,
           'state ?,
-          'audience.as[Uri] ?)
-          .as[Request.Authorize](Request.Authorize) {
-            request =>
-              val payload = toPayload(request)
-              authorize(payload) match {
-                case Left(msg) =>
-                  val params =
-                    Response
-                      .Error(
-                        error = "access_denied",
-                        errorDescription = Some(msg),
-                        errorUri = None,
-                        state = request.state)
-                      .toQuery
-                  redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
-                case Right(()) =>
-                  val authorizationCode = UUID.randomUUID()
-                  val params =
-                    Response
-                      .Authorize(code = authorizationCode.toString, state = request.state)
-                      .toQuery
-                  requests += (authorizationCode -> payload)
-                  // We skip any actual consent screen since this is only intended for testing and
-                  // this is outside of the scope of the trigger service anyway.
-                  redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
-              }
+          'audience.as[Uri] ?,
+        )
+          .as[Request.Authorize](Request.Authorize) { request =>
+            val payload = toPayload(request)
+            authorize(payload) match {
+              case Left(msg) =>
+                val params =
+                  Response
+                    .Error(
+                      error = "access_denied",
+                      errorDescription = Some(msg),
+                      errorUri = None,
+                      state = request.state,
+                    )
+                    .toQuery
+                redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
+              case Right(()) =>
+                val authorizationCode = UUID.randomUUID()
+                val params =
+                  Response
+                    .Authorize(code = authorizationCode.toString, state = request.state)
+                    .toQuery
+                requests += (authorizationCode -> payload)
+                // We skip any actual consent screen since this is only intended for testing and
+                // this is outside of the scope of the trigger service anyway.
+                redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
+            }
           }
       }
     },
@@ -179,8 +180,10 @@ class Server(config: Config) {
                     .sign(
                       DecodedJwt(
                         jwtHeader,
-                        AuthServiceJWTCodec.compactPrint(payload.copy(exp = Some(tokenExpiry())))),
-                      config.jwtSecret)
+                        AuthServiceJWTCodec.compactPrint(payload.copy(exp = Some(tokenExpiry()))),
+                      ),
+                      config.jwtSecret,
+                    )
                     .getOrElse(throw new IllegalArgumentException("Failed to sign a token"))
                     .value
                   import com.daml.auth.oauth2.api.JsonProtocol._
@@ -190,7 +193,9 @@ class Server(config: Config) {
                       refreshToken = Some(refreshCode.toString),
                       expiresIn = Some(tokenLifetimeSeconds),
                       scope = None,
-                      tokenType = "bearer"))
+                      tokenType = "bearer",
+                    )
+                  )
                 case None =>
                   complete(StatusCodes.NotFound)
               }
@@ -204,7 +209,7 @@ class Server(config: Config) {
           },
         )
       }
-    }
+    },
   )
 
   def start()(implicit system: ActorSystem): Future[ServerBinding] = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ports
@@ -19,8 +19,7 @@ final case class Port private (value: Int) extends AnyVal {
 object Port {
   private val ValidPorts: Range = 0 until 0x10000
 
-  /**
-    * This instructs the server to automatically choose a free port.
+  /** This instructs the server to automatically choose a free port.
     */
   val Dynamic = new Port(0)
 
@@ -36,5 +35,7 @@ object Port {
     else
       Failure(
         new IllegalArgumentException(
-          s"Ports must be in the range ${ValidPorts.start}—${ValidPorts.last}."))
+          s"Ports must be in the range ${ValidPorts.start}—${ValidPorts.last}."
+        )
+      )
 }

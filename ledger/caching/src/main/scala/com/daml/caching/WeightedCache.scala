@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
@@ -9,7 +9,7 @@ import com.github.benmanes.caffeine.{cache => caffeine}
 object WeightedCache {
 
   def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-      configuration: Configuration,
+      configuration: Configuration
   ): ConcurrentCache[Key, Value] =
     from(configuration, None)
 

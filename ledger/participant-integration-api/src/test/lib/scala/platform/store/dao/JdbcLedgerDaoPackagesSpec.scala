@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -26,11 +26,13 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
         offset1,
         packages
           .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
-          .take(1))
+          .take(1),
+      )
       secondUploadResult <- storePackageEntry(
         offset2,
-        packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))))
-      loadedPackages <- ledgerDao.listLfPackages
+        packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
+      )
+      loadedPackages <- ledgerDao.listLfPackages()
     } yield {
       firstUploadResult shouldBe PersistenceResponse.Ok
       secondUploadResult shouldBe PersistenceResponse.Ok
@@ -50,7 +52,8 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
 
   private def storePackageEntry(
       offset: Offset,
-      packageList: List[(DamlLf.Archive, PackageDetails)]) =
+      packageList: List[(DamlLf.Archive, PackageDetails)],
+  ) =
     ledgerDao
       .storePackageEntry(nextOffsetStep(offset), packageList, None)
 }

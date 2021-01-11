@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -14,7 +14,7 @@ import akka.stream.scaladsl.{
   RunnableGraph,
   Sink,
   SinkQueueWithCancel,
-  Source
+  Source,
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
@@ -70,12 +70,12 @@ private class ContractsFetch(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
     import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._, doobie.free.{
-      connection => fc,
+      connection => fc
     }
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
@@ -84,7 +84,7 @@ private class ContractsFetch(
       _ cata (absEnd =>
         templateIds.traverse {
           fetchAndPersist(jwt, parties, absEnd, _)
-      }, fc.pure(templateIds map (_ => LedgerBegin)))
+        }, fc.pure(templateIds map (_ => LedgerBegin)))
     }
 
   }
@@ -94,8 +94,8 @@ private class ContractsFetch(
       parties: OneAnd[Set, domain.Party],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
@@ -129,31 +129,29 @@ private class ContractsFetch(
     } yield offset1
 
   private def prepareCreatedEventStorage(
-      ce: lav1.event.CreatedEvent,
+      ce: lav1.event.CreatedEvent
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
     for {
-      ac <- domain.ActiveContract fromLedgerApi ce leftMap (
-          de =>
-            new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"),
+      ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
+        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"),
       )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause)
-    } yield
-      DBContract(
-        contractId = ac.contractId.unwrap,
-        templateId = ac.templateId,
-        key = lfKey.cata(lfValueToDbJsValue, JsNull),
-        payload = lfValueToDbJsValue(lfArg),
-        signatories = ac.signatories,
-        observers = ac.observers,
-        agreementText = ac.agreementText,
-      )
+    } yield DBContract(
+      contractId = ac.contractId.unwrap,
+      templateId = ac.templateId,
+      key = lfKey.cata(lfValueToDbJsValue, JsNull),
+      payload = lfValueToDbJsValue(lfArg),
+      signatories = ac.signatories,
+      observers = ac.observers,
+      agreementText = ac.agreementText,
+    )
   }
 
   private def jsonifyInsertDeleteStep(
-      a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
+      a: InsertDeleteStep[Any, lav1.event.CreatedEvent]
   ): InsertDeleteStep[Unit, PreInsertContract] =
     a.leftMap(_ => ())
       .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
@@ -164,8 +162,8 @@ private class ContractsFetch(
       templateId: domain.TemplateId.RequiredPkg,
       offsets: Map[domain.Party, domain.Offset],
       absEnd: Terminates.AtAbsolute,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
@@ -202,7 +200,8 @@ private class ContractsFetch(
             stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
             (
               (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
-              stepsAndOffset.out1)
+              stepsAndOffset.out1,
+            )
         }
 
         val transactInsertsDeletes = Flow
@@ -214,7 +213,7 @@ private class ContractsFetch(
         lastOff ~> offsetSink
 
         ClosedShape
-      },
+      }
     )
 
     val (acsQueue, lastOffsetFuture) = graph.run()
@@ -242,10 +241,15 @@ private[http] object ContractsFetch {
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      val split = b.add(Partition[A \/ B](2, {
-        case -\/(_) => 0
-        case \/-(_) => 1
-      }))
+      val split = b.add(
+        Partition[A \/ B](
+          2,
+          {
+            case -\/(_) => 0
+            case \/-(_) => 1
+          },
+        )
+      )
       val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
       val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
       discard { split ~> as }
@@ -269,7 +273,7 @@ private[http] object ContractsFetch {
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
-      txes: Traversable[lav1.event.Event],
+      txes: Traversable[lav1.event.Event]
   ): InsertDeleteStep.LAV1 = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
@@ -286,7 +290,7 @@ private[http] object ContractsFetch {
 
   object GraphExtensions {
     implicit final class `Graph FOS2 funs`[A, Y, Z, M](
-        private val g: Graph[FanOutShape2[A, Y, Z], M],
+        private val g: Graph[FanOutShape2[A, Y, Z], M]
     ) extends AnyVal {
       private def divertToMat[N, O](oz: Sink[Z, N])(mat: (M, N) => O): Flow[A, Y, O] =
         Flow fromGraph GraphDSL.create(g, oz)(mat) { implicit b => (gs, zOut) =>
@@ -310,13 +314,12 @@ private[http] object ContractsFetch {
     * or the ACS's last offset if there were no transactions.
     */
   private[http] def acsFollowingAndBoundary(
-      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
-  ): Graph[
-    FanOutShape2[
-      lav1.active_contracts_service.GetActiveContractsResponse,
-      ContractStreamStep.LAV1,
-      BeginBookmark[String]],
-    NotUsed] =
+      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
+  ): Graph[FanOutShape2[
+    lav1.active_contracts_service.GetActiveContractsResponse,
+    ContractStreamStep.LAV1,
+    BeginBookmark[String],
+  ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import ContractStreamStep.{LiveBegin, Acs}
@@ -343,14 +346,12 @@ private[http] object ContractsFetch {
     * to `acsFollowingAndBoundary`.
     */
   private[http] def transactionsFollowingBoundary(
-      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
-  ): Graph[
-    FanOutShape2[
-      BeginBookmark[String],
-      ContractStreamStep.Txn.LAV1,
-      BeginBookmark[String],
-    ],
-    NotUsed] =
+      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
+  ): Graph[FanOutShape2[
+    BeginBookmark[String],
+    ContractStreamStep.Txn.LAV1,
+    BeginBookmark[String],
+  ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       type Off = BeginBookmark[String]
@@ -372,14 +373,10 @@ private[http] object ContractsFetch {
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
-  private[this] def acsAndBoundary: Graph[
-    FanOutShape2[
-      lav1.active_contracts_service.GetActiveContractsResponse,
-      Seq[
+  private[this] def acsAndBoundary
+      : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
-      ],
-      BeginBookmark[String]],
-    NotUsed] =
+      ], BeginBookmark[String]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
@@ -394,25 +391,26 @@ private[http] object ContractsFetch {
     }
 
   private def transactionToInsertsAndDeletes(
-      tx: lav1.transaction.Transaction,
+      tx: lav1.transaction.Transaction
   ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
-      ids: Set[K],
+      ids: Set[K]
   )(implicit log: doobie.LogHandler): ConnectionIO[Map[K, SurrogateTpId]] = {
     import doobie.implicits._, cats.instances.vector._, cats.syntax.functor._,
     cats.syntax.traverse._
     ids.toVector
       .traverse(k =>
-        Queries.surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
+        Queries.surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k
+      )
       .map(_.toMap)
   }
 
   private def sinkCioSequence_[Ign](
-      f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]],
+      f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
     import doobie.ConnectionIO
     import doobie.free.{connection => fconn}
@@ -421,20 +419,23 @@ private[http] object ContractsFetch {
       connectionIOFuture(next)
         .flatMap(_.cata(cio => cio flatMap (_ => go()), fconn.pure(())))
     }
-    fconn.handleErrorWith(go(), t => {
-      f.cancel()
-      fconn.raiseError(t)
-    })
+    fconn.handleErrorWith(
+      go(),
+      t => {
+        f.cancel()
+        fconn.raiseError(t)
+      },
+    )
   }
 
   private def connectionIOFuture[A](
-      fa: Future[A],
+      fa: Future[A]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
     doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
-      step: InsertDeleteStep[Any, PreInsertContract],
+      step: InsertDeleteStep[Any, PreInsertContract]
   )(implicit log: doobie.LogHandler): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
@@ -443,13 +444,13 @@ private[http] object ContractsFetch {
       import doobie.postgres.implicits._
       (Queries.deleteContracts(step.deletes.keySet) *>
         Queries.insertContracts(
-          step.inserts map (
-              dbc =>
-                dbc copy (templateId = stidMap getOrElse (dbc.templateId, throw new IllegalStateException(
-                  "template ID missing from prior retrieval; impossible",
-                )),
-                signatories = domain.Party.unsubst(dbc.signatories),
-                observers = domain.Party.unsubst(dbc.observers)),
+          step.inserts map (dbc =>
+            dbc copy (templateId =
+              stidMap getOrElse (dbc.templateId, throw new IllegalStateException(
+                "template ID missing from prior retrieval; impossible"
+              )),
+            signatories = domain.Party.unsubst(dbc.signatories),
+            observers = domain.Party.unsubst(dbc.observers)),
           )
         ))
     }.void

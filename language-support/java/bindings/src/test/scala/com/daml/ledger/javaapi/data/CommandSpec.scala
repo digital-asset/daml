@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
@@ -14,7 +14,8 @@ class CommandSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropert
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
 
   "Command.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    commandGen) { cmd =>
+    commandGen
+  ) { cmd =>
     val converted = Command.fromProtoCommand(cmd)
     Command.fromProtoCommand(converted.toProtoCommand) shouldEqual converted
   }

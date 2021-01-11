@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -45,8 +45,8 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
   def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] =
     mapInserts(_ map f)
 
-  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
-      implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
+  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
+      LDS: CanBuildFrom[Map[String, D], LD, LDS]
   ): (LDS, Inserts[LC], ContractStreamStep[DD, CC]) =
     this match {
       case Acs(inserts) =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -37,7 +37,8 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
               releaseCounter.incrementAndGet()
               Future.unit
             }
-      })
+        }
+      )
 
       withClue("before acquisition, ") {
         acquisitionCounter.get() should be(0)
@@ -86,7 +87,8 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
               releaseCounter.incrementAndGet()
               Future.unit
             }
-      })
+        }
+      )
 
       val resource = owner.acquire()
       for {
@@ -114,13 +116,12 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
                   releaseCounter.incrementAndGet()
                   Future.unit
                 }
+            },
+        resetOperation = { case (_, counter) =>
+          resetCounter.incrementAndGet()
+          resetOperationInputs += counter
+          Future.unit
         },
-        resetOperation = {
-          case (_, counter) =>
-            resetCounter.incrementAndGet()
-            resetOperationInputs += counter
-            Future.unit
-        }
       )
 
       val resource = owner.acquire()
@@ -156,11 +157,10 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
               override def acquire()(implicit context: TestContext): Resource[(Reset, Int)] = {
                 Resource.fromFuture(Future.successful((reset, value + 1)))
               }
+            },
+        resetOperation = { case (_, value) =>
+          Future.successful(value + 1)
         },
-        resetOperation = {
-          case (_, value) =>
-            Future.successful(value + 1)
-        }
       )
 
       val resource = owner.acquire()
@@ -188,7 +188,8 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
             acquisitions += new WeakReference(obj)
             Resource.fromFuture(Future.successful((reset, obj)))
           }
-      })
+        }
+      )
 
       val resource = owner.acquire()
       System.gc()

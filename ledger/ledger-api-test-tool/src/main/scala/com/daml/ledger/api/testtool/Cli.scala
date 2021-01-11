@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -17,10 +17,11 @@ import scala.util.Try
 object Cli {
 
   private def reportUsageOfDeprecatedOption[B](
-      option: String,
+      option: String
   ) = { (_: Any, config: B) =>
     System.err.println(
-      s"WARNING: $option has been deprecated and will be removed in a future version")
+      s"WARNING: $option has been deprecated and will be removed in a future version"
+    )
     config
   }
 
@@ -45,23 +46,23 @@ object Cli {
   private val pemConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)),
-      )(c => Some(c.copy(keyFile = Some(new File(path))))),
-  )
+        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None))
+      )(c => Some(c.copy(keyFile = Some(new File(path)))))
+    )
 
   private val crtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)),
-      )(c => Some(c.copy(keyCertChainFile = Some(new File(path))))),
-  )
+        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None))
+      )(c => Some(c.copy(keyCertChainFile = Some(new File(path)))))
+    )
 
   private val cacrtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))),
-      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path))))),
-  )
+        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path))))
+      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
+    )
 
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
@@ -93,7 +94,7 @@ object Cli {
     opt[String]("crt")
       .optional()
       .text(
-        "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints.",
+        "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints."
       )
       .action(crtConfig)
 
@@ -137,20 +138,22 @@ object Cli {
       .action((_, c) => c.copy(extract = true))
       .text(
         """Extract a DAR necessary to test a DAML ledger and exit without running tests.
-              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin,
+              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin
       )
 
     opt[Seq[String]]("exclude")
       .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
       .unbounded()
       .text(
-        """A comma-separated list of exclusion prefixes. Tests whose name start with any of the given prefixes will be skipped. Can be specified multiple times, i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`.""",
+        """A comma-separated list of exclusion prefixes. Tests whose name start with any of the given prefixes will be skipped. Can be specified multiple times, i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`."""
       )
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))
       .unbounded()
-      .text("""A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.""")
+      .text(
+        """A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`."""
+      )
 
     opt[Seq[String]]("perf-tests")
       .validate(_.find(!Tests.PerformanceTestsKeys(_)).fold(success)(invalidPerformanceTestName))
@@ -162,7 +165,8 @@ object Cli {
       .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
       .optional()
       .text(
-        "The path of the benchmark report file produced by performance tests (default: stdout).")
+        "The path of the benchmark report file produced by performance tests (default: stdout)."
+      )
 
     opt[Unit]("all-tests")
       .text("DEPRECATED: All tests are always run by default.")
@@ -188,7 +192,8 @@ object Cli {
     opt[Unit]("list")
       .action((_, c) => c.copy(listTestSuites = true))
       .text(
-        """Lists all available test suites that can be used in the include and exclude options. Test names always start with their suite name, so using the suite name as a prefix matches all tests in a given suite.""")
+        """Lists all available test suites that can be used in the include and exclude options. Test names always start with their suite name, so using the suite name as a prefix matches all tests in a given suite."""
+      )
 
     opt[Unit]("list-all")
       .action((_, c) => c.copy(listTests = true))
@@ -202,10 +207,13 @@ object Cli {
       .text("Prints the version on stdout and exit.")
 
     opt[Duration]("ledger-clock-granularity")(
-      oneOfRead(Read.durationRead, Read.intRead.map(_.millis)))
+      oneOfRead(Read.durationRead, Read.intRead.map(_.millis))
+    )
       .optional()
       .action((x, c) => c.copy(ledgerClockGranularity = x))
-      .text("Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"1s\" (1 second).")
+      .text(
+        "Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"1s\" (1 second)."
+      )
 
     opt[Unit]("skip-dar-upload")
       .optional()

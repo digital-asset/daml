@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.caching
@@ -19,31 +19,32 @@ final class CachingStateReader[Key, Value](
     delegate: StateReader[Key, Value],
 ) extends StateReader[Key, Value] {
   override def read(
-      keys: Seq[Key]
+      keys: Iterable[Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Value]] = {
     @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues = keys.view
       .map(key => key -> cache.getIfPresent(key))
       .collect { case (key, Some(value)) => key -> value }
       .toMap
-    val keysToRead = keys.toSet -- cachedValues.keySet
+    // This needs to be converted to an ordered sequence so that zipping keys with values is
+    // guaranteed to work.
+    val keysToRead = (keys.toSet -- cachedValues.keySet).toVector
     if (keysToRead.nonEmpty) {
       delegate
-        .read(keysToRead.toSeq)
+        .read(keysToRead)
         .map { readStateValues =>
           val readValues = keysToRead.zip(readStateValues).toMap
-          readValues.foreach {
-            case (key, value) =>
-              if (shouldCache(key)) {
-                cache.put(key, value)
-              }
+          readValues.foreach { case (key, value) =>
+            if (shouldCache(key)) {
+              cache.put(key, value)
+            }
           }
           val all = cachedValues ++ readValues
-          keys.map(all(_))
+          keys.view.map(all(_)).toVector
         }
     } else {
       Future {
-        keys.map(cachedValues(_))
+        keys.view.map(cachedValues(_)).toVector
       }
     }
   }

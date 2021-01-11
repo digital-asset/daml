@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.util.akkastreams
@@ -10,8 +10,7 @@ import akka.stream.{Attributes, BidiShape, Inlet, Outlet}
 import com.codahale.metrics.Counter
 import org.slf4j.LoggerFactory
 
-/**
-  * Enforces that at most [[maxInFlight]] items traverse the flow underneath this one.
+/** Enforces that at most [[maxInFlight]] items traverse the flow underneath this one.
   * Requires the flow underneath to always produce 1 output element for 1 input element in order to work correctly.
   * With respect to completion, failure and cancellation, the input and output stream behave like normal `Flow`s,
   * except that if the output stream is failed, cancelled or completed, the input stream is completed.
@@ -48,28 +47,34 @@ class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounte
 
           // NOOP. We want the pulling of out1 to install new handlers when there's demand.
           override def onPush(): Unit = ()
-        }
+        },
       )
 
-      setHandler(out1, new OutHandler {
-        override def onPull(): Unit = {
-          if (freeCapacity > 0) {
-            admitNewElement()
-          } else {
-            logger.trace("No free capacity left. Backpressuring...")
+      setHandler(
+        out1,
+        new OutHandler {
+          override def onPull(): Unit = {
+            if (freeCapacity > 0) {
+              admitNewElement()
+            } else {
+              logger.trace("No free capacity left. Backpressuring...")
+            }
           }
-        }
-      })
+        },
+      )
 
       private def admitNewElement(): Unit = {
         admitting = true
-        read(in1)({ elem =>
-          logger.trace("Received input.")
-          push(out1, elem)
-          freeCapacity -= 1
-          lengthCounter.inc()
-          admitting = false
-        }, () => complete(out1))
+        read(in1)(
+          { elem =>
+            logger.trace("Received input.")
+            push(out1, elem)
+            freeCapacity -= 1
+            lengthCounter.inc()
+            admitting = false
+          },
+          () => complete(out1),
+        )
       }
 
       // Outbound path to layer above.
@@ -110,15 +115,18 @@ class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounte
               freeCapacity <= maxInFlight,
               s"Free capacity has risen above maxInFlight value of $maxInFlight after emitting element $elemToEmit. " +
                 s"This indicates that the layer below is emitting multiple elements per input. " +
-                s"Such Flows are incompatible with the MaxInFlight stage."
+                s"Such Flows are incompatible with the MaxInFlight stage.",
             )
           }
-        }
+        },
       )
 
-      setHandler(out2, new OutHandler {
-        override def onPull(): Unit = pull(in2)
-      })
+      setHandler(
+        out2,
+        new OutHandler {
+          override def onPull(): Unit = pull(in2)
+        },
+      )
 
     }
 

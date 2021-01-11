@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
@@ -55,7 +55,7 @@ final class MappedCacheSpec
             Some(Integer.parseInt(value))
           } catch {
             case _: NumberFormatException => None
-        },
+          },
       )
 
       mappedCache.put(1, "one two three")

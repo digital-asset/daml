@@ -62,17 +62,17 @@ that only iterates through stable versions up to HEAD. This ensures
 that both individual migrations are correct as well as the migrations
 from one stable version to the next work as a whole.
 
-#### Backwards-compatibility for DAML Script
+#### Backwards-compatibility for Daml Script
 
-We test that the DAML Script runner from a given SDK version can load
-DARs built against the DAML Script library from an older SDK. We only
+We test that the Daml Script runner from a given SDK version can load
+DARs built against the Daml Script library from an older SDK. We only
 guarantee backwards compatibility here.
 
 
-#### Backwards-compatibility for DAML Triggers
+#### Backwards-compatibility for Daml Triggers
 
-We test that the DAML Trigger runner from a given SDK version can load
-DARs built against the DAML Script library from an older SDK. We only
+We test that the Daml Trigger runner from a given SDK version can load
+DARs built against the Daml Script library from an older SDK. We only
 guarantee backwards compatibility here.
 
 #### Backwards-compatibility for data-dependencies

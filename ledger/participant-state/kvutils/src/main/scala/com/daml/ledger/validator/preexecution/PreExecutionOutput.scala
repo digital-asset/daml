@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
@@ -13,5 +13,5 @@ sealed case class PreExecutionOutput[+ReadSet, +WriteSet](
     successWriteSet: WriteSet,
     outOfTimeBoundsWriteSet: WriteSet,
     readSet: ReadSet,
-    involvedParticipants: Set[ParticipantId]
+    involvedParticipants: Set[ParticipantId],
 )

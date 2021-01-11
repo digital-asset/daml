@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -57,7 +57,8 @@ object TestConfig {
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
+        s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}"
+      )
 
     help("help").text("Print this usage text")
 
@@ -82,6 +83,6 @@ object TestConfig {
         timeMode = ScriptTimeMode.Static,
         commandTtl = Duration.ofSeconds(30L),
         maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
-      )
+      ),
     )
 }

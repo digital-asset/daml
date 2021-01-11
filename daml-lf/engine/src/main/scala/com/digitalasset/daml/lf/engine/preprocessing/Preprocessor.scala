@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -41,7 +41,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
       def pullPackage(pkgId: Ref.PackageId) =
         ResultNeedPackage(
-          pkgId, {
+          pkgId,
+          {
             case Some(pkg) =>
               for {
                 _ <- compiledPackages.addPackage(pkgId, pkg)
@@ -49,11 +50,12 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                   typesToProcess0,
                   tmplToProcess0,
                   tyConAlreadySeen0,
-                  tmplsAlreadySeen0)
+                  tmplsAlreadySeen0,
+                )
               } yield r
             case None =>
               ResultError(Error(s"Couldn't find package $pkgId"))
-          }
+          },
         )
 
       typesToProcess0 match {
@@ -79,7 +81,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                         typesToProcess,
                         tmplToProcess0,
                         tyConAlreadySeen0 + tyCon,
-                        tmplsAlreadySeen0)
+                        tmplsAlreadySeen0,
+                      )
                     case Left(e) =>
                       ResultError(e)
                   }
@@ -121,8 +124,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     go(typesToProcess0, tmplToProcess0, tyConAlreadySeen0, tmplAlreadySeen0)
   }
 
-  /**
-    * Translates the LF value `v0` of type `ty0` to a speedy value.
+  /** Translates the LF value `v0` of type `ty0` to a speedy value.
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
@@ -131,11 +133,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafeTranslateValue(ty0, v0)
     }.map(_._1)
 
-  /**
-    * Translates  LF commands to a speedy commands.
+  /** Translates  LF commands to a speedy commands.
     */
   def preprocessCommands(
-      cmds: data.ImmArray[command.Command],
+      cmds: data.ImmArray[command.Command]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
       unsafePreprocessCommands(cmds)
@@ -144,30 +145,31 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
   private def getTemplateId(node: Node.GenNode[NodeId, _]) =
     node match {
       case Node.NodeCreate(
-          coid @ _,
-          coinst,
-          optLoc @ _,
-          sigs @ _,
-          stks @ _,
-          key @ _,
-          version @ _) =>
+            coid @ _,
+            coinst,
+            optLoc @ _,
+            sigs @ _,
+            stks @ _,
+            key @ _,
+            version @ _,
+          ) =>
         coinst.template
       case Node.NodeExercises(
-          coid @ _,
-          templateId,
-          choice @ _,
-          optLoc @ _,
-          consuming @ _,
-          actingParties @ _,
-          chosenVal @ _,
-          stakeholders @ _,
-          signatories @ _,
-          choiceObservers @ _,
-          children @ _,
-          exerciseResult @ _,
-          key @ _,
-          byKey @ _,
-          version @ _,
+            coid @ _,
+            templateId,
+            choice @ _,
+            optLoc @ _,
+            consuming @ _,
+            actingParties @ _,
+            chosenVal @ _,
+            stakeholders @ _,
+            signatories @ _,
+            choiceObservers @ _,
+            children @ _,
+            exerciseResult @ _,
+            key @ _,
+            byKey @ _,
+            version @ _,
           ) =>
         templateId
       case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _, _) =>
@@ -177,7 +179,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     }
 
   def translateNode[Cid <: Value.ContractId](
-      node: Node.GenNode[NodeId, Cid],
+      node: Node.GenNode[NodeId, Cid]
   ): Result[(speedy.Command, Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
       val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
@@ -185,7 +187,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     }
 
   def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction[NodeId, Cid],
+      tx: GenTransaction[NodeId, Cid]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
       getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))

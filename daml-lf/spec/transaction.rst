@@ -1,14 +1,14 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 
-DAML-LF Transaction Specification
+Daml-LF Transaction Specification
 =================================
 
 **version 10, 25 March 2020**
 
 This specification, in concert with the ``transaction.proto``
-machine-readable definition, defines a format for *DAML LF
+machine-readable definition, defines a format for *Daml LF
 transactions*, to be used when inspecting ledger activity as a st
 ream, or submitting changes to the ledger.
 
@@ -17,9 +17,9 @@ A *ledger* can be viewed as a sequence of these transactions.
 Do not read this without ``transaction.proto``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``transaction.proto`` defines the baseline rules for *DAML-LF
+``transaction.proto`` defines the baseline rules for *Daml-LF
 transactions*; that file must be consulted in concert with this
-document for a full specification of DAML-LF transactions.  Except
+document for a full specification of Daml-LF transactions.  Except
 where required for clarity, we do not repeat rules defined and
 enforced in that file within this document.  When consulting the
 section on each message type, you must also refer to the same
@@ -39,16 +39,16 @@ impossible to define all the requirements for transactions in the
 ``.proto`` format.  All such rules are included in this document,
 instead.
 
-If you are constructing a DAML-LF transaction, it is not sufficient to
+If you are constructing a Daml-LF transaction, it is not sufficient to
 merely conform to the structure defined in ``transaction.proto``; you
 must also conform to the rules defined in this document.  A transaction
 that happens to conform to ``transaction.proto``, yet violates some rule
-of this document, is not a valid DAML-LF transaction.
+of this document, is not a valid Daml-LF transaction.
 
 Backward compatibility
 ^^^^^^^^^^^^^^^^^^^^^^
 
-DAML-LF transaction nodes, and transactions are encoded according a
+Daml-LF transaction nodes, and transactions are encoded according a
 common versioning scheme, called the *transaction version scheme*.
 Each version of this scheme, called a transaction version, is
 associated to a language version.
@@ -126,7 +126,7 @@ version 13* section must be ignored entirely.
 Changing this specification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Future versions of this specification must conform to the `DAML-LF
+Future versions of this specification must conform to the `Daml-LF
 Governance process`_ and preserve all invariants described above.
 Where these are in conflict, the governance process takes priority.
 
@@ -159,7 +159,7 @@ important subtlety in the comparison.
 
 Additionally, you should update the following `Version history`_.
 
-.. _`DAML-LF Governance process`: ../governance.rst
+.. _`Daml-LF Governance process`: ../governance.rst
 .. _`value`: value.rst
 
 Version history
@@ -177,7 +177,9 @@ later.
 +====================+=================+
 |                 10 |      2020-03-25 |
 +--------------------+-----------------+
-|                dev |      2020-03-25 |
+|       11 (preview) |      2020-12-14 |
++--------------------+-----------------+
+|                dev |      2020-12-14 |
 +--------------------+-----------------+
 
 message Transaction
@@ -219,7 +221,7 @@ message ContractInstance
 
 *since version 10*
 
-An instance of a DAML-LF template, represented by the DAML-LF value used
+An instance of a Daml-LF template, represented by the Daml-LF value used
 to construct that instance.
 
 As of version 10, these fields are included:
@@ -230,7 +232,7 @@ As of version 10, these fields are included:
 
 ``template_id`` and ``value`` are required; ``agreement`` is optional.
 
-``value`` must conform to the type of the DAML-LF associated data type
+``value`` must conform to the type of the Daml-LF associated data type
 indicated by ``template_id``.
 
 ``template_id``'s structure is defined by `the value specification`_;
@@ -266,9 +268,9 @@ Additionally, one of the following node types *must* be included:
 * `message NodeExercise`_ exercise
 * `message NodeLookupByKey`_ lookup
 
-*since version dev*
+*since version 11*
 
-As of version dev, this optional field is included:
+As of version 11, this optional field is included:
 
 * ``string`` ``version``
 
@@ -330,7 +332,7 @@ message NodeCreate
 
 *since version 10*
 
-The creation of a contract by instantiating a DAML-LF template with the
+The creation of a contract by instantiating a Daml-LF template with the
 given argument.
 
 As of version 10, these fields are included:
@@ -354,7 +356,7 @@ Every element of ``stakeholders`` is a party identifier.
   The stakeholders of a contract are the signatories and the observers of
   said contract.
 
-  The signatories of a contract are specified in the DAML-LF definition of
+  The signatories of a contract are specified in the Daml-LF definition of
   the template for said contract. Conceptually, they are the parties that
   agreed for that contract to be created.
 
@@ -366,7 +368,7 @@ Every element of ``stakeholders`` is a party identifier.
 * Its ``key`` must conform to the key definition for the ``template_id``
   in the ``contract_instance``.
 
-The maintainers of a contract key are specified in the DAML-LF definition of
+The maintainers of a contract key are specified in the Daml-LF definition of
 the template for the contract.
 
 message NodeFetch
@@ -374,7 +376,7 @@ message NodeFetch
 
 *since version 10*
 
-Evidence of a DAML-LF ``fetch`` invocation.
+Evidence of a Daml-LF ``fetch`` invocation.
 
 As of version 10, these fields are included:
 
@@ -405,7 +407,7 @@ identifier.
   contract itself.
 
 ``key_with_maintainers`` is optional. It is present if and only if the
-``template_id`` field refers to a template with a DAML-LF key
+``template_id`` field refers to a template with a Daml-LF key
 definition.  When present, the field's sub-fields ``key`` and
 ``maintainers`` must conform to the key definition for the
 ``template_id``.
@@ -416,7 +418,7 @@ message NodeExercise
 *since version 10*
 
 The exercise of a choice on a contract, selected from the available
-choices in the associated DAML-LF template definition.
+choices in the associated Daml-LF template definition.
 
 As of version 10, these fields are included:
 
@@ -442,10 +444,10 @@ to be non-empty.
 the version of that specification to use when consuming it is the
 ``version`` field of ``chosen_value``.
 
-``choice`` must be the name of a choice defined in the DAML-LF template
+``choice`` must be the name of a choice defined in the Daml-LF template
 definition referred to by ``template_id``.
 
-``chosen_value`` must conform to the DAML-LF argument type of the
+``chosen_value`` must conform to the Daml-LF argument type of the
 ``choice``.
 
 ``children`` is constrained as described under `field node_id`_.  Every

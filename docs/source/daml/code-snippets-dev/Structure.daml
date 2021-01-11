@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -24,7 +24,7 @@ template NameOfTemplate
           () -- replace () with the actual return type
         with
         party : Party -- parameters here
-      observer party -- optional specification of choice observers (currently only available in DAML-LF 1.dev)
+      observer party -- optional specification of choice observers (currently only available in Daml-LF 1.11)
       controller exampleParty
         do
           return () -- replace this line with the choice body

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -34,18 +34,21 @@ object Queries {
       payload: PL,
       signatories: Prt,
       observers: Prt,
-      agreementText: String) {
+      agreementText: String,
+  ) {
     def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
       copy(templateId = f(templateId))
     def mapKeyPayloadParties[A, B, C](
         f: CK => A,
         g: PL => B,
-        h: Prt => C): DBContract[TpId, A, B, C] =
+        h: Prt => C,
+    ): DBContract[TpId, A, B, C] =
       copy(
         key = f(key),
         payload = g(payload),
         signatories = h(signatories),
-        observers = h(observers))
+        observers = h(observers),
+      )
   }
 
   /** for use when generating predicates */
@@ -117,8 +120,9 @@ object Queries {
       *> indexContractsTable.update.run
       *> indexContractsKeys.update.run).void
 
-  def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(
-      implicit log: LogHandler): ConnectionIO[SurrogateTpId] =
+  def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
+      log: LogHandler
+  ): ConnectionIO[SurrogateTpId] =
     sql"""SELECT tpid FROM template_id
           WHERE (package_id = $packageId AND template_module_name = $moduleName
                  AND template_entity_name = $entityName)"""
@@ -128,13 +132,14 @@ object Queries {
         _.pure[ConnectionIO],
         sql"""INSERT INTO template_id (package_id, template_module_name, template_entity_name)
               VALUES ($packageId, $moduleName, $entityName)""".update
-          .withUniqueGeneratedKeys[SurrogateTpId]("tpid")
+          .withUniqueGeneratedKeys[SurrogateTpId]("tpid"),
       )
     }
 
-  def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(
-      implicit log: LogHandler,
-      pls: Put[Vector[String]]): ConnectionIO[Map[String, String]] = {
+  def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
+      log: LogHandler,
+      pls: Put[Vector[String]],
+  ): ConnectionIO[Map[String, String]] = {
     val partyVector = parties.toVector
     sql"""SELECT party, last_offset FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
       .query[(String, String)]
@@ -161,45 +166,49 @@ object Queries {
       parties: F[String],
       tpid: SurrogateTpId,
       newOffset: String,
-      lastOffsets: Map[String, String])(
-      implicit log: LogHandler,
-      pls: Put[List[String]]): ConnectionIO[Int] = {
+      lastOffsets: Map[String, String],
+  )(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
     val (existingParties, newParties) = parties.toList.partition(p => lastOffsets.contains(p))
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert = Update[(String, SurrogateTpId, String)](
       """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
-      logHandler0 = log)
+      logHandler0 = log,
+    )
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
     val update =
       sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
     for {
-      inserted <- if (newParties.empty) { Applicative[ConnectionIO].pure(0) } else {
-        insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
-      }
-      updated <- if (existingParties.empty) { Applicative[ConnectionIO].pure(0) } else {
-        update.update.run
-      }
+      inserted <-
+        if (newParties.empty) { Applicative[ConnectionIO].pure(0) }
+        else {
+          insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
+        }
+      updated <-
+        if (existingParties.empty) { Applicative[ConnectionIO].pure(0) }
+        else {
+          update.update.run
+        }
     } yield { inserted + updated }
   }
 
   @silent(" pas .* never used")
   def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
-      dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]])(
-      implicit log: LogHandler,
-      pas: Put[Array[String]]): ConnectionIO[Int] =
+      dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
     Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
       """
         INSERT INTO contract
         VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
         ON CONFLICT (contract_id) DO NOTHING
       """,
-      logHandler0 = log
+      logHandler0 = log,
     ).updateMany(dbcs.map(_.mapKeyPayloadParties(_.toJson, _.toJson, _.toArray)))
 
-  def deleteContracts[F[_]: Foldable](cids: F[String])(
-      implicit log: LogHandler): ConnectionIO[Int] = {
+  def deleteContracts[F[_]: Foldable](
+      cids: F[String]
+  )(implicit log: LogHandler): ConnectionIO[Int] = {
     cids.toVector match {
       case Vector(hd, tl @ _*) =>
         (sql"DELETE FROM contract WHERE contract_id IN ("
@@ -227,10 +236,12 @@ object Queries {
   private[http] def selectContracts(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
-      predicate: Fragment)(
-      implicit log: LogHandler,
+      predicate: Fragment,
+  )(implicit
+      log: LogHandler,
       gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+      pvs: Put[Vector[String]],
+  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
                   FROM contract AS c
@@ -245,25 +256,28 @@ object Queries {
           payload = payload,
           signatories = signatories,
           observers = observers,
-          agreementText = agreement)
+          agreementText = agreement,
+        )
     }
   }
 
   private[http] def fetchById(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
-      contractId: String)(
-      implicit log: LogHandler,
+      contractId: String,
+  )(implicit
+      log: LogHandler,
       gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]])
-    : ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+      pvs: Put[Vector[String]],
+  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"contract_id = $contractId").option
 
   private[http] def fetchByKey(parties: OneAnd[Set, String], tpid: SurrogateTpId, key: JsValue)(
-      implicit log: LogHandler,
+      implicit
+      log: LogHandler,
       gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]])
-    : ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+      pvs: Put[Vector[String]],
+  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"key = $key::jsonb").option
 
   object Implicits {

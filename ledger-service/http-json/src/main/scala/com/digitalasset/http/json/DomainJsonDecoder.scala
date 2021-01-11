@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -23,13 +23,14 @@ class DomainJsonDecoder(
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
     jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
-    jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue
+    jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue,
 ) {
 
   import com.daml.http.util.ErrorOps._
 
-  def decodeCreateCommand(a: JsValue)(implicit ev1: JsonReader[domain.CreateCommand[JsValue]])
-    : JsonError \/ domain.CreateCommand[lav1.value.Record] = {
+  def decodeCreateCommand(a: JsValue)(implicit
+      ev1: JsonReader[domain.CreateCommand[JsValue]]
+  ): JsonError \/ domain.CreateCommand[lav1.value.Record] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- SprayJson
@@ -43,7 +44,8 @@ class DomainJsonDecoder(
   }
 
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
-      fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
+      fa: F[JsValue]
+  ): JsonError \/ F[lav1.value.Value] = {
     for {
       damlLfId <- lookupLfType(fa)
       apiValue <- fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
@@ -51,7 +53,8 @@ class DomainJsonDecoder(
   }
 
   def decodeUnderlyingValuesToLf[F[_]: Traverse: domain.HasTemplateId](
-      fa: F[JsValue]): JsonError \/ F[domain.LfValue] = {
+      fa: F[JsValue]
+  ): JsonError \/ F[domain.LfValue] = {
     for {
       lfType <- lookupLfType(fa)
       lfValue <- fa.traverse(jsValue => jsValueToLfValue(lfType, jsValue))
@@ -68,15 +71,17 @@ class DomainJsonDecoder(
     } yield lfType
   }
 
-  def decodeContractLocator(a: JsValue)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
-    : JsonError \/ domain.ContractLocator[domain.LfValue] =
+  def decodeContractLocator(a: JsValue)(implicit
+      ev: JsonReader[domain.ContractLocator[JsValue]]
+  ): JsonError \/ domain.ContractLocator[domain.LfValue] =
     SprayJson
       .decode[domain.ContractLocator[JsValue]](a)
       .liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError)
       .flatMap(decodeContractLocatorUnderlyingValue)
 
   private def decodeContractLocatorUnderlyingValue(
-      a: domain.ContractLocator[JsValue]): JsonError \/ domain.ContractLocator[domain.LfValue] =
+      a: domain.ContractLocator[JsValue]
+  ): JsonError \/ domain.ContractLocator[domain.LfValue] =
     a match {
       case k: domain.EnrichedContractKey[JsValue] =>
         decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k)
@@ -84,27 +89,28 @@ class DomainJsonDecoder(
         \/-(c)
     }
 
-  def decodeExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
-    : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
+  def decodeExerciseCommand(a: JsValue)(implicit
+      ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]]
+  ): JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
     for {
       cmd0 <- SprayJson
         .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
         .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
 
       lfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](cmd0)(
-        domain.ExerciseCommand.hasTemplateId)
+        domain.ExerciseCommand.hasTemplateId
+      )
 
       cmd1 <- cmd0.bitraverse(
         arg => jsValueToLfValue(lfType, arg),
-        ref => decodeContractLocatorUnderlyingValue(ref)
+        ref => decodeContractLocatorUnderlyingValue(ref),
       ): JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]
 
     } yield cmd1
 
-  def decodeCreateAndExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
-    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {
+  def decodeCreateAndExerciseCommand(a: JsValue)(implicit
+      ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]]
+  ): JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- SprayJson
@@ -119,7 +125,7 @@ class DomainJsonDecoder(
 
       fvv <- fjj.bitraverse(
         x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord),
-        x => jsValueToApiValue(argT, x)
+        x => jsValueToApiValue(argT, x),
       )
 
     } yield fvv
@@ -148,7 +154,7 @@ class DomainJsonDecoder(
 
   def choiceArgType(
       id: domain.TemplateId.OptionalPkg,
-      choice: domain.Choice
+      choice: domain.Choice,
   ): JsonError \/ domain.LfType =
     templateId_(id).flatMap(resolveChoiceArgType(_, choice).liftErr(JsonError))
 

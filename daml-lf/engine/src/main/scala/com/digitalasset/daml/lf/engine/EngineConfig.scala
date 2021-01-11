@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,8 +8,7 @@ import java.nio.file.Path
 
 import com.daml.lf.language.LanguageVersion
 
-/**
-  * The Engine configurations describes the versions of language and
+/** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
   * engine debugging feature.
   *
@@ -55,8 +54,7 @@ final case class EngineConfig(
 
 object EngineConfig {
 
-  /**
-    * Most lenient production engine configuration. This allows the
+  /** Most lenient production engine configuration. This allows the
     * engine to load and produce all non-deprecated stable versions of
     * language and transaction.
     */
@@ -64,19 +62,23 @@ object EngineConfig {
     allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
-  private[this] def toDev(config: EngineConfig): EngineConfig =
-    config.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
-
-  /**
-    * Recommended production configuration.
+  /** Recommended production configuration.
     */
   def Stable: EngineConfig = Lenient
 
-  /**
-    * Development configuration, should not be used in PROD.  Allowed
+  /** Configuration if legacy contract ID is used.
+    */
+  def Legacy: EngineConfig =
+    Lenient.copy(
+      allowedLanguageVersions = LanguageVersion.StableVersions.copy(max = LanguageVersion.v1_8)
+    )
+
+  /** Development configuration, should not be used in PROD.  Allowed
     * the same input and output versions as [[Lenient]] plus the
     * development versions.
     */
-  val Dev: EngineConfig = toDev(Lenient)
+  val Dev: EngineConfig = new EngineConfig(
+    allowedLanguageVersions = LanguageVersion.DevVersions
+  )
 
 }

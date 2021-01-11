@@ -1,12 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.assistant.config
+
+import java.nio.file.Paths
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ProjectConfigSpec extends AnyWordSpec with Matchers {
+
+  private val projectRoot = Paths.get("/project/root")
+
   "ProjectConfig" when {
 
     "Loading a default config" should {
@@ -29,7 +34,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "find the SDK version" in {
         val sdkVersion = for {
-          config <- ProjectConfig.loadFromString(configSource)
+          config <- ProjectConfig.loadFromString(projectRoot, configSource)
           result <- config.sdkVersion
         } yield result
         sdkVersion shouldBe Right("1.0")
@@ -37,7 +42,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "find the name" in {
         val name = for {
-          config <- ProjectConfig.loadFromString(configSource)
+          config <- ProjectConfig.loadFromString(projectRoot, configSource)
           result <- config.name
         } yield result
         name shouldBe Right(Some("TestProject"))
@@ -45,7 +50,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "find the parties" in {
         val parties = for {
-          config <- ProjectConfig.loadFromString(configSource)
+          config <- ProjectConfig.loadFromString(projectRoot, configSource)
           result <- config.parties
         } yield result
         parties shouldBe Right(Some(List("Alice", "Bob")))
@@ -60,7 +65,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "not find the name" in {
         val name = for {
-          config <- ProjectConfig.loadFromString(config)
+          config <- ProjectConfig.loadFromString(projectRoot, config)
           result <- config.name
         } yield result
         name shouldBe Right(None)
@@ -76,7 +81,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "not find the name" in {
         val parties = for {
-          config <- ProjectConfig.loadFromString(config)
+          config <- ProjectConfig.loadFromString(projectRoot, config)
           result <- config.parties
         } yield result
         parties.isLeft shouldBe true
@@ -91,7 +96,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "fail to parse" in {
         val config = for {
-          result <- ProjectConfig.loadFromString(configSource)
+          result <- ProjectConfig.loadFromString(projectRoot, configSource)
         } yield result
         config.isLeft shouldBe true
         config.left.exists {

@@ -1,9 +1,8 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
@@ -13,14 +12,15 @@ import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Note: the command service internally uses calls to the CommandSubmissionService and CommandCompletionService.
   * These calls already require authentication, but it is better to check authorization here as well.
   */
 private[daml] final class CommandServiceAuthorization(
     protected val service: CommandService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends CommandService
     with ProxyCloseable
     with GrpcApiService {
@@ -36,7 +36,8 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
@@ -47,7 +48,8 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionIdResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
@@ -58,7 +60,8 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionTreeResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
@@ -69,7 +72,7 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def bindService(): ServerServiceDefinition =
-    CommandServiceGrpc.bindService(this, DirectExecutionContext)
+    CommandServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 

@@ -1,9 +1,9 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-daml:
 
-DAML: Defining Contract Models Compactly
+Daml: Defining Contract Models Compactly
 ----------------------------------------
 
 As described in preceeding sections, both the integrity and privacy notions depend on
@@ -20,7 +20,7 @@ arbitrary obligor and an arbitrary owner. As enumerating all
 possible actions from an infinite set is infeasible, a more
 compact way of representing models is needed.
 
-DAML provides exactly that: a compact representation of a contract model.
+Daml provides exactly that: a compact representation of a contract model.
 Intuitively, the allowed actions are:
 
 #. **Create** actions on all instances of templates such that
@@ -51,14 +51,14 @@ Intuitively, the allowed actions are:
 
 #. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
-An instance of a DAML template, that is, a **DAML contract**,
+An instance of a Daml template, that is, a **Daml contract**,
 is a triple of:
 
 #. a contract identifier
 #. the template identifier
 #. the template arguments
 
-The signatories of a DAML contract are derived from the template arguments and the explicit signatory annotations on the contract template.
+The signatories of a Daml contract are derived from the template arguments and the explicit signatory annotations on the contract template.
 The observers are also derived from the template arguments and include:
 
 1. the observers as explicitly annotated on the template
@@ -79,8 +79,8 @@ In this example, the owner is automatically made an observer on the contract, as
 The template identifiers of contracts are created
 through a content-addressing scheme. This means every contract is
 self-describing in a sense: it constrains its stakeholder annotations
-and all DAML-conformant actions on itself. As a consequence, one can
-talk about "the" DAML contract model, as a single contract model encoding all possible
+and all Daml-conformant actions on itself. As a consequence, one can
+talk about "the" Daml contract model, as a single contract model encoding all possible
 instances of all possible templates. This model is subaction-closed;
 all exercise and create actions done within an update block are also
 always permissible as top-level actions.

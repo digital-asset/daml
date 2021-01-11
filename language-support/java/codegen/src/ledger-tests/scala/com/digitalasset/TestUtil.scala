@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.daml.ledger.javaapi.data
@@ -34,6 +34,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+import java.util.Arrays.asList
+
 object TestUtil {
 
   def testDalf =
@@ -41,10 +43,12 @@ object TestUtil {
 
   val LedgerID = "ledger-test"
 
-  def withClient(testCode: Channel => Assertion)(
-      implicit resourceContext: ResourceContext): Future[Assertion] = {
+  def withClient(
+      testCode: Channel => Assertion
+  )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
+      seeding = None,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = Some(TimeProviderType.WallClock),
@@ -83,9 +87,45 @@ object TestUtil {
               Optional.empty[Instant],
               Optional.empty[Duration],
               Optional.empty[Duration],
-              cmds.asJava))
-          .build)
+              cmds.asJava,
+            )
+          )
+          .build
+      )
   }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      cmds: Command*
+  ): Empty = {
+    CommandServiceGrpc
+      .newBlockingStub(channel)
+      .withDeadlineAfter(40, TimeUnit.SECONDS)
+      .submitAndWait(
+        SubmitAndWaitRequest
+          .newBuilder()
+          .setCommands(
+            SubmitCommandsRequest.toProto(
+              LedgerID,
+              randomId,
+              randomId,
+              randomId,
+              actAs,
+              readAs,
+              Optional.empty[Instant],
+              Optional.empty[Duration],
+              Optional.empty[Duration],
+              cmds.asJava,
+            )
+          )
+          .build
+      )
+  }
+
+  def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
+    sendCmd(channel, asList(party), asList[String](), cmds: _*)
 
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel
@@ -98,16 +138,18 @@ object TestUtil {
         LedgerOffset.LedgerBegin.getInstance(),
         LedgerOffset.fromProto(end.getOffset),
         allTemplates,
-        true).toProto)
+        true,
+      ).toProto
+    )
     val iterable: java.lang.Iterable[GetTransactionsResponse] = () => txs
     StreamSupport
       .stream(iterable.spliterator(), false)
-      .flatMap[Transaction](
-        (r: GetTransactionsResponse) =>
-          data.GetTransactionsResponse
-            .fromProto(r)
-            .getTransactions
-            .stream())
+      .flatMap[Transaction]((r: GetTransactionsResponse) =>
+        data.GetTransactionsResponse
+          .fromProto(r)
+          .getTransactions
+          .stream()
+      )
       .flatMap[Event]((t: Transaction) => t.getEvents.stream)
       .collect(Collectors.toList[Event])
       .asScala
@@ -116,7 +158,8 @@ object TestUtil {
           case e: CreatedEvent =>
             acc + (e.getContractId -> fromCreatedEvent(e))
           case a: ArchivedEvent => acc - a.getContractId
-      })
+        }
+      )
       .toList
       .sortBy(_._1)
       .map(_._2)

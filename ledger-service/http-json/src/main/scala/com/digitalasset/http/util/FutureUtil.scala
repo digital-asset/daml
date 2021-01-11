@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -13,7 +13,8 @@ import scala.util.Try
 object FutureUtil {
   def toFuture[A](o: Option[A]): Future[A] =
     o.fold(Future.failed[A](new IllegalStateException(s"Empty option: $o")))(a =>
-      Future.successful(a))
+      Future.successful(a)
+    )
 
   def toFuture[A](a: Try[A]): Future[A] =
     a.fold(e => Future.failed(e), a => Future.successful(a))

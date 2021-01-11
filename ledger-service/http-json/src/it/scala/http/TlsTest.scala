@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -29,16 +29,14 @@ class TlsTest
 
   "connect normally with tls on" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
-      .flatMap {
-        case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          inside(output) {
-            case JsObject(fields) =>
-              inside(fields.get("result")) {
-                case Some(JsArray(vector)) => vector should have size 0L
-              }
+      .flatMap { case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        inside(output) { case JsObject(fields) =>
+          inside(fields.get("result")) { case Some(JsArray(vector)) =>
+            vector should have size 0L
           }
+        }
       }: Future[Assertion]
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -40,7 +40,7 @@ class CommitterSpec
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       val expectedReadSet = Set(
         DamlStateKey.newBuilder.setContractId("1").build,
-        DamlStateKey.newBuilder.setContractId("2").build
+        DamlStateKey.newBuilder.setContractId("2").build,
       )
       when(mockContext.getAccessedInputKeys).thenReturn(expectedReadSet)
       val instance = createCommitter()
@@ -91,7 +91,8 @@ class CommitterSpec
       actualOutOfTimeBoundsLogEntry.getTooEarlyUntil shouldBe buildTimestamp(expectedMinRecordTime)
       actualOutOfTimeBoundsLogEntry.getTooLateFrom shouldBe buildTimestamp(expectedMaxRecordTime)
       actualOutOfTimeBoundsLogEntry.getDuplicateUntil shouldBe buildTimestamp(
-        expectedDuplicateUntil)
+        expectedDuplicateUntil
+      )
       actualOutOfTimeBoundsLogEntry.hasEntry shouldBe true
       actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }
@@ -115,20 +116,19 @@ class CommitterSpec
         "min/max record time",
         Some(anInstant) -> Some(anInstant),
         Some(anInstant) -> None,
-        None -> Some(anInstant)
+        None -> Some(anInstant),
       )
 
-      forAll(combinations) {
-        case (minRecordTimeMaybe, maxRecordTimeMaybe) =>
-          val mockContext = mock[CommitContext]
-          when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
-          when(mockContext.getOutputs).thenReturn(Iterable.empty)
-          when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
-          when(mockContext.minimumRecordTime).thenReturn(minRecordTimeMaybe)
-          when(mockContext.maximumRecordTime).thenReturn(maxRecordTimeMaybe)
-          val instance = createCommitter()
+      forAll(combinations) { case (minRecordTimeMaybe, maxRecordTimeMaybe) =>
+        val mockContext = mock[CommitContext]
+        when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
+        when(mockContext.getOutputs).thenReturn(Iterable.empty)
+        when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
+        when(mockContext.minimumRecordTime).thenReturn(minRecordTimeMaybe)
+        when(mockContext.maximumRecordTime).thenReturn(maxRecordTimeMaybe)
+        val instance = createCommitter()
 
-          assertThrows[IllegalArgumentException](instance.preExecute(aDamlSubmission, mockContext))
+        assertThrows[IllegalArgumentException](instance.preExecute(aDamlSubmission, mockContext))
       }
     }
   }
@@ -157,7 +157,7 @@ class CommitterSpec
         override protected def steps: Iterable[(StepInfo, Step)] = Iterable[(StepInfo, Step)](
           ("first", (_, _) => StepContinue(1)),
           ("second", (_, _) => StepStop(expectedLogEntry)),
-          ("third", (_, _) => StepStop(DamlLogEntry.getDefaultInstance))
+          ("third", (_, _) => StepStop(DamlLogEntry.getDefaultInstance)),
         )
 
         override protected val committerName: String = "test"
@@ -174,7 +174,7 @@ class CommitterSpec
       val instance = new Committer[Int] {
         override protected def steps: Iterable[(StepInfo, Step)] = Iterable(
           ("first", (_, _) => StepContinue(1)),
-          ("second", (_, _) => StepContinue(2))
+          ("second", (_, _) => StepContinue(2)),
         )
 
         override protected val committerName: String = "test"
@@ -229,7 +229,8 @@ class CommitterSpec
         .build
       val commitContext = createCommitContext(
         recordTime = None,
-        Map(configurationStateKey -> Some(invalidConfigurationEntry)))
+        Map(configurationStateKey -> Some(invalidConfigurationEntry)),
+      )
 
       val (actualConfigurationEntry, actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -252,7 +253,8 @@ class CommitterSpec
     .setPackageUploadRejectionEntry(
       DamlPackageUploadRejectionEntry.newBuilder
         .setSubmissionId("an ID")
-        .setParticipantId("a participant"))
+        .setParticipantId("a participant")
+    )
     .build
   private val aConfig: Configuration = Configuration(
     generation = 1,

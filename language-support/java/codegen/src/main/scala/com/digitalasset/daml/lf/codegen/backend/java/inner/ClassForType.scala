@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -15,7 +15,8 @@ object ClassForType extends StrictLogging {
 
   def apply(
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String]): List[JavaFile] = {
+      packagePrefixes: Map[PackageId, String],
+  ): List[JavaFile] = {
 
     val className =
       ClassName.bestGuess(fullyQualifiedName(typeWithContext.identifier, packagePrefixes))
@@ -29,12 +30,14 @@ object ClassForType extends StrictLogging {
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,
-            packagePrefixes)
+            packagePrefixes,
+          )
         List(javaFile(typeWithContext, javaPackage, typeSpec))
 
       case Some(Normal(DefDataType(typeVars, variant: Variant.FWT))) =>
         val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
-          className.simpleName().toLowerCase)
+          className.simpleName().toLowerCase
+        )
         val (tpe, constructors) =
           VariantClass.generate(
             className,
@@ -42,7 +45,8 @@ object ClassForType extends StrictLogging {
             typeVars.map(JavaEscaper.escapeString),
             variant,
             typeWithContext,
-            packagePrefixes)
+            packagePrefixes,
+          )
         javaFile(typeWithContext, javaPackage, tpe) ::
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
 
@@ -50,7 +54,8 @@ object ClassForType extends StrictLogging {
         List(
           JavaFile
             .builder(javaPackage, EnumClass.generate(className, enum))
-            .build())
+            .build()
+        )
 
       case Some(Template(record, template)) =>
         val typeSpec =

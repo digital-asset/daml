@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
@@ -29,14 +29,16 @@ private[migration] object ValueSerializer {
   }
 
   private[translation] def handleDeprecatedValueVersions[X](
-      x: Either[ValueCoder.DecodeError, X],
+      x: Either[ValueCoder.DecodeError, X]
   ): Either[ValueCoder.DecodeError, X] = {
     x match {
       case DeprecatedValueVersionsError(deprecatedVersion) =>
         logger.error(
-          s"*** Deserialization of value version $deprecatedVersion is not supported by the SDK 1.7.0 or later. ***")
+          s"*** Deserialization of value version $deprecatedVersion is not supported by the SDK 1.7.0 or later. ***"
+        )
         logger.error(
-          s"*** Please upgrade your sandbox database by upgrading your SDK to 1.6 first. ***")
+          s"*** Please upgrade your sandbox database by upgrading your SDK to 1.6 first. ***"
+        )
     }
     x
   }
@@ -55,15 +57,18 @@ private[migration] object ValueSerializer {
         .decodeVersionedValue(
           ValueCoder.CidDecoder,
           ValueOuterClass.VersionedValue.parseFrom(
-            Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))))
+            Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)
+          ),
+        )
+    )
       .fold(
         error =>
           sys.error(errorContext.fold(error.errorMessage)(ctx => s"$ctx (${error.errorMessage})")),
-        identity
+        identity,
       )
 
   def deserializeValue(
-      stream: InputStream,
+      stream: InputStream
   ): VersionedValue[ContractId] =
     deserializeValueHelper(stream, None)
 

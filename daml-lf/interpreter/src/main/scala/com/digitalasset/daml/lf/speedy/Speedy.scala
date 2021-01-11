@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,7 +19,7 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
@@ -176,7 +176,7 @@ private[lf] object Speedy {
       kontStack.add(k)
       if (enableInstrumentation) {
         track.countPushesKont += 1
-        if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+        if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
       }
     }
 
@@ -260,7 +260,8 @@ private[lf] object Speedy {
     }
 
     /** Push a single location to the continuation stack for the sake of
-        maintaining a stack trace. */
+      *        maintaining a stack trace.
+      */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
       val last_index = kontStack.size() - 1
@@ -274,7 +275,7 @@ private[lf] object Speedy {
           kontStack.add(last_index, KLocation(this, loc))
           if (enableInstrumentation) {
             track.countPushesKont += 1
-            if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+            if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
           }
         }
         // NOTE(MH): When we use a cached top level value, we need to put the
@@ -288,12 +289,14 @@ private[lf] object Speedy {
     }
 
     /** Push an entire stack trace to the continuation stack. The first
-        element of the list will be pushed last. */
+      *        element of the list will be pushed last.
+      */
     def pushStackTrace(locs: List[Location]): Unit =
       locs.reverse.foreach(pushLocation)
 
     /** Compute a stack trace from the locations in the continuation stack.
-        The last seen location will come last. */
+      *        The last seen location will come last.
+      */
     def stackTrace(): ImmArray[Location] = {
       val s = ImmArray.newBuilder[Location]
       kontStack.forEach { k =>
@@ -347,8 +350,8 @@ private[lf] object Speedy {
       }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
-      Do not use if the machine is partway though an existing evaluation.
-      i.e. run() has returned an `SResult` requiring a callback.
+      *      Do not use if the machine is partway though an existing evaluation.
+      *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
       ctrl = expr
@@ -385,7 +388,7 @@ private[lf] object Speedy {
               val value = returnValue
               returnValue = null
               popTempStackToBase()
-              popKont.execute(value)
+              popKont().execute(value)
             } else {
               val expr = ctrl
               ctrl = null
@@ -452,25 +455,27 @@ private[lf] object Speedy {
             case None =>
               if (compiledPackages.getSignature(ref.packageId).isDefined)
                 crash(
-                  s"definition $ref not found even after caller provided new set of packages",
+                  s"definition $ref not found even after caller provided new set of packages"
                 )
               else
                 throw SpeedyHungry(
                   SResultNeedPackage(
-                    ref.packageId, { packages =>
+                    ref.packageId,
+                    { packages =>
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.getSignature(ref.packageId).isDefined)
                       lookupVal(eval)
-                    }
-                  ),
+                    },
+                  )
                 )
           }
       }
     }
 
     /** This function is used to enter an ANF application.  The function has been evaluated to
-      a value, and so have the arguments - they just need looking up */
+      *      a value, and so have the arguments - they just need looking up
+      */
     // TODO: share common code with executeApplication
     private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Unit = {
       vfun match {
@@ -577,16 +582,17 @@ private[lf] object Speedy {
     }
 
     /** Evaluate the first 'n' arguments in 'args'.
-      'args' will contain at least 'n' expressions, but it may contain more(!)
-
-      This is because, in the call from 'executeApplication' below, although over-applied
-      arguments are pushed into a continuation, they are not removed from the original array
-      which is passed here as 'args'.
+      *      'args' will contain at least 'n' expressions, but it may contain more(!)
+      *
+      *      This is because, in the call from 'executeApplication' below, although over-applied
+      *      arguments are pushed into a continuation, they are not removed from the original array
+      *      which is passed here as 'args'.
       */
     private[speedy] def evaluateArguments(
         actuals: util.ArrayList[SValue],
         args: Array[SExpr],
-        n: Int) = {
+        n: Int,
+    ) = {
       var i = 1
       while (i < n) {
         val arg = args(n - i)
@@ -675,12 +681,12 @@ private[lf] object Speedy {
           case V.ValueTextMap(entries) =>
             SGenMap(
               isTextMap = true,
-              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) }
+              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) },
             )
           case V.ValueGenMap(entries) =>
             SGenMap(
               isTextMap = false,
-              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) }
+              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) },
             )
           case V.ValueVariant(Some(id), variant, arg) =>
             compiledPackages.getSignature(id.packageId) match {
@@ -698,8 +704,9 @@ private[lf] object Speedy {
                     pkg => {
                       compiledPackages = pkg
                       returnValue = go(value)
-                    }
-                  ))
+                    },
+                  )
+                )
             }
           case V.ValueEnum(Some(id), constructor) =>
             compiledPackages.getSignature(id.packageId) match {
@@ -717,8 +724,9 @@ private[lf] object Speedy {
                     pkg => {
                       compiledPackages = pkg
                       returnValue = go(value)
-                    }
-                  ))
+                    },
+                  )
+                )
             }
         }
       returnValue = go(value)
@@ -760,8 +768,8 @@ private[lf] object Speedy {
           commitLocation = None,
           dependsOnTime = false,
           localContracts = Map.empty,
-          globalDiscriminators = globalCids.collect {
-            case V.ContractId.V1(discriminator, _) => discriminator
+          globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
+            discriminator
           },
         ),
         traceLog = traceLog,
@@ -911,8 +919,8 @@ private[lf] object Speedy {
   private[speedy] final case class KFun(
       machine: Machine,
       closure: PClosure,
-      actuals: util.ArrayList[SValue])
-      extends Kont
+      actuals: util.ArrayList[SValue],
+  ) extends Kont
       with SomeArrayEquals {
 
     private val savedBase = machine.markBase()
@@ -938,8 +946,8 @@ private[lf] object Speedy {
   private[speedy] final case class KBuiltin(
       machine: Machine,
       builtin: SBuiltin,
-      actuals: util.ArrayList[SValue])
-      extends Kont {
+      actuals: util.ArrayList[SValue],
+  ) extends Kont {
 
     private val savedBase = machine.markBase()
 
@@ -963,8 +971,8 @@ private[lf] object Speedy {
       machine: Machine,
       prim: Prim,
       actuals: util.ArrayList[SValue],
-      arity: Int)
-      extends Kont {
+      arity: Int,
+  ) extends Kont {
 
     def execute(v: SValue) = {
       actuals.add(v)
@@ -1039,8 +1047,10 @@ private[lf] object Speedy {
           }
         }
       case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
-            _) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) |
-          STNat(_) | _: SPAP | SToken =>
+            _
+          ) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) | STNat(
+            _
+          ) | _: SPAP | SToken =>
         crash("Match on non-matchable value")
     }
 
@@ -1203,8 +1213,8 @@ private[lf] object Speedy {
       machine: Machine,
       v: SEVal,
       defn: SDefinition,
-      stack_trace: List[Location])
-      extends Kont {
+      stack_trace: List[Location],
+  ) extends Kont {
 
     def execute(sv: SValue): Unit = {
       machine.pushStackTrace(stack_trace)
@@ -1278,7 +1288,8 @@ private[lf] object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.
-    Or machine execution has reached a final value. */
+    *    Or machine execution has reached a final value.
+    */
   private[speedy] final case class SpeedyHungry(result: SResult)
       extends RuntimeException
       with NoStackTrace
@@ -1289,6 +1300,7 @@ private[lf] object Speedy {
       submissionTime: Time.Timestamp,
   ): InitialSeeding =
     InitialSeeding.TransactionSeed(
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
+    )
 
 }

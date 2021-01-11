@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -20,8 +20,8 @@ object OffsetUpdate {
   final case class PreparedTransactionInsert(
       offsetStep: OffsetStep,
       update: TransactionAccepted,
-      preparedInsert: PreparedInsert)
-      extends OffsetUpdate
+      preparedInsert: PreparedInsert,
+  ) extends OffsetUpdate
 
   final case class OffsetStepUpdatePair(offsetStep: OffsetStep, update: Update) extends OffsetUpdate
 }

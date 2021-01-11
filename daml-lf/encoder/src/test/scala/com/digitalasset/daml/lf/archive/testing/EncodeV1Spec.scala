@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.archive
@@ -24,7 +24,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
   val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(
       pkgId,
-      LanguageVersion.StableVersions.max
+      LanguageVersion.StableVersions.max,
     )
 
   "Encode and Decode" should {
@@ -157,9 +157,8 @@ object EncodeV1Spec {
     val replacePkId: PartialFunction[Identifier, Identifier] = {
       case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
     }
-    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = {
-      case EAbs(binder, body, Some(_)) =>
-        EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
+      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
     }
     lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
 

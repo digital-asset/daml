@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.perf.util
@@ -12,8 +12,7 @@ import org.scalameter.reporting.RegressionReporter
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-/**
-  * Contains common elements for ScalaMeter tests that we expect to reuse.
+/** Contains common elements for ScalaMeter tests that we expect to reuse.
   * Values are lazy to make sure that their usage doesn't result in NPEs.
   * They are also transient to avoid serializing them when [[SeparateJvmsExecutor]] is used.
   */
@@ -43,8 +42,9 @@ abstract class PerformanceTest extends Bench[Double] {
   @transient lazy val reporter: Reporter[Double] = Reporter.Composite(
     RegressionReporter[Double](
       RegressionReporter.Tester.Accepter(),
-      RegressionReporter.Historian.ExponentialBackoff()),
-    new JMeterReporter[Double](this.getClass)
+      RegressionReporter.Historian.ExponentialBackoff(),
+    ),
+    new JMeterReporter[Double](this.getClass),
   )
 
   @transient lazy val persistor = Persistor.None
@@ -55,7 +55,8 @@ abstract class PerformanceTest extends Bench[Double] {
       exec.minWarmupRuns -> 5,
       exec.benchRuns -> 20,
       exec.jvmflags -> List("-Xmx4096m", "-Xms4096m"),
-      verbose -> true)
+      verbose -> true,
+    )
 
   protected def await[T](f: => Future[T]): T = {
     Await.result(f, asyncTimeout)

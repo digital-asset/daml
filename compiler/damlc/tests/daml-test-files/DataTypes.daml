@@ -2,8 +2,8 @@
 -- All rights reserved.
 
 -- Check that various ways to define data types work. We're mostly interested
--- in the generated DAML-LF. Unfortunately, we don't have a way to test for
--- properties of the generated DAML-LF, cf. DEL-6418.
+-- in the generated Daml-LF. Unfortunately, we don't have a way to test for
+-- properties of the generated Daml-LF, cf. DEL-6418.
 
 module DataTypes where
 

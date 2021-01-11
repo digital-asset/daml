@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -26,31 +26,32 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
     def pkg(
         ref: (PackageId, DottedName),
         langVersion: LV,
-        depRefs: (PackageId, DottedName)*,
+        depRefs: (PackageId, DottedName)*
     ) = {
       val (pkgId, modName) = ref
 
       val mod = Module(
         modName,
         (u -> DValue(TUnit, true, EUnit, false)) +:
-          depRefs.map {
-          case (depPkgId, depModName) =>
+          depRefs.map { case (depPkgId, depModName) =>
             depModName -> DValue(
               TUnit,
               true,
               EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
-              false)
-        },
+              false,
+            )
+          },
         Map.empty,
         Map.empty,
-        FeatureFlags.default
+        FeatureFlags.default,
       )
 
       pkgId -> Package(
         Map(modName -> mod),
         depRefs.iterator.map(_._1).toSet - pkgId,
         langVersion,
-        None)
+        None,
+      )
     }
 
     val negativeTestCases = Table(
@@ -67,21 +68,19 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
     )
 
     forEvery(negativeTestCases) { pkgs =>
-      pkgs.foreach {
-        case (pkgId, pkg) =>
-          DependencyVersion.checkPackage(new World(pkgs), pkgId, pkg)
+      pkgs.foreach { case (pkgId, pkg) =>
+        DependencyVersion.checkPackage(new World(pkgs), pkgId, pkg)
       }
     }
 
-    forEvery(postiveTestCase) {
-      case ((pkgdId, _), pkgs) =>
-        val world = new World(pkgs)
-        an[EModuleVersionDependencies] should be thrownBy
-          DependencyVersion.checkPackage(
-            world,
-            pkgdId,
-            pkgs(pkgdId),
-          )
+    forEvery(postiveTestCase) { case ((pkgdId, _), pkgs) =>
+      val world = new World(pkgs)
+      an[EModuleVersionDependencies] should be thrownBy
+        DependencyVersion.checkPackage(
+          world,
+          pkgdId,
+          pkgs(pkgdId),
+        )
     }
 
   }

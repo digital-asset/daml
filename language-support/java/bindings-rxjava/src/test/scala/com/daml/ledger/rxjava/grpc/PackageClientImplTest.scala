@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -25,7 +25,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     ledgerServices.withPackageClient(
       listPackageResponseFuture("first"),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, _) =>
+      defaultGetPackageStatusResponseFuture,
+    ) { (client, _) =>
       client
         .listPackages()
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -39,7 +40,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     ledgerServices.withPackageClient(
       listPackageResponseFuture("first"),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture,
+    ) { (client, service) =>
       client
         .listPackages()
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -54,7 +56,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, _) =>
+      defaultGetPackageStatusResponseFuture,
+    ) { (client, _) =>
       val getPackage = client
         .getPackage("")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -70,7 +73,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture,
+    ) { (client, service) =>
       client
         .getPackage("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -86,7 +90,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, _) =>
+      defaultGetPackageStatusResponseFuture,
+    ) { (client, _) =>
       val getPackageStatus = client
         .getPackageStatus("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -101,7 +106,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture,
+    ) { (client, service) =>
       client
         .getPackageStatus("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -118,7 +124,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
       defaultGetPackageStatusResponseFuture,
-      mockedAuthService) { (client, _) =>
+      mockedAuthService,
+    ) { (client, _) =>
       fn(client)
     }
 
@@ -198,7 +205,8 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     new GetPackageResponse(HashFunction.values.head, defaultGetPackageResponsePayload)
   private val defaultGetPackageResponseFuture = Future.successful(defaultGetPackageResponse)
   private val defaultGetPackageStatusResponse = new GetPackageStatusResponse(
-    PackageStatus.values.head)
+    PackageStatus.values.head
+  )
   private val defaultGetPackageStatusResponseFuture =
     Future.successful(defaultGetPackageStatusResponse)
 

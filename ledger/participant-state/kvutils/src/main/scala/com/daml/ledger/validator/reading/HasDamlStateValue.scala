@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 
-/**
-  * This typeclass signifies that implementor contains an optional DAML state value.
+/** This typeclass signifies that implementor contains an optional DAML state value.
   *
   * Used by the [[com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator]].
   */
@@ -25,8 +24,8 @@ object HasDamlStateValue {
       Some(value)
   }
 
-  implicit def `Option[T] has DamlStateValue if T has DamlStateValue`[T](
-      implicit hasDamlStateValue: HasDamlStateValue[T]
+  implicit def `Option[T] has DamlStateValue if T has DamlStateValue`[T](implicit
+      hasDamlStateValue: HasDamlStateValue[T]
   ): HasDamlStateValue[Option[T]] =
     (value: Option[T]) => value.flatMap(hasDamlStateValue.damlStateValue)
 }

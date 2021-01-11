@@ -1,10 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
+import java.util.concurrent.{Executor, TimeUnit}
 import java.util.concurrent.TimeUnit.SECONDS
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -13,7 +14,6 @@ import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.Future
@@ -35,7 +35,7 @@ private[apiserver] object GrpcServer {
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: Metrics,
-      eventLoopGroups: ServerEventLoopGroups,
+      servicesExecutor: Executor,
       services: Iterable[BindableService],
   ) extends ResourceOwner[Server] {
     override def acquire()(implicit context: ResourceContext): Resource[Server] = {
@@ -43,15 +43,13 @@ private[apiserver] object GrpcServer {
       Resource(Future {
         val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
         builder.sslContext(sslContext.orNull)
-        builder.channelType(classOf[NioServerSocketChannel])
         builder.permitKeepAliveTime(10, SECONDS)
         builder.permitKeepAliveWithoutCalls(true)
-        builder.directExecutor()
+        builder.executor(servicesExecutor)
         builder.maxInboundMessageSize(maxInboundMessageSize)
         interceptors.foreach(builder.intercept)
         builder.intercept(new MetricsInterceptor(metrics))
         builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
-        eventLoopGroups.populate(builder)
         services.foreach { service =>
           builder.addService(service)
           toLegacyService(service).foreach(builder.addService)
@@ -64,14 +62,26 @@ private[apiserver] object GrpcServer {
             throw new UnableToBind(desiredPort, e.getCause)
         }
         server
-      })(server => Future(server.shutdown().awaitTermination()))
+      })(server =>
+        Future {
+          // Phase 1, initialize shutdown, but wait for termination.
+          // If the shutdown has been initiated by the reset service, this gives the service time to gracefully complete the request.
+          server.shutdown()
+          server.awaitTermination(1, TimeUnit.SECONDS)
+
+          // Phase 2: Now cut off all remaining connections.
+          server.shutdownNow()
+          server.awaitTermination()
+        }
+      )
     }
   }
 
   final class UnableToBind(port: Port, cause: Throwable)
       extends RuntimeException(
         s"The API server was unable to bind to port $port. Terminate the process occupying the port, or choose a different one.",
-        cause)
+        cause,
+      )
       with NoStackTrace
 
   // This exposes the existing services under com.daml also under com.digitalasset.
@@ -98,7 +108,7 @@ private[apiserver] object GrpcServer {
           damlMethodDesc.toBuilder.setFullMethodName(digitalassetMethodName).build()
         val _ = digitalassetDef.addMethod(
           digitalassetMethodDesc.asInstanceOf[MethodDescriptor[Message, Message]],
-          methodDef.getServerCallHandler.asInstanceOf[ServerCallHandler[Message, Message]]
+          methodDef.getServerCallHandler.asInstanceOf[ServerCallHandler[Message, Message]],
         )
       }
       Option(digitalassetDef.build())

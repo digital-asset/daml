@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -13,12 +13,14 @@ class GraphSpec extends AnyFlatSpec with Matchers {
 
   private[this] def intNode(
       contentAndId: Int,
-      deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
+      deps: List[Int] = List.empty[Int],
+  ): (Int, BaseNode[Int, Int]) =
     contentAndId -> Node(contentAndId, deps, true)
 
   private[this] def orderedDependencies[K, A](
-      nodes: Iterable[(K, BaseNode[K, A])]): OrderedDependencies[K, A] =
-    cyclicDependencies(Traversable.empty, nodes)
+      nodes: Iterable[(K, BaseNode[K, A])]
+  ): OrderedDependencies[K, A] =
+    cyclicDependencies(Iterable.empty, nodes)
 
   behavior of "Graph.cyclicDependencies"
 
@@ -47,7 +49,8 @@ class GraphSpec extends AnyFlatSpec with Matchers {
     val node2 = intNode(2)
     orderedDependencies(Seq(node1, node2)).deps should contain theSameElementsInOrderAs Seq(
       node2,
-      node1)
+      node1,
+    )
   }
 
   it should "return the two elements connected ordered and the third one in any position" in {
@@ -55,7 +58,7 @@ class GraphSpec extends AnyFlatSpec with Matchers {
     val node2 = intNode(2)
     val node3 = intNode(3, List(1))
     val result = orderedDependencies(Seq(node1, node2, node3)).deps
-    result should contain inOrder (node1, node3)
+    result should contain.inOrder(node1, node3)
     result should contain(node2)
   }
 
@@ -72,11 +75,11 @@ class GraphSpec extends AnyFlatSpec with Matchers {
     val node5 = intNode(5)
     val result = orderedDependencies(Seq(node1, node2, node3, node4, node5)).deps
     result should contain(node5)
-    result should contain inOrder (node3, node2)
-    result should contain inOrder (node4, node2)
-    result should contain inOrder (node4, node3)
-    result should contain inOrder (node1, node3)
-    result should contain inOrder (node5, node4)
+    result should contain.inOrder(node3, node2)
+    result should contain.inOrder(node4, node2)
+    result should contain.inOrder(node4, node3)
+    result should contain.inOrder(node1, node3)
+    result should contain.inOrder(node5, node4)
   }
 
   it should "return error for each unknown dependency" in {

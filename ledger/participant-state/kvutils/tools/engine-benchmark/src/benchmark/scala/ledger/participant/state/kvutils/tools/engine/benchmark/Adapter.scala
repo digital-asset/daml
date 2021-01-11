@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.engine.benchmark
@@ -14,15 +14,14 @@ import scala.collection.mutable
 
 private[benchmark] final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package],
-    pkgLangVersion: Ref.PackageId => LanguageVersion
+    pkgLangVersion: Ref.PackageId => LanguageVersion,
 ) {
 
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
-        (builder, parent, _, node) =>
-          (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
-      )
-      .buildSubmitted()
+      (builder, parent, _, node) =>
+        (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
+    ).buildSubmitted()
 
   // drop value version and children
   private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId] =
@@ -31,7 +30,7 @@ private[benchmark] final class Adapter(
         create.copy(
           coinst = create.coinst.copy(adapt(create.coinst.template), adapt(create.coinst.arg)),
           optLocation = None,
-          key = create.key.map(adapt)
+          key = create.key.map(adapt),
         )
       case exe: Node.NodeExercises[NodeId, ContractId] =>
         exe.copy(
@@ -58,7 +57,7 @@ private[benchmark] final class Adapter(
 
   // drop value version
   private[this] def adapt(
-      k: Node.KeyWithMaintainers[Value[ContractId]],
+      k: Node.KeyWithMaintainers[Value[ContractId]]
   ): Node.KeyWithMaintainers[Value[ContractId]] =
     k.copy(adapt(k.key))
 

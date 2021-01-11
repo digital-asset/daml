@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen
@@ -25,16 +25,19 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
   it should "traverse a tree with n elements in bfs order" in {
     val qualifiedName1 = QualifiedName(
       DottedName.assertFromSegments(ImmArray("foo").toSeq),
-      DottedName.assertFromSegments(ImmArray("bar").toSeq))
+      DottedName.assertFromSegments(ImmArray("bar").toSeq),
+    )
     val record1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val qualifiedName2 =
       QualifiedName(
         DottedName.assertFromSegments(ImmArray("foo").toSeq),
-        DottedName.assertFromSegments(ImmArray("bar", "baz").toSeq))
+        DottedName.assertFromSegments(ImmArray("bar", "baz").toSeq),
+      )
     val variant1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Variant(ImmArraySeq())))
     val qualifiedName3 = QualifiedName(
       DottedName.assertFromSegments(ImmArray("foo").toSeq),
-      DottedName.assertFromSegments(ImmArray("qux").toSeq))
+      DottedName.assertFromSegments(ImmArray("qux").toSeq),
+    )
     val record2 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
@@ -45,7 +48,8 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
         case ModuleWithContext(interface @ _, modulesLineage @ _, name @ _, module @ _) => ab
         case TypeWithContext(interface @ _, modulesLineage @ _, typesLineage @ _, name @ _, typ) =>
           ab ++= typ.typ.toList
-    })
+      }
+    )
     result should contain theSameElementsInOrderAs Seq(record1, record2, variant1)
   }
 
@@ -55,7 +59,7 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
     val bazQuux =
       QualifiedName(
         DottedName.assertFromSegments(ImmArray("foo", "bar").toSeq),
-        DottedName.assertFromSegments(ImmArray("baz", "quux").toSeq)
+        DottedName.assertFromSegments(ImmArray("baz", "quux").toSeq),
       )
     val record = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
 
@@ -67,7 +71,8 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
         case _: ModuleWithContext => types
         case TypeWithContext(_, _, _, _, tpe) =>
           types ++= tpe.typ.toList
-    })
+      }
+    )
     result.toList shouldBe List(record)
   }
 

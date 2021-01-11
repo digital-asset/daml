@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
@@ -10,11 +10,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.{
-  Bytes,
   DamlStateMap,
   Envelope,
   KeyValueCommitting,
-  TestHelpers
+  Raw,
+  TestHelpers,
 }
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.ledger.validator.HasDamlStateValue
@@ -70,7 +70,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         }
     }
 
-    "return a sorted read set with correct fingerprints" in {
+    "return a sorted read set" in {
       val expectedReadSet = allDamlStateKeyTypes.toSet
       val actualInputState =
         allDamlStateKeyTypes.map(key => key -> Some(DamlStateValue.getDefaultInstance)).toMap
@@ -82,40 +82,14 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         .map(verifyReadSet(_, expectedReadSet))
     }
 
-    "return a read set when the contract keys are inconsistent" in {
-      val contractKeyStateKey = makeContractKeyStateKey("id")
-
-      // At the time of pre-execution, the key points to contract A.
-      val contractIdAStateKey = makeContractIdStateKey("contract ID A")
-      val contractIdAStateValue = makeContractIdStateValue()
-
-      // However, at the time of validation, it points to contract B.
-      val contractKeyBStateValue = makeContractKeyStateValue("contract ID B")
-      val contractIdBStateKey = makeContractIdStateKey("contract ID B")
-      val contractIdBStateValue = makeContractIdStateValue()
-
-      val preExecutedInputKeys = Set(contractKeyStateKey, contractIdAStateKey)
-      val expectedReadSet = Set(contractKeyStateKey, contractIdBStateKey)
-      val actualInputState = Map(
-        contractKeyStateKey -> Some(contractKeyBStateValue),
-        contractIdAStateKey -> Some(contractIdAStateValue),
-        contractIdBStateKey -> Some(contractIdBStateValue),
-      )
-      val instance = createInstance(expectedReadSet = expectedReadSet)
-      val ledgerStateReader = createLedgerStateReader(actualInputState)
-
-      instance
-        .validate(anEnvelope(preExecutedInputKeys), aParticipantId, ledgerStateReader)
-        .map(verifyReadSet(_, expectedReadSet))
-    }
-
     "fail in case a batched submission is input" in {
       val instance = createInstance()
       val aBatchedSubmission = DamlSubmissionBatch.newBuilder
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId("correlated submission")
-            .setSubmission(anEnvelope()))
+            .setSubmission(anEnvelope().bytes)
+        )
         .build()
 
       instance
@@ -125,9 +99,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
           mock[StateReader[DamlStateKey, TestValue]],
         )
         .failed
-        .map {
-          case ValidationError(actualReason) =>
-            actualReason should include("Batched submissions are not supported")
+        .map { case ValidationError(actualReason) =>
+          actualReason should include("Batched submissions are not supported")
         }
     }
 
@@ -137,9 +110,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(anInvalidEnvelope, aParticipantId, mock[StateReader[DamlStateKey, TestValue]])
         .failed
-        .map {
-          case ValidationError(actualReason) =>
-            actualReason should include("Cannot open envelope")
+        .map { case ValidationError(actualReason) =>
+          actualReason should include("Cannot open envelope")
         }
     }
 
@@ -154,9 +126,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
           mock[StateReader[DamlStateKey, TestValue]],
         )
         .failed
-        .map {
-          case ValidationError(actualReason) =>
-            actualReason should include("Unexpected message in envelope")
+        .map { case ValidationError(actualReason) =>
+          actualReason should include("Unexpected message in envelope")
         }
     }
   }
@@ -183,7 +154,7 @@ object PreExecutingSubmissionValidatorSpec {
 
   private final case class TestWriteSet(value: String)
 
-  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Bytes = {
+  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Value = {
     val submission = DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)
@@ -207,7 +178,7 @@ object PreExecutingSubmissionValidatorSpec {
       Map.empty,
       aLogEntry,
       expectedMinRecordTime.map(Timestamp.assertFromInstant),
-      expectedMaxRecordTime.map(Timestamp.assertFromInstant)
+      expectedMaxRecordTime.map(Timestamp.assertFromInstant),
     )
     when(
       mockCommitter.preExecuteSubmission(
@@ -215,7 +186,8 @@ object PreExecutingSubmissionValidatorSpec {
         any[DamlSubmission],
         any[ParticipantId],
         any[DamlStateMap],
-      ))
+      )
+    )
       .thenReturn(result)
 
     val mockCommitStrategy = mock[PreExecutingCommitStrategy[
@@ -225,7 +197,8 @@ object PreExecutingSubmissionValidatorSpec {
       TestWriteSet,
     ]]
     when(
-      mockCommitStrategy.generateReadSet(any[Map[DamlStateKey, TestValue]], any[Set[DamlStateKey]]))
+      mockCommitStrategy.generateReadSet(any[Map[DamlStateKey, TestValue]], any[Set[DamlStateKey]])
+    )
       .thenAnswer[Map[DamlStateKey, TestValue], Set[DamlStateKey]] { (_, accessedKeys) =>
         TestReadSet(accessedKeys)
       }
@@ -235,14 +208,17 @@ object PreExecutingSubmissionValidatorSpec {
         any[DamlLogEntryId],
         any[Map[DamlStateKey, TestValue]],
         same(result),
-      )(any[ExecutionContext]))
+      )(any[ExecutionContext])
+    )
       .thenReturn(
         Future.successful(
           PreExecutionCommitResult(
             expectedSuccessWriteSet,
             expectedOutOfTimeBoundsWriteSet,
             expectedInvolvedParticipants,
-          )))
+          )
+        )
+      )
 
     new PreExecutingSubmissionValidator(mockCommitter, mockCommitStrategy, metrics)
   }
@@ -253,9 +229,9 @@ object PreExecutingSubmissionValidatorSpec {
     val wrappedInputState = inputState.mapValues(TestValue(_))
     new StateReader[DamlStateKey, TestValue] {
       override def read(
-          keys: Seq[DamlStateKey]
+          keys: Iterable[DamlStateKey]
       )(implicit executionContext: ExecutionContext): Future[Seq[TestValue]] =
-        Future.successful(keys.map(wrappedInputState))
+        Future.successful(keys.view.map(wrappedInputState).toVector)
     }
   }
 

@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Verification Tool
+Daml Verification Tool
 ======================
 
-This project performs fully automated formal verification of DAML code.
+This project performs fully automated formal verification of Daml code.
 Provided with a choice of a template and a field of a (potentially different) template, the verification tool employs symbolic 
 execution and an SMT solver, to verify whether the given choice always preserves
 the total amount of the given field. This allows it to automatically answer
@@ -14,13 +14,13 @@ money out of thin air?"
 Installation
 ============
 
-- Install the `DAML development dependecies`_.
+- Install the `Daml development dependecies`_.
 
 - Install the `Z3 SMT solver`_. 
   Note that on Linux, you can alternatively install Z3 using
   ``sudo apt install z3``.
 
-.. _DAML development dependecies: https://github.com/digital-asset/daml/
+.. _Daml development dependecies: https://github.com/digital-asset/daml/
 .. _Z3 SMT solver: https://github.com/Z3Prover/z3
 
 Running the Verification Tool

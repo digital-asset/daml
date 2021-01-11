@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -109,7 +109,7 @@ object Util {
           buildGraph(
             newDeps.foldLeft(toProcess1)(_.::(_)),
             seen0 ++ newDeps,
-            graph0.updated(pkgId, deps)
+            graph0.updated(pkgId, deps),
           )
         case Nil => graph0
       }
@@ -121,21 +121,22 @@ object Util {
         // (i.e. we find a collision in SHA256), so we crash.
         cycle =>
           throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
-        identity
+        identity,
       )
   }
 
   private[this] def toSignature(choice: TemplateChoice): TemplateChoiceSignature =
     choice match {
       case TemplateChoice(
-          name,
-          consuming,
-          _,
-          choiceObservers,
-          selfBinder,
-          argBinder,
-          returnType,
-          _) =>
+            name,
+            consuming,
+            _,
+            choiceObservers,
+            selfBinder,
+            argBinder,
+            returnType,
+            _,
+          ) =>
         TemplateChoiceSignature(
           name,
           consuming,
@@ -144,7 +145,8 @@ object Util {
           selfBinder,
           argBinder,
           returnType,
-          ())
+          (),
+        )
     }
 
   private[this] def toSignature(key: TemplateKey): TemplateKeySignature =

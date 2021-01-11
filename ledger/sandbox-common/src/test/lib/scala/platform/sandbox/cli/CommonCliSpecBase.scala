@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.cli
@@ -21,7 +21,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 abstract class CommonCliSpecBase(
     protected val cli: SandboxCli,
@@ -70,7 +70,8 @@ abstract class CommonCliSpecBase(
       val participantId = "myParticipant"
       checkOption(
         Array("--participant-id", participantId),
-        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")))
+        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")),
+      )
     }
 
     "apply static time when given" in {
@@ -81,7 +82,8 @@ abstract class CommonCliSpecBase(
     "apply wall-clock time when given" in {
       checkOption(
         Array("--wall-clock-time"),
-        _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+        _.copy(timeProviderType = Some(TimeProviderType.WallClock)),
+      )
       checkOption(Array("-w"), _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
     }
 
@@ -94,7 +96,8 @@ abstract class CommonCliSpecBase(
       val crt = "mycrt"
       checkOption(
         Array("--crt", crt),
-        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, Some(new File(crt)), None, None))))
+        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, Some(new File(crt)), None, None))),
+      )
     }
 
     "parse the cacrt file when given" in {
@@ -102,21 +105,27 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--cacrt", cacrt),
         _.copy(
-          tlsConfig = Some(TlsConfiguration(enabled = true, None, None, Some(new File(cacrt))))))
+          tlsConfig = Some(TlsConfiguration(enabled = true, None, None, Some(new File(cacrt))))
+        ),
+      )
     }
 
     "parse the pem file when given" in {
       val pem = "mypem"
       checkOption(
         Array("--pem", pem),
-        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
+        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))),
+      )
     }
 
     "set certificate revocation checks property" in {
       checkOption(
         Array("--cert-revocation-checking", "true"),
-        _.copy(tlsConfig = Some(
-          TlsConfiguration(enabled = true, None, None, None, enableCertRevocationChecking = true)))
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(enabled = true, None, None, None, enableCertRevocationChecking = true)
+          )
+        ),
       )
     }
 
@@ -230,7 +239,7 @@ abstract class CommonCliSpecBase(
 
   protected def checkOption(
       args: Array[String],
-      expectedChange: SandboxConfig => SandboxConfig
+      expectedChange: SandboxConfig => SandboxConfig,
   ): Assertion = {
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
     val config = cli.parse(requiredArgs ++ args ++ Array(archive))
