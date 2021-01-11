@@ -12,7 +12,7 @@ import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 
 import scala.collection.concurrent.TrieMap
-import scala.io.Source
+import scala.io.{BufferedSource, Source}
 import scala.util.Try
 
 private[oauth2] class RequestTemplates(
@@ -36,14 +36,18 @@ private[oauth2] class RequestTemplates(
       optFilePath: Option[Path],
       resourcePath: String,
   ): (String, sjsonnet.Path) = {
+    def readSource(source: BufferedSource): String = {
+      try { source.mkString }
+      finally { source.close() }
+    }
     optFilePath match {
       case Some(filePath) =>
-        val content: String = Source.fromFile(filePath.toString).mkString
+        val content: String = readSource(Source.fromFile(filePath.toString))
         val path: sjsonnet.Path = sjsonnet.OsPath(os.Path(filePath.toAbsolutePath))
         (content, path)
       case None =>
         val resource = getClass.getResource(resourcePath)
-        val content: String = Source.fromInputStream(resource.openStream()).mkString
+        val content: String = readSource(Source.fromInputStream(resource.openStream()))
         // This path is only used for error reporting and a builtin template should not raise any errors.
         // However, if it does it should be clear that the path refers to a builtin file.
         // Paths are reported relative to `$PWD`, we prefix `$PWD` to avoid `../../` noise.
