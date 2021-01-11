@@ -1,0 +1,133 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+#ifndef DAML_EXCEPTIONS
+
+-- | HIDE
+module DA.Internal.Exception where
+
+#else
+
+-- | MOVE DA.Exception This module contains the definitions needed for exception desugaring.
+module DA.Internal.Exception
+    ( module DA.Internal.Exception
+    , AnyException
+    , GeneralError
+    , ArithmeticError
+    , ContractError
+    ) where
+
+import GHC.Types
+import DA.Internal.LF
+import DA.Internal.Prelude
+
+--------------------------------------------------------------
+
+-- | Exception typeclass. This should not be implemented directly,
+-- instead, use the `exception` syntax.
+type Exception e =
+    ( HasThrow e
+    , HasMessage e
+    , HasToAnyException e
+    , HasFromAnyException e
+    )
+
+-- | Part of the `Exception` constraint.
+class HasThrow e where
+    -- | Throw exception in a pure context.
+    throwPure : forall t. e -> t
+
+-- | Part of the `Exception` constraint.
+class HasMessage e where
+    -- | Get the error message associated with an exception.
+    message : e -> Text
+
+-- | Part of the `Exception` constraint.
+class HasToAnyException e where
+    -- | Convert an exception type to AnyException.
+    toAnyException : e -> AnyException
+
+-- | Part of the `Exception` constraint.
+class HasFromAnyException e where
+    -- | Convert an AnyException back to the underlying exception type, if possible.
+    fromAnyException : AnyException -> Optional e
+
+--------------------------------------------------------------
+
+-- No throw for AnyException.
+
+instance HasMessage AnyException where
+    message = undefined -- primitive @"BEAnyExceptionMessage"
+
+instance HasToAnyException AnyException where
+    toAnyException e = e
+
+instance HasFromAnyException AnyException where
+    fromAnyException = Some
+
+--------------------------------------------------------------
+
+instance HasThrow GeneralError where
+    throwPure = undefined -- primitive @"EThrow"
+
+instance HasMessage GeneralError where
+    message = undefined -- primitive @"BEGeneralErrorMessage"
+
+instance HasToAnyException GeneralError where
+    toAnyException = undefined -- primitive @"EToAnyException"
+
+instance HasFromAnyException GeneralError where
+    fromAnyException = undefined -- primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+instance HasThrow ArithmeticError where
+    throwPure = undefined -- primitive @"EThrow"
+
+instance HasMessage ArithmeticError where
+    message = undefined -- primitive @"BEArithmeticErrorMessage"
+
+instance HasToAnyException ArithmeticError where
+    toAnyException = undefined -- primitive @"EToAnyException"
+
+instance HasFromAnyException ArithmeticError where
+    fromAnyException = undefined -- primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+instance HasThrow ContractError where
+    throwPure = undefined -- primitive @"EThrow"
+
+instance HasMessage ContractError where
+    message = undefined -- primitive @"BEContractErrorMessage"
+
+instance HasToAnyException ContractError where
+    toAnyException = undefined -- primitive @"EToAnyException"
+
+instance HasFromAnyException ContractError where
+    fromAnyException = undefined -- primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+-- | Action type in which `throw` is supported.
+class Action m => ActionThrow m where
+    throw : Exception e => e -> m t
+
+-- | Action type in which `try ... catch ...` is supported.
+class ActionThrow m => ActionCatch m where
+    -- | Handle an exception. Use the `try ... catch ...` syntax
+    -- instead of calling this method directly.
+    tryCatchRaw : (() -> m t) -> (AnyException -> Optional (m t)) -> m t
+
+instance ActionThrow Update where
+    throw e = pure () >>= \_ -> throwPure e
+
+instance ActionCatch Update where
+    tryCatchRaw = undefined -- primitive @"UTryCatch"
+
+--------------------------------------------------------------
+
+#endif

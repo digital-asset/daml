@@ -373,6 +373,25 @@ convertPrim version "EToAnyContractKey"
         ETmLam (mkVar "key", key) $
         EToAny key (EVar $ mkVar "key")
 
+-- Exceptions
+convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
+    EBuiltin BEAnyExceptionMessage
+convertPrim _ "BEGeneralErrorMessage" (TBuiltin BTGeneralError :-> TText) =
+    EBuiltin BEGeneralErrorMessage
+convertPrim _ "BEArithmeticErrorMessage" (TBuiltin BTArithmeticError :-> TText) =
+    EBuiltin BEArithmeticErrorMessage
+convertPrim _ "BEContractErrorMessage" (TBuiltin BTContractError :-> TText) =
+    EBuiltin BEContractErrorMessage
+
+-- TODO #8020 https://github.com/digital-asset/daml/issues/8020
+-- Handle these three in LFConversion.hs and check that ty1 is an exception type.
+convertPrim _ "EThrow" (ty1 :-> ty2) =
+    ETmLam (mkVar "x", ty1) (EThrow ty2 ty1 (EVar (mkVar "x")))
+convertPrim _ "EToAnyException" (ty :-> TBuiltin BTAnyException) =
+    ETmLam (mkVar "x", ty) (EToAnyException ty (EVar (mkVar "x")))
+convertPrim _ "EFromAnyException" (TBuiltin BTAnyException :-> TOptional ty) =
+    ETmLam (mkVar "x", TBuiltin BTAnyException) (EFromAnyException ty (EVar (mkVar "x")))
+
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
