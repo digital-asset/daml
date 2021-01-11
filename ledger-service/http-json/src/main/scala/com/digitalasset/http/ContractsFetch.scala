@@ -75,17 +75,45 @@ private class ContractsFetch(
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
-    cats.syntax.functor._, doobie.implicits._
+    cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
     connectionIOFuture(getTermination(jwt)) flatMap {
-      _ cata (absEnd =>
-        templateIds
-          .traverse_ {
-            fetchAndPersist(jwt, parties, absEnd, _)
-          }
-          .as(AbsoluteBookmark(absEnd)), fconn.pure(LedgerBegin))
+      _.cata(
+        absEnd =>
+          // traverse once, use the max _returned_ bookmark,
+          // re-traverse any that != the max returned bookmark (overriding lastOffset)
+          // fetch cannot go "too far" the second time
+          templateIds.traverse(fetchAndPersist(jwt, parties, absEnd, _)).flatMap { actualAbsEnds =>
+            val newAbsEndTarget = {
+              import scalaz.std.list._, scalaz.syntax.foldable._,
+              domain.Offset.{ordering => `Offset ordering`}
+              actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+            }
+            newAbsEndTarget match {
+              case LedgerBegin =>
+                fconn.pure(AbsoluteBookmark(absEnd))
+              case AbsoluteBookmark(domain.Offset.tag(feedback)) =>
+                val feedbackTerminator =
+                  Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
+                (actualAbsEnds zip templateIds)
+                  .filter(_._1 != newAbsEndTarget)
+                  .traverse_ { case (laggingAbsEnd @ _, templateId) =>
+                    // TODO SC force contractsIo_ to use tx stream only and laggingAbsEnd
+                    fetchAndPersist(jwt, parties, feedbackTerminator, templateId)
+                      .map { computedAbsEnd =>
+                        if (computedAbsEnd != newAbsEndTarget)
+                          logger.error(
+                            s"s11 mismatched DB catchup target ${newAbsEndTarget: Any}, actual ${computedAbsEnd: Any}"
+                          )
+                      }
+                  }
+                  .as(AbsoluteBookmark(feedbackTerminator))
+            }
+          },
+        fconn.pure(LedgerBegin),
+      )
     }
 
   }
