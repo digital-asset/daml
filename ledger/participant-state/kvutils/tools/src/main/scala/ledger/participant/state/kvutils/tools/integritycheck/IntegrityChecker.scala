@@ -25,7 +25,7 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidatorParameters,
   ConflictDetection,
 }
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -57,7 +57,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       println()
     }
 
-    val engine = new Engine(EngineConfig.Stable)
+    val engine = new Engine()
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
     val submissionValidator = BatchedSubmissionValidator[LogResult](

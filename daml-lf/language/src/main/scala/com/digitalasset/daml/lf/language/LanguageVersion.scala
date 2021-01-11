@@ -17,10 +17,6 @@ object LanguageVersion {
   type Minor = LanguageMinorVersion
   val Minor = LanguageMinorVersion
 
-  val defaultV1: LanguageVersion = LanguageVersion(Major.V1, Minor("8"))
-
-  val default: LanguageVersion = defaultV1
-
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
@@ -58,10 +54,25 @@ object LanguageVersion {
 
   }
 
-  private[lf] val StableVersions: VersionRange[LanguageVersion] =
+  // All the stable versions.
+  val StableVersions: VersionRange[LanguageVersion] =
     VersionRange(min = v1_6, max = v1_8)
 
-  private[lf] val DevVersions: VersionRange[LanguageVersion] =
+  // All versions compatible with legacy contract ID scheme.
+  val LegacyVersions: VersionRange[LanguageVersion] =
+    StableVersions.copy(max = v1_8)
+
+  // All the stable and preview versions
+  // Equals `Stable` if no preview version is available
+  val EarlyAccessVersions: VersionRange[LanguageVersion] =
+    StableVersions.copy(max = v1_11)
+
+  // All the versions
+  val DevVersions: VersionRange[LanguageVersion] =
     StableVersions.copy(max = v1_dev)
+
+  val defaultV1: LanguageVersion = StableVersions.max
+
+  val default: LanguageVersion = defaultV1
 
 }

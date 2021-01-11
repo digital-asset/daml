@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
@@ -37,6 +38,7 @@ import com.daml.platform.configuration.{InvalidConfigException, PartyConfigurati
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
+import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
@@ -143,23 +145,23 @@ final class SandboxServer(
 
   private[this] val engine = {
     val engineConfig = {
-      val baseConfig =
-        if (config.seeding.isEmpty) {
-          if (config.devMode) {
+      val allowedLanguageVersions =
+        config.engineMode match {
+          case EngineMode.Stable if config.seeding.nonEmpty =>
+            LanguageVersion.StableVersions
+          case EngineMode.Stable =>
+            LanguageVersion.LegacyVersions
+          case EngineMode.EarlyAccess if config.seeding.nonEmpty =>
+            LanguageVersion.EarlyAccessVersions
+          case EngineMode.Dev if config.seeding.nonEmpty =>
+            LanguageVersion.DevVersions
+          case mode =>
             throw new InvalidConfigException(
-              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode"""
+              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with $mode mode"""
             )
-          } else {
-            EngineConfig.Legacy
-          }
-        } else {
-          if (config.devMode) {
-            EngineConfig.Dev
-          } else {
-            EngineConfig.Stable
-          }
         }
-      baseConfig.copy(
+      EngineConfig(
+        allowedLanguageVersions = allowedLanguageVersions,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
       )
@@ -404,11 +406,19 @@ final class SandboxServer(
              |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
         )
       }
-      if (config.seeding.isEmpty) {
+      if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {
         logger.withoutContext.warn(
-          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with LF 1.11 languages or later. 
+          """|Using early access mode is dangerous as the backward compatibility of future SDKs is not guaranteed.
+             |Should be used for testing purpose only.""".stripMargin
+        )
+      }
+      if (config.seeding.isEmpty) {
+        // TODO https://github.com/digital-asset/daml/issues/7139
+        //  rephrase the message once LF 1.11 is released
+        logger.withoutContext.warn(
+          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with the LF 1.11 languages or later which will be released soon.
               |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
-              |Use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode and allow loading of any stable LF languages.""".stripMargin
+              |To make sure you can load LF 1.11 in future releases, use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode.""".stripMargin
         )
       }
       apiServer

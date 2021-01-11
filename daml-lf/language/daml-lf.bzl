@@ -6,7 +6,10 @@
 # we bump stable.
 lf_stable_version = "1.8"
 lf_latest_version = "1.8"
-lf_preview_versions = ["1.11"]
+
+# lf_preview_version is non empty if a preview version is available
+# contains at most one version
+lf_preview_version = ["1.11"]
 lf_dev_version = "1.dev"
 
 # All LF versions for which we have protobufs.

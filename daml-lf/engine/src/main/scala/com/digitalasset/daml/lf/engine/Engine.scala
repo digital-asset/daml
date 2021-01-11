@@ -17,6 +17,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.Validation
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -48,7 +49,7 @@ import com.daml.lf.validation.Validation
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = EngineConfig.Stable) {
+class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions)) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
@@ -477,8 +478,8 @@ object Engine {
     }
   }
 
-  def DevEngine(): Engine = new Engine(EngineConfig.Dev)
+  def DevEngine(): Engine = new Engine(new EngineConfig(LanguageVersion.DevVersions))
 
-  def StableEngine(): Engine = new Engine(EngineConfig.Stable)
+  def StableEngine(): Engine = new Engine()
 
 }
