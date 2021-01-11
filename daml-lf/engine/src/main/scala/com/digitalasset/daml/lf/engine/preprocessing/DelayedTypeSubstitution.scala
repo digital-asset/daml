@@ -9,7 +9,7 @@ import com.daml.lf.language.Ast.{TVar, Type}
 import data.Ref
 
 // To handle a closed substitution in a lazy way while traversing a term top down.
-private[preprocessing] class DelayedTypeSubstitution private(
+private[preprocessing] class DelayedTypeSubstitution private (
     mapping: Map[Ref.Name, (DelayedTypeSubstitution, Type)]
 ) {
 
@@ -19,7 +19,10 @@ private[preprocessing] class DelayedTypeSubstitution private(
   def apply(typ: Type): (DelayedTypeSubstitution, Type) =
     typ match {
       case TVar(name) =>
-        mapping.getOrElse(name, throw new IllegalArgumentException(s"unexpected free variable $name"))
+        mapping.getOrElse(
+          name,
+          throw new IllegalArgumentException(s"unexpected free variable $name"),
+        )
       case otherwise => (this -> otherwise)
     }
 
@@ -27,14 +30,14 @@ private[preprocessing] class DelayedTypeSubstitution private(
   def introVar(name: Ref.Name, typ: Type) =
     new DelayedTypeSubstitution(mapping.updated(name, apply(typ)))
 
-  // variables that appear in `typ` in the domain of `mapping`
+  // variables that appear in the co-domain of `newMapping` must be in the domain of `mapping`
   // requirement: names.size == xs.size
   def introVars(newMapping: Iterable[(Ref.Name, Type)]): DelayedTypeSubstitution = {
     if (newMapping.isEmpty) {
       this
     } else {
-      val updatedMapping = newMapping.foldLeft(mapping){
-        case (acc, (name, typ)) => acc.updated(name, apply(typ))
+      val updatedMapping = newMapping.foldLeft(mapping) { case (acc, (name, typ)) =>
+        acc.updated(name, apply(typ))
       }
       new DelayedTypeSubstitution(updatedMapping)
     }
@@ -42,5 +45,5 @@ private[preprocessing] class DelayedTypeSubstitution private(
 }
 
 object DelayedTypeSubstitution {
- val Empty = new DelayedTypeSubstitution(Map.empty)
+  val Empty = new DelayedTypeSubstitution(Map.empty)
 }

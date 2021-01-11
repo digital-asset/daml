@@ -53,10 +53,10 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
     val cids = Set.newBuilder[Value.ContractId]
 
     def go(
-            ty: Type,
-            value: Value[ContractId],
-            subst0: DelayedTypeSubstitution = DelayedTypeSubstitution.Empty,
-            nesting: Int = 0,
+        ty: Type,
+        value: Value[ContractId],
+        subst0: DelayedTypeSubstitution = DelayedTypeSubstitution.Empty,
+        nesting: Int = 0,
     ): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         fail(s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
@@ -115,9 +115,9 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
 
           // variants
           case (
-            TTyConApp(typeVariantId, tyConArgs),
-            ValueVariant(mbId, constructorName, val0),
-            ) =>
+                TTyConApp(typeVariantId, tyConArgs),
+                ValueVariant(mbId, constructorName, val0),
+              ) =>
             mbId.foreach(id =>
               if (id != typeVariantId)
                 fail(
