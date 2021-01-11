@@ -85,12 +85,14 @@ private[oauth2] class RequestTemplates(
       .toTry
   }
 
+  private lazy val authJsonnetSource: (String, sjsonnet.Path) =
+    jsonnetSource(authTemplate, authResourcePath)
   def createAuthRequest(
       claims: Request.Claims,
       requestId: UUID,
       redirectUri: Uri,
   ): Try[Map[String, String]] = {
-    val (jsonnet_src, jsonnet_path) = jsonnetSource(authTemplate, authResourcePath)
+    val (jsonnet_src, jsonnet_path) = authJsonnetSource
     for {
       value <- interpretJsonnet(
         jsonnet_src,
@@ -119,8 +121,10 @@ private[oauth2] class RequestTemplates(
     } yield params
   }
 
+  private lazy val tokenJsonnetSource: (String, sjsonnet.Path) =
+    jsonnetSource(tokenTemplate, tokenResourcePath)
   def createTokenRequest(code: String, redirectUri: Uri): Try[Map[String, String]] = {
-    val (jsonnet_src, jsonnet_path) = jsonnetSource(tokenTemplate, tokenResourcePath)
+    val (jsonnet_src, jsonnet_path) = tokenJsonnetSource
     for {
       value <- interpretJsonnet(
         jsonnet_src,
@@ -140,8 +144,10 @@ private[oauth2] class RequestTemplates(
     } yield params
   }
 
+  private lazy val refreshJsonnetSource: (String, sjsonnet.Path) =
+    jsonnetSource(refreshTemplate, refreshResourcePath)
   def createRefreshRequest(refreshToken: RefreshToken): Try[Map[String, String]] = {
-    val (jsonnet_src, jsonnet_path) = jsonnetSource(refreshTemplate, refreshResourcePath)
+    val (jsonnet_src, jsonnet_path) = refreshJsonnetSource
     for {
       value <- interpretJsonnet(
         jsonnet_src,
