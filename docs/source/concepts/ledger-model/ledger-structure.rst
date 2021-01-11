@@ -218,7 +218,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
    Ledger   ::= Commit*
 
 A Daml ledger thus represents the full history of all actions taken by
-parties.\ [#ledger-vs-journal]_ Since the ledger has a sequence (of dependent actions), it induces an
+parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
 *order* on the commits in the ledger. Visually, a ledger can be represented
 as a sequence growing from left to right as time progresses. Below,
 dashed vertical lines mark the boundaries of commits, and each commit is
