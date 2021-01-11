@@ -26,10 +26,6 @@ private[preprocessing] class DelayedTypeSubstitution private (
       case otherwise => (this -> otherwise)
     }
 
-  // variables that appear in `typ` must be in the domain of `mapping`
-  def introVar(name: Ref.Name, typ: Type) =
-    new DelayedTypeSubstitution(mapping.updated(name, apply(typ)))
-
   // variables that appear in the co-domain of `newMapping` must be in the domain of `mapping`
   def introVars(newMapping: Iterable[(Ref.Name, Type)]): DelayedTypeSubstitution = {
     if (newMapping.isEmpty) {
