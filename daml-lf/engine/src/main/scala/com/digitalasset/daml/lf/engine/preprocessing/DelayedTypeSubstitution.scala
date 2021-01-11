@@ -31,7 +31,6 @@ private[preprocessing] class DelayedTypeSubstitution private (
     new DelayedTypeSubstitution(mapping.updated(name, apply(typ)))
 
   // variables that appear in the co-domain of `newMapping` must be in the domain of `mapping`
-  // requirement: names.size == xs.size
   def introVars(newMapping: Iterable[(Ref.Name, Type)]): DelayedTypeSubstitution = {
     if (newMapping.isEmpty) {
       this
