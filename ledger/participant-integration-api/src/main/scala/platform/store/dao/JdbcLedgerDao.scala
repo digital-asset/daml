@@ -247,6 +247,7 @@ private class JdbcLedgerDao(
         }
 
       ParametersTable.updateLedgerEnd(offsetStep)
+      val savepoint = conn.setSavepoint()
       val configurationBytes = Configuration.encode(configuration).toByteArray
       val typ = if (finalRejectionReason.isEmpty) {
         acceptType
@@ -274,7 +275,7 @@ private class JdbcLedgerDao(
       }).recover {
         case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
           logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
-          conn.rollback()
+          conn.rollback(savepoint)
           PersistenceResponse.Duplicate
       }.get
 
@@ -303,6 +304,7 @@ private class JdbcLedgerDao(
         queries.enableAsyncCommit
       }
       ParametersTable.updateLedgerEnd(offsetStep)
+      val savepoint = conn.setSavepoint()
 
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
@@ -331,7 +333,7 @@ private class JdbcLedgerDao(
               logger.warn(
                 s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt"
               )
-              conn.rollback()
+              conn.rollback(savepoint)
               PersistenceResponse.Duplicate
           }.get
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
