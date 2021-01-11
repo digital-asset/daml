@@ -91,9 +91,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
 
           // list
           case (TList(elemType), ValueList(ls)) =>
-            SValue.SList(
-              ls.map(go(elemType, _, subst1, newNesting))
-            )
+            SValue.SList(ls.map(go(elemType, _, subst1, newNesting)))
 
           // textMap
           case (TTextMap(elemType), ValueTextMap(entries)) =>
@@ -114,46 +112,42 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
             )
 
           // variants
-          case (
-                TTyConApp(typeVariantId, tyConArgs),
-                ValueVariant(mbId, constructorName, val0),
-              ) =>
+          case (TTyConApp(tycon, tyConArgs), ValueVariant(mbId, constructorName, val0)) =>
             mbId.foreach(id =>
-              if (id != typeVariantId)
+              if (id != tycon)
                 fail(
-                  s"Mismatching variant id, the type tells us $typeVariantId, but the value tells us $id"
+                  s"Mismatching variant id, the type tells us $tycon, but the value tells us $id"
                 )
             )
-            val pkg = unsafeGetPackage(typeVariantId.packageId)
+            val pkg = unsafeGetPackage(tycon.packageId)
             val (dataTypParams, variantDef) =
-              assertRight(SignatureLookup.lookupVariant(pkg, typeVariantId.qualifiedName))
+              assertRight(SignatureLookup.lookupVariant(pkg, tycon.qualifiedName))
             variantDef.constructorRank.get(constructorName) match {
               case None =>
                 fail(
-                  s"Couldn't find provided variant constructor $constructorName in variant $typeVariantId"
+                  s"Couldn't find provided variant constructor $constructorName in variant $tycon"
                 )
+
               case Some(rank) =>
                 val (_, argTyp) = variantDef.variants(rank)
                 val newSubst =
                   subst1.introVars(dataTypParams.toSeq.view.map(_._1) zip tyConArgs.toSeq)
                 SValue.SVariant(
-                  typeVariantId,
+                  tycon,
                   constructorName,
                   rank,
                   go(argTyp, val0, newSubst, newNesting),
                 )
             }
           // records
-          case (TTyConApp(typeRecordId, tyConArgs), ValueRecord(mbId, flds)) =>
+          case (TTyConApp(tycon, tyConArgs), ValueRecord(mbId, flds)) =>
             mbId.foreach(id =>
-              if (id != typeRecordId)
-                fail(
-                  s"Mismatching record id, the type tells us $typeRecordId, but the value tells us $id"
-                )
+              if (id != tycon)
+                fail(s"Mismatching record id, the type tells us $tycon, but the value tells us $id")
             )
-            val pkg = unsafeGetPackage(typeRecordId.packageId)
+            val pkg = unsafeGetPackage(tycon.packageId)
             val (dataTypParams, DataRecord(recordFlds)) =
-              assertRight(SignatureLookup.lookupRecord(pkg, typeRecordId.qualifiedName))
+              assertRight(SignatureLookup.lookupRecord(pkg, tycon.qualifiedName))
             // note that we check the number of fields _before_ checking if we can do
             // field reordering by looking at the labels. this means that it's forbidden to
             // repeat keys even if we provide all the labels, which might be surprising
@@ -161,7 +155,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
             // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
             if (recordFlds.length != flds.length) {
               fail(
-                s"Expecting ${recordFlds.length} field for record $typeRecordId, but got ${flds.length}"
+                s"Expecting ${recordFlds.length} field for record $tycon, but got ${flds.length}"
               )
             }
             val newSubst = subst1.introVars(dataTypParams.toSeq.view.map(_._1) zip tyConArgs.toSeq)
@@ -171,7 +165,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                   mbLbl.foreach(lbl_ =>
                     if (lbl_ != lbl)
                       fail(
-                        s"Mismatching record label $lbl_ (expecting $lbl) for record $typeRecordId"
+                        s"Mismatching record label $lbl_ (expecting $lbl) for record $tycon"
                       )
                   )
 
@@ -181,34 +175,30 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 recordFlds.map { case (lbl, typ) =>
                   labeledRecords
                     .get(lbl)
-                    .fold(fail(s"Missing record label $lbl for record $typeRecordId")) { v =>
+                    .fold(fail(s"Missing record label $lbl for record $tycon")) { v =>
                       lbl -> go(typ, v, newSubst, newNesting)
                     }
                 }
             }
 
             SValue.SRecord(
-              typeRecordId,
+              tycon,
               fields.map(_._1),
               ArrayList(fields.map(_._2).toSeq: _*),
             )
 
-          case (TTyCon(typeEnumId), ValueEnum(mbId, constructor)) =>
+          case (TTyCon(tycon), ValueEnum(mbId, constructor)) =>
             mbId.foreach(id =>
-              if (id != typeEnumId)
-                fail(
-                  s"Mismatching enum id, the type tells us $typeEnumId, but the value tells us $id"
-                )
+              if (id != tycon)
+                fail(s"Mismatching enum id, the type tells us $tycon, but the value tells us $id")
             )
-            val pkg = unsafeGetPackage(typeEnumId.packageId)
-            val dataDef = assertRight(SignatureLookup.lookupEnum(pkg, typeEnumId.qualifiedName))
+            val pkg = unsafeGetPackage(tycon.packageId)
+            val dataDef = assertRight(SignatureLookup.lookupEnum(pkg, tycon.qualifiedName))
             dataDef.constructorRank.get(constructor) match {
               case Some(rank) =>
-                SValue.SEnum(typeEnumId, constructor, rank)
+                SValue.SEnum(tycon, constructor, rank)
               case None =>
-                fail(
-                  s"Couldn't find provided variant constructor $constructor in enum $typeEnumId"
-                )
+                fail(s"Couldn't find provided variant constructor $constructor in enum $tycon")
             }
 
           // every other pairs of types and values are invalid
