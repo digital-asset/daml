@@ -99,9 +99,10 @@ private[oauth2] class RequestTemplates(
           "request" -> ujson.Obj(
             "claims" -> ujson.Obj(
               "admin" -> claims.admin,
-              "applicationId" -> ujson.Str(
-                ApplicationId.unsubst(claims.applicationId).getOrElse("")
-              ),
+              "applicationId" -> (claims.applicationId match {
+                case Some(ApplicationId(appId)) => appId
+                case None => ujson.Null
+              }),
               "actAs" -> Party.unsubst(claims.actAs),
               "readAs" -> Party.unsubst(claims.readAs),
             ),

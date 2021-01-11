@@ -1,6 +1,6 @@
 local scope(claims) =
   local admin = if claims.admin then "admin";
-  local applicationId = if std.length(claims.applicationId) > 0 then "applicationId:" + claims.applicationId;
+  local applicationId = if claims.applicationId != null then "applicationId:" + claims.applicationId;
   local actAs = std.map(function(p) "actAs:" + p, claims.actAs);
   local readAs = std.map(function(p) "readAs:" + p, claims.readAs);
   [admin, applicationId] + actAs + readAs;
