@@ -59,15 +59,15 @@ object EngineConfig {
     * Recommended production configuration.
     * Allows the all stable versions of language.
     */
-  @deprecated("use LanguageVersion.StableVersions directly", since = "1.10.0")
+  @deprecated("use LanguageVersion.StableVersions directly", since = "1.9.0")
   def Stable: EngineConfig = new EngineConfig(
     allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
   /**
-    * Allows languages version compatible with legacy contract ID is used.
+    * Only allows language versions compatible with the legacy contract ID scheme.
     */
-  @deprecated("use LanguageVersion.LegacyVersions directly", since = "1.10.0")
+  @deprecated("use LanguageVersion.LegacyVersions directly", since = "1.9.0")
   def Legacy: EngineConfig = new EngineConfig(
     allowedLanguageVersions = LanguageVersion.LegacyVersions
   )
@@ -76,7 +76,7 @@ object EngineConfig {
     * Development configuration, should not be used in PROD.
     * Allows all language version
     */
-  @deprecated("use LanguageVersion.DevVersions directly", since = "1.10.0")
+  @deprecated("use LanguageVersion.DevVersions directly", since = "1.9.0")
   def Dev: EngineConfig = new EngineConfig(
     allowedLanguageVersions = LanguageVersion.DevVersions
   )
