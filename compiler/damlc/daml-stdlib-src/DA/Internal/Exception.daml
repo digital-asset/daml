@@ -120,7 +120,7 @@ class Action m => ActionThrow m where
 class ActionThrow m => ActionCatch m where
     -- | Handle an exception. Use the `try ... catch ...` syntax
     -- instead of calling this method directly.
-    tryCatchRaw : (() -> m t) -> (AnyException -> Maybe (m t)) -> m t
+    tryCatchRaw : (() -> m t) -> (AnyException -> Optional (m t)) -> m t
 
 instance ActionThrow Update where
     throw e = pure () >>= \_ -> throwPure e
