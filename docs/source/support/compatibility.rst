@@ -48,7 +48,6 @@ The below lists with which Daml Connect version a new Ledger API version was int
    * - <= 1.7
      - Introduced with the same Daml Connect / SDK version
 
-
 Driver and Participant Compatibility: Network Upgradeability
 ------------------------------------------------------------
 
