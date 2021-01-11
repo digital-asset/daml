@@ -52,7 +52,8 @@ object WebSocketService {
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: domain.ActiveContract[LfV] => Option[Positive],
       dbQuery: OneAnd[Set, domain.Party] => LogHandler => ConnectionIO[
-        _ <: Vector[(domain.ActiveContract[JsValue], Positive)]],
+        _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
+      ],
   )
 
   private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
@@ -201,10 +202,15 @@ object WebSocketService {
           case (tpid, nel) => nel.toVector.map { case ((vp, _), _) => (tpid, vp.toSqlWhereClause) }
         }
 
-        StreamPredicate(resolved, unresolved, fn, { parties => implicit lh =>
-          dbbackend.ContractDao
-            .selectContractsMultiTemplate(parties, dbQueries)
-        })
+        StreamPredicate(
+          resolved,
+          unresolved,
+          fn,
+          { parties => implicit lh =>
+            dbbackend.ContractDao
+              .selectContractsMultiTemplate(parties, dbQueries)
+          },
+        )
       }
 
       private def prepareFilters(
@@ -299,9 +305,14 @@ object WebSocketService {
           import dbbackend.Queries.{intersperse, concatFragment}
           concatFragment(intersperse(OneAnd(khd, ktl) map keyEquality, sql" OR "))
         })
-      StreamPredicate(q.keySet, unresolved, fn, { parties => implicit lh =>
-        dbbackend.ContractDao.selectContractsMultiTemplate(parties, dbQueries).map(_ map (_.void))
-      })
+      StreamPredicate(
+        q.keySet,
+        unresolved,
+        fn,
+        { parties => implicit lh =>
+          dbbackend.ContractDao.selectContractsMultiTemplate(parties, dbQueries).map(_ map (_.void))
+        },
+      )
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
@@ -440,46 +451,50 @@ class WebSocketService(
       Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      def prefilter: Future[(
-          Source[
-            ContractStreamStep[Nothing, (domain.ActiveContract[JsValue], Q.Positive)],
-            NotUsed],
-          Option[domain.StartingOffset])] =
+      def prefilter: Future[
+        (
+            Source[
+              ContractStreamStep[Nothing, (domain.ActiveContract[JsValue], Q.Positive)],
+              NotUsed,
+            ],
+            Option[domain.StartingOffset],
+        )
+      ] =
         contractsService.daoAndFetch
           .filter(_ => offPrefix.isEmpty)
           .cata(
-            {
-              case (dao, fetch) =>
-                val tx = for {
-                  bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
-                  mdContracts <- dbQuery(parties)(dao.logHandler)
-                  _ = logger.info(s"s11 will split at bookmark $bookmark")
-                  // TODO SC: save bookmark here, loop if fail
-                } yield
-                  (
-                    Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source.single(
-                      ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
-                    bookmark.toOption map (term => domain.StartingOffset(term.toDomain)))
-                dao.transact(tx).unsafeToFuture()
+            { case (dao, fetch) =>
+              val tx = for {
+                bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
+                mdContracts <- dbQuery(parties)(dao.logHandler)
+                _ = logger.info(s"s11 will split at bookmark $bookmark")
+                // TODO SC: save bookmark here, loop if fail
+              } yield (
+                Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
+                  .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
+                bookmark.toOption map (term => domain.StartingOffset(term.toDomain)),
+              )
+              dao.transact(tx).unsafeToFuture()
             },
-            Future.successful((Source.empty, offPrefix))
+            Future.successful((Source.empty, offPrefix)),
           )
 
       Source
         .lazyFutureSource(() =>
-          prefilter.map {
-            case (prefiltered, shiftedPrefix) =>
-              logger.info(s"s11 starting live at bookmark $shiftedPrefix")
-              val liveFiltered = contractsService
-                .insertDeleteStepSource(
-                  jwt,
-                  parties,
-                  resolved.toList,
-                  shiftedPrefix,
-                  Terminates.Never)
-                .via(convertFilterContracts(fn))
-              prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered
-        })
+          prefilter.map { case (prefiltered, shiftedPrefix) =>
+            logger.info(s"s11 starting live at bookmark $shiftedPrefix")
+            val liveFiltered = contractsService
+              .insertDeleteStepSource(
+                jwt,
+                parties,
+                resolved.toList,
+                shiftedPrefix,
+                Terminates.Never,
+              )
+              .via(convertFilterContracts(fn))
+            prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered
+          }
+        )
         .mapMaterializedValue { _: Future[NotUsed] =>
           NotUsed
         }

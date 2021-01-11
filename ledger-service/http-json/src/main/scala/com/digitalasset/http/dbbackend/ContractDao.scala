@@ -103,40 +103,44 @@ object ContractDao {
   private[http] def selectContractsMultiTemplate(
       parties: OneAnd[Set, domain.Party],
       predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
-  )(implicit log: LogHandler)
-    : ConnectionIO[Vector[(domain.ActiveContract[JsValue], NonEmptyList[Int])]] = {
+  )(implicit
+      log: LogHandler
+  ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], NonEmptyList[Int])]] = {
     import doobie.postgres.implicits._, cats.syntax.traverse._, cats.instances.vector._
     for {
-      stIdSeq <- predicates.zipWithIndex.toVector.traverse {
-        case ((tid, pred), ix) =>
-          surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
+      stIdSeq <- predicates.zipWithIndex.toVector.traverse { case ((tid, pred), ix) =>
+        surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
       }
       dbContracts <- Queries
-        .selectContractsMultiTemplate(domain.Party unsubst parties, stIdSeq map {
-          case (_, stid, _, pred) => (stid, pred)
-        }, Queries.MatchedQueryMarker.ByInt)
+        .selectContractsMultiTemplate(
+          domain.Party unsubst parties,
+          stIdSeq map { case (_, stid, _, pred) =>
+            (stid, pred)
+          },
+          Queries.MatchedQueryMarker.ByInt,
+        )
         .toVector
         .traverse(_.to[Vector])
       tidLookup = stIdSeq.view.map { case (ix, _, tid, _) => ix -> tid }.toMap
-    } yield
-      dbContracts match {
-        case Seq() => Vector.empty
-        case Seq(alreadyUnique) =>
-          alreadyUnique map { dbc =>
-            (toDomain(tidLookup(dbc.templateId))(dbc), NonEmptyList(dbc.templateId))
+    } yield dbContracts match {
+      case Seq() => Vector.empty
+      case Seq(alreadyUnique) =>
+        alreadyUnique map { dbc =>
+          (toDomain(tidLookup(dbc.templateId))(dbc), NonEmptyList(dbc.templateId))
+        }
+      case potentialMultiMatches =>
+        potentialMultiMatches.view.flatten
+          .groupBy(_.contractId)
+          .valuesIterator
+          .map { dbcs =>
+            val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
+            (
+              toDomain(tidLookup(dbc.templateId))(dbc),
+              NonEmptyList.nels(dbc, dups: _*).map(_.templateId),
+            )
           }
-        case potentialMultiMatches =>
-          potentialMultiMatches.view.flatten
-            .groupBy(_.contractId)
-            .valuesIterator
-            .map { dbcs =>
-              val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
-              (
-                toDomain(tidLookup(dbc.templateId))(dbc),
-                NonEmptyList.nels(dbc, dups: _*).map(_.templateId))
-            }
-            .toVector
-      }
+          .toVector
+    }
   }
 
   private[http] def fetchById(
@@ -173,7 +177,8 @@ object ContractDao {
     Queries.surrogateTemplateId(templateId.packageId, templateId.moduleName, templateId.entityName)
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
-      a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]): domain.ActiveContract[JsValue] =
+      a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
+  ): domain.ActiveContract[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,

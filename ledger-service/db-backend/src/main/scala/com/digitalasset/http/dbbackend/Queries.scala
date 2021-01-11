@@ -276,15 +276,16 @@ object Queries {
   private[http] def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
       queries: Seq[(SurrogateTpId, Fragment)],
-      trackMatchIndices: MatchedQueryMarker[T, Mark])(
-      implicit log: LogHandler,
+      trackMatchIndices: MatchedQueryMarker[T, Mark],
+  )(implicit
+      log: LogHandler,
       gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]]): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+      pvs: Put[Vector[String]],
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     val partyVector = parties.toVector
     def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
-      val assocedPreds = preds.map {
-        case (tpid, predicate) =>
-          sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
+      val assocedPreds = preds.map { case (tpid, predicate) =>
+        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
       }
       val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
       val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
@@ -292,16 +293,16 @@ object Queries {
                       WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
                        AND (""" ++ unionPred ++ sql")"
       q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
-        .map {
-          case (cid, tpid, key, payload, signatories, observers, agreement) =>
-            DBContract(
-              contractId = cid,
-              templateId = findMark(tpid),
-              key = key,
-              payload = payload,
-              signatories = signatories,
-              observers = observers,
-              agreementText = agreement)
+        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
+          DBContract(
+            contractId = cid,
+            templateId = findMark(tpid),
+            key = key,
+            payload = payload,
+            signatories = signatories,
+            observers = observers,
+            agreementText = agreement,
+          )
         }
     }
 
@@ -311,8 +312,8 @@ object Queries {
         uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
           preds: Map[SurrogateTpId, (Fragment, Ix)] =>
             val predHd +: predTl = preds.toVector
-            val predsList = OneAnd(predHd, predTl).map {
-              case (tpid, (predicate, _)) => (tpid, predicate)
+            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
+              (tpid, predicate)
             }
             query(predsList, tpid => preds(tpid)._2)
         }
@@ -324,7 +325,8 @@ object Queries {
   }
 
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
-    * and whether it may compute >1 query to run. */
+    * and whether it may compute >1 query to run.
+    */
   private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
       extends Product
       with Serializable
