@@ -151,7 +151,7 @@ In practice, multiple IOU contracts can exist between the same `obligor` and
 in this section, each contract only appears once, allowing us to drop the notion 
 of identifiers for simplicity reasons.
 
-A **transaction** is a list of actions. Thus, the consequences of
+A **transaction** is a non-empty list of actions. Thus, the consequences of
 an exercise form a transaction. In the example, the consequences of the
 Alice's exercise form the following transaction, where actions are again
 ordered left-to-right.
@@ -218,7 +218,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
    Ledger   ::= Commit*
 
 A Daml ledger thus represents the full history of all actions taken by
-parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
+parties.\ [#ledger-vs-journal]_ Since the ledger has a sequence (of dependent actions), it induces an
 *order* on the commits in the ledger. Visually, a ledger can be represented
 as a sequence growing from left to right as time progresses. Below,
 dashed vertical lines mark the boundaries of commits, and each commit is
