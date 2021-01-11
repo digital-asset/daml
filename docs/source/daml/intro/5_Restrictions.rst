@@ -118,7 +118,7 @@ On a distributed DAML ledger, there are no guarantees that ledger time or record
 Actions and ``do`` blocks
 -------------------------
 
-You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Scenario`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming. You can construct ``Actions`` conveniently using ``do`` notation.
+You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Script`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming. You can construct ``Actions`` conveniently using ``do`` notation.
 
 Understanding ``Actions`` and ``do`` blocks is therefore crucial to being able to construct correct contract models and test them, so this section will explain them in some detail.
 
@@ -128,8 +128,6 @@ Pure expressions compared to Actions
 Expressions in DAML are pure in the sense that they have no side-effects: they neither read nor modify any external state. If you know the value of all variables in scope and write an expression, you can work out the value of that expression on pen and paper.
 
 However, the expressions you've seen that used the ``<-`` notation are not like that. For example, take ``getTime``, which is an ``Action``. Here's the example we used earlier:
-
-``getTime`` is a good example of an ``Action``. Here's the example we used earlier
 
 .. code-block:: daml
 

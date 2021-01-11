@@ -293,7 +293,7 @@ parameters in a box (such as
 obligor or owner) can be instantiated by arbitrary values of the
 appropriate type. To facilitate understanding, each box includes a label
 describing the intuitive purpose of the corresponding set of actions.
-As the image suggest, the transfer box imposes the
+As the image suggests, the transfer box imposes the
 constraint that the bank must remain the same both in the exercised
 IOU contract, and in the newly created IOU contract. However, the
 owner can change arbitrarily. In contrast, in the settle actions, both

@@ -119,7 +119,7 @@ frontend whenever you make changes to it. You can add unit tests for your DAML m
 typical DAML developer workflow is to
 
   #. Make a small change to your DAML data model
-  #. Optionally test your DAML code and with :ref:`scenarios <testing-using-scenarios>`
+  #. Optionally test your DAML code with :ref:`scenarios <testing-using-scenarios>`
   #. Edit your React components to be aligned with changes made in DAML code
   #. Extend the UI to make use of the newly introduced feature
   #. Make further changes either to your DAML and/or React code until you're happy with what you've developed
@@ -136,9 +136,9 @@ The interaction of a DAML application with the ledger is inherently asynchronous
 There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
 
 If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
-DAML ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal this problem.
+DAML ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
 
-For each command applications provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
+For each command application provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
 The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
 
 To use command deduplication, you should:
