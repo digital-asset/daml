@@ -22,7 +22,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
   // this is not tail recursive, but it doesn't really matter, since types are bounded
   // by what's in the source, which should be short enough...
   @throws[PreprocessorException]
-  private[this] def replaceParameters(params: Traversable[(TypeVarName, Type)], typ0: Type): Type =
+  private[this] def replaceParameters(params: Iterable[(TypeVarName, Type)], typ0: Type): Type =
     if (params.isEmpty) { // optimization
       typ0
     } else {
