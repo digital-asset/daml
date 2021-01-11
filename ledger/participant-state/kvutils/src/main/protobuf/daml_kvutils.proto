@@ -497,6 +497,7 @@ message DamlContractKeyIdPair {
   DamlContractKey key = 1;
 
   // Contract id the key was resolved to.
+  // An empty string is used to mark "no contract id".
   string resolved_to_id = 2;
 }
 
