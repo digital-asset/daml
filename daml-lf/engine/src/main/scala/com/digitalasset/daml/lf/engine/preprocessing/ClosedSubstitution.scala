@@ -9,7 +9,7 @@ import data.Ref
 
 // To handle a closed substitution in a lazy way while traversing a term top down.
 private[preprocessing] class ClosedSubstitution[X] private (
-    mapping: Map[Ref.Name, (ClosedSubstitution[X], X)],
+    mapping: Map[Ref.Name, (ClosedSubstitution[X], X)]
 ) {
 
   def get(name: Ref.Name): Option[(ClosedSubstitution[X], X)] =

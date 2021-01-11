@@ -19,12 +19,14 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
   import Preprocessor._
 
   @throws[PreprocessorException]
-  private def labeledRecordToMap(fields: ImmArray[(Option[String], Value[ContractId])])
-    : Option[Map[String, Value[ContractId]]] = {
+  private def labeledRecordToMap(
+      fields: ImmArray[(Option[String], Value[ContractId])]
+  ): Option[Map[String, Value[ContractId]]] = {
     @tailrec
     def go(
         fields: ImmArray[(Option[String], Value[ContractId])],
-        map: Map[String, Value[ContractId]]): Option[Map[String, Value[ContractId]]] = {
+        map: Map[String, Value[ContractId]],
+    ): Option[Map[String, Value[ContractId]]] = {
       fields match {
         case ImmArray() => Some(map)
         case ImmArrayCons((None, _), _) => None
@@ -105,36 +107,39 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
               case (TTextMap(elemType), ValueTextMap(entries)) =>
                 SValue.SGenMap(
                   isTextMap = true,
-                  entries = entries.iterator.map {
-                    case (k, v) => SValue.SText(k) -> go(elemType, v, subst, newNesting)
-                  }
+                  entries = entries.iterator.map { case (k, v) =>
+                    SValue.SText(k) -> go(elemType, v, subst, newNesting)
+                  },
                 )
 
               // genMap
               case (TGenMap(keyType, valueType), ValueGenMap(entries)) =>
                 SValue.SGenMap(
                   isTextMap = false,
-                  entries = entries.iterator.map {
-                    case (k, v) =>
-                      go(keyType, k, subst, newNesting) -> go(valueType, v, subst, newNesting)
-                  }
+                  entries = entries.iterator.map { case (k, v) =>
+                    go(keyType, k, subst, newNesting) -> go(valueType, v, subst, newNesting)
+                  },
                 )
 
               // variants
               case (
-                  TTyConApp(typeVariantId, tyConArgs),
-                  ValueVariant(mbId, constructorName, val0)) =>
+                    TTyConApp(typeVariantId, tyConArgs),
+                    ValueVariant(mbId, constructorName, val0),
+                  ) =>
                 mbId.foreach(id =>
                   if (id != typeVariantId)
                     fail(
-                      s"Mismatching variant id, the type tells us $typeVariantId, but the value tells us $id"))
+                      s"Mismatching variant id, the type tells us $typeVariantId, but the value tells us $id"
+                    )
+                )
                 val pkg = unsafeGetPackage(typeVariantId.packageId)
                 val (dataTypParams, variantDef) =
                   assertRight(SignatureLookup.lookupVariant(pkg, typeVariantId.qualifiedName))
                 variantDef.constructorRank.get(constructorName) match {
                   case None =>
                     fail(
-                      s"Couldn't find provided variant constructor $constructorName in variant $typeVariantId")
+                      s"Couldn't find provided variant constructor $constructorName in variant $typeVariantId"
+                    )
                   case Some(rank) =>
                     val (_, argTyp) = variantDef.variants(rank)
                     val newSubst =
@@ -151,7 +156,9 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 mbId.foreach(id =>
                   if (id != typeRecordId)
                     fail(
-                      s"Mismatching record id, the type tells us $typeRecordId, but the value tells us $id"))
+                      s"Mismatching record id, the type tells us $typeRecordId, but the value tells us $id"
+                    )
+                )
                 val pkg = unsafeGetPackage(typeRecordId.packageId)
                 val (dataTypParams, DataRecord(recordFlds)) =
                   assertRight(SignatureLookup.lookupRecord(pkg, typeRecordId.qualifiedName))
@@ -162,28 +169,29 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
                 if (recordFlds.length != flds.length) {
                   fail(
-                    s"Expecting ${recordFlds.length} field for record $typeRecordId, but got ${flds.length}")
+                    s"Expecting ${recordFlds.length} field for record $typeRecordId, but got ${flds.length}"
+                  )
                 }
                 val newSubst = subst.introVars(dataTypParams.toSeq.view.map(_._1), tyConArgs.toSeq)
                 val fields = labeledRecordToMap(flds) match {
                   case None =>
-                    (recordFlds zip flds).map {
-                      case ((lbl, typ), (mbLbl, v)) =>
-                        mbLbl.foreach(lbl_ =>
-                          if (lbl_ != lbl)
-                            fail(
-                              s"Mismatching record label $lbl_ (expecting $lbl) for record $typeRecordId"))
+                    (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
+                      mbLbl.foreach(lbl_ =>
+                        if (lbl_ != lbl)
+                          fail(
+                            s"Mismatching record label $lbl_ (expecting $lbl) for record $typeRecordId"
+                          )
+                      )
 
-                        lbl -> go(typ, v, newSubst, newNesting)
+                      lbl -> go(typ, v, newSubst, newNesting)
                     }
                   case Some(labeledRecords) =>
-                    recordFlds.map {
-                      case (lbl, typ) =>
-                        labeledRecords
-                          .get(lbl)
-                          .fold(fail(s"Missing record label $lbl for record $typeRecordId")) { v =>
-                            lbl -> go(typ, v, newSubst, newNesting)
-                          }
+                    recordFlds.map { case (lbl, typ) =>
+                      labeledRecords
+                        .get(lbl)
+                        .fold(fail(s"Missing record label $lbl for record $typeRecordId")) { v =>
+                          lbl -> go(typ, v, newSubst, newNesting)
+                        }
                     }
                 }
 
@@ -197,7 +205,9 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 mbId.foreach(id =>
                   if (id != typeEnumId)
                     fail(
-                      s"Mismatching enum id, the type tells us $typeEnumId, but the value tells us $id"))
+                      s"Mismatching enum id, the type tells us $typeEnumId, but the value tells us $id"
+                    )
+                )
                 val pkg = unsafeGetPackage(typeEnumId.packageId)
                 val dataDef = assertRight(SignatureLookup.lookupEnum(pkg, typeEnumId.qualifiedName))
                 dataDef.constructorRank.get(constructor) match {
@@ -205,7 +215,8 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     SValue.SEnum(typeEnumId, constructor, rank)
                   case None =>
                     fail(
-                      s"Couldn't find provided variant constructor $constructor in enum $typeEnumId")
+                      s"Couldn't find provided variant constructor $constructor in enum $typeEnumId"
+                    )
                 }
 
               // every other pairs of types and values are invalid
