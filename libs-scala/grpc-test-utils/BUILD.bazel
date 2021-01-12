@@ -1,0 +1,25 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "grpc-test-utils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalactic_scalactic",
+    ],
+    tags = ["maven_coordinates=com.daml:grpc-test-utils:__VERSION__"],
+    visibility = [
+        "//:__subpackages__",
+    ],
+    deps = [
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_services",
+    ],
+)
