@@ -11,8 +11,24 @@ object InsertsPhase2 {
   protected val WitnessColumn = "contract_witness"
 
   private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit =
-      s.setObject(index, v)
+    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit = {
+      val conn = s.getConnection
+      s.setArray(index, conn.createArrayOf("BYTEA", v.asInstanceOf[Array[AnyRef]]))
+    }
+  }
+
+  private implicit object CharArrayToStatement extends ToStatement[Array[String]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[String]): Unit = {
+      val conn = s.getConnection
+      s.setArray(index, conn.createArrayOf("VARCHAR", v.asInstanceOf[Array[AnyRef]]))
+    }
+  }
+
+  implicit object TimestampStatement extends ToStatement[Array[Timestamp]] {
+    override def set(s: PreparedStatement, index: Int, timestamps: Array[Timestamp]): Unit = {
+      val conn = s.getConnection
+      s.setArray(index, conn.createArrayOf("TIMESTAMP", timestamps.asInstanceOf[Array[AnyRef]]))
+    }
   }
 
   private val insertContractQuery =

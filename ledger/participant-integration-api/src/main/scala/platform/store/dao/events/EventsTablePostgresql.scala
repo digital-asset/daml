@@ -149,17 +149,25 @@ object EventsTablePostgresql extends EventsTable {
   }
 
   // Specific for PostgreSQL parallel unnesting insertions
-
-  private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit =
-      s.setObject(index, v)
-  }
-
   private implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
       val conn = s.getConnection
       val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
       s.setArray(index, ts)
+    }
+  }
+
+  private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit = {
+      val conn = s.getConnection
+      s.setArray(index, conn.createArrayOf("BYTEA", v.asInstanceOf[Array[AnyRef]]))
+    }
+  }
+
+  private implicit object CharArrayToStatement extends ToStatement[Array[String]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[String]): Unit = {
+      val conn = s.getConnection
+      s.setArray(index, conn.createArrayOf("VARCHAR", v.asInstanceOf[Array[AnyRef]]))
     }
   }
 
