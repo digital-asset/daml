@@ -6,9 +6,11 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast.{BTList, TApp, TBuiltin, TNat, TTyCon}
+import com.daml.lf.language.Ast
 import com.daml.lf.language.Util._
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -17,6 +19,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
+  import Preprocessor.ArrayList
 
   import defaultParserParameters.{defaultPackageId => pkgId}
 
@@ -43,42 +47,71 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
 
   "translateValue" should {
 
-    val testCases = Table(
-      "type" -> "value",
-      TUnit ->
-        ValueUnit,
-      TBool ->
-        ValueTrue,
-      TInt64 ->
-        ValueInt64(42),
-      TTimestamp ->
+    val testCases = Table[Ast.Type, Value[ContractId], speedy.SValue](
+      ("type", "value", "svalue"),
+      (TUnit, ValueUnit, SValue.Unit),
+      (TBool, ValueTrue, SValue.True),
+      (TInt64, ValueInt64(42), SInt64(42)),
+      (
+        TTimestamp,
         ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-      TDate ->
+        STimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
+      ),
+      (
+        TDate,
         ValueDate(Time.Date.assertFromString("1879-03-14")),
-      TText ->
-        ValueText("daml"),
-      TNumeric(TNat(Decimal.scale)) ->
-        ValueNumeric(Numeric.assertFromString("10.0000000000")),
-//      TNumeric(TNat(9)) ->
+        SDate(Time.Date.assertFromString("1879-03-14")),
+      ),
+      (TText, ValueText("daml"), SText("daml")),
+      (
+        TNumeric(Ast.TNat(Decimal.scale)),
+        ValueNumeric(Numeric.assertFromString("10.")),
+        SNumeric(Numeric.assertFromString("10.0000000000")),
+      ),
+//      TNumeric(TNat(9)) ,
 //        ValueNumeric(Numeric.assertFromString("9.000000000")),
-      TParty ->
+      (
+        TParty,
         ValueParty(Ref.Party.assertFromString("Alice")),
-      TContractId(TTyCon(recordCon)) ->
+        SParty(Ref.Party.assertFromString("Alice")),
+      ),
+      (
+        TContractId(Ast.TTyCon(recordCon)),
         ValueContractId(ContractId.assertFromString("#contractId")),
-      TList(TText) ->
+        SContractId(ContractId.assertFromString("#contractId")),
+      ),
+      (
+        TList(TText),
         ValueList(FrontStack(ValueText("a"), ValueText("b"))),
-      TTextMap(TBool) ->
+        SList(FrontStack(SText("a"), SText("b"))),
+      ),
+      (
+        TTextMap(TBool),
         ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
-      TOptional(TText) ->
-        ValueOptional(Some(ValueText("text"))),
-      TTyCon(recordCon) ->
+        SGenMap(true, Iterator(SText("0") -> SValue.True, SText("1") -> SValue.False)),
+      ),
+      (
+        TGenMap(TInt64, TText),
+        ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
+        SGenMap(false, Iterator(SInt64(1) -> SText("1"), SInt64(42) -> SText("42"))),
+      ),
+      (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
+      (
+        Ast.TTyCon(recordCon),
         ValueRecord(None, ImmArray(Some[Ref.Name]("field") -> ValueInt64(33))),
-      TTyCon(variantCon) ->
+        SRecord(recordCon, ImmArray("field"), ArrayList(SInt64(33))),
+      ),
+      (
+        Ast.TTyCon(variantCon),
         ValueVariant(None, "variant1", ValueText("some test")),
-      TTyCon(enumCon) ->
-        ValueEnum(None, "value1"),
-      TApp(TTyCon(tricky), TBuiltin(BTList)) ->
+        SVariant(variantCon, "variant1", 0, SText("some test")),
+      ),
+      (Ast.TTyCon(enumCon), ValueEnum(None, "value1"), SEnum(enumCon, "value1", 0)),
+      (
+        Ast.TApp(Ast.TTyCon(tricky), Ast.TBuiltin(Ast.BTList)),
         ValueRecord(None, ImmArray(None -> ValueNil)),
+        SRecord(tricky, ImmArray("x"), ArrayList(SValue.EmptyList)),
+      ),
     )
 
     val compiledPackage = ConcurrentCompiledPackages()
@@ -87,14 +120,14 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
     import preprocessor.translateValue
 
     "succeeds on well type values" in {
-      forAll(testCases) { (typ, value) =>
-        translateValue(typ, value) shouldBe a[ResultDone[_]]
+      forAll(testCases) { (typ, value, svalue) =>
+        translateValue(typ, value) shouldBe ResultDone(svalue)
       }
     }
 
     "fails on non-well type values" in {
-      forAll(testCases) { (typ1, value1) =>
-        forAll(testCases) { (_, value2) =>
+      forAll(testCases) { (typ1, value1, _) =>
+        forAll(testCases) { (_, value2, _) =>
           if (value1 != value2)
             translateValue(typ1, value2) shouldBe a[ResultError]
         }

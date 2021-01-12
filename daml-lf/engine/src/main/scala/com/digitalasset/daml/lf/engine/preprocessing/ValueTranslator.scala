@@ -5,9 +5,7 @@ package com.daml.lf.engine
 package preprocessing
 
 import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.{Ref, _}
-import com.daml.lf.engine.preprocessing.Preprocessor.fail
+import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
@@ -28,7 +26,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
     if (params.isEmpty) { // optimization
       typ0
     } else {
-      val paramsMap: Map[TypeVarName, Type] = Map(params.toSeq: _*)
+      val paramsMap: Map[TypeVarName, Type] = params.toMap
 
       def go(typ: Type): Type =
         typ match {
@@ -157,7 +155,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       SValue.SValue.EmptyTextMap
                     } else {
                       SValue.SGenMap(
-                        isTextMap = false,
+                        isTextMap = true,
                         entries = entries.iterator.map { case (k, v) =>
                           SValue.SText(k) -> go(typeArg0, v, newNesting)
                         },
@@ -173,7 +171,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       SValue.SValue.EmptyTextMap
                     } else {
                       SValue.SGenMap(
-                        isTextMap = true,
+                        isTextMap = false,
                         entries = entries.iterator.map { case (k, v) =>
                           go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
                         },
