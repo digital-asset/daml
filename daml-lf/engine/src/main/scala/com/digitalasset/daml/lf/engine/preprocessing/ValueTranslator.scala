@@ -168,7 +168,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 (bt, value) match {
                   case (BTGenMap, ValueGenMap(entries)) =>
                     if (entries.isEmpty) {
-                      SValue.SValue.EmptyTextMap
+                      SValue.SValue.EmptyGenMap
                     } else {
                       SValue.SGenMap(
                         isTextMap = false,
