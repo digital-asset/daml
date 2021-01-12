@@ -5,7 +5,9 @@ package com.daml.lf.engine
 package preprocessing
 
 import com.daml.lf.CompiledPackages
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Ref, _}
+import com.daml.lf.engine.preprocessing.Preprocessor.fail
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
@@ -79,10 +81,10 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
     compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
 
   @tailrec
-  private[this] def destructApp(typ: Type, args: List[Type] = List.empty): (Type, List[Type]) =
+  private[this] def destructApp(typ: Type, tyArgs: List[Type] = List.empty): (Type, List[Type]) =
     typ match {
-      case TApp(tyfun, arg) => destructApp(tyfun, arg :: args)
-      case otherwise => otherwise -> args
+      case TApp(tyFun, tyArg) => destructApp(tyFun, tyArg :: tyArgs)
+      case otherwise => (otherwise, tyArgs)
     }
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
@@ -99,7 +101,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
       if (nesting > Value.MAXIMUM_NESTING) {
         fail(s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
       } else {
-        def newNesting = nesting + 1
+        val newNesting = nesting + 1
         def typeMismatch = fail(s"mismatching type: $ty and value: $value")
         val (ty1, tyArgs) = destructApp(ty0)
         ty1 match {
@@ -126,9 +128,13 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 }
               case typeArg0 :: Nil =>
                 (bt, value) match {
-                  case (BTNumeric, ValueNumeric(d)) if typeArg0.isInstanceOf[TNat] =>
-                    val TNat(s) = typeArg0
-                    Numeric.fromBigDecimal(s, d).fold(fail, SValue.SNumeric)
+                  case (BTNumeric, ValueNumeric(d)) =>
+                    typeArg0 match {
+                      case TNat(s) =>
+                        Numeric.fromBigDecimal(s, d).fold(fail, SValue.SNumeric)
+                      case _ =>
+                        typeMismatch
+                    }
                   case (BTContractId, ValueContractId(c)) =>
                     cids += c
                     SValue.SContractId(c)
@@ -139,7 +145,6 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       case None =>
                         SValue.SValue.None
                     }
-
                   case (BTList, ValueList(ls)) =>
                     if (ls.isEmpty) {
                       SValue.SValue.EmptyList
@@ -152,7 +157,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       SValue.SValue.EmptyTextMap
                     } else {
                       SValue.SGenMap(
-                        isTextMap = true,
+                        isTextMap = false,
                         entries = entries.iterator.map { case (k, v) =>
                           SValue.SText(k) -> go(typeArg0, v, newNesting)
                         },
@@ -161,18 +166,21 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                   case _ =>
                     typeMismatch
                 }
-              case typeArg0 :: typeArg1 :: Nil
-                  if bt == BTGenMap && value.isInstanceOf[ValueGenMap[_]] =>
-                val ValueGenMap(entries) = value
-                if (entries.isEmpty) {
-                  SValue.SValue.EmptyTextMap
-                } else {
-                  SValue.SGenMap(
-                    isTextMap = true,
-                    entries = entries.iterator.map { case (k, v) =>
-                      go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
-                    },
-                  )
+              case typeArg0 :: typeArg1 :: Nil =>
+                (bt, value) match {
+                  case (BTGenMap, ValueGenMap(entries)) =>
+                    if (entries.isEmpty) {
+                      SValue.SValue.EmptyTextMap
+                    } else {
+                      SValue.SGenMap(
+                        isTextMap = true,
+                        entries = entries.iterator.map { case (k, v) =>
+                          go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
+                        },
+                      )
+                    }
+                  case _ =>
+                    typeMismatch
                 }
               case _ =>
                 typeMismatch
