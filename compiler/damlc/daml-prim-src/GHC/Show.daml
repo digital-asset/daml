@@ -170,3 +170,453 @@ instance (Show a, Show b, Show c, Show d, Show e) => Show (a,b,c,d,e) where
     . showString ","
     . shows e
     . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f) => Show (a, b, c, d, e, f) where
+  showsPrec _ (a, b, c, d, e, f) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g) => Show (a, b, c, d, e, f, g) where
+  showsPrec _ (a, b, c, d, e, f, g) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h) => Show (a, b, c, d, e, f, g, h) where
+  showsPrec _ (a, b, c, d, e, f, g, h) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i) => Show (a, b, c, d, e, f, g, h, i) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j) => Show (a, b, c, d, e, f, g, h, i, j) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k) => Show (a, b, c, d, e, f, g, h, i, j, k) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l) => Show (a, b, c, d, e, f, g, h, i, j, k, l) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n, Show o) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ","
+    . shows o
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n, Show o, Show p) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ","
+    . shows o
+    . showString ","
+    . shows p
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n, Show o, Show p, Show q) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ","
+    . shows o
+    . showString ","
+    . shows p
+    . showString ","
+    . shows q
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n, Show o, Show p, Show q, Show r) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ","
+    . shows o
+    . showString ","
+    . shows p
+    . showString ","
+    . shows q
+    . showString ","
+    . shows r
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n, Show o, Show p, Show q, Show r, Show s) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ","
+    . shows o
+    . showString ","
+    . shows p
+    . showString ","
+    . shows q
+    . showString ","
+    . shows r
+    . showString ","
+    . shows s
+    . showString ")"
+
+instance (Show a, Show b, Show c, Show d, Show e, Show f, Show g, Show h, Show i, Show j, Show k, Show l, Show m, Show n, Show o, Show p, Show q, Show r, Show s, Show t) => Show (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) where
+  showsPrec _ (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) =
+    showString "("
+    . shows a
+    . showString ","
+    . shows b
+    . showString ","
+    . shows c
+    . showString ","
+    . shows d
+    . showString ","
+    . shows e
+    . showString ","
+    . shows f
+    . showString ","
+    . shows g
+    . showString ","
+    . shows h
+    . showString ","
+    . shows i
+    . showString ","
+    . shows j
+    . showString ","
+    . shows k
+    . showString ","
+    . shows l
+    . showString ","
+    . shows m
+    . showString ","
+    . shows n
+    . showString ","
+    . shows o
+    . showString ","
+    . shows p
+    . showString ","
+    . shows q
+    . showString ","
+    . shows r
+    . showString ","
+    . shows s
+    . showString ","
+    . shows t
+    . showString ")"
