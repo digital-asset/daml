@@ -32,7 +32,6 @@ architecture, providing you with an excellent starting point for your own applic
 
 Backend
 ~~~~~~~
- 
 The backend for your application can be any Daml ledger implementation running your DAR
 (:ref:`Daml Archive <dar-file-dalf-file>`) file.
 
