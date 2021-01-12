@@ -179,7 +179,6 @@ jobs:
           //ledger/ledger-api-akka/... \
           //ledger/ledger-api-auth/... \
           //ledger/ledger-api-auth-client/... \
-          //ledger/ledger-api-client/... \
           //ledger/ledger-api-common/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/...
@@ -195,7 +194,6 @@ jobs:
           //ledger/ledger-api-akka/... \
           //ledger/ledger-api-auth/... \
           //ledger/ledger-api-auth-client/... \
-          //ledger/ledger-api-client/... \
           //ledger/ledger-api-common/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
