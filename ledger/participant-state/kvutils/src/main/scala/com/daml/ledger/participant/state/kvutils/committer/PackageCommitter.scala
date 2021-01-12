@@ -22,7 +22,7 @@ import com.daml.lf.language.Ast
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 object PackageCommitter {}
@@ -157,7 +157,7 @@ final private[kvutils] class PackageCommitter(
   }
 
   private[this] def decodePackages(
-      archives: Traversable[DamlLf.Archive]
+      archives: Iterable[DamlLf.Archive]
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
@@ -187,7 +187,7 @@ final private[kvutils] class PackageCommitter(
 
   private[this] def decodePackagesIfNeeded(
       pkgsCache: Map[Ref.PackageId, Ast.Package],
-      archives: Traversable[DamlLf.Archive],
+      archives: Iterable[DamlLf.Archive],
   ): Either[String, Map[PackageId, Ast.Package]] =
     if (pkgsCache.isEmpty)
       decodePackages(archives)

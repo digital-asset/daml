@@ -13,6 +13,8 @@ import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
+import scala.collection.compat.immutable.LazyList
+
 class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
   private val metrics = damlMetrics.daml.kvutils.conflictdetection
@@ -99,7 +101,8 @@ class ConflictDetection(val damlMetrics: Metrics) {
   // Attempt to produce a useful message by collecting the first conflicting
   // contract id or contract key.
   private def explainConflict(conflictingKeys: Iterable[DamlStateKey]): String =
-    conflictingKeys.toStream
+    conflictingKeys
+      .to(LazyList)
       .sortBy(_.toByteString.asReadOnlyByteBuffer())
       .collectFirst {
         case key if key.hasContractKey =>

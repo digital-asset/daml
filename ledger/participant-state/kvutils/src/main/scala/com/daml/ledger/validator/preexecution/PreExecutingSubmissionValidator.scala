@@ -13,8 +13,9 @@ import com.daml.ledger.validator.{HasDamlStateValue, ValidationFailed}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
-import scala.collection.JavaConverters._
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 /** Validator for pre-executing submissions.
   *
@@ -52,7 +53,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
       for {
         decodedSubmission <- decodeSubmission(submissionEnvelope)
         fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
-        inputState = fetchedInputs.mapValues(hasDamlStateValue.damlStateValue)
+        inputState = fetchedInputs.view.mapValues(hasDamlStateValue.damlStateValue).toMap
         preExecutionResult = committer.preExecuteSubmission(
           LedgerReader.DefaultConfiguration,
           decodedSubmission,
@@ -124,7 +125,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
         inputValues <- ledgerStateReader.read(inputKeys)
       } yield {
         assert(inputKeys.size == inputValues.size)
-        val inputPairs = inputKeys.toIterator zip inputValues.toIterator
+        val inputPairs = inputKeys.iterator zip inputValues.iterator
         inputPairs.toMap
       },
     )

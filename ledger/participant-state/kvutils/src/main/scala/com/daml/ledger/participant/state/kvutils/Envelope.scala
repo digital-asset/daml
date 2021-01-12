@@ -93,16 +93,16 @@ object Envelope {
       }
       message <- envelope.getKind match {
         case Proto.Envelope.MessageKind.LOG_ENTRY =>
-          parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage)).right
+          parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage))
             .map(LogEntryMessage)
         case Proto.Envelope.MessageKind.SUBMISSION =>
-          parseMessageSafe(() => Proto.DamlSubmission.parseFrom(uncompressedMessage)).right
+          parseMessageSafe(() => Proto.DamlSubmission.parseFrom(uncompressedMessage))
             .map(SubmissionMessage)
         case Proto.Envelope.MessageKind.STATE_VALUE =>
-          parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
+          parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage))
             .map(StateValueMessage)
         case Proto.Envelope.MessageKind.SUBMISSION_BATCH =>
-          parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage)).right
+          parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage))
             .map(SubmissionBatchMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
           Left(s"Unrecognized message kind: ${envelope.getKind}")
