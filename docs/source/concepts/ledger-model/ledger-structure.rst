@@ -203,8 +203,7 @@ The transaction structure records the contents of the
 changes, but not *who requested them*. This information is added by the notion
 of a **commit**: a transaction paired with the parties that
 requested it, called the **requesters** of the commit.
-In the ledger model, a commit is allowed to have multiple requesters,
-although the current Daml Ledger API offers the request functionality only to individual parties.
+A commit may have one or more requesters.
 Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
 called a **top-level action** of the commit. A **ledger** is a sequence of
 commits. A top-level action of any ledger commit is also a top-level action of
@@ -214,7 +213,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
 
 ::
 
-   Commit   ::= party Transaction
+   Commit   ::= party+ Transaction
    Ledger   ::= Commit*
 
 A Daml ledger thus represents the full history of all actions taken by
