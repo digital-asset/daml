@@ -152,7 +152,7 @@ in this section, each contract only appears once, allowing us to drop the notion
 of identifiers for simplicity reasons.
 
 A **transaction** is a list of actions. Thus, the consequences of
-an exercise form a transaction. In the example, the consequences of the
+an exercise form a transaction. In the example, the consequences of
 Alice's exercise form the following transaction, where actions are again
 ordered left-to-right.
 

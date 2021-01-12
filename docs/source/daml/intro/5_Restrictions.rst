@@ -129,8 +129,6 @@ Expressions in Daml are pure in the sense that they have no side-effects: they n
 
 However, the expressions you've seen that used the ``<-`` notation are not like that. For example, take ``getTime``, which is an ``Action``. Here's the example we used earlier:
 
-``getTime`` is a good example of an ``Action``. Here's the example we used earlier
-
 .. code-block:: daml
 
    now <- getTime

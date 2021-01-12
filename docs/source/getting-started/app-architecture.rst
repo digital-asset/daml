@@ -48,8 +48,8 @@ The signatories are the parties whose authorization is required to create or arc
 The observers are the parties who are able to view the contract on the ledger.
 In this case all users that a particular user is following are able to see the user contract.
 
-Let's say what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
-A user Alice can see another user Bob in the network only when Bob is following Alice (only if Alice is the ``following`` list in his user contract).
+Let's see what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
+A user Alice can see another user Bob in the network only when Bob is following Alice (only if Alice is in the ``following`` list in his user contract).
 For this to be true, Bob must have previously started to follow Alice, as he is the sole signatory on his user contract.
 If not, Bob will be invisible to Alice.
 
@@ -69,13 +69,13 @@ That is what the ``Follow`` choice does: after checking some preconditions, it a
 
     - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``Follow``.
     - The return type of a choice is defined next. In this case it is ``ContractId User``.
-    - After that we declare choice paramteres with ``with`` keyword. Here this is the user we want to start following.
+    - After that we declare choice parameters with the ``with`` keyword. Here this is the user we want to start following.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case, it is the ``username`` party associated with the ``User`` contract.
     - The ``do`` keyword marks the start of the choice body where its functionality will be written.
     - After passing some checks, the current contract is archived with ``archive self``.
     - A new ``User`` contract with the new user we have started following is created (the new user is added to the ``following`` list).
 
-This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).
+This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`.
 
 Let's move on to how our Daml model is reflected and used on the UI side.
 

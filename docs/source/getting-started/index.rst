@@ -108,7 +108,7 @@ Go ahead and start following users by typing their usernames in the text box and
 
 You'll notice that the users you just started following appear in the *Following* panel.
 However they do *not* yet appear in the *Network* panel.
-This is either because they have not signed up and are not parties on the ledger or they have not yet started followiong you.
+This is either because they have not signed up and are not parties on the ledger or they have not yet started following you.
 This social network is similar to Twitter and Instagram, where by following someone, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this in Daml in the next section.
 
@@ -119,12 +119,12 @@ To make this relationship reciprocal, open a new browser window/tab at http://lo
 (Having separate windows/tabs allows you to see both you and the screen of the user you are following at the same time.)
 Once you log in as the user you are following - Alice, you'll notice your name in her network.
 In fact, Alice can see the entire list of users you are follwing in the *Network* panel.
-This is because this list is part of the user data that became visible when you started follwing her.
+This is because this list is part of the user data that became visible when you started following her.
 
    .. figure:: images/create-daml-app-alice-sees-bob.png
       :alt: In the create-daml-app when you start following somone you reveal the list of people you are following
 
-When Alice starts follwing you, you can see her in your network as well.
+When Alice starts following you, you can see her in your network as well.
 Just switch to the window where you are logged in as yourself - the network should update automatically.
 
    .. figure:: images/create-daml-app-bob-sees-alice-in-the-network.png
