@@ -48,8 +48,6 @@ Formally, an **action** is one of the following:
 #. an **Exercise** action on a contract, which records that one or more parties
    have exercised a right they have on the contract, and which also contains:
 
-   |
-
    #. An associated set of parties called **actors**. These are the
       parties who perform the action.
 
@@ -154,7 +152,7 @@ in this section, each contract only appears once, allowing us to drop the notion
 of identifiers for simplicity reasons.
 
 A **transaction** is a list of actions. Thus, the consequences of
-an exercise form a transaction. In the example, the consequences of the
+an exercise form a transaction. In the example, the consequences of
 Alice's exercise form the following transaction, where actions are again
 ordered left-to-right.
 
@@ -182,7 +180,7 @@ Similarly, a **subtransaction** of a transaction is either the transaction
 itself, or a **proper subtransaction**: a transaction obtained by removing at
 least one action, or replacing it by a subtransaction of its consequences. For
 example, given the transaction consisting of just one action, the paint offer
-acceptance, the image below shows all its proper subtransactions on the right
+acceptance, the image below shows all its proper non-empty subtransactions on the right
 (yellow boxes).
 
 .. https://www.lucidchart.com/documents/edit/a4735a72-2d27-485c-a3ed-0c053dab0e11
@@ -205,8 +203,7 @@ The transaction structure records the contents of the
 changes, but not *who requested them*. This information is added by the notion
 of a **commit**: a transaction paired with the parties that
 requested it, called the **requesters** of the commit.
-In the ledger model, a commit is allowed to have multiple requesters,
-although the current Daml Ledger API offers the request functionality only to individual parties.
+A commit may have one or more requesters.
 Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
 called a **top-level action** of the commit. A **ledger** is a sequence of
 commits. A top-level action of any ledger commit is also a top-level action of
@@ -216,7 +213,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
 
 ::
 
-   Commit   ::= party Transaction
+   Commit   ::= party+ Transaction
    Ledger   ::= Commit*
 
 A Daml ledger thus represents the full history of all actions taken by

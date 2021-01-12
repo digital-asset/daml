@@ -42,7 +42,7 @@ object Main {
             sys.exit(ErrorCodes.GenerateJwtError)
         }
       case Some(_) =>
-        configParser.showUsage()
+        configParser.displayToErr(configParser.usage)
         sys.exit(ErrorCodes.InvalidUsage)
       case None =>
         // error is printed out by scopt... yeah I know... why?

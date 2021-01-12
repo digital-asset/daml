@@ -87,7 +87,6 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         nextOffset(),
         submissionId,
         newConfig.copy(generation = config.generation + 1),
-        shouldUpdateLedgerEnd = false,
       )
 
       // Submission with mismatching generation is rejected
@@ -142,7 +141,6 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
       submissionId: String,
       lastConfig: Configuration,
       rejectionReason: Option[String] = None,
-      shouldUpdateLedgerEnd: Boolean = true,
       maybePreviousOffset: Option[Offset] = Option.empty,
   ) =
     ledgerDao
@@ -157,7 +155,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         rejectionReason,
       )
       .map { r =>
-        if (shouldUpdateLedgerEnd) previousOffset.set(Some(offset))
+        previousOffset.set(Some(offset))
         r
       }
 }

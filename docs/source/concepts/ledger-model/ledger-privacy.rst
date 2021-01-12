@@ -264,7 +264,7 @@ such that the painter immediately settles the IOU.
    :width: 100%
 
 While Alice sees the creation of the `Iou Bank P` contract, she does
-not see the settlement action. Thus, she does know whether the
+not see the settlement action. Thus, she does not know whether the
 contract is still active at any point after its creation. Similarly,
 in the previous example with the counteroffer, Alice could spend the
 IOU that she showed to the painter by the time the painter attempts to

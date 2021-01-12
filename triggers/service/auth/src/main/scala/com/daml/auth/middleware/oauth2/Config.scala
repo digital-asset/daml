@@ -3,6 +3,8 @@
 
 package com.daml.auth.middleware.oauth2
 
+import java.nio.file.{Path, Paths}
+
 import akka.http.scaladsl.model.Uri
 import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
 import com.daml.ports.Port
@@ -21,6 +23,10 @@ case class Config(
     // OAuth2 server endpoints
     oauthAuth: Uri,
     oauthToken: Uri,
+    // OAuth2 server request templates
+    oauthAuthTemplate: Option[Path],
+    oauthTokenTemplate: Option[Path],
+    oauthRefreshTemplate: Option[Path],
     // OAuth2 client properties
     clientId: String,
     clientSecret: String,
@@ -40,6 +46,9 @@ object Config {
       loginTimeout = DefaultLoginTimeout,
       oauthAuth = null,
       oauthToken = null,
+      oauthAuthTemplate = None,
+      oauthTokenTemplate = None,
+      oauthRefreshTemplate = None,
       clientId = null,
       clientSecret = null,
       tokenVerifier = null,
@@ -85,6 +94,18 @@ object Config {
         .action((x, c) => c.copy(oauthToken = Uri(x)))
         .required()
         .text("URI of the OAuth2 token endpoint")
+
+      opt[String]("oauth-auth-template")
+        .action((x, c) => c.copy(oauthAuthTemplate = Some(Paths.get(x))))
+        .text("OAuth2 authorization request Jsonnet template")
+
+      opt[String]("oauth-token-template")
+        .action((x, c) => c.copy(oauthTokenTemplate = Some(Paths.get(x))))
+        .text("OAuth2 token request Jsonnet template")
+
+      opt[String]("oauth-refresh-template")
+        .action((x, c) => c.copy(oauthRefreshTemplate = Some(Paths.get(x))))
+        .text("OAuth2 refresh request Jsonnet template")
 
       opt[String]("id").hidden
         .action((x, c) => c.copy(clientId = x))

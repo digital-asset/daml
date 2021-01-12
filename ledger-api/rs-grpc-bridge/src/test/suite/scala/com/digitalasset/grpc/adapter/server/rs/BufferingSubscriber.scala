@@ -11,7 +11,7 @@ import scala.concurrent.{Future, Promise}
 
 class BufferingSubscriber[T] extends Subscriber[T] {
 
-  private val subscription = Promise[Subscription]
+  private val subscription = Promise[Subscription]()
   private val elementsReceived = new AtomicReference[List[T]](Nil)
   private val completion = Promise[Unit]()
 

@@ -13,6 +13,9 @@ version_specific = {
     "2.12": [
         "ai.x:diff_2.12:2.0.1",
     ],
+    "2.13": [
+        "org.scala-lang.modules:scala-parallel-collections_2.13:1.0.0",
+    ],
 }
 
 def install_java_deps():
@@ -30,12 +33,13 @@ def install_java_deps():
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
-            "com.github.scopt:scopt_{}:3.7.1".format(scala_major_version),
+            "com.github.scopt:scopt_{}:4.0.0".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:29.0-jre",
             "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_{}:0.6.0".format(scala_major_version),
+            "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
             "com.sparkjava:spark-core:2.9.1",
             "com.squareup:javapoet:1.11.1",

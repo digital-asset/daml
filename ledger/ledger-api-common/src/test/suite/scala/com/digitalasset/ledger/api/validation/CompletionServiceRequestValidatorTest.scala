@@ -141,14 +141,14 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         inside(
           validator.validateCompletionEndRequest(endReq.update(_.optionalTraceContext := None))
         ) { case Right(out) =>
-          out should have('ledgerId (expectedLedgerId))
+          out should have(Symbol("ledgerId")(expectedLedgerId))
           out.traceContext shouldBe empty
         }
       }
 
       "work with present traceContext" in {
         inside(validator.validateCompletionEndRequest(endReq)) { case Right(out) =>
-          out should have('ledgerId (expectedLedgerId))
+          out should have(Symbol("ledgerId")(expectedLedgerId))
           isExpectedTraceContext(out.traceContext.value)
         }
       }
