@@ -24,7 +24,7 @@ final class DropRepeatedSpec
   private[this] implicit val materializer: Materializer = Materializer(system)
   private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
 
-  override def afterAll: Unit = {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 

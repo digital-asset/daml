@@ -824,7 +824,11 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+internalTypes = mkUniqSet
+    [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
+    , "Pair", "TextMap", "Map", "Any", "TypeRep"
+    , "AnyException", "GeneralError", "ArithmeticError", "ContractError"
+    ]
 
 consumingTypes :: UniqSet FastString
 consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
@@ -1674,6 +1678,10 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
+            "AnyException" -> pure (TBuiltin BTAnyException)
+            "GeneralError" -> pure (TBuiltin BTGeneralError)
+            "ArithmeticError" -> pure (TBuiltin BTArithmeticError)
+            "ContractError" -> pure (TBuiltin BTContractError)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon

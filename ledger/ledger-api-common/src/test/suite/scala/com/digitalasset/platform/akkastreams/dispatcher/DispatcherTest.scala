@@ -49,7 +49,7 @@ class DispatcherTest
           elements.updateAndGet(m => m + (i -> i))
           d.signalNewHead(i)
           d.startingAt(i - 1, OneAfterAnother(readSuccessor, readElement))
-            .toMat(Sink.collection)(Keep.right[NotUsed, Future[Seq[(Int, Int)]]])
+            .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[(Int, Int)]]])
             .run()
         }
 

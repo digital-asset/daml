@@ -342,14 +342,14 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       "work with missing traceContext" in {
         inside(sut.validateLedgerEnd(endReq.update(_.optionalTraceContext := None))) {
           case Right(out) =>
-            out should have('ledgerId (expectedLedgerId))
+            out should have(Symbol("ledgerId")(expectedLedgerId))
             out.traceContext shouldBe empty
         }
       }
 
       "work with present traceContext" in {
         inside(sut.validateLedgerEnd(endReq)) { case Right(out) =>
-          out should have('ledgerId (expectedLedgerId))
+          out should have(Symbol("ledgerId")(expectedLedgerId))
           isExpectedTraceContext(out.traceContext.value)
         }
       }
@@ -384,14 +384,14 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       "work with missing traceContext" in {
         inside(sut.validateTransactionById(txByIdReq.update(_.optionalTraceContext := None))) {
           case Right(out) =>
-            out should have('ledgerId (expectedLedgerId))
+            out should have(Symbol("ledgerId")(expectedLedgerId))
             out.traceContext shouldBe empty
         }
       }
 
       "work with present TraceContext" in {
         inside(sut.validateTransactionById(txByIdReq)) { case Right(out) =>
-          out should have('ledgerId (expectedLedgerId))
+          out should have(Symbol("ledgerId")(expectedLedgerId))
           isExpectedTraceContext(out.traceContext.value)
         }
       }
@@ -428,14 +428,14 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
         inside(
           sut.validateTransactionByEventId(txByEvIdReq.update(_.optionalTraceContext := None))
         ) { case Right(out) =>
-          out should have('ledgerId (expectedLedgerId))
+          out should have(Symbol("ledgerId")(expectedLedgerId))
           out.traceContext shouldBe empty
         }
       }
 
       "work with present TraceContext" in {
         inside(sut.validateTransactionByEventId(txByEvIdReq)) { case Right(out) =>
-          out should have('ledgerId (expectedLedgerId))
+          out should have(Symbol("ledgerId")(expectedLedgerId))
           isExpectedTraceContext(out.traceContext.value)
         }
       }

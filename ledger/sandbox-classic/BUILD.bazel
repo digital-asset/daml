@@ -5,6 +5,10 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_preview_version",
+)
 
 da_scala_library(
     name = "sandbox-classic",
@@ -238,6 +242,9 @@ da_scala_test_suite(
         "//daml-lf/encoder:testing-dar-latest",
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
+    ] + [
+        "//daml-lf/encoder:testing-dar-preview"
+        for v in lf_preview_version
     ],
     resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     deps = test_deps,

@@ -10,7 +10,7 @@ import scala.concurrent.Promise
 class MockClientCallStreamObserver[Request](onRequest: Int => Unit)
     extends ClientCallStreamObserver[Request] {
 
-  private val cancellationPromise = Promise[(String, Throwable)]
+  private val cancellationPromise = Promise[(String, Throwable)]()
 
   override def cancel(s: String, throwable: Throwable): Unit = {
     cancellationPromise.trySuccess(s -> throwable)

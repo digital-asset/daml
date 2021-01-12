@@ -58,8 +58,8 @@ Running scripts
 
 There are a few ways to run Daml Scripts:
 
-- In Daml Studio against a test ledger, providing visualizations of the resulting ledger
-- Using the command line ``daml test`` also against a test ledger, useful for continuous integration
+- In Daml Studio against a test ledger, providing visualizations of the resulting ledger.
+- Using the command line ``daml test`` also against a test ledger, useful for continuous integration.
 - Against a real ledger, take a look at the documentation for :doc:`Daml Script </daml-script/index>` for more information.
 - Interactively using :doc:`Daml REPL </daml-repl/index>`.
 

@@ -145,7 +145,7 @@ object Main {
 
         ()
       case Some(_) =>
-        configParser.showUsage()
+        configParser.displayToErr(configParser.usage)
         sys.exit(ErrorCodes.InvalidUsage)
       case None =>
         sys.exit(ErrorCodes.InvalidUsage)
@@ -157,7 +157,7 @@ object Main {
     sys.exit(ErrorCodes.GenerateTokensError)
   }
 
-  private def parseConfig(args: Seq[String]): Option[Config] = {
+  private def parseConfig(args: collection.Seq[String]): Option[Config] = {
     configParser.parse(args, Config())
   }
 

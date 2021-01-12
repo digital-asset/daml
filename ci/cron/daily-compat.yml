@@ -285,5 +285,7 @@ jobs:
               git add NOTICES
               open_pr "notices-update-$(Build.BuildId)" "update NOTICES file"
           fi
-        displayName: notices
+        displayName: open PR
+        condition: and(succeeded(),
+                       eq(variables['Build.SourceBranchName'], 'main'))
       - template: ../daily_tell_slack.yml

@@ -11,7 +11,7 @@ import org.scalameter.utils.Tree
 import org.scalameter.{CurveData, Parameters}
 import org.w3c.dom.{Document, Element}
 
-import scala.collection.breakOut
+import scala.collection.compat._
 
 private[reporter] object JMeterXmlGenerator {
 
@@ -91,10 +91,11 @@ private[reporter] object JMeterXmlGenerator {
     }
 
     private def paramSuffix(parameters: Parameters): String = {
-      val filtered: Vector[String] = parameters.axisData
+      val filtered: Vector[String] = parameters.axisData.view
         .map { case (key, value) =>
           s"${key.fullName}:$value"
-        }(breakOut)
+        }
+        .to(Vector)
 
       if (filtered.isEmpty) ""
       else

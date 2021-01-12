@@ -49,8 +49,8 @@ abstract class PerformanceTest extends Bench[Double] {
 
   @transient lazy val persistor = Persistor.None
 
-  protected def daConfig: Array[org.scalameter.KeyValue] =
-    Array(
+  protected def daConfig: Seq[org.scalameter.KeyValue] =
+    Seq[org.scalameter.KeyValue](
       exec.independentSamples -> 1,
       exec.minWarmupRuns -> 5,
       exec.benchRuns -> 20,

@@ -46,7 +46,7 @@ final case class SandboxConfig(
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
     stackTraces: Boolean,
-    devMode: Boolean,
+    engineMode: SandboxConfig.EngineMode,
     managementServiceTimeout: Duration,
 )
 
@@ -94,8 +94,16 @@ object SandboxConfig {
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
       stackTraces = true,
-      devMode = false,
+      engineMode = EngineMode.Stable,
       managementServiceTimeout = DefaultManagementServiceTimeout,
     )
+
+  sealed abstract class EngineMode extends Product with Serializable
+
+  object EngineMode {
+    final case object Stable extends EngineMode
+    final case object EarlyAccess extends EngineMode
+    final case object Dev extends EngineMode
+  }
 
 }

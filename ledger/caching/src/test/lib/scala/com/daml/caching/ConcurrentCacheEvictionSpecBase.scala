@@ -22,7 +22,7 @@ trait ConcurrentCacheEvictionSpecBase
   name should {
     "evict values eventually, once the limit has been reached" in {
       val cache = newLargeCache()
-      val values = Iterator.continually[Integer](Random.nextInt).take(1000).toSet.toVector
+      val values = Iterator.continually[Integer](Random.nextInt()).take(1000).toSet.toVector
 
       values.foreach { value =>
         cache.getOrAcquire(value, _.toString)
