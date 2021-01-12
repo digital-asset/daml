@@ -19,14 +19,13 @@ trait FutureTimeouts { self: AsyncWordSpec =>
   protected def expectTimeout(f: Future[Any], duration: FiniteDuration): Future[Assertion] = {
     val promise: Promise[Any] = Promise[Any]()
 
+    val runnable: Runnable = () =>
+      promise.failure(
+        new TimeoutException(s"Future timed out after $duration as expected.") with NoStackTrace
+      )
     val cancellable = system.scheduler.scheduleOnce(
       duration,
-      { () =>
-        promise.failure(
-          new TimeoutException(s"Future timed out after $duration as expected.") with NoStackTrace
-        )
-        ()
-      },
+      runnable,
     )(system.dispatcher)
 
     f.onComplete((_: Try[Any]) => cancellable.cancel())(DirectExecutionContext)

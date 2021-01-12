@@ -13,6 +13,9 @@ version_specific = {
     "2.12": [
         "ai.x:diff_2.12:2.0.1",
     ],
+    "2.13": [
+        "org.scala-lang.modules:scala-parallel-collections_2.13:1.0.0",
+    ],
 }
 
 def install_java_deps():

@@ -173,6 +173,13 @@ jobs:
           //daml-lf/... \
           //language-support/scala/... \
           //ledger-api/... \
+          //ledger/caching/... \
+          //ledger/cli-opts/... \
+          //ledger/daml-on-sql/... \
+          //ledger/ledger-api-akka/... \
+          //ledger/ledger-api-auth/... \
+          //ledger/ledger-api-auth-client/... \
+          //ledger/ledger-api-common/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/...
           # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
@@ -181,6 +188,13 @@ jobs:
           //daml-lf/... \
           //language-support/scala/... \
           //ledger-api/... \
+          //ledger/caching/... \
+          //ledger/cli-opts/... \
+          //ledger/daml-on-sql/... \
+          //ledger/ledger-api-akka/... \
+          //ledger/ledger-api-auth/... \
+          //ledger/ledger-api-auth-client/... \
+          //ledger/ledger-api-common/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/...

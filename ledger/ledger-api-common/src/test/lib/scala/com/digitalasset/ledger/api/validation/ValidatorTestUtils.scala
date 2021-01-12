@@ -91,8 +91,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
       expectedCode: Code,
       expectedDescription: String,
   ): PartialFunction[Either[StatusRuntimeException, _], Assertion] = { case Left(err) =>
-    err.getStatus should have('code (expectedCode))
-    err.getStatus should have('description (expectedDescription))
+    err.getStatus should have(Symbol("code")(expectedCode))
+    err.getStatus should have(Symbol("description")(expectedDescription))
 
   }
 
