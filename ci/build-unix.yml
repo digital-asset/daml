@@ -47,18 +47,9 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
 
-      mkdir -p ~/.jfrog
-      cleanup() {
-          rm -f ~/.jfrog/jfrog-cli.conf
-      }
-      trap cleanup EXIT
-      echo "$JFROG_CONFIG_CONTENT" > ~/.jfrog/jfrog-cli.conf
-      unset JFROG_CONFIG_CONTENT
-
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
-      JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
       GPG_KEY: $(gpg-code-signing)
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)

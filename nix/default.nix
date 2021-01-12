@@ -220,7 +220,6 @@ in rec {
     dade-test-sh = pkgs.callPackage ./tools/dade-test-sh {};
 
     undmg = pkgs.undmg;
-    jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
     # Cloud tools
     aws = pkgs.awscli;
