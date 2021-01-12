@@ -170,3 +170,5 @@ instance (Show a, Show b, Show c, Show d, Show e) => Show (a,b,c,d,e) where
     . showString ","
     . shows e
     . showString ")"
+
+-- Deliberately not supporting larger sizes. Do not add support for them.
