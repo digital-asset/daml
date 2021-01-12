@@ -271,7 +271,7 @@ private[kvutils] class TransactionCommitter(
         result: Option[Value.ContractId]): Boolean =
       result.exists { contractId =>
         tx.nodes.exists {
-          case (nodeId @ _, create: Node.NodeCreate[_]) => create.coid == contractId
+          case (_, create: Node.NodeCreate[_]) => create.coid == contractId
           case _ => false
         }
       }
@@ -286,14 +286,14 @@ private[kvutils] class TransactionCommitter(
           case (
               Node.NodeLookupByKey(
                 recordedTemplateId,
-                recordedOptLocation @ _,
+                _,
                 recordedKey,
                 recordedResult,
                 recordedVersion,
               ),
               Node.NodeLookupByKey(
                 replayedTemplateId,
-                replayedOptLocation @ _,
+                _,
                 replayedKey,
                 replayedResult,
                 replayedVersion,
@@ -376,28 +376,46 @@ private[kvutils] class TransactionCommitter(
   private def buildFinalLogEntry: Step =
     (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
-  private def validateContractKeys: Step = (commitContext, transactionEntry) => {
+  private[committer] def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.collectInputs {
       case (key, Some(value)) if key.hasContractKey => key -> value
     } ++ commitContext.getOutputs
-    val startingKeys = damlState.collect {
-      case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
-    }.toSet
-    validateContractKeyUniqueness(commitContext.recordTime, transactionEntry, startingKeys) match {
-      case StepContinue(transactionEntry) =>
-        validateContractKeyCausalMonotonicity(
-          commitContext.recordTime,
-          transactionEntry,
-          startingKeys,
-          damlState)
-      case err => err
+
+    val currentKeyContractIdMapping: Map[DamlStateKey, String] = damlState.collect {
+      case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty =>
+        k -> v.getContractKeyState.getContractId
+    }
+    val startingKeys: Set[DamlStateKey] = currentKeyContractIdMapping.keySet
+    val currentContractKeysMapping: Map[DamlContractKey, String] =
+      currentKeyContractIdMapping.map(m => m._1.getContractKey -> m._2)
+
+    List[() => StepResult[DamlTransactionEntrySummary]](
+      validateContractKeyUniqueness(commitContext.recordTime, transactionEntry, startingKeys),
+      validateContractKeyCausalMonotonicity(
+        commitContext.recordTime,
+        transactionEntry,
+        startingKeys,
+        damlState,
+      ),
+      validateContractKeysConsistency(
+        commitContext.recordTime,
+        transactionEntry,
+        currentContractKeysMapping,
+      ),
+    ).foldLeft[StepResult[DamlTransactionEntrySummary]](StepContinue(transactionEntry)) {
+      case (stepResult, check) =>
+        stepResult match {
+          case _: StepContinue[DamlTransactionEntrySummary] => check()
+          case stopResult: StepStop => stopResult
+        }
     }
   }
 
   private def validateContractKeyUniqueness(
       recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
-      keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
+      keys: Set[DamlStateKey],
+  )(): StepResult[DamlTransactionEntrySummary] = {
     val allUnique = transactionEntry.transaction
       .fold((true, keys)) {
         case ((allUnique, existingKeys), (_, exe: Node.NodeExercises[NodeId, Value.ContractId]))
@@ -438,7 +456,8 @@ private[kvutils] class TransactionCommitter(
       recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey],
-      damlState: Map[DamlStateKey, DamlStateValue]): StepResult[DamlTransactionEntrySummary] = {
+      damlState: Map[DamlStateKey, DamlStateValue],
+  )(): StepResult[DamlTransactionEntrySummary] = {
     val causalKeyMonotonicity = keys.forall { key =>
       val state = damlState(key)
       val keyActiveAt =
@@ -453,6 +472,32 @@ private[kvutils] class TransactionCommitter(
         buildRejectionLogEntry(
           transactionEntry,
           RejectionReason.Inconsistent("Causal monotonicity violated")))
+  }
+
+  /** Validates that 'contract key' -> 'contract id' mapping resolved by a participant is still valid.
+    */
+  private def validateContractKeysConsistency(
+      recordTime: Option[Timestamp],
+      transactionEntry: DamlTransactionEntrySummary,
+      resolvedKeys: Map[DamlContractKey, String],
+  )(): StepResult[DamlTransactionEntrySummary] = {
+    val invalidKeys = transactionEntry.contractKeyToIdMap.foldLeft[List[DamlContractKey]](Nil) {
+      case (invalidKeys, (contractKey, submittedContractId)) =>
+        if (resolvedKeys.get(contractKey) == submittedContractId) invalidKeys
+        else contractKey +: invalidKeys
+    }
+    invalidKeys match {
+      case Nil => StepContinue(transactionEntry)
+      case invalid =>
+        reject(
+          recordTime,
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.Inconsistent(
+              s"Contract keys inconsistent: [${invalid.mkString(", ")}]"),
+          ),
+        )
+    }
   }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
@@ -757,6 +802,11 @@ private[kvutils] object TransactionCommitter {
     lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
+    val contractKeyToIdMap: Map[DamlContractKey, Option[String]] =
+      submission.getContractKeyIdPairsList.asScala.map { pair =>
+        // Empty contract id means that a key lookup was negative
+        pair.getKey -> (if (pair.getResolvedToId.nonEmpty) Some(pair.getResolvedToId) else None)
+      }.toMap
   }
 
   // Helper to read the _current_ contract state.

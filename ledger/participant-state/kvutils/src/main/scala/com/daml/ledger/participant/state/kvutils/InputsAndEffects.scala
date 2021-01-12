@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.daml.lf.data.Ref._
+import com.daml.lf.transaction.Node.{KeyWithMaintainers, LeafOnlyNode}
 import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Transaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -22,19 +23,19 @@ private[kvutils] object InputsAndEffects {
   /**
     *
     * @param consumedContracts
-    *     The contracts consumed by this transaction.
-    *     When committing the transaction these contracts must be marked consumed.
-    *     A contract should be marked consumed when the transaction is committed,
-    *     regardless of the ledger effective time of the transaction (e.g. a transaction
-    *     with an earlier ledger effective time that gets committed later would find the
-    *     contract inactive).
+    * The contracts consumed by this transaction.
+    * When committing the transaction these contracts must be marked consumed.
+    * A contract should be marked consumed when the transaction is committed,
+    * regardless of the ledger effective time of the transaction (e.g. a transaction
+    * with an earlier ledger effective time that gets committed later would find the
+    * contract inactive).
     * @param createdContracts
-    *     The contracts created by this transaction.
-    *     When the transaction is committed, keys marking the activeness of these
-    *     contracts should be created. The key should be a combination of the transaction
-    *     id and the relative contract id (that is, the node index).
+    * The contracts created by this transaction.
+    * When the transaction is committed, keys marking the activeness of these
+    * contracts should be created. The key should be a combination of the transaction
+    * id and the relative contract id (that is, the node index).
     * @param updatedContractKeys
-    *     The contract keys created or updated as part of the transaction.
+    * The contract keys created or updated as part of the transaction.
     */
   final case class Effects(
       consumedContracts: List[DamlStateKey],
@@ -52,8 +53,9 @@ private[kvutils] object InputsAndEffects {
   def computeInputs(
       tx: Transaction.Transaction,
       meta: TransactionMeta,
-  ): List[DamlStateKey] = {
+  ): (List[DamlStateKey], List[DamlContractKeyIdPair]) = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
+    val resolvedContractIdsMap = mutable.Map.empty[DamlContractKey, Option[ContractId]]
 
     {
       import PackageId.ordering
@@ -77,6 +79,57 @@ private[kvutils] object InputsAndEffects {
       import Party.ordering
       parties.toList.sorted.map(partyStateKey)
     }
+
+    def addOrUpdateResolvedContractId(
+        key: DamlStateKey,
+        contractId: Option[Value.ContractId],
+    ): Unit = {
+      val contractKey = key.getContractKey
+      resolvedContractIdsMap.get(contractKey) match {
+        case None => resolvedContractIdsMap += (contractKey -> contractId)
+        case _ => ()
+      }
+    }
+
+    def updateMappingWithExercisesNode(exe: Node.NodeExercises[NodeId, Value.ContractId]): Unit = {
+      if (exe.consuming) {
+        exe.key.foreach { keyWithMaintainers =>
+          val key = contractKeyStateKey(exe.templateId, keyWithMaintainers.key)
+          inputs += key
+          addOrUpdateResolvedContractId(key, Some(exe.targetCoid))
+        }
+      }
+    }
+
+    def stateKey(
+        node: LeafOnlyNode[Value.ContractId],
+        keyWithMaintainers: KeyWithMaintainers[Value[Value.ContractId]],
+    ): DamlStateKey =
+      globalKeyToStateKey(GlobalKey(node.templateId, forceNoContractIds(keyWithMaintainers.key)))
+
+    def updateMappingWithLeafNode(node: LeafOnlyNode[Value.ContractId]): Unit = {
+      node match {
+        case fetch: Node.NodeFetch[Value.ContractId] =>
+          fetch.key.foreach { keyWithMaintainers =>
+            val key = stateKey(fetch, keyWithMaintainers)
+            addOrUpdateResolvedContractId(key, Some(fetch.coid))
+          }
+        case create: Node.NodeCreate[Value.ContractId] =>
+          create.key.foreach { keyWithMaintainers =>
+            val key = stateKey(create, keyWithMaintainers)
+            addOrUpdateResolvedContractId(key, None)
+          }
+        case lookup: Node.NodeLookupByKey[Value.ContractId] =>
+          val key = stateKey(lookup, lookup.key)
+          addOrUpdateResolvedContractId(key, lookup.result)
+      }
+    }
+
+    tx.foreachInExecutionOrder(
+      (_, exercisesNode) => updateMappingWithExercisesNode(exercisesNode),
+      (_, leafNode) => updateMappingWithLeafNode(leafNode),
+      (_, _) => (),
+    )
 
     tx.foreach {
       case (_, node) =>
@@ -108,7 +161,7 @@ private[kvutils] object InputsAndEffects {
         inputs ++= partyInputs(node.informeesOfNode)
     }
 
-    inputs.toList
+    (inputs.toList, resolvedContractIdsMap.map(m => resolvedContractKeyIdPair(m._1, m._2)).toList)
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
@@ -149,11 +202,9 @@ private[kvutils] object InputsAndEffects {
                 consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
                 updatedContractKeys = exe.key
                   .fold(effects.updatedContractKeys)(
-                    key =>
-                      effects.updatedContractKeys.updated(
-                        globalKeyToStateKey(GlobalKey(exe.templateId, forceNoContractIds(key.key))),
-                        None)
-                  )
+                    keyWithMaintainers =>
+                      effects.updatedContractKeys
+                        .updated(contractKeyStateKey(exe.templateId, keyWithMaintainers.key), None))
               )
             } else {
               effects
@@ -163,4 +214,10 @@ private[kvutils] object InputsAndEffects {
         }
     }
   }
+
+  private def contractKeyStateKey(
+      templateId: TypeConName,
+      keyValue: Value[ContractId],
+  ): DamlStateKey =
+    globalKeyToStateKey(GlobalKey(templateId, forceNoContractIds(keyValue)))
 }

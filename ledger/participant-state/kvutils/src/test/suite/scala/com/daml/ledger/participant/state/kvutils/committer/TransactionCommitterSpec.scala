@@ -4,11 +4,11 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.time.Instant
+import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
@@ -27,10 +27,12 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
+import com.daml.lf.value.ValueOuterClass.Identifier
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Inspectors.forEvery
 
@@ -492,12 +494,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
-      val rejectionReason = result
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry
-        .getPartyNotKnownOnLedger
-        .getDetails
+      val rejectionReason =
+        getTransactionRejectionReason(result).getPartyNotKnownOnLedger.getDetails
       rejectionReason should fullyMatch regex """Submitting party .+ not known"""
     }
 
@@ -514,12 +512,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
-      val rejectionReason = result
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry
-        .getSubmitterCannotActViaParticipant
-        .getDetails
+      val rejectionReason =
+        getTransactionRejectionReason(result).getSubmitterCannotActViaParticipant.getDetails
       rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(
         ParticipantId)}"""
     }
@@ -562,6 +556,98 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
             DamlStateValue.newBuilder().setParty(_).build())
       }.toMap
   }
+
+  "validateContractKeys" should {
+    "return Inconsistent error when a contract key resolves to a different contract id than given by a participant node" in {
+      val cases = Table(
+        "contractIdAtParticipant" -> "contractIdAtCommitter",
+        Some(freshContractId) -> Some(freshContractId),
+        None -> Some(freshContractId),
+        Some(freshContractId) -> None,
+      )
+
+      val key = aContractKey
+      forAll(cases) {
+        (contractIdAtParticipant: Option[String], contractIdAtCommitter: Option[String]) =>
+          val transaction = transactionWithResolvedContractIds(
+            key -> contractIdAtParticipant
+          )
+
+          val context = commitContextWithContractStateKeys(
+            key -> contractIdAtCommitter
+          )
+
+          val result =
+            instance.validateContractKeys.apply(context, DamlTransactionEntrySummary(transaction))
+          result shouldBe a[StepStop]
+          val rejectionReason = getTransactionRejectionReason(result).getInconsistent.getDetails
+          rejectionReason should startWith("Contract keys inconsistent")
+      }
+    }
+
+    def aContractKey: DamlContractKey =
+      DamlContractKey
+        .newBuilder()
+        .setTemplateId(Identifier.newBuilder().addName(UUID.randomUUID().toString.take(10)))
+        .build()
+
+    def contractKeyState(contractId: String): DamlContractKeyState =
+      DamlContractKeyState
+        .newBuilder()
+        .setContractId(contractId)
+        .build()
+
+    def freshContractId: String = s"testContractId-${UUID.randomUUID().toString.take(10)}"
+
+    def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
+      DamlStateKey
+        .newBuilder()
+        .setContractKey(contractKey)
+        .build()
+
+    def contractKeyStateValue(contractId: String): DamlStateValue =
+      DamlStateValue
+        .newBuilder()
+        .setContractKeyState(contractKeyState(contractId))
+        .build()
+
+    def resolvedContractId(key: DamlContractKey, resolvedToId: String): DamlContractKeyIdPair =
+      DamlContractKeyIdPair
+        .newBuilder()
+        .setKey(key)
+        .setResolvedToId(resolvedToId)
+        .build()
+
+    def transactionWithResolvedContractIds(
+        contractKeyIdPairs: (DamlContractKey, Option[String])*
+    ): DamlTransactionEntry = {
+      createTransactionEntry(List("Alice")).toBuilder
+        .addAllContractKeyIdPairs(contractKeyIdPairs.toList.map {
+          case (key, id) =>
+            resolvedContractId(key, id.getOrElse(""))
+        }.asJava)
+        .build
+    }
+
+    def commitContextWithContractStateKeys(
+        contractKeyIdPairs: (DamlContractKey, Option[String])*
+    ): CommitContext =
+      createCommitContext(
+        recordTime = None,
+        inputs = contractKeyIdPairs.map {
+          case (key, id) =>
+            contractStateKey(key) -> id.map(contractKeyStateValue)
+        }.toMap,
+      )
+  }
+
+  private def getTransactionRejectionReason(
+      result: StepResult[DamlTransactionEntrySummary]
+  ): DamlTransactionRejectionEntry =
+    result
+      .asInstanceOf[StepStop]
+      .logEntry
+      .getTransactionRejectionEntry
 
   private def createTransactionCommitter(): TransactionCommitter =
     new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)

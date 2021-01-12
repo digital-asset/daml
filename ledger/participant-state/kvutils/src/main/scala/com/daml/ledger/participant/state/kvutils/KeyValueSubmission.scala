@@ -44,7 +44,7 @@ class KeyValueSubmission(metrics: Metrics) {
       tx: SubmittedTransaction,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
-      val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
+      val (inputDamlStateFromTx, contractKeyIdPairs) = InputsAndEffects.computeInputs(tx, meta)
       val encodedSubInfo = buildSubmitterInfo(submitterInfo)
 
       DamlSubmission.newBuilder
@@ -60,6 +60,7 @@ class KeyValueSubmission(metrics: Metrics) {
             .setWorkflowId(meta.workflowId.getOrElse(""))
             .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
             .setSubmissionTime(buildTimestamp(meta.submissionTime))
+            .addAllContractKeyIdPairs(contractKeyIdPairs.asJava)
         )
         .build
     }

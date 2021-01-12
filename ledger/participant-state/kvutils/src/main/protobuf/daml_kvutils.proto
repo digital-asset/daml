@@ -175,6 +175,9 @@ message DamlTransactionEntry {
 
   // The pre-computed transaction blinding information.
   DamlTransactionBlindingInfo blinding_info = 7;
+
+  // Pairs of contract keys and corresponding resolved contract ids.
+  repeated DamlContractKeyIdPair contract_key_id_pairs = 8;
 }
 
 // A transaction's blinding information, consisting of disclosure and
@@ -488,6 +491,14 @@ message DamlContractKeyState {
   // This is the same value as the ledger_effective_time of the transaction
   // that created this contract.
   google.protobuf.Timestamp active_at = 2;
+}
+
+message DamlContractKeyIdPair {
+  DamlContractKey key = 1;
+
+  // Contract id the key was resolved to.
+  // An empty string is used to mark "no contract id".
+  string resolved_to_id = 2;
 }
 
 // A v1 dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
