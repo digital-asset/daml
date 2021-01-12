@@ -33,8 +33,8 @@ import com.daml.util.ExceptionOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
-import doobie.free.connection
-import doobie.free.connection.ConnectionIO
+import doobie.free.{connection => fconn}
+import fconn.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -73,18 +73,54 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
-    import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._, doobie.free.{
-      connection => fc
-    }
+  ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
+    import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
+    cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
     connectionIOFuture(getTermination(jwt)) flatMap {
-      _ cata (absEnd =>
-        templateIds.traverse {
-          fetchAndPersist(jwt, parties, absEnd, _)
-        }, fc.pure(templateIds map (_ => LedgerBegin)))
+      _.cata(
+        absEnd =>
+          // traverse once, use the max _returned_ bookmark,
+          // re-traverse any that != the max returned bookmark (overriding lastOffset)
+          // fetch cannot go "too far" the second time
+          templateIds.traverse(fetchAndPersist(jwt, parties, None, absEnd, _)).flatMap {
+            actualAbsEnds =>
+              val newAbsEndTarget = {
+                import scalaz.std.list._, scalaz.syntax.foldable._,
+                domain.Offset.{ordering => `Offset ordering`}
+                // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
+                // with genuine results
+                actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+              }
+              newAbsEndTarget match {
+                case LedgerBegin =>
+                  fconn.pure(AbsoluteBookmark(absEnd))
+                case AbsoluteBookmark(domain.Offset.tag(feedback)) =>
+                  val feedbackTerminator =
+                    Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
+                  (actualAbsEnds zip templateIds)
+                    .filter { case (laggingAbsEnd, _) =>
+                      type B = BeginBookmark[domain.Offset]
+                      (laggingAbsEnd: B) != (newAbsEndTarget: B)
+                    }
+                    .traverse_ { case (laggingAbsEnd, templateId) =>
+                      // passing a priorBookmark prevents contractsIo_ from using the ACS,
+                      // and it cannot go "too far" reading only the tx stream
+                      fetchAndPersist(
+                        jwt,
+                        parties,
+                        Some(laggingAbsEnd),
+                        feedbackTerminator,
+                        templateId,
+                      )
+                    }
+                    .as(AbsoluteBookmark(feedbackTerminator))
+              }
+          },
+        fconn.pure(LedgerBegin),
+      )
     }
 
   }
@@ -92,6 +128,7 @@ private class ContractsFetch(
   private[this] def fetchAndPersist(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
+      priorBookmark: Option[BeginBookmark[domain.Offset]],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit
@@ -103,13 +140,13 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      contractsIo_(jwt, parties, absEnd, templateId).exceptSql {
+      contractsIo_(jwt, parties, priorBookmark, absEnd, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
-          connection.rollback flatMap (_ => loop(maxAttempts - 1))
+          fconn.rollback flatMap (_ => loop(maxAttempts - 1))
         case e @ _ =>
           logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
-          connection.raiseError(e)
+          fconn.raiseError(e)
       }
     }
 
@@ -119,11 +156,16 @@ private class ContractsFetch(
   private def contractsIo_(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
+      priorBookmark: Option[BeginBookmark[domain.Offset]],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
-      offsets <- ContractDao.lastOffset(parties, templateId)
+      offsets <- priorBookmark match {
+        case Some(AbsoluteBookmark(off)) =>
+          fconn.pure((parties.tail + parties.head).view.map((_, off)).toMap)
+        case None | Some(LedgerBegin) => ContractDao.lastOffset(parties, templateId)
+      }
       offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, absEnd)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
     } yield offset1
@@ -228,7 +270,7 @@ private class ContractsFetch(
             .updateOffset(parties, templateId, newOffset, offsets)
             .map(_ => AbsoluteBookmark(newOffset))
         case LedgerBegin =>
-          connection.pure(LedgerBegin)
+          fconn.pure(LedgerBegin)
       }
     } yield offsetOrError
   }
@@ -431,7 +473,7 @@ private[http] object ContractsFetch {
   private def connectionIOFuture[A](
       fa: Future[A]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
-    doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
+    fconn.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
