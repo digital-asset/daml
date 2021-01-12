@@ -6,13 +6,11 @@ package com.daml.grpc
 import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.grpc.test.GrpcServer
-import com.google.protobuf.ByteString
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.reflection.v1alpha.ServerReflectionRequest
 import io.grpc.{
   Channel,
   Metadata,
@@ -64,7 +62,7 @@ final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer
         getHealthStatus(backend)
         recorder.latestRequest() shouldBe empty
         getHealthStatus(proxy)
-        inside(recorder.latestRequest()) { case Some(request: ByteString) =>
+        inside(recorder.latestRequest()) { case Some(request: Array[Byte]) =>
           HealthCheckRequest.parseFrom(request)
           succeed
         }
