@@ -85,29 +85,39 @@ private class ContractsFetch(
           // traverse once, use the max _returned_ bookmark,
           // re-traverse any that != the max returned bookmark (overriding lastOffset)
           // fetch cannot go "too far" the second time
-          templateIds.traverse(fetchAndPersist(jwt, parties, absEnd, _)).flatMap { actualAbsEnds =>
-            val newAbsEndTarget = {
-              import scalaz.std.list._, scalaz.syntax.foldable._,
-              domain.Offset.{ordering => `Offset ordering`}
-              actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
-            }
-            newAbsEndTarget match {
-              case LedgerBegin =>
-                fconn.pure(AbsoluteBookmark(absEnd))
-              case AbsoluteBookmark(domain.Offset.tag(feedback)) =>
-                val feedbackTerminator =
-                  Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
-                (actualAbsEnds zip templateIds)
-                  .filter { case (laggingAbsEnd, _) =>
-                    type B = BeginBookmark[domain.Offset]
-                    (laggingAbsEnd: B) != (newAbsEndTarget: B)
-                  }
-                  .traverse_ { case (laggingAbsEnd @ _, templateId) =>
-                    // TODO SC force contractsIo_ to use tx stream only and laggingAbsEnd
-                    fetchAndPersist(jwt, parties, feedbackTerminator, templateId)
-                  }
-                  .as(AbsoluteBookmark(feedbackTerminator))
-            }
+          templateIds.traverse(fetchAndPersist(jwt, parties, None, absEnd, _)).flatMap {
+            actualAbsEnds =>
+              val newAbsEndTarget = {
+                import scalaz.std.list._, scalaz.syntax.foldable._,
+                domain.Offset.{ordering => `Offset ordering`}
+                // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
+                // with genuine results
+                actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+              }
+              newAbsEndTarget match {
+                case LedgerBegin =>
+                  fconn.pure(AbsoluteBookmark(absEnd))
+                case AbsoluteBookmark(domain.Offset.tag(feedback)) =>
+                  val feedbackTerminator =
+                    Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
+                  (actualAbsEnds zip templateIds)
+                    .filter { case (laggingAbsEnd, _) =>
+                      type B = BeginBookmark[domain.Offset]
+                      (laggingAbsEnd: B) != (newAbsEndTarget: B)
+                    }
+                    .traverse_ { case (laggingAbsEnd, templateId) =>
+                      // passing a priorBookmark prevents contractsIo_ from using the ACS,
+                      // and it cannot go "too far" reading only the tx stream
+                      fetchAndPersist(
+                        jwt,
+                        parties,
+                        Some(laggingAbsEnd),
+                        feedbackTerminator,
+                        templateId,
+                      )
+                    }
+                    .as(AbsoluteBookmark(feedbackTerminator))
+              }
           },
         fconn.pure(LedgerBegin),
       )
@@ -118,6 +128,7 @@ private class ContractsFetch(
   private[this] def fetchAndPersist(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
+      priorBookmark: Option[BeginBookmark[domain.Offset]],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit
@@ -129,7 +140,7 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      contractsIo_(jwt, parties, absEnd, templateId).exceptSql {
+      contractsIo_(jwt, parties, priorBookmark, absEnd, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
           fconn.rollback flatMap (_ => loop(maxAttempts - 1))
@@ -145,11 +156,16 @@ private class ContractsFetch(
   private def contractsIo_(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
+      priorBookmark: Option[BeginBookmark[domain.Offset]],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
-      offsets <- ContractDao.lastOffset(parties, templateId)
+      offsets <- priorBookmark match {
+        case Some(AbsoluteBookmark(off)) =>
+          fconn.pure((parties.tail + parties.head).view.map((_, off)).toMap)
+        case None | Some(LedgerBegin) => ContractDao.lastOffset(parties, templateId)
+      }
       offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, absEnd)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
     } yield offset1
