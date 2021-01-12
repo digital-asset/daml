@@ -46,7 +46,7 @@ class SignalDispatcherTest
     "output multiple signals when they arrive" in { sut =>
       val count = 10
       val result = sut.subscribe(false).take(count.toLong).runWith(Sink.seq).map(_ => succeed)
-      1.to(count).foreach(_ => sut.signal)
+      1.to(count).foreach(_ => sut.signal())
       result
     }
 

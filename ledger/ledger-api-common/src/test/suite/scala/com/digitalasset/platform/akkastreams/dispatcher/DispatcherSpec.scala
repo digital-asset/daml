@@ -19,6 +19,8 @@ import org.scalatest.{Assertion, BeforeAndAfter}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.compat._
+import scala.collection.compat.immutable.LazyList
 import scala.collection.immutable
 import scala.collection.immutable.TreeMap
 import scala.concurrent.Future.successful
@@ -77,11 +79,11 @@ class DispatcherSpec
       publishTo: Option[Dispatcher[Index]] = None,
       meanDelayMs: Int = 0,
   ): IndexedSeq[(Index, Value)] = {
-    def genManyHelper(i: Index, count: Int): Stream[(Index, Value)] = {
+    def genManyHelper(i: Index, count: Int): LazyList[(Index, Value)] = {
       if (count == 0) {
-        Stream.empty
+        LazyList.empty
       } else {
-        val next = Stream
+        val next = LazyList
           .iterate(i)(i => i.next)
           .filter(i => i != nextIndex.get() && store.get().get(i).isEmpty)
           .head
@@ -92,7 +94,7 @@ class DispatcherSpec
           d.signalNewHead(i)
         }
         Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
-        Stream.cons((i, v), genManyHelper(next, count - 1))
+        LazyList.cons((i, v), genManyHelper(next, count - 1))
       }
     }
 
@@ -114,7 +116,7 @@ class DispatcherSpec
       src: Dispatcher[Index],
       subSrc: SubSource[Index, Value],
       delayMs: Int = 0,
-  ) = {
+  ): Future[immutable.IndexedSeq[(Index, Value)]] = {
     if (delayMs > 0) {
       src
         .startingAt(start, subSrc, Some(stop))
@@ -145,12 +147,20 @@ class DispatcherSpec
 
   import Index.ordering._
   private val rangeQuerySteppingMode = RangeSource[Index, Value]((startExclusive, endInclusive) =>
-    Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
+    Source(
+      store.get().rangeFrom(startExclusive).rangeTo(endInclusive).dropWhile(_._1 <= startExclusive)
+    )
   )
 
   private def slowRangeQuerySteppingMode(delayMs: Int) =
     RangeSource[Index, Value]((startExclusive, endInclusive) =>
-      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
+      Source(
+        store
+          .get()
+          .rangeFrom(startExclusive)
+          .rangeTo(endInclusive)
+          .dropWhile(_._1 <= startExclusive)
+      )
         .throttle(1, delayMs.milliseconds * 2)
     )
 

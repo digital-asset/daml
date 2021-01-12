@@ -20,7 +20,6 @@ import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional =>
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
-import org.scalatest.EitherValues._
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
@@ -224,7 +223,7 @@ class SubmitRequestValidatorTest
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
           )
-        inside(result.right.value) { case cmd: ApiCommands =>
+        inside(result) { case Right(cmd) =>
           // actAs parties are gathered from "party" and "readAs" fields
           cmd.actAs shouldEqual Set("alice", "bob")
           // readAs should exclude all parties that are already actAs parties

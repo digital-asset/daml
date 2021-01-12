@@ -14,6 +14,7 @@ import com.daml.lf.value.Value._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.parallel.CollectionConverters._
 import scala.language.implicitConversions
 
 class KeyHasherSpec extends AnyWordSpec with Matchers {
@@ -353,7 +354,7 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
         Ref.Name.assertFromString(s)
 
       implicit def toSortedLookupList[V](a: ImmArray[(String, V)]): SortedLookupList[V] =
-        SortedLookupList.fromOrderedImmArray(a).right.get
+        SortedLookupList.fromOrderedImmArray(a).toOption.get
 
       val EnumTypeCon: Ref.TypeConName = "Color"
       val EnumTypeConBis: Ref.TypeConName = "ColorBis"
