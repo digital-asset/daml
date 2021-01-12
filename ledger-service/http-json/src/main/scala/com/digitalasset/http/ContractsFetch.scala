@@ -98,16 +98,13 @@ private class ContractsFetch(
                 val feedbackTerminator =
                   Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
                 (actualAbsEnds zip templateIds)
-                  .filter(_._1 != newAbsEndTarget)
+                  .filter { case (laggingAbsEnd, _) =>
+                    type B = BeginBookmark[domain.Offset]
+                    (laggingAbsEnd: B) != (newAbsEndTarget: B)
+                  }
                   .traverse_ { case (laggingAbsEnd @ _, templateId) =>
                     // TODO SC force contractsIo_ to use tx stream only and laggingAbsEnd
                     fetchAndPersist(jwt, parties, feedbackTerminator, templateId)
-                      .map { computedAbsEnd =>
-                        if (computedAbsEnd != newAbsEndTarget)
-                          logger.error(
-                            s"s11 mismatched DB catchup target ${newAbsEndTarget: Any}, actual ${computedAbsEnd: Any}"
-                          )
-                      }
                   }
                   .as(AbsoluteBookmark(feedbackTerminator))
             }
