@@ -11,10 +11,11 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionRequest,
   ServerReflectionResponse,
 }
+import org.scalatest.Inspectors._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 final class ReflectionIT
@@ -59,7 +60,9 @@ final class ReflectionIT
               s"filedescriptor ${p.toStringUtf8} contains string 'bazel-out'. This means grpc reflection will not work.",
             )
           }
-          all(symbolResponses) should have('hasErrorResponse (false))
+          forAll(symbolResponses) { r =>
+            r.hasErrorResponse should be(false)
+          }
         }
       }
     }

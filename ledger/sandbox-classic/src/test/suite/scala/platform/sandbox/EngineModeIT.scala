@@ -101,7 +101,7 @@ class EngineModeIT
         client <- ledger.client.LedgerClient.apply(channel, ledgerClientConfiguration)
         darContent = protobuf.ByteString.copyFrom(Files.readAllBytes(darPath))
         pkgsBefore <- client.packageManagementClient.listKnownPackages()
-        _ = pkgsBefore shouldBe 'empty
+        _ = pkgsBefore shouldBe Symbol("empty")
         _ <- client.packageManagementClient.uploadDarFile(darContent)
         pkgsAfter <- client.packageManagementClient.listKnownPackages()
         _ = pkgsAfter.size shouldBe 1

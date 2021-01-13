@@ -104,7 +104,7 @@ class TransactionTimeModelComplianceIT
       optByKeyNodes = None,
     )
 
-    val offset = ledger.ledgerEnd
+    val offset = ledger.ledgerEnd()
 
     for {
       submissionResult <- ledger.publishTransaction(
