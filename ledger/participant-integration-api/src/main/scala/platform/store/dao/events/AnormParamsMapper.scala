@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.store.dao.events
 
 import java.sql.{PreparedStatement, Timestamp}
@@ -20,7 +23,6 @@ private[events] object AnormParamsMapper {
 
   implicit object TimestampArrayToStatement extends ArrayToStatement[Array[Timestamp]]("TIMESTAMP")
 
-  // Specific for PostgreSQL parallel unnesting insertions
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
       val conn = s.getConnection

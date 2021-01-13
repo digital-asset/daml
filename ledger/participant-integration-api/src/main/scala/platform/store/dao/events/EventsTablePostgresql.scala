@@ -148,7 +148,37 @@ object EventsTablePostgresql extends EventsTable {
     )
   }
 
-  private val insertStmt = anorm.SQL("""insert into participant_events(
+  private object Params {
+    val eventIds = "eventIds"
+    val eventOffsets = "eventOffsets"
+    val contractIds = "contractIds"
+    val transactionIds = "transactionIds"
+    val workflowIds = "workflowIds"
+    val ledgerEffectiveTimes = "ledgerEffectiveTimes"
+    val templateIds = "templateIds"
+    val nodeIndexes = "nodeIndexes"
+    val commandIds = "commandIds"
+    val applicationIds = "applicationIds"
+    val submitters = "submitters"
+    val flatEventWitnesses = "flatEventWitnesses"
+    val treeEventWitnesses = "treeEventWitnesses"
+    val createArguments = "createArguments"
+    val createSignatories = "createSignatories"
+    val createObservers = "createObservers"
+    val createAgreementTexts = "createAgreementTexts"
+    val createConsumedAt = "createConsumedAt"
+    val createKeyValues = "createKeyValues"
+    val exerciseConsuming = "exerciseConsuming"
+    val exerciseChoices = "exerciseChoices"
+    val exerciseArguments = "exerciseArguments"
+    val exerciseResults = "exerciseResults"
+    val exerciseActors = "exerciseActors"
+    val exerciseChildEventIds = "exerciseChildEventIds"
+  }
+
+  private val insertStmt = {
+    import Params._
+    anorm.SQL(s"""insert into participant_events(
            event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
            create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
@@ -159,9 +189,9 @@ object EventsTablePostgresql extends EventsTable {
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
          from
            unnest(
-             {eventIds}, {eventOffsets}, {contractIds}, {transactionIds}, {workflowIds}, {ledgerEffectiveTimes}, {templateIds}, {nodeIndexes}, {commandIds}, {applicationIds}, {submitters}, {flatEventWitnesses}, {treeEventWitnesses},
-             {createArguments}, {createSignatories}, {createObservers}, {createAgreementTexts}, {createConsumedAt}, {createKeyValues},
-             {exerciseConsuming}, {exerciseChoices}, {exerciseArguments}, {exerciseResults}, {exerciseActors}, {exerciseChildEventIds}
+             {$eventIds}, {$eventOffsets}, {$contractIds}, {$transactionIds}, {$workflowIds}, {$ledgerEffectiveTimes}, {$templateIds}, {$nodeIndexes}, {$commandIds}, {$applicationIds}, {$submitters}, {$flatEventWitnesses}, {$treeEventWitnesses},
+             {$createArguments}, {$createSignatories}, {$createObservers}, {$createAgreementTexts}, {$createConsumedAt}, {$createKeyValues},
+             {$exerciseConsuming}, {$exerciseChoices}, {$exerciseArguments}, {$exerciseResults}, {$exerciseActors}, {$exerciseChildEventIds}
            )
            as
                t(
@@ -170,6 +200,7 @@ object EventsTablePostgresql extends EventsTable {
                  exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
                )
        """)
+  }
 
   private def insertEvents(
       eventIds: Array[String],
@@ -199,30 +230,30 @@ object EventsTablePostgresql extends EventsTable {
       exerciseChildEventIds: Array[String],
   ) =
     insertStmt.on(
-      "eventIds" -> eventIds,
-      "eventOffsets" -> eventOffsets,
-      "contractIds" -> contractIds,
-      "transactionIds" -> transactionIds,
-      "workflowIds" -> workflowIds,
-      "ledgerEffectiveTimes" -> ledgerEffectiveTimes,
-      "templateIds" -> templateIds,
-      "nodeIndexes" -> nodeIndexes,
-      "commandIds" -> commandIds,
-      "applicationIds" -> applicationIds,
-      "submitters" -> submitters,
-      "flatEventWitnesses" -> flatEventWitnesses,
-      "treeEventWitnesses" -> treeEventWitnesses,
-      "createArguments" -> createArguments,
-      "createSignatories" -> createSignatories,
-      "createObservers" -> createObservers,
-      "createAgreementTexts" -> createAgreementTexts,
-      "createConsumedAt" -> createConsumedAt,
-      "createKeyValues" -> createKeyValues,
-      "exerciseConsuming" -> exerciseConsuming,
-      "exerciseChoices" -> exerciseChoices,
-      "exerciseArguments" -> exerciseArguments,
-      "exerciseResults" -> exerciseResults,
-      "exerciseActors" -> exerciseActors,
-      "exerciseChildEventIds" -> exerciseChildEventIds,
+      Params.eventIds -> eventIds,
+      Params.eventOffsets -> eventOffsets,
+      Params.contractIds -> contractIds,
+      Params.transactionIds -> transactionIds,
+      Params.workflowIds -> workflowIds,
+      Params.ledgerEffectiveTimes -> ledgerEffectiveTimes,
+      Params.templateIds -> templateIds,
+      Params.nodeIndexes -> nodeIndexes,
+      Params.commandIds -> commandIds,
+      Params.applicationIds -> applicationIds,
+      Params.submitters -> submitters,
+      Params.flatEventWitnesses -> flatEventWitnesses,
+      Params.treeEventWitnesses -> treeEventWitnesses,
+      Params.createArguments -> createArguments,
+      Params.createSignatories -> createSignatories,
+      Params.createObservers -> createObservers,
+      Params.createAgreementTexts -> createAgreementTexts,
+      Params.createConsumedAt -> createConsumedAt,
+      Params.createKeyValues -> createKeyValues,
+      Params.exerciseConsuming -> exerciseConsuming,
+      Params.exerciseChoices -> exerciseChoices,
+      Params.exerciseArguments -> exerciseArguments,
+      Params.exerciseResults -> exerciseResults,
+      Params.exerciseActors -> exerciseActors,
+      Params.exerciseChildEventIds -> exerciseChildEventIds,
     )
 }

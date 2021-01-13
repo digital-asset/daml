@@ -15,21 +15,34 @@ object ParticipantContractsWithWitnessesInsert {
   protected val IdColumn = "contract_id"
   protected val WitnessColumn = "contract_witness"
 
-  private val insertContractQuery =
-    anorm.SQL("""insert into participant_contracts(
+  private object Params {
+    val contractIds = "contractIds"
+    val templateIds = "templateIds"
+    val createArgs = "createArgs"
+    val timestamps = "timestamps"
+    val hashes = "hashes"
+    val stakeholders = "stakeholders"
+    val witnessesContractIds = "witnessesContractIds"
+    val parties = "parties"
+  }
+
+  private val insertContractQuery = {
+    import Params._
+    anorm.SQL(s"""insert into participant_contracts(
        contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders
      )
      select
        contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, string_to_array(create_stakeholders,'|')
      from
-       unnest({contractIds}, {templateIds}, {createArgs}, {timestamps}, {hashes}, {stakeholders})
+       unnest({$contractIds}, {$templateIds}, {$createArgs}, {$timestamps}, {$hashes}, {$stakeholders})
        as t(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders)
             on conflict do nothing;
      insert into participant_contract_witnesses(contract_id, contract_witness)
             select contract_id, contract_witness
-            from unnest({witnessesContractIds}, {parties}) as t(contract_id, contract_witness)
+            from unnest({$witnessesContractIds}, {$parties}) as t(contract_id, contract_witness)
             on conflict do nothing;
      """)
+  }
 
   def toExecutable(
       tx: TransactionIndexing.TransactionInfo,
@@ -77,14 +90,14 @@ object ParticipantContractsWithWitnessesInsert {
       .unzip
 
     val inserts = insertContractQuery.on(
-      "contractIds" -> contractIds,
-      "templateIds" -> templateIds,
-      "createArgs" -> createArgs,
-      "timestamps" -> timestamps,
-      "hashes" -> hashes,
-      "stakeholders" -> stakeholders,
-      "witnessesContractIds" -> witnessesContractIds,
-      "parties" -> parties,
+      Params.contractIds -> contractIds,
+      Params.templateIds -> templateIds,
+      Params.createArgs -> createArgs,
+      Params.timestamps -> timestamps,
+      Params.hashes -> hashes,
+      Params.stakeholders -> stakeholders,
+      Params.witnessesContractIds -> witnessesContractIds,
+      Params.parties -> parties,
     )
 
     Executables(inserts)

@@ -22,10 +22,10 @@ import com.daml.platform.store.DbType
 object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
-                                                           eventsTableExecutables: EventsTable.Batches,
-                                                           contractsTableExecutables: ContractsTable.Executables,
-                                                           contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
-                                                           participantContractAndWitnessesInsert: ParticipantContractsWithWitnessesInsert.Executables,
+      eventsTableExecutables: EventsTable.Batches,
+      contractsTableExecutables: ContractsTable.Executables,
+      contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
+      participantContractAndWitnessesInsert: ParticipantContractsWithWitnessesInsert.Executables,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
