@@ -667,8 +667,6 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
         import dslSyntax._
         Consume.interpret(
           for {
-            // TODO SC there is no guarantee that account1 and account2 arrive
-            // in separate messages; indeed they do not with postgres
             Vector((account1, _), (account2, _)) <- readAcsN(2)
             _ = Seq(account1, account2) should contain theSameElementsAs Seq(cid1, cid2)
             ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne

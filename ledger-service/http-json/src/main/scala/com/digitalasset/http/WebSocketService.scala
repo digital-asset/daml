@@ -468,7 +468,6 @@ class WebSocketService(
                 bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
                 mdContracts <- dbQuery(parties)(dao.logHandler)
                 _ = logger.info(s"s11 will split at bookmark $bookmark")
-                // TODO SC: save bookmark here, loop if fail
               } yield (
                 Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
                   .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
