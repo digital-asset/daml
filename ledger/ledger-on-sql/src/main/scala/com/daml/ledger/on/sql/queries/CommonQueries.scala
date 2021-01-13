@@ -12,7 +12,8 @@ import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 
-import scala.collection.{breakOut, immutable}
+import scala.collection.compat._
+import scala.collection.immutable
 import scala.util.Try
 
 trait CommonQueries extends Queries {
@@ -45,7 +46,7 @@ trait CommonQueries extends Queries {
             builder += row("key")(columnToRawKey) -> row("value")(columnToRawValue)
           }
           .fold(exceptions => throw exceptions.head, _.result())
-      keys.map(results.get)(breakOut)
+      keys.view.map(results.get).to(immutable.Seq)
     }
 
   override final def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit] = Try {

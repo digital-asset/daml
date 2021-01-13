@@ -126,6 +126,7 @@ da_scala_library(
 da_scala_library(
     name = "participant-integration-api-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
+    plugins = [silencer_plugin],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -135,6 +136,9 @@ da_scala_library(
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat._",
     ],
     visibility = ["//visibility:public"],
     runtime_deps = [

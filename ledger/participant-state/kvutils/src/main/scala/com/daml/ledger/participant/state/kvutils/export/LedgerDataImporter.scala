@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
+import scala.collection.compat.immutable.LazyList
+
 trait LedgerDataImporter {
-  def read(): Stream[(SubmissionInfo, WriteSet)]
+  def read(): LazyList[(SubmissionInfo, WriteSet)]
 }

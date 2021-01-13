@@ -36,7 +36,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
 //

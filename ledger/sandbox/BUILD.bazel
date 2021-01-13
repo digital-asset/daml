@@ -12,6 +12,13 @@ da_scala_library(
     # Do not include logback.xml into the library: let the user
     # of the sandbox-as-a-library decide how to log.
     resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -49,12 +56,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_config",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -98,10 +100,19 @@ genrule(
 da_scala_library(
     name = "sandbox-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
@@ -124,12 +135,7 @@ da_scala_library(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_netty_netty_handler",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

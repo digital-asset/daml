@@ -138,7 +138,7 @@ def install_java_deps():
             "org.sangria-graphql:sangria_{}:2.0.1".format(scala_major_version),
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
             "org.scalacheck:scalacheck_{}:1.14.0".format(scala_major_version),
-            "org.scala-lang.modules:scala-collection-compat_{}:2.1.6".format(scala_major_version),
+            "org.scala-lang.modules:scala-collection-compat_{}:2.3.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:0.9.0".format(scala_major_version),
             "org.scala-sbt:sbt:1.1.4",
             "org.scalactic:scalactic_{}:3.1.2".format(scala_major_version),

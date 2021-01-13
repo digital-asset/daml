@@ -45,10 +45,13 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     deps = [
         ":participant-state",
         "//daml-lf/transaction",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
