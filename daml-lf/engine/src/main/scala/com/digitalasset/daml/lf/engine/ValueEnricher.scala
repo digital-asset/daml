@@ -12,7 +12,7 @@ import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId, VersionedTra
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-// Provide methods to add information in values (and value containers) if missing:
+// Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums
 // - Records' field names
 final class ValueEnricher(engine: Engine) {

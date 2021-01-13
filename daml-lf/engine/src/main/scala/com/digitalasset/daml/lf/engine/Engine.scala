@@ -218,7 +218,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     } yield validationResult
   }
 
-  private[lf] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
+  private[engine] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
     pkgIds.dropWhile(compiledPackages.signatures.isDefinedAt) match {
       case pkgId :: rest =>
         ResultNeedPackage(
