@@ -219,6 +219,12 @@ private[preprocessing] object Preprocessor {
   def fail(e: Error): Nothing =
     throw PreprocessorError(e)
 
+  @throws[PreprocessorException]
+  def assertRight[X](either: Either[String, X]): X = either match {
+    case Left(e) => fail(e)
+    case Right(v) => v
+  }
+
   @inline
   def safelyRun[X](
       handleMissingPackages: Result[_]
