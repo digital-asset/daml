@@ -40,7 +40,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
         .run()
 
     // The values in the queue are not relevant, hence the random generation
-    val input = Seq.fill(bufferSize)(util.Random.nextInt)
+    val input = Seq.fill(bufferSize)(util.Random.nextInt())
 
     for {
       results <- Future.sequence(input.map(source.offer))
@@ -71,7 +71,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
         .toMat(Sink.seq)(Keep.both)
         .run()
 
-    val input = Seq.fill(bufferSize)(util.Random.nextInt)
+    val input = Seq.fill(bufferSize)(util.Random.nextInt())
 
     for {
       result <- Future.sequence(input.map(source.offer))
@@ -114,7 +114,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     // We to enqueue double the items that fit in the buffer
     // so to force items to be dropped from the queue
     val inputSize = bufferSize * 2
-    val input = Seq.fill(inputSize)(util.Random.nextInt)
+    val input = Seq.fill(inputSize)(util.Random.nextInt())
 
     for {
       results <- Future.sequence(input.map(source.offer))

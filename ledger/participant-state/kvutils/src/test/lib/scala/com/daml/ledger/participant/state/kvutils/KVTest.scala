@@ -22,7 +22,7 @@ import scalaz.std.list._
 import scalaz.syntax.traverse._
 import scalaz.{Reader, State}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final case class KVTestState(
     participantId: ParticipantId,
@@ -134,7 +134,7 @@ object KVTest {
       .flatMap {
         case None => getDefaultConfiguration
         case Some(v) =>
-          State.state(Configuration.decode(v.getConfigurationEntry.getConfiguration).right.get)
+          State.state(Configuration.decode(v.getConfigurationEntry.getConfiguration).toOption.get)
       }
 
   def currentRecordTime: KVTest[Timestamp] =
@@ -404,7 +404,7 @@ object KVTest {
     }
 
   private[this] def createInputState(
-      inputKeys: Seq[DamlStateKey]
+      inputKeys: collection.Seq[DamlStateKey]
   ): KVTest[Map[DamlStateKey, Option[DamlStateValue]]] = KVReader { state =>
     inputKeys.view
       .map(key => key -> state.damlState.get(key))
