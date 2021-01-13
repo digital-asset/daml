@@ -28,44 +28,38 @@ object Raw {
     implicit def `Raw.Bytes to ByteString`(raw: Bytes): ByteString = raw.bytes
   }
 
+  trait Companion[Self] {
+
+    def apply(bytes: ByteString): Self
+
+    /** This implicit conversion exists to aid in migration.
+      * It will be deprecated and subsequently removed in the future.
+      */
+    implicit def `ByteString to Self`(bytes: ByteString): Self = apply(bytes)
+
+    /** This implicit conversion exists to aid in migration.
+      * It will be deprecated and subsequently removed in the future.
+      */
+    implicit def `Raw.Bytes to Self`(rawBytes: Bytes): Self = apply(rawBytes.bytes)
+
+  }
+
   /** This case class only exists to preserve some functionality of
     * [[com.daml.ledger.participant.state.kvutils.Bytes]].
     *
     * It will be removed in the future.
     */
-  final case class Unknown(override val bytes: ByteString) extends Bytes
+  private final case class Unknown(override val bytes: ByteString) extends Bytes
 
   final case class Key(override val bytes: ByteString) extends Bytes
 
-  object Key {
-
+  object Key extends Companion[Key] {
     implicit val `Key Ordering`: Ordering[Key] = Ordering.by(_.bytes.asReadOnlyByteBuffer)
-
-    /** This implicit conversion exists to aid in migration.
-      * It will be deprecated and subsequently removed in the future.
-      */
-    implicit def `ByteString to Raw.Key`(bytes: ByteString): Key = Key(bytes)
-
-    /** This implicit conversion exists to aid in migration.
-      * It will be deprecated and subsequently removed in the future.
-      */
-    implicit def `Raw.Bytes to Raw.Key`(rawBytes: Bytes): Key = Key(rawBytes.bytes)
   }
 
   final case class Value(override val bytes: ByteString) extends Bytes
 
-  object Value {
-
-    /** This implicit conversion exists to aid in migration.
-      * It will be deprecated and subsequently removed in the future.
-      */
-    implicit def `ByteString to Raw.Value`(bytes: ByteString): Value = Value(bytes)
-
-    /** This implicit conversion exists to aid in migration.
-      * It will be deprecated and subsequently removed in the future.
-      */
-    implicit def `Raw.Bytes to Raw.Value`(rawBytes: Bytes): Value = Value(rawBytes.bytes)
-  }
+  object Value extends Companion[Value]
 
   type KeyValuePair = (Key, Value)
 
