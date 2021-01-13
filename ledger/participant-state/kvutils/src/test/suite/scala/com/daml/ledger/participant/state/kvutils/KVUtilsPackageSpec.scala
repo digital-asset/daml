@@ -23,7 +23,9 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
   import KVTest._
   import TestHelpers._
 
-  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+  private val darReader = DarReader[DamlLf.Archive] { case (_, is) =>
+    Try(DamlLf.Archive.parseFrom(is))
+  }
 
   private def darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
 

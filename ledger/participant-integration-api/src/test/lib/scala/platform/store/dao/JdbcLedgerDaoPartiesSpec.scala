@@ -103,7 +103,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     for {
       response <- storePartyEntry(fred, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
-      response <- storePartyEntry(fred, nextOffset(), shouldUpdateLegerEnd = false)
+      response <- storePartyEntry(fred, nextOffset())
     } yield {
       response should be(PersistenceResponse.Duplicate)
     }
@@ -123,10 +123,39 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     )
   }
 
+  it should "store just offset when duplicate party update encountered" in {
+    val party = Ref.Party.assertFromString(s"Alice-${UUID.randomUUID()}")
+    val aliceDetails = PartyDetails(
+      party,
+      displayName = Some("Alice Arkwright"),
+      isLocal = true,
+    )
+    val aliceAgain = PartyDetails(
+      party,
+      displayName = Some("Alice Carthwright"),
+      isLocal = true,
+    )
+    val bobDetails = PartyDetails(
+      party = Ref.Party.assertFromString(s"Bob-${UUID.randomUUID()}"),
+      displayName = Some("Bob Bobertson"),
+      isLocal = true,
+    )
+    for {
+      response <- storePartyEntry(aliceDetails, nextOffset())
+      _ = response should be(PersistenceResponse.Ok)
+      response <- storePartyEntry(aliceAgain, nextOffset())
+      _ = response should be(PersistenceResponse.Duplicate)
+      response <- storePartyEntry(bobDetails, nextOffset())
+      _ = response should be(PersistenceResponse.Ok)
+      parties <- ledgerDao.listKnownParties()
+    } yield {
+      parties should contain.allOf(aliceDetails, bobDetails)
+    }
+  }
+
   private def storePartyEntry(
       partyDetails: PartyDetails,
       offset: Offset,
-      shouldUpdateLegerEnd: Boolean = true,
   ) =
     ledgerDao
       .storePartyEntry(
@@ -134,7 +163,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
         allocationAccepted(partyDetails),
       )
       .map { response =>
-        if (shouldUpdateLegerEnd) previousOffset.set(Some(offset))
+        previousOffset.set(Some(offset))
         response
       }
 

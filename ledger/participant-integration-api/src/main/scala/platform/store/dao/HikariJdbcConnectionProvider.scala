@@ -31,6 +31,7 @@ private[platform] final class HikariConnection(
     metrics: Option[MetricRegistry],
     connectionPoolPrefix: String,
     maxInitialConnectRetryAttempts: Int,
+    connectionAsyncCommit: Boolean,
 )(implicit loggingContext: LoggingContext)
     extends ResourceOwner[HikariDataSource] {
 
@@ -38,8 +39,10 @@ private[platform] final class HikariConnection(
 
   override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
     val config = new HikariConfig
+    val dbType = DbType.jdbcType(jdbcUrl)
+
     config.setJdbcUrl(jdbcUrl)
-    config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
+    config.setDriverClassName(dbType.driver)
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
@@ -49,6 +52,8 @@ private[platform] final class HikariConnection(
     config.setConnectionTimeout(connectionTimeout.toMillis)
     config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
     metrics.foreach(config.setMetricRegistry)
+
+    configureAsyncCommit(config, dbType)
 
     // Hikari dies if a database connection could not be opened almost immediately
     // regardless of any connection timeout settings. We retry connections so that
@@ -67,6 +72,17 @@ private[platform] final class HikariConnection(
       }
     )(conn => Future { conn.close() })
   }
+
+  private def configureAsyncCommit(config: HikariConfig, dbType: DbType): Unit =
+    if (connectionAsyncCommit && dbType.supportsAsynchronousCommits) {
+      logger.info("Creating Hikari connections with asynchronous commit enabled")
+      config.setConnectionInitSql("SET synchronous_commit=OFF")
+    } else if (dbType.supportsAsynchronousCommits) {
+      logger.info("Creating Hikari connections with asynchronous commit disabled")
+      config.setConnectionInitSql("SET synchronous_commit=ON")
+    } else if (connectionAsyncCommit) {
+      logger.warn(s"Asynchronous commits are not compatible with ${dbType.name} database backend")
+    }
 }
 
 private[platform] object HikariConnection {
@@ -80,6 +96,7 @@ private[platform] object HikariConnection {
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
+      connectionAsyncCommit: Boolean,
   )(implicit
       loggingContext: LoggingContext
   ): HikariConnection =
@@ -92,6 +109,7 @@ private[platform] object HikariConnection {
       metrics,
       ConnectionPoolPrefix,
       MaxInitialConnectRetryAttempts,
+      connectionAsyncCommit,
     )
 }
 
@@ -157,6 +175,7 @@ private[platform] object HikariJdbcConnectionProvider {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
+      connectionAsyncCommit: Boolean = false,
   )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
     for {
       // these connections should never time out as we have the same number of threads as connections
@@ -167,6 +186,7 @@ private[platform] object HikariJdbcConnectionProvider {
         maxConnections,
         250.millis,
         Some(metrics),
+        connectionAsyncCommit,
       )
       healthPoller <- ResourceOwner.forTimer(() =>
         new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")

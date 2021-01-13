@@ -33,7 +33,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val actual = instance.checkTtl(context, anEmptyResult)
 
       actual match {
-        case StepContinue(_) => fail
+        case StepContinue(_) => fail()
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasConfigurationRejectionEntry shouldBe true
           actualLogEntry.getConfigurationRejectionEntry.hasTimedOut shouldBe true
@@ -52,7 +52,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
 
         actual match {
           case StepContinue(_) => succeed
-          case StepStop(_) => fail
+          case StepStop(_) => fail()
         }
       }
     }
@@ -63,7 +63,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
 
       instance.checkTtl(context, anEmptyResult) match {
         case StepContinue(_) => succeed
-        case StepStop(_) => fail
+        case StepStop(_) => fail()
       }
     }
 
@@ -104,7 +104,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
       actual match {
-        case StepContinue(_) => fail
+        case StepContinue(_) => fail()
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe true
           actualLogEntry.getRecordTime shouldBe buildTimestamp(theRecordTime)
@@ -118,7 +118,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
       actual match {
-        case StepContinue(_) => fail
+        case StepContinue(_) => fail()
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe false
       }
@@ -132,7 +132,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
         val actual = instance.buildLogEntry(context, anEmptyResult)
 
         actual match {
-          case StepContinue(_) => fail
+          case StepContinue(_) => fail()
           case StepStop(actualLogEntry) =>
             actualLogEntry.hasConfigurationEntry shouldBe true
             val actualConfigurationEntry = actualLogEntry.getConfigurationEntry

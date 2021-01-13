@@ -30,6 +30,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.compat.immutable.LazyList
+
 class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   import KVTest._
@@ -107,7 +109,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
     "reject a pre-executed exercise by key referring to a replaced key" in
       KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
         val seeds =
-          Stream
+          LazyList
             .from(0)
             .map(i => seed(i))
 
@@ -195,7 +197,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           } yield submission
 
         val seeds =
-          Stream
+          LazyList
             .from(0)
             .map(i => seed(i))
 
@@ -248,7 +250,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       eve,
     ) { simplePackage =>
       val seeds =
-        Stream
+        LazyList
           .from(0)
           .map(i => seed(i))
       for {
@@ -422,7 +424,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       eve,
     ) { simplePackage =>
       val seeds =
-        Stream
+        LazyList
           .from(0)
           .map(i => seed(i))
 
@@ -445,7 +447,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         finalState.damlState.foreach { case (_, v) =>
           v.getValueCase match {
             case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
-              v.getContractKeyState.getContractId shouldBe 'empty
+              v.getContractKeyState.getContractId shouldBe Symbol("empty")
 
             case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_STATE =>
               val cs = v.getContractState

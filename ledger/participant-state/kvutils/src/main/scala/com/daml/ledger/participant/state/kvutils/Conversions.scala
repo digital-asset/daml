@@ -20,7 +20,7 @@ import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Utilities for converting between protobuf messages and our scala
   * data structures.

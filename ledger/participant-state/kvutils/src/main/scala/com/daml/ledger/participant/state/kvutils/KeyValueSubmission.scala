@@ -11,7 +11,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
   *

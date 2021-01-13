@@ -29,9 +29,9 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.google.protobuf.ByteString
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 object BatchedSubmissionValidator {
@@ -193,7 +193,6 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
           batch.getSubmissionsList.asScala
             .map(cs => cs.getCorrelationId -> cs.getSubmission)
         )
-        .to
     )
       .mapAsyncUnordered(params.cpuParallelism) {
         _.mapFuture { case (correlationId, submissionEnvelope) =>

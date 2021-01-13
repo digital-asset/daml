@@ -6,10 +6,10 @@ package com.daml.ledger.participant.state.kvutils
 import java.io.DataOutputStream
 import java.nio.file.{Files, Paths}
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{Envelope => _, _}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Utilities for debugging kvutils. */
 object Debug {

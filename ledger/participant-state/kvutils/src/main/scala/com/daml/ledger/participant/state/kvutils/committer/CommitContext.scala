@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import scala.collection.mutable
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
@@ -70,10 +70,11 @@ private[kvutils] case class CommitContext(
     */
   def collectInputs[B, That](
       partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B]
-  )(implicit bf: CanBuildFrom[Map[DamlStateKey, Option[DamlStateValue]], B, That]): That = {
-    val result = inputs.collect(partialFunction)
+  )(implicit factory: Factory[B, That]): That = {
+    val builder = factory.newBuilder
+    builder ++= inputs.view.collect(partialFunction)
     inputs.keys.foreach(accessedInputKeys.add)
-    result
+    builder.result()
   }
 
   /** Set a value in the output state. */

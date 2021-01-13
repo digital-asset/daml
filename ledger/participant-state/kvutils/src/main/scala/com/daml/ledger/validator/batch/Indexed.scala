@@ -21,6 +21,6 @@ private[batch] case class Indexed[T](value: T, index: Long) {
 }
 
 private[batch] object Indexed {
-  def fromSeq[T](seq: Seq[T]): Seq[Indexed[T]] =
-    seq.zipWithIndex.map { case (value, index) => Indexed(value, index.toLong) }
+  def fromSeq[T](seq: collection.Seq[T]): collection.immutable.Seq[Indexed[T]] =
+    seq.view.zipWithIndex.map { case (value, index) => Indexed(value, index.toLong) }.toIndexedSeq
 }

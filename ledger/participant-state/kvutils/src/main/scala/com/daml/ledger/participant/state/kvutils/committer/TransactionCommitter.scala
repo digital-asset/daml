@@ -36,7 +36,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
 //
@@ -332,7 +332,7 @@ private[kvutils] class TransactionCommitter(
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
       setDedupEntryAndUpdateContractState(
         commitContext,
-        transactionEntry.copy(
+        transactionEntry.copyPreservingDecodedTransaction(
           submission = transactionEntry.submission.toBuilder
             .setBlindingInfo(Conversions.encodeBlindingInfo(blindingInfo))
             .build
@@ -393,9 +393,10 @@ private[kvutils] class TransactionCommitter(
     (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
   private[committer] def validateContractKeys: Step = (commitContext, transactionEntry) => {
-    val damlState = commitContext.collectInputs {
-      case (key, Some(value)) if key.hasContractKey => key -> value
-    } ++ commitContext.getOutputs
+    val damlState = commitContext
+      .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
+        case (key, Some(value)) if key.hasContractKey => key -> value
+      } ++ commitContext.getOutputs
 
     val currentKeyContractIdMapping: Map[DamlStateKey, String] = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty =>
@@ -830,13 +831,13 @@ private[kvutils] class TransactionCommitter(
 }
 
 private[kvutils] object TransactionCommitter {
-  case class DamlTransactionEntrySummary(submission: DamlTransactionEntry) {
+  class DamlTransactionEntrySummary(val submission: DamlTransactionEntry, tx: => Tx.Transaction) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
     val submitters: List[Party] =
       submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
-    lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
+    lazy val transaction: Tx.Transaction = tx
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
     val contractKeyToIdMap: Map[DamlContractKey, Option[String]] =
@@ -844,6 +845,22 @@ private[kvutils] object TransactionCommitter {
         // Empty contract id means that a key lookup was negative
         pair.getKey -> (if (pair.getResolvedToId.nonEmpty) Some(pair.getResolvedToId) else None)
       }.toMap
+
+    // On copy, avoid decoding the transaction again if not needed
+    def copyPreservingDecodedTransaction(
+        submission: DamlTransactionEntry
+    ): DamlTransactionEntrySummary =
+      new DamlTransactionEntrySummary(submission, transaction)
+  }
+
+  object DamlTransactionEntrySummary {
+    def apply(
+        submission: DamlTransactionEntry
+    ): DamlTransactionEntrySummary =
+      new DamlTransactionEntrySummary(
+        submission,
+        Conversions.decodeTransaction(submission.getTransaction),
+      )
   }
 
   // Helper to read the _current_ contract state.

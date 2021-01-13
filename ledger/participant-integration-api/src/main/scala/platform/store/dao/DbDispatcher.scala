@@ -84,6 +84,7 @@ private[platform] object DbDispatcher {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: Metrics,
+      connectionAsyncCommit: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(
@@ -91,6 +92,7 @@ private[platform] object DbDispatcher {
         jdbcUrl,
         maxConnections,
         metrics.registry,
+        connectionAsyncCommit,
       )
       executor <- ResourceOwner.forExecutorService(() =>
         Executors.newFixedThreadPool(

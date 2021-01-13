@@ -118,7 +118,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           submitterInfo shouldBe Conversions.parseSubmitterInfo(someSubmitterInfo)
           reason shouldBe a[RejectionReason.InvalidLedgerTime]
           ()
-        case _ => fail
+        case _ => fail()
       }
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
@@ -180,10 +180,10 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           participantId shouldBe aConfigurationRejectionEntry.getParticipantId
           proposedConfiguration shouldBe Configuration
             .decode(aConfigurationRejectionEntry.getConfiguration)
-            .getOrElse(fail)
+            .getOrElse(fail())
           rejectionReason should include("Configuration change timed out")
           ()
-        case _ => fail
+        case _ => fail()
       }
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),

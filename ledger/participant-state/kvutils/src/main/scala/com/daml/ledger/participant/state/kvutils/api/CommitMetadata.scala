@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Exposes metadata about the commit.
   * The methods may lazily evaluate.

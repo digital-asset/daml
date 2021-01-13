@@ -23,7 +23,7 @@ import com.daml.lf.value.ValueOuterClass
 import com.daml.metrics.Metrics
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 // Added inStaticTimeMode to indicate whether the ledger uses static time mode or not.
 // This has an impact on command deduplication and needs to be threaded through ProcessTransactionSubmission.

@@ -14,6 +14,10 @@ da_scala_library(
     name = "ledger-on-memory",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-on-memory:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -34,8 +38,6 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
@@ -43,6 +45,12 @@ da_scala_library(
 da_scala_library(
     name = "ledger-on-memory-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
@@ -61,10 +69,6 @@ da_scala_library(
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -76,6 +80,13 @@ da_scala_test_suite(
         "//ledger/test-common:model-tests.dar",
     ],
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -97,13 +108,8 @@ da_scala_test_suite(
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
-        "@maven//:org_mockito_mockito_scala_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -111,6 +117,11 @@ da_scala_library(
     name = "ledger-on-memory-app",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":ledger-on-memory",
@@ -129,9 +140,6 @@ da_scala_library(
         "//ledger/participant-state/kvutils/app",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
 

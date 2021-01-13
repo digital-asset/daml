@@ -11,6 +11,7 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.immutable.WrappedString
 import scala.concurrent.Future
 
 final class IntegrityCheckerSpec
@@ -55,7 +56,7 @@ final class IntegrityCheckerSpec
 
       actual match {
         case Some(explanation) => explanation should include("expected explanation")
-        case None => fail
+        case None => fail()
       }
     }
 
@@ -82,7 +83,7 @@ final class IntegrityCheckerSpec
           // after the last.
           countOccurrences(explanation, System.lineSeparator()) shouldBe 2 * 3 - 1
 
-        case None => fail
+        case None => fail()
       }
     }
 
@@ -99,7 +100,7 @@ final class IntegrityCheckerSpec
           // We output 2 lines per one pair of mismatching keys.
           countOccurrences(explanation, System.lineSeparator()) shouldBe 1
 
-        case None => fail
+        case None => fail()
       }
     }
   }
@@ -163,5 +164,5 @@ final class IntegrityCheckerSpec
   }
 
   private def countOccurrences(input: String, pattern: String): Int =
-    input.sliding(pattern.length).count(_ == pattern)
+    new WrappedString(input).sliding(pattern.length).map(_.toString).count(_ == pattern)
 }

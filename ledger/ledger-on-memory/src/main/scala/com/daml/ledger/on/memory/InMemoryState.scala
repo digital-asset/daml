@@ -41,7 +41,7 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 }
 
 object InMemoryState {
-  type ImmutableLog = IndexedSeq[LedgerRecord]
+  type ImmutableLog = collection.IndexedSeq[LedgerRecord]
   type ImmutableState = collection.Map[Raw.Key, Raw.Value]
 
   type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog

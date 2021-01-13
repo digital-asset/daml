@@ -118,7 +118,7 @@ class BatchingQueueSpec
       } yield {
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
-        batches should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
+        batches should contain.only(Seq(correlatedSubmission1), Seq(correlatedSubmission2))
         queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
@@ -190,7 +190,7 @@ class BatchingQueueSpec
 
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
-        batches.reverse should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
+        batches.reverse should contain.only(Seq(correlatedSubmission1), Seq(correlatedSubmission2))
         queue.state should be(RunningBatchingQueueState.Alive)
       }
     }

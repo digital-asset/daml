@@ -29,7 +29,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
   private[this] val txBuilder = TransactionBuilder()
@@ -149,7 +149,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       actual match {
         case StepContinue(_) => succeed
-        case StepStop(_) => fail
+        case StepStop(_) => fail()
       }
     }
 
@@ -162,7 +162,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       actual match {
         case StepContinue(_) => succeed
-        case StepStop(_) => fail
+        case StepStop(_) => fail()
       }
     }
 
@@ -176,7 +176,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       actual match {
         case StepContinue(_) => succeed
-        case StepStop(_) => fail
+        case StepStop(_) => fail()
       }
     }
 
@@ -195,7 +195,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
         actual match {
-          case StepContinue(_) => fail
+          case StepContinue(_) => fail()
           case StepStop(actualLogEntry) =>
             actualLogEntry.hasTransactionRejectionEntry shouldBe true
         }
@@ -213,7 +213,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
         result match {
           case StepContinue(_) => succeed
-          case StepStop(_) => fail
+          case StepStop(_) => fail()
         }
       }
 
@@ -279,7 +279,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         val actual = instance.validateLedgerTime(context, transactionEntrySummary)
 
         actual match {
-          case StepContinue(_) => fail
+          case StepContinue(_) => fail()
           case StepStop(actualLogEntry) =>
             actualLogEntry.hasTransactionRejectionEntry shouldBe true
         }
@@ -351,7 +351,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       actual match {
         case StepContinue(partialResult) =>
           partialResult.submission.hasBlindingInfo shouldBe true
-        case StepStop(_) => fail
+        case StepStop(_) => fail()
       }
     }
   }

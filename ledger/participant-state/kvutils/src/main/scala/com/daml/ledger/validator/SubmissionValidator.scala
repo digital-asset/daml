@@ -23,8 +23,8 @@ import com.github.ghik.silencer.silent
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 /** Orchestrates validating, transforming or committing submissions for key-value ledgers.
@@ -244,7 +244,7 @@ class SubmissionValidator[LogResult] private[validator] (
     }
 
   private def verifyAllInputsArePresent[T](
-      declaredInputs: Seq[DamlStateKey],
+      declaredInputs: collection.Seq[DamlStateKey],
       readInputs: DamlStateMap,
   ): Future[Unit] = {
     if (checkForMissingInputs) {

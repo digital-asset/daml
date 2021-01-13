@@ -47,7 +47,7 @@ final class LogAppendingReadServiceFactory(
               )
             )
           } else {
-            Source.fromIterator(() => recordedBlocksSnapshot.toIterator)
+            Source.fromIterator(() => recordedBlocksSnapshot.iterator)
           }
 
         override def currentHealth(): HealthStatus = HealthStatus.healthy

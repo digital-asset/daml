@@ -7,17 +7,18 @@ import akka.stream.Materializer
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers, Raw}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
-import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.captor.{ArgCaptor, Captor}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 class BatchingLedgerWriterSpec
@@ -45,16 +46,16 @@ class BatchingLedgerWriterSpec
         LoggingContext.newLoggingContext { implicit ctx =>
           new BatchingLedgerWriter(queue, writer)
         }
-      batchingWriter.currentHealth shouldBe HealthStatus.unhealthy
+      batchingWriter.currentHealth() shouldBe HealthStatus.unhealthy
       Future.successful(succeed)
     }
 
     "construct batch correctly" in {
-      val batchCaptor = MockitoHelpers.captor[Raw.Value]
+      val batchCaptor = ArgCaptor[Raw.Value]
       val mockWriter = createMockWriter(captor = Some(batchCaptor))
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit loggingContext =>
-          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
+          new BatchingLedgerWriter(immediateBatchingQueue(), mockWriter)
         }
       val expectedBatch = createExpectedBatch(aCorrelationId -> aSubmission)
       for {
@@ -74,7 +75,7 @@ class BatchingLedgerWriterSpec
         createMockWriter(captor = None)
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit loggingContext =>
-          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
+          new BatchingLedgerWriter(immediateBatchingQueue(), mockWriter)
         }
       for {
         result1 <- batchingWriter.commit("test1", aSubmission, someCommitMetadata)
@@ -83,7 +84,7 @@ class BatchingLedgerWriterSpec
       } yield {
         verify(mockWriter, times(3)).commit(any[String], any[Raw.Value], any[CommitMetadata])
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
-        batchingWriter.currentHealth should be(HealthStatus.healthy)
+        batchingWriter.currentHealth() should be(HealthStatus.healthy)
       }
     }
 
@@ -115,9 +116,9 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
         }
     }
 
-  private def createMockWriter(captor: Option[ArgumentCaptor[Raw.Value]]): LedgerWriter = {
+  private def createMockWriter(captor: Option[Captor[Raw.Value]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(any[String], captor.map(_.capture()).getOrElse(any), any[CommitMetadata]))
+    when(writer.commit(any[String], captor.map(_.capture).getOrElse(any), any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     when(writer.currentHealth()).thenReturn(HealthStatus.healthy)

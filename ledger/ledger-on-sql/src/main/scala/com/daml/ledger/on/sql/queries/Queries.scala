@@ -37,7 +37,7 @@ object Queries {
       params: Iterable[Seq[NamedParameter]],
   )(implicit connection: Connection): Unit = {
     if (params.nonEmpty)
-      BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
+      BatchSql(query, params.head, params.view.drop(1).toSeq: _*).execute()
     ()
   }
 
@@ -65,10 +65,10 @@ object Queries {
     }
 
   implicit val columnToRawKey: Column[Raw.Key] =
-    columnToByteString.map(Raw.Key)
+    columnToByteString.map(Raw.Key.apply)
 
   implicit val columnToRawValue: Column[Raw.Value] =
-    columnToByteString.map(Raw.Value)
+    columnToByteString.map(Raw.Value.apply)
 
   def rawKey(columnName: String): RowParser[Raw.Key] =
     SqlParser.get(columnName)(columnToRawKey)
