@@ -55,7 +55,6 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalatest_scalatest",
-        #        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     deps = [
         "//ledger/participant-integration-api",
