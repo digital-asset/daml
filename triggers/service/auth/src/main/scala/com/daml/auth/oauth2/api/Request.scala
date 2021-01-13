@@ -168,7 +168,7 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
     def write(uri: Uri) = JsString(uri.toString)
   }
-  implicit val tokenRespFormat: RootJsonFormat[Response.Token] =
+  implicit val tokenRespFormat: RootJsonFormat[Response.Token] = {
     jsonFormat(
       Response.Token.apply,
       "access_token",
@@ -177,4 +177,14 @@ object JsonProtocol extends DefaultJsonProtocol {
       "refresh_token",
       "scope",
     )
+  }
+  implicit val errorRespFormat: RootJsonFormat[Response.Error] = {
+    jsonFormat(
+      Response.Error.apply,
+      "error",
+      "error_description",
+      "error_uri",
+      "state",
+    )
+  }
 }

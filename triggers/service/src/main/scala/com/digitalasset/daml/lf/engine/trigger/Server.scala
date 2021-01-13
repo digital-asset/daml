@@ -514,6 +514,7 @@ object Server {
           AuthClient(
             AuthClient.Config(
               authMiddlewareUri = uri,
+              redirectToLogin = AuthClient.RedirectToLogin.Yes,
               callbackUri = authCallback.getOrElse {
                 Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb"))
               },

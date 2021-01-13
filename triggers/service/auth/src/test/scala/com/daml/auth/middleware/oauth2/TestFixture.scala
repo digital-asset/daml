@@ -114,6 +114,7 @@ trait TestFixture
               middlewareBinding.localAddress.getHostName,
               middlewareBinding.localAddress.getPort,
             ),
+          redirectToLogin = Client.RedirectToLogin.Yes,
           callbackUri = Uri()
             .withScheme("http")
             .withAuthority("localhost", middlewareClientPort.value)

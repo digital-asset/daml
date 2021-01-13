@@ -10,19 +10,23 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model.headers.HttpChallenge
 import akka.http.scaladsl.model.{
+  HttpHeader,
   HttpMethods,
   HttpRequest,
+  HttpResponse,
+  MediaTypes,
   RequestEntity,
   StatusCode,
   StatusCodes,
   Uri,
   headers,
 }
-import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.server.{ContentNegotiator, Directive, Directive1, Route, StandardRoute}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import com.daml.auth.middleware.api.Client.{AuthException, RefreshException}
+import com.daml.auth.middleware.api.Client.{AuthException, RedirectToLogin, RefreshException}
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 
 import scala.collection.immutable
@@ -49,14 +53,34 @@ class Client(config: Client.Config) {
       }
     }
 
+  private val isJsonRequest: Directive1[Boolean] = extractRequest.map { req =>
+    val negotiator = ContentNegotiator(req.headers)
+    val contentTypes = List(
+      ContentNegotiator.Alternative(MediaTypes.`application/json`),
+      ContentNegotiator.Alternative(MediaTypes.`text/html`),
+    )
+    val preferred = negotiator.pickContentType(contentTypes)
+    preferred == Some(MediaTypes.`application/json`.toContentType)
+  }
+
+  private val redirectToLogin: Directive1[Boolean] =
+    config.redirectToLogin match {
+      case RedirectToLogin.No => provide(false)
+      case RedirectToLogin.Yes => provide(true)
+      case RedirectToLogin.Auto => isJsonRequest.map(!_)
+    }
+
   /** This directive requires authorization for the given claims via the auth middleware.
     *
     * Authorization follows the steps defined in `triggers/service/authentication.md`.
-    * First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
-    * If a login is required then this will store the current continuation
-    * to proceed once the login flow completed and authentication succeeded.
-    *
-    * A route for the [[callbackHandler]] must be configured.
+    * 1. Ask for a token on the `/auth` endpoint and return it if granted.
+    * 2a. Return 401 Unauthorized if denied and [[Client.Config.redirectToLogin]]
+    *     indicates not to redirect to the login endpoint.
+    * 2b. Redirect to the login endpoint if denied and [[Client.Config.redirectToLogin]]
+    *     indicates to redirect to the login endpoint.
+    *     In this case this will store the current continuation to proceed
+    *     once the login flow completed and authentication succeeded.
+    *     A route for the [[callbackHandler]] must be configured.
     */
   def authorize(claims: Request.Claims): Directive1[Client.AuthorizeResult] = {
     auth(claims).flatMap {
@@ -64,28 +88,33 @@ class Client(config: Client.Config) {
       case Some(authorization) => provide(Client.Authorized(authorization))
       // Authorization failed - login and retry on callback request.
       case None =>
-        // Ensure that the request is fully uploaded.
-        val timeout = config.httpEntityUploadTimeout
-        val maxBytes = config.maxHttpEntityUploadSize
-        toStrictEntity(timeout, maxBytes).tflatMap { _ =>
-          extractRequestContext.flatMap { ctx =>
-            Directive { inner =>
-              def continue(result: Client.AuthorizeResult) =
-                mapRequestContext(_ => ctx) {
-                  inner(Tuple1(result))
-                }
-              val callback: Response.Login => Route = {
-                case Response.LoginSuccess =>
-                  auth(claims) {
-                    case None => continue(Client.Unauthorized)
-                    case Some(authorization) => continue(Client.Authorized(authorization))
+        redirectToLogin.flatMap {
+          case false =>
+            unauthorized(claims)
+          case true =>
+            // Ensure that the request is fully uploaded.
+            val timeout = config.httpEntityUploadTimeout
+            val maxBytes = config.maxHttpEntityUploadSize
+            toStrictEntity(timeout, maxBytes).tflatMap { _ =>
+              extractRequestContext.flatMap { ctx =>
+                Directive { inner =>
+                  def continue(result: Client.AuthorizeResult) =
+                    mapRequestContext(_ => ctx) {
+                      inner(Tuple1(result))
+                    }
+                  val callback: Response.Login => Route = {
+                    case Response.LoginSuccess =>
+                      auth(claims) {
+                        case None => continue(Client.Unauthorized)
+                        case Some(authorization) => continue(Client.Authorized(authorization))
+                      }
+                    case loginError: Response.LoginError =>
+                      continue(Client.LoginFailed(loginError))
                   }
-                case loginError: Response.LoginError =>
-                  continue(Client.LoginFailed(loginError))
+                  login(claims, callback)
+                }
               }
-              login(claims, callback)
             }
-          }
         }
     }
   }
@@ -104,6 +133,33 @@ class Client(config: Client.Config) {
         }
       }
     }
+
+  val authenticateChallengeName = "DamlAuthMiddleware"
+
+  /** Return a 401 Unauthorized response.
+    *
+    * Includes a `WWW-Authenticate` header with a custom challenge to login at the auth middleware.
+    * Lists the required claims in the `realm` and the login URI in the `login` parameter
+    * and the auth URI in the `auth` parameter.
+    */
+  def unauthorized(claims: Request.Claims): StandardRoute = {
+    val wwwAuthenticate: HttpHeader = headers.`WWW-Authenticate`(
+      HttpChallenge(
+        authenticateChallengeName,
+        claims.toQueryString(),
+        Map(
+          "login" -> loginUri(claims, None, false).toString(),
+          "auth" -> authUri(claims).toString(),
+        ),
+      )
+    )
+    complete(
+      HttpResponse(
+        status = StatusCodes.Unauthorized,
+        headers = immutable.Seq(wwwAuthenticate),
+      )
+    )
+  }
 
   /** Redirect the client to login with the auth middleware.
     *
@@ -183,10 +239,17 @@ class Client(config: Client.Config) {
       .withPath(Path./("auth"))
       .withQuery(Request.Auth(claims).toQuery)
 
-  def loginUri(claims: Request.Claims, requestId: Option[UUID]): Uri =
+  def loginUri(
+      claims: Request.Claims,
+      requestId: Option[UUID] = None,
+      redirect: Boolean = true,
+  ): Uri = {
+    val redirectUri = if (redirect) { Some(config.callbackUri) }
+    else { None }
     config.authMiddlewareUri
       .withPath(Path./("login"))
-      .withQuery(Request.Login(config.callbackUri, claims, requestId.map(_.toString)).toQuery)
+      .withQuery(Request.Login(redirectUri, claims, requestId.map(_.toString)).toQuery)
+  }
 
   val refreshUri: Uri = config.authMiddlewareUri
     .withPath(Path./("refresh"))
@@ -204,8 +267,21 @@ object Client {
   case class RefreshException(status: StatusCode, message: String)
       extends ClientException(s"Failed to refresh token on middleware ($status): $message")
 
+  /** Whether to automatically redirect to the login endpoint when authorization fails.
+    *
+    * [[RedirectToLogin.Auto]] redirects for HTML requests (`text/html`)
+    * and returns 401 Unauthorized for JSON requests (`application/json`).
+    */
+  sealed trait RedirectToLogin
+  object RedirectToLogin {
+    object No extends RedirectToLogin
+    object Yes extends RedirectToLogin
+    object Auto extends RedirectToLogin
+  }
+
   case class Config(
       authMiddlewareUri: Uri,
+      redirectToLogin: RedirectToLogin,
       callbackUri: Uri,
       maxAuthCallbacks: Int,
       authCallbackTimeout: FiniteDuration,

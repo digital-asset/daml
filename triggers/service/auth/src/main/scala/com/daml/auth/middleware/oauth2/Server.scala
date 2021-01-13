@@ -14,7 +14,7 @@ import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.auth.oauth2.api.{Response => OAuthResponse}
+import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
@@ -112,19 +112,20 @@ class Server(config: Config) extends StrictLogging {
         }
       }
 
-  private val requests: RequestStore[UUID, Uri] =
+  private val requests: RequestStore[UUID, Option[Uri]] =
     new RequestStore(config.maxLoginRequests, config.loginTimeout)
 
   private val login: Route =
-    parameters('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?)
+    parameters('redirect_uri.as[Uri] ?, 'claims.as[Request.Claims], 'state ?)
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
           val stored = requests.put(
-            requestId, {
-              var query = login.redirectUri.query().to[Seq]
+            requestId,
+            login.redirectUri.map { redirectUri =>
+              var query = redirectUri.query().to[Seq]
               login.state.foreach(x => query ++= Seq("state" -> x))
-              login.redirectUri.withQuery(Uri.Query(query: _*))
+              redirectUri.withQuery(Uri.Query(query: _*))
             },
           )
           if (stored) {
@@ -149,7 +150,7 @@ class Server(config: Config) extends StrictLogging {
   private val loginCallback: Route = {
     extractActorSystem { implicit sys =>
       extractExecutionContext { implicit ec =>
-        def popRequest(optState: Option[String]): Directive1[Uri] = {
+        def popRequest(optState: Option[String]): Directive1[Option[Uri]] = {
           val redirectUri = for {
             state <- optState
             requestId <- Try(UUID.fromString(state)).toOption
@@ -194,7 +195,12 @@ class Server(config: Config) extends StrictLogging {
                       } yield tokenResp
                     onSuccess(tokenRequest) { token =>
                       setCookie(HttpCookie(cookieName, token.toCookieValue)) {
-                        redirect(redirectUri, StatusCodes.Found)
+                        redirectUri match {
+                          case Some(uri) =>
+                            redirect(uri, StatusCodes.Found)
+                          case None =>
+                            complete(StatusCodes.OK)
+                        }
                       }
                     }
                   }
@@ -203,14 +209,18 @@ class Server(config: Config) extends StrictLogging {
             },
           parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
             .as[OAuthResponse.Error](OAuthResponse.Error) { error =>
-              popRequest(error.state) { redirectUri =>
-                val uri = redirectUri.withQuery {
-                  var params = redirectUri.query().to[Seq]
-                  params ++= Seq("error" -> error.error)
-                  error.errorDescription.foreach(x => params ++= Seq("error_description" -> x))
-                  Uri.Query(params: _*)
-                }
-                redirect(uri, StatusCodes.Found)
+              popRequest(error.state) {
+                case Some(redirectUri) =>
+                  val uri = redirectUri.withQuery {
+                    var params = redirectUri.query().to[Seq]
+                    params ++= Seq("error" -> error.error)
+                    error.errorDescription.foreach(x => params ++= Seq("error_description" -> x))
+                    Uri.Query(params: _*)
+                  }
+                  redirect(uri, StatusCodes.Found)
+                case None =>
+                  import OAuthJsonProtocol.errorRespFormat
+                  complete(StatusCodes.Forbidden, error)
               }
             },
         )
