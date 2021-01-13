@@ -3,15 +3,16 @@
 
 package com.daml.platform.store.dao.events
 
-import java.sql.{Connection, PreparedStatement}
+import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter, Row, SimpleSql, ToStatement}
+import anorm.{BatchSql, NamedParameter, Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 
 object EventsTablePostgresql extends EventsTable {
+  import AnormParamsMapper._
 
   /** Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
     * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
@@ -145,29 +146,6 @@ object EventsTablePostgresql extends EventsTable {
       insertEvents = Some(inserts),
       updateArchives = batch(updateArchived, archivals),
     )
-  }
-
-  // Specific for PostgreSQL parallel unnesting insertions
-  private implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
-      s.setArray(index, ts)
-    }
-  }
-
-  private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit = {
-      val conn = s.getConnection
-      s.setArray(index, conn.createArrayOf("BYTEA", v.asInstanceOf[Array[AnyRef]]))
-    }
-  }
-
-  private implicit object CharArrayToStatement extends ToStatement[Array[String]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[String]): Unit = {
-      val conn = s.getConnection
-      s.setArray(index, conn.createArrayOf("VARCHAR", v.asInstanceOf[Array[AnyRef]]))
-    }
   }
 
   private val insertStmt = anorm.SQL("""insert into participant_events(

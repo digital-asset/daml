@@ -22,10 +22,10 @@ import com.daml.platform.store.DbType
 object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
-      eventsTableExecutables: EventsTable.Batches,
-      contractsTableExecutables: ContractsTable.Executables,
-      contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
-      insertsPhase2: InsertsPhase2,
+                                                           eventsTableExecutables: EventsTable.Batches,
+                                                           contractsTableExecutables: ContractsTable.Executables,
+                                                           contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
+                                                           participantContractAndWitnessesInsert: ParticipantContractsWithWitnessesInsert.Executables,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
@@ -42,7 +42,7 @@ object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
-      insertsPhase2.insert(connection).executeUpdate()
+      participantContractAndWitnessesInsert.insert.executeUpdate()
       ()
     }
   }
@@ -101,7 +101,7 @@ private[dao] final class TransactionsWriter(
       eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
       contractsTable.toExecutables(indexing.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
-      InsertsPhase2.toExecutable(
+      ParticipantContractsWithWitnessesInsert.toExecutable(
         indexing.transaction,
         indexing.contracts,
         serialized,
