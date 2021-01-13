@@ -67,7 +67,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 if !tyConAlreadySeen0(tyCon) =>
               compiledPackages.signatures.lift(pkgId) match {
                 case Some(pkg) =>
-                  SignatureLookup.lookupDataType(pkg, qualifiedName) match {
+                  pkg.lookupDataType(qualifiedName) match {
                     case Right(Ast.DDataType(_, _, dataType)) =>
                       val typesToProcess = dataType match {
                         case Ast.DataRecord(fields) =>
@@ -84,7 +84,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                         tmplsAlreadySeen0,
                       )
                     case Left(e) =>
-                      ResultError(e)
+                      ResultError(Error(e))
                   }
                 case None =>
                   pullPackage(pkgId)
@@ -102,7 +102,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
               val pkgId = tmplId.packageId
               compiledPackages.getSignature(pkgId) match {
                 case Some(pkg) =>
-                  SignatureLookup.lookupTemplate(pkg, tmplId.qualifiedName) match {
+                  pkg.lookupTemplate(tmplId.qualifiedName) match {
                     case Right(template) =>
                       val typs0 = template.choices.map(_._2.argBinder._2).toList
                       val typs1 =
@@ -110,7 +110,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                       go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
                     case Left(error) =>
-                      ResultError(error)
+                      ResultError(Error(error))
                   }
                 case None =>
                   pullPackage(pkgId)
@@ -218,12 +218,6 @@ private[preprocessing] object Preprocessor {
   @throws[PreprocessorException]
   def fail(e: Error): Nothing =
     throw PreprocessorError(e)
-
-  @throws[PreprocessorException]
-  def assertRight[X](either: Either[Error, X]): X = either match {
-    case Left(e) => fail(e)
-    case Right(v) => v
-  }
 
   @inline
   def safelyRun[X](
