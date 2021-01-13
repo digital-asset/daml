@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.nio.file.Paths
+import java.util.regex.Pattern
 
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
@@ -11,7 +12,6 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.immutable.WrappedString
 import scala.concurrent.Future
 
 final class IntegrityCheckerSpec
@@ -164,5 +164,5 @@ final class IntegrityCheckerSpec
   }
 
   private def countOccurrences(input: String, pattern: String): Int =
-    new WrappedString(input).sliding(pattern.length).map(_.toString).count(_ == pattern)
+    Pattern.quote(pattern).split(input).length - 1
 }
