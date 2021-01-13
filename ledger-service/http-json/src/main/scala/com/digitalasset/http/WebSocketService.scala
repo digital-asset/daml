@@ -197,9 +197,15 @@ object WebSocketService {
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
-        // TODO SC this yields the wrong matchedQueries indices
-        def dbQueries: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] = q.toSeq.flatMap {
-          case (tpid, nel) => nel.toVector.map { case ((vp, _), _) => (tpid, vp.toSqlWhereClause) }
+        def dbQueriesPlan
+            : (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+          val annotated = q.toSeq.flatMap { case (tpid, nel) =>
+            nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
+          }
+          val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
+            (ix, pos)
+          }.toMap
+          (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
 
         StreamPredicate(
@@ -207,8 +213,10 @@ object WebSocketService {
           unresolved,
           fn,
           { parties => implicit lh =>
+            val (dbQueries, posMap) = dbQueriesPlan
             dbbackend.ContractDao
               .selectContractsMultiTemplate(parties, dbQueries)
+              .map(_ map (_ rightMap (_ map posMap)))
           },
         )
       }
