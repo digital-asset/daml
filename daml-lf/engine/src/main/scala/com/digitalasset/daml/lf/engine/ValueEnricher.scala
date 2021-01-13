@@ -39,6 +39,11 @@ final class ValueEnricher(engine: Engine) {
   def enrichContract(tyCon: Identifier, value: Value[ContractId]): Result[Value[ContractId]] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
+  private[this] def fromEither[X](either: Either[String, X]) = either match {
+    case Right(value) => ResultDone(value)
+    case Left(error) => ResultError(Error(error))
+  }
+
   def enrichChoiceArgument(
       tyCon: Identifier,
       choiceName: Name,
@@ -46,7 +51,7 @@ final class ValueEnricher(engine: Engine) {
   ): Result[Value[ContractId]] =
     for {
       pkg <- getPackage(tyCon.packageId)
-      tmpl <- Result.fromEither(SignatureLookup.lookupTemplate(pkg, tyCon.qualifiedName))
+      tmpl <- fromEither(pkg.lookupTemplate(tyCon.qualifiedName))
       enrichedValue <- tmpl.choices.get(choiceName) match {
         case Some(choice) =>
           enrichValue(choice.argBinder._2, value)
@@ -62,7 +67,7 @@ final class ValueEnricher(engine: Engine) {
   ): Result[Value[ContractId]] =
     for {
       pkg <- getPackage(tyCon.packageId)
-      tmpl <- Result.fromEither(SignatureLookup.lookupTemplate(pkg, tyCon.qualifiedName))
+      tmpl <- fromEither(pkg.lookupTemplate(tyCon.qualifiedName))
       enrichedValue <- tmpl.choices.get(choiceName) match {
         case Some(choice) =>
           enrichValue(choice.returnType, value)
@@ -74,7 +79,7 @@ final class ValueEnricher(engine: Engine) {
   def enrichContractKey(tyCon: Identifier, value: Value[ContractId]): Result[Value[ContractId]] =
     for {
       pkg <- getPackage(tyCon.packageId)
-      tmpl <- Result.fromEither(SignatureLookup.lookupTemplate(pkg, tyCon.qualifiedName))
+      tmpl <- fromEither(pkg.lookupTemplate(tyCon.qualifiedName))
       enrichedValue <- tmpl.key match {
         case Some(contractKey) =>
           enrichValue(contractKey.typ, value)
