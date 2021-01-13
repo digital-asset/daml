@@ -65,7 +65,7 @@ class StoreBackedCommandExecutorSpec
 
       LoggingContext.newLoggingContext { implicit context =>
         instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>
-          actual.right.foreach { actualResult =>
+          actual.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
           }
           succeed

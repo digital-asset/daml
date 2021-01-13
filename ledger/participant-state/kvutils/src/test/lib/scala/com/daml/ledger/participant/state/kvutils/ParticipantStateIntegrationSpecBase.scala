@@ -33,7 +33,9 @@ import org.scalatest.matchers.should.Matchers._
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.{SortedSet, mutable}
+import scala.collection.compat._
+import scala.collection.mutable
+import scala.collection.immutable.SortedSet
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
@@ -569,9 +571,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       val partyNames =
         partyIds
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
-          .to[SortedSet]
+          .to(SortedSet)
 
-      val expectedOffsets = partyIds.map(i => toOffset(i)).to[SortedSet]
+      val expectedOffsets = partyIds.map(i => toOffset(i)).to(SortedSet)
 
       val updates = mutable.Buffer.empty[(Offset, Update)]
       val stateUpdatesF = ps
@@ -609,11 +611,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
         val (actualOffsets, actualUpdates) = updates.unzip
         all(actualUpdates) should be(a[PartyAddedToParticipant])
-        actualOffsets.to[SortedSet] should be(expectedOffsets)
+        actualOffsets.to(SortedSet) should be(expectedOffsets)
 
         val actualNames =
           actualUpdates.map(_.asInstanceOf[PartyAddedToParticipant].displayName)
-        actualNames.to[SortedSet] should be(partyNames)
+        actualNames.to(SortedSet) should be(partyNames)
       }
     }
 
@@ -711,7 +713,9 @@ object ParticipantStateIntegrationSpecBase {
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+  private val darReader = DarReader[DamlLf.Archive] { case (_, is) =>
+    Try(DamlLf.Archive.parseFrom(is))
+  }
   private val darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
   private val archives = darReader.readArchiveFromFile(darFile).get.all
 

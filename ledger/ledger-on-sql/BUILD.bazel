@@ -121,6 +121,11 @@ da_scala_library(
     name = "ledger-on-sql-app",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":ledger-on-sql",
@@ -139,9 +144,6 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
 
@@ -161,6 +163,13 @@ da_scala_binary(
 da_scala_library(
     name = "ledger-on-sql-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -187,11 +196,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -202,6 +206,13 @@ da_scala_test_suite(
         "//ledger/test-common:model-tests.dar",
     ],
     resources = glob(["src/test/resources/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -226,13 +237,8 @@ da_scala_test_suite(
         "//libs-scala/flyway-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_flywaydb_flyway_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 

@@ -31,7 +31,9 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
 import org.openjdk.jmh.annotations._
 
-import scala.collection.JavaConverters._
+import scala.collection.compat._
+import scala.collection.compat.immutable.LazyList
+import scala.jdk.CollectionConverters._
 
 final case class TxEntry(
     tx: SubmittedTransaction,
@@ -165,7 +167,7 @@ object Replay {
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
       submission: Proto.DamlSubmission,
-  ): Stream[TxEntry] =
+  ): LazyList[TxEntry] =
     submission.getPayloadCase match {
       case Proto.DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
@@ -176,7 +178,7 @@ object Replay {
             submission.getTransactionEntry.getTransaction,
           )
           .fold(err => sys.error(err.toString), SubmittedTransaction(_))
-        Stream(
+        LazyList(
           TxEntry(
             tx = tx,
             participantId = participantId,
@@ -188,24 +190,25 @@ object Replay {
           )
         )
       case _ =>
-        Stream.empty
+        LazyList.empty
     }
 
   private[this] def decodeEnvelope(
       participantId: Ref.ParticipantId,
       envelope: Raw.Value,
-  ): Stream[TxEntry] =
+  ): LazyList[TxEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
         decodeSubmission(participantId, submission)
       case Envelope.SubmissionBatchMessage(batch) =>
-        batch.getSubmissionsList.asScala.toStream
+        batch.getSubmissionsList.asScala
+          .to(LazyList)
           .map(_.getSubmission)
           .flatMap(submissionEnvelope =>
             decodeEnvelope(participantId, Raw.Value(submissionEnvelope))
           )
       case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
-        Stream.empty
+        LazyList.empty
     }
 
   private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
@@ -245,7 +248,7 @@ object Replay {
               BenchmarkState(
                 name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
                 transaction = entry,
-                contracts = allContracts.filterKeys(inputContracts),
+                contracts = allContracts.view.filterKeys(inputContracts).toMap,
                 contractKeys = inputContracts.iterator
                   .flatMap(cid => allContractsWithKey.get(cid).toList.map(_ -> cid))
                   .toMap,

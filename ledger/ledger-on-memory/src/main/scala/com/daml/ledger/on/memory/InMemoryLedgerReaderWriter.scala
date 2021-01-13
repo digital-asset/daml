@@ -242,7 +242,9 @@ object InMemoryLedgerReaderWriter {
         metrics,
       ),
       postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
-      postExecutionFinalizer = new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
+      postExecutionFinalizer = new RawPostExecutionFinalizer(
+        now = () => timeProvider.getCurrentTime
+      ),
     )
     locally {
       implicit val executionContext: ExecutionContext = materializer.executionContext

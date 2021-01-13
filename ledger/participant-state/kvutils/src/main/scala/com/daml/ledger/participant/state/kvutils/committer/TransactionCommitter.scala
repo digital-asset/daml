@@ -393,9 +393,10 @@ private[kvutils] class TransactionCommitter(
     (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
-    val damlState = commitContext.collectInputs {
-      case (key, Some(value)) if key.hasContractKey => key -> value
-    } ++ commitContext.getOutputs
+    val damlState = commitContext
+      .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
+        case (key, Some(value)) if key.hasContractKey => key -> value
+      } ++ commitContext.getOutputs
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet

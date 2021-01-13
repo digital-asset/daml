@@ -32,7 +32,7 @@ final class Runner[T <: ReadWriteService, Extra](
     name: String,
     factory: LedgerFactory[ReadWriteService, Extra],
 ) {
-  def owner(args: Seq[String]): ResourceOwner[Unit] =
+  def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
       .flatMap(owner)
@@ -167,7 +167,9 @@ final class Runner[T <: ReadWriteService, Extra](
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get
+        DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+          .readArchiveFromFile(from.toFile)
+          .get
       )
       _ <- to.uploadPackages(submissionId, dar.all, None).toScala
     } yield ()

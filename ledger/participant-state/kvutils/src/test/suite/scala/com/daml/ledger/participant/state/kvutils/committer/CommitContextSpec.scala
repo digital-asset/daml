@@ -85,9 +85,11 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
       val inputs = expected ++ Map(aKeyWithContractId("b") -> Some(aValue))
       val context = newInstance(inputs = inputs)
 
-      context.collectInputs {
-        case (key, _) if key.getContractId.startsWith("a") => key
-      }.toSet shouldBe expected.keys
+      context
+        .collectInputs[DamlStateKey, Seq[DamlStateKey]] {
+          case (key, _) if key.getContractId.startsWith("a") => key
+        }
+        .toSet shouldBe expected.keys
       context.getAccessedInputKeys shouldBe inputs.keys
     }
 
@@ -95,7 +97,7 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
       val context =
         newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
 
-      context.collectInputs { case _ if false => () } shouldBe empty
+      context.collectInputs[Unit, Seq[Unit]] { case _ if false => () } shouldBe empty
       context.getAccessedInputKeys shouldBe Set(aKey, anotherKey)
     }
   }

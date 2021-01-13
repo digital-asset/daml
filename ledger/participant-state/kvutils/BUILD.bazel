@@ -18,6 +18,7 @@ load(
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "kvutils",
@@ -70,7 +71,11 @@ da_scala_library(
 
 da_scala_library(
     name = "kvutils-tests-lib",
-    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    srcs = glob([
+        "src/test/lib/scala/**/*.scala",
+        "src/test/lib/{}/**/*.scala".format(scala_major_version),
+    ]),
+    plugins = [silencer_plugin],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -80,6 +85,9 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     visibility = [
         "//visibility:public",
@@ -134,6 +142,9 @@ da_scala_test_suite(
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     silent_annotations = True,
     deps = [
@@ -216,11 +227,11 @@ client_server_build(
         "--participant participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
     ],
     visibility = [":__subpackages__"],
-) if not is_windows else None
+) if not is_windows and scala_major_version == "2.12" else None
 
 # Test for checking the integrity of the ledger export produced above.
 integrity_test(
     name = "%s-integrity-test" % REFERENCE_LEDGER_EXPORT_NAME,
     checker = "//ledger/participant-state/kvutils/tools:integrity-check",
     dump = ":%s" % REFERENCE_LEDGER_EXPORT_NAME,
-) if not is_windows else None
+) if not is_windows and scala_major_version == "2.12" else None

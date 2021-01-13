@@ -21,7 +21,7 @@ import org.scalatest.ParallelTestExecution
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestExecution {
 
@@ -107,7 +107,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
           Some(com.daml.lf.data.Time.Timestamp.now()),
           submission,
           participantId,
-          wrapMap(state),
+          Compat.wrapMap(state),
         )
       if (log2.hasPackageUploadRejectionEntry)
         assert(output1.isEmpty)
@@ -129,14 +129,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       )
       .build()
 
-  private[this] def wrapMap[K, V](m: Map[K, V]): Map[K, Option[V]] = new Map[K, Option[V]] {
-    override def +[V1 >: Option[V]](kv: (K, V1)): Map[K, V1] = ???
-    override def get(key: K): Option[Option[V]] = Some(m.get(key))
-    override def iterator: Iterator[(K, Option[V])] = ???
-    override def -(key: K): Map[K, Option[V]] = ???
-  }
-
-  private[this] val emptyState = wrapMap(Map.empty[DamlStateKey, DamlStateValue])
+  private[this] val emptyState = Compat.wrapMap(Map.empty[DamlStateKey, DamlStateValue])
 
   private[this] def details(rejection: DamlPackageUploadRejectionEntry) = {
     import DamlPackageUploadRejectionEntry.ReasonCase._
@@ -164,7 +157,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   private[this] def shouldSucceed(output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue])) = {
     output._1.hasPackageUploadRejectionEntry shouldBe false
-    output._2 shouldBe 'nonEmpty
+    output._2 shouldBe Symbol("nonEmpty")
   }
 
   private[this] def shouldSucceedWith(
@@ -413,7 +406,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val committer = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
       shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
       Thread.sleep(1000)
-      committer.engine.compiledPackages().packageIds shouldBe 'empty
+      committer.engine.compiledPackages().packageIds shouldBe Symbol("empty")
     }
   }
 
