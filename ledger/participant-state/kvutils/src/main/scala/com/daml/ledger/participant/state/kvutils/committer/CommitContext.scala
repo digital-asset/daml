@@ -70,8 +70,8 @@ private[kvutils] case class CommitContext(
     */
   def collectInputs[B, That](
       partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B]
-  )(implicit bf: Factory[B, That]): That = {
-    val builder = bf.newBuilder
+  )(implicit factory: Factory[B, That]): That = {
+    val builder = factory.newBuilder
     builder ++= inputs.view.collect(partialFunction)
     inputs.keys.foreach(accessedInputKeys.add)
     builder.result()
