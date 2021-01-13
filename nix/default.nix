@@ -215,12 +215,8 @@ in rec {
     tar = bazel_dependencies.gnutar;
 
     semver = pkgs.callPackage ./tools/semver-tool {};
-    osht = pkgs.callPackage ./tools/osht {};
-    bats = pkgs.callPackage ./tools/bats {};
-    dade-test-sh = pkgs.callPackage ./tools/dade-test-sh {};
 
     undmg = pkgs.undmg;
-    jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
     # Cloud tools
     aws = pkgs.awscli;

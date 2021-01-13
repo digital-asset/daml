@@ -7,12 +7,13 @@ import akka.stream.Materializer
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers, Raw}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
-import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.captor.{ArgCaptor, Captor}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -50,7 +51,7 @@ class BatchingLedgerWriterSpec
     }
 
     "construct batch correctly" in {
-      val batchCaptor = MockitoHelpers.captor[Raw.Value]
+      val batchCaptor = ArgCaptor[Raw.Value]
       val mockWriter = createMockWriter(captor = Some(batchCaptor))
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit loggingContext =>
@@ -115,9 +116,9 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
         }
     }
 
-  private def createMockWriter(captor: Option[ArgumentCaptor[Raw.Value]]): LedgerWriter = {
+  private def createMockWriter(captor: Option[Captor[Raw.Value]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(any[String], captor.map(_.capture()).getOrElse(any), any[CommitMetadata]))
+    when(writer.commit(any[String], captor.map(_.capture).getOrElse(any), any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     when(writer.currentHealth()).thenReturn(HealthStatus.healthy)

@@ -18,8 +18,6 @@ dade collect-garbage:       Garbage collect the development environment.
 dade freeze                 Snapshots current dev-env definitions and builds a
                             Nix pacakge out of it.
 
-dade test-sh:               Tests all OSHT and Bats tests in provided directories.
-
 dade copyright-headers:     Update copyright headers on our source files.
 
 da-ghci:                    Run GHCi with import paths to our packages.

@@ -6,6 +6,7 @@ package com.daml.platform.indexer
 import java.time.Duration
 
 import akka.stream.scaladsl.Source
+import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1
@@ -21,8 +22,10 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -74,11 +77,29 @@ final class JdbcIndexerSpec
     }
   }
 
+  it should "use asynchronous commits with PostgreSQL" in {
+    val participantId = "the-participant"
+    for {
+      indexer <- initializeIndexer(participantId)
+      _ = LogCollector.clear[this.type]
+      _ <- runAndShutdown(indexer)
+    } yield {
+      val hikariDataSourceLogs =
+        LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
+      hikariDataSourceLogs should contain(
+        Level.INFO -> "Creating Hikari connections with asynchronous commit enabled"
+      )
+    }
+  }
+
   private def runAndShutdown[A](owner: ResourceOwner[A]): Future[Unit] =
     owner.use(_ => Future.unit)
 
   private def runAndShutdownIndexer(participantId: String): Future[Unit] =
-    new JdbcIndexer.Factory(
+    initializeIndexer(participantId).flatMap(runAndShutdown)
+
+  private def initializeIndexer(participantId: String): Future[ResourceOwner[JdbcIndexer]] = {
+    new indexer.JdbcIndexer.Factory(
       ServerRole.Indexer,
       IndexerConfig(
         participantId = v1.ParticipantId.assertFromString(participantId),
@@ -88,7 +109,8 @@ final class JdbcIndexerSpec
       mockedReadService,
       new Metrics(new MetricRegistry),
       LfValueTranslation.Cache.none,
-    ).migrateSchema(allowExistingSchema = true).flatMap(runAndShutdown)
+    ).migrateSchema(allowExistingSchema = true)
+  }
 
   private val mockedReadService: ReadService =
     when(mock[ReadService].getLedgerInitialConditions())

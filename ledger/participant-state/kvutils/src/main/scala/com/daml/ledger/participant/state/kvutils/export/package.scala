@@ -9,6 +9,6 @@ package object export {
 
   type WriteItem = Raw.KeyValuePair
 
-  type WriteSet = Seq[WriteItem]
+  type WriteSet = collection.Seq[WriteItem]
 
 }

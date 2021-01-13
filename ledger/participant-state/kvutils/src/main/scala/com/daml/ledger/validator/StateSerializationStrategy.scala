@@ -6,7 +6,8 @@ package com.daml.ledger.validator
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 
-import scala.collection.{SortedMap, breakOut}
+import scala.collection.compat._
+import scala.collection.SortedMap
 
 final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrategy) {
   def serializeState(key: DamlStateKey, value: DamlStateValue): Raw.KeyValuePair =
@@ -15,7 +16,8 @@ final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrateg
   def serializeStateUpdates(
       state: Map[DamlStateKey, DamlStateValue]
   ): SortedMap[Raw.Key, Raw.Value] =
-    state.map { case (key, value) =>
-      serializeState(key, value)
-    }(breakOut)
+    implicitly[Factory[Raw.KeyValuePair, SortedMap[Raw.Key, Raw.Value]]]
+      .fromSpecific(state.view.map { case (key, value) =>
+        serializeState(key, value)
+      })
 }

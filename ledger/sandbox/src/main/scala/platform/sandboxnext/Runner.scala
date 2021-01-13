@@ -195,7 +195,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 lfValueTranslationCache = lfValueTranslationCache,
               )
               authService = config.authService.getOrElse(AuthServiceWildcard)
-              promise = Promise[Unit]
+              promise = Promise[Unit]()
               resetService = {
                 val clock = Clock.systemUTC()
                 val authorizer =
@@ -283,7 +283,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get
+        DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+          .readArchiveFromFile(from)
+          .get
       )
       _ <- to.uploadPackages(submissionId, dar.all, None).toScala
     } yield ()

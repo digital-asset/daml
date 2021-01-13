@@ -13,7 +13,7 @@
         <appender-ref ref="SqlLedgerSpecAppender" />
     </logger>
 
-    <logger name="com.daml.platform.store.dao.JdbcLedgerDao" level="INFO">
+    <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
         <appender-ref ref="SqlLedgerSpecAppender" />
     </logger>
 </configuration>

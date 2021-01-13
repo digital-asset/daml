@@ -9,7 +9,7 @@ import java.nio.file.{Files, Path}
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
     extends LedgerDataExporter

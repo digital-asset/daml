@@ -14,9 +14,9 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 /** A batching ledger writer that collects submissions into a batch and commits
   * the batch once a set time or byte limit has been reached.
