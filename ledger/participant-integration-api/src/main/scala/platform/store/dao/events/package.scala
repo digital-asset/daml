@@ -92,9 +92,10 @@ package object events {
   private[events] def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
     Key.assertBuild(template, key.key.value)
 
-  private[events]  def convertLfValueKey(
+  private[events] def convertLfValueKey(
       template: Identifier,
-      key: KeyWithMaintainers[lfval[ContractId]]) =
+      key: KeyWithMaintainers[lfval[ContractId]],
+  ) =
     Key.assertBuild(template, key.key)
 
   private[events] def batch(query: String, parameters: Seq[Seq[NamedParameter]]): Option[BatchSql] =

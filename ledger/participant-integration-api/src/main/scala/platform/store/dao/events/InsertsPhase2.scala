@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.store.dao.events
 
 import java.sql.{Connection, PreparedStatement, Timestamp}
@@ -51,7 +54,8 @@ object InsertsPhase2 {
       tx: TransactionIndexing.TransactionInfo,
       contractsInfo: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Serialized,
-      witnesses: TransactionIndexing.ContractWitnessesInfo): InsertsPhase2 = {
+      witnesses: TransactionIndexing.ContractWitnessesInfo,
+  ): InsertsPhase2 = {
     val inserts = (_: Connection) => { // TODO conn not needed
       val netCreatesSize = contractsInfo.netCreates.size
       val divulgedSize = contractsInfo.divulgedContracts.size
@@ -59,21 +63,21 @@ object InsertsPhase2 {
 
       val timestamp = java.sql.Timestamp.from(tx.ledgerEffectiveTime)
       val timestamps = Array.fill[Timestamp](netCreatesSize)(timestamp) ++ Array.fill[Timestamp](
-        divulgedSize)(null)
+        divulgedSize
+      )(null)
 
       val contractIds, templateIds, stakeholders = Array.ofDim[String](batchSize)
       val createArgs, hashes = Array.ofDim[Array[Byte]](batchSize)
 
-      contractsInfo.netCreates.iterator.zipWithIndex.foreach {
-        case (create, idx) =>
-          contractIds(idx) = create.coid.coid
-          templateIds(idx) = create.templateId.toString
-          stakeholders(idx) = create.stakeholders.mkString("|")
-          createArgs(idx) = serialized.createArgumentsByContract(create.coid)
-          hashes(idx) = create.key
-            .map(convertLfValueKey(create.templateId, _))
-            .map(_.hash.bytes.toByteArray)
-            .orNull
+      contractsInfo.netCreates.iterator.zipWithIndex.foreach { case (create, idx) =>
+        contractIds(idx) = create.coid.coid
+        templateIds(idx) = create.templateId.toString
+        stakeholders(idx) = create.stakeholders.mkString("|")
+        createArgs(idx) = serialized.createArgumentsByContract(create.coid)
+        hashes(idx) = create.key
+          .map(convertLfValueKey(create.templateId, _))
+          .map(_.hash.bytes.toByteArray)
+          .orNull
       }
 
       contractsInfo.divulgedContracts.iterator.zipWithIndex.foreach {
@@ -86,8 +90,8 @@ object InsertsPhase2 {
       }
       val flattened: Iterator[(ContractId, String)] = Relation.flatten(witnesses.netVisibility)
       val (witnessesContractIds, parties) = flattened
-        .map {
-          case (id, party) => id.coid -> party
+        .map { case (id, party) =>
+          id.coid -> party
         }
         .toArray
         .unzip
@@ -102,7 +106,7 @@ object InsertsPhase2 {
         "hashes" -> hashes,
         "stakeholders" -> stakeholders,
         "witnessesContractIds" -> witnessesContractIds,
-        "parties" -> parties
+        "parties" -> parties,
       )
     }
 

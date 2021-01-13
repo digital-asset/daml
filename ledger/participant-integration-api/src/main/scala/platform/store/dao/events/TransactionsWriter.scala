@@ -7,7 +7,12 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{
+  CommittedTransaction,
+  DivulgedContract,
+  Offset,
+  SubmitterInfo,
+}
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
@@ -20,7 +25,7 @@ object TransactionsWriter {
       eventsTableExecutables: EventsTable.Batches,
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
-      insertsPhase2: InsertsPhase2
+      insertsPhase2: InsertsPhase2,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
@@ -96,7 +101,12 @@ private[dao] final class TransactionsWriter(
       eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
       contractsTable.toExecutables(indexing.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
-      InsertsPhase2.toExecutable(indexing.transaction, indexing.contracts, serialized, indexing.contractWitnesses)
+      InsertsPhase2.toExecutable(
+        indexing.transaction,
+        indexing.contracts,
+        serialized,
+        indexing.contractWitnesses,
+      ),
     )
   }
 

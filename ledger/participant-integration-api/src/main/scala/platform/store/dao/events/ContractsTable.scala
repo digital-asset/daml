@@ -26,11 +26,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     Vector[NamedParameter]("contract_id" -> contractId)
 
   def toExecutables(
-      info: TransactionIndexing.ContractsInfo,
+      info: TransactionIndexing.ContractsInfo
   ): ContractsTable.Executables = {
     val deletes = info.netArchives.iterator.map(deleteContract).toSeq
     ContractsTable.Executables(
-      deleteContracts = batch(deleteContractQuery, deletes),
+      deleteContracts = batch(deleteContractQuery, deletes)
     )
   }
 
