@@ -85,7 +85,7 @@ private class ContractsFetch(
           // traverse once, use the max _returned_ bookmark,
           // re-traverse any that != the max returned bookmark (overriding lastOffset)
           // fetch cannot go "too far" the second time
-          templateIds.traverse(fetchAndPersist(jwt, parties, None, absEnd, _)).flatMap {
+          templateIds.traverse(fetchAndPersist(jwt, parties, false, absEnd, _)).flatMap {
             actualAbsEnds =>
               val newAbsEndTarget = {
                 import scalaz.std.list._, scalaz.syntax.foldable._,
@@ -101,19 +101,16 @@ private class ContractsFetch(
                   val feedbackTerminator =
                     Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
                   (actualAbsEnds zip templateIds)
-                    .filter { case (laggingAbsEnd, _) =>
-                      type B = BeginBookmark[domain.Offset]
-                      (laggingAbsEnd: B) != (newAbsEndTarget: B)
-                    }
-                    .traverse_ { case (laggingAbsEnd, templateId) =>
+                    .collect { case (`newAbsEndTarget`, templateId) => templateId }
+                    .traverse_ {
                       // passing a priorBookmark prevents contractsIo_ from using the ACS,
                       // and it cannot go "too far" reading only the tx stream
                       fetchAndPersist(
                         jwt,
                         parties,
-                        Some(laggingAbsEnd),
+                        true,
                         feedbackTerminator,
-                        templateId,
+                        _,
                       )
                     }
                     .as(AbsoluteBookmark(feedbackTerminator))
@@ -128,7 +125,7 @@ private class ContractsFetch(
   private[this] def fetchAndPersist(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
-      priorBookmark: Option[BeginBookmark[domain.Offset]],
+      disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit
@@ -140,7 +137,7 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      contractsIo_(jwt, parties, priorBookmark, absEnd, templateId).exceptSql {
+      contractsIo_(jwt, parties, disableAcs, absEnd, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
           fconn.rollback flatMap (_ => loop(maxAttempts - 1))
@@ -156,17 +153,13 @@ private class ContractsFetch(
   private def contractsIo_(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
-      priorBookmark: Option[BeginBookmark[domain.Offset]],
+      disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
-      offsets <- priorBookmark match {
-        case Some(AbsoluteBookmark(off)) =>
-          fconn.pure((parties.tail + parties.head).view.map((_, off)).toMap)
-        case None | Some(LedgerBegin) => ContractDao.lastOffset(parties, templateId)
-      }
-      offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, absEnd)
+      offsets <- ContractDao.lastOffset(parties, templateId)
+      offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, disableAcs, absEnd)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
     } yield offset1
 
@@ -203,6 +196,7 @@ private class ContractsFetch(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       offsets: Map[domain.Party, domain.Offset],
+      disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -227,8 +221,8 @@ private class ContractsFetch(
         )
 
         // include ACS iff starting at LedgerBegin
-        val (idses, lastOff) = offset match {
-          case LedgerBegin =>
+        val (idses, lastOff) = (offset, disableAcs) match {
+          case (LedgerBegin, false) =>
             val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
             stepsAndOffset.in <~ getActiveContracts(
               jwt,
@@ -237,7 +231,7 @@ private class ContractsFetch(
             )
             (stepsAndOffset.out0, stepsAndOffset.out1)
 
-          case AbsoluteBookmark(_) =>
+          case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
             stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
             (
