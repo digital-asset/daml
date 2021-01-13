@@ -36,6 +36,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}
+import scalaz.Order
 import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.std.vector._
@@ -44,6 +45,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
+import scalaz.syntax.order._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, OneAnd, \/, \/-}
 import spray.json.{JsNull, JsValue}
@@ -312,6 +314,9 @@ private[http] object ContractsFetch {
   def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
     Flow[A].fold(ifEmpty)((_, later) => later)
 
+  private def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
+    Flow[A].fold(ifEmpty)(_ max _)
+
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event]
@@ -402,13 +407,18 @@ private[http] object ContractsFetch {
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
-      val lastOff = b add last(LedgerBegin: Off)
+      import domain.Offset.{ordering => `Offset ordering`}
+      val lastTxOff = b add last(LedgerBegin: Off)
+      type EndoBookmarkFlow[A] = Flow[BeginBookmark[A], BeginBookmark[A], NotUsed]
+      val maxOff = b add domain.Offset.tag.unsubst[EndoBookmarkFlow, String](
+        max(LedgerBegin: BeginBookmark[domain.Offset])
+      )
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
-      discard {                        dupOff                          ~> mergeOff ~> lastOff }
-      discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> mergeOff }
+      discard {                        dupOff                                       ~> mergeOff ~> maxOff }
+      discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> lastTxOff ~> mergeOff }
       // format: on
-      new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
+      new FanOutShape2(dupOff.in, txnSplit.out0, maxOff.out)
     }
 
   /** Split a series of ACS responses into two channels: one with contracts, the
