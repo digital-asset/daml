@@ -33,12 +33,14 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         ":ledger-api-domain",
         "//daml-lf/data",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

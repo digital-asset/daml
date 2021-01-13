@@ -31,8 +31,9 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.JavaConverters._
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSugar {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -226,7 +227,7 @@ object PreExecutingSubmissionValidatorSpec {
   private def createLedgerStateReader(
       inputState: Map[DamlStateKey, Option[DamlStateValue]]
   ): StateReader[DamlStateKey, TestValue] = {
-    val wrappedInputState = inputState.mapValues(TestValue(_))
+    val wrappedInputState = inputState.view.mapValues(TestValue(_)).toMap
     new StateReader[DamlStateKey, TestValue] {
       override def read(
           keys: Iterable[DamlStateKey]

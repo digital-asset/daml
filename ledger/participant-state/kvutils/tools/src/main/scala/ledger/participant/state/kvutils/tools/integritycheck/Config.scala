@@ -59,6 +59,6 @@ object Config {
         .action((_, config) => config.copy(reportMetrics = true))
     }
 
-  def parse(args: Seq[String]): Option[Config] =
+  def parse(args: collection.Seq[String]): Option[Config] =
     Parser.parse(args, Config.ParseInput)
 }

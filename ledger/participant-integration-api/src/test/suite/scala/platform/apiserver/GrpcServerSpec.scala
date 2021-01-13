@@ -23,6 +23,8 @@ import io.grpc.ManagedChannel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.compat.immutable.LazyList
+
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
   "a GRPC server" should {
     "handle a request to a valid service" in {
@@ -51,7 +53,8 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
 
     "fail with a nice exception, even when the text is quite long" in {
       val length = 2 * 1024
-      val exceptionMessage = "There was an error. " + Stream.continually("x").take(length).mkString
+      val exceptionMessage =
+        "There was an error. " + LazyList.continually("x").take(length).mkString
 
       resources().use { channel =>
         val helloService = HelloServiceGrpc.stub(channel)
@@ -69,7 +72,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
       val length = 1024 * 1024
       val exceptionMessage =
         "There was an error. " +
-          Stream.continually("x").take(length).mkString +
+          LazyList.continually("x").take(length).mkString +
           " And then some extra text that won't be sent."
 
       resources().use { channel =>

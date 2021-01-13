@@ -8,8 +8,10 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 load("@os_info//:os_info.bzl", "is_windows")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "tools",
@@ -49,15 +51,17 @@ da_scala_test(
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         "//ledger/participant-integration-api",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_mockito_mockito_core",
-        "@maven//:org_mockito_mockito_scala_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -66,6 +70,10 @@ da_scala_binary(
     srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
     main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
     resources = glob(["src/main/resources/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -81,8 +89,6 @@ da_scala_binary(
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
@@ -91,6 +97,11 @@ da_scala_test(
     name = "integrity-check-tests",
     size = "small",
     srcs = glob(["integrity-check/src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         ":integrity-check",
         "//daml-lf/data",
@@ -100,10 +111,7 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -115,7 +123,11 @@ da_scala_benchmark_jmh(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    # jmh does not like the use of silencer to disable specific unused imports
+    # so we disable unused import warnings completely on 2.13.
+    scalacopts = lf_scalacopts + [
+        "-Wconf:cat=unused-imports:s,any:e",
+    ] if scala_major_version == "2.13" else [],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -162,4 +174,4 @@ da_scala_benchmark_jmh(
         "//ledger/participant-state/kvutils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
-)
+) if scala_major_version == "2.12" else None

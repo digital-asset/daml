@@ -50,7 +50,7 @@ class WriteRecordingLedgerStateOperations[LogResult](delegate: LedgerStateOperat
 
   override def getAndClearRecordedWriteSet(): WriteSet = {
     this.synchronized {
-      val result = Seq(recordedWriteSet: _*)
+      val result = recordedWriteSet.result()
       recordedWriteSet.clear()
       result
     }

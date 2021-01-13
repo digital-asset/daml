@@ -64,7 +64,7 @@ object Config {
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,
       defaultExtra: Extra,
-      args: Seq[String],
+      args: collection.Seq[String],
   ): ResourceOwner[Config[Extra]] =
     parse(name, extraOptions, defaultExtra, args)
       .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException))(
@@ -75,7 +75,7 @@ object Config {
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,
       defaultExtra: Extra,
-      args: Seq[String],
+      args: collection.Seq[String],
       getEnvVar: String => Option[String] = sys.env.get(_),
   ): Option[Config[Extra]] =
     parser(name, extraOptions, getEnvVar).parse(args, createDefault(defaultExtra)).flatMap {

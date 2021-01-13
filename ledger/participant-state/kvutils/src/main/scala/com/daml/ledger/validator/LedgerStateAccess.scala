@@ -74,6 +74,20 @@ trait LedgerStateOperations[+LogResult] {
   )(implicit executionContext: ExecutionContext): Future[LogResult]
 }
 
+object LedgerStateOperations {
+
+  /** Alias for [[Raw.Key]] to aid in migration.
+    * It will be deprecated and subsequently removed in the future.
+    */
+  type Key = Raw.Key
+
+  /** Alias for [[Raw.Value]] to aid in migration.
+    * It will be deprecated and subsequently removed in the future.
+    */
+  type Value = Raw.Value
+
+}
+
 /** Convenience class for implementing read and write operations on a backing store that supports batched operations.
   */
 abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOperations[LogResult] {

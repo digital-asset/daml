@@ -18,7 +18,7 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 class BatchingLedgerWriterSpec
@@ -46,7 +46,7 @@ class BatchingLedgerWriterSpec
         LoggingContext.newLoggingContext { implicit ctx =>
           new BatchingLedgerWriter(queue, writer)
         }
-      batchingWriter.currentHealth shouldBe HealthStatus.unhealthy
+      batchingWriter.currentHealth() shouldBe HealthStatus.unhealthy
       Future.successful(succeed)
     }
 
@@ -55,7 +55,7 @@ class BatchingLedgerWriterSpec
       val mockWriter = createMockWriter(captor = Some(batchCaptor))
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit loggingContext =>
-          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
+          new BatchingLedgerWriter(immediateBatchingQueue(), mockWriter)
         }
       val expectedBatch = createExpectedBatch(aCorrelationId -> aSubmission)
       for {
@@ -75,7 +75,7 @@ class BatchingLedgerWriterSpec
         createMockWriter(captor = None)
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit loggingContext =>
-          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
+          new BatchingLedgerWriter(immediateBatchingQueue(), mockWriter)
         }
       for {
         result1 <- batchingWriter.commit("test1", aSubmission, someCommitMetadata)
@@ -84,7 +84,7 @@ class BatchingLedgerWriterSpec
       } yield {
         verify(mockWriter, times(3)).commit(any[String], any[Raw.Value], any[CommitMetadata])
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
-        batchingWriter.currentHealth should be(HealthStatus.healthy)
+        batchingWriter.currentHealth() should be(HealthStatus.healthy)
       }
     }
 
