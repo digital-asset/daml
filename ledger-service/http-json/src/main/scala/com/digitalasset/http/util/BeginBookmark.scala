@@ -8,6 +8,8 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import LedgerOffset.{LedgerBoundary, Value}
 import Value.Boundary
 import scalaz.Liskov.<~<
+import scalaz.Order
+import scalaz.syntax.order._
 import spray.json.{JsNull, JsonWriter}
 
 private[http] sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
@@ -34,4 +36,13 @@ private[http] object BeginBookmark {
         case LedgerBegin => JsNull
       }
     }
+
+  import scalaz.Ordering.{EQ, LT, GT}
+
+  implicit def `BeginBookmark order`[Off: Order]: Order[BeginBookmark[Off]] = {
+    case (AbsoluteBookmark(a), AbsoluteBookmark(b)) => a ?|? b
+    case (LedgerBegin, LedgerBegin) => EQ
+    case (LedgerBegin, AbsoluteBookmark(_)) => LT
+    case (AbsoluteBookmark(_), LedgerBegin) => GT
+  }
 }
