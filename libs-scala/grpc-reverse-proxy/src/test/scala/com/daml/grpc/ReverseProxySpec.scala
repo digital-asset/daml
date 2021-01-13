@@ -11,6 +11,12 @@ import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
+import io.grpc.reflection.v1alpha.{
+  ServerReflectionGrpc,
+  ServerReflectionRequest,
+  ServerReflectionResponse,
+}
+import io.grpc.stub.StreamObserver
 import io.grpc.{
   Channel,
   Metadata,
@@ -22,6 +28,10 @@ import io.grpc.{
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.{Await, Promise}
+import scala.concurrent.duration.DurationInt
+import scala.jdk.CollectionConverters._
 
 final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer with Inside {
 
@@ -47,6 +57,7 @@ final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer
         proxyServer.start()
         val proxy = InProcessChannelBuilder.forName(proxyName).build()
         getHealthStatus(backend) shouldEqual getHealthStatus(proxy)
+        listServices(backend) shouldEqual listServices(proxy)
       }
   }
 
@@ -72,6 +83,34 @@ final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer
 }
 
 object ReverseProxySpec {
+
+  private def listServices(channel: Channel): Iterable[String] = {
+    val response = Promise[Iterable[String]]()
+    lazy val serverStream: StreamObserver[ServerReflectionRequest] =
+      ServerReflectionGrpc
+        .newStub(channel)
+        .serverReflectionInfo(new StreamObserver[ServerReflectionResponse] {
+          override def onNext(value: ServerReflectionResponse): Unit = {
+            if (value.hasListServicesResponse) {
+              val services = value.getListServicesResponse.getServiceList.asScala.map(_.getName)
+              response.trySuccess(services)
+            } else {
+              response.tryFailure(new IllegalStateException("Received unexpected response type"))
+            }
+            serverStream.onCompleted()
+          }
+
+          override def onError(throwable: Throwable): Unit = {
+            val _ = response.tryFailure(throwable)
+          }
+
+          override def onCompleted(): Unit = {
+            val _ = response.tryFailure(new IllegalStateException("No response received"))
+          }
+        })
+    serverStream.onNext(ServerReflectionRequest.newBuilder().setListServices("").build())
+    Await.result(response.future, 5.seconds)
+  }
 
   private def getHealthStatus(channel: Channel): ServingStatus =
     HealthGrpc
