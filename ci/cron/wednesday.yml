@@ -66,7 +66,7 @@ jobs:
                     | jq '.number')
           az pipelines build queue \
               --branch $branch \
-              --definition-name "digital-asset.daml" \
+              --definition-name "PRs" \
               --org "https://dev.azure.com/digitalasset" \
               --project daml
           if [ -n "$out" ]; then
