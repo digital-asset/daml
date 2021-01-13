@@ -237,6 +237,7 @@ test_deps = [
     "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     "@maven//:org_scalaz_scalaz_core_2_12",
     "@maven//:org_slf4j_slf4j_api",
+    "@maven//:com_zaxxer_HikariCP",
 ]
 
 openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe"
