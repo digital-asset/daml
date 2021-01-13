@@ -153,7 +153,7 @@ final class CommandClientIT
       expectedMessageSubString: String,
   ): Future[Assertion] =
     submitCommand(submitRequest).map { completion =>
-      completion.getStatus should have('code (expectedErrorCode.value))
+      completion.getStatus.code should be(expectedErrorCode.value)
       completion.getStatus.message should include(expectedMessageSubString)
     }(DirectExecutionContext)
 

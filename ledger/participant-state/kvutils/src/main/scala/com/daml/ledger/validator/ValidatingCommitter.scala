@@ -11,7 +11,7 @@ import com.daml.ledger.validator.ValidationFailed.{MissingInputState, Validation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.newLoggingContext
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Orchestrates committing to a ledger after validating the submission.

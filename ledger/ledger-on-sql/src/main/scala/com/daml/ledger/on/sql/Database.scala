@@ -19,7 +19,7 @@ import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import scalaz.syntax.bind._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 final class Database(

@@ -13,7 +13,7 @@ import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
   * key-value based ledger.
@@ -341,7 +341,7 @@ object KeyValueConsumption {
             recordTime,
             SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
             ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
-            Configuration.decode(configurationRejectionEntry.getConfiguration).right.get,
+            Configuration.decode(configurationRejectionEntry.getConfiguration).toOption.get,
             reason,
           )
         )

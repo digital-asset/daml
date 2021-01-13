@@ -23,7 +23,8 @@ import com.daml.ledger.validator.{CommitStrategy, ValidationFailed}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
-import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.captor.ArgCaptor
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -131,16 +132,16 @@ class BatchedSubmissionValidatorSpec
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
       when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
-      val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
-      val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
+      val logEntryCaptor = ArgCaptor[DamlLogEntry]
+      val outputStateCaptor = ArgCaptor[Map[DamlStateKey, DamlStateValue]]
       when(
         mockCommit.commit(
           any[ParticipantId],
           any[String],
           any[DamlLogEntryId],
-          logEntryCaptor.capture(),
+          logEntryCaptor.capture,
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          outputStateCaptor.capture(),
+          outputStateCaptor.capture,
           any[Option[SubmissionAggregator.WriteSetBuilder]],
         )
       )
@@ -160,14 +161,13 @@ class BatchedSubmissionValidatorSpec
         )
         .map { _ =>
           // Verify that the log entry is committed.
-          logEntryCaptor.getAllValues should have size 1
-          val logEntry = logEntryCaptor.getValue.asInstanceOf[DamlLogEntry]
+          logEntryCaptor.values should have size 1
+          val logEntry = logEntryCaptor.value
           logEntry.getPartyAllocationEntry should be(partySubmission.getPartyAllocationEntry)
 
           // Verify that output state contains the expected values.
-          outputStateCaptor.getAllValues should have size 1
-          val outputState =
-            outputStateCaptor.getValue.asInstanceOf[Map[DamlStateKey, DamlStateValue]]
+          outputStateCaptor.values should have size 1
+          val outputState = outputStateCaptor.value
           outputState should have size 2
           outputState.keySet should be(partySubmission.getInputDamlStateList.asScala.toSet)
         }
@@ -179,17 +179,17 @@ class BatchedSubmissionValidatorSpec
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
       when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
-      val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
-      val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
+      val logEntryCaptor = ArgCaptor[DamlLogEntry]
+      val outputStateCaptor = ArgCaptor[Map[DamlStateKey, DamlStateValue]]
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
         mockCommit.commit(
           any[ParticipantId],
           any[String],
           any[DamlLogEntryId],
-          logEntryCaptor.capture(),
+          logEntryCaptor.capture,
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          outputStateCaptor.capture(),
+          outputStateCaptor.capture,
           any[Option[SubmissionAggregator.WriteSetBuilder]],
         )
       )
@@ -219,16 +219,14 @@ class BatchedSubmissionValidatorSpec
             any[DamlOutputState],
             any[Option[SubmissionAggregator.WriteSetBuilder]],
           )
-          // Verify that the log entries have been committed in the right order.
-          val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
-          logEntries.map(_.getPartyAllocationEntry) should be(
-            submissions.map(_.getPartyAllocationEntry)
-          )
+
+          val actualEntries = logEntryCaptor.values.map(_.getPartyAllocationEntry)
+          val expectedEntries = submissions.map(_.getPartyAllocationEntry)
+          actualEntries should be(expectedEntries)
+
           // Verify that output state contains all the expected values.
-          val outputState = outputStateCaptor.getAllValues.asScala
-            .map(_.asInstanceOf[Map[DamlStateKey, DamlStateValue]])
-            .fold(Map.empty) { case (a, b) => a ++ b }
-          outputState should have size (2 * 1000.toLong) // party + submission dedup for each
+          val outputState = outputStateCaptor.values.fold(Map.empty) { case (a, b) => a ++ b }
+          outputState should have size (2L * 1000L) // party + submission dedup for each
           outputState.keySet should be(submissions.flatMap(_.getInputDamlStateList.asScala).toSet)
         }
     }

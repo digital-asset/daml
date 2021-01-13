@@ -7,6 +7,7 @@ load(
     "da_scala_test_suite",
     "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "ledger-api-client",
@@ -46,23 +47,42 @@ da_scala_library(
     ],
 )
 
+da_scala_library(
+    name = "ledger-api-client-tests-lib",
+    srcs = glob(["src/test/{}/**/*.scala".format(scala_major_version)]),
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalactic_scalactic",
+        ],
+    },
+    deps = [
+    ],
+)
+
 da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import Compat._",
+    ],
     silent_annotations = True,
     deps = [
         ":ledger-api-client",
+        ":ledger-api-client-tests-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
         "//libs-scala/concurrent",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -74,6 +94,10 @@ da_scala_test_suite(
     ],
     resources = [
         "src/it/resources/logback-test.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
     ],
     deps = [
         ":ledger-api-client",
@@ -99,8 +123,6 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_netty_netty_handler",
     ],
 )

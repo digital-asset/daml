@@ -8,7 +8,6 @@ import java.time.Clock
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
@@ -19,6 +18,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Empty}
+import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -119,14 +119,13 @@ class SubmissionValidatorSpec
       val expectedLogResult: Int = 3
       when(mockStateOperations.readState(any[Iterable[Raw.Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val logEntryIdCaptor = captor[Raw.Key]
-      val logEntryValueCaptor = captor[Raw.Value]
+      val logEntryIdCaptor = ArgCaptor[Raw.Key]
+      val logEntryValueCaptor = ArgCaptor[Raw.Value]
       when(
-        mockStateOperations.appendToLog(logEntryIdCaptor.capture(), logEntryValueCaptor.capture())(
+        mockStateOperations.appendToLog(logEntryIdCaptor.capture, logEntryValueCaptor.capture)(
           anyExecutionContext
         )
-      )
-        .thenReturn(Future.successful(expectedLogResult))
+      ).thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
       val metrics = new Metrics(new MetricRegistry)
@@ -147,9 +146,8 @@ class SubmissionValidatorSpec
             verify(mockLogEntryIdGenerator, times(1)).apply()
             verify(mockStateOperations, times(0))
               .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
-            logEntryValueCaptor.getAllValues should have size 1
-            logEntryIdCaptor.getAllValues should have size 1
-            logEntryIdCaptor.getValue should be(Raw.Key(expectedLogEntryId.toByteString))
+            logEntryValueCaptor.values should have size 1
+            logEntryIdCaptor.values should be(List(Raw.Key(expectedLogEntryId.toByteString)))
           }
         }
     }
@@ -159,12 +157,12 @@ class SubmissionValidatorSpec
       val expectedLogResult: Int = 7
       when(mockStateOperations.readState(any[Iterable[Raw.Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
-      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(anyExecutionContext))
+      val writtenKeyValuesCaptor = ArgCaptor[RawKeyValuePairs]
+      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture)(anyExecutionContext))
         .thenReturn(Future.unit)
-      val logEntryCaptor = captor[Raw.Value]
+      val logEntryCaptor = ArgCaptor[Raw.Value]
       when(
-        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture())(anyExecutionContext)
+        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture)(anyExecutionContext)
       )
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
@@ -181,13 +179,13 @@ class SubmissionValidatorSpec
         .map {
           inside(_) { case Right(actualLogResult) =>
             actualLogResult should be(expectedLogResult)
-            writtenKeyValuesCaptor.getAllValues should have size 1
-            val writtenKeyValues = writtenKeyValuesCaptor.getValue
+            writtenKeyValuesCaptor.values should have size 1
+            val writtenKeyValues = writtenKeyValuesCaptor.value
             writtenKeyValues should have size 1
             Try(
               SubmissionValidator.stateValueFromRaw(writtenKeyValues.head._2)
             ).isSuccess shouldBe true
-            logEntryCaptor.getAllValues should have size 1
+            logEntryCaptor.values should have size 1
           }
         }
     }
@@ -197,12 +195,12 @@ class SubmissionValidatorSpec
       val expectedLogResult: Int = 7
       when(mockStateOperations.readState(any[Iterable[Raw.Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
-      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(anyExecutionContext))
+      val writtenKeyValuesCaptor = ArgCaptor[RawKeyValuePairs]
+      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture)(anyExecutionContext))
         .thenReturn(Future.unit)
-      val logEntryCaptor = captor[Raw.Value]
+      val logEntryCaptor = ArgCaptor[Raw.Value]
       when(
-        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture())(anyExecutionContext)
+        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture)(anyExecutionContext)
       )
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
@@ -229,13 +227,13 @@ class SubmissionValidatorSpec
         .map {
           inside(_) { case Right(actualLogResult) =>
             actualLogResult should be(expectedLogResult)
-            writtenKeyValuesCaptor.getAllValues should have size 1
-            val writtenKeyValues = writtenKeyValuesCaptor.getValue
+            writtenKeyValuesCaptor.values should have size 1
+            val writtenKeyValues = writtenKeyValuesCaptor.value
             writtenKeyValues should have size 1
             Try(
               SubmissionValidator.stateValueFromRaw(writtenKeyValues.head._2)
             ).isSuccess shouldBe true
-            logEntryCaptor.getAllValues should have size 1
+            logEntryCaptor.values should have size 1
           }
         }
     }

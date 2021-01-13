@@ -37,7 +37,7 @@ object Queries {
       params: Iterable[Seq[NamedParameter]],
   )(implicit connection: Connection): Unit = {
     if (params.nonEmpty)
-      BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
+      BatchSql(query, params.head, params.view.drop(1).toSeq: _*).execute()
     ()
   }
 

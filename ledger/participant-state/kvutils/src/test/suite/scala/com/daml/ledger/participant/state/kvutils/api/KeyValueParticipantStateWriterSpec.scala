@@ -8,7 +8,6 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
@@ -22,7 +21,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
-import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.captor.{ArgCaptor, Captor}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -36,9 +36,9 @@ class KeyValueParticipantStateWriterSpec
     with ArgumentMatchersSugar {
   "participant state writer" should {
     "submit a transaction" in {
-      val transactionCaptor = captor[Raw.Value]
-      val correlationIdCaptor = captor[String]
-      val metadataCaptor = captor[CommitMetadata]
+      val transactionCaptor = ArgCaptor[Raw.Value]
+      val correlationIdCaptor = ArgCaptor[String]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(transactionCaptor, metadataCaptor, correlationIdCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
       val recordTime = newRecordTime()
@@ -52,55 +52,55 @@ class KeyValueParticipantStateWriterSpec
       )
 
       verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
-      verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
-      correlationIdCaptor.getValue should be(expectedCorrelationId)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verifyEnvelope(transactionCaptor.value)(_.hasTransactionEntry)
+      correlationIdCaptor.value should be(expectedCorrelationId)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.estimatedInterpretationCost shouldBe defined
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "upload a package" in {
-      val packageUploadCaptor = captor[Raw.Value]
-      val metadataCaptor = captor[CommitMetadata]
+      val packageUploadCaptor = ArgCaptor[Raw.Value]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(packageUploadCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
       verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
-      verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verifyEnvelope(packageUploadCaptor.value)(_.hasPackageUploadEntry)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "submit a configuration" in {
-      val configurationCaptor = captor[Raw.Value]
-      val metadataCaptor = captor[CommitMetadata]
+      val configurationCaptor = ArgCaptor[Raw.Value]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(configurationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
       verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
-      verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verifyEnvelope(configurationCaptor.value)(_.hasConfigurationSubmission)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "allocate a party without hint" in {
-      val partyAllocationCaptor = captor[Raw.Value]
-      val metadataCaptor = captor[CommitMetadata]
+      val partyAllocationCaptor = ArgCaptor[Raw.Value]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(partyAllocationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
       verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
-      verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verifyEnvelope(partyAllocationCaptor.value)(_.hasPartyAllocationEntry)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
@@ -134,15 +134,12 @@ object KeyValueParticipantStateWriterSpec {
     DefaultStateKeySerializationStrategy
 
   private def createWriter(
-      envelopeCaptor: ArgumentCaptor[Raw.Value],
-      metadataCaptor: ArgumentCaptor[CommitMetadata],
-      correlationIdCaptor: ArgumentCaptor[String] = captor[String],
+      envelopeCaptor: Captor[Raw.Value],
+      metadataCaptor: Captor[CommitMetadata],
+      correlationIdCaptor: Captor[String] = ArgCaptor[String],
   ): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(
-      writer
-        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture())
-    )
+    when(writer.commit(correlationIdCaptor.capture, envelopeCaptor.capture, metadataCaptor.capture))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer

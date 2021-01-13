@@ -6,7 +6,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS", "LATEST_STABLE_DAML_LF_VERSION", "ghc_pkg")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_latest_version")
+load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -190,8 +191,8 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version, skip_validation in [(version, False) for version in DAML_LF_VERSIONS] + [
-        (LATEST_STABLE_DAML_LF_VERSION, True),
+    for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
+        (lf_latest_version, True),
         ("1.dev", True),
     ]
 ]
