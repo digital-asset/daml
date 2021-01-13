@@ -10,6 +10,7 @@ load(
 da_scala_library(
     name = "grpc-reverse-proxy",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:grpc-reverse-proxy:__VERSION__"],
     visibility = [
         "//:__subpackages__",
     ],
