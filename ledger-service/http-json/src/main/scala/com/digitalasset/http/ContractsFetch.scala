@@ -100,6 +100,11 @@ private class ContractsFetch(
                 case AbsoluteBookmark(domain.Offset.tag(feedback)) =>
                   val feedbackTerminator =
                     Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
+                  // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
+                  // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
+                  // for an example of this happening.  We deal with this race condition
+                  // by detecting that it has happened and rerunning any other template IDs
+                  // to "catch them up" to the one that "raced" ahead
                   (actualAbsEnds zip templateIds)
                     .collect { case (`newAbsEndTarget`, templateId) => templateId }
                     .traverse_ {
