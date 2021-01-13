@@ -19,6 +19,7 @@ import java.nio.file.Files
 
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.Validation
+import com.daml.lf.value.Value.ContractId
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -217,7 +218,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     } yield validationResult
   }
 
-  private def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
+  private[engine] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
     pkgIds.dropWhile(compiledPackages.signatures.isDefinedAt) match {
       case pkgId :: rest =>
         ResultNeedPackage(
@@ -446,6 +447,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
     } yield ()
   }
+
+  private[engine] def enrich(typ: Type, value: Value[ContractId]): Result[Value[ContractId]] =
+    preprocessor.translateValue(typ, value).map(_.toValue)
 
 }
 

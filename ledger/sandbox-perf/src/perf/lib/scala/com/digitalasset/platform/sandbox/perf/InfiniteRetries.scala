@@ -20,13 +20,14 @@ trait InfiniteRetries {
         Future.successful(v)
       case Failure(_) =>
         val p = Promise[T]()
+        val r: Runnable = () =>
+          retry[T](action, delay).onComplete {
+            case Success(s) => p.success(s)
+            case Failure(throwable) => p.failure(throwable)
+          }
         system.scheduler.scheduleOnce(
           delay,
-          () =>
-            retry[T](action, delay).onComplete {
-              case Success(s) => p.success(s)
-              case Failure(throwable) => p.failure(throwable)
-            },
+          r,
         )
         p.future
     }
