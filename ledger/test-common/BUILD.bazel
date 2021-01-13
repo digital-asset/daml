@@ -17,6 +17,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_stable_version",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "test-common",
@@ -56,7 +57,7 @@ da_scala_library(
             deps = [
                 "//language-support/scala/bindings",
             ] + extra_deps,
-        ),
+        ) if scala_major_version == "2.12" else None,
     ]
     for (test_name, target, extra_deps) in [
         (
