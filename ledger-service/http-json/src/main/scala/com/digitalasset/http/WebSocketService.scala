@@ -214,8 +214,8 @@ object WebSocketService {
           fn,
           { parties => implicit lh =>
             val (dbQueries, posMap) = dbQueriesPlan
-            dbbackend.ContractDao
-              .selectContractsMultiTemplate(parties, dbQueries)
+            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
               .map(_ map (_ rightMap (_ map posMap)))
           },
         )
@@ -318,7 +318,8 @@ object WebSocketService {
         unresolved,
         fn,
         { parties => implicit lh =>
-          dbbackend.ContractDao.selectContractsMultiTemplate(parties, dbQueries).map(_ map (_.void))
+          import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+          selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.Unused)
         },
       )
     }

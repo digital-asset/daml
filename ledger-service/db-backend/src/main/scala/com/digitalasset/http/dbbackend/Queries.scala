@@ -326,6 +326,9 @@ object Queries {
 
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
     * and whether it may compute >1 query to run.
+    *
+    * @tparam T The traversable of queries that result.
+    * @tparam Mark The "marker" indicating which query matched.
     */
   private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
       extends Product
