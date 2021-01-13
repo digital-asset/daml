@@ -19,7 +19,6 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{
   BlindingInfo,
   GlobalKey,
@@ -55,8 +54,6 @@ private[kvutils] class TransactionCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
     inStaticTimeMode: Boolean,
-    decodeTransaction: TransactionOuterClass.Transaction => Transaction =
-      Conversions.decodeTransaction,
 ) extends Committer[DamlTransactionEntrySummary] {
   override protected val committerName = "transaction"
 
@@ -64,7 +61,7 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
       submission: DamlSubmission,
   ): DamlTransactionEntrySummary =
-    DamlTransactionEntrySummary(submission.getTransactionEntry, decodeTransaction)
+    DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
@@ -387,7 +384,7 @@ private[kvutils] class TransactionCommitter(
       .setTransaction(newTransaction)
       .build()
 
-    StepContinue(DamlTransactionEntrySummary(newTransactionEntry, decodeTransaction))
+    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
   }
 
   /** Builds the log entry as the final step.
@@ -792,15 +789,13 @@ private[kvutils] class TransactionCommitter(
 }
 
 private[kvutils] object TransactionCommitter {
-  class DamlTransactionEntrySummary(
-      val submission: DamlTransactionEntry,
-      val transaction: Tx.Transaction,
-  ) {
+  class DamlTransactionEntrySummary(val submission: DamlTransactionEntry, tx: => Tx.Transaction) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
     val submitters: List[Party] =
       submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
+    lazy val transaction: Tx.Transaction = tx
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
 
@@ -813,12 +808,11 @@ private[kvutils] object TransactionCommitter {
 
   object DamlTransactionEntrySummary {
     def apply(
-        submission: DamlTransactionEntry,
-        decodeTransaction: TransactionOuterClass.Transaction => Transaction,
+        submission: DamlTransactionEntry
     ): DamlTransactionEntrySummary =
       new DamlTransactionEntrySummary(
         submission,
-        decodeTransaction(submission.getTransaction),
+        Conversions.decodeTransaction(submission.getTransaction),
       )
   }
 
