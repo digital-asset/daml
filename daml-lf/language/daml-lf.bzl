@@ -25,6 +25,9 @@ LF_VERSIONS = [
 # expected by the --target option.
 COMPILER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
 
+# We need Any in DAML Script so we require DAML-LF >= 1.7
+SCRIPT_LF_VERSIONS = [ver for ver in COMPILER_LF_VERSIONS if ver != "1.6"]
+
 LF_VERSION_PACKAGE_DIGITALASSET = {"1.6": "digitalasset", "1.7": "digitalasset", "1.8": "digitalasset", "1.11": "daml"}
 
 def lf_version_package(version):
