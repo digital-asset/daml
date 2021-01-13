@@ -8,17 +8,15 @@ load(
 )
 
 da_scala_library(
-    name = "grpc-server-reflection-client",
+    name = "grpc-reverse-proxy",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:grpc-server-reflection-client:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
+    tags = ["maven_coordinates=com.daml:grpc-reverse-proxy:__VERSION__"],
     visibility = [
         "//:__subpackages__",
     ],
     deps = [
-        "@maven//:com_google_protobuf_protobuf_java",
+        "//libs-scala/grpc-server-reflection-client",
+        "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
@@ -28,8 +26,11 @@ da_scala_library(
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
-        ":grpc-server-reflection-client",
+        ":grpc-reverse-proxy",
         "//libs-scala/grpc-test-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
