@@ -46,6 +46,7 @@ EOF
         visibility = ["//visibility:public"],
     )
     for lf_version in COMPILER_LF_VERSIONS + [""]
+    if lf_version != "1.6"
     for suffix in [("-" + lf_version) if lf_version else ""]
 ]
 
@@ -54,6 +55,7 @@ filegroup(
     srcs = [
         "daml-script-{}.dar".format(lf_version)
         for lf_version in COMPILER_LF_VERSIONS
+        if lf_version != "1.6"
     ],
     visibility = ["//visibility:public"],
 )
