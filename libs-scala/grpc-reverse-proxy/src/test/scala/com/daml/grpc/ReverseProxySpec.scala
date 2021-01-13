@@ -33,7 +33,7 @@ final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer
   it should "fail if the backend does not support reflection" in withServices(health) { backend =>
     val proxyBuilder = InProcessServerBuilder.forName(InProcessServerBuilder.generateName())
     ReverseProxy
-      .create(backend, proxyBuilder)
+      .create(backend, proxyBuilder, interceptors = Map.empty)
       .failed
       .map(_ shouldBe a[StatusRuntimeException])
   }
@@ -42,7 +42,7 @@ final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer
     val proxyName = InProcessServerBuilder.generateName()
     val proxyBuilder = InProcessServerBuilder.forName(proxyName)
     ReverseProxy
-      .create(backend, proxyBuilder)
+      .create(backend, proxyBuilder, interceptors = Map.empty)
       .map { proxyServer =>
         proxyServer.start()
         val proxy = InProcessChannelBuilder.forName(proxyName).build()
@@ -55,7 +55,7 @@ final class ReverseProxySpec extends AsyncFlatSpec with Matchers with GrpcServer
     val proxyBuilder = InProcessServerBuilder.forName(proxyName)
     val recorder = new RecordingInterceptor
     ReverseProxy
-      .create(backend, proxyBuilder, HealthGrpc.SERVICE_NAME -> Seq(recorder))
+      .create(backend, proxyBuilder, Map(HealthGrpc.SERVICE_NAME -> Seq(recorder)))
       .map { proxyServer =>
         proxyServer.start()
         val proxy = InProcessChannelBuilder.forName(proxyName).build()

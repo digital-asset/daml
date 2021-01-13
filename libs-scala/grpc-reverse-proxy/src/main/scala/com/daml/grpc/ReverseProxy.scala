@@ -14,22 +14,6 @@ object ReverseProxy {
   def create(
       backend: Channel,
       serverBuilder: ServerBuilder[_],
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Server] = create(backend, serverBuilder, Map.empty[String, Seq[ServerInterceptor]])
-
-  def create(
-      backend: Channel,
-      serverBuilder: ServerBuilder[_],
-      interceptor: (String, Seq[ServerInterceptor]),
-      interceptors: (String, Seq[ServerInterceptor])*
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Server] = create(backend, serverBuilder, Map(interceptor +: interceptors: _*))
-
-  private def create(
-      backend: Channel,
-      serverBuilder: ServerBuilder[_],
       interceptors: Map[String, Seq[ServerInterceptor]],
   )(implicit
       ec: ExecutionContext
