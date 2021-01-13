@@ -90,7 +90,7 @@ final class TransactionBuilder(
       argument: Value,
       signatories: Seq[String],
       observers: Seq[String],
-      key: Option[String],
+      key: Option[Value],
   ): Create = {
     val templateId = Ref.Identifier.assertFromString(template)
     Create(
@@ -114,6 +114,7 @@ final class TransactionBuilder(
       consuming: Boolean,
       actingParties: Set[String],
       argument: Value,
+      result: Option[Value] = None,
       choiceObservers: Set[String] = Set.empty,
       byKey: Boolean = true,
   ): Exercise =
@@ -129,7 +130,7 @@ final class TransactionBuilder(
       stakeholders = contract.stakeholders,
       signatories = contract.signatories,
       children = ImmArray.empty,
-      exerciseResult = None,
+      exerciseResult = result,
       key = contract.key,
       byKey = byKey,
       version = pkgTxVersion(contract.coinst.template.packageId),
@@ -213,12 +214,9 @@ object TransactionBuilder {
       ),
     )
 
-  def tuple(values: String*): Value =
-    record(values.zipWithIndex.map { case (v, i) => s"_$i" -> v }: _*)
-
-  def keyWithMaintainers(maintainers: Seq[String], value: String): KeyWithMaintainers =
+  def keyWithMaintainers(maintainers: Seq[String], key: Value): KeyWithMaintainers =
     KeyWithMaintainers(
-      key = tuple(maintainers :+ value: _*),
+      key = key,
       maintainers = maintainers.map(Ref.Party.assertFromString).toSet,
     )
 

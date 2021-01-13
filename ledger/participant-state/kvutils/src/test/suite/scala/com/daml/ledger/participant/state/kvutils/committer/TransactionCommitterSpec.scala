@@ -365,6 +365,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     val maintainer = "maintainer"
     val dummyValue = TransactionBuilder.record("field" -> "value")
 
+    def tuple(values: String*) =
+      TransactionBuilder.record(values.zipWithIndex.map { case (v, i) => s"_$i" -> v }: _*)
+
     def create(contractId: String, key: String = "key"): TransactionBuilder.Create =
       txBuilder.create(
         id = contractId,
@@ -372,7 +375,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         argument = dummyValue,
         signatories = Seq(maintainer),
         observers = Seq.empty,
-        key = Some(key),
+        key = Some(tuple(maintainer, key)),
       )
 
     def mkMismatch(
