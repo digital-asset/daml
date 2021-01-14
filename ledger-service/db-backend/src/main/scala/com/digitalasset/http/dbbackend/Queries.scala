@@ -247,7 +247,7 @@ object Queries {
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
-                  FROM contract AS c
+                  FROM contract
                   WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
                    AND tpid = $tpid AND (""" ++ predicate ++ sql")"
     q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
