@@ -106,7 +106,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         }
     }
 
-    "be able to pre-execute an exercise by key" in
+    "be able to pre-execute exercising a consuming choice by key" in
       KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
         for {
           _ <- preExecuteCreateSimpleContract(alice, seed(0), simplePackage)
