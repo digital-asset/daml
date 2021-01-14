@@ -10,18 +10,29 @@ import anorm.ToStatement
 
 private[events] object AnormParamsMapper {
 
-  class ArrayToStatement[T](arrayType: String) extends ToStatement[Array[T]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
+  implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit = {
       val conn = s.getConnection
-      s.setArray(index, conn.createArrayOf(arrayType, v.asInstanceOf[Array[AnyRef]]))
+      val ts = conn.createArrayOf("BYTEA", v.asInstanceOf[Array[AnyRef]])
+      s.setArray(index, ts)
     }
   }
 
-  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
+  implicit object CharArrayToStatement extends ToStatement[Array[String]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[String]): Unit = {
+      val conn = s.getConnection
+      val ts = conn.createArrayOf("VARCHAR", v.asInstanceOf[Array[AnyRef]])
+      s.setArray(index, ts)
+    }
+  }
 
-  implicit object CharArrayToStatement extends ArrayToStatement[Array[String]]("VARCHAR")
-
-  implicit object TimestampArrayToStatement extends ArrayToStatement[Array[Timestamp]]("TIMESTAMP")
+  implicit object TimestampArrayToStatement extends ToStatement[Array[Timestamp]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Timestamp]): Unit = {
+      val conn = s.getConnection
+      val ts = conn.createArrayOf("TIMESTAMP", v.asInstanceOf[Array[AnyRef]])
+      s.setArray(index, ts)
+    }
+  }
 
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {

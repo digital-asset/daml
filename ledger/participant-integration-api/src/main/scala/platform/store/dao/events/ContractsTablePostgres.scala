@@ -3,17 +3,14 @@
 
 package com.daml.platform.store.dao.events
 
-import java.sql.Timestamp
+import java.sql.{Connection, Timestamp}
 
-import anorm.{Row, SimpleSql}
+import anorm.{Row, SimpleSql, SqlQuery}
 import com.daml.ledger.participant.state.v1.DivulgedContract
+import com.daml.platform.store.dao.events.ContractsTable.Executable
 
-object ParticipantContractsWithWitnessesInsert {
+object ContractsTablePostgres extends ContractsTable {
   import AnormParamsMapper._
-
-  protected val TableName = "participant_contract_witnesses"
-  protected val IdColumn = "contract_id"
-  protected val WitnessColumn = "contract_witness"
 
   private object Params {
     val contractIds = "contractIds"
@@ -22,11 +19,9 @@ object ParticipantContractsWithWitnessesInsert {
     val timestamps = "timestamps"
     val hashes = "hashes"
     val stakeholders = "stakeholders"
-    val witnessesContractIds = "witnessesContractIds"
-    val parties = "parties"
   }
 
-  private val insertContractQuery = {
+  private val insertContractQuery: SqlQuery = {
     import Params._
     anorm.SQL(s"""insert into participant_contracts(
        contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders
@@ -36,20 +31,25 @@ object ParticipantContractsWithWitnessesInsert {
      from
        unnest({$contractIds}, {$templateIds}, {$createArgs}, {$timestamps}, {$hashes}, {$stakeholders})
        as t(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders)
-            on conflict do nothing;
-     insert into participant_contract_witnesses(contract_id, contract_witness)
-            select contract_id, contract_witness
-            from unnest({$witnessesContractIds}, {$parties}) as t(contract_id, contract_witness)
-            on conflict do nothing;
-     """)
+            on conflict do nothing;""")
   }
 
-  def toExecutable(
+  override def toExecutables(
+      info: TransactionIndexing.ContractsInfo,
+      tx: TransactionIndexing.TransactionInfo,
+      serialized: TransactionIndexing.Serialized,
+  ): ContractsTable.Executables = {
+    ContractsTable.Executables(
+      deleteContracts = buildDeletes(info),
+      insertContracts = buildInserts(tx, info, serialized),
+    )
+  }
+
+  private def buildInserts(
       tx: TransactionIndexing.TransactionInfo,
       contractsInfo: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Serialized,
-      witnesses: TransactionIndexing.ContractWitnessesInfo,
-  ): Executables = {
+  ): Executable = {
     val netCreatesSize = contractsInfo.netCreates.size
     val divulgedSize = contractsInfo.divulgedContracts.size
     val batchSize = netCreatesSize + divulgedSize
@@ -81,13 +81,6 @@ object ParticipantContractsWithWitnessesInsert {
         createArgs(idx + netCreatesSize) = serialized.createArgumentsByContract(contractId)
         hashes(idx + netCreatesSize) = null
     }
-    val flattened: Iterator[(ContractId, String)] = Relation.flatten(witnesses.netVisibility)
-    val (witnessesContractIds, parties) = flattened
-      .map { case (id, party) =>
-        id.coid -> party
-      }
-      .toArray
-      .unzip
 
     val inserts = insertContractQuery.on(
       Params.contractIds -> contractIds,
@@ -96,11 +89,15 @@ object ParticipantContractsWithWitnessesInsert {
       Params.timestamps -> timestamps,
       Params.hashes -> hashes,
       Params.stakeholders -> stakeholders,
-      Params.witnessesContractIds -> witnessesContractIds,
-      Params.parties -> parties,
     )
 
-    Executables(inserts)
+    new InsertExecutable(inserts)
   }
-  case class Executables(insert: SimpleSql[Row])
+
+  private class InsertExecutable(insertQuery: SimpleSql[Row]) extends Executable {
+    override def execute()(implicit connection: Connection): Unit = {
+      insertQuery.executeUpdate()
+      ()
+    }
+  }
 }

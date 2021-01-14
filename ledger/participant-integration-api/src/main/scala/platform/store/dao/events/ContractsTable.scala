@@ -15,9 +15,7 @@ import com.daml.platform.store.dao.JdbcLedgerDao
 
 import scala.util.{Failure, Success, Try}
 
-private[events] sealed abstract class ContractsTable extends PostCommitValidationData {
-
-  protected val insertContractQuery: String
+private[events] abstract class ContractsTable extends PostCommitValidationData {
 
   private val deleteContractQuery =
     s"delete from participant_contracts where contract_id = {contract_id}"
@@ -26,12 +24,14 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     Vector[NamedParameter]("contract_id" -> contractId)
 
   def toExecutables(
-      info: TransactionIndexing.ContractsInfo
-  ): ContractsTable.Executables = {
+      info: TransactionIndexing.ContractsInfo,
+      tx: TransactionIndexing.TransactionInfo,
+      serialized: TransactionIndexing.Serialized,
+  ): ContractsTable.Executables
+
+  protected def buildDeletes(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {
     val deletes = info.netArchives.iterator.map(deleteContract).toSeq
-    ContractsTable.Executables(
-      deleteContracts = batch(deleteContractQuery, deletes)
-    )
+    batch(deleteContractQuery, deletes)
   }
 
   override final def lookupContractKeyGlobally(
@@ -64,31 +64,17 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
 private[events] object ContractsTable {
 
-  final case class Executables(deleteContracts: Option[BatchSql])
+  trait Executable {
+    def execute()(implicit connection: Connection): Unit
+  }
+
+  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Executable)
 
   def apply(dbType: DbType): ContractsTable =
     dbType match {
-      case DbType.Postgres => Postgresql
-      case DbType.H2Database => H2Database
+      case DbType.Postgres => ContractsTablePostgres
+      case DbType.H2Database => ContractsTableH2
     }
-
-  object Postgresql extends ContractsTable {
-    override protected val insertContractQuery: String =
-      """insert into participant_contracts(
-           contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders
-         )
-         select
-           contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, string_to_array(create_stakeholders,'|')
-         from
-           unnest(?, ?, ?, ?, ?, ?)
-           as t(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders)
-         on conflict do nothing"""
-  }
-
-  object H2Database extends ContractsTable {
-    override protected val insertContractQuery: String =
-      s"merge into participant_contracts using dual on contract_id = {contract_id} when not matched then insert (contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
-  }
 
   private def emptyContractIds: Throwable =
     new IllegalArgumentException(
