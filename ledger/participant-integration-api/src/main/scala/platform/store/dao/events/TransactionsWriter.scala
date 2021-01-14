@@ -26,10 +26,19 @@ object TransactionsWriter {
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
   ) {
-    def write(metrics: Metrics)(implicit connection: Connection): Unit = {
-      import metrics.daml.index.db.storeTransactionDbMetrics._
+    def write(metrics: Metrics)(implicit connection: Connection) = {
+      writeEvents(metrics)
+      writeState(metrics)
+    }
 
-      Timed.value(eventsBatch, eventsTableExecutables.execute())
+    def writeEvents(metrics: Metrics)(implicit connection: Connection): Unit =
+      Timed.value(
+        metrics.daml.index.db.storeTransactionDbMetrics.eventsBatch,
+        eventsTableExecutables.execute(),
+      )
+
+    def writeState(metrics: Metrics)(implicit connection: Connection): Unit = {
+      import metrics.daml.index.db.storeTransactionDbMetrics._
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
@@ -54,7 +63,6 @@ object TransactionsWriter {
       }
     }
   }
-
 }
 
 private[dao] final class TransactionsWriter(

@@ -24,7 +24,12 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.OffsetUpdate.OffsetStepUpdatePair
+import com.daml.platform.indexer.OffsetUpdate.{
+  MetadataUpdateStep,
+  OffsetStepUpdatePair,
+  PreparedTransactionInsert,
+  PreparedUpdate,
+}
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, PersistenceResponse}
@@ -239,9 +244,9 @@ private[daml] class JdbcIndexer private[indexer] (
 
   private def handleStateUpdate(implicit
       loggingContext: LoggingContext
-  ): Flow[OffsetUpdate, Unit, NotUsed] =
-    Flow[OffsetUpdate]
-      .wireTap(Sink.foreach[OffsetUpdate] { case OffsetUpdate(offsetStep, update) =>
+  ): Flow[OffsetStepUpdatePair[Update], Unit, NotUsed] =
+    Flow[OffsetStepUpdatePair[Update]]
+      .wireTap(Sink.foreach[OffsetUpdate[Update]] { case OffsetUpdate(offsetStep, update) =>
         val lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
         logger.trace(update.description)
@@ -249,7 +254,9 @@ private[daml] class JdbcIndexer private[indexer] (
         metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
         metrics.daml.indexer.lastReceivedOffset.updateValue(offsetStep.offset.toApiString)
       })
-      .mapAsync(1)(prepareTransactionInsert)
+      .mapAsync(1)(prepareUpdate)
+      .mapAsync(1)(insertTransactionState)
+      .mapAsync(1)(insertTransactionEvents)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
         withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offsetStep.offset, update)) {
           implicit loggingContext =>
@@ -261,163 +268,149 @@ private[daml] class JdbcIndexer private[indexer] (
       }
       .map(_ => ())
 
-  private def prepareTransactionInsert(offsetUpdate: OffsetUpdate): Future[OffsetUpdate] =
-    offsetUpdate match {
-      case OffsetStepUpdatePair(offsetStep, tx: TransactionAccepted) =>
-        Timed.future(
-          metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
-          Future {
-            OffsetUpdate.PreparedTransactionInsert(
-              offsetStep = offsetStep,
-              update = tx,
-              preparedInsert = ledgerDao.prepareTransactionInsert(
-                submitterInfo = tx.optSubmitterInfo,
-                workflowId = tx.transactionMeta.workflowId,
-                transactionId = tx.transactionId,
-                ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
-                offset = offsetStep.offset,
-                transaction = tx.transaction,
-                divulgedContracts = tx.divulgedContracts,
-                blindingInfo = tx.blindingInfo,
-              ),
-            )
-          }(mat.executionContext),
+  private val insertTransactionState: PreparedUpdate => Future[PreparedUpdate] = {
+    case offsetUpdate @ PreparedTransactionInsert(_, _, preparedInsert) =>
+      Timed.future(
+        metrics.daml.index.db.storeTransactionState,
+        ledgerDao.storeTransactionState(preparedInsert).map(_ => offsetUpdate)(mat.executionContext),
+      )
+    case offsetUpdate => Future.successful(offsetUpdate)
+  }
+
+  private val insertTransactionEvents: PreparedUpdate => Future[PreparedUpdate] = {
+    case offsetUpdate @ PreparedTransactionInsert(_, _, preparedInsert) =>
+      Timed.future(
+        metrics.daml.index.db.storeTransactionEvents,
+        ledgerDao
+          .storeTransactionEvents(preparedInsert)
+          .map(_ => offsetUpdate)(mat.executionContext),
+      )
+    case offsetUpdate => Future.successful(offsetUpdate)
+  }
+
+  private val prepareUpdate: OffsetStepUpdatePair[Update] => Future[PreparedUpdate] = {
+    case OffsetStepUpdatePair(offsetStep, tx: TransactionAccepted) =>
+      Timed.future(
+        metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
+        Future {
+          OffsetUpdate.PreparedTransactionInsert(
+            offsetStep = offsetStep,
+            update = tx,
+            preparedInsert = ledgerDao.prepareTransactionInsert(
+              submitterInfo = tx.optSubmitterInfo,
+              workflowId = tx.transactionMeta.workflowId,
+              transactionId = tx.transactionId,
+              ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
+              offset = offsetStep.offset,
+              transaction = tx.transaction,
+              divulgedContracts = tx.divulgedContracts,
+              blindingInfo = tx.blindingInfo,
+            ),
+          )
+        }(mat.executionContext),
+      )
+    case OffsetStepUpdatePair(offsetStep, update: MetadataUpdate) =>
+      Future.successful(MetadataUpdateStep(offsetStep, update))
+  }
+
+  private def updateMetadata(
+      metadataUpdateStep: MetadataUpdateStep
+  ): Future[PersistenceResponse] = {
+    val MetadataUpdateStep(offsetStep, update) = metadataUpdateStep
+    update match {
+      case PartyAddedToParticipant(
+            party,
+            displayName,
+            hostingParticipantId,
+            recordTime,
+            submissionId,
+          ) =>
+        val entry = PartyLedgerEntry.AllocationAccepted(
+          submissionId,
+          recordTime.toInstant,
+          domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId),
         )
-      case offsetUpdate => Future.successful(offsetUpdate)
+        ledgerDao.storePartyEntry(offsetStep, entry)
+
+      case PartyAllocationRejected(
+            submissionId,
+            _,
+            recordTime,
+            rejectionReason,
+          ) =>
+        val entry = PartyLedgerEntry.AllocationRejected(
+          submissionId,
+          recordTime.toInstant,
+          rejectionReason,
+        )
+        ledgerDao.storePartyEntry(offsetStep, entry)
+
+      case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
+        val recordTimeInstant = recordTime.toInstant
+        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(archive =>
+          archive -> v2.PackageDetails(
+            size = archive.getPayload.size.toLong,
+            knownSince = recordTimeInstant,
+            sourceDescription = optSourceDescription,
+          )
+        )
+        val optEntry: Option[PackageLedgerEntry] =
+          optSubmissionId.map(submissionId =>
+            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant)
+          )
+        ledgerDao.storePackageEntry(offsetStep, packages, optEntry)
+
+      case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
+        val entry = PackageLedgerEntry.PackageUploadRejected(
+          submissionId,
+          recordTime.toInstant,
+          rejectionReason,
+        )
+        ledgerDao.storePackageEntry(offsetStep, List.empty, Some(entry))
+
+      case config: ConfigurationChanged =>
+        ledgerDao.storeConfigurationEntry(
+          offsetStep,
+          config.recordTime.toInstant,
+          config.submissionId,
+          config.newConfiguration,
+          None,
+        )
+
+      case configRejection: ConfigurationChangeRejected =>
+        ledgerDao.storeConfigurationEntry(
+          offsetStep,
+          configRejection.recordTime.toInstant,
+          configRejection.submissionId,
+          configRejection.proposedConfiguration,
+          Some(configRejection.rejectionReason),
+        )
+
+      case CommandRejected(recordTime, submitterInfo, reason) =>
+        ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
     }
+  }
 
   private def executeUpdate(
-      offsetUpdate: OffsetUpdate
+      preparedUpdate: PreparedUpdate
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    offsetUpdate match {
-      case OffsetUpdate.PreparedTransactionInsert(
-            offsetStep,
-            TransactionAccepted(
-              optSubmitterInfo,
-              transactionMeta,
-              transaction,
-              transactionId,
-              recordTime,
-              divulgedContracts,
-              blindingInfo,
-            ),
-            preparedInsert,
-          ) =>
-        ledgerDao.storeTransaction(
-          preparedInsert,
-          submitterInfo = optSubmitterInfo,
-          transactionId = transactionId,
-          recordTime = recordTime.toInstant,
-          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-          offsetStep = offsetStep,
-          transaction = transaction,
-          divulged = divulgedContracts,
-          blindingInfo = blindingInfo,
+    preparedUpdate match {
+      case OffsetUpdate.PreparedTransactionInsert(offsetStep, tx, _) =>
+        Timed.future(
+          metrics.daml.index.db.storeTransactionCompletion,
+          ledgerDao.completeTransaction(
+            submitterInfo = tx.optSubmitterInfo,
+            transactionId = tx.transactionId,
+            recordTime = tx.recordTime.toInstant,
+            offsetStep = offsetStep,
+          ),
         )
-      case OffsetUpdate.OffsetStepUpdatePair(offsetStep, update) =>
-        update match {
-          case PartyAddedToParticipant(
-                party,
-                displayName,
-                hostingParticipantId,
-                recordTime,
-                submissionId,
-              ) =>
-            val entry = PartyLedgerEntry.AllocationAccepted(
-              submissionId,
-              recordTime.toInstant,
-              domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId),
-            )
-            ledgerDao.storePartyEntry(offsetStep, entry)
-
-          case PartyAllocationRejected(
-                submissionId,
-                _,
-                recordTime,
-                rejectionReason,
-              ) =>
-            val entry = PartyLedgerEntry.AllocationRejected(
-              submissionId,
-              recordTime.toInstant,
-              rejectionReason,
-            )
-            ledgerDao.storePartyEntry(offsetStep, entry)
-
-          case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
-            val recordTimeInstant = recordTime.toInstant
-            val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(archive =>
-              archive -> v2.PackageDetails(
-                size = archive.getPayload.size.toLong,
-                knownSince = recordTimeInstant,
-                sourceDescription = optSourceDescription,
-              )
-            )
-            val optEntry: Option[PackageLedgerEntry] =
-              optSubmissionId.map(submissionId =>
-                PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant)
-              )
-            ledgerDao.storePackageEntry(offsetStep, packages, optEntry)
-
-          case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
-            val entry = PackageLedgerEntry.PackageUploadRejected(
-              submissionId,
-              recordTime.toInstant,
-              rejectionReason,
-            )
-            ledgerDao.storePackageEntry(offsetStep, List.empty, Some(entry))
-
-          case config: ConfigurationChanged =>
-            ledgerDao.storeConfigurationEntry(
-              offsetStep,
-              config.recordTime.toInstant,
-              config.submissionId,
-              config.newConfiguration,
-              None,
-            )
-
-          case configRejection: ConfigurationChangeRejected =>
-            ledgerDao.storeConfigurationEntry(
-              offsetStep,
-              configRejection.recordTime.toInstant,
-              configRejection.submissionId,
-              configRejection.proposedConfiguration,
-              Some(configRejection.rejectionReason),
-            )
-
-          case CommandRejected(recordTime, submitterInfo, reason) =>
-            ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
-          case update: TransactionAccepted =>
-            import update._
-            logger.warn(
-              """For performance considerations, TransactionAccepted should be handled in a different branch.
-                |Recomputing PreparedInsert..""".stripMargin
-            )
-            ledgerDao.storeTransaction(
-              preparedInsert = ledgerDao.prepareTransactionInsert(
-                submitterInfo = optSubmitterInfo,
-                workflowId = transactionMeta.workflowId,
-                transactionId = transactionId,
-                ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-                offset = offsetStep.offset,
-                transaction = transaction,
-                divulgedContracts = divulgedContracts,
-                blindingInfo = blindingInfo,
-              ),
-              submitterInfo = optSubmitterInfo,
-              transactionId = transactionId,
-              recordTime = recordTime.toInstant,
-              ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offsetStep = offsetStep,
-              transaction = transaction,
-              divulged = divulgedContracts,
-              blindingInfo = blindingInfo,
-            )
-        }
+      case metadataUpdate: OffsetUpdate.MetadataUpdateStep => updateMetadata(metadataUpdate)
     }
 
   private def zipWithPreviousOffset(
       initialOffset: Option[Offset]
-  ): Flow[(Offset, Update), OffsetStepUpdatePair, NotUsed] =
+  ): Flow[(Offset, Update), OffsetStepUpdatePair[Update], NotUsed] =
     Flow[(Offset, Update)]
       .statefulMapConcat { () =>
         val previousOffsetRef = new AtomicReference(initialOffset)
@@ -427,12 +420,8 @@ private[daml] class JdbcIndexer private[indexer] (
           val offsetStep =
             previousOffsetRef
               .getAndSet(Some(nextOffset))
-              .map { previousOffset =>
-                IncrementalOffsetStep(previousOffset, nextOffset)
-              }
-              .getOrElse {
-                CurrentOffset(nextOffset)
-              }
+              .map(IncrementalOffsetStep(_, nextOffset))
+              .getOrElse(CurrentOffset(nextOffset))
 
           OffsetStepUpdatePair(offsetStep, update) :: Nil
         }

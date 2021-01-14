@@ -287,4 +287,21 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerDao.storePackageEntry(offsetStep, packages, entry),
     )
 
+  override def storeTransactionState(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse] =
+    ledgerDao.storeTransactionState(preparedInsert)
+
+  override def storeTransactionEvents(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse] =
+    ledgerDao.storeTransactionEvents(preparedInsert)
+
+  override def completeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      transactionId: TransactionId,
+      recordTime: Instant,
+      offsetStep: OffsetStep,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+    ledgerDao.completeTransaction(submitterInfo, transactionId, recordTime, offsetStep)
 }
