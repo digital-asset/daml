@@ -60,7 +60,13 @@ object TransactionCoder {
           )
     }
 
-  def encodeVersionedValue[Cid](
+  def encodeValue[Cid](
+      cidEncoder: ValueCoder.EncodeCid[Cid],
+      value: VersionedValue[Cid],
+  ): Either[EncodeError, ValueOuterClass.VersionedValue] =
+    ValueCoder.encodeVersionedValue(cidEncoder, value)
+
+  private[this] def encodeVersionedValue[Cid](
       cidEncoder: ValueCoder.EncodeCid[Cid],
       nodeVersion: TransactionVersion,
       value: Value[Cid],
@@ -135,7 +141,7 @@ object TransactionCoder {
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getValue)
     } yield Value.ContractInst(id, value, (protoCoinst.getAgreement))
 
-  private def encodeKeyWithMaintainers[Cid](
+  private[this] def encodeKeyWithMaintainers[Cid](
       encodeCid: ValueCoder.EncodeCid[Cid],
       nodeVersion: TransactionVersion,
       key: KeyWithMaintainers[Value[Cid]],
