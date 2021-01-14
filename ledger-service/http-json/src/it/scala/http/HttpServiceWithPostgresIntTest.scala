@@ -55,7 +55,7 @@ class HttpServiceWithPostgresIntTest
     import com.daml.http.dbbackend.Queries.Implicits._
     import dao.logHandler
     import doobie.implicits._
-    import doobie.postgres.implicits._
+    import dbbackend.SupportedJdbcDriver.Postgres._
 
     val q =
       sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""

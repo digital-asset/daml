@@ -18,7 +18,6 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
-import com.daml.http.dbbackend.ContractDao.StaleOffsetException
 import com.daml.http.dbbackend.{ContractDao, Queries}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
@@ -35,7 +34,6 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import doobie.postgres.sqlstate.{class23 => postgres_class23}
 import scalaz.Order
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -63,10 +61,7 @@ private class ContractsFetch(
 
   import ContractsFetch._
 
-  private val retrySqlStates: Set[String] = Set(
-    postgres_class23.UNIQUE_VIOLATION.value,
-    StaleOffsetException.SqlState,
-  )
+  private val retrySqlStates: Set[String] = dbbackend.SupportedJdbcDriver.Postgres.retrySqlStates
 
   def fetchAndPersist(
       jwt: Jwt,
@@ -492,7 +487,7 @@ private[http] object ContractsFetch {
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
       import json.JsonProtocol._
-      import doobie.postgres.implicits._
+      import dbbackend.SupportedJdbcDriver.Postgres._
       (Queries.deleteContracts(step.deletes.keySet) *>
         Queries.insertContracts(
           step.inserts map (dbc =>

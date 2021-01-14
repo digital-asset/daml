@@ -43,7 +43,7 @@ object ContractDao {
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
       implicit log: LogHandler
   ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
-    import doobie.postgres.implicits._
+    import SupportedJdbcDriver.Postgres._
     for {
       tpId <- surrogateTemplateId(templateId)
       offset <- Queries
@@ -61,7 +61,7 @@ object ContractDao {
       lastOffsets: Map[domain.Party, domain.Offset],
   )(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.implicits._
-    import doobie.postgres.implicits._
+    import SupportedJdbcDriver.Postgres._
     import scalaz.OneAnd._
     import scalaz.std.set._
     import scalaz.syntax.foldable._
@@ -89,7 +89,7 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment,
   )(implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
-    import doobie.postgres.implicits._
+    import SupportedJdbcDriver.Postgres._
     for {
       tpId <- surrogateTemplateId(templateId)
 
@@ -107,7 +107,7 @@ object ContractDao {
   )(implicit
       log: LogHandler
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
-    import doobie.postgres.implicits._, cats.syntax.traverse._, cats.instances.vector._
+    import SupportedJdbcDriver.Postgres._, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
@@ -173,7 +173,7 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       contractId: domain.ContractId,
   )(implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import doobie.postgres.implicits._
+    import SupportedJdbcDriver.Postgres._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- Queries.fetchById(
@@ -189,7 +189,7 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       key: JsValue,
   )(implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import doobie.postgres.implicits._
+    import SupportedJdbcDriver.Postgres._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- Queries.fetchByKey(domain.Party unsubst parties, tpId, key)
