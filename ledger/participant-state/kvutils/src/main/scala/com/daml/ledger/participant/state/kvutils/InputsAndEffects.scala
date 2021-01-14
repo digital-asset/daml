@@ -78,17 +78,23 @@ private[kvutils] object InputsAndEffects {
       parties.toList.sorted.map(partyStateKey)
     }
 
-    def setResolvedContractIdMap(
+    def addResolvedContractIdIfAbsent(
         key: DamlStateKey,
         contractId: Option[Value.ContractId],
-    ): Unit = resolvedContractIdsMap += (key.getContractKey -> contractId)
+    ): Unit = {
+      val contractKey = key.getContractKey
+      resolvedContractIdsMap.get(contractKey) match {
+        case None => resolvedContractIdsMap += (contractKey -> contractId)
+        case _ => ()
+      }
+    }
 
     def updateMappingWithExercisesNode(exe: Node.NodeExercises[NodeId, Value.ContractId]): Unit =
       if (exe.consuming) {
         exe.key.foreach { keyWithMaintainers =>
           val key = contractKeyStateKey(exe.templateId, keyWithMaintainers.key)
           inputs += key
-          setResolvedContractIdMap(key, Some(exe.targetCoid))
+          addResolvedContractIdIfAbsent(key, Some(exe.targetCoid))
         }
       }
 
@@ -97,16 +103,16 @@ private[kvutils] object InputsAndEffects {
         case fetch: Node.NodeFetch[Value.ContractId] =>
           fetch.key.foreach { keyWithMaintainers =>
             val key = contractKeyStateKey(fetch.templateId, keyWithMaintainers.key)
-            setResolvedContractIdMap(key, Some(fetch.coid))
+            addResolvedContractIdIfAbsent(key, Some(fetch.coid))
           }
         case create: Node.NodeCreate[Value.ContractId] =>
           create.key.foreach { keyWithMaintainers =>
             val key = contractKeyStateKey(create.templateId, keyWithMaintainers.key)
-            setResolvedContractIdMap(key, None)
+            addResolvedContractIdIfAbsent(key, None)
           }
         case lookup: Node.NodeLookupByKey[Value.ContractId] =>
           val key = contractKeyStateKey(lookup.templateId, lookup.key.key)
-          setResolvedContractIdMap(key, lookup.result)
+          addResolvedContractIdIfAbsent(key, lookup.result)
       }
 
     tx.foreachInExecutionOrder(
