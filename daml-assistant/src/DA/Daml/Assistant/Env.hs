@@ -158,9 +158,7 @@ getCachePath =
                     -- TODO (drsk) This fallback can be removed when we upgrade "directory" to 1.3.6.1.
                     damlPath <- unwrapDamlPath <$> getDamlPath
                     pure $ CachePath damlPath
-                Right cacheDir -> do
-                    createDirectoryIfMissing True cacheDir
-                    pure $ CachePath cacheDir
+                Right cacheDir -> pure $ CachePath cacheDir
 
 
 -- | Calculate the project path. This is done by starting at the current

@@ -426,15 +426,18 @@ maxDataPerDay = SentBytes (8 * 2 ^ (20 :: Int))
 -- | Get the cache folder. Returns Nothing if the cache folder is not writable or not available.
 getCacheDir :: Maybe FilePath -> IO (Maybe FilePath)
 getCacheDir cachePathM =
-  case cachePathM of
-    Nothing -> pure Nothing
-    Just cachePath ->  do
-      createDirectoryIfMissing True cachePath
-      perms <- getPermissions cachePath
-      pure $
-          if writable perms
-              then Just cachePath
-              else Nothing
+    case cachePathM of
+        Nothing -> pure Nothing
+        Just cachePath -> do
+            errOrVoid <- tryIO $ createDirectoryIfMissing True cachePath
+            case errOrVoid of
+                Left _err -> pure Nothing
+                Right () -> do
+                    perms <- getPermissions cachePath
+                    pure $
+                        if writable perms
+                            then Just cachePath
+                            else Nothing
 
 -- | Get the file for recording the sent data and acquire the corresponding lock.
 withSentDataFile :: GCPState -> (FilePath -> IO a) -> IO a
