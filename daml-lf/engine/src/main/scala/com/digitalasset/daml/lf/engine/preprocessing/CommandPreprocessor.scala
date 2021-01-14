@@ -25,10 +25,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
   @throws[PreprocessorException]
   private def unsafeGetTemplate(templateId: Ref.Identifier) =
     assertRight(
-      SignatureLookup.lookupTemplate(
-        unsafeGetPackage(templateId.packageId),
-        templateId.qualifiedName,
-      )
+      unsafeGetPackage(templateId.packageId).lookupTemplate(templateId.qualifiedName)
     )
 
   @throws[PreprocessorException]

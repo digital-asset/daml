@@ -195,7 +195,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     )
                 )
                 val (dataTypParams, variantDef) = assertRight(
-                  SignatureLookup.lookupVariant(pkg, tyCon.qualifiedName)
+                  pkg.lookupVariant(tyCon.qualifiedName)
                 )
                 variantDef.constructorRank.get(constructorName) match {
                   case None =>
@@ -222,7 +222,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     )
                 )
                 val (dataTypParams, DataRecord(recordFlds)) =
-                  assertRight(SignatureLookup.lookupRecord(pkg, tyCon.qualifiedName))
+                  assertRight(pkg.lookupRecord(tyCon.qualifiedName))
                 // note that we check the number of fields _before_ checking if we can do
                 // field reordering by looking at the labels. this means that it's forbidden to
                 // repeat keys even if we provide all the labels, which might be surprising
@@ -267,7 +267,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val dataDef = assertRight(SignatureLookup.lookupEnum(pkg, tyCon.qualifiedName))
+                val dataDef = assertRight(pkg.lookupEnum(tyCon.qualifiedName))
                 dataDef.constructorRank.get(constructor) match {
                   case Some(rank) =>
                     SValue.SEnum(tyCon, constructor, rank)
