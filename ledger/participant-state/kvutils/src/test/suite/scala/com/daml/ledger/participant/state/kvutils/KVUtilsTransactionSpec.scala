@@ -106,6 +106,17 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         }
     }
 
+    "be able to pre-execute an exercise by key" in
+      KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
+        for {
+          _ <- preExecuteCreateSimpleContract(alice, seed(0), simplePackage)
+          preparedSubmission <- prepareExerciseReplaceByKey(alice, simplePackage)(seed(1))
+          result <- preExecute(preparedSubmission).map(_._2)
+        } yield {
+          result.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+        }
+      }
+
     "reject a pre-executed exercise by key referring to a replaced key" in
       KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
         val seeds =
