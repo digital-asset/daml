@@ -85,7 +85,7 @@ private[kvutils] object InputsAndEffects {
       val contractKey = key.getContractKey
       resolvedContractIdsMap.get(contractKey) match {
         case None => resolvedContractIdsMap += (contractKey -> contractId)
-        case _ => ()
+        case _ => () // Not replacing an existing mapping as we want the initial state.
       }
     }
 
