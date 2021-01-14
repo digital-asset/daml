@@ -216,16 +216,19 @@ dlintEnabledOpt = DlintEnabled
   <$> strOption
   ( long "with-dlint"
     <> metavar "DIR"
+    <> internal
     <> help "Enable linting with 'dlint.yaml' directory"
   )
   <*> switch
   ( long "allow-overrides"
+    <> internal
     <> help "Allow '.dlint.yaml' configuration overrides"
   )
 
 dlintDisabledOpt :: Parser DlintUsage
 dlintDisabledOpt = flag' DlintDisabled
   ( long "without-dlint"
+    <> internal
     <> help "Disable dlint"
   )
 
