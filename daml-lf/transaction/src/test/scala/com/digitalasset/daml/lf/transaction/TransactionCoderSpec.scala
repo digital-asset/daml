@@ -340,6 +340,161 @@ class TransactionCoderSpec
       }
     }
 
+    def changeVersion(
+        value: com.daml.lf.value.ValueOuterClass.VersionedValue,
+        version: String,
+    ) =
+      value.toBuilder.setVersion(version).build()
+
+    "fail if try to encode a create node containing value with version different from node" in {
+      forAll(malformedCreateNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
+        whenever(node.version != version) {
+          val nodeVersion = node.version
+          val encodeVersion = ValueCoder.encodeValueVersion(version)
+          val Right(encodedNode) = TransactionCoder.encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            nodeVersion,
+            NodeId(0),
+            minimalistNode(nodeVersion)(node),
+          )
+          val encodedCreate = encodedNode.getCreate
+          var cases = List(
+            encodedCreate.toBuilder
+              .setContractInstance(
+                encodedCreate.getContractInstance.toBuilder.setValue(
+                  changeVersion(encodedCreate.getContractInstance.getValue, encodeVersion)
+                )
+              )
+              .build()
+          )
+          if (encodedCreate.hasKeyWithMaintainers)
+            cases = encodedCreate.toBuilder
+              .setKeyWithMaintainers(
+                encodedCreate.getKeyWithMaintainers.toBuilder.setKey(
+                  changeVersion(encodedCreate.getKeyWithMaintainers.getKey, encodeVersion)
+                )
+              )
+              .build() :: cases
+          cases.foreach(node =>
+            TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              nodeVersion,
+              encodedNode.toBuilder.setCreate(node).build(),
+            ) shouldBe a[Left[_, _]]
+          )
+        }
+      }
+    }
+
+    "fail if try to encode a fetch node containing value with version different from node" in {
+      forAll(fetchNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
+        whenever(node.version != version && node.key.isDefined) {
+          val nodeVersion = node.version
+          val encodeVersion = ValueCoder.encodeValueVersion(version)
+          val Right(encodedNode) = TransactionCoder.encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            nodeVersion,
+            NodeId(0),
+            minimalistNode(nodeVersion)(node),
+          )
+          val encodedFetch = encodedNode.getFetch
+
+          val testCase = encodedFetch.toBuilder
+            .setKeyWithMaintainers(
+              encodedFetch.getKeyWithMaintainers.toBuilder.setKey(
+                changeVersion(encodedFetch.getKeyWithMaintainers.getKey, encodeVersion)
+              )
+            )
+            .build()
+
+          TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            nodeVersion,
+            encodedNode.toBuilder.setFetch(testCase).build(),
+          ) shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
+    "fail if try to encode a lookup node containing value with version different from node" in {
+      forAll(lookupNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
+        whenever(node.version != version) {
+          val nodeVersion = node.version
+          val encodeVersion = ValueCoder.encodeValueVersion(version)
+          val Right(encodedNode) = TransactionCoder.encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            nodeVersion,
+            NodeId(0),
+            minimalistNode(nodeVersion)(node),
+          )
+          val encodedLookup = encodedNode.getLookupByKey
+
+          val testCase = encodedLookup.toBuilder
+            .setKeyWithMaintainers(
+              encodedLookup.getKeyWithMaintainers.toBuilder.setKey(
+                changeVersion(encodedLookup.getKeyWithMaintainers.getKey, encodeVersion)
+              )
+            )
+            .build()
+
+          TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            nodeVersion,
+            encodedNode.toBuilder.setLookupByKey(testCase).build(),
+          ) shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
+    "fail if try to encode a exercise node containing value with version different from node" in {
+
+      forAll(danglingRefExerciseNodeGen, transactionVersionGen(), minSuccessful(5)) {
+        (exeNode, version) =>
+          whenever(exeNode.version != version) {
+            val nodeVersion = exeNode.version
+            val encodeVersion = ValueCoder.encodeValueVersion(version)
+            val Right(encodedNode) = TransactionCoder.encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              NodeId(0),
+              minimalistNode(nodeVersion)(exeNode),
+            )
+            val encodedExe = encodedNode.getExercise
+            var cases = List(
+              encodedExe.toBuilder
+                .setChosenValue(changeVersion(encodedExe.getChosenValue, encodeVersion))
+                .build(),
+              encodedExe.toBuilder
+                .setReturnValue(changeVersion(encodedExe.getReturnValue, encodeVersion))
+                .build(),
+            )
+            if (encodedExe.hasKeyWithMaintainers)
+              cases = encodedExe.toBuilder
+                .setKeyWithMaintainers(
+                  encodedExe.getKeyWithMaintainers.toBuilder.setKey(
+                    changeVersion(encodedExe.getKeyWithMaintainers.getKey, encodeVersion)
+                  )
+                )
+                .build() :: cases
+            cases.foreach(node =>
+              TransactionCoder.decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                nodeVersion,
+                encodedNode.toBuilder.setExercise(node).build(),
+              ) shouldBe a[Left[_, _]]
+            )
+          }
+      }
+    }
+
   }
 
   "decodeVersionedNode" should {

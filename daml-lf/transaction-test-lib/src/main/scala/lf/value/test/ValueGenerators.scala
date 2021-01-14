@@ -13,6 +13,7 @@ import com.daml.lf.transaction.Node.{
   NodeCreate,
   NodeExercises,
   NodeFetch,
+  NodeLookupByKey,
 }
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -367,6 +368,22 @@ object ValueGenerators {
       version,
     )
   }
+
+  val lookupNodeGen: Gen[NodeLookupByKey[ContractId]] =
+    for {
+      version <- transactionVersionGen()
+      targetCoid <- coidGen
+      templateId <- idGen
+      key <- valueGen
+      maintainers <- genNonEmptyParties
+      result <- Gen.option(targetCoid)
+    } yield NodeLookupByKey(
+      templateId,
+      None,
+      KeyWithMaintainers(key, maintainers),
+      result,
+      version,
+    )
 
   @deprecated("use danglingRefExerciseNodeGen instead", since = "100.11.17")
   private[lf] def exerciseNodeGen = danglingRefExerciseNodeGen
