@@ -136,13 +136,15 @@ fetch_if_missing opts temp v = do
 
 update_s3 :: DocOptions -> FilePath -> Versions -> IO ()
 update_s3 opts temp vs = do
-    putStrLn "Updating versions.json, hidden.json, latest..."
+    putStrLn "Updating versions.json, hidden.json, snapshots.json, latest..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
     let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
-    create_versions_json hidden (temp </> "hidden.json")
     let push f = proc_ ["aws", "s3", "cp", temp </> f, s3Path opts f, "--acl", "public-read"]
+    let hiddenVersionFiles = ["hidden.json", "snapshots.json"]
+    forM_ hiddenVersionFiles $ \f ->
+        create_versions_json hidden (temp </> f)
+        push f
     push "versions.json"
-    push "hidden.json"
     Control.Monad.Extra.whenJust (top vs) $ \latest -> do
         writeFile (temp </> "latest") (show latest)
         push "latest"
