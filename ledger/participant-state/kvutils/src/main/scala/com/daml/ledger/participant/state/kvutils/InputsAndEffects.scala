@@ -110,12 +110,12 @@ private[kvutils] object InputsAndEffects {
       }
 
     tx.foreachInExecutionOrder(
-      (_, exercisesNode) =>  {
+      (_, exercisesNode) => {
         updateMappingWithExercisesNode(exercisesNode)
         addContractInput(exercisesNode.targetCoid)
         inputs ++= partyInputs(exercisesNode.informeesOfNode)
       },
-      (_, leafNode) =>{
+      (_, leafNode) => {
         updateMappingWithLeafNode(leafNode)
         leafNode match {
           case fetch: Node.NodeFetch[Value.ContractId] =>
