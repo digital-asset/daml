@@ -141,7 +141,7 @@ update_s3 opts temp vs = do
     let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     let push f = proc_ ["aws", "s3", "cp", temp </> f, s3Path opts f, "--acl", "public-read"]
     let hiddenVersionFiles = ["hidden.json", "snapshots.json"]
-    forM_ hiddenVersionFiles $ \f ->
+    Data.Foldable.for_ hiddenVersionFiles $ \f -> do
         create_versions_json hidden (temp </> f)
         push f
     push "versions.json"
