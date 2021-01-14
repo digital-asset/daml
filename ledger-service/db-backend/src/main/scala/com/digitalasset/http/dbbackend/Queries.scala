@@ -9,9 +9,12 @@ import com.github.ghik.silencer.silent
 import doobie._
 import doobie.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
+import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
+import scalaz.std.stream.unfold
 import scalaz.std.AllInstances._
 import spray.json._
 import cats.instances.list._
@@ -244,7 +247,7 @@ object Queries {
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
-                  FROM contract AS c
+                  FROM contract
                   WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
                    AND tpid = $tpid AND (""" ++ predicate ++ sql")"
     q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
@@ -260,6 +263,98 @@ object Queries {
         )
     }
   }
+
+  /** Make the smallest number of queries from `queries` that still indicates
+    * which query or queries produced each contract.
+    *
+    * A contract cannot be produced more than once from a given resulting query,
+    * but may be produced more than once from different queries.  In each case, the
+    * `templateId` of the resulting [[DBContract]] is actually the 0-based index
+    * into the `queries` argument that produced the contract.
+    */
+  @silent(" gvs .* never used")
+  private[http] def selectContractsMultiTemplate[T[_], Mark](
+      parties: OneAnd[Set, String],
+      queries: Seq[(SurrogateTpId, Fragment)],
+      trackMatchIndices: MatchedQueryMarker[T, Mark],
+  )(implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+    val partyVector = parties.toVector
+    def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
+      val assocedPreds = preds.map { case (tpid, predicate) =>
+        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
+      }
+      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
+      val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
+                      FROM contract AS c
+                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                       AND (""" ++ unionPred ++ sql")"
+      q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
+        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
+          DBContract(
+            contractId = cid,
+            templateId = findMark(tpid),
+            key = key,
+            payload = payload,
+            signatories = signatories,
+            observers = observers,
+            agreementText = agreement,
+          )
+        }
+    }
+
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt =>
+        type Ix = Int
+        uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
+          preds: Map[SurrogateTpId, (Fragment, Ix)] =>
+            val predHd +: predTl = preds.toVector
+            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
+              (tpid, predicate)
+            }
+            query(predsList, tpid => preds(tpid)._2)
+        }
+
+      case MatchedQueryMarker.Unused =>
+        val predHd +: predTl = queries.toVector
+        query(OneAnd(predHd, predTl), identity)
+    }
+  }
+
+  /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
+    * and whether it may compute >1 query to run.
+    *
+    * @tparam T The traversable of queries that result.
+    * @tparam Mark The "marker" indicating which query matched.
+    */
+  private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
+      extends Product
+      with Serializable
+  private[http] object MatchedQueryMarker {
+    case object ByInt extends MatchedQueryMarker[Seq, Int]
+    case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
+  }
+
+  private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
+    oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
+
+  // Like groupBy but split into n maps where n is the longest list under groupBy.
+  // Invariant: every element of the result is non-empty
+  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
+    unfold(iter.groupBy(_._1).transform((_, i) => i.toList): Map[A, List[(_, B)]]) { m =>
+      // invariant: every value of m is non-empty
+      m.nonEmpty option {
+        val hd = m transform { (_, abs) =>
+          val (_, b) +: _ = abs
+          b
+        }
+        val tl = m collect { case (a, _ +: (tl @ (_ +: _))) => (a, tl) }
+        (hd, tl)
+      }
+    }
 
   private[http] def fetchById(
       parties: OneAnd[Set, String],
