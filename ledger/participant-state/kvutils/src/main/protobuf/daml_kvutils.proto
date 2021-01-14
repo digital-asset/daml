@@ -177,6 +177,7 @@ message DamlTransactionEntry {
   DamlTransactionBlindingInfo blinding_info = 7;
 
   // Pairs of contract keys and corresponding resolved contract ids.
+  // This information makes it easier for the committer to check contract keys consistency.
   repeated DamlContractKeyIdPair contract_key_id_pairs = 8;
 }
 
