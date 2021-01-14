@@ -221,7 +221,7 @@ well. You can set a custom root CA certificate used to validate client
 certificates via ``--cacrt ca.crt``. You can change the client
 authentication mode via ``--client-auth none`` which will disable it
 completely, ``--client-auth optional`` which makes it optional or
-specify the default explicitly via ``-.client-auth require``.
+specify the default explicitly via ``--client-auth require``.
 
 Command-line reference
 **********************
