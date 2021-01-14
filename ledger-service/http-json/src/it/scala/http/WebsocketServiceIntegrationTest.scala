@@ -767,7 +767,6 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
   "query on a bunch of random splits should yield consistent results" in withHttpService {
     (uri, _, _) =>
       val splitSample = SplitSeq.gen.map(_ map (BigDecimal(_))).sample.get
-      logger.info(s"s11 running sample $splitSample")
       val query =
         """[
           {"templateIds": ["Iou:Iou"]}
@@ -779,9 +778,6 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
         .via(parseResp)
         .map(iouSplitResult)
         .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
-        .wireTap { res =>
-          logger.info(s"s11 iouSplitResult $res")
-        }
         .runWith(Consume.interpret(trialSplitSeq(uri, splitSample, kill)))
   }
 
