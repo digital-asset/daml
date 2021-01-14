@@ -19,7 +19,8 @@ object Err {
     override def getMessage: String = s"Invalid submission: $message"
   }
   final case class MissingInputState(key: DamlStateKey) extends Err {
-    override def getMessage: String = s"Missing input state for key $key"
+    override def getMessage: String =
+      s"Missing input state for key $key. Hint: the referenced contract might have been archived."
   }
   final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err {
     override def getMessage: String = s"Decoding of DAML-LF archive $packageId failed: $reason"
