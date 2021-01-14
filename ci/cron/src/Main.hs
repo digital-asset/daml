@@ -463,4 +463,9 @@ main = do
       Docs -> do
           docs sdkDocOpts
           docs damlOnSqlDocOpts
+          -- FIXME: this is meant to run once to create the `latest` file
+          -- without waiting for the next stable release.
+          gh_versions <- fetch_gh_versions (includedVersion sdkDocOpts)
+          IO.withTempDir $ \temp_dir -> do
+              update_s3 sdkDocOpts temp_dir gh_versions
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases
