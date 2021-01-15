@@ -34,11 +34,23 @@ steps:
       # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
       # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
       disk_cache=$HOME/.bazel-cache
-      if [ $(du -ms $disk_cache | awk '{print $1}') -gt 80000 ]; then
-          echo "Deleting $disk_cache"
-          rm -rf $disk_cache
+      if [ $(du -ms "$disk_cache" | awk '{print $1}') -gt 80000 ]; then
+          echo "Deleting '$disk_cache'..."
+          rm -rf "$disk_cache"
       else
-          echo "Disk cache small enough: $(du -hs $disk_cache)."
+          echo "Disk cache small enough:\n$(du -hs "$disk_cache")"
+      fi
+      local_cache=$HOME/.cache/bazel
+      if [ -d "$local_cache" ]; then
+          if [ $(du -ms "$local_cache" | awk '{print $1}') -gt 80000 ]; then
+              echo "Deleting '$local_cache'..."
+              find "$local_cache" -type d | xargs chmod +w
+              rm -rf "$local_cache"
+          else
+              echo "Local cache small enough:\n$(du -hs "$local_cache")"
+          fi
+      else
+          echo "No '$local_cache', moving on."
       fi
     displayName: clean-up disk cache
 
