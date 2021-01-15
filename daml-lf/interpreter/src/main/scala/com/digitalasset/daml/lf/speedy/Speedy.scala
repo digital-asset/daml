@@ -427,7 +427,7 @@ private[lf] object Speedy {
         val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
         kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
-        ctrl = kcatch.handler
+        ctrl = SEValue.True
         envBase = env.size
         true
       } else
@@ -1226,13 +1226,11 @@ private[lf] object Speedy {
 
   /** A catch frame marks the point to which an exception (of type 'SErrorDamlException')
     * is unwound. The 'envSize' specifies the size to which the environment must be pruned.
-    * If an exception is raised and 'KCatch' is found from kont-stack, then 'handler' is
-    * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
+    * If an exception is raised and 'KCatch' is found from kont-stack, then 'True' is
+    * evaluated. If 'KCatch' is encountered naturally, then 'False' is evaluated.
     */
   private[speedy] final case class KCatch(
-      machine: Machine,
-      handler: SExpr,
-      fin: SExpr,
+      machine: Machine
   ) extends Kont
       with SomeArrayEquals {
 
@@ -1249,7 +1247,7 @@ private[lf] object Speedy {
     def execute(v: SValue) = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
-      machine.ctrl = fin
+      machine.ctrl = SEValue.False
     }
   }
 

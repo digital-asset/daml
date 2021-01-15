@@ -801,9 +801,8 @@ private[lf] final class Compiler(
     withEnv { _ =>
       labeledUnaryFunction("submitMustFail") { tokenPos =>
         let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
-          let(SECatch(app(compile(update), svar(tokenPos)), SEValue.True, SEValue.False)) {
-            resultPos =>
-              SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
+          let(SECatch(app(compile(update), svar(tokenPos)))) { resultPos =>
+            SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
           }
         }
       }
@@ -1125,11 +1124,9 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case SECatch(body, handler, fin) =>
+      case SECatch(body) =>
         SECatch(
-          closureConvert(remaps, body),
-          closureConvert(remaps, handler),
-          closureConvert(remaps, fin),
+          closureConvert(remaps, body)
         )
 
       case SELabelClosure(label, expr) =>
@@ -1214,8 +1211,8 @@ private[lf] final class Compiler(
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatch(body, handler, fin) =>
-          go(body, bound, go(handler, bound, go(fin, bound, free)))
+        case SECatch(body) =>
+          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
         case x: SEDamlException =>
@@ -1308,10 +1305,8 @@ private[lf] final class Compiler(
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
-        case SECatch(body, handler, fin) =>
+        case SECatch(body) =>
           go(body)
-          go(handler)
-          go(fin)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>

@@ -328,20 +328,10 @@ private[lf] object Anf {
       case SELet1General(rhs, body) =>
         Bounce(() => transformLet1(depth, env, rhs, body, k, transform))
 
-      case SECatch(body0, handler0, fin0) =>
+      case SECatch(body0) =>
         Bounce(() =>
           flattenExp(depth, env, body0) { body =>
-            Bounce(() =>
-              flattenExp(depth, env, handler0) { handler =>
-                Bounce(() =>
-                  flattenExp(depth, env, fin0) { fin =>
-                    Bounce(() =>
-                      transform(depth, SECatch(body.wrapped, handler.wrapped, fin.wrapped), k)
-                    )
-                  }
-                )
-              }
-            )
+            Bounce(() => transform(depth, SECatch(body.wrapped), k))
           }
         )
 

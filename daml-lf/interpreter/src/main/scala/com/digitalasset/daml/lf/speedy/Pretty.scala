@@ -521,10 +521,8 @@ private[lf] object Pretty {
             text("-> ")
           prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
 
-        case SECatch(body, handler, fin) =>
-          text("$catch") + char('(') + prettySExpr(index)(body) + text(", ") +
-            prettySExpr(index)(handler) + text(", ") +
-            prettySExpr(index)(fin) + char(')')
+        case SECatch(body) =>
+          text("$catch") + char('(') + prettySExpr(index)(body) + char(')')
 
         case SELocation(loc @ _, body) =>
           prettySExpr(index)(body)
