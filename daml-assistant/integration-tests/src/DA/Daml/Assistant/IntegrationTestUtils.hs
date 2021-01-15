@@ -30,13 +30,15 @@ withSdkResource f =
   where installSdk targetDir = do
             releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
             oldPath <- getSearchPath
+            withTempDir $ \cacheDir -> do
             withTempDir $ \extractDir -> do
                 runConduitRes
                     $ sourceFileBS releaseTarball
                     .| Zlib.ungzip
                     .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
                 setEnv "DAML_HOME" targetDir True
-                setEnv "DAML_CACHE" targetDir True
+                setPermissions cacheDir emptyPermissions
+                setEnv "DAML_CACHE" cacheDir True
                 if isWindows
                     then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
