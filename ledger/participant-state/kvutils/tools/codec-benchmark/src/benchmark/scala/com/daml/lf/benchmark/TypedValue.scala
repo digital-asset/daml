@@ -5,6 +5,6 @@ package com.daml.lf.benchmark
 
 import com.daml.lf.language.Ast.Type
 
-private[benchmark] final case class TypedValue[A](value: A, valueType: Type) {
+private[lf] final case class TypedValue[A](value: A, valueType: Type) {
   def mapValue[B](f: A => B): TypedValue[B] = TypedValue(f(value), valueType)
 }

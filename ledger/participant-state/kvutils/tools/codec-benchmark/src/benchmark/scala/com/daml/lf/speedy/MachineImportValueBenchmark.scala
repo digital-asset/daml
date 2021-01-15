@@ -4,15 +4,17 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.CompiledPackages
-import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, DecodedValue, assertDecode}
+import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, assertDecode}
 import com.daml.lf.data.Time
 import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
 
 class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
 
   private var machine: Speedy.Machine = _
-  private var decodedValues: Vector[DecodedValue] = _
+  private var decodedValues: Vector[Value[ContractId]] = _
 
   // Construct a machine for testing.
   private def testingMachine(
@@ -29,7 +31,7 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
   @Setup
   override def setup(): Unit = {
     super.setup()
-    decodedValues = submissions.values.map(_.value).map(assertDecode).toVector
+    decodedValues = submissions.values.map(_.value).map(assertDecode(_).value).toVector
     machine = testingMachine(submissions.compiledPackages)
   }
 
