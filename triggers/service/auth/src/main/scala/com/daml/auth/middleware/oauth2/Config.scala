@@ -36,7 +36,7 @@ case class Config(
 
 object Config {
   val DefaultMaxLoginRequests: Int = 100
-  val DefaultLoginTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
+  val DefaultLoginTimeout: FiniteDuration = FiniteDuration(1, duration.HOURS)
 
   private val Empty =
     Config(
