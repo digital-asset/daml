@@ -10,7 +10,6 @@ import com.daml.ledger.participant.state.v1.DivulgedContract
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 
 object ContractsTablePostgres extends ContractsTable {
-  import AnormParamsMapper._
 
   private object Params {
     val contractIds = "contractIds"
@@ -50,6 +49,8 @@ object ContractsTablePostgres extends ContractsTable {
       contractsInfo: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Serialized,
   ): Executable = {
+    import com.daml.platform.store.Conversions._
+
     val netCreatesSize = contractsInfo.netCreates.size
     val divulgedSize = contractsInfo.divulgedContracts.size
     val batchSize = netCreatesSize + divulgedSize

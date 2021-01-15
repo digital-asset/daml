@@ -12,7 +12,6 @@ import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 
 object EventsTablePostgresql extends EventsTable {
-  import AnormParamsMapper._
 
   /** Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
     * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
@@ -42,6 +41,7 @@ object EventsTablePostgresql extends EventsTable {
       info: TransactionIndexing.EventsInfo,
       serialized: TransactionIndexing.Serialized,
   ): EventsTable.Batches = {
+
     val batchSize = info.events.size
     val eventIds = Array.ofDim[String](batchSize)
     val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
@@ -228,7 +228,8 @@ object EventsTablePostgresql extends EventsTable {
       exerciseResults: Array[Array[Byte]],
       exerciseActors: Array[String],
       exerciseChildEventIds: Array[String],
-  ) =
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.Conversions._
     insertStmt.on(
       Params.eventIds -> eventIds,
       Params.eventOffsets -> eventOffsets,
@@ -256,4 +257,5 @@ object EventsTablePostgresql extends EventsTable {
       Params.exerciseActors -> exerciseActors,
       Params.exerciseChildEventIds -> exerciseChildEventIds,
     )
+  }
 }
