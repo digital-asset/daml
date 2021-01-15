@@ -89,8 +89,9 @@ getProjectVersion = do
 getProjectParties :: IO [String]
 getProjectParties = do
     projectConfig <- getProjectConfig
-    requiredE "Failed to read list of parties from project config" $
-        queryProjectConfigRequired ["parties"] projectConfig
+    fmap maybeToList $
+        requiredE "Failed to read list of parties from project config" $
+        queryProjectConfig ["parties"] projectConfig
 
 getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
