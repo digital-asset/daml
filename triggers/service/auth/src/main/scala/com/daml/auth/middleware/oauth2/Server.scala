@@ -194,7 +194,16 @@ class Server(config: Config) extends StrictLogging {
                           }
                       } yield tokenResp
                     onSuccess(tokenRequest) { token =>
-                      setCookie(HttpCookie(cookieName, token.toCookieValue)) {
+                      setCookie(
+                        HttpCookie(
+                          name = cookieName,
+                          value = token.toCookieValue,
+                          path = Some("/"),
+                          maxAge = token.expiresIn.map(_.toLong),
+                          secure = true,
+                          httpOnly = true,
+                        )
+                      ) {
                         redirectUri match {
                           case Some(uri) =>
                             redirect(uri, StatusCodes.Found)
