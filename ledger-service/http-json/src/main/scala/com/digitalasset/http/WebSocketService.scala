@@ -20,7 +20,7 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
-import doobie.{ConnectionIO, LogHandler}
+import doobie.ConnectionIO
 import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -51,7 +51,7 @@ object WebSocketService {
       resolved: Set[domain.TemplateId.RequiredPkg],
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: domain.ActiveContract[LfV] => Option[Positive],
-      dbQuery: OneAnd[Set, domain.Party] => LogHandler => ConnectionIO[
+      dbQuery: (OneAnd[Set, domain.Party], dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
       ],
   )
@@ -212,8 +212,9 @@ object WebSocketService {
           resolved,
           unresolved,
           fn,
-          { parties => implicit lh =>
+          { (parties, dao) =>
             val (dbQueries, posMap) = dbQueriesPlan
+            import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
             selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
               .map(_ map (_ rightMap (_ map posMap)))
@@ -317,7 +318,8 @@ object WebSocketService {
         q.keySet,
         unresolved,
         fn,
-        { parties => implicit lh =>
+        { (parties, dao) =>
+          import dao.{logHandler, jdbcDriver}
           import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
           selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.Unused)
         },
@@ -475,7 +477,7 @@ class WebSocketService(
             { case (dao, fetch) =>
               val tx = for {
                 bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
-                mdContracts <- dbQuery(parties)(dao.logHandler)
+                mdContracts <- dbQuery(parties, dao)
               } yield (
                 Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
                   .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),

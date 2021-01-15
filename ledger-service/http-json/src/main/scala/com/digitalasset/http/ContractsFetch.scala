@@ -18,7 +18,7 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
-import com.daml.http.dbbackend.{ContractDao, Queries}
+import com.daml.http.dbbackend.{ContractDao, Queries, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.LedgerClientJwt.Terminates
@@ -56,12 +56,11 @@ private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     getTermination: LedgerClientJwt.GetTermination,
-)(implicit dblog: doobie.LogHandler)
+)(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver)
     extends StrictLogging {
 
   import ContractsFetch._
-
-  private val retrySqlStates: Set[String] = dbbackend.SupportedJdbcDriver.Postgres.retrySqlStates
+  import sjd.retrySqlStates
 
   def fetchAndPersist(
       jwt: Jwt,
@@ -482,12 +481,12 @@ private[http] object ContractsFetch {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
       step: InsertDeleteStep[Any, PreInsertContract]
-  )(implicit log: doobie.LogHandler): ConnectionIO[Unit] = {
+  )(implicit log: doobie.LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
       import json.JsonProtocol._
-      import dbbackend.SupportedJdbcDriver.Postgres._
+      import sjd._
       (Queries.deleteContracts(step.deletes.keySet) *>
         Queries.insertContracts(
           step.inserts map (dbc =>

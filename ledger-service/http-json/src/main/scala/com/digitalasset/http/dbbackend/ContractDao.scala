@@ -22,6 +22,8 @@ class ContractDao(xa: Connection.T) {
 
   implicit val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
 
+  implicit val jdbcDriver: SupportedJdbcDriver = SupportedJdbcDriver.Postgres
+
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
 
@@ -41,9 +43,11 @@ object ContractDao {
     Queries.dropAllTablesIfExist *> Queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
-      implicit log: LogHandler
+      implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver,
   ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
-    import SupportedJdbcDriver.Postgres._
+    import sjd._
     for {
       tpId <- surrogateTemplateId(templateId)
       offset <- Queries
@@ -59,9 +63,9 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
-  )(implicit log: LogHandler): ConnectionIO[Unit] = {
+  )(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] = {
     import cats.implicits._
-    import SupportedJdbcDriver.Postgres._
+    import sjd._
     import scalaz.OneAnd._
     import scalaz.std.set._
     import scalaz.syntax.foldable._
@@ -88,8 +92,11 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment,
-  )(implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
-    import SupportedJdbcDriver.Postgres._
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver,
+  ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+    import sjd._
     for {
       tpId <- surrogateTemplateId(templateId)
 
@@ -105,9 +112,10 @@ object ContractDao {
       predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
-      log: LogHandler
+      log: LogHandler,
+      sjd: SupportedJdbcDriver,
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
-    import SupportedJdbcDriver.Postgres._, cats.syntax.traverse._, cats.instances.vector._
+    import sjd._, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
@@ -172,8 +180,11 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       contractId: domain.ContractId,
-  )(implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import SupportedJdbcDriver.Postgres._
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver,
+  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+    import sjd._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- Queries.fetchById(
@@ -188,8 +199,11 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       key: JsValue,
-  )(implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import SupportedJdbcDriver.Postgres._
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver,
+  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+    import sjd._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- Queries.fetchByKey(domain.Party unsubst parties, tpId, key)
