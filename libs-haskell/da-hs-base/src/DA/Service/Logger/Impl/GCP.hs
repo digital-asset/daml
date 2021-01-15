@@ -173,7 +173,8 @@ initialiseGcpState GCPConfig {..} gcpFallbackLogger = do
         let machineIdPath = damlPath </> ".machine_id"
         let newMachineIdPath = cachePath </> ".machine_id"
         hasMachineId <- doesFileExist machineIdPath
-        when hasMachineId $ do
+        hasNewMachineId <- doesFileExist newMachineIdPath
+        when (hasMachineId && not hasNewMachineId) $ do
           copyFile machineIdPath newMachineIdPath
           removeFile machineIdPath
     gcpLogChan <- newTChanIO
