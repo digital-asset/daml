@@ -234,25 +234,37 @@ class Client(config: Client.Config) {
       }
     } yield authorize
 
+  private def appendToUri(uri: Uri, path: Uri.Path, query: Uri.Query = Uri.Query.Empty): Uri = {
+    val newPath: Uri.Path = uri.path ++ path
+    val newQueryParams: Seq[(String, String)] = uri.query().toSeq ++ query.toSeq
+    val newQuery = Uri.Query(newQueryParams: _*)
+    uri.withPath(newPath).withQuery(newQuery)
+  }
+
   def authUri(claims: Request.Claims): Uri =
-    config.authMiddlewareUri
-      .withPath(Path./("auth"))
-      .withQuery(Request.Auth(claims).toQuery)
+    appendToUri(
+      config.authMiddlewareUri,
+      Path./("auth"),
+      Request.Auth(claims).toQuery,
+    )
 
   def loginUri(
       claims: Request.Claims,
       requestId: Option[UUID] = None,
       redirect: Boolean = true,
   ): Uri = {
-    val redirectUri = if (redirect) { Some(config.callbackUri) }
-    else { None }
-    config.authMiddlewareUri
-      .withPath(Path./("login"))
-      .withQuery(Request.Login(redirectUri, claims, requestId.map(_.toString)).toQuery)
+    val redirectUri =
+      if (redirect) { Some(config.callbackUri) }
+      else { None }
+    appendToUri(
+      config.authMiddlewareUri,
+      Path./("login"),
+      Request.Login(redirectUri, claims, requestId.map(_.toString)).toQuery,
+    )
   }
 
-  val refreshUri: Uri = config.authMiddlewareUri
-    .withPath(Path./("refresh"))
+  val refreshUri: Uri =
+    appendToUri(config.authMiddlewareUri, Path./("refresh"))
 }
 
 object Client {
