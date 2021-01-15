@@ -3,6 +3,7 @@
 
 package com.daml.scalautil
 
+import scala.collection.compat._
 import scala.collection.immutable.Map
 import scalaz.Liskov, Liskov.<~<
 
@@ -25,7 +26,9 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def toF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
   }
 
-  implicit final class MapOps[K, V](private val self: NonEmpty[Map[K, V]]) extends AnyVal {}
+  implicit final class MapOps[Self, K, V](private val self: Self with NonEmpty[Map[K, V]]) extends AnyVal {
+    def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = (self: Map[K, V]) transform f
+  }
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.subst(F)
