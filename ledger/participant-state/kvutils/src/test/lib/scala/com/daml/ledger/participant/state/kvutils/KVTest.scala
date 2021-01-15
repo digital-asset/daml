@@ -176,13 +176,13 @@ object KVTest {
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, DefaultAdditionalContractDataTy, cmds: _*)
 
-  def submitTransaction(
+  def transactionToSubmission(
       submitter: Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[DamlSubmission] =
     for {
       testState <- get[KVTestState]
       submissionInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
@@ -194,6 +194,23 @@ object KVTest {
         submissionInfo,
         tx,
         txMetaData)
+    } yield submission
+
+  def submitTransaction(
+      submitter: Party,
+      transaction: (SubmittedTransaction, Transaction.Metadata),
+      submissionSeed: crypto.Hash,
+      letDelta: Duration = Duration.ZERO,
+      commandId: CommandId = randomLedgerString,
+      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+    for {
+      submission <- transactionToSubmission(
+        submitter,
+        transaction,
+        submissionSeed,
+        letDelta,
+        commandId,
+        deduplicationTime)
       result <- submit(submission)
     } yield result
 

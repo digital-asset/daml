@@ -27,6 +27,8 @@ import com.daml.lf.value.Value.{
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.JavaConverters._
+
 class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
 
   import KVTest._
@@ -82,6 +84,31 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
+    "add the key of an exercised contract as a submission input" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob,
+      eve) {
+      val seed0 = seed(0)
+      val seed1 = seed(1)
+      for {
+        transaction1 <- runSimpleCommand(alice, seed0, simpleCreateCmd)
+        result <- submitTransaction(
+          submitter = alice,
+          transaction = transaction1,
+          submissionSeed = seed0)
+        coid = getContractId(result)
+
+        transaction2 <- runSimpleCommand(alice, seed1, exerciseCmd(coid.coid, simpleTemplateId))
+        submission <- transactionToSubmission(
+          submitter = alice,
+          transaction = transaction2,
+          submissionSeed = seed1
+        )
+      } yield {
+        submission.getInputDamlStateList.asScala.filter(_.hasContractKey) should not be empty
+      }
+    }
+
     "be able to submit a transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {
@@ -134,23 +161,14 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
+          .map(i => seed(i))
       for {
         transaction1 <- runSimpleCommand(alice, seeds.head, simpleCreateCmd)
         result <- submitTransaction(
           submitter = alice,
           transaction = transaction1,
           submissionSeed = seeds.head)
-        (entryId, logEntry) = result
-        update = KeyValueConsumption.logEntryToUpdate(entryId, logEntry).head
-        coid = update
-          .asInstanceOf[Update.TransactionAccepted]
-          .transaction
-          .nodes
-          .values
-          .head
-          .asInstanceOf[NodeCreate[ContractId, _]]
-          .coid
+        coid = getContractId(result)
 
         transaction2 <- runSimpleCommand(alice, seeds(1), exerciseCmd(coid.coid, simpleTemplateId))
         logEntry2 <- submitTransaction(
@@ -293,7 +311,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
+          .map(i => seed(i))
 
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
@@ -354,6 +372,23 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
       }
     }
   }
+
+  private def seed(i: Int) = {
+    crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)
+  }
+
+  private def getContractId(
+      createTransactionResult: (DamlKvutils.DamlLogEntryId, DamlLogEntry)): ContractId =
+    KeyValueConsumption
+      .logEntryToUpdate(createTransactionResult._1, createTransactionResult._2)
+      .head
+      .asInstanceOf[Update.TransactionAccepted]
+      .transaction
+      .nodes
+      .values
+      .head
+      .asInstanceOf[NodeCreate[ContractId, _]]
+      .coid
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 }
