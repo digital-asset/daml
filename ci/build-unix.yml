@@ -44,7 +44,7 @@ steps:
       if [ -d "$local_cache" ]; then
           if [ $(du -ms "$local_cache" | awk '{print $1}') -gt 80000 ]; then
               echo "Deleting '$local_cache'..."
-              find "$local_cache" -type d | xargs chmod +w
+              chmod -R +w "$local_cache"
               rm -rf "$local_cache"
           else
               echo "Local cache small enough:\n$(du -hs "$local_cache")"
