@@ -3,7 +3,7 @@
 
 package com.daml.platform.store
 
-import java.sql.PreparedStatement
+import java.sql.{PreparedStatement, Timestamp}
 import java.time.Instant
 import java.util.Date
 
@@ -191,6 +191,29 @@ private[platform] object Conversions {
   implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
     override def sqlType: String = "ARRAY"
     override def jdbcType: Int = java.sql.Types.ARRAY
+  }
+
+  abstract sealed class ArrayToStatement[T](postgresTypeName: String)
+      extends ToStatement[Array[T]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
+      val conn = s.getConnection
+      val ts = conn.createArrayOf(postgresTypeName, v.asInstanceOf[Array[AnyRef]])
+      s.setArray(index, ts)
+    }
+  }
+
+  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
+
+  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
+
+  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
+
+  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
+      val conn = s.getConnection
+      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
+      s.setArray(index, ts)
+    }
   }
 
 }
