@@ -193,29 +193,20 @@ private[platform] object Conversions {
     override def jdbcType: Int = java.sql.Types.ARRAY
   }
 
-  implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit = {
+  abstract sealed class ArrayToStatement[T](postgresTypeName: String)
+      extends ToStatement[Array[T]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
       val conn = s.getConnection
-      val ts = conn.createArrayOf("BYTEA", v.asInstanceOf[Array[AnyRef]])
+      val ts = conn.createArrayOf(postgresTypeName, v.asInstanceOf[Array[AnyRef]])
       s.setArray(index, ts)
     }
   }
 
-  implicit object CharArrayToStatement extends ToStatement[Array[String]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[String]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("VARCHAR", v.asInstanceOf[Array[AnyRef]])
-      s.setArray(index, ts)
-    }
-  }
+  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
 
-  implicit object TimestampArrayToStatement extends ToStatement[Array[Timestamp]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Timestamp]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.asInstanceOf[Array[AnyRef]])
-      s.setArray(index, ts)
-    }
-  }
+  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
+
+  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
 
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {

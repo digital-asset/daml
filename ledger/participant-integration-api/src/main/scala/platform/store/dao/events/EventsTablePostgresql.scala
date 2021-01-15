@@ -18,11 +18,11 @@ object EventsTablePostgresql extends EventsTable {
     * faster than using JDBC batches.
     */
   final class Batches(
-      insertEvents: Option[SimpleSql[Row]],
+      insertEvents: SimpleSql[Row],
       updateArchives: Option[BatchSql],
   ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
-      insertEvents.foreach(_.execute())
+      insertEvents.execute()
       updateArchives.foreach(_.execute())
     }
   }
@@ -143,7 +143,7 @@ object EventsTablePostgresql extends EventsTable {
       info.archives.iterator.map(archive(tx.offset)).toList
 
     new Batches(
-      insertEvents = Some(inserts),
+      insertEvents = inserts,
       updateArchives = batch(updateArchived, archivals),
     )
   }

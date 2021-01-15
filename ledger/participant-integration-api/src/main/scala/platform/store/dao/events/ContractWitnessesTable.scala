@@ -15,7 +15,7 @@ private[events] abstract class ContractWitnessesTable {
   protected val IdColumn = "contract_id"
   protected val WitnessColumn = "contract_witness"
 
-  protected val delete = s"delete from $TableName where $IdColumn = {$IdColumn}"
+  private val delete = s"delete from $TableName where $IdColumn = {$IdColumn}"
 
   protected def prepareBatchDelete(ids: Seq[ContractId]): Option[BatchSql] =
     batch(delete, ids.map(id => List[NamedParameter](IdColumn -> id)))
