@@ -2439,7 +2439,7 @@ exact output.
       'to_any_exception' @τ e  ⇓  Err @τ' v
 
       e  ⇓  Ok v
-    —————————————————————————————————————————————————————————————————————— EvExpToeAnyException
+    —————————————————————————————————————————————————————————————————————— EvExpToAnyException
       'to_any_exception' @τ e  ⇓  Ok ('to_any_exception' @τ v)
 
       e  ⇓  Err @τ' v
