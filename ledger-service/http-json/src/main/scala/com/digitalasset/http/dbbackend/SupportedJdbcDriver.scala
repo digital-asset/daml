@@ -13,20 +13,23 @@ import doobie.{Get, Put}
   * nullary.  If that changes in the future, a phantom type parameter should be
   * introduced so as to distinguish instances by type.
   */
-final class SupportedJdbcDriver(val retrySqlStates: Set[String])(implicit
+final class SupportedJdbcDriver(label: String, val retrySqlStates: Set[String])(implicit
     val gvs: Get[Vector[String]],
     val pvs: Put[Vector[String]],
     val pls: Put[List[String]],
     val pas: Put[Array[String]],
-)
+) {
+  override def toString = s"SupportedJdbcDriver($label)"
+}
 
 object SupportedJdbcDriver {
   val Postgres: SupportedJdbcDriver = {
     import doobie.postgres.implicits._
     import doobie.postgres.sqlstate.{class23 => postgres_class23}
     new SupportedJdbcDriver(
+      label = "PostgreSQL",
       retrySqlStates =
-        Set(postgres_class23.UNIQUE_VIOLATION.value, ContractDao.StaleOffsetException.SqlState)
+        Set(postgres_class23.UNIQUE_VIOLATION.value, ContractDao.StaleOffsetException.SqlState),
     )
   }
 }
