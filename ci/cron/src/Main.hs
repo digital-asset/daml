@@ -136,29 +136,25 @@ fetch_if_missing opts temp v = do
 
 update_s3 :: DocOptions -> FilePath -> Versions -> IO ()
 update_s3 opts temp vs = do
-    putStrLn "Updating versions.json, hidden.json, snapshots.json, latest..."
-    create_versions_json (dropdown vs) (temp </> "versions.json")
-    let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
-    let push f = proc_ ["aws", "s3", "cp", temp </> f, s3Path opts f, "--acl", "public-read"]
-    let hiddenVersionFiles = ["hidden.json", "snapshots.json"]
-    Data.Foldable.for_ hiddenVersionFiles $ \f -> do
-        create_versions_json hidden (temp </> f)
-        push f
-    push "versions.json"
-    Control.Monad.Extra.whenJust (top vs) $ \latest -> do
-        writeFile (temp </> "latest") (show latest)
-        push "latest"
+    let displayed = dropdown vs
+    let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` Set.fromList displayed
+    -- The assistant depends on these three files, they are not just internal
+    -- to the docs process.
+    push (versions_json displayed) "versions.json"
+    push (versions_json hidden) "snapshots.json"
+    Control.Monad.Extra.whenJust (top vs) $ \latest -> push (show latest) "latest"
     putStrLn "Done."
     where
-        create_versions_json versions file = do
-            -- Not going through Aeson because it represents JSON objects as
-            -- unordered maps, and here order matters.
-            let versions_json = versions
-                                & map show
-                                & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
-                                & Data.List.intercalate ", "
-                                & \s -> "{" <> s <> "}"
-            writeFile file versions_json
+        -- Not going through Aeson because it represents JSON objects as
+        -- unordered maps, and here order matters.
+        versions_json vs = vs
+                           & map show
+                           & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
+                           & Data.List.intercalate ", "
+                           & \s -> "{" <> s <> "}"
+        push text name = do
+            writeFile (temp </> name) text
+            proc_ ["aws", "s3", "cp", temp </> name, s3Path opts name, "--acl", "public-read"]
 
 update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
 update_top_level opts temp new mayOld = do
@@ -245,11 +241,8 @@ fetch_gh_versions pred = do
 fetch_s3_versions :: DocOptions -> IO Versions
 fetch_s3_versions opts = do
     -- On the first run, this will fail so treat it like an empty file.
-    -- We could technically remove the catch later.
-    dropdown <- fetch "versions.json" False `catchIO`
-      (\_ -> pure [])
-    hidden <- fetch "hidden.json" True `catchIO`
-      (\_ -> pure [])
+    dropdown <- fetch "versions.json" False `catchIO` (\_ -> pure [])
+    hidden <- fetch "snapshots.json" True `catchIO` (\_ -> pure [])
     return $ versions $ dropdown <> hidden
     where fetch file prerelease = do
               temp <- shell "mktemp"
@@ -315,7 +308,7 @@ docs opts@DocOptions{includedVersion} = do
                 fetch_if_missing opts temp_dir gh_top
                 Control.Monad.Extra.whenJust (top s3_versions) (fetch_if_missing opts temp_dir)
                 update_top_level opts temp_dir gh_top (top s3_versions)
-            putStrLn "Updating versions.json & hidden.json"
+            putStrLn "Updating versions.json, snapshots.json, latest..."
             update_s3 opts temp_dir gh_versions
         reset_cloudfront
 
@@ -463,9 +456,4 @@ main = do
       Docs -> do
           docs sdkDocOpts
           docs damlOnSqlDocOpts
-          -- FIXME: this is meant to run once to create the `latest` file
-          -- without waiting for the next stable release.
-          gh_versions <- fetch_gh_versions (includedVersion sdkDocOpts)
-          IO.withTempDir $ \temp_dir -> do
-              update_s3 sdkDocOpts temp_dir gh_versions
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases
