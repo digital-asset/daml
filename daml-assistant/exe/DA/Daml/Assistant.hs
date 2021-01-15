@@ -188,7 +188,7 @@ runCommand :: Env -> Command -> IO ()
 runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
-        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
+        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envCachePath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar

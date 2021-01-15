@@ -164,22 +164,22 @@ getAvailableSdkSnapshotVersions = wrapErr "Fetching list of available SDK snapsh
     pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
 
 -- | Same as getAvailableSdkVersions, but writes result to cache.
-refreshAvailableSdkVersions :: DamlPath -> IO [SdkVersion]
-refreshAvailableSdkVersions damlPath = do
+refreshAvailableSdkVersions :: CachePath -> IO [SdkVersion]
+refreshAvailableSdkVersions cachePath = do
     versions <- getAvailableSdkVersions
-    saveAvailableSdkVersions damlPath versions
+    saveAvailableSdkVersions cachePath versions
     pure versions
 
 -- | Same as getAvailableSdkVersions, but result is cached based on the duration
 -- of the update-check value in daml-config.yaml (defaults to 1 day).
-getAvailableSdkVersionsCached :: DamlPath -> IO [SdkVersion]
-getAvailableSdkVersionsCached damlPath =
-    cacheAvailableSdkVersions damlPath getAvailableSdkVersions
+getAvailableSdkVersionsCached :: DamlPath -> CachePath -> IO [SdkVersion]
+getAvailableSdkVersionsCached damlPath cachePath =
+    cacheAvailableSdkVersions damlPath cachePath getAvailableSdkVersions
 
 -- | Get the latest released SDK version, cached as above.
-getLatestSdkVersionCached :: DamlPath -> IO (Maybe SdkVersion)
-getLatestSdkVersionCached damlPath = do
-    versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath
+getLatestSdkVersionCached :: DamlPath -> CachePath -> IO (Maybe SdkVersion)
+getLatestSdkVersionCached damlPath cachePath = do
+    versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath cachePath
     pure $ do
         versions <- eitherToMaybe versionsE
         maximumMay versions
