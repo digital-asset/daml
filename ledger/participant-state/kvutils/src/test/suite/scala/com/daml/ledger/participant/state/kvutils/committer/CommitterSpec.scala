@@ -6,11 +6,12 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.time.{Duration, Instant}
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
-import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
+import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
+import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.TestHelpers.theDefaultConfig
+import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
@@ -191,7 +192,7 @@ class CommitterSpec
   "getCurrentConfiguration" should {
     "return configuration in case there is one available on the ledger" in {
       val inputState = Map(configurationStateKey -> Some(aConfigurationStateValue))
-      val commitContext = createCommitContext(recordTime = None, inputState)
+      val commitContext = new FakeCommitContext(recordTime = None, inputState)
 
       val (Some(actualConfigurationEntry), actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -202,7 +203,7 @@ class CommitterSpec
 
     "return default configuration in case there is no configuration on the ledger" in {
       val inputState = Map(configurationStateKey -> None)
-      val commitContext = createCommitContext(recordTime = None, inputState)
+      val commitContext = new FakeCommitContext(recordTime = None, inputState)
 
       val (actualConfigurationEntry, actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -212,7 +213,7 @@ class CommitterSpec
     }
 
     "throw in case configuration key is not declared in the input" in {
-      val commitContext = createCommitContext(recordTime = None, Map.empty)
+      val commitContext = new FakeCommitContext(recordTime = None, Map.empty)
 
       assertThrows[Err.MissingInputState] {
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -227,7 +228,7 @@ class CommitterSpec
             .setConfiguration(LedgerConfiguration.newBuilder.setGeneration(123456))
         )
         .build
-      val commitContext = createCommitContext(
+      val commitContext = new FakeCommitContext(
         recordTime = None,
         Map(configurationStateKey -> Some(invalidConfigurationEntry)))
 

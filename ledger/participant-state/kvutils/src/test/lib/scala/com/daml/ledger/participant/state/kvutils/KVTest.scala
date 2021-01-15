@@ -176,13 +176,13 @@ object KVTest {
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, DefaultAdditionalContractDataTy, cmds: _*)
 
-  def submitTransaction(
+  def transactionToSubmission(
       submitter: Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[DamlSubmission] =
     for {
       testState <- get[KVTestState]
       submissionInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
@@ -194,6 +194,23 @@ object KVTest {
         submissionInfo,
         tx,
         txMetaData)
+    } yield submission
+
+  def submitTransaction(
+      submitter: Party,
+      transaction: (SubmittedTransaction, Transaction.Metadata),
+      submissionSeed: crypto.Hash,
+      letDelta: Duration = Duration.ZERO,
+      commandId: CommandId = randomLedgerString,
+      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+    for {
+      submission <- transactionToSubmission(
+        submitter,
+        transaction,
+        submissionSeed,
+        letDelta,
+        commandId,
+        deduplicationTime)
       result <- submit(submission)
     } yield result
 
@@ -207,16 +224,10 @@ object KVTest {
     : KVTest[(DamlLogEntryId, PreExecutionResult)] =
     for {
       testState <- get[KVTestState]
-      submitterInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
+      submInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
       (tx, txMetaData) = transaction
-      submission = transactionToSubmission(
-        submissionSeed,
-        letDelta,
-        testState,
-        submitterInfo,
-        tx,
-        txMetaData)
-      result <- preExecute(submission)
+      subm = transactionToSubmission(submissionSeed, letDelta, testState, submInfo, tx, txMetaData)
+      result <- preExecute(subm)
     } yield result
 
   def submitConfig(

@@ -74,6 +74,14 @@ private[kvutils] object InputsAndEffects {
       if (!localContract.isDefinedAt(coid))
         inputs += contractIdToStateKey(coid)
 
+    def addKeyInput(
+        templateId: Identifier,
+        keyWithMaintainers: Node.KeyWithMaintainers[Transaction.Value[ContractId]]): Unit = {
+      inputs += globalKeyToStateKey(
+        GlobalKey(templateId, forceNoContractIds(keyWithMaintainers.key.value)))
+      ()
+    }
+
     def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
       parties.toList.sorted.map(partyStateKey)
@@ -85,25 +93,25 @@ private[kvutils] object InputsAndEffects {
           case fetch: Node.NodeFetch.WithTxValue[Value.ContractId] =>
             addContractInput(fetch.coid)
             fetch.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
-                GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
+              addKeyInput(fetch.templateId, keyWithMaintainers)
             }
 
           case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
             create.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
-                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
+              addKeyInput(create.coinst.template, keyWithMaintainers)
             }
 
           case exe: Node.NodeExercises.WithTxValue[NodeId, Value.ContractId] =>
             addContractInput(exe.targetCoid)
+            exe.key.foreach { keyWithMaintainers =>
+              addKeyInput(exe.templateId, keyWithMaintainers)
+            }
 
           case lookup: Node.NodeLookupByKey.WithTxValue[Value.ContractId] =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
             lookup.result.foreach(addContractInput)
-            inputs += globalKeyToStateKey(
-              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key.value)))
+            addKeyInput(lookup.templateId, lookup.key)
         }
 
         inputs ++= partyInputs(node.informeesOfNode)
