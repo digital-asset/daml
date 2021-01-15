@@ -48,6 +48,7 @@ trait TestFixture
   protected val maxMiddlewareLogins: Int = Config.DefaultMaxLoginRequests
   protected val maxClientAuthCallbacks: Int = 1000
   protected val middlewareCallbackUri: Option[Uri] = None
+  protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
   lazy protected val clock: AdjustableClock = suiteResource.value.clock
   lazy protected val server: OAuthServer = suiteResource.value.authServer
   lazy protected val serverBinding: ServerBinding = suiteResource.value.authServerBinding
@@ -114,7 +115,7 @@ trait TestFixture
               middlewareBinding.localAddress.getHostName,
               middlewareBinding.localAddress.getPort,
             ),
-          redirectToLogin = Client.RedirectToLogin.Yes,
+          redirectToLogin = redirectToLogin,
           callbackUri = Uri()
             .withScheme("http")
             .withAuthority("localhost", middlewareClientPort.value)
