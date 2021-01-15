@@ -9,7 +9,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{Node, TransactionVersion}
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.lf.value.Value.{ContractId, ValueText}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,14 +18,9 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
       coid = cid,
-      coinst = ContractInst(
-        Identifier(
-          PackageId.assertFromString("some-package"),
-          QualifiedName.assertFromString("Foo:Bar"),
-        ),
-        ValueText("foo"),
-        "agreement",
-      ),
+      templateId = Identifier.assertFromString("some-package:Foo:Bar"),
+      arg = ValueText("foo"),
+      agreementText = "agreement",
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,

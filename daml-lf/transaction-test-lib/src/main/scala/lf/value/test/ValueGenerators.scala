@@ -299,11 +299,23 @@ object ValueGenerators {
     for {
       version <- transactionVersionGen()
       coid <- coidGen
-      coinst <- contractInstanceGen
+      templateId <- idGen
+      arg <- valueGen
+      agreement <- Arbitrary.arbitrary[String]
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-    } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key, version)
+    } yield NodeCreate(
+      coid,
+      templateId,
+      arg,
+      agreement,
+      None,
+      signatories,
+      stakeholders,
+      key,
+      version,
+    )
   }
 
   val fetchNodeGen: Gen[NodeFetch[ContractId]] = {

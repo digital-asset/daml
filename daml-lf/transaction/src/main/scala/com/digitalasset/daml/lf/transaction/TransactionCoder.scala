@@ -108,6 +108,22 @@ object TransactionCoder {
           .build()
       )
 
+  private def encodeContractInstance[Cid](
+      encodeCid: ValueCoder.EncodeCid[Cid],
+      version: TransactionVersion,
+      templateId: Ref.Identifier,
+      arg: Value[Cid],
+      agreementText: String,
+  ) =
+    encodeVersionedValue(encodeCid, version, arg).map(
+      TransactionOuterClass.ContractInstance
+        .newBuilder()
+        .setTemplateId(ValueCoder.encodeIdentifier(templateId))
+        .setValue(_)
+        .setAgreement(agreementText)
+        .build()
+    )
+
   /** Decode a contract instance from wire format
     * @param protoCoinst protocol buffer encoded contract instance
     * @param decodeCid cid decoding function
@@ -182,13 +198,19 @@ object TransactionCoder {
       nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
-        case nc @ NodeCreate(_, _, _, _, _, _, _) =>
+        case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
           val builder = TransactionOuterClass.NodeCreate.newBuilder()
           nc.stakeholders.foreach(builder.addStakeholders)
           nc.signatories.foreach(builder.addSignatories)
           builder.setContractIdStruct(encodeCid.encode(nc.coid))
           for {
-            inst <- encodeContractInstance(encodeCid, nc.versionedCoinst)
+            inst <- encodeContractInstance(
+              encodeCid,
+              nc.version,
+              nc.templateId,
+              nc.arg,
+              nc.agreementText,
+            )
             _ <- nc.key match {
               case Some(key) =>
                 encodeKeyWithMaintainers(encodeCid, nc.version, key)
@@ -335,7 +357,17 @@ object TransactionCoder {
             else
               decodeKeyWithMaintainers(decodeCid, nodeVersion, protoCreate.getKeyWithMaintainers)
                 .map(Some(_))
-        } yield ni -> NodeCreate(c, ci, None, signatories, stakeholders, key, nodeVersion)
+        } yield ni -> NodeCreate(
+          c,
+          ci.template,
+          ci.arg,
+          ci.agreementText,
+          None,
+          signatories,
+          stakeholders,
+          key,
+          nodeVersion,
+        )
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
         for {

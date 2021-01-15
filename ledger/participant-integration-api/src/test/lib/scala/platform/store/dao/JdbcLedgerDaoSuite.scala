@@ -129,7 +129,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): NodeCreate[ContractId] =
     NodeCreate(
       coid = absCid,
-      coinst = someContractInstance,
+      templateId = someTemplateId,
+      arg = someValueRecord,
+      agreementText = someAgreement,
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
@@ -495,7 +497,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         contract.copy(
           signatories = parties,
           stakeholders = parties,
-          coinst = contract.coinst.copy(template = Identifier.assertFromString(template)),
+          templateId = Identifier.assertFromString(template),
         )
       )
     } yield nodeId -> parties
@@ -593,7 +595,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val createNodeId = txBuilder.add(
       NodeCreate(
         coid = txBuilder.newCid,
-        coinst = someContractInstance,
+        someTemplateId,
+        someValueRecord,
+        someAgreement,
         optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),

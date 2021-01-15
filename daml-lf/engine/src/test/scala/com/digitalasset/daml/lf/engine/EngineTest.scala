@@ -1258,9 +1258,9 @@ class EngineTest
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
-          coins.template shouldBe templateId
-          stakeholders shouldBe Set(alice, clara)
+        case create: Node.NodeCreate[ContractId] =>
+          create.templateId shouldBe templateId
+          create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
       }
 
@@ -1270,9 +1270,9 @@ class EngineTest
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
-          coins.template shouldBe templateId
-          stakeholders shouldBe Set(alice, clara)
+        case create: Node.NodeCreate[ContractId] =>
+          create.templateId shouldBe templateId
+          create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
       }
     }

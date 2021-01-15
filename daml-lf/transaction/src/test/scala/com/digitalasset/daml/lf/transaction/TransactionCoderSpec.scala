@@ -5,10 +5,10 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueParty}
+import com.daml.lf.value.Value.{ContractId, ValueParty}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.ValueCoder
 import org.scalacheck.{Arbitrary, Gen}
@@ -249,14 +249,9 @@ class TransactionCoderSpec
       val node =
         NodeCreate[ContractId](
           coid = absCid("#test-cid"),
-          coinst = ContractInst(
-            Identifier(
-              PackageId.assertFromString("pkg-id"),
-              QualifiedName.assertFromString("Test:Name"),
-            ),
-            ValueParty(Party.assertFromString("francesco")),
-            "agreement",
-          ),
+          templateId = Identifier.assertFromString("pkg-id:Test:Name"),
+          arg = ValueParty(Party.assertFromString("francesco")),
+          agreementText = "agreement",
           optLocation = None,
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),

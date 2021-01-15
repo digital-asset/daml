@@ -95,11 +95,9 @@ final class TransactionBuilder(
     val templateId = Ref.Identifier.assertFromString(template)
     Create(
       coid = ContractId.assertFromString(id),
-      coinst = ContractInst(
-        template = templateId,
-        arg = argument,
-        agreementText = "",
-      ),
+      templateId = templateId,
+      arg = argument,
+      agreementText = "",
       optLocation = None,
       signatories = signatories.map(Ref.Party.assertFromString).toSet,
       stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
