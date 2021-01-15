@@ -878,7 +878,7 @@ parserInfo numProcessors =
     (  fullDesc
     <> progDesc "Invoke the Daml compiler. Use -h for help."
     <> headerDoc (Just $ PP.vcat
-        [ "damlc - Compiler and IDE backend for the Digital Asset Modelling Language"
+        [ "damlc - Compiler and IDE backend for the Daml programming language"
         , buildInfo
         ])
     )
