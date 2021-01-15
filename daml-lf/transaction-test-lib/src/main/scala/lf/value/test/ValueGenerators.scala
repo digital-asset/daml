@@ -347,8 +347,7 @@ object ValueGenerators {
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
       exerciseResultValue <- valueGen
-      key <- valueGen
-      maintainers <- genNonEmptyParties
+      key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield NodeExercises(
       targetCoid,
@@ -363,7 +362,7 @@ object ValueGenerators {
       choiceObservers = choiceObservers,
       children,
       Some(exerciseResultValue),
-      Some(KeyWithMaintainers(key, maintainers)),
+      key,
       byKey,
       version,
     )
@@ -374,13 +373,12 @@ object ValueGenerators {
       version <- transactionVersionGen()
       targetCoid <- coidGen
       templateId <- idGen
-      key <- valueGen
-      maintainers <- genNonEmptyParties
+      key <- keyWithMaintainersGen
       result <- Gen.option(targetCoid)
     } yield NodeLookupByKey(
       templateId,
       None,
-      KeyWithMaintainers(key, maintainers),
+      key,
       result,
       version,
     )
