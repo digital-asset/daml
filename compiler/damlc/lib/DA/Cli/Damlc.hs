@@ -13,7 +13,7 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except
-import Control.Monad.Extra (whenM)
+import Control.Monad.Extra (whenM, whenJust)
 import DA.Bazel.Runfiles
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Damlc.Base
@@ -447,22 +447,26 @@ execIde telemetry (Debug debug) enableScenarioService options =
             -- performance will be significatly impacted by large log output.
             threshold
             "LanguageServer"
+          damlCacheM <- lookupEnv damlCacheEnvVar
+          damlPathM <- lookupEnv damlPathEnvVar
           let gcpConfig = Logger.GCP.GCPConfig
                   { gcpConfigTag = "ide"
-                  , gcpConfigDamlPath = Nothing
+                  , gcpConfigCachePath = damlCacheM
+                  , gcpConfigDamlPath = damlPathM
                   }
               withLogger f = case telemetry of
                   TelemetryOptedIn ->
                     let logOfInterest prio = prio `elem` [Logger.Telemetry, Logger.Warning, Logger.Error] in
-                    Logger.GCP.withGcpLogger gcpConfig logOfInterest loggerH $ \gcpState loggerH' -> do
-                      Logger.GCP.setOptIn gcpState
-                      Logger.GCP.logMetaData gcpState
+                    Logger.GCP.withGcpLogger gcpConfig logOfInterest loggerH $ \gcpStateM loggerH' -> do
+                      whenJust gcpStateM $ \gcpState -> do
+                        Logger.GCP.setOptIn gcpState
+                        Logger.GCP.logMetaData gcpState
                       f loggerH'
-                  TelemetryOptedOut -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
-                      Logger.GCP.logOptOut gcpState
+                  TelemetryOptedOut -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpStateM loggerH -> do
+                      whenJust gcpStateM $ \gcpState -> Logger.GCP.logOptOut gcpState
                       f loggerH
-                  TelemetryIgnored -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
-                      Logger.GCP.logIgnored gcpState
+                  TelemetryIgnored -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpStateM loggerH -> do
+                      whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
           dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
