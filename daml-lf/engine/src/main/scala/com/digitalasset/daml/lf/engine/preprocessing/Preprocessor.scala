@@ -142,46 +142,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafePreprocessCommands(cmds)
     }
 
-  private def getTemplateId(node: Node.GenNode[NodeId, _]) =
-    node match {
-      case Node.NodeCreate(
-            coid @ _,
-            coinst,
-            optLoc @ _,
-            sigs @ _,
-            stks @ _,
-            key @ _,
-            version @ _,
-          ) =>
-        coinst.template
-      case Node.NodeExercises(
-            coid @ _,
-            templateId,
-            choice @ _,
-            optLoc @ _,
-            consuming @ _,
-            actingParties @ _,
-            chosenVal @ _,
-            stakeholders @ _,
-            signatories @ _,
-            choiceObservers @ _,
-            children @ _,
-            exerciseResult @ _,
-            key @ _,
-            byKey @ _,
-            version @ _,
-          ) =>
-        templateId
-      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _, _) =>
-        templateId
-      case Node.NodeLookupByKey(templateId, _, key @ _, _, _) =>
-        templateId
-    }
-
   def translateNode[Cid <: Value.ContractId](
       node: Node.GenNode[NodeId, Cid]
   ): Result[(speedy.Command, Set[Value.ContractId])] =
-    safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
+    safelyRun(getDependencies(List.empty, List(node.templateId))) {
       val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
       cmd -> globalCids
     }
@@ -190,7 +154,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       tx: GenTransaction[NodeId, Cid]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
-      getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))
+      getDependencies(List.empty, tx.roots.toList.map(id => tx.nodes(id).templateId))
     ) {
       unsafeTranslateTransactionRoots(tx)
     }
