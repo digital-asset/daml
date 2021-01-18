@@ -31,7 +31,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.compat.immutable.LazyList
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
