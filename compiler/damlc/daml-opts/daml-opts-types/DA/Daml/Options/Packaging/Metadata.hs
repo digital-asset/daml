@@ -6,6 +6,7 @@ module DA.Daml.Options.Packaging.Metadata
     writeMetadata,
     readMetadata,
     renamingToFlag,
+    metadataFile,
   ) where
 
 import Data.Aeson
@@ -29,9 +30,6 @@ import System.FilePath
 --
 -- While we can technically reconstruct all this information by
 -- reading the DARs again, this is unnecessarily wasteful.
---
--- In the future, we should also be able to include enough metadata in here
--- to decide whether we need to reinitialize the package db or not.
 data PackageDbMetadata = PackageDbMetadata
   { directDependencies :: [Ghc.UnitId]
   -- ^ Unit ids of direct dependencies. These are exposed by default
@@ -40,6 +38,9 @@ data PackageDbMetadata = PackageDbMetadata
   -- We do not bother differentiating between exposed and unexposed modules
   -- since we already warn on non-exposed modules anyway and this
   -- is intended for data-dependencies where everything is exposed.
+  , hashDependencies :: Maybe Int
+  -- ^ Hash over all dependency dars. We use this to check whether we need to reinitialize the
+  -- package db or not.
   } deriving Generic
 
 renamingToFlag :: Ghc.UnitId -> Ghc.ModuleName -> [LF.ModuleName] -> PackageFlag

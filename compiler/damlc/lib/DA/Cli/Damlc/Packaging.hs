@@ -54,6 +54,8 @@ import qualified DA.Pretty
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
+import Data.Hashable
+import Data.Binary
 
 -- | Create the project package database containing the given dar packages.
 --
@@ -70,120 +72,135 @@ import SdkVersion
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps dataDeps
-  | null dataDeps && all (`elem` basePackages) deps =
-    -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
-    --Therefore we only do it if we actually have a dependency.
-    clearPackageDb
-  | otherwise = do
-    clearPackageDb
-    deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps)
-    depsExtracted <- mapM extractDar deps
+createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps' dataDeps
+  = do
+    -- compute the hash over all dependencies
+    deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps')
+    depHash <-
+        fmap hash $
+        foldM
+            (\acc dep -> do
+                 bs <- BSL.readFile dep
+                 pure $ encode $ hash $ bs <> acc)
+            BSL.empty
+            (deps ++ dataDeps)
 
-    let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
-    let depsSdkVersions = map edSdkVersions depsExtracted
-    unless (all (== thisSdkVer) depsSdkVersions) $
-           fail $
-           "Package dependencies from different SDK versions: " ++
-           intercalate ", " uniqSdkVersions
+    -- Read the metadata of an already existing package database and see if wee need to reinitialize.
+    let metadataFileFp = metadataFile projectRoot
+    hasMetadata <- doesFileExist metadataFileFp
+    needsReinitalization <- if hasMetadata
+                            then do
+                              metaData <- readMetadata projectRoot
+                              pure $ hashDependencies metaData /= Just depHash
+                            else pure True
+    when needsReinitalization $ do
+      clearPackageDb
+      depsExtracted <- mapM extractDar deps
 
-    -- Register deps at the very beginning. This allows data-dependencies to
-    -- depend on dependencies which is necessary so that we can reconstruct typeclass
-    -- instances for a typeclass defined in a library.
-    -- It does mean that we can’t have a dependency from a dependency on a
-    -- data-dependency but that seems acceptable.
-    -- See https://github.com/digital-asset/daml/issues/4218 for more details.
-    -- TODO Enforce this with useful error messages
-    forM_ depsExtracted $
-        -- We only have the interface files for the main DALF in a `dependency` so we
-        -- also only extract the main dalf.
-        \ExtractedDar{..} -> installDar dbPath edConfFiles edMain edSrcs
+      let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
+      let depsSdkVersions = map edSdkVersions depsExtracted
+      unless (all (== thisSdkVer) depsSdkVersions) $
+             fail $
+             "Package dependencies from different SDK versions: " ++
+             intercalate ", " uniqSdkVersions
 
-    loggerH <- getLogger opts "generate package maps"
-    mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-        (,) <$> useNoFileE GenerateStablePackages
-            <*> useE GeneratePackageMap projectRoot
-    (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
-    let stablePkgIds :: Set LF.PackageId
-        stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
-    let dependenciesInPkgDbIds =
-            Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
+      -- Register deps at the very beginning. This allows data-dependencies to
+      -- depend on dependencies which is necessary so that we can reconstruct typeclass
+      -- instances for a typeclass defined in a library.
+      -- It does mean that we can’t have a dependency from a dependency on a
+      -- data-dependency but that seems acceptable.
+      -- See https://github.com/digital-asset/daml/issues/4218 for more details.
+      -- TODO Enforce this with useful error messages
+      forM_ depsExtracted $
+          -- We only have the interface files for the main DALF in a `dependency` so we
+          -- also only extract the main dalf.
+          \ExtractedDar{..} -> installDar dbPath edConfFiles edMain edSrcs
 
-    -- Now handle data-dependencies.
-    darsFromDataDependencies <- getDarsFromDataDependencies dependenciesInPkgDbIds dataDeps
-    let dalfsFromDataDependencies = concatMap dalfs darsFromDataDependencies
+      loggerH <- getLogger opts "generate package maps"
+      mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+          (,) <$> useNoFileE GenerateStablePackages
+              <*> useE GeneratePackageMap projectRoot
+      (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
+      let stablePkgIds :: Set LF.PackageId
+          stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
+      let dependenciesInPkgDbIds =
+              Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
 
-    -- All transitive packages from DARs specified in  `dependencies`.
-    -- This is only used for unit-id collision checks
-    -- and dependencies on newer LF versions.
-    darsFromDependencies <- getDarsFromDependencies dependenciesInPkgDbIds depsExtracted
-    let dalfsFromDependencies = concatMap dalfs darsFromDependencies
+      -- Now handle data-dependencies.
+      darsFromDataDependencies <- getDarsFromDataDependencies dependenciesInPkgDbIds dataDeps
+      let dalfsFromDataDependencies = concatMap dalfs darsFromDataDependencies
 
-    let dependencyInfo = DependencyInfo
-            { dependenciesInPkgDb
-            , dalfsFromDependencies
-            , dalfsFromDataDependencies
-            , mainUnitIds =
-                  map (decodedUnitId . mainDalf)
-                      (darsFromDataDependencies ++ darsFromDependencies)
-            }
+      -- All transitive packages from DARs specified in  `dependencies`.
+      -- This is only used for unit-id collision checks
+      -- and dependencies on newer LF versions.
+      darsFromDependencies <- getDarsFromDependencies dependenciesInPkgDbIds depsExtracted
+      let dalfsFromDependencies = concatMap dalfs darsFromDependencies
 
-    -- We perform this check before checking for unit id collisions
-    -- since it provides a more useful error message.
-    whenLeft
-        (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
-        exitWithError
-    whenLeft
-        (checkForUnitIdConflicts dependencyInfo)
-        exitWithError
+      let dependencyInfo = DependencyInfo
+              { dependenciesInPkgDb
+              , dalfsFromDependencies
+              , dalfsFromDataDependencies
+              , mainUnitIds =
+                    map (decodedUnitId . mainDalf)
+                        (darsFromDataDependencies ++ darsFromDependencies)
+              }
 
-    -- We run the checks for duplicate unit ids before
-    -- to avoid blowing up GHC when setting up the GHC session.
-    exposedModules <- getExposedModules opts projectRoot
+      -- We perform this check before checking for unit id collisions
+      -- since it provides a more useful error message.
+      whenLeft
+          (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
+      whenLeft
+          (checkForUnitIdConflicts dependencyInfo)
+          exitWithError
 
-    let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+      -- We run the checks for duplicate unit ids before
+      -- to avoid blowing up GHC when setting up the GHC session.
+      exposedModules <- getExposedModules opts projectRoot
+
+      let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
 
 
-    validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
+      validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
 
-    -- Iterate over the dependency graph in topological order.
-    -- We do a topological sort on the transposed graph which ensures that
-    -- the packages with no dependencies come first and we
-    -- never process a package without first having processed its dependencies.
-    forM_ (topSort $ transposeG depGraph) $ \vertex ->
-      let (pkgNode, pkgId) = vertexToNode vertex in
-      -- stable packages are mapped to the current version of daml-prim/daml-stdlib
-      -- so we don’t need to generate interface files for them.
-      unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
-        let unitIdStr = unitIdString $ unitId pkgNode
-        let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-        let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
-        let deps =
-                [ (unitId depPkgNode, dalfPackage depPkgNode)
-                | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
-                , pkgId /= depPkgId
-                , not (depPkgId `Set.member` stablePkgIds)
-                ]
-        let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-        createDirectoryIfMissing True workDir
-        -- write the dalf package
-        BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
+      -- Iterate over the dependency graph in topological order.
+      -- We do a topological sort on the transposed graph which ensures that
+      -- the packages with no dependencies come first and we
+      -- never process a package without first having processed its dependencies.
+      forM_ (topSort $ transposeG depGraph) $ \vertex ->
+        let (pkgNode, pkgId) = vertexToNode vertex in
+        -- stable packages are mapped to the current version of daml-prim/daml-stdlib
+        -- so we don’t need to generate interface files for them.
+        unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
+          let unitIdStr = unitIdString $ unitId pkgNode
+          let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+          let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
+          let deps =
+                  [ (unitId depPkgNode, dalfPackage depPkgNode)
+                  | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                  , pkgId /= depPkgId
+                  , not (depPkgId `Set.member` stablePkgIds)
+                  ]
+          let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+          createDirectoryIfMissing True workDir
+          -- write the dalf package
+          BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
 
-        generateAndInstallIfaceFiles
-            (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
-            (stubSources pkgNode)
-            opts
-            workDir
-            dbPath
-            projectPackageDatabase
-            pkgId
-            pkgName
-            mbPkgVersion
-            deps
-            dependenciesInPkgDb
-            exposedModules
+          generateAndInstallIfaceFiles
+              (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
+              (stubSources pkgNode)
+              opts
+              workDir
+              dbPath
+              projectPackageDatabase
+              pkgId
+              pkgName
+              mbPkgVersion
+              deps
+              dependenciesInPkgDb
+              exposedModules
 
-    writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes)
+      writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes (Just depHash))
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     clearPackageDb = do
