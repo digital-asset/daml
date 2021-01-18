@@ -14,7 +14,11 @@ trigger:
       - release/*
 
 # Enable PR triggers that target the main branch
-pr: none
+pr:
+  autoCancel: true # cancel previous builds on push
+  branches:
+    include:
+      - a
 
 jobs:
 - template: ci/build.yml
