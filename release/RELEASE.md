@@ -31,7 +31,7 @@ patches we backport to the 1.0 release branch).
    $ ./release.sh snapshot cc880e2 0.1.2
    cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
    ```
-   Then open a PR _to be merged in `main`_ (even if it's for a maintenance release)
+   Then open a PR _to be merged to `main`_ (even if it's for a maintenance release)
    with the changed `LATEST` file, add the line produced by the `release.sh`
    invocation in a meaningful position and add the `Standard-Change` label. It
    is better to add such a label _before confirming the PR's creation_, else
