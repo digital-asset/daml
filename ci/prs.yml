@@ -3,23 +3,14 @@
 
 # Azure Pipelines file, see https://aka.ms/yaml
 
-# Enable builds on all branches
-trigger:
-  # Build every commit as our release process relies on
-  # the release process being built alone.
-  batch: false
-  branches:
-    include:
-      - master
-      - release/*
+trigger: none
 
 # Enable PR triggers that target the master branch
 pr:
   autoCancel: true # cancel previous builds on push
   branches:
     include:
-      - master
-      - release/*
+      - release/1.0.x
 
 jobs:
   - job: git_sha
@@ -90,7 +81,7 @@ jobs:
     pool:
       name: 'linux-pool'
     steps:
-      - template: ci/report-start.yml
+      - template: report-start.yml
       - checkout: self
       - bash: |
           set -euo pipefail
@@ -98,7 +89,7 @@ jobs:
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
-      - template: ci/build-unix.yml
+      - template: build-unix.yml
         parameters:
           release_tag: $(release_tag)
           name: 'linux'
@@ -109,10 +100,10 @@ jobs:
           bazel build //release:release
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
         condition: and(succeeded(), ne(variables['is_release'], 'true'))
-      - template: ci/tell-slack-failed.yml
+      - template: tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
+      - template: report-end.yml
 
   - job: macOS
     dependsOn:
@@ -128,7 +119,7 @@ jobs:
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
-      - template: ci/report-start.yml
+      - template: report-start.yml
       - checkout: self
       - bash: |
           set -euo pipefail
@@ -142,17 +133,17 @@ jobs:
         inputs:
           key: $(bazel-repo-cache-key)
           path: $(bazel-repo-cache-path)
-      - template: ci/build-unix.yml
+      - template: build-unix.yml
         parameters:
           release_tag: $(release_tag)
           name: macos
           is_release: variables.is_release
       - bash: mkdir -p $(bazel-repo-cache-path)
         displayName: ensure bazel repo cache exists
-      - template: ci/tell-slack-failed.yml
+      - template: tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
+      - template: report-end.yml
 
   - job: Windows
     dependsOn:
@@ -166,7 +157,7 @@ jobs:
     pool:
       name: 'windows-pool'
     steps:
-      - template: ci/report-start.yml
+      - template: report-start.yml
       - checkout: self
       - bash: |
           set -euo pipefail
@@ -174,14 +165,14 @@ jobs:
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
-      - template: ci/build-windows.yml
+      - template: build-windows.yml
         parameters:
           release_tag: $(release_tag)
           is_release: variables.is_release
-      - template: ci/tell-slack-failed.yml
+      - template: tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
+      - template: report-end.yml
 
   - job: check_for_release
     dependsOn:
@@ -215,134 +206,10 @@ jobs:
         name: out
 
   - job: release
-    dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
-    condition: and(succeeded(),
-                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
-    pool:
-      vmImage: "Ubuntu-16.04"
-    variables:
-      linux-tarball: $[ dependencies.Linux.outputs['publish.tarball'] ]
-      macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
-      windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
-      windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
-      protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-        persistCredentials: true
-      - bash: |
-          set -euxo pipefail
-          if git tag v$(release_tag) $(release_sha); then
-            git push origin v$(release_tag)
-            mkdir $(Build.StagingDirectory)/release
-          else
-            echo "##vso[task.setvariable variable=skip-github]TRUE"
-          fi
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(linux-tarball)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(macos-tarball)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(windows-tarball)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(windows-installer)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(protos-zip)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - bash: |
-          set -euo pipefail
-          KEY_FILE=$(mktemp)
-          GPG_DIR=$(mktemp -d)
-          cleanup() {
-              rm -rf $KEY_FILE $GPG_DIR
-          }
-          trap cleanup EXIT
-          echo "$GPG_KEY" | base64 -d > $KEY_FILE
-          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
-          cd $(Build.StagingDirectory)/release
-          # Note: relies on our release artifacts not having spaces in their
-          # names. Creates a ${f}.asc with the signature for each $f.
-          for f in *; do
-              gpg --homedir $GPG_DIR -ab $f
-          done
-        env:
-          GPG_KEY: $(gpg-code-signing)
-      - task: GitHubRelease@0
-        inputs:
-          gitHubConnection: 'garyverhaegen-da'
-          repositoryName: '$(Build.Repository.Name)'
-          action: 'create'
-          target: '$(release_sha)'
-          tagSource: 'manual'
-          tag: 'v$(release_tag)'
-          assets: $(Build.StagingDirectory)/release/*
-          assetUploadMode: 'replace'
-          title: 'v$(release_tag)'
-          addChangeLog: false
-          isPrerelease: true
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
+    condition: false
 
   - job: write_ledger_dump
-    dependsOn: [ "check_for_release" ]
-    pool:
-      vmImage: "Ubuntu-16.04"
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    steps:
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-
-          git checkout $(release_sha)
-          export DAML_SDK_RELEASE_VERSION=$(release_tag)
-
-          sudo mkdir -p /nix
-          sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
-          eval "$(dev-env/bin/dade-assist)"
-          GCS_KEY=$(mktemp)
-          cleanup () {
-              rm -f $GCS_KEY
-          }
-          trap cleanup EXIT
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          export BOTO_CONFIG=/dev/null
-
-          bazel build //ledger/participant-state/kvutils:reference-ledger-dump
-          gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
-                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
+    condition: false
 
   - job: collect_build_data
     condition: always()
