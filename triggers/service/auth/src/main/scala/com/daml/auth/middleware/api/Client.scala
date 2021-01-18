@@ -23,7 +23,14 @@ import akka.http.scaladsl.model.{
   Uri,
   headers,
 }
-import akka.http.scaladsl.server.{ContentNegotiator, Directive, Directive1, Route, StandardRoute}
+import akka.http.scaladsl.server.{
+  ContentNegotiator,
+  Directive,
+  Directive0,
+  Directive1,
+  Route,
+  StandardRoute,
+}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.Client.{AuthException, RedirectToLogin, RefreshException}
@@ -63,11 +70,17 @@ class Client(config: Client.Config) {
     preferred.map(_.mediaType) == Some(MediaTypes.`text/html`)
   }
 
-  private val redirectToLogin: Directive1[Boolean] =
+  /** Pass control to the inner directive if we should redirect to login on auth failure, reject otherwise.
+    */
+  private val onRedirectToLogin: Directive0 =
     config.redirectToLogin match {
-      case RedirectToLogin.No => provide(false)
-      case RedirectToLogin.Yes => provide(true)
-      case RedirectToLogin.Auto => isHtmlRequest
+      case RedirectToLogin.No => reject
+      case RedirectToLogin.Yes => pass
+      case RedirectToLogin.Auto =>
+        isHtmlRequest.flatMap {
+          case false => reject
+          case true => pass
+        }
     }
 
   /** This directive requires authorization for the given claims via the auth middleware.
@@ -88,17 +101,15 @@ class Client(config: Client.Config) {
       case Some(authorization) => provide(Client.Authorized(authorization))
       // Authorization failed - login and retry on callback request.
       case None =>
-        redirectToLogin.flatMap {
-          case false =>
-            unauthorized(claims)
-          case true =>
+        onRedirectToLogin
+          .tflatMap { _ =>
             // Ensure that the request is fully uploaded.
             val timeout = config.httpEntityUploadTimeout
             val maxBytes = config.maxHttpEntityUploadSize
             toStrictEntity(timeout, maxBytes).tflatMap { _ =>
               extractRequestContext.flatMap { ctx =>
-                Directive { inner =>
-                  def continue(result: Client.AuthorizeResult) =
+                Directive { (inner: Tuple1[Client.AuthorizeResult] => Route) =>
+                  def continue(result: Client.AuthorizeResult): Route =
                     mapRequestContext(_ => ctx) {
                       inner(Tuple1(result))
                     }
@@ -115,7 +126,8 @@ class Client(config: Client.Config) {
                 }
               }
             }
-        }
+          }
+          .or(unauthorized(claims))
     }
   }
 
