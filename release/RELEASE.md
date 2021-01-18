@@ -33,7 +33,8 @@ patches we backport to the 1.0 release branch).
    ```
    Then open a PR _to be merged to `main`_ (even if it's for a maintenance release)
    with the changed `LATEST` file, add the line produced by the `release.sh`
-   invocation in a meaningful position and add the `Standard-Change` label. It
+   invocation in a meaningful position (if you’re not sure, [semver](https://semver.org/) ordering is
+   probably the right thing to do) and add the `Standard-Change` label. It
    is better to add such a label _before confirming the PR's creation_, else
    the associated CI check will fail and merging the PR will require you to
    re-run it after all the other ones have completed successfully.
