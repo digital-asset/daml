@@ -22,7 +22,7 @@ patches we backport to the 1.0 release branch).
    (`#team-daml`) if you're not sure.
 
    If you are manually creating the PR for an out-of-schedule snapshot, start
-   from latest `main` and run
+   _from latest `main`_ and run
    ```
    ./release.sh snapshot <sha> <prefix>
    ```
@@ -31,8 +31,13 @@ patches we backport to the 1.0 release branch).
    $ ./release.sh snapshot cc880e2 0.1.2
    cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
    ```
-   Then open a PR with the changed `LATEST` file, and add the `Standard-Change`
-   label.
+   Then open a PR _to be merged to `main`_ (even if it's for a maintenance release)
+   with the changed `LATEST` file, add the line produced by the `release.sh`
+   invocation in a meaningful position (if you’re not sure, [semver](https://semver.org/) ordering is
+   probably the right thing to do) and add the `Standard-Change` label. It
+   is better to add such a label _before confirming the PR's creation_, else
+   the associated CI check will fail and merging the PR will require you to
+   re-run it after all the other ones have completed successfully.
 
 1. Once the PR has built, check that it was considered a release build by our
    CI. If you are working from an automated PR, check that it sent a message to
@@ -211,10 +216,10 @@ patches we backport to the 1.0 release branch).
        1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
        1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
-       > Note: It takes some time for our artifacts to be available on Maven
-       > Central. If you try running the last command before the artifacts are
-       > available, you will get a "not found" error. Trying to build again _in
-       > the next 24 hours_ will result in:
+       > Note: It takes some time (typically around half-an-hour) for our artifacts
+       > to be available on Maven Central. If you try running the last command before
+       > the artifacts are available, you will get a "not found" error. Trying to
+       > build again _in the next 24 hours_ will result in:
        >
        > ```
        > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
@@ -227,6 +232,10 @@ patches we backport to the 1.0 release branch).
        > bypass your local cache of the failure; it will not be required for a
        > user trying to run the quickstart after the artifacts have been
        > published.
+       >
+       > Another common problem is that artifacts fail to resolve because of custom
+       > Maven settings. Check your `~/.m2/settings.xml` configuration and try
+       > disabling them temporarily.
 
     1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
        that there is 1 contract, 3 templates and 1 owned IOU.
