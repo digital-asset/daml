@@ -595,9 +595,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val createNodeId = txBuilder.add(
       NodeCreate(
         coid = txBuilder.newCid,
-        someTemplateId,
-        someValueRecord,
-        someAgreement,
+        templateId = someTemplateId,
+        arg = someValueRecord,
+        agreementText = someAgreement,
         optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),
