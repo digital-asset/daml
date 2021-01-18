@@ -241,13 +241,15 @@ private[lf] case class PartialTransaction(
     */
   def insertCreate(
       auth: Option[Authorize],
-      coinst: Value.ContractInst[Value[Value.ContractId]],
+      templateId: Ref.Identifier,
+      arg: Value[Value.ContractId],
+      agreementText: String,
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
   ): Either[String, (Value.ContractId, PartialTransaction)] = {
-    val serializableErrs = serializable(coinst.arg)
+    val serializableErrs = serializable(arg)
     if (serializableErrs.nonEmpty) {
       Left(
         s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
@@ -260,12 +262,14 @@ private[lf] case class PartialTransaction(
       val cid = Value.ContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
         cid,
-        coinst,
+        templateId,
+        arg,
+        agreementText,
         optLocation,
         signatories,
         stakeholders,
         key,
-        packageToTransactionVersion(coinst.template.packageId),
+        packageToTransactionVersion(templateId.packageId),
       )
       val nid = NodeId(nextNodeIdx)
       val ptx = copy(
@@ -280,7 +284,7 @@ private[lf] case class PartialTransaction(
       key match {
         case None => Right((cid, ptx))
         case Some(kWithM) =>
-          val ck = GlobalKey(coinst.template, kWithM.key)
+          val ck = GlobalKey(templateId, kWithM.key)
           Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
       }
     }

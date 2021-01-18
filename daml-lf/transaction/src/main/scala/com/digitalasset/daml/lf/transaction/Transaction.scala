@@ -233,7 +233,7 @@ final case class GenTransaction[Nid, +Cid](
     fold(z) { case (z, (_, n)) =>
       n match {
         case c: Node.NodeCreate[_] =>
-          val z1 = f(z, c.coinst.arg)
+          val z1 = f(z, c.arg)
           val z2 = c.key match {
             case None => z1
             case Some(k) => f(z1, k.key)
@@ -321,7 +321,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   final def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
     fold(Map.empty[Cid2, Nid]) {
-      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _, _))) =>
+      case (acc, (nid, create: Node.NodeCreate[Cid])) =>
         acc.updated(create.coid, nid)
       case (acc, _) => acc
     }
@@ -456,8 +456,8 @@ object GenTransaction extends value.CidContainer2[GenTransaction] {
 
     tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
       node match {
-        case Node.NodeCreate(_, c, _, _, _, Some(key), _) =>
-          state.created(globalKey(c.template, key.key))
+        case Node.NodeCreate(_, tmplId, _, _, _, _, _, Some(key), _) =>
+          state.created(globalKey(tmplId, key.key))
         case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.consumed(globalKey(tmplId, key.key))
         case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
@@ -578,7 +578,9 @@ object Transaction {
             case (
                   Node.NodeCreate(
                     coid1,
-                    coinst1,
+                    tmplId1,
+                    arg1,
+                    agreementText1,
                     optLocation1 @ _,
                     signatories1,
                     stakeholders1,
@@ -587,7 +589,9 @@ object Transaction {
                   ),
                   Node.NodeCreate(
                     coid2,
-                    coinst2,
+                    tmplId2,
+                    arg2,
+                    agreementText2,
                     optLocation2 @ _,
                     signatories2,
                     stakeholders2,
@@ -597,7 +601,9 @@ object Transaction {
                 )
                 if version1 == version2 &&
                   coid1 === coid2 &&
-                  coinst1 === coinst2 &&
+                  tmplId1 == tmplId2 &&
+                  arg1 === arg2 &&
+                  agreementText1 == agreementText2 &&
                   signatories1 == signatories2 &&
                   stakeholders1 == stakeholders2 &&
                   key1 === key2 =>
