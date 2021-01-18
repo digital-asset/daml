@@ -53,21 +53,21 @@ class Client(config: Client.Config) {
       }
     }
 
-  private val isJsonRequest: Directive1[Boolean] = extractRequest.map { req =>
+  private val isHtmlRequest: Directive1[Boolean] = extractRequest.map { req =>
     val negotiator = ContentNegotiator(req.headers)
     val contentTypes = List(
       ContentNegotiator.Alternative(MediaTypes.`application/json`),
       ContentNegotiator.Alternative(MediaTypes.`text/html`),
     )
     val preferred = negotiator.pickContentType(contentTypes)
-    preferred == Some(MediaTypes.`application/json`.toContentType)
+    preferred.map(_.mediaType) == Some(MediaTypes.`text/html`)
   }
 
   private val redirectToLogin: Directive1[Boolean] =
     config.redirectToLogin match {
       case RedirectToLogin.No => provide(false)
       case RedirectToLogin.Yes => provide(true)
-      case RedirectToLogin.Auto => isJsonRequest.map(!_)
+      case RedirectToLogin.Auto => isHtmlRequest
     }
 
   /** This directive requires authorization for the given claims via the auth middleware.
