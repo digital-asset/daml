@@ -41,7 +41,6 @@ import scala.util.{Failure, Success}
 class IntegrityChecker[LogResult](
     commitStrategySupportBuilder: Metrics => CommitStrategySupport[LogResult]
 ) {
-
   private val metricRegistry = new MetricRegistry
   private val metrics = new Metrics(metricRegistry)
   private val commitStrategySupport = commitStrategySupportBuilder(metrics)
@@ -349,6 +348,9 @@ class IntegrityChecker[LogResult](
 }
 
 object IntegrityChecker {
+  type CommitStrategySupportFactory[LogResult] =
+    (Metrics, ExecutionContext) => CommitStrategySupport[LogResult]
+
   def rawHexString(raw: Raw.Bytes): String =
     raw.bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
@@ -363,7 +365,7 @@ object IntegrityChecker {
 
   def run[LogResult](
       args: Array[String],
-      commitStrategySupportFactory: (Metrics, ExecutionContext) => CommitStrategySupport[LogResult],
+      commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Unit = {
     val config = Config.parse(args).getOrElse {
       sys.exit(1)
@@ -373,7 +375,7 @@ object IntegrityChecker {
 
   def run[LogResult](
       config: Config,
-      commitStrategySupportFactory: (Metrics, ExecutionContext) => CommitStrategySupport[LogResult],
+      commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Unit = {
     runAsync(config, commitStrategySupportFactory).failed
       .foreach {
@@ -401,7 +403,7 @@ object IntegrityChecker {
 
   private def runAsync[LogResult](
       config: Config,
-      commitStrategySupportFactory: (Metrics, ExecutionContext) => CommitStrategySupport[LogResult],
+      commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Future[Unit] = {
     println(s"Verifying integrity of ${config.exportFilePath}...")
 
