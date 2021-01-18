@@ -490,6 +490,7 @@ object Server {
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
+      authRedirectToLogin: AuthClient.RedirectToLogin,
       authCallback: Option[Uri],
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
@@ -514,6 +515,7 @@ object Server {
           AuthClient(
             AuthClient.Config(
               authMiddlewareUri = uri,
+              redirectToLogin = authRedirectToLogin,
               callbackUri = authCallback.getOrElse {
                 Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb"))
               },
