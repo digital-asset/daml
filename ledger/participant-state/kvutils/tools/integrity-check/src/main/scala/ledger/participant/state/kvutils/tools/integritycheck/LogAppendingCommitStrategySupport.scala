@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
@@ -21,10 +20,9 @@ import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
 
-final class LogAppendingCommitStrategySupport(implicit executionContext: ExecutionContext)
-    extends CommitStrategySupport[Index] {
-  private val metrics = new Metrics(new MetricRegistry)
-
+final class LogAppendingCommitStrategySupport(metrics: Metrics)(implicit
+    executionContext: ExecutionContext
+) extends CommitStrategySupport[Index] {
   private val ledgerStateOperations =
     InMemoryLedgerStateOperations()
 

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
@@ -14,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingCommitStrategySupportSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
+import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -22,7 +24,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.concurrent.ExecutionContext
 
 final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Matchers with Inside {
-  private val support = new LogAppendingCommitStrategySupport()(ExecutionContext.global)
+  private val support = new LogAppendingCommitStrategySupport(new Metrics(new MetricRegistry))(
+    ExecutionContext.global
+  )
 
   "checking the entries are readable" should {
     "parse a log entry" in {
