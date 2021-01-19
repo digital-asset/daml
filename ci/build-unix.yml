@@ -38,7 +38,8 @@ steps:
           echo "Deleting '$disk_cache'..."
           rm -rf "$disk_cache"
       else
-          echo "Disk cache small enough:\n$(du -hs "$disk_cache")"
+          echo "Disk cache small enough:"
+          du -hs "$disk_cache"
       fi
       local_cache=$HOME/.cache/bazel
       if [ -d "$local_cache" ]; then
@@ -47,7 +48,8 @@ steps:
               chmod -R +w "$local_cache"
               rm -rf "$local_cache"
           else
-              echo "Local cache small enough:\n$(du -hs "$local_cache")"
+              echo "Local cache small enough:"
+              du -hs "$local_cache"
           fi
       else
           echo "No '$local_cache', moving on."
