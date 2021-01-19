@@ -223,5 +223,5 @@ final class DivulgenceIT extends LedgerTestSuite {
       // nothing to test, if the workflow ends successfully the test is considered successful
     }
   })
-
 }
+
