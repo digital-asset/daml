@@ -58,7 +58,9 @@ object Node {
     ): GenNode[A1, A2] => GenNode[B1, B2] = {
       case self @ NodeCreate(
             coid,
-            coinst,
+            _,
+            arg,
+            _,
             _,
             _,
             _,
@@ -67,7 +69,7 @@ object Node {
           ) =>
         self.copy(
           coid = f2(coid),
-          coinst = Value.ContractInst.map1(Value.map1(f2))(coinst),
+          arg = Value.map1(f2)(arg),
           key = key.map(KeyWithMaintainers.map1(Value.map1(f2))),
         )
       case self @ NodeFetch(
@@ -128,7 +130,9 @@ object Node {
     ): GenNode[A, B] => Unit = {
       case NodeCreate(
             coid,
-            coinst,
+            templateI @ _,
+            arg,
+            agreementText @ _,
             optLocation @ _,
             signatories @ _,
             stakeholders @ _,
@@ -136,7 +140,7 @@ object Node {
             _,
           ) =>
         f2(coid)
-        Value.ContractInst.foreach1(Value.foreach1(f2))(coinst)
+        Value.foreach1(f2)(arg)
         key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
       case NodeFetch(
             coid,
@@ -191,7 +195,9 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid](
       coid: Cid,
-      coinst: Value.ContractInst[Value[Cid]],
+      override val templateId: TypeConName,
+      arg: Value[Cid],
+      agreementText: String,
       optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -201,14 +207,16 @@ object Node {
   ) extends LeafOnlyNode[Cid]
       with NodeInfo.Create {
 
-    override def templateId: TypeConName = coinst.template
     override def byKey: Boolean = false
 
     override private[lf] def updateVersion(version: TransactionVersion): NodeCreate[Cid] =
       copy(version = version)
 
+    def coinst: Value.ContractInst[Value[Cid]] =
+      Value.ContractInst(templateId, arg, agreementText)
+
     def versionedCoinst: Value.ContractInst[Value.VersionedValue[Cid]] =
-      Value.ContractInst.map1(versionValue)(coinst)
+      Value.ContractInst(templateId, versionValue(arg), agreementText)
 
     def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
       key.map(KeyWithMaintainers.map1(versionValue))

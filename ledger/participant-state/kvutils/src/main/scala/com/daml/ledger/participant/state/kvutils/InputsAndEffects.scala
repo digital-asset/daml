@@ -73,6 +73,16 @@ private[kvutils] object InputsAndEffects {
       if (!localContract.isDefinedAt(coid))
         inputs += contractIdToStateKey(coid)
 
+    def addKeyInput(
+        templateId: Identifier,
+        keyWithMaintainers: Node.KeyWithMaintainers[Value[ContractId]],
+    ): Unit = {
+      inputs += globalKeyToStateKey(
+        GlobalKey(templateId, forceNoContractIds(keyWithMaintainers.key))
+      )
+      ()
+    }
+
     def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
       parties.toList.sorted.map(partyStateKey)
@@ -127,15 +137,13 @@ private[kvutils] object InputsAndEffects {
           case fetch: Node.NodeFetch[Value.ContractId] =>
             addContractInput(fetch.coid)
             fetch.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
-                GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key))
+              addKeyInput(fetch.templateId, keyWithMaintainers
               )
             }
 
           case create: Node.NodeCreate[Value.ContractId] =>
             create.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
-                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key))
+              addKeyInput(create.coinst.template, keyWithMaintainers
               )
             }
 
@@ -143,15 +151,12 @@ private[kvutils] object InputsAndEffects {
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
             lookup.result.foreach(addContractInput)
-            inputs += globalKeyToStateKey(
-              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key))
-            )
+            addKeyInput(lookup.templateId, lookup.key)
         }
         inputs ++= partyInputs(leafNode.informeesOfNode)
       },
       (_, _) => (),
     )
-
     (inputs.toList, resolvedContractIdsMap.map(m => resolvedContractKeyIdPair(m._1, m._2)).toList)
   }
 

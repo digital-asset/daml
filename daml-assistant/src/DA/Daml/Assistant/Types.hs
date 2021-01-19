@@ -50,6 +50,7 @@ assistantErrorDetails msg details =
 
 data Env = Env
     { envDamlPath      :: DamlPath
+    , envCachePath :: CachePath
     , envDamlAssistantPath :: DamlAssistantPath
     , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
     , envProjectPath   :: Maybe ProjectPath

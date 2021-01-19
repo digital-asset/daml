@@ -955,7 +955,7 @@ private[platform] object JdbcLedgerDao {
       validate = false,
       metrics,
       lfValueTranslationCache,
-      jdbcAsyncCommits = jdbcAsyncCommits,
+      jdbcAsyncCommits = jdbcAsyncCommits && dbType.supportsAsynchronousCommits,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 

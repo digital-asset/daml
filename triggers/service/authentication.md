@@ -40,14 +40,17 @@ all that much, they just need to be fixed once).
    status code.
 
 2. /login If /auth returned unauthorized, the trigger service will
-   redirect users to this. The parameters will include the requested
-   claims as well as a callback URL (note that this is not the OAuth2 callback url but a callback URL on the trigger service). This will start an auth flow,
+   redirect users to this.
+   For HTML requests via HTTP redirect, otherwise via a custom WWW-Authenticate challenge in a 401 resonse.
+   The parameters will include the requested claims as well as an optional callback URL (note that this is not the OAuth2 callback url but a callback URL on the trigger service). This will start an auth flow,
    e.g., an OAuth2 authorization code grant. If the flow succeeds the
    auth service will set a cookie with the access and refresh token
-   and redirect to the callback URL. At this point, a request to
+   and redirect to the callback URL if present or return status code 200.
+   At this point, a request to
    /auth will succeed (based on the cookie). If the flow failed the
    auth service will not set a cookie and redirect to the callback URL
-   with an additional error and optional error_description parameter.
+   with an additional error and optional error_description parameter
+   or return 403 with error and optional error_description in the response body.
 
 3. /refresh This accepts a refresh token and returns a new access
    token and optionally a new refresh token (or fails).

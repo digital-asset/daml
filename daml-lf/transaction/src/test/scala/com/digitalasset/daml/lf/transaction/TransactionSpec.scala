@@ -221,7 +221,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
         cid2 -> V.ContractId.V1.assertBuild(cid2.discriminator, suffix2),
       )
 
-      dummyCreateNode("dd").coinst.suffixCid(mapping1)
+      dummyCreateNode("dd").arg.suffixCid(mapping1)
 
       val tx1 = tx.suffixCid(mapping1)
       val tx2 = tx.suffixCid(mapping1)
@@ -275,14 +275,9 @@ object TransactionSpec {
   def dummyCreateNode(cid: String): NodeCreate[V.ContractId] =
     NodeCreate(
       coid = toCid(cid),
-      coinst = V.ContractInst(
-        Ref.Identifier(
-          Ref.PackageId.assertFromString("-dummyPkg-"),
-          Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
-        ),
-        V.ValueContractId(dummyCid),
-        "dummyAgreement",
-      ),
+      templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
+      arg = V.ValueContractId(dummyCid),
+      agreementText = "dummyAgreement",
       optLocation = None,
       signatories = Set.empty,
       stakeholders = Set.empty,

@@ -67,7 +67,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 if !tyConAlreadySeen0(tyCon) =>
               compiledPackages.signatures.lift(pkgId) match {
                 case Some(pkg) =>
-                  SignatureLookup.lookupDataType(pkg, qualifiedName) match {
+                  pkg.lookupDataType(qualifiedName) match {
                     case Right(Ast.DDataType(_, _, dataType)) =>
                       val typesToProcess = dataType match {
                         case Ast.DataRecord(fields) =>
@@ -84,7 +84,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                         tmplsAlreadySeen0,
                       )
                     case Left(e) =>
-                      ResultError(e)
+                      ResultError(Error(e))
                   }
                 case None =>
                   pullPackage(pkgId)
@@ -102,7 +102,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
               val pkgId = tmplId.packageId
               compiledPackages.getSignature(pkgId) match {
                 case Some(pkg) =>
-                  SignatureLookup.lookupTemplate(pkg, tmplId.qualifiedName) match {
+                  pkg.lookupTemplate(tmplId.qualifiedName) match {
                     case Right(template) =>
                       val typs0 = template.choices.map(_._2.argBinder._2).toList
                       val typs1 =
@@ -110,7 +110,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                       go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
                     case Left(error) =>
-                      ResultError(error)
+                      ResultError(Error(error))
                   }
                 case None =>
                   pullPackage(pkgId)
@@ -142,46 +142,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafePreprocessCommands(cmds)
     }
 
-  private def getTemplateId(node: Node.GenNode[NodeId, _]) =
-    node match {
-      case Node.NodeCreate(
-            coid @ _,
-            coinst,
-            optLoc @ _,
-            sigs @ _,
-            stks @ _,
-            key @ _,
-            version @ _,
-          ) =>
-        coinst.template
-      case Node.NodeExercises(
-            coid @ _,
-            templateId,
-            choice @ _,
-            optLoc @ _,
-            consuming @ _,
-            actingParties @ _,
-            chosenVal @ _,
-            stakeholders @ _,
-            signatories @ _,
-            choiceObservers @ _,
-            children @ _,
-            exerciseResult @ _,
-            key @ _,
-            byKey @ _,
-            version @ _,
-          ) =>
-        templateId
-      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _, _) =>
-        templateId
-      case Node.NodeLookupByKey(templateId, _, key @ _, _, _) =>
-        templateId
-    }
-
   def translateNode[Cid <: Value.ContractId](
       node: Node.GenNode[NodeId, Cid]
   ): Result[(speedy.Command, Set[Value.ContractId])] =
-    safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
+    safelyRun(getDependencies(List.empty, List(node.templateId))) {
       val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
       cmd -> globalCids
     }
@@ -190,7 +154,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       tx: GenTransaction[NodeId, Cid]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
-      getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))
+      getDependencies(List.empty, tx.roots.toList.map(id => tx.nodes(id).templateId))
     ) {
       unsafeTranslateTransactionRoots(tx)
     }
@@ -220,7 +184,7 @@ private[preprocessing] object Preprocessor {
     throw PreprocessorError(e)
 
   @throws[PreprocessorException]
-  def assertRight[X](either: Either[Error, X]): X = either match {
+  def assertRight[X](either: Either[String, X]): X = either match {
     case Left(e) => fail(e)
     case Right(v) => v
   }

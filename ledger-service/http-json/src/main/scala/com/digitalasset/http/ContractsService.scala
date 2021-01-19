@@ -51,7 +51,7 @@ class ContractsService(
 
   type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
 
-  private val daoAndFetch: Option[(dbbackend.ContractDao, ContractsFetch)] = contractDao.map {
+  private[http] val daoAndFetch: Option[(dbbackend.ContractDao, ContractsFetch)] = contractDao.map {
     dao =>
       (
         dao,
@@ -366,6 +366,9 @@ class ContractsService(
     sealed case class Filter(p: P) extends InMemoryQuery
   }
 
+  /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
+    * and ending at `terminates`.
+    */
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       parties: OneAnd[Set, lar.Party],

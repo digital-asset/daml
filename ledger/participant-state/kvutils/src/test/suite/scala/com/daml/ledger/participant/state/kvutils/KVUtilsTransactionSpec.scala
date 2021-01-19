@@ -31,6 +31,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.compat.immutable.LazyList
+import scala.jdk.CollectionConverters._
 
 class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
@@ -73,6 +74,40 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
+
+    "add the key of an exercised contract as a submission input" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob,
+      eve,
+    ) { simplePackage =>
+      val seed0 = seed(0)
+      val seed1 = seed(1)
+      for {
+        transaction1 <- runSimpleCommand(alice, seed0, simpleCreateCmd(simplePackage))
+        result <- submitTransaction(
+          submitter = alice,
+          transaction = transaction1,
+          submissionSeed = seed0,
+        )
+        (entryId, logEntry) = result
+        contractId = contractIdOfCreateTransaction(
+          KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
+        )
+
+        transaction2 <- runSimpleCommand(
+          alice,
+          seed1,
+          simplePackage.simpleExerciseConsumeCmd(contractId),
+        )
+        submission <- prepareTransactionSubmission(
+          submitter = alice,
+          transaction = transaction2,
+          submissionSeed = seed1,
+        )
+      } yield {
+        submission.getInputDamlStateList.asScala.filter(_.hasContractKey) should not be empty
+      }
+    }
 
     "be able to submit a transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       simplePackage =>

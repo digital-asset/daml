@@ -11,23 +11,14 @@ import scala.concurrent.Future
 
 class HttpServiceWithPostgresIntTest
     extends AbstractHttpServiceIntegrationTest
-    with PostgresAroundAll {
-
-  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+    with PostgresAroundAll
+    with HttpServicePostgresInt {
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  // has to be lazy because postgresFixture is NOT initialized yet
-  private lazy val jdbcConfig_ = JdbcConfig(
-    driver = "org.postgresql.Driver",
-    url = postgresDatabase.url,
-    user = "test",
-    password = "",
-    createSchema = true,
-  )
-
+  // has to be lazy because jdbcConfig_ is NOT initialized yet
   private lazy val dao = dbbackend.ContractDao(
     jdbcDriver = jdbcConfig_.driver,
     jdbcUrl = jdbcConfig_.url,

@@ -11,6 +11,7 @@ import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
+import com.daml.lf.value.Value.ValueText
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -412,7 +413,7 @@ object PostCommitValidationSpec {
       argument = TxBuilder.record("field" -> "value"),
       signatories = Seq("Alice"),
       observers = Seq.empty,
-      key = Some("key"),
+      key = Some(ValueText("key")),
     )
 
   private def genTestExercise(create: TxBuilder.Create): TxBuilder.Exercise =

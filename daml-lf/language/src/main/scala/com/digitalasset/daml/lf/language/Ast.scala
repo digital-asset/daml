@@ -851,8 +851,10 @@ object Ast {
       languageVersion: LanguageVersion,
       metadata: Option[PackageMetadata],
   ) {
+
     def lookupModule(modName: ModuleName): Either[String, GenModule[E]] =
       modules.get(modName).toRight(s"Could not find module ${modName.toString}")
+
     def lookupDefinition(identifier: QualifiedName): Either[String, GenDefinition[E]] =
       lookupModule(identifier.module).flatMap(
         _.definitions
@@ -861,6 +863,60 @@ object Ast {
             s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"
           )
       )
+
+    def lookupDataType(identifier: Ref.QualifiedName): Either[String, DDataType] =
+      for {
+        defn <- lookupDefinition(identifier)
+        dataTyp <- defn match {
+          case dataType: DDataType => Right(dataType)
+          case _: GenDValue[_] =>
+            Left(s"Got value definition instead of datatype when looking up $identifier")
+          case _: DTypeSyn =>
+            Left(s"Got type synonym definition instead of datatype when looking up $identifier")
+        }
+      } yield dataTyp
+
+    def lookupRecord(
+        identifier: Ref.QualifiedName
+    ): Either[String, (ImmArray[(TypeVarName, Kind)], DataRecord)] =
+      lookupDataType(identifier).flatMap { dataTyp =>
+        dataTyp.cons match {
+          case rec: DataRecord =>
+            Right((dataTyp.params, rec))
+          case _: DataVariant =>
+            Left(s"Expecting record for identifier $identifier, got variant")
+          case _: DataEnum =>
+            Left(s"Expecting record for identifier $identifier, got enum")
+        }
+      }
+
+    def lookupVariant(
+        identifier: Ref.QualifiedName
+    ): Either[String, (ImmArray[(TypeVarName, Kind)], DataVariant)] =
+      lookupDataType(identifier).flatMap { dataTyp =>
+        dataTyp.cons match {
+          case v: DataVariant =>
+            Right((dataTyp.params, v))
+          case _: DataRecord =>
+            Left(s"Expecting variant for identifier $identifier, got record")
+          case _: DataEnum =>
+            Left(s"Expecting variant for identifier $identifier, got enum")
+        }
+      }
+
+    def lookupEnum(identifier: Ref.QualifiedName): Either[String, DataEnum] =
+      lookupDataType(identifier).flatMap { dataTyp =>
+        dataTyp.cons match {
+          case v: DataEnum =>
+            Right(v)
+          case _: DataVariant =>
+            Left(s"Expecting enum for identifier $identifier, got variant")
+          case _: DataRecord =>
+            Left(s"Expecting enum for identifier $identifier, got record")
+
+        }
+      }
+
     def lookupTemplate(identifier: QualifiedName): Either[String, GenTemplate[E]] =
       lookupModule(identifier.module).flatMap(
         _.templates

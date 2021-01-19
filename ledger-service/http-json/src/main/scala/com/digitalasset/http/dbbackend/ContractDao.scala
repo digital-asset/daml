@@ -12,7 +12,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
-import scalaz.OneAnd
+import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
@@ -100,6 +100,74 @@ object ContractDao {
     } yield domainContracts
   }
 
+  private[http] def selectContractsMultiTemplate[Pos](
+      parties: OneAnd[Set, domain.Party],
+      predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
+      trackMatchIndices: MatchedQueryMarker[Pos],
+  )(implicit
+      log: LogHandler
+  ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
+    import doobie.postgres.implicits._, cats.syntax.traverse._, cats.instances.vector._
+    predicates.zipWithIndex.toVector
+      .traverse { case ((tid, pred), ix) =>
+        surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
+      }
+      .flatMap { stIdSeq =>
+        val queries = stIdSeq map { case (_, stid, _, pred) => (stid, pred) }
+
+        trackMatchIndices match {
+          case MatchedQueryMarker.ByNelInt =>
+            for {
+              dbContracts <- Queries
+                .selectContractsMultiTemplate(
+                  domain.Party unsubst parties,
+                  queries,
+                  Queries.MatchedQueryMarker.ByInt,
+                )
+                .toVector
+                .traverse(_.to[Vector])
+              tidLookup = stIdSeq.view.map { case (ix, _, tid, _) => ix -> tid }.toMap
+            } yield dbContracts match {
+              case Seq() => Vector.empty
+              case Seq(alreadyUnique) =>
+                alreadyUnique map { dbc =>
+                  (toDomain(tidLookup(dbc.templateId))(dbc), NonEmptyList(dbc.templateId))
+                }
+              case potentialMultiMatches =>
+                potentialMultiMatches.view.flatten
+                  .groupBy(_.contractId)
+                  .valuesIterator
+                  .map { dbcs =>
+                    val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
+                    (
+                      toDomain(tidLookup(dbc.templateId))(dbc),
+                      NonEmptyList.nels(dbc, dups: _*).map(_.templateId),
+                    )
+                  }
+                  .toVector
+            }
+
+          case MatchedQueryMarker.Unused =>
+            for {
+              dbContracts <- Queries
+                .selectContractsMultiTemplate(
+                  domain.Party unsubst parties,
+                  queries,
+                  Queries.MatchedQueryMarker.Unused,
+                )
+                .to[Vector]
+              tidLookup = stIdSeq.view.map { case (_, stid, tid, _) => (stid, tid) }.toMap
+            } yield dbContracts map { dbc => (toDomain(tidLookup(dbc.templateId))(dbc), ()) }
+        }
+      }
+  }
+
+  private[http] sealed abstract class MatchedQueryMarker[+Positive]
+  private[http] object MatchedQueryMarker {
+    case object ByNelInt extends MatchedQueryMarker[NonEmptyList[Int]]
+    case object Unused extends MatchedQueryMarker[Unit]
+  }
+
   private[http] def fetchById(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
@@ -134,7 +202,7 @@ object ContractDao {
     Queries.surrogateTemplateId(templateId.packageId, templateId.moduleName, templateId.entityName)
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
-      a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]]
+      a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
   ): domain.ActiveContract[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),

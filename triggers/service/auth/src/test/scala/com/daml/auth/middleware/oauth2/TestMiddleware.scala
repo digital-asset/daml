@@ -17,8 +17,11 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.immutable
 import scala.util.{Failure, Success}
 
 class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
@@ -143,6 +146,33 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
         // Redirect to client callback
         assert(resp.status == StatusCodes.Found)
         assert(resp.header[Location].get.uri == middlewareClientCallbackUri)
+        // Store token in cookie
+        val cookie = resp.header[`Set-Cookie`].get.cookie
+        assert(cookie.name == "daml-ledger-token")
+        val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
+        assert(token.tokenType == "bearer")
+      }
+    }
+    "return OK and set cookie without redirectUri" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None, redirect = false))
+      for {
+        resp <- Http().singleRequest(req)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+        // Redirect to /cb on middleware
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+      } yield {
+        // Return OK
+        assert(resp.status == StatusCodes.OK)
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].get.cookie
         assert(cookie.name == "daml-ledger-token")
@@ -382,6 +412,123 @@ class TestMiddlewareClientLimitedCallbackStore
       } yield {
         assert(resultBob.status == StatusCodes.OK)
         assert(resultCarol.status == StatusCodes.OK)
+      }
+    }
+  }
+}
+
+class TestMiddlewareClientNoRedirectToLogin
+    extends AsyncWordSpec
+    with Matchers
+    with OptionValues
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.No
+  "the authorize client" should {
+    "not redirect to /login" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val host = middlewareClientBinding.localAddress
+      val uri = Uri()
+        .withScheme("http")
+        .withAuthority(host.getHostName, host.getPort)
+        .withPath(Uri.Path./("authorize"))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+      val req = HttpRequest(uri = uri)
+      for {
+        resp <- Http().singleRequest(req)
+        // Unauthorized with WWW-Authenticate header
+        _ = assert(resp.status == StatusCodes.Unauthorized)
+        wwwAuthenticate = resp.header[headers.`WWW-Authenticate`].value
+        challenge = wwwAuthenticate.challenges
+          .find(_.scheme == middlewareClient.authenticateChallengeName)
+          .value
+        _ = challenge.params.keys should contain allOf ("auth", "login")
+        authUri = challenge.params.get("auth").value
+        loginUri = challenge.params.get("login").value
+      } yield {
+        assert(Uri(authUri) == middlewareClient.authUri(claims))
+        assert(
+          Uri(loginUri).withQuery(Uri.Query.Empty) == middlewareClient
+            .loginUri(claims)
+            .withQuery(Uri.Query.Empty)
+        )
+        assert(Uri(loginUri).query().get("claims").value == claims.toQueryString())
+      }
+    }
+  }
+}
+
+class TestMiddlewareClientYesRedirectToLogin
+    extends AsyncWordSpec
+    with OptionValues
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
+  "the authorize client" should {
+    "redirect to /login" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val host = middlewareClientBinding.localAddress
+      val uri = Uri()
+        .withScheme("http")
+        .withAuthority(host.getHostName, host.getPort)
+        .withPath(Uri.Path./("authorize"))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+      val req = HttpRequest(uri = uri)
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        // Redirect to /login on middleware
+        assert(resp.status == StatusCodes.Found)
+        val loginUri = resp.header[headers.Location].value.uri
+        assert(
+          loginUri.withQuery(Uri.Query.Empty) == middlewareClient
+            .loginUri(claims)
+            .withQuery(Uri.Query.Empty)
+        )
+        assert(loginUri.query().get("claims").value == claims.toQueryString())
+      }
+    }
+  }
+}
+
+class TestMiddlewareClientAutoRedirectToLogin
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Auto
+  "the authorize client" should {
+    "redirect to /login for HTML request" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val host = middlewareClientBinding.localAddress
+      val uri = Uri()
+        .withScheme("http")
+        .withAuthority(host.getHostName, host.getPort)
+        .withPath(Uri.Path./("authorize"))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+      val acceptHtml: HttpHeader = headers.Accept(MediaTypes.`text/html`)
+      val req = HttpRequest(uri = uri, headers = immutable.Seq(acceptHtml))
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        // Redirect to /login on middleware
+        assert(resp.status == StatusCodes.Found)
+      }
+    }
+    "not redirect to /login for JSON request" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val host = middlewareClientBinding.localAddress
+      val uri = Uri()
+        .withScheme("http")
+        .withAuthority(host.getHostName, host.getPort)
+        .withPath(Uri.Path./("authorize"))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+      val acceptHtml: HttpHeader = headers.Accept(MediaTypes.`application/json`)
+      val req = HttpRequest(uri = uri, headers = immutable.Seq(acceptHtml))
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        // Unauthorized with WWW-Authenticate header
+        assert(resp.status == StatusCodes.Unauthorized)
       }
     }
   }

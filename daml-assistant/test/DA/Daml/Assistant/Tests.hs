@@ -287,6 +287,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
             version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
             let denv = Env
                     { envDamlPath = DamlPath (base </> ".daml")
+                    , envCachePath = CachePath (base </> ".daml")
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
                     , envSdkVersion = Just version
@@ -303,6 +304,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
             version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
             let denv1 = Env
                     { envDamlPath = DamlPath (base </> ".daml")
+                    , envCachePath = CachePath (base </> ".daml")
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
                     , envSdkVersion = Just version
@@ -318,6 +320,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
             let denv1 = Env
                     { envDamlPath = DamlPath (base </> ".daml")
+                    , envCachePath = CachePath (base </> ".cache")
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Nothing
                     , envSdkVersion = Nothing

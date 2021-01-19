@@ -9,6 +9,7 @@ import java.time.Duration
 import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.auth.middleware.api.{Client => AuthClient}
 import scalaz.Show
 
 import scala.concurrent.duration
@@ -23,6 +24,7 @@ private[trigger] final case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     authUri: Option[Uri],
+    authRedirectToLogin: AuthClient.RedirectToLogin,
     authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
@@ -92,6 +94,15 @@ private[trigger] object ServiceConfig {
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
+  implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] = scopt.Read.reads {
+    _.toLowerCase match {
+      case "yes" => AuthClient.RedirectToLogin.Yes
+      case "no" => AuthClient.RedirectToLogin.No
+      case "auto" => AuthClient.RedirectToLogin.Auto
+      case s => throw new IllegalArgumentException(s"'$s' is not one of 'yes', 'no', or 'auto'.")
+    }
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
@@ -123,6 +134,15 @@ private[trigger] object ServiceConfig {
       .optional()
       .action((t, c) => c.copy(authUri = Some(Uri(t))))
       .text("Auth middleware URI.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[AuthClient.RedirectToLogin]("auth-redirect")
+      .optional()
+      .action((x, c) => c.copy(authRedirectToLogin = x))
+      .text(
+        "Redirect to auth middleware login endpoint when unauthorized. One of 'yes', 'no', or 'auto'."
+      )
       // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
 
@@ -226,6 +246,7 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
+        authRedirectToLogin = AuthClient.RedirectToLogin.Auto,
         authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,

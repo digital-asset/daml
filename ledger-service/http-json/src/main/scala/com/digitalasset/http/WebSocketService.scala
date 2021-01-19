@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
+import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
@@ -19,6 +20,8 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
+import doobie.{ConnectionIO, LogHandler}
+import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -27,6 +30,7 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
+import scalaz.std.vector._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
@@ -40,12 +44,16 @@ import scala.util.{Failure, Success}
 object WebSocketService {
   import util.ErrorOps._
 
-  private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
+  private type CompiledQueries =
+    Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
 
-  private type StreamPredicate[+Positive] = (
-      Set[domain.TemplateId.RequiredPkg],
-      Set[domain.TemplateId.OptionalPkg],
-      domain.ActiveContract[LfV] => Option[Positive],
+  private final case class StreamPredicate[+Positive](
+      resolved: Set[domain.TemplateId.RequiredPkg],
+      unresolved: Set[domain.TemplateId.OptionalPkg],
+      fn: domain.ActiveContract[LfV] => Option[Positive],
+      dbQuery: OneAnd[Set, domain.Party] => LogHandler => ConnectionIO[
+        _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
+      ],
   )
 
   private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
@@ -144,7 +152,7 @@ object WebSocketService {
 
     def removePhantomArchives(request: A): Option[Set[domain.ContractId]]
 
-    def predicate(
+    private[WebSocketService] def predicate(
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: ValuePredicate.TypeLookup,
@@ -169,7 +177,7 @@ object WebSocketService {
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
 
-      override def predicate(
+      override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup,
@@ -185,13 +193,32 @@ object WebSocketService {
             val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
             (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        def fn(a: domain.ActiveContract[LfV]): Option[Positive] =
           q.get(a.templateId).flatMap { preds =>
-            preds.collect(Function unlift { case (p, ix) => p(a.payload) option ix })
+            preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
+        def dbQueriesPlan
+            : (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+          val annotated = q.toSeq.flatMap { case (tpid, nel) =>
+            nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
+          }
+          val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
+            (ix, pos)
+          }.toMap
+          (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
 
-        (resolved, unresolved, fn)
+        StreamPredicate(
+          resolved,
+          unresolved,
+          fn,
+          { parties => implicit lh =>
+            val (dbQueries, posMap) = dbQueriesPlan
+            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
+              .map(_ map (_ rightMap (_ map posMap)))
+          },
+        )
       }
 
       private def prepareFilters(
@@ -200,7 +227,8 @@ object WebSocketService {
           lookupType: ValuePredicate.TypeLookup,
       ): CompiledQueries =
         ids.iterator.map { tid =>
-          (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
+          val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType)
+          (tid, (vp, vp.toFunPredicate))
         }.toMap
 
       override def renderCreatedMetadata(p: Positive) =
@@ -249,7 +277,7 @@ object WebSocketService {
 
     protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
 
-    override def predicate(
+    override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: TypeLookup,
@@ -264,6 +292,7 @@ object WebSocketService {
             .toLeftDisjunction(x.ekey.templateId)
         }
 
+      // invariant: every set is non-empty
       val q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
         resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
           (acc, el) =>
@@ -278,10 +307,29 @@ object WebSocketService {
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      (q.keySet, unresolved, fn)
+      def dbQueries: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+        q.toSeq map (_ rightMap { lfvKeys =>
+          val khd +: ktl = lfvKeys.toVector
+          import dbbackend.Queries.{intersperse, concatFragment}
+          concatFragment(intersperse(OneAnd(khd, ktl) map keyEquality, sql" OR "))
+        })
+      StreamPredicate(
+        q.keySet,
+        unresolved,
+        fn,
+        { parties => implicit lh =>
+          import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+          selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.Unused)
+        },
+      )
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
+  }
+
+  private[this] def keyEquality(k: LfV): doobie.Fragment = {
+    import dbbackend.Queries.Implicits._
+    sql"key = ${LfValueDatabaseCodec.apiValueToJsValue(k)}::jsonb"
   }
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
@@ -408,12 +456,54 @@ class WebSocketService(
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
-    val (resolved, unresolved, fn) = Q.predicate(request, resolveTemplateId, lookupType)
+    val StreamPredicate(resolved, unresolved, fn, dbQuery) =
+      Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      contractsService
-        .insertDeleteStepSource(jwt, parties, resolved.toList, offPrefix, Terminates.Never)
-        .via(convertFilterContracts(fn))
+      def prefilter: Future[
+        (
+            Source[
+              ContractStreamStep[Nothing, (domain.ActiveContract[JsValue], Q.Positive)],
+              NotUsed,
+            ],
+            Option[domain.StartingOffset],
+        )
+      ] =
+        contractsService.daoAndFetch
+          .filter(_ => offPrefix.isEmpty)
+          .cata(
+            { case (dao, fetch) =>
+              val tx = for {
+                bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
+                mdContracts <- dbQuery(parties)(dao.logHandler)
+              } yield (
+                Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
+                  .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
+                bookmark.toOption map (term => domain.StartingOffset(term.toDomain)),
+              )
+              dao.transact(tx).unsafeToFuture()
+            },
+            Future.successful((Source.empty, offPrefix)),
+          )
+
+      Source
+        .lazyFutureSource(() =>
+          prefilter.map { case (prefiltered, shiftedPrefix) =>
+            val liveFiltered = contractsService
+              .insertDeleteStepSource(
+                jwt,
+                parties,
+                resolved.toList,
+                shiftedPrefix,
+                Terminates.Never,
+              )
+              .via(convertFilterContracts(fn))
+            prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered
+          }
+        )
+        .mapMaterializedValue { _: Future[NotUsed] =>
+          NotUsed
+        }
         .via(emitOffsetTicksAndFilterOutEmptySteps)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)

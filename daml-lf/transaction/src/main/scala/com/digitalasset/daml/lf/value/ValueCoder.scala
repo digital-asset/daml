@@ -123,7 +123,7 @@ object ValueCoder {
 
   // For backward compatibility reasons, V10 is encoded as "6" when used inside a
   // proto.VersionedValue
-  private[this] def encodeValueVersion(version: TransactionVersion): String =
+  private[lf] def encodeValueVersion(version: TransactionVersion): String =
     if (version == TransactionVersion.V10) {
       "6"
     } else {

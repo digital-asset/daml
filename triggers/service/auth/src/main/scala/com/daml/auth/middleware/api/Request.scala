@@ -102,12 +102,10 @@ object Request {
     * @param claims Required ledger claims.
     * @param state State that will be forwarded to the callback URI after authentication and authorization.
     */
-  case class Login(redirectUri: Uri, claims: Claims, state: Option[String]) {
+  case class Login(redirectUri: Option[Uri], claims: Claims, state: Option[String]) {
     def toQuery: Uri.Query = {
-      var params = Seq(
-        "redirect_uri" -> redirectUri.toString,
-        "claims" -> claims.toQueryString(),
-      )
+      var params = Seq("claims" -> claims.toQueryString())
+      redirectUri.foreach(x => params ++= Seq("redirect_uri" -> x.toString()))
       state.foreach(x => params ++= Seq("state" -> x))
       Uri.Query(params: _*)
     }

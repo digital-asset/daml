@@ -161,7 +161,7 @@ class EngineTest
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
       val Right((params, DataVariant(variants))) =
-        SignatureLookup.lookupVariant(basicTestsSignatures, id.qualifiedName)
+        basicTestsSignatures.lookupVariant(id.qualifiedName)
       params should have length 1
       variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
@@ -170,8 +170,7 @@ class EngineTest
   "valid data record identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right((_, DataRecord(fields))) =
-        SignatureLookup.lookupRecord(basicTestsSignatures, id.qualifiedName)
+      val Right((_, DataRecord(fields))) = basicTestsSignatures.lookupRecord(id.qualifiedName)
       fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
   }
@@ -179,8 +178,7 @@ class EngineTest
   "valid template Identifier" should {
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right((_, DataRecord(fields))) =
-        SignatureLookup.lookupRecord(basicTestsSignatures, id.qualifiedName)
+      val Right((_, DataRecord(fields))) = basicTestsSignatures.lookupRecord(id.qualifiedName)
       fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
     }
   }
@@ -1061,8 +1059,8 @@ class EngineTest
         ),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) = SignatureLookup
-        .lookupDataType(basicTestsSignatures, "BasicTests:MyNestedRec")
+      val Right(DDataType(_, ImmArray(), _)) =
+        basicTestsSignatures.lookupDataType("BasicTests:MyNestedRec")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
@@ -1082,7 +1080,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1103,7 +1101,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1121,7 +1119,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1139,7 +1137,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1157,7 +1155,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1260,9 +1258,9 @@ class EngineTest
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
-          coins.template shouldBe templateId
-          stakeholders shouldBe Set(alice, clara)
+        case create: Node.NodeCreate[ContractId] =>
+          create.templateId shouldBe templateId
+          create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
       }
 
@@ -1272,9 +1270,9 @@ class EngineTest
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
-          coins.template shouldBe templateId
-          stakeholders shouldBe Set(alice, clara)
+        case create: Node.NodeCreate[ContractId] =>
+          create.templateId shouldBe templateId
+          create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
       }
     }
