@@ -78,7 +78,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
     (needsReinitalization, depsFingerprint)
         <- dbNeedsReinitialization projectRoot deps thisSdkVer (show $ optDamlLfVersion opts)
     when needsReinitalization $ do
-      putStrLn "reinitializing ..."
       clearPackageDb
       depsExtracted <- mapM extractDar deps
 
