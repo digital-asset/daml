@@ -212,17 +212,16 @@ final class DivulgenceIT extends LedgerTestSuite {
   test(
     "DivulgenceKeys",
     "Divulgence should behave as expected in a workflow involving keys",
-    allocate(SingleParty, SingleParty)
-  )(implicit ec => {
-    case Participants(Participant(alpha, proposer), Participant(beta, owner)) =>
-      for {
-        offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
-        asset <- beta.create(owner, Asset(issuer = owner, owner = owner))
-        _ <- synchronize(alpha, beta)
-        _ <- beta.exercise(owner, offer.exerciseProposalAccept(_, asset))
-      } yield {
-        // nothing to test, if the workflow ends successfully the test is considered successful
-      }
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, proposer), Participant(beta, owner)) =>
+    for {
+      offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
+      asset <- beta.create(owner, Asset(issuer = owner, owner = owner))
+      _ <- synchronize(alpha, beta)
+      _ <- beta.exercise(owner, offer.exerciseProposalAccept(_, asset))
+    } yield {
+      // nothing to test, if the workflow ends successfully the test is considered successful
+    }
   })
 
 }
