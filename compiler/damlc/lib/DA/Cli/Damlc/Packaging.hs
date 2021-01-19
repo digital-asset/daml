@@ -8,6 +8,7 @@ module DA.Cli.Damlc.Packaging
   ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Exception.Safe (tryIO)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
@@ -27,6 +28,7 @@ import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags (DynFlags)
+import GHC.Fingerprint
 import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
@@ -34,8 +36,8 @@ import qualified "ghc-lib-parser" Packages as GHC
 import System.Directory.Extra
 import System.Exit
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
+import System.Info.Extra
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
@@ -54,8 +56,6 @@ import qualified DA.Pretty
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
-import Data.Hashable
-import Data.Binary
 
 -- | Create the project package database containing the given dar packages.
 --
@@ -74,26 +74,10 @@ import Data.Binary
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps' dataDeps
   = do
-    -- compute the hash over all dependencies
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps')
-    depHash <-
-        fmap hash $
-        foldM
-            (\acc dep -> do
-                 bs <- BSL.readFile dep
-                 pure $ encode $ hash $ bs <> acc)
-            BSL.empty
-            (deps ++ dataDeps)
-
-    -- Read the metadata of an already existing package database and see if wee need to reinitialize.
-    let metadataFileFp = metadataFile projectRoot
-    hasMetadata <- doesFileExist metadataFileFp
-    needsReinitalization <- if hasMetadata
-                            then do
-                              metaData <- readMetadata projectRoot
-                              pure $ hashDependencies metaData /= Just depHash
-                            else pure True
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot deps
     when needsReinitalization $ do
+      putStrLn "reinitializing ..."
       clearPackageDb
       depsExtracted <- mapM extractDar deps
 
@@ -200,7 +184,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
               dependenciesInPkgDb
               exposedModules
 
-      writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes (Just depHash))
+      writeMetadata
+          projectRoot
+          (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes depsFingerprint)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     clearPackageDb = do
@@ -210,6 +196,20 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
+
+-- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
+-- the package db to decide whether to run reinitialization or not.
+dbNeedsReinitialization :: NormalizedFilePath -> [FilePath] -> IO (Bool, Fingerprint)
+dbNeedsReinitialization projectRoot allDeps = do
+    fingerprints <- mapM getFileHash allDeps
+    let depsFingerprint = fingerprintFingerprints fingerprints
+    -- Read the metadata of an already existing package database and see if wee need to reinitialize.
+    errOrmetaData <- tryIO $ readMetadata projectRoot
+    pure $
+        case errOrmetaData of
+            Left _err -> (True, depsFingerprint)
+            Right metaData -> (fingerprintDependencies metaData /= depsFingerprint, depsFingerprint)
+
 
 disableScenarioService :: Options -> Options
 disableScenarioService opts = opts
