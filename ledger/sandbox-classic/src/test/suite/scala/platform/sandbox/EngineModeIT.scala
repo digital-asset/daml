@@ -15,6 +15,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -53,14 +54,6 @@ class EngineModeIT
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
       sslContext = None,
       token = None,
-    )
-
-  private[this] def buildServer(mode: SandboxConfig.EngineMode) =
-    SandboxServer.owner(
-      DefaultConfig.copy(
-        port = Port.Dynamic,
-        engineMode = mode,
-      )
     )
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
@@ -116,6 +109,15 @@ class EngineModeIT
 
     import SandboxConfig.EngineMode
     import EngineMode._
+
+    def buildServer(mode: SandboxConfig.EngineMode) =
+      SandboxServer.owner(
+        DefaultConfig.copy(
+          port = Port.Dynamic,
+          engineMode = mode,
+          seeding = Some(Seeding.Weak),
+        )
+      )
 
     def load(langVersion: LanguageVersion, mode: EngineMode) =
       buildServer(mode).use(
