@@ -48,7 +48,6 @@ object TestUtil {
   )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
-      seeding = None,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = Some(TimeProviderType.WallClock),
