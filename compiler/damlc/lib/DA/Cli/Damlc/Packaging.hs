@@ -75,7 +75,8 @@ createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> 
 createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps' dataDeps
   = do
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps')
-    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot deps
+    (needsReinitalization, depsFingerprint)
+        <- dbNeedsReinitialization projectRoot deps thisSdkVer (show $ optDamlLfVersion opts)
     when needsReinitalization $ do
       putStrLn "reinitializing ..."
       clearPackageDb
@@ -199,17 +200,20 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
 
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
 -- the package db to decide whether to run reinitialization or not.
-dbNeedsReinitialization :: NormalizedFilePath -> [FilePath] -> IO (Bool, Fingerprint)
-dbNeedsReinitialization projectRoot allDeps = do
-    fingerprints <- mapM getFileHash allDeps
-    let depsFingerprint = fingerprintFingerprints fingerprints
+dbNeedsReinitialization ::
+       NormalizedFilePath -> [FilePath] -> String -> String -> IO (Bool, Fingerprint)
+dbNeedsReinitialization projectRoot allDeps sdkVersion damlLfVersion = do
+    fileFingerprints <- mapM getFileHash allDeps
+    let sdkVersionFingerprint = fingerprintString sdkVersion
+    let damlLfFingerprint = fingerprintString damlLfVersion
+    let depsFingerprint =
+            fingerprintFingerprints $ sdkVersionFingerprint : damlLfFingerprint : fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
     errOrmetaData <- tryIO $ readMetadata projectRoot
     pure $
         case errOrmetaData of
             Left _err -> (True, depsFingerprint)
             Right metaData -> (fingerprintDependencies metaData /= depsFingerprint, depsFingerprint)
-
 
 disableScenarioService :: Options -> Options
 disableScenarioService opts = opts
