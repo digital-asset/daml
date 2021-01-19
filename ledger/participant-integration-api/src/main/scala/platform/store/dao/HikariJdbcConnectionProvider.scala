@@ -155,6 +155,7 @@ private[platform] object HikariJdbcConnectionProvider {
       serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
+      connectionTimeout: FiniteDuration,
       metrics: MetricRegistry,
   )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
     for {
@@ -164,7 +165,7 @@ private[platform] object HikariJdbcConnectionProvider {
         jdbcUrl,
         maxConnections,
         maxConnections,
-        250.millis,
+        connectionTimeout,
         Some(metrics),
       )
       healthPoller <- ResourceOwner.forTimer(() =>

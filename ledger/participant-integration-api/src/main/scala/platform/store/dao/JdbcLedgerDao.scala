@@ -55,6 +55,7 @@ import com.daml.platform.store.entries.{
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -1015,7 +1016,7 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommits: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
-      dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
+      dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, 250.millis, metrics)
       executor <- ResourceOwner.forExecutorService(() => Executors.newWorkStealingPool())
     } yield
       new JdbcLedgerDao(
