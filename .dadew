@@ -5,7 +5,7 @@
         "7zip",
         "java-openjdk-8u201",
         "msys2",
-        "curl-7.65.3",
+        "curl-7.73.0",
         "cacert",
         "vcredist-14.0.23026",
         "bazel",
