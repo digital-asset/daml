@@ -112,7 +112,8 @@ Daml Documentation
    daml-integration-kit/index
    triggers/index
    tools/visual
-   tools/trigger-service
+   tools/trigger-service/index
+   tools/auth-middleware/index
    concepts/interoperability
 
 .. toctree::
