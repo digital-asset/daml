@@ -174,6 +174,7 @@ private[platform] object HikariJdbcConnectionProvider {
       serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
+      connectionTimeout: FiniteDuration,
       metrics: MetricRegistry,
       connectionAsyncCommit: Boolean = false,
   )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
@@ -184,7 +185,7 @@ private[platform] object HikariJdbcConnectionProvider {
         jdbcUrl,
         maxConnections,
         maxConnections,
-        250.millis,
+        connectionTimeout,
         Some(metrics),
         connectionAsyncCommit,
       )
