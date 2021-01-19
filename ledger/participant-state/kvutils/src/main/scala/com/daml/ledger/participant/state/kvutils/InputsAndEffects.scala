@@ -137,14 +137,12 @@ private[kvutils] object InputsAndEffects {
           case fetch: Node.NodeFetch[Value.ContractId] =>
             addContractInput(fetch.coid)
             fetch.key.foreach { keyWithMaintainers =>
-              addKeyInput(fetch.templateId, keyWithMaintainers
-              )
+              addKeyInput(fetch.templateId, keyWithMaintainers)
             }
 
           case create: Node.NodeCreate[Value.ContractId] =>
             create.key.foreach { keyWithMaintainers =>
-              addKeyInput(create.coinst.template, keyWithMaintainers
-              )
+              addKeyInput(create.coinst.template, keyWithMaintainers)
             }
 
           case lookup: Node.NodeLookupByKey[Value.ContractId] =>
