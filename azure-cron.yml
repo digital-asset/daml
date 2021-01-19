@@ -46,15 +46,6 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.team-daml)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'main'))
       - template: ci/tell-slack-failed.yml
 
   - job: docker_image
