@@ -95,7 +95,8 @@ private[platform] object DbDispatcher {
         maxConnections,
         connectionTimeout,
         metrics.registry,
-        connectionAsyncCommit)
+        connectionAsyncCommit,
+      )
       executor <- ResourceOwner.forExecutorService(() =>
         Executors.newFixedThreadPool(
           maxConnections,
