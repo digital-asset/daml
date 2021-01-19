@@ -3,23 +3,11 @@
 
 # Azure Pipelines file, see https://aka.ms/yaml
 
-# Enable builds on all branches
-trigger:
-  # Build every commit as our release process relies on
-  # the release process being built alone.
-  batch: false
-  branches:
-    include:
-      - master
-      - release/*
+# Only the main branch runs CI after merge
+trigger: none
 
-# Enable PR triggers that target the master branch
-pr:
-  autoCancel: true # cancel previous builds on push
-  branches:
-    include:
-      - master
-      - release/*
+# PRs are run by the PRs build defined in ci/prs.yml
+pr: none
 
 jobs:
   - job: git_sha
