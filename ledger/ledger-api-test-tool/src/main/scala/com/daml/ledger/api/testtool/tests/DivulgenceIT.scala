@@ -224,4 +224,3 @@ final class DivulgenceIT extends LedgerTestSuite {
     }
   })
 }
-
