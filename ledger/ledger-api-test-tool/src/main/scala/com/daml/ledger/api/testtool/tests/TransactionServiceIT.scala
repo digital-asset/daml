@@ -1582,6 +1582,7 @@ object TransactionServiceIT {
 
   // Strip command id and offset to yield a transaction comparable across participant
   // Furthermore, makes sure that the order is not relevant for witness parties
+  // Sort by transactionId as on distributed ledgers updates can occur in different orders
   private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] =
     transactions.map(t =>
       t.copy(
@@ -1589,10 +1590,11 @@ object TransactionServiceIT {
         offset = "offset",
         events = t.events.map(_.modifyWitnessParties(_.sorted)),
       )
-    )
+    ).sortBy(_.transactionId)
 
   // Strip command id and offset to yield a transaction comparable across participant
   // Furthermore, makes sure that the order is not relevant for witness parties
+  // Sort by transactionId as on distributed ledgers updates can occur in different orders
   private def comparableTransactionTrees(
       transactionTrees: Vector[TransactionTree]
   ): Vector[TransactionTree] =
@@ -1602,6 +1604,6 @@ object TransactionServiceIT {
         offset = "offset",
         eventsById = t.eventsById.mapValues(_.modifyWitnessParties(_.sorted)),
       )
-    )
+    ).sortBy(_.transactionId)
 
 }
