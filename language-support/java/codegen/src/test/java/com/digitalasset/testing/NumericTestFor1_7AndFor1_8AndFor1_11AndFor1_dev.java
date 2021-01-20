@@ -40,7 +40,7 @@ public class NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_dev {
                 new Record.Field("x17", new Numeric(new BigDecimal(17))),
                 new Record.Field("x37", new Numeric(new BigDecimal("0.37"))),
                 new Record.Field("party", new Party("alice"))
-            );
+        );
         assertEquals(Box.fromValue(record).toValue(), record);
     }
 

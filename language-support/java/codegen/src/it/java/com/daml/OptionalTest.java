@@ -121,7 +121,7 @@ public class OptionalTest {
                                                 )
                                                 .build()
                                 ))))
-                        )
+                )
                 .build();
 
         Record dataRecord = Record.fromProto(protoRecord);
@@ -136,7 +136,7 @@ public class OptionalTest {
     void parametricOptionalVariant() {
         Variant variant = new Variant("OptionalParametricVariant", DamlOptional.of(new Int64(42)));
 
-        OptionalParametricVariant<Long> fromValue = OptionalParametricVariant.<Long>fromValue(variant, f -> f.asInt64().get().getValue());
+        OptionalParametricVariant<Long> fromValue = OptionalParametricVariant.fromValue(variant, f -> f.asInt64().get().getValue());
         OptionalParametricVariant<Long> fromConstructor = new OptionalParametricVariant<Long>(Optional.of(42L));
 
 

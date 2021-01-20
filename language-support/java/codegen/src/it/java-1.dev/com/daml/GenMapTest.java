@@ -232,7 +232,7 @@ public class GenMapTest {
     }
 
 
-    private static ValueOuterClass.Value buildNone =
+    private static final ValueOuterClass.Value buildNone =
             ValueOuterClass.Value.newBuilder().setOptional(
                     ValueOuterClass.Optional.newBuilder()
             ).build();
@@ -243,7 +243,7 @@ public class GenMapTest {
         ).build();
     }
 
-    private static  ValueOuterClass.Value buildMap(ValueOuterClass.GenMap.Entry... entries) {
+    private static ValueOuterClass.Value buildMap(ValueOuterClass.GenMap.Entry... entries) {
         ValueOuterClass.GenMap.Builder builder = ValueOuterClass.GenMap.newBuilder();
         for (ValueOuterClass.GenMap.Entry entry : entries) builder.addEntries(entry);
         return ValueOuterClass.Value.newBuilder().setGenMap(builder).build();

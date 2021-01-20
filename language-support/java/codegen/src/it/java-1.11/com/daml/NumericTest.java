@@ -56,57 +56,71 @@ public class NumericTest {
     @Test
     void objectMethodsWork() {
 
-      NumericBox record1 = numericBox();
-      NumericBox record2 = numericBox();
+        NumericBox record1 = numericBox();
+        NumericBox record2 = numericBox();
 
-      assertEquals(record1, record2);
-      assertEquals(record1.hashCode(), record2.hashCode());
+        assertEquals(record1, record2);
+        assertEquals(record1.hashCode(), record2.hashCode());
     }
 
-    ValueOuterClass.Record.Builder recordBuilder(){ return  ValueOuterClass.Record.newBuilder(); }
-    ValueOuterClass.RecordField.Builder recordFieldBuilder(){ return ValueOuterClass.RecordField.newBuilder(); }
-    ValueOuterClass.Value.Builder valueBuilder() { return ValueOuterClass.Value.newBuilder();}
-    ValueOuterClass.Variant.Builder variantBuilder()  { return ValueOuterClass.Variant.newBuilder();}
-    com.google.protobuf.Empty.Builder emptyBuilder() { return  com.google.protobuf.Empty.newBuilder(); }
+    ValueOuterClass.Record.Builder recordBuilder() {
+        return ValueOuterClass.Record.newBuilder();
+    }
+
+    ValueOuterClass.RecordField.Builder recordFieldBuilder() {
+        return ValueOuterClass.RecordField.newBuilder();
+    }
+
+    ValueOuterClass.Value.Builder valueBuilder() {
+        return ValueOuterClass.Value.newBuilder();
+    }
+
+    ValueOuterClass.Variant.Builder variantBuilder() {
+        return ValueOuterClass.Variant.newBuilder();
+    }
+
+    com.google.protobuf.Empty.Builder emptyBuilder() {
+        return com.google.protobuf.Empty.newBuilder();
+    }
 
     @Test
     void outerRecordRoundtrip() {
         ValueOuterClass.Value protoValue =
-            valueBuilder().setRecord(recordBuilder()
-                .addFields(recordFieldBuilder()
-                    .setLabel("decimal")
-                    .setValue(valueBuilder().setNumeric("10.0000000000"))
-                )
-                .addFields(recordFieldBuilder()
-                    .setLabel("numeric0")
-                    .setValue(valueBuilder().setNumeric("99999999999999999999999999999999999999"))
-                )
-                .addFields(recordFieldBuilder()
-                    .setLabel("numeric37")
-                    .setValue(valueBuilder().setNumeric("9.9999999999999999999999999999999999999"))
-                )
-                .addFields(recordFieldBuilder()
-                    .setLabel("nestedBox")
-                    .setValue(valueBuilder().setVariant(variantBuilder().setConstructor("Nested").setValue(valueBuilder().setRecord(recordBuilder()
+                valueBuilder().setRecord(recordBuilder()
                         .addFields(recordFieldBuilder()
-                            .setLabel("decimal")
-                            .setValue(valueBuilder().setNumeric("-10.0000000000"))
+                                .setLabel("decimal")
+                                .setValue(valueBuilder().setNumeric("10.0000000000"))
                         )
                         .addFields(recordFieldBuilder()
-                            .setLabel("numeric0")
-                            .setValue(valueBuilder().setNumeric("-99999999999999999999999999999999999999"))
+                                .setLabel("numeric0")
+                                .setValue(valueBuilder().setNumeric("99999999999999999999999999999999999999"))
                         )
                         .addFields(recordFieldBuilder()
-                            .setLabel("numeric37")
-                            .setValue(valueBuilder().setNumeric("-9.9999999999999999999999999999999999999"))
+                                .setLabel("numeric37")
+                                .setValue(valueBuilder().setNumeric("9.9999999999999999999999999999999999999"))
                         )
                         .addFields(recordFieldBuilder()
-                            .setLabel("nestedBox")
-                            .setValue(valueBuilder().setVariant(variantBuilder().setConstructor("NoMore").setValue(valueBuilder().setUnit(emptyBuilder()))))
+                                .setLabel("nestedBox")
+                                .setValue(valueBuilder().setVariant(variantBuilder().setConstructor("Nested").setValue(valueBuilder().setRecord(recordBuilder()
+                                        .addFields(recordFieldBuilder()
+                                                .setLabel("decimal")
+                                                .setValue(valueBuilder().setNumeric("-10.0000000000"))
+                                        )
+                                        .addFields(recordFieldBuilder()
+                                                .setLabel("numeric0")
+                                                .setValue(valueBuilder().setNumeric("-99999999999999999999999999999999999999"))
+                                        )
+                                        .addFields(recordFieldBuilder()
+                                                .setLabel("numeric37")
+                                                .setValue(valueBuilder().setNumeric("-9.9999999999999999999999999999999999999"))
+                                        )
+                                        .addFields(recordFieldBuilder()
+                                                .setLabel("nestedBox")
+                                                .setValue(valueBuilder().setVariant(variantBuilder().setConstructor("NoMore").setValue(valueBuilder().setUnit(emptyBuilder()))))
+                                        )
+                                ))))
                         )
-                    ))))
-                )
-            ).build();
+                ).build();
 
 
         Value value = Value.fromProto(protoValue);
@@ -121,29 +135,37 @@ public class NumericTest {
     }
 
     BigDecimal maxValue(int s) {
-        return  new BigDecimal(BigInteger.TEN.pow(38).subtract(BigInteger.ONE), s);
+        return new BigDecimal(BigInteger.TEN.pow(38).subtract(BigInteger.ONE), s);
     }
 
-    java.math.BigDecimal decimalValue() { return  BigDecimal.TEN.setScale(10); }
-    java.math.BigDecimal numeric0Value() {return  maxValue(0); }
-    java.math.BigDecimal numeric37Value() {return maxValue(37); }
+    java.math.BigDecimal decimalValue() {
+        return BigDecimal.TEN.setScale(10);
+    }
+
+    java.math.BigDecimal numeric0Value() {
+        return maxValue(0);
+    }
+
+    java.math.BigDecimal numeric37Value() {
+        return maxValue(37);
+    }
 
 
-    NumericBox numericBox(){
-      return
-          new NumericBox(
-              decimalValue(),
-              numeric0Value(),
-              numeric37Value(),
-              new Nested(
-                  new NumericBox(
-                      decimalValue().negate(),
-                      numeric0Value().negate(),
-                      numeric37Value().negate(),
-                      new NoMore(Unit.getInstance())
-                  )
-              )
-          );
+    NumericBox numericBox() {
+        return
+                new NumericBox(
+                        decimalValue(),
+                        numeric0Value(),
+                        numeric37Value(),
+                        new Nested(
+                                new NumericBox(
+                                        decimalValue().negate(),
+                                        numeric0Value().negate(),
+                                        numeric37Value().negate(),
+                                        new NoMore(Unit.getInstance())
+                                )
+                        )
+                );
     }
 
 }
