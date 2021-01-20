@@ -208,8 +208,9 @@ object WebSocketService {
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
-        def dbQueriesPlan
-            : (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+        def dbQueriesPlan(implicit
+            sjd: dbbackend.SupportedJdbcDriver
+        ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
             nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
           }
@@ -224,9 +225,9 @@ object WebSocketService {
           unresolved,
           fn,
           { (parties, dao) =>
-            val (dbQueries, posMap) = dbQueriesPlan
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            val (dbQueries, posMap) = dbQueriesPlan
             selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
               .map(_ map (_ rightMap (_ map posMap)))
           },
@@ -319,11 +320,13 @@ object WebSocketService {
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      def dbQueries: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+      def dbQueries(implicit
+          sjd: dbbackend.SupportedJdbcDriver
+      ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
         q.toSeq map (_ rightMap { lfvKeys =>
           val khd +: ktl = lfvKeys.toVector
           import dbbackend.Queries.{intersperse, concatFragment}
-          concatFragment(intersperse(OneAnd(khd, ktl) map keyEquality, sql" OR "))
+          concatFragment(intersperse(OneAnd(khd, ktl) map (keyEquality(_)), sql" OR "))
         })
       StreamPredicate(
         q.keySet,
@@ -340,10 +343,10 @@ object WebSocketService {
     override def renderCreatedMetadata(p: Unit) = Map.empty
   }
 
-  private[this] def keyEquality(k: LfV): doobie.Fragment = {
-    import dbbackend.Queries.Implicits._
-    sql"key = ${LfValueDatabaseCodec.apiValueToJsValue(k)}::jsonb"
-  }
+  private[this] def keyEquality(k: LfV)(implicit
+      sjd: dbbackend.SupportedJdbcDriver
+  ): doobie.Fragment =
+    sjd.queries.keyEquality(LfValueDatabaseCodec.apiValueToJsValue(k))
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Unit] {

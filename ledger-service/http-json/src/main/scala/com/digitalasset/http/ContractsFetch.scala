@@ -18,7 +18,7 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
-import com.daml.http.dbbackend.{ContractDao, Queries, SupportedJdbcDriver}
+import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.LedgerClientJwt.Terminates
@@ -444,13 +444,15 @@ private[http] object ContractsFetch {
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
       ids: Set[K]
-  )(implicit log: doobie.LogHandler): ConnectionIO[Map[K, SurrogateTpId]] = {
+  )(implicit
+      log: doobie.LogHandler,
+      sjd: SupportedJdbcDriver,
+  ): ConnectionIO[Map[K, SurrogateTpId]] = {
     import doobie.implicits._, cats.instances.vector._, cats.syntax.functor._,
     cats.syntax.traverse._
+    import sjd.queries.surrogateTemplateId
     ids.toVector
-      .traverse(k =>
-        Queries.surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k
-      )
+      .traverse(k => surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
       .map(_.toMap)
   }
 
@@ -487,8 +489,8 @@ private[http] object ContractsFetch {
       import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
       import json.JsonProtocol._
       import sjd._
-      (Queries.deleteContracts(step.deletes.keySet) *>
-        Queries.insertContracts(
+      (queries.deleteContracts(step.deletes.keySet) *>
+        queries.insertContracts(
           step.inserts map (dbc =>
             dbc copy (templateId =
               stidMap getOrElse (dbc.templateId, throw new IllegalStateException(

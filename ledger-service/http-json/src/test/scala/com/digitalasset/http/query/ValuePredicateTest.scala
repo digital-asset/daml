@@ -219,8 +219,11 @@ class ValuePredicateTest
       }
     }
 
+    // we aren't running the SQL, just looking at it
+    implicit val sjd: dbbackend.SupportedJdbcDriver = dbbackend.SupportedJdbcDriver.Postgres
+
     val sqlWheres = {
-      import doobie.implicits._, dbbackend.Queries.Implicits._
+      import doobie.implicits._, sjd.queries.Implicits._
       Table(
         ("query", "type", "sql"),
         ("42", VA.int64, sql"payload = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb"),

@@ -24,7 +24,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 
 sealed abstract class Queries {
-  import Queries.{SurrogateTpId, DBContract}
+  import Queries._
   import Implicits._
 
   def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
@@ -200,20 +200,6 @@ sealed abstract class Queries {
     }
   }
 
-  private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
-    val OneAnd(hd, tl) = xs
-    def go(s: Int, e: Int): Fragment =
-      (e - s: @annotation.switch) match {
-        case 0 => sql""
-        case 1 => tl(s)
-        case 2 => tl(s) ++ tl(s + 1)
-        case n =>
-          val pivot = s + n / 2
-          go(s, pivot) ++ go(pivot, e)
-      }
-    hd ++ go(0, tl.size)
-  }
-
   @silent(" gvs .* never used")
   private[http] def selectContracts(
       parties: OneAnd[Set, String],
@@ -303,38 +289,6 @@ sealed abstract class Queries {
     }
   }
 
-  /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
-    * and whether it may compute >1 query to run.
-    *
-    * @tparam T The traversable of queries that result.
-    * @tparam Mark The "marker" indicating which query matched.
-    */
-  private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
-      extends Product
-      with Serializable
-  private[http] object MatchedQueryMarker {
-    case object ByInt extends MatchedQueryMarker[Seq, Int]
-    case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
-  }
-
-  private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
-    oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
-
-  // Like groupBy but split into n maps where n is the longest list under groupBy.
-  // Invariant: every element of the result is non-empty
-  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
-    unfold(iter.groupBy(_._1).transform((_, i) => i.toList): Map[A, List[(_, B)]]) { m =>
-      // invariant: every value of m is non-empty
-      m.nonEmpty option {
-        val hd = m transform { (_, abs) =>
-          val (_, b) +: _ = abs
-          b
-        }
-        val tl = m collect { case (a, _ +: (tl @ (_ +: _))) => (a, tl) }
-        (hd, tl)
-      }
-    }
-
   private[http] def fetchById(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
@@ -354,6 +308,9 @@ sealed abstract class Queries {
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"key = $key::jsonb").option
 
+  private[http] def keyEquality(key: JsValue): Fragment =
+    sql"key = $key::jsonb"
+
   object Implicits {
     implicit val `JsValue put`: Meta[JsValue] =
       Meta[String].timap(_.parseJson)(_.compactPrint)
@@ -363,7 +320,7 @@ sealed abstract class Queries {
   }
 }
 
-object Queries extends Queries {
+object Queries {
   sealed trait SurrogateTpIdTag
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
   type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
@@ -392,4 +349,54 @@ object Queries extends Queries {
         observers = h(observers),
       )
   }
+
+  /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
+    * and whether it may compute >1 query to run.
+    *
+    * @tparam T The traversable of queries that result.
+    * @tparam Mark The "marker" indicating which query matched.
+    */
+  private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
+      extends Product
+      with Serializable
+  private[http] object MatchedQueryMarker {
+    case object ByInt extends MatchedQueryMarker[Seq, Int]
+    case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
+  }
+
+  private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
+    val OneAnd(hd, tl) = xs
+    def go(s: Int, e: Int): Fragment =
+      (e - s: @annotation.switch) match {
+        case 0 => sql""
+        case 1 => tl(s)
+        case 2 => tl(s) ++ tl(s + 1)
+        case n =>
+          val pivot = s + n / 2
+          go(s, pivot) ++ go(pivot, e)
+      }
+    hd ++ go(0, tl.size)
+  }
+
+  private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
+    oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
+
+  // Like groupBy but split into n maps where n is the longest list under groupBy.
+  // Invariant: every element of the result is non-empty
+  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
+    unfold(iter.groupBy(_._1).transform((_, i) => i.toList): Map[A, List[(_, B)]]) { m =>
+      // invariant: every value of m is non-empty
+      m.nonEmpty option {
+        val hd = m transform { (_, abs) =>
+          val (_, b) +: _ = abs
+          b
+        }
+        val tl = m collect { case (a, _ +: (tl @ (_ +: _))) => (a, tl) }
+        (hd, tl)
+      }
+    }
+
+  private[http] val Postgres: Queries = PostgresQueries
 }
+
+private object PostgresQueries extends Queries
