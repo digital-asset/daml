@@ -38,7 +38,7 @@ sealed abstract class Queries {
   private[this] val createContractsTable: Fragment = sql"""
       CREATE TABLE
         contract
-        (contract_id TEXT PRIMARY KEY NOT NULL
+        (contract_id TEXT NOT NULL PRIMARY KEY
         ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
         ,key JSONB NOT NULL
         ,payload JSONB NOT NULL
@@ -49,11 +49,11 @@ sealed abstract class Queries {
     """
 
   val indexContractsTable: Fragment = sql"""
-      CREATE INDEX ON contract (tpid)
+      CREATE INDEX contract_tpid_idx ON contract (tpid)
     """
 
   private[this] val indexContractsKeys: Fragment = sql"""
-      CREATE INDEX ON contract USING BTREE (tpid, key)
+      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
   """
 
   private[this] val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
@@ -73,7 +73,7 @@ sealed abstract class Queries {
   private[this] val createTemplateIdsTable: Fragment = sql"""
       CREATE TABLE
         template_id
-        (tpid BIGSERIAL PRIMARY KEY NOT NULL
+        (tpid BIGSERIAL NOT NULL PRIMARY KEY
         ,package_id TEXT NOT NULL
         ,template_module_name TEXT NOT NULL
         ,template_entity_name TEXT NOT NULL
