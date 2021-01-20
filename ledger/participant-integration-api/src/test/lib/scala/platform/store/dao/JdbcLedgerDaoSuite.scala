@@ -13,19 +13,13 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{
-  BlindingInfo,
-  CommittedTransaction,
-  Node,
-  NodeId,
-  TransactionVersion,
-}
+import com.daml.lf.transaction._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.logging.LoggingContext
@@ -109,6 +103,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
+
+  private[dao] def store(
+      submitterInfo: Option[SubmitterInfo],
+      tx: LedgerEntry.Transaction,
+      offsetStep: OffsetStep,
+      divulgedContracts: List[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+  ): Future[(Offset, LedgerEntry.Transaction)]
 
   protected implicit def toParty(s: String): Party = Party.assertFromString(s)
 
@@ -534,32 +536,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
         cmd <- entry.commandId
       ) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
-    val committedTransaction = CommittedTransaction(entry.transaction)
-    val ledgerEffectiveTime = entry.ledgerEffectiveTime
     val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
-    val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
-      submitterInfo,
-      entry.workflowId,
-      entry.transactionId,
-      ledgerEffectiveTime,
-      offsetStep.offset,
-      committedTransaction,
-      divulged,
-      blindingInfo,
-    )
-    ledgerDao
-      .storeTransaction(
-        preparedInsert = preparedTransactionInsert,
-        submitterInfo = submitterInfo,
-        transactionId = entry.transactionId,
-        transaction = committedTransaction,
-        recordTime = entry.recordedAt,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offsetStep = offsetStep,
-        divulged = divulged,
-        blindingInfo = blindingInfo,
-      )
-      .map(_ => offsetStep.offset -> entry)
+
+    store(submitterInfo, entry, offsetStep, divulged, blindingInfo)
   }
 
   protected final def store(
@@ -588,6 +567,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def txCreateContractWithKey(
       party: Party,
       key: String,
+      txUuid: Option[String] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val createNodeId = txBuilder.add(
@@ -604,7 +584,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     nextOffset() ->
       LedgerEntry.Transaction(
         commandId = Some(UUID.randomUUID().toString),
-        transactionId = UUID.randomUUID.toString,
+        transactionId = txUuid.getOrElse(UUID.randomUUID.toString),
         applicationId = Some(defaultAppId),
         actAs = List(party),
         workflowId = Some(defaultWorkflowId),

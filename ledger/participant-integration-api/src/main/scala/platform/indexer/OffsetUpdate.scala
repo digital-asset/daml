@@ -3,7 +3,7 @@
 
 package com.daml.platform.indexer
 
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.participant.state.v1.{MetadataUpdate, Offset, Update}
 import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 
@@ -17,13 +17,18 @@ object OffsetUpdate {
   def unapply(offsetUpdate: OffsetUpdate): Option[(OffsetStep, Update)] =
     Some((offsetUpdate.offsetStep, offsetUpdate.update))
 
+  final case class OffsetStepUpdatePair(offsetStep: OffsetStep, update: Update) extends OffsetUpdate
+
+  sealed trait PreparedUpdate extends OffsetUpdate
+
   final case class PreparedTransactionInsert(
       offsetStep: OffsetStep,
       update: TransactionAccepted,
       preparedInsert: PreparedInsert,
-  ) extends OffsetUpdate
+  ) extends PreparedUpdate
 
-  final case class OffsetStepUpdatePair(offsetStep: OffsetStep, update: Update) extends OffsetUpdate
+  final case class MetadataUpdateStep(offsetStep: OffsetStep, update: MetadataUpdate)
+      extends PreparedUpdate
 }
 
 sealed trait OffsetStep extends Product with Serializable {

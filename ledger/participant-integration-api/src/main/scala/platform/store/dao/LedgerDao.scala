@@ -195,7 +195,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
-  )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert
+  ): TransactionsWriter.PreparedInsert
 
   def storeTransaction(
       preparedInsert: PreparedInsert,
@@ -206,7 +206,21 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
+
+  def storeTransactionState(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse]
+
+  def storeTransactionEvents(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse]
+
+  def completeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      transactionId: TransactionId,
+      recordTime: Instant,
+      offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(

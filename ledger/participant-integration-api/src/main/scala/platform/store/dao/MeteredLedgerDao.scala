@@ -179,7 +179,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransaction,
@@ -192,7 +191,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
         offsetStep,
         transaction,
         divulged,
-        blindingInfo,
       ),
     )
 
@@ -205,7 +203,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
-  )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert =
+  ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
       submitterInfo,
       workflowId,
@@ -287,4 +285,21 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerDao.storePackageEntry(offsetStep, packages, entry),
     )
 
+  override def storeTransactionState(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse] =
+    ledgerDao.storeTransactionState(preparedInsert)
+
+  override def storeTransactionEvents(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse] =
+    ledgerDao.storeTransactionEvents(preparedInsert)
+
+  override def completeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      transactionId: TransactionId,
+      recordTime: Instant,
+      offsetStep: OffsetStep,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+    ledgerDao.completeTransaction(submitterInfo, transactionId, recordTime, offsetStep)
 }
