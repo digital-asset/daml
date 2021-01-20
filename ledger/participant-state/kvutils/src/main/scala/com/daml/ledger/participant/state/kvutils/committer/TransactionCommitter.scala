@@ -422,14 +422,14 @@ private[kvutils] class TransactionCommitter(
         case ((allUnique, existingKeys), (_, exe: Node.NodeExercises[NodeId, Value.ContractId]))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key))
+            GlobalKey.assertBuild(exe.templateId, exe.key.get.key)
           )
           (allUnique, existingKeys - stateKey)
 
         case ((allUnique, existingKeys), (_, create: Node.NodeCreate[Value.ContractId]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(create.coinst.template, Conversions.forceNoContractIds(create.key.get.key))
+            GlobalKey.assertBuild(create.coinst.template, create.key.get.key)
           )
 
           (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
@@ -553,16 +553,7 @@ private[kvutils] class TransactionCommitter(
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
           Conversions.encodeGlobalKey(
-            GlobalKey
-              .build(
-                createNode.coinst.template,
-                keyWithMaintainers.key,
-              )
-              .fold(
-                _ =>
-                  throw Err.InvalidSubmission("Contract IDs are not supported in contract keys."),
-                identity,
-              )
+            GlobalKey.assertBuild(createNode.coinst.template, keyWithMaintainers.key)
           )
         )
       }

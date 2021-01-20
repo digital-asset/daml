@@ -76,7 +76,7 @@ private[kvutils] object InputsAndEffects {
         keyWithMaintainers: Node.KeyWithMaintainers[Value[ContractId]],
     ): Unit = {
       inputs += globalKeyToStateKey(
-        GlobalKey(templateId, forceNoContractIds(keyWithMaintainers.key))
+        GlobalKey.assertBuild(templateId, keyWithMaintainers.key)
       )
       ()
     }
@@ -134,17 +134,7 @@ private[kvutils] object InputsAndEffects {
               .fold(effects.updatedContractKeys)(keyWithMaintainers =>
                 effects.updatedContractKeys.updated(
                   globalKeyToStateKey(
-                    GlobalKey
-                      .build(
-                        create.coinst.template,
-                        keyWithMaintainers.key,
-                      )
-                      .fold(
-                        _ =>
-                          throw Err
-                            .InvalidSubmission("Contract IDs are not supported in contract keys."),
-                        identity,
-                      )
+                    GlobalKey.assertBuild(create.coinst.template, keyWithMaintainers.key)
                   ),
                   Some(create.coid),
                 )
@@ -158,7 +148,7 @@ private[kvutils] object InputsAndEffects {
               updatedContractKeys = exe.key
                 .fold(effects.updatedContractKeys)(key =>
                   effects.updatedContractKeys.updated(
-                    globalKeyToStateKey(GlobalKey(exe.templateId, forceNoContractIds(key.key))),
+                    globalKeyToStateKey(GlobalKey.assertBuild(exe.templateId, key.key)),
                     None,
                   )
                 ),

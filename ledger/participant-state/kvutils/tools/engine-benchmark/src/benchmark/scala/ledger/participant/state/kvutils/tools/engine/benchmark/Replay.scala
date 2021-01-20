@@ -233,10 +233,7 @@ object Replay {
 
       val allContractsWithKey = createsNodes.flatMap { node =>
         node.key.toList.map(key =>
-          node.coid -> GlobalKey(
-            node.coinst.template,
-            key.key.assertNoCid(key => s"found cid in key $key"),
-          )
+          node.coid -> GlobalKey.assertBuild(node.coinst.template, key.key)
         )
       }.toMap
 

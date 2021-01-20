@@ -86,7 +86,7 @@ object Hash {
 
   @throws[HashingError]
   private[lf] val noCid2String: Value.ContractId => Nothing =
-    _ => error("Hashing of relative contract id is not supported in contract key")
+    _ => error("Contract IDs are not supported in contract keys.")
 
   private[crypto] sealed abstract class Builder(cid2Bytes: Value.ContractId => Bytes) {
 

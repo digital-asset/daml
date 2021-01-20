@@ -269,10 +269,9 @@ object KeyValueCommitting {
     // to allocate a log entry id and we can directly place the output keys into the submission and do not need
     // to compute outputs from serialized transaction.
     val contractKey =
-      GlobalKey(
+      GlobalKey.assertBuild(
         decodeIdentifier(templateId),
-        decodeVersionedValue(key).value.ensureNoCid
-          .getOrElse(throw Err.DecodeError("ContractKey", "Contract key contained contract id")),
+        decodeVersionedValue(key).value,
       )
     DamlStateKey.newBuilder
       .setContractKey(
