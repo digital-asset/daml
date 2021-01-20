@@ -56,6 +56,17 @@ object WebSocketService {
       ],
   )
 
+  /** If an element satisfies `prefix`, consume it and emit the result alongside
+    * the next element (which is not similarly tested); otherwise, emit it.
+    *
+    * {{{
+    *   withOptPrefix(_ => None)
+    *     = Flow[I].map((None, _))
+    *
+    *   Source(Seq(1, 2, 3, 4)) via withOptPrefix(Some(_))
+    *     = Source(Seq((Some(1), 2), (Some(3), 4)))
+    * }}}
+    */
   private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
     Flow[I]
       .scan(none[L \/ (Option[L], I)]) { (s, i) =>
