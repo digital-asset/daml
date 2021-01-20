@@ -30,9 +30,9 @@ For example, Alice should be an observer of the `PaintOffer`, such that she is m
 Signatories are already determined by the contract model discussed so far.
 The full **contract model** additionally specifies the **contract observers** on each contract.
 A **stakeholder** of a contract (according to a given contract model) is then either a signatory or a contract observer on the contract.
-Note that in Daml, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made observers whenever possible.
+Note that in Daml, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made contract observers whenever possible.
 
-In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
+In the graphical representation of the paint offer acceptance below, contract observers who are not signatories are indicated by an underline.
 
 .. https://www.lucidchart.com/documents/edit/ea40a651-a2e0-4365-ae7d-4cee8cd07071/0
 .. image:: ./images/stakeholders-paint-offer.svg
@@ -255,7 +255,7 @@ the painter:
 In the example, the context is provided by consuming a `ShowIou` contract on which the painter is a stakeholder.
 This now requires an additional contract type, compared to the original paint offer example.
 An alternative approach to enable this workflow, without increasing the number of contracts required, is to
-replace the original `Iou` contract by one on which the painter is an observer.
+replace the original `Iou` contract by one on which the painter is a contract observer.
 This would require extending the contract model with a (consuming) exercise action on the `Iou` that creates a new
 `Iou`, with observers of Alice's choice.
 In addition to the different number of commits, the two approaches differ in one more aspect.
