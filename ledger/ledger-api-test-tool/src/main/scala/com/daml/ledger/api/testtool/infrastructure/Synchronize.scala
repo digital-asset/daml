@@ -3,8 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.AgreementFactory
 import com.daml.ledger.test.model.Test.AgreementFactory._
 
@@ -41,4 +43,20 @@ object Synchronize {
       // point before invoking this method
     }
   }
+
+  final def waitForContract[T](
+      alpha: ParticipantTestContext,
+      party: Party,
+      contractId: Primitive.ContractId[T],
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    Eventually.eventually {
+      alpha.activeContracts(party).map { events =>
+        assert(
+          events.exists(_.contractId == contractId.toString),
+          s"Could not find contract $contractId",
+        )
+      }
+    }
+  }
+
 }
