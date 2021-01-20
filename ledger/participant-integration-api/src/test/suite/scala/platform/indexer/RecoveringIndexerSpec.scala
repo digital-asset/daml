@@ -111,7 +111,8 @@ final class RecoveringIndexerSpec
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
       resource.asFuture
         .map { complete =>
-          readLog() should contain theSameElementsInOrderAs Seq(
+          // at this point the read log should at least contain logs informing about a successful indexer server startup
+          readLog().take(2) should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
             Level.INFO -> "Started Indexer Server",
           )
