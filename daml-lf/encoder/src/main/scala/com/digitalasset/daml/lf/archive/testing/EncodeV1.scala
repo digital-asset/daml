@@ -54,7 +54,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.Package.newBuilder()
       pkg.modules.sortByKey.values.foreach(m => builder.addModules(encodeModule(m)))
 
-      if (!versionIsOlderThan(LV.Features.packageMetadata))
+      if (LV.Features.packageMetadata <= languageVersion)
         pkg.metadata.foreach { metadata =>
           val metadataBuilder = PLF.PackageMetadata.newBuilder
           metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
@@ -179,7 +179,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       */
     private val builtinTypeInfoMap =
       DecodeV1.builtinTypeInfos
-        .filterNot(info => versionIsOlderThan(info.minVersion))
+        .filter(info => info.minVersion <= languageVersion)
         .map(info => info.bTyp -> info)
         .toMap
 
@@ -215,7 +215,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       }
 
     private implicit def encodeType(typ: Type): PLF.Type =
-      if (versionIsOlderThan(LV.Features.internedTypes))
+      if (languageVersion < LV.Features.internedTypes)
         encodeTypeBuilder(typ).build()
       else
         PLF.Type.newBuilder().setInterned(typeTable.insert(typ)).build()
@@ -245,7 +245,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
         case TBuiltin(bType) =>
           val (proto, typs) =
-            if (bType == BTNumeric && versionIsOlderThan(LV.Features.numeric))
+            if (bType == BTNumeric && (languageVersion < LV.Features.numeric))
               PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
             else
               builtinTypeInfoMap(bType).proto -> args
@@ -276,9 +276,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       */
     private val builtinFunctionInfos =
       DecodeV1.builtinFunctionInfos
-        .filterNot(info =>
-          versionIsOlderThan(info.minVersion) &&
-            info.maxVersion.forall(v => !versionIsOlderThan(v))
+        .filter(info =>
+          info.minVersion <= languageVersion && info.maxVersion.forall(languageVersion < _)
         )
 
     private val directBuiltinFunctionMap =
@@ -436,7 +435,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case PLInt64(value) =>
           builder.setInt64(value)
         case PLNumeric(value) =>
-          if (versionIsOlderThan(LV.Features.numeric)) {
+          if (languageVersion < LV.Features.numeric) {
             assert(value.scale == Decimal.scale)
             builder.setDecimalStr(Numeric.toUnscaledString(value))
           } else
@@ -692,7 +691,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.setControllers(choice.controllers)
       choice.choiceObservers match {
         case Some(value) =>
-          assertUntil(LV.Features.choiceObservers, "TemplateChoice.observer")
+          assertSince(LV.Features.choiceObservers, "TemplateChoice.observer")
           b.setObservers(value)
         case None if languageVersion >= LV.Features.choiceObservers =>
           b.setObservers(ENil(AstUtil.TParty))
@@ -730,7 +729,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private def setString[X](s: String, setDirect: String => X, setThroughTable: Int => X) = {
-      if (versionIsOlderThan(LV.Features.internedStrings))
+      if (languageVersion < LV.Features.internedStrings)
         setDirect(s)
       else
         setThroughTable(stringsTable.insert(s))
@@ -742,7 +741,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         addDirect: String => X,
         setThroughTable: Int => X,
     ) = {
-      if (versionIsOlderThan(LV.Features.internedDottedNames))
+      if (languageVersion < LV.Features.internedDottedNames)
         name.segments.map(addDirect)
       else
         setThroughTable(dottedNameTable.insert(name))
@@ -754,7 +753,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         addDirect: PLF.DottedName => X,
         setThroughTable: Int => X,
     ) = {
-      if (versionIsOlderThan(LV.Features.internedDottedNames))
+      if (languageVersion < LV.Features.internedDottedNames)
         addDirect(
           PLF.DottedName.newBuilder().accumulateLeft(name.segments)(_ addSegments _).build()
         )
@@ -765,16 +764,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
   }
 
-  private def versionIsOlderThan(minVersion: LV): Boolean =
-    languageVersion < minVersion
-
   private def assertSince(minVersion: LV, description: String): Unit =
-    if (versionIsOlderThan(minVersion))
+    if (languageVersion < minVersion)
       throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
-
-  private def assertUntil(minVersion: LV, description: String): Unit =
-    if (versionIsOlderThan(minVersion))
-      throw EncodeError(s"non empty $description is not supported by DAML-LF 1.$minor")
 
 }
 
