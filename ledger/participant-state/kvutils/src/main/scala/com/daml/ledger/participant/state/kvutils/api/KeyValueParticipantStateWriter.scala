@@ -12,18 +12,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.Metrics
 
 import scala.compat.java8.FutureConverters
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics)(implicit
-    loggingContext: LoggingContext
-) extends WriteService {
+class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) extends WriteService {
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
-  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -38,17 +33,11 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics)(imp
         transaction,
       )
     val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
-    withEnrichedLoggingContext(
-      "workflowId" -> transactionMeta.workflowId.getOrElse(""),
-      "correlationId" -> submitterInfo.commandId,
-    ) { implicit loggingContext =>
-      logger.trace(s"Submitting transaction")
-      commit(
-        correlationId = submitterInfo.commandId,
-        submission = submission,
-        metadata = Some(metadata),
-      )
-    }
+    commit(
+      correlationId = submitterInfo.commandId,
+      submission = submission,
+      metadata = Some(metadata),
+    )
   }
 
   override def uploadPackages(

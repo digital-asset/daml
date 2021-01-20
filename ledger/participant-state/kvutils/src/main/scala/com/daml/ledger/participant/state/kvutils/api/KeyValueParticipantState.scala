@@ -11,7 +11,6 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
-import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 /** Implements read and write operations required for running a participant server.
@@ -29,8 +28,7 @@ class KeyValueParticipantState(
     reader: LedgerReader,
     writer: LedgerWriter,
     metrics: Metrics,
-)(implicit loggingContext: LoggingContext)
-    extends ReadService
+) extends ReadService
     with WriteService {
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics)
