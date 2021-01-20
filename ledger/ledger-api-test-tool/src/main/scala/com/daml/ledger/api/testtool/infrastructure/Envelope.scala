@@ -53,12 +53,22 @@ object Envelope {
     private val Prefix = Envelope.Prefix :+ "Throughput"
 
     val All: immutable.Seq[Envelope] =
-      Vector(NoThroughput, FivePerSecond, TwentyPerSecond, FiftyPerSecond, FiveHundredPerSecond)
+      Vector(
+        NoThroughput,
+        FivePerSecond,
+        TwentyPerSecond,
+        FiftyPerSecond,
+        HundredPerSecond,
+        TwoFiftyPerSecond,
+        FiveHundredPerSecond,
+      )
 
     case object NoThroughput extends Throughput("ZeroOPS", operationsPerSecond = 0)
     case object FivePerSecond extends Throughput("FiveOPS", operationsPerSecond = 5)
     case object TwentyPerSecond extends Throughput("TwentyOPS", operationsPerSecond = 20)
     case object FiftyPerSecond extends Throughput("FiftyOPS", operationsPerSecond = 50)
+    case object HundredPerSecond extends Throughput("HundredOPS", operationsPerSecond = 100)
+    case object TwoFiftyPerSecond extends Throughput("TwoFiftyOPS", operationsPerSecond = 250)
     case object FiveHundredPerSecond extends Throughput("FiveHundredOPS", operationsPerSecond = 500)
 
   }
