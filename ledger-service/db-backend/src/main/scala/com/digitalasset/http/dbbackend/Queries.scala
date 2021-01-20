@@ -20,7 +20,6 @@ import spray.json._
 import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
-import cats.syntax.foldable._
 import cats.syntax.apply._
 import cats.syntax.functor._
 
@@ -86,12 +85,19 @@ sealed abstract class Queries {
       *> dropOffsetTable.update.run
       *> dropTemplateIdsTable.update.run).void
 
-  private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] =
-    (createTemplateIdsTable.update.run
-      *> createOffsetTable.update.run
-      *> createContractsTable.update.run
-      *> indexContractsTable.update.run
-      *> indexContractsKeys.update.run).void
+  private[this] def initDatabaseDdls: Vector[Fragment] =
+    Vector(
+      createTemplateIdsTable,
+      createOffsetTable,
+      createContractsTable,
+      indexContractsTable,
+      indexContractsKeys,
+    )
+
+  private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdls.traverse_(_.update.run)
+  }
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler
@@ -142,7 +148,10 @@ sealed abstract class Queries {
       lastOffsets: Map[String, String],
   )(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
-    val (existingParties, newParties) = parties.toList.partition(p => lastOffsets.contains(p))
+    val (existingParties, newParties) = {
+      import cats.syntax.foldable._
+      parties.toList.partition(p => lastOffsets.contains(p))
+    }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert = Update[(String, SurrogateTpId, String)](
       """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
