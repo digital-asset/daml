@@ -29,17 +29,7 @@ tests damlc =
         "Incremental package db initialization"
         [ test
               "Reinitialize when dependency changes"
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: proj"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      , "  - dependency/dep.dar"
-                      ])
+              [ projectFile "proj" ["dependency/dep.dar"]
               , ("daml/A.daml"
                 , unlines
                       [ "module A where"
@@ -54,16 +44,7 @@ tests damlc =
                       , "x : Int"
                       , "x = f 1 + g 2"])
               ]
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: dep"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ])
+              [ projectFile "dep" []
               , ( "daml/B.daml"
                 , unlines
                       [ "module B where"
@@ -94,45 +75,17 @@ tests damlc =
               (ShouldSucceed True)
         , test
               "Reinitialize when dependency is added"
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: proj"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ])
+              [ projectFile "proj" []
               , ("daml/A.daml", unlines [ "module A where"])
               ]
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: proj"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      , "  - dependency/dep.dar"
-                      ])
+              [ projectFile "proj" ["dependency/dep.dar"]
               , ("daml/A.daml", unlines
                     [ "module A where"
                     , "import B"
                     , "g x = f x + 1"
                     ])
               ]
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: dep"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ])
+              [ projectFile "dep" []
               , ( "daml/B.daml"
                 , unlines
                       [ "module B where"
@@ -150,17 +103,7 @@ tests damlc =
               (ShouldSucceed True)
         , test
               "Fail when dependency is removed"
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: proj"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      , "  - dependency/dep.dar"
-                      ])
+              [ projectFile "proj" ["dependency/dep.dar"]
               , ("daml/A.daml"
                 , unlines
                       ["module A where"
@@ -168,16 +111,7 @@ tests damlc =
                       , "x : Int"
                       , "x = f 1"])
               ]
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: proj"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ])
+              [ projectFile "proj" []
               ]
               [ ( "daml.yaml"
                 , unlines
@@ -206,33 +140,14 @@ tests damlc =
               (ShouldSucceed False)
         , test
               "No reinitialization when nothing changes"
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: proj"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      , "  - dependency/dep.dar"
-                      ])
+              [ projectFile "proj" ["dependency/dep.dar"]
               , ("daml/A.daml"
                 , unlines
                       ["module A where"
                       , "import B"])
               ]
               []
-              [ ( "daml.yaml"
-                , unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: dep"
-                      , "source: daml"
-                      , "version: 0.0.1"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ])
+              [ projectFile "dep" []
               , ( "daml/B.daml"
                 , unlines
                       [ "module B where"
@@ -285,3 +200,15 @@ tests damlc =
         for_ fs $ \(file, content) -> do
             createDirectoryIfMissing True (takeDirectory $ dir </> file)
             writeFileUTF8 (dir </> file) content
+    projectFile name deps =
+        ( "daml.yaml"
+        , unlines $
+          [ "sdk-version: " <> sdkVersion
+          , "name: " <> name
+          , "source: daml"
+          , "version: 0.0.1"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          ] ++
+          ["  - " <> dep | dep <- deps])
