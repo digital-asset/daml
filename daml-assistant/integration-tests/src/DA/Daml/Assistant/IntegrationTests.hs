@@ -600,6 +600,23 @@ damlStartTests getDamlStart =
           withTempDir $ \tmpDir -> do
             DamlStartResource{startPh} <- damlStart EnvAbsoluteDir tmpDir
             terminateProcess startPh
+        , testCase "run a daml deploy without project parties" $ do
+              DamlStartResource {projDir, sandboxPort} <- getDamlStart
+              withCurrentDirectory projDir $ do
+                  copyFile "daml.yaml" "daml.yaml.back"
+                  writeFileUTF8 "daml.yaml" $ unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: proj1"
+                      , "version: 0.0.1"
+                      , "source: daml"
+                      , "dependencies:"
+                      , "  - daml-prim"
+                      , "  - daml-stdlib"
+                      , "  - daml-script"
+                      ]
+                  callCommand $
+                    unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
+                  copyFile "daml.yaml.back" "daml.yaml"
         ]
 
 quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree

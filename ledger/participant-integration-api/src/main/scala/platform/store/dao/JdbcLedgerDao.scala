@@ -55,6 +55,7 @@ import com.daml.platform.store.entries.{
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -1023,6 +1024,7 @@ private[platform] object JdbcLedgerDao {
         serverRole,
         jdbcUrl,
         maxConnections,
+        250.millis,
         metrics,
         jdbcAsyncCommits,
       )

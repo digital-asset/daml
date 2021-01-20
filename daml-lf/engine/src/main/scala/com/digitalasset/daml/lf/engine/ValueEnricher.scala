@@ -6,7 +6,7 @@ package engine
 
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.PackageSignature
+import com.daml.lf.language.Ast.{PackageSignature, TTyCon}
 import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
 import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
@@ -111,9 +111,9 @@ final class ValueEnricher(engine: Engine) {
     node match {
       case create: Node.NodeCreate[ContractId] =>
         for {
-          contractInstance <- enrichContract(create.coinst)
+          arg <- enrichValue(TTyCon(create.templateId), create.arg)
           key <- enrichContractKey(create.templateId, create.key)
-        } yield create.copy(coinst = contractInstance, key = key)
+        } yield create.copy(arg = arg, key = key)
       case fetch: Node.NodeFetch[ContractId] =>
         for {
           key <- enrichContractKey(fetch.templateId, fetch.key)

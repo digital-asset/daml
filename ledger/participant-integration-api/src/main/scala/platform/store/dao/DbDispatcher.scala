@@ -16,6 +16,7 @@ import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 
 private[platform] final class DbDispatcher private (
@@ -83,6 +84,7 @@ private[platform] object DbDispatcher {
       serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
+      connectionTimeout: FiniteDuration,
       metrics: Metrics,
       connectionAsyncCommit: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
@@ -91,6 +93,7 @@ private[platform] object DbDispatcher {
         serverRole,
         jdbcUrl,
         maxConnections,
+        connectionTimeout,
         metrics.registry,
         connectionAsyncCommit,
       )

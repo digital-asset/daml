@@ -28,7 +28,8 @@ private[benchmark] final class Adapter(
     node match {
       case create: Node.NodeCreate[ContractId] =>
         create.copy(
-          coinst = create.coinst.copy(adapt(create.coinst.template), adapt(create.coinst.arg)),
+          templateId = adapt(create.templateId),
+          arg = adapt(create.arg),
           optLocation = None,
           key = create.key.map(adapt),
         )
@@ -48,11 +49,12 @@ private[benchmark] final class Adapter(
           key = fetch.key.map(adapt),
         )
       case lookup: Node.NodeLookupByKey[ContractId] =>
-        lookup.copy(
-          templateId = adapt(lookup.templateId),
-          optLocation = None,
-          key = adapt(lookup.key),
-        )
+        lookup
+          .copy(
+            templateId = adapt(lookup.templateId),
+            optLocation = None,
+            key = adapt(lookup.key),
+          )
     }
 
   // drop value version

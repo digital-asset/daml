@@ -37,19 +37,20 @@ private[preprocessing] final class TransactionPreprocessor(
     node match {
       case Node.NodeCreate(
             coid @ _,
-            coinst,
+            templateId,
+            arg,
+            agreementText @ _,
             optLoc @ _,
             sigs @ _,
             stks @ _,
             key @ _,
             version @ _,
           ) =>
-        val identifier = coinst.template
         if (globalCids(coid))
           fail("Conflicting discriminators between a global and local contract ID.")
 
         val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessCreate(identifier, coinst.arg)
+          commandPreprocessor.unsafePreprocessCreate(templateId, arg)
         val newGlobalCids = globalCids + coid
         val newLocalCids = localCids | newCids.filterNot(globalCids)
         cmd -> (newLocalCids -> newGlobalCids)

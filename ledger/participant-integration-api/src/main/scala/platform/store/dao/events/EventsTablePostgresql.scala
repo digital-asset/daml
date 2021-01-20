@@ -3,10 +3,10 @@
 
 package com.daml.platform.store.dao.events
 
-import java.sql.{Connection, PreparedStatement}
+import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter, Row, SimpleSql, SqlStringInterpolation, ToStatement}
+import anorm.{BatchSql, NamedParameter, Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
@@ -18,11 +18,11 @@ object EventsTablePostgresql extends EventsTable {
     * faster than using JDBC batches.
     */
   final class Batches(
-      insertEvents: Option[SimpleSql[Row]],
+      insertEvents: SimpleSql[Row],
       updateArchives: Option[BatchSql],
   ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
-      insertEvents.foreach(_.execute())
+      insertEvents.execute()
       updateArchives.foreach(_.execute())
     }
   }
@@ -41,6 +41,7 @@ object EventsTablePostgresql extends EventsTable {
       info: TransactionIndexing.EventsInfo,
       serialized: TransactionIndexing.Serialized,
   ): EventsTable.Batches = {
+
     val batchSize = info.events.size
     val eventIds = Array.ofDim[String](batchSize)
     val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
@@ -142,24 +143,63 @@ object EventsTablePostgresql extends EventsTable {
       info.archives.iterator.map(archive(tx.offset)).toList
 
     new Batches(
-      insertEvents = Some(inserts),
+      insertEvents = inserts,
       updateArchives = batch(updateArchived, archivals),
     )
   }
 
-  // Specific for PostgreSQL parallel unnesting insertions
-
-  private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit =
-      s.setObject(index, v)
+  private object Params {
+    val eventIds = "eventIds"
+    val eventOffsets = "eventOffsets"
+    val contractIds = "contractIds"
+    val transactionIds = "transactionIds"
+    val workflowIds = "workflowIds"
+    val ledgerEffectiveTimes = "ledgerEffectiveTimes"
+    val templateIds = "templateIds"
+    val nodeIndexes = "nodeIndexes"
+    val commandIds = "commandIds"
+    val applicationIds = "applicationIds"
+    val submitters = "submitters"
+    val flatEventWitnesses = "flatEventWitnesses"
+    val treeEventWitnesses = "treeEventWitnesses"
+    val createArguments = "createArguments"
+    val createSignatories = "createSignatories"
+    val createObservers = "createObservers"
+    val createAgreementTexts = "createAgreementTexts"
+    val createConsumedAt = "createConsumedAt"
+    val createKeyValues = "createKeyValues"
+    val exerciseConsuming = "exerciseConsuming"
+    val exerciseChoices = "exerciseChoices"
+    val exerciseArguments = "exerciseArguments"
+    val exerciseResults = "exerciseResults"
+    val exerciseActors = "exerciseActors"
+    val exerciseChildEventIds = "exerciseChildEventIds"
   }
 
-  private implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
-      s.setArray(index, ts)
-    }
+  private val insertStmt = {
+    import Params._
+    anorm.SQL(s"""insert into participant_events(
+           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
+           create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
+           exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
+         )
+         select
+           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, string_to_array(submitters,'|'), string_to_array(flat_event_witnesses, '|'), string_to_array(tree_event_witnesses, '|'),
+           create_argument, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_consumed_at, create_key_value,
+           exercise_consuming, exercise_choice, exercise_argument, exercise_result, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
+         from
+           unnest(
+             {$eventIds}, {$eventOffsets}, {$contractIds}, {$transactionIds}, {$workflowIds}, {$ledgerEffectiveTimes}, {$templateIds}, {$nodeIndexes}, {$commandIds}, {$applicationIds}, {$submitters}, {$flatEventWitnesses}, {$treeEventWitnesses},
+             {$createArguments}, {$createSignatories}, {$createObservers}, {$createAgreementTexts}, {$createConsumedAt}, {$createKeyValues},
+             {$exerciseConsuming}, {$exerciseChoices}, {$exerciseArguments}, {$exerciseResults}, {$exerciseActors}, {$exerciseChildEventIds}
+           )
+           as
+               t(
+                 event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
+                 create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
+                 exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
+               )
+       """)
   }
 
   private def insertEvents(
@@ -188,28 +228,34 @@ object EventsTablePostgresql extends EventsTable {
       exerciseResults: Array[Array[Byte]],
       exerciseActors: Array[String],
       exerciseChildEventIds: Array[String],
-  ) =
-    SQL"""insert into participant_events(
-           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
-           create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
-           exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
-         )
-         select
-           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, string_to_array(submitters,'|'), string_to_array(flat_event_witnesses, '|'), string_to_array(tree_event_witnesses, '|'),
-           create_argument, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_consumed_at, create_key_value,
-           exercise_consuming, exercise_choice, exercise_argument, exercise_result, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
-         from
-           unnest(
-             $eventIds::varchar[], $eventOffsets::bytea[], $contractIds::varchar[], $transactionIds::varchar[], $workflowIds::varchar[], $ledgerEffectiveTimes::timestamp[], $templateIds::varchar[], $nodeIndexes::int[], $commandIds::varchar[], $applicationIds::varchar[], $submitters::varchar[], $flatEventWitnesses::varchar[], $treeEventWitnesses::varchar[],
-             $createArguments::bytea[], $createSignatories::varchar[], $createObservers::varchar[], $createAgreementTexts::varchar[], $createConsumedAt::bytea[], $createKeyValues::bytea[],
-             $exerciseConsuming::bool[], $exerciseChoices::varchar[], $exerciseArguments::bytea[], $exerciseResults::bytea[], $exerciseActors::varchar[], $exerciseChildEventIds::varchar[]
-           )
-           as
-               t(
-                 event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
-                 create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
-                 exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
-               )
-       """
-
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.Conversions._
+    insertStmt.on(
+      Params.eventIds -> eventIds,
+      Params.eventOffsets -> eventOffsets,
+      Params.contractIds -> contractIds,
+      Params.transactionIds -> transactionIds,
+      Params.workflowIds -> workflowIds,
+      Params.ledgerEffectiveTimes -> ledgerEffectiveTimes,
+      Params.templateIds -> templateIds,
+      Params.nodeIndexes -> nodeIndexes,
+      Params.commandIds -> commandIds,
+      Params.applicationIds -> applicationIds,
+      Params.submitters -> submitters,
+      Params.flatEventWitnesses -> flatEventWitnesses,
+      Params.treeEventWitnesses -> treeEventWitnesses,
+      Params.createArguments -> createArguments,
+      Params.createSignatories -> createSignatories,
+      Params.createObservers -> createObservers,
+      Params.createAgreementTexts -> createAgreementTexts,
+      Params.createConsumedAt -> createConsumedAt,
+      Params.createKeyValues -> createKeyValues,
+      Params.exerciseConsuming -> exerciseConsuming,
+      Params.exerciseChoices -> exerciseChoices,
+      Params.exerciseArguments -> exerciseArguments,
+      Params.exerciseResults -> exerciseResults,
+      Params.exerciseActors -> exerciseActors,
+      Params.exerciseChildEventIds -> exerciseChildEventIds,
+    )
+  }
 }

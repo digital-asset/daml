@@ -10,7 +10,7 @@ As described in preceeding sections, both the integrity and privacy notions depe
 a contract model, and such a model must specify:
 
 #. a set of allowed actions on the contracts, and
-#. the signatories, observers, and
+#. the signatories, contract observers, and
 #. an optional agreement text associated with each contract, and
 #. the optional key associated with each contract and its maintainers.
 
@@ -33,6 +33,7 @@ Intuitively, the allowed actions are:
 
    #. The actors match the controllers of the choice.
       That is, the controllers define the :ref:`required authorizers <da-ledgers-required-authorizers>` of the choice.
+   #. The choice observers match the observers annotated in the choice.
    #. The exercise kind matches.
    #. All assertions in the update block hold for the given choice arguments.
    #. Create, exercise, fetch and key statements in the update block are represented
@@ -59,7 +60,7 @@ is a triple of:
 #. the template arguments
 
 The signatories of a Daml contract are derived from the template arguments and the explicit signatory annotations on the contract template.
-The observers are also derived from the template arguments and include:
+The contract observers are also derived from the template arguments and include:
 
 1. the observers as explicitly annotated on the template
 2. all controllers `c` of every choice defined using the syntax :code:`controller c can...` (as opposed to the syntax :code:`choice ... controller c`)
