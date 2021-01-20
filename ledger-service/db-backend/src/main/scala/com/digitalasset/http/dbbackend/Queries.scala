@@ -24,35 +24,11 @@ import cats.syntax.foldable._
 import cats.syntax.apply._
 import cats.syntax.functor._
 
-object Queries {
+sealed abstract class Queries {
+  import Queries.{SurrogateTpId, DBContract}
   import Implicits._
 
   def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
-
-  // NB: #, order of arguments must match createContractsTable
-  final case class DBContract[+TpId, +CK, +PL, +Prt](
-      contractId: String,
-      templateId: TpId,
-      key: CK,
-      payload: PL,
-      signatories: Prt,
-      observers: Prt,
-      agreementText: String,
-  ) {
-    def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
-      copy(templateId = f(templateId))
-    def mapKeyPayloadParties[A, B, C](
-        f: CK => A,
-        g: PL => B,
-        h: Prt => C,
-    ): DBContract[TpId, A, B, C] =
-      copy(
-        key = f(key),
-        payload = g(payload),
-        signatories = h(signatories),
-        observers = h(observers),
-      )
-  }
 
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"payload"
@@ -80,8 +56,6 @@ object Queries {
       CREATE INDEX ON contract USING BTREE (tpid, key)
   """
 
-  final case class DBOffset[+TpId](party: String, templateId: TpId, lastOffset: String)
-
   private[this] val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
 
   private[this] val createOffsetTable: Fragment = sql"""
@@ -93,10 +67,6 @@ object Queries {
         ,PRIMARY KEY (party, tpid)
         )
     """
-
-  sealed trait SurrogateTpIdTag
-  val SurrogateTpId = Tag.of[SurrogateTpIdTag]
-  type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) below
 
   private[this] val dropTemplateIdsTable: Fragment = dropTableIfExists("template_id")
 
@@ -381,5 +351,36 @@ object Queries {
 
     implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
       SurrogateTpId subst Meta[Long]
+  }
+}
+
+object Queries extends Queries {
+  sealed trait SurrogateTpIdTag
+  val SurrogateTpId = Tag.of[SurrogateTpIdTag]
+  type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
+
+  // NB: #, order of arguments must match createContractsTable
+  final case class DBContract[+TpId, +CK, +PL, +Prt](
+                                                      contractId: String,
+                                                      templateId: TpId,
+                                                      key: CK,
+                                                      payload: PL,
+                                                      signatories: Prt,
+                                                      observers: Prt,
+                                                      agreementText: String,
+                                                    ) {
+    def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
+      copy(templateId = f(templateId))
+    def mapKeyPayloadParties[A, B, C](
+                                       f: CK => A,
+                                       g: PL => B,
+                                       h: Prt => C,
+                                     ): DBContract[TpId, A, B, C] =
+      copy(
+        key = f(key),
+        payload = g(payload),
+        signatories = h(signatories),
+        observers = h(observers),
+      )
   }
 }
