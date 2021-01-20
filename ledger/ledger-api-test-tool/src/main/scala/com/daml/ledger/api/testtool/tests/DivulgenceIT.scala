@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.waitForContract
-import com.daml.ledger.api.testtool.infrastructure.{LedgerTestSuite, Synchronize}
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Proposal._
 import com.daml.ledger.test.model.Test.{Asset, Divulgence1, Divulgence2, Proposal}
