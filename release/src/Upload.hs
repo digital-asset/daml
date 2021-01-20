@@ -373,7 +373,7 @@ logStatusRetry shouldRetry _ status =
 
 -- Retry for 5 minutes total, doubling delay starting with 20ms.
 uploadRetryPolicy :: RetryPolicy
-uploadRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 100f))
+uploadRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
 
 -- The status of the staging repository can take a number of minutes to change it's
 -- status to closed.
