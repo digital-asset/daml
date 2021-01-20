@@ -20,6 +20,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
     "LF_VERSIONS",
     "lf_latest_version",
     "lf_stable_version",
@@ -125,15 +126,6 @@ scala_source_jar(
     srcs = [],
 )
 
-# TODO https://github.com/digital-asset/daml/issues/7139
-# CHANGES TO LF_VERSIONS once the compiler produces LF 1.11
-test_daml_lf_target_versions = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
-
 [
     [
         dar_to_java(
@@ -158,19 +150,12 @@ test_daml_lf_target_versions = [
             ],
         ),
     ]
-    for target in test_daml_lf_target_versions
+    for target in COMPILER_LF_VERSIONS
 ]
 
 ########################################################
 ####  Integration Tests
 ########################################################
-
-it_daml_lf_target_versions = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
 
 daml_compile(
     name = "integration-tests-model-1_6",
@@ -213,6 +198,17 @@ daml_compile(
         ],
     ),
     target = "1.8",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_11",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_111.daml",
+        ],
+    ),
+    target = "1.11",
 )
 
 daml_compile(
@@ -259,7 +255,7 @@ daml_compile(
             ],
         ),
     ]
-    for target in test_daml_lf_target_versions
+    for target in COMPILER_LF_VERSIONS
 ]
 
 ########################################################
