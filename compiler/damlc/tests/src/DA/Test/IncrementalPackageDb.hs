@@ -47,7 +47,13 @@ tests damlc =
                       , "x : Int"
                       , "x = f 1"])
               ]
-              []
+              [("daml/A.daml"
+                , unlines
+                      [ "module A where"
+                      , "import B"
+                      , "x : Int"
+                      , "x = f 1 + g 2"])
+              ]
               [ ( "daml.yaml"
                 , unlines
                       [ "sdk-version: " <> sdkVersion
@@ -80,6 +86,8 @@ tests damlc =
                       , "    signatory p"
                       , "f : Int -> Int"
                       , "f i = i + 2"
+                      , "g : Int -> Int"
+                      , "g i = i + 3"
                       ])
               ]
               (ExpectReinitialization True)
@@ -96,7 +104,7 @@ tests damlc =
                       , "  - daml-prim"
                       , "  - daml-stdlib"
                       ])
-              , ("daml/A.daml", unlines ["module A where"])
+              , ("daml/A.daml", unlines [ "module A where"])
               ]
               [ ( "daml.yaml"
                 , unlines
@@ -109,6 +117,11 @@ tests damlc =
                       , "  - daml-stdlib"
                       , "  - dependency/dep.dar"
                       ])
+              , ("daml/A.daml", unlines
+                    [ "module A where"
+                    , "import B"
+                    , "g x = f x + 1"
+                    ])
               ]
               [ ( "daml.yaml"
                 , unlines
