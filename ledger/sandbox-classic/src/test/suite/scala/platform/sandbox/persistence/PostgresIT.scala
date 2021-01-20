@@ -33,6 +33,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           ServerRole.Testing(getClass),
           postgresDatabase.url,
           maxConnections = 4,
+          3.seconds,
           new MetricRegistry,
         )
         .acquire()(ResourceContext(DirectExecutionContext))
