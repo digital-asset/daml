@@ -361,21 +361,21 @@ object Queries extends Queries {
 
   // NB: #, order of arguments must match createContractsTable
   final case class DBContract[+TpId, +CK, +PL, +Prt](
-                                                      contractId: String,
-                                                      templateId: TpId,
-                                                      key: CK,
-                                                      payload: PL,
-                                                      signatories: Prt,
-                                                      observers: Prt,
-                                                      agreementText: String,
-                                                    ) {
+      contractId: String,
+      templateId: TpId,
+      key: CK,
+      payload: PL,
+      signatories: Prt,
+      observers: Prt,
+      agreementText: String,
+  ) {
     def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
       copy(templateId = f(templateId))
     def mapKeyPayloadParties[A, B, C](
-                                       f: CK => A,
-                                       g: PL => B,
-                                       h: Prt => C,
-                                     ): DBContract[TpId, A, B, C] =
+        f: CK => A,
+        g: PL => B,
+        h: Prt => C,
+    ): DBContract[TpId, A, B, C] =
       copy(
         key = f(key),
         payload = g(payload),
