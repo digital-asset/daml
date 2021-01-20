@@ -42,7 +42,7 @@ In the graphical representation of the paint offer acceptance below, contract ob
 Choice Observers
 ++++++++++++++++
 
-In addition to contract observers, we also have **choice observers** on individual contract choices.
+In addition to contract observers, the contract model can also specify **choice observers** on individual **Exercise** actions.
 Choice observers get to see a specific exercise on a contract, and to view its consequences.
 Choice observers are not considered stakeholders of the contract, they only affect the set of informees
 on an action, for the purposes of projection (see below).
