@@ -22,10 +22,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
   import EncodeV1Spec._
 
   val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters(
-      pkgId,
-      LanguageVersion.StableVersions.max,
-    )
+    ParserParameters(pkgId, LanguageVersion.v1_dev)
 
   "Encode and Decode" should {
     "form a prism" in {
@@ -48,8 +45,14 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
               observers Cons @Party [Mod:Person {person} this] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Sleep (self) (u: Unit) : Unit, controllers Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Unit (),
-                choice @nonConsuming Nap (self) (i : Int64): Int64, controllers Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Int64 i
+                choice Sleep (self) (u: Unit) : Unit, 
+                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                    observers Nil @Party
+                  to upure @Unit (),
+                choice @nonConsuming Nap (self) (i : Int64): Int64, 
+                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                    observers Cons @Party [Mod:Person {person} this] (Nil @Party)
+                to upure @Int64 i
               },
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
             };
@@ -135,7 +138,6 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       """
 
       validate(pkgId, pkg)
-
       val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
       val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 

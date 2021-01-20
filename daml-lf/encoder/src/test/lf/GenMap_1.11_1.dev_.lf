@@ -50,5 +50,7 @@ module GenMapMod {
         c3 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map3
       in
         spure @Unit () ;
-          
+
+  val equal: forall (x:*). x -> x -> Bool = EQUAL;
+
 }
