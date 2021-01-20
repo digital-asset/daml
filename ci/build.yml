@@ -45,6 +45,7 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: eq(variables.is_release, 'true')
+    - template: clean-up.yml
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
@@ -87,6 +88,7 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: eq(variables.is_release, 'true')
+    - template: clean-up.yml
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
@@ -149,6 +151,7 @@ jobs:
     - checkout: self
     - bash: ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
+    - template: clean-up.yml
     - bash: |
         source dev-env/lib/ensure-nix
         ci/dev-env-push.py
@@ -207,6 +210,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+    - template: clean-up.yml
     - template: compatibility_ts_libs.yml
     - template: tell-slack-failed.yml
     - template: report-end.yml
@@ -223,6 +227,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+    - template: clean-up.yml
     - template: compatibility.yml
       parameters:
         test_flags: '--quick'
@@ -242,6 +247,7 @@ jobs:
     - template: report-start.yml
     - template: clear-shared-segments-macos.yml
     - checkout: self
+    - template: clean-up.yml
     - template: compatibility.yml
       parameters:
         test_flags: '--quick'
