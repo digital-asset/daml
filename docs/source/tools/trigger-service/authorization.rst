@@ -33,5 +33,46 @@ and the trigger service is available under ``https://example.com/trigger/``.
 
 Note that the trigger service must be able to share cookies with the authorization middleware as described in the :ref:`Deployment notes <oauth2-middleware-deployment>`.
 
-.. TODO[AH] Explain redirect and unauthorized responses when login is required. Explain custom WWW-Authenticate header.
+Obtain Authorization
+~~~~~~~~~~~~~~~~~~~~
+
+The trigger service will redirect to the authorization middleware if a request requires authentication and authorization of the user.
+HTML requests will be redirected to the middleware's ``/login`` endpoint using an HTTP redirect (302 Found).
+Other requests will receive a 401 Unauthorized response.
+The redirect behavior can be configured using the command-line flag ``--auth-redirect``.
+
+The 401 Unauthorized response will include a `WWW-Authenticate header <https://tools.ietf.org/html/rfc7235#section-4.1>`_ of the form:
+
+.. code-block:: none
+
+    WWW-Authenticate
+        DamlAuthMiddleware realm=":claims",login=":login",auth=":auth"
+
+where
+
+- ``claims`` are the required :ref:`Daml Ledger Claims <auth-middleware-claims>`.
+- ``login`` is the URL to initiate the login flow on the authorization middleware.
+- ``auth`` is the URL to check whether authorization has been granted.
+
+The response will also include an entity with
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "realm": ":claims",
+        "login": ":auth",
+        "auth": ":login",
+    }
+
+An application can direct the user to the login URL,
+wait until authorization has been granted,
+and repeat the original request once authorization has been granted.
+The auth URL can be used to poll until authorization has been granted.
+Alternatively, it can append a custom ``redirect_url`` parameter to the login URL and redirect to the resulting URL.
+Note that login with the IAM may require entering credentials into a web-form,
+i.e. the login URL should be opened in a web browser.
+
 .. TODO[AH] Explain how to interface an auth trigger service from a simple JS frontent.
