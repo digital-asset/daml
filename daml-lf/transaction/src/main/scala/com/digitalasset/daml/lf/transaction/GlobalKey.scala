@@ -35,7 +35,7 @@ object GlobalKey {
   def build(templateId: Ref.TypeConName, key: Value[ContractId]): Either[String, GlobalKey] =
     crypto.Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
-  // Like `build` but throws an exception instead of returning e message in case of error.
+  // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
   def assertBuild(templateId: Ref.TypeConName, key: Value[ContractId]): GlobalKey =
     data.assertRight(build(templateId, key))
