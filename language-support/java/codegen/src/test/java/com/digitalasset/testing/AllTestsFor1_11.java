@@ -11,6 +11,7 @@ import org.junit.runners.Suite;
         DecimalTestForAll.class,
         EnumTestForForAll.class,
         NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_dev.class,
+        GenMapTestFor1_11AndFor1_dev.class,
 })
-public class AllTestsFor1_7 {
+public class AllTestsFor1_11 {
 }

@@ -21,14 +21,31 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
-public class GenMapTestFor1_dev {
+public class GenMapTestFor1_11AndFor1_dev {
 
-    private BigDecimal bg1() { return new BigDecimal("1.0000000000"); }
-    private BigDecimal bg2() { return new BigDecimal("-2.2222222222"); }
-    private BigDecimal bg3() { return new BigDecimal("3.3333333333"); }
-    private Pair<Long, BigDecimal> pair1() { return new Pair<>(1L, bg1()); }
-    private Pair<Long, BigDecimal> pair2() { return new Pair<>(2L, bg2()); }
-    private Pair<Long, BigDecimal> pair3() { return new Pair<>(3L, bg3()); }
+    private BigDecimal bg1() {
+        return new BigDecimal("1.0000000000");
+    }
+
+    private BigDecimal bg2() {
+        return new BigDecimal("-2.2222222222");
+    }
+
+    private BigDecimal bg3() {
+        return new BigDecimal("3.3333333333");
+    }
+
+    private Pair<Long, BigDecimal> pair1() {
+        return new Pair<>(1L, bg1());
+    }
+
+    private Pair<Long, BigDecimal> pair2() {
+        return new Pair<>(2L, bg2());
+    }
+
+    private Pair<Long, BigDecimal> pair3() {
+        return new Pair<>(3L, bg3());
+    }
 
 
     private Box box() {
@@ -47,7 +64,7 @@ public class GenMapTestFor1_dev {
     }
 
     @Test
-    void toValuePreservesOrder(){
+    void toValuePreservesOrder() {
         Box b = box();
         Object[] keys = b.x.keySet().toArray();
         assertEquals(keys.length, 3);
@@ -71,9 +88,17 @@ public class GenMapTestFor1_dev {
         return new Variant("Right", new Numeric(r));
     }
 
-    private Record pairValue1() { return pair(1L, bg1());   }
-    private Record pairValue2() { return pair(-2L, bg2());  }
-    private Record pairValue3() { return pair(3L, bg3());   }
+    private Record pairValue1() {
+        return pair(1L, bg1());
+    }
+
+    private Record pairValue2() {
+        return pair(-2L, bg2());
+    }
+
+    private Record pairValue3() {
+        return pair(3L, bg3());
+    }
 
     private Record value() {
         Map<Value, Value> value = new LinkedHashMap<>();
@@ -94,7 +119,7 @@ public class GenMapTestFor1_dev {
     }
 
     @Test
-    void fromValuePreservesOrder(){
+    void fromValuePreservesOrder() {
         Record b = value();
         Object[] keys = b.getFieldsMap().get("x").asGenMap().get().stream().map(Map.Entry::getKey).toArray();
         Object[] expected = {pairValue1(), pairValue2(), pairValue3()};

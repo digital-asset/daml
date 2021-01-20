@@ -117,11 +117,11 @@ public class VariantTest {
                 ))
                 .build();
         Variant dataVariant = Variant.fromProto(protoVariant);
-        CustomParametricVariant<Long> fromValue = CustomParametricVariant.<Long>fromValue(dataVariant, f -> f.asInt64().get().getValue());
+        CustomParametricVariant<Long> fromValue = CustomParametricVariant.fromValue(dataVariant, f -> f.asInt64().get().getValue());
 
         CustomParametricVariant<Long> fromConstructor = new CustomParametricVariant<>(new CustomParametricCons<>(42L));
 
-        CustomParametricVariant<Long> fromRoundTrip = CustomParametricVariant.<Long>fromValue(fromConstructor.toValue(Int64::new), f -> f.asInt64().get().getValue());
+        CustomParametricVariant<Long> fromRoundTrip = CustomParametricVariant.fromValue(fromConstructor.toValue(Int64::new), f -> f.asInt64().get().getValue());
 
         assertEquals(fromValue, fromConstructor);
         assertEquals(fromConstructor.toValue(Int64::new), dataVariant);
@@ -157,7 +157,7 @@ public class VariantTest {
     @Test
     void parameterizedRecordVariant() {
         ValueOuterClass.Variant protoVariant = ValueOuterClass.Variant.newBuilder()
-            .setConstructor("ParameterizedRecordVariant")
+                .setConstructor("ParameterizedRecordVariant")
                 .setValue(ValueOuterClass.Value.newBuilder().setRecord(ValueOuterClass.Record.newBuilder()
                         .addFields(ValueOuterClass.RecordField.newBuilder().setLabel("x1").setValue(ValueOuterClass.Value.newBuilder().setInt64(42L)))
                         .addFields(ValueOuterClass.RecordField.newBuilder().setLabel("x2").setValue(ValueOuterClass.Value.newBuilder().setInt64(69L)))
@@ -169,7 +169,7 @@ public class VariantTest {
         Variant dataVariant = Variant.fromProto(protoVariant);
         ParameterizedRecordVariant<Long> fromValue = ParameterizedRecordVariant.fromValue(dataVariant, f -> f.asInt64().get().getValue());
         ParameterizedRecordVariant<Long> fromConstructor = new ParameterizedRecordVariant<>(42L, 69L, Collections.singletonList(65536L));
-        ParameterizedRecordVariant<Long> fromRoundTrip = ParameterizedRecordVariant.<Long>fromValue(fromConstructor.toValue(Int64::new), f -> f.asInt64().get().getValue());
+        ParameterizedRecordVariant<Long> fromRoundTrip = ParameterizedRecordVariant.fromValue(fromConstructor.toValue(Int64::new), f -> f.asInt64().get().getValue());
 
         assertEquals(fromValue, fromConstructor);
         assertEquals(fromConstructor.toValue(Int64::new), dataVariant);

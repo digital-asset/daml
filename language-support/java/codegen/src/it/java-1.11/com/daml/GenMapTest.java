@@ -232,7 +232,7 @@ public class GenMapTest {
     }
 
 
-    private static final ValueOuterClass.Value buildNone =
+    private static ValueOuterClass.Value buildNone =
             ValueOuterClass.Value.newBuilder().setOptional(
                     ValueOuterClass.Optional.newBuilder()
             ).build();

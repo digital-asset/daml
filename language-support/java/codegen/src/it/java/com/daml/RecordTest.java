@@ -80,7 +80,7 @@ public class RecordTest {
 
     @Test
     void objectMethodsWork() {
-        LocalDate localDate = LocalDate.ofEpochDay((long) dateValue);
+        LocalDate localDate = LocalDate.ofEpochDay(dateValue);
         Instant instant = Instant.ofEpochMilli(timestampMicrosValue);
         MyRecord myRecord1 = new MyRecord(
                 int64Value,
@@ -139,7 +139,7 @@ public class RecordTest {
                                         .setLabel("fieldInt")
                                         .setValue(ValueOuterClass.Value.newBuilder().setInt64(42L))
                                 )
-                            .build())
+                                .build())
                         )
                         .build())
                 .addFields(ValueOuterClass.RecordField.newBuilder()
@@ -171,8 +171,8 @@ public class RecordTest {
                 f -> f.asBool().get().getValue());
         OuterRecord<String, Boolean> fromConstructor = new OuterRecord<>(
                 new ParametricRecord<String, Boolean>("Text1", "Text2", true, 42L),
-            new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
-        OuterRecord<String, Boolean> fromRoundTrip = OuterRecord.<String, Boolean>fromValue(fromConstructor.toValue(Text::new, Bool::new),
+                new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
+        OuterRecord<String, Boolean> fromRoundTrip = OuterRecord.fromValue(fromConstructor.toValue(Text::new, Bool::new),
                 f -> f.asText().get().getValue(), f -> f.asBool().get().getValue());
 
         assertEquals(fromValue, fromConstructor);

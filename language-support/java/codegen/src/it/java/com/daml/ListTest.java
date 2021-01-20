@@ -64,9 +64,9 @@ public class ListTest {
         MyListRecord fromRecord = MyListRecord.fromValue(record);
 
         MyListRecord fromCodegen = new MyListRecord(
-                Arrays.<Long>asList(1L, 2L),
-                Collections.<Unit>singletonList(Unit.getInstance()),
-                Arrays.<ListItem<Long>>asList(new Node<Long>(17L), new Node<Long>(42L))
+                Arrays.asList(1L, 2L),
+                Collections.singletonList(Unit.getInstance()),
+                Arrays.asList(new Node<Long>(17L), new Node<Long>(42L))
         );
 
         MyListRecord roundTripped = MyListRecord.fromValue(fromCodegen.toValue());
@@ -108,8 +108,8 @@ public class ListTest {
         MyListOfListRecord fromRecord = MyListOfListRecord.fromValue(record);
 
         MyListOfListRecord fromCodegen = new MyListOfListRecord(
-                Arrays.asList(Arrays.<ListItem<Long>>asList(new Node<>(17L), new Node<>(42L)),
-                        Arrays.<ListItem<Long>>asList(new Node<>(1337L)))
+                Arrays.asList(Arrays.asList(new Node<>(17L), new Node<>(42L)),
+                        Arrays.asList(new Node<>(1337L)))
         );
 
         assertEquals(fromRecord, fromCodegen);
@@ -133,7 +133,7 @@ public class ListTest {
                                                 .setConstructor("Red")
                                 ).build()
                         )).build()))
-                .build()
+                        .build()
         )).build();
 
         Record record = Record.fromProto(protoColorListRecord);
@@ -149,7 +149,7 @@ public class ListTest {
     @Test
     void parameterizedListTestRoundTrip() {
 
-        ValueOuterClass.Record protoRecord =  ValueOuterClass.Record.newBuilder()
+        ValueOuterClass.Record protoRecord = ValueOuterClass.Record.newBuilder()
                 .addFields(
                         ValueOuterClass.RecordField.newBuilder()
                                 .setLabel("list")
@@ -166,7 +166,7 @@ public class ListTest {
                 .build();
 
         Record dataRecord = Record.fromProto(protoRecord);
-        ParameterizedListRecord<String> fromValue = ParameterizedListRecord.<String>fromValue(dataRecord, f -> f.asText().get().getValue());
+        ParameterizedListRecord<String> fromValue = ParameterizedListRecord.fromValue(dataRecord, f -> f.asText().get().getValue());
         ParameterizedListRecord<String> fromConstructor = new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
         ParameterizedListRecord<String> fromRoundTrip = ParameterizedListRecord.fromValue(fromConstructor.toValue(Text::new), f -> f.asText().get().getValue());
 
@@ -180,7 +180,7 @@ public class ListTest {
     @Test
     void parameterizedListOfListTestRoundTrip() {
 
-        ValueOuterClass.Record protoRecord =  ValueOuterClass.Record.newBuilder()
+        ValueOuterClass.Record protoRecord = ValueOuterClass.Record.newBuilder()
                 .addFields(
                         ValueOuterClass.RecordField.newBuilder()
                                 .setLabel("list")
@@ -199,20 +199,20 @@ public class ListTest {
                                                                         ValueOuterClass.Value.newBuilder().setText("Element4").build())
                                                                 ).build()
                                                         ).build()
+                                                        ))
+                                                                .build()
                                                 ))
-                                                .build()
-                                ))
                                 .build()
                 )
                 .build();
 
         Record dataRecord = Record.fromProto(protoRecord);
-        ParameterizedListRecord<List<String>> fromValue = ParameterizedListRecord.<List<String>>fromValue(dataRecord,
+        ParameterizedListRecord<List<String>> fromValue = ParameterizedListRecord.fromValue(dataRecord,
                 f -> f.asList().orElseThrow(() -> new IllegalArgumentException("Expected list to be of type com.daml.ledger.javaapi.data.DamlList")).getValues().stream()
                         .map(f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected list to be of type com.daml.ledger.javaapi.data.Text")).getValue()).collect(Collectors.toList()));
         ParameterizedListRecord<List<String>> fromConstructor = new ParameterizedListRecord<List<String>>(Arrays.asList(
-            Arrays.asList("Element1", "Element2"),
-            Arrays.asList("Element3", "Element4")
+                Arrays.asList("Element1", "Element2"),
+                Arrays.asList("Element3", "Element4")
         ));
 
         assertEquals(fromValue, fromConstructor);

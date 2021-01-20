@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @RunWith(JUnitPlatform.class)
 public class DecimalTestForAll {
 
-    private String[] goodValues = {
+    private final String[] goodValues = {
             "-9999999999999999999999999999.9999999999",
             "-1.0",
             "0.0",
@@ -31,8 +31,8 @@ public class DecimalTestForAll {
 
     @Test
     void decimal2Value2Decimal() {
-        for(String s : goodValues) {
-            Box b = new Box(new BigDecimal(s), "alice");;
+        for (String s : goodValues) {
+            Box b = new Box(new BigDecimal(s), "alice");
             assertEquals(Box.fromValue(b.toValue()), b);
         }
     }
@@ -40,7 +40,7 @@ public class DecimalTestForAll {
     @Test
     void value2Decimal2value() {
         Record.Field partyField = new Record.Field("party", new Party("alice"));
-        for(String s : goodValues) {
+        for (String s : goodValues) {
             Record record = new Record(
                     new Record.Field("x", new Numeric(new BigDecimal(s))),
                     partyField
