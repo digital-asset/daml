@@ -99,10 +99,12 @@ This motivates the following definition: a party `p` is an **informee** of an ac
 
   * `A` is a **Create** on a contract `c` and `p` is a stakeholder of `c`.
 
-  * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c`, an actor on `A`, or a choice observer on `A`.
+  * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c` or an actor on `A`.
     Note that a Daml "flexible controller" :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
 
-  * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c`, an actor on `A`, or a choice observer on `A`.
+  * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+
+  * `A` is an **Exercise** action and `p` is a choice observer on `A`.
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
