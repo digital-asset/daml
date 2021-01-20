@@ -28,9 +28,8 @@ Generalizing this, **observers** are parties who might not be bound by the contr
 For example, Alice should be an observer of the `PaintOffer`, such that she is made aware that the offer exists.
 
 Signatories are already determined by the contract model discussed so far.
-The full **contract model** additionally specifies the observers on each contract.
-A **stakeholder** of a contract (according to a given
-contract model) is then either a signatory or an observer on the contract.
+The full **contract model** additionally specifies the **contract observers** on each contract.
+A **stakeholder** of a contract (according to a given contract model) is then either a signatory or a contract observer on the contract.
 Note that in Daml, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made observers whenever possible.
 
 In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
@@ -40,6 +39,13 @@ In the graphical representation of the paint offer acceptance below, observers w
    :align: center
    :width: 60%
 
+Choice Observers
+++++++++++++++++
+
+In addition to contract observers, we also have **choice observers** on individual contract choices.
+Choice observers get to see a specific exercise on a contract, and to view its consequences.
+Choice observers are not considered stakeholders of the contract, they only affect the set of informees
+on an action, for the purposes of projection (see below).
 
 .. _da-model-projections:
 
@@ -85,18 +91,18 @@ for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, Daml Ledgers show to observers on a contract only the
+As a design choice, Daml Ledgers show to contract observers only the
 :ref:`state changing <def-contract-state>` actions on the contract.
-More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to the observers - except when they are
-the actors of these actions.
+More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to contract observers - except when they are
+also actors or choice observers of these actions.
 This motivates the following definition: a party `p` is an **informee** of an action `A` if one of the following holds:
 
   * `A` is a **Create** on a contract `c` and `p` is a stakeholder of `c`.
 
-  * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c` or an actor on `A`.
+  * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c`, an actor on `A`, or a choice observer on `A`.
     Note that a Daml "flexible controller" :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
 
-  * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+  * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c`, an actor on `A`, or a choice observer on `A`.
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
@@ -192,7 +198,7 @@ However, we demand that *all* maintainers must authorize it.
 This is to prevent spam in the projection of the maintainers.
 If only one maintainer sufficed to authorize a key assertion,
 then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester, arbitrary other parties.
-Unlike **Create** actions to observers, such assertions are of no value to the other parties.
+Unlike **Create** actions to contract observers, such assertions are of no value to the other parties.
 Since processing such assertions may be expensive, they can be considered spam.
 Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the problem.
 
