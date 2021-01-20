@@ -14,4 +14,6 @@ module Int64Mod {
     }
   };
 
+  val equal: Int64 -> Int64 -> Bool = EQUAL @Int64;
+
 }
