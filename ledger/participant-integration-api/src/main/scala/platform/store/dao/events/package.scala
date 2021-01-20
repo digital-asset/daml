@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao
 
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.transaction.Node.KeyWithMaintainers
@@ -74,6 +75,7 @@ package object events {
       .map(_._1)
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
+      .buffer(128, OverflowStrategy.backpressure)
 
   // Dispatches the call to either function based on the cardinality of the input
   // This is mostly designed to route requests to queries specialized for single/multi-party subs
