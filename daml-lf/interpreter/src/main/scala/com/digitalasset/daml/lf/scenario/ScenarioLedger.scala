@@ -434,7 +434,6 @@ object ScenarioLedger {
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
-                          // FIXME: we probably should never crash here !
                           val gk = GlobalKey.assertBuild(nc.coinst.template, keyWithMaintainers.key)
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
@@ -470,7 +469,6 @@ object ScenarioLedger {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>
                               newCache0_1.removeKey(
-                                // FIXME: we probably should'nt crash here !
                                 GlobalKey.assertBuild(ex.templateId, keyWithMaintainers.key)
                               )
                           }

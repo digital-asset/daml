@@ -71,16 +71,6 @@ private[kvutils] object InputsAndEffects {
       if (!localContract.isDefinedAt(coid))
         inputs += contractIdToStateKey(coid)
 
-    def addKeyInput(
-        templateId: Identifier,
-        keyWithMaintainers: Node.KeyWithMaintainers[Value[ContractId]],
-    ): Unit = {
-      inputs += globalKeyToStateKey(
-        GlobalKey.assertBuild(templateId, keyWithMaintainers.key)
-      )
-      ()
-    }
-
     def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
       parties.toList.sorted.map(partyStateKey)
@@ -91,25 +81,25 @@ private[kvutils] object InputsAndEffects {
         case fetch: Node.NodeFetch[Value.ContractId] =>
           addContractInput(fetch.coid)
           fetch.key.foreach { keyWithMaintainers =>
-            addKeyInput(fetch.templateId, keyWithMaintainers)
+            inputs += contractKeyToStateKey(fetch.templateId, keyWithMaintainers.key)
           }
 
         case create: Node.NodeCreate[Value.ContractId] =>
           create.key.foreach { keyWithMaintainers =>
-            addKeyInput(create.coinst.template, keyWithMaintainers)
+            inputs += contractKeyToStateKey(create.coinst.template, keyWithMaintainers.key)
           }
 
         case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
           addContractInput(exe.targetCoid)
           exe.key.foreach { keyWithMaintainers =>
-            addKeyInput(exe.templateId, keyWithMaintainers)
+            inputs += contractKeyToStateKey(exe.templateId, keyWithMaintainers.key)
           }
 
         case lookup: Node.NodeLookupByKey[Value.ContractId] =>
           // We need both the contract key state and the contract state. The latter is used to verify
           // that the submitter can access the contract.
           lookup.result.foreach(addContractInput)
-          addKeyInput(lookup.templateId, lookup.key)
+          inputs += contractKeyToStateKey(lookup.templateId, lookup.key.key)
       }
 
       inputs ++= partyInputs(node.informeesOfNode)
@@ -133,9 +123,7 @@ private[kvutils] object InputsAndEffects {
             updatedContractKeys = create.key
               .fold(effects.updatedContractKeys)(keyWithMaintainers =>
                 effects.updatedContractKeys.updated(
-                  globalKeyToStateKey(
-                    GlobalKey.assertBuild(create.coinst.template, keyWithMaintainers.key)
-                  ),
+                  contractKeyToStateKey(create.coinst.template, keyWithMaintainers.key),
                   Some(create.coid),
                 )
               ),
@@ -148,7 +136,7 @@ private[kvutils] object InputsAndEffects {
               updatedContractKeys = exe.key
                 .fold(effects.updatedContractKeys)(key =>
                   effects.updatedContractKeys.updated(
-                    globalKeyToStateKey(GlobalKey.assertBuild(exe.templateId, key.key)),
+                    contractKeyToStateKey(exe.templateId, key.key),
                     None,
                   )
                 ),
@@ -161,4 +149,11 @@ private[kvutils] object InputsAndEffects {
       }
     }
   }
+
+  private[this] def contractKeyToStateKey(tmplId: Identifier, key: Value[ContractId]) =
+    globalKeyToStateKey(
+      GlobalKey
+        .build(tmplId, key)
+        .fold(msg => throw Err.InvalidSubmission(msg), identity)
+    )
 }
