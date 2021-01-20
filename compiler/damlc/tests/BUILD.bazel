@@ -360,6 +360,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",

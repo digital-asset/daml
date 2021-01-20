@@ -14,6 +14,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import DA.Daml.Options.Packaging.Metadata (metadataFile)
 import Development.IDE.Types.Location
+import SdkVersion
 
 newtype ExpectReinitialization = ExpectReinitialization Bool
 
@@ -30,7 +31,7 @@ tests damlc =
               "Reinitialize when dependency changes"
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: proj"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -49,7 +50,7 @@ tests damlc =
               []
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: dep"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -87,7 +88,7 @@ tests damlc =
               "Reinitialize when dependency is added"
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: proj"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -99,7 +100,7 @@ tests damlc =
               ]
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: proj"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -111,7 +112,7 @@ tests damlc =
               ]
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: dep"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -138,7 +139,7 @@ tests damlc =
               "Fail when dependency is removed"
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: proj"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -156,7 +157,7 @@ tests damlc =
               ]
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: proj"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -167,7 +168,7 @@ tests damlc =
               ]
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: dep"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -194,7 +195,7 @@ tests damlc =
               "No reinitialization when nothing changes"
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: proj"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -211,7 +212,7 @@ tests damlc =
               []
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: 0.0.0"
+                      [ "sdk-version: " <> sdkVersion
                       , "name: dep"
                       , "source: daml"
                       , "version: 0.0.1"
