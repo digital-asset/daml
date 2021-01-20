@@ -35,8 +35,12 @@ object Synchronize {
       _ <- alpha.waitForParties(Set(beta), Set(alice, bob))
       _ <- beta.waitForParties(Set(alpha), Set(alice, bob))
       factory <- alpha.create(alice, AgreementFactory(bob, alice))
-      agreement <- eventually { beta.exercise(bob, factory.exerciseCreateAgreement) }
-      _ <- eventually { alpha.transactionTreeById(agreement.transactionId, alice) }
+      agreement <- eventually {
+        beta.exercise(bob, factory.exerciseCreateAgreement)
+      }
+      _ <- eventually {
+        alpha.transactionTreeById(agreement.transactionId, alice)
+      }
     } yield {
       // Nothing to do, by flatmapping over this we know
       // the two participants are synchronized up to the
@@ -45,12 +49,12 @@ object Synchronize {
   }
 
   final def waitForContract[T](
-      alpha: ParticipantTestContext,
+      participant: ParticipantTestContext,
       party: Party,
       contractId: Primitive.ContractId[T],
   )(implicit ec: ExecutionContext): Future[Unit] = {
     Eventually.eventually {
-      alpha.activeContracts(party).map { events =>
+      participant.activeContracts(party).map { events =>
         assert(
           events.exists(_.contractId == contractId.toString),
           s"Could not find contract $contractId",

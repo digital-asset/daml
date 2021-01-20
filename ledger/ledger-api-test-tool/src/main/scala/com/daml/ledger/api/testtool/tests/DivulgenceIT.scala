@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.waitForContract
 import com.daml.ledger.api.testtool.infrastructure.{LedgerTestSuite, Synchronize}
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Proposal._
@@ -216,7 +217,7 @@ final class DivulgenceIT extends LedgerTestSuite {
     for {
       offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
       asset <- beta.create(owner, Asset(issuer = owner, owner = owner))
-      _ <- Synchronize.waitForContract(beta, owner, offer)
+      _ <- waitForContract(beta, owner, offer)
       _ <- beta.exercise(owner, offer.exerciseProposalAccept(_, asset))
     } yield {
       // nothing to test, if the workflow ends successfully the test is considered successful
