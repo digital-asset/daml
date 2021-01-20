@@ -22,8 +22,9 @@ object LanguageVersion {
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
   }
 
-  private[lf] val List(v1_6, v1_7, v1_8, v1_11, v1_dev) =
-    Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  private[lf] val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+
+  private[lf] val List(v1_6, v1_7, v1_8, v1_11, v1_dev) = All
 
   object Features {
     val default = v1_6
@@ -56,11 +57,11 @@ object LanguageVersion {
 
   // All the stable versions.
   val StableVersions: VersionRange[LanguageVersion] =
-    VersionRange(min = v1_6, max = v1_8)
+    VersionRange(min = v1_6, max = v1_11)
 
   // All versions compatible with legacy contract ID scheme.
   val LegacyVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_11)
+    StableVersions.copy(max = v1_8)
 
   // All the stable and preview versions
   // Equals `Stable` if no preview version is available
