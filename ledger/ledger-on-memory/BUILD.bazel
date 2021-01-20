@@ -125,6 +125,7 @@ conformance_test(
         "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=PackageManagementServiceIT",
     ],
 )
 
@@ -145,6 +146,7 @@ conformance_test(
         "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=PackageManagementServiceIT",
     ],
 )
 
