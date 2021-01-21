@@ -19,18 +19,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{
-  BlindingInfo,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  ReplayNodeMismatch,
-  SubmittedTransaction,
-  TransactionOuterClass,
-  VersionedTransaction,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, ReplayNodeMismatch, SubmittedTransaction, TransactionOuterClass, VersionedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -286,7 +275,7 @@ private[kvutils] class TransactionCommitter(
     ): Boolean =
       result.exists { contractId =>
         tx.nodes.exists {
-          case (nodeId @ _, create: Node.NodeCreate[_]) => create.coid == contractId
+          case (_, create: Node.NodeCreate[_]) => create.coid == contractId
           case _ => false
         }
       }
@@ -302,14 +291,14 @@ private[kvutils] class TransactionCommitter(
           case (
                 Node.NodeLookupByKey(
                   recordedTemplateId,
-                  recordedOptLocation @ _,
+                  _,
                   recordedKey,
                   recordedResult,
                   recordedVersion,
                 ),
                 Node.NodeLookupByKey(
                   replayedTemplateId,
-                  replayedOptLocation @ _,
+                  _,
                   replayedKey,
                   replayedResult,
                   replayedVersion,
@@ -397,10 +386,16 @@ private[kvutils] class TransactionCommitter(
       .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
         case (key, Some(value)) if key.hasContractKey => key -> value
       } ++ commitContext.getOutputs
+
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet
-    validateContractKeyUniqueness(commitContext.recordTime, transactionEntry, startingKeys) match {
+
+    validateContractKeyUniquenessAndConsistency(
+      commitContext.recordTime,
+      transactionEntry,
+      startingKeys,
+    ) match {
       case StepContinue(transactionEntry) =>
         validateContractKeyCausalMonotonicity(
           commitContext.recordTime,
@@ -412,40 +407,78 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  private def validateContractKeyUniqueness(
+  private def validateContractKeyUniquenessAndConsistency(
       recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey],
   ): StepResult[DamlTransactionEntrySummary] = {
-    val allUnique = transactionEntry.transaction
-      .fold((true, keys)) {
-        case ((allUnique, existingKeys), (_, exe: Node.NodeExercises[NodeId, Value.ContractId]))
-            if exe.key.isDefined && exe.consuming =>
-          val stateKey = Conversions.globalKeyToStateKey(globalKey(exe.templateId, exe.key.get.key))
-          (allUnique, existingKeys - stateKey)
+    sealed abstract case class KeyValidationError()
+    object Duplicate extends KeyValidationError
+    object Inconsistent extends KeyValidationError
 
-        case ((allUnique, existingKeys), (_, create: Node.NodeCreate[Value.ContractId]))
-            if create.key.isDefined =>
-          val stateKey =
-            Conversions.globalKeyToStateKey(globalKey(create.coinst.template, create.key.get.key))
+    case class KeyValidationState(
+        existingKeys: Set[DamlStateKey]
+    )
 
-          (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
+    type KeyValidationStatus = Either[KeyValidationError, KeyValidationState]
 
-        case (accum, _) => accum
+    def validateKeyUniqueness(
+        node: Node.GenNode[NodeId, ContractId]
+    )(
+        keyValidationStatus: KeyValidationStatus,
+    ): KeyValidationStatus =
+      keyValidationStatus match {
+        case Right(keyValidationState @ KeyValidationState(existingKeys)) =>
+          node match {
+            case exerciseNode: Node.NodeExercises[NodeId, ContractId] if exerciseNode.key.isDefined && exerciseNode.consuming =>
+              val stateKey = Conversions.globalKeyToStateKey(
+                globalKey(exerciseNode.templateId, exerciseNode.key.get.key)
+              )
+              Right(keyValidationState.copy(existingKeys = existingKeys - stateKey))
+
+            case create: Node.NodeCreate[ContractId] if create.key.isDefined =>
+              val stateKey =
+                Conversions.globalKeyToStateKey(
+                  globalKey(create.coinst.template, create.key.get.key)
+                )
+
+              if (existingKeys.contains(stateKey))
+                Left(Duplicate)
+              else
+                Right(keyValidationState.copy(existingKeys = existingKeys + stateKey))
+
+            case _ => keyValidationStatus
+          }
+
+        case _ => keyValidationStatus
       }
-      ._1
 
-    if (allUnique)
-      StepContinue(transactionEntry)
-    else
-      reject(
-        recordTime,
-        buildRejectionLogEntry(
-          transactionEntry,
-          RejectionReason.Inconsistent("DuplicateKey: Contract Key not unique"),
-        ),
+    val keysValidationOutcome = transactionEntry.transaction
+      .foldInExecutionOrder[KeyValidationStatus](
+        Right(KeyValidationState(existingKeys = keys))
+      )(
+        (keyValidationStatus, _, exerciseBeginNode) => validateKeyUniqueness(exerciseBeginNode)(keyValidationStatus),
+        (keyValidationStatus, _, leafNode) => validateKeyUniqueness(leafNode)(keyValidationStatus),
+        (accum, _, _) => accum,
       )
 
+    keysValidationOutcome match {
+      case Right(_) =>
+        StepContinue(transactionEntry)
+      case Left(error) =>
+        val message = error match {
+          case Duplicate => "DuplicateKey: Contract Key not unique"
+          case Inconsistent => "Contract keys inconsistent"
+            // s"Contract keys inconsistent: [${invalid.mkString(", ")}]"
+        }
+        reject(
+          recordTime,
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.Inconsistent(message),
+          ),
+        )
+    }
   }
 
   /** LookupByKey nodes themselves don't actually fetch the contract.
