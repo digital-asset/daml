@@ -10,12 +10,9 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.headers.HttpChallenge
 import akka.http.scaladsl.model.{
-  HttpHeader,
   HttpMethods,
   HttpRequest,
-  HttpResponse,
   MediaTypes,
   RequestEntity,
   StatusCode,
@@ -146,30 +143,26 @@ class Client(config: Client.Config) {
       }
     }
 
-  val authenticateChallengeName = "DamlAuthMiddleware"
-
   /** Return a 401 Unauthorized response.
     *
     * Includes a `WWW-Authenticate` header with a custom challenge to login at the auth middleware.
     * Lists the required claims in the `realm` and the login URI in the `login` parameter
     * and the auth URI in the `auth` parameter.
+    *
+    * The challenge is also included in the response body
+    * as some browsers make it difficult to access the `WWW-Authenticate` header.
     */
   def unauthorized(claims: Request.Claims): StandardRoute = {
-    val wwwAuthenticate: HttpHeader = headers.`WWW-Authenticate`(
-      HttpChallenge(
-        authenticateChallengeName,
-        claims.toQueryString(),
-        Map(
-          "login" -> loginUri(claims, None, false).toString(),
-          "auth" -> authUri(claims).toString(),
-        ),
-      )
+    import com.daml.auth.middleware.api.JsonProtocol.responseAuthenticateChallengeFormat
+    val challenge = Response.AuthenticateChallenge(
+      claims,
+      loginUri(claims, None, false),
+      authUri(claims),
     )
     complete(
-      HttpResponse(
-        status = StatusCodes.Unauthorized,
-        headers = immutable.Seq(wwwAuthenticate),
-      )
+      status = StatusCodes.Unauthorized,
+      headers = immutable.Seq(challenge.toHeader),
+      challenge,
     )
   }
 
