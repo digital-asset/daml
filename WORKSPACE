@@ -454,7 +454,7 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    static_runtime = True,
+    #    static_runtime = True,
     version = "8.6.5",
 )
 
