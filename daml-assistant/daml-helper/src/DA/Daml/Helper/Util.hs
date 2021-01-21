@@ -89,7 +89,7 @@ getProjectVersion = do
 getProjectParties :: IO [String]
 getProjectParties = do
     projectConfig <- getProjectConfig
-    fmap maybeToList $
+    fmap (fromMaybe []) $
         requiredE "Failed to read list of parties from project config" $
         queryProjectConfig ["parties"] projectConfig
 

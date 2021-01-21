@@ -96,6 +96,7 @@ damlStart startCwd tmpDir = do
             , "  - daml-script"
             , "parties:"
             , "- Alice"
+            , "- Bob"
             , "init-script: Main:init"
             , "sandbox-options:"
             , "  - --ledgerid=MyLedger"
