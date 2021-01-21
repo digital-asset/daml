@@ -7,6 +7,7 @@ import com.daml.codegen.{CodegenMain => Codegen}
 import com.daml.lf.engine.script.{RunnerMain => Script, TestMain => TestScript}
 import com.daml.lf.engine.trigger.{RunnerMain => Trigger}
 import com.daml.lf.engine.trigger.{ServiceMain => TriggerService}
+import com.daml.auth.middleware.oauth2.{Main => Oauth2Middleware}
 import com.daml.extractor.{Main => Extractor}
 import com.daml.http.{Main => JsonApi}
 import com.daml.navigator.{NavigatorBackend => Navigator}
@@ -25,6 +26,7 @@ object SdkMain {
       case "extractor" => Extractor.main(rest)
       case "json-api" => JsonApi.main(rest)
       case "trigger-service" => TriggerService.main(rest)
+      case "oauth2-middleware" => Oauth2Middleware.main(rest)
       case "navigator" => Navigator.main(rest)
       case "sandbox" => Sandbox.main(rest)
       case "sandbox-classic" => SandboxClassic.main(rest)

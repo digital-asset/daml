@@ -86,6 +86,10 @@ commands:
   path: daml-helper/daml-helper
   desc: "Launch the trigger service (early access)"
   args: ["run-jar", "--logback-config=daml-sdk/trigger-service-logback.xml", "daml-sdk/daml-sdk.jar", "trigger-service"]
+- name: oauth2-middleware
+  path: daml-helper/daml-helper
+  desc: "Launch the OAuth 2.0 middleware (early access)"
+  args: ["run-jar", "--logback-config=daml-sdk/oauth2-middleware-logback.xml", "daml-sdk/daml-sdk.jar", "oauth2-middleware"]
 - name: trigger
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/trigger-logback.xml", "daml-sdk/daml-sdk.jar", "trigger"]
