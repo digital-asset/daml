@@ -4,7 +4,8 @@
 package com.daml.auth.middleware.api
 
 import akka.http.scaladsl.marshalling.Marshaller
-import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.headers.HttpChallenge
+import akka.http.scaladsl.model.{HttpHeader, Uri, headers}
 import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
@@ -56,38 +57,37 @@ object Request {
         applicationId: Option[ApplicationId] = None,
     ): Claims =
       new Claims(admin, actAs, readAs, applicationId)
+    def apply(s: String): Claims = {
+      var admin = false
+      val actAs = ArrayBuffer[Party]()
+      val readAs = ArrayBuffer[Party]()
+      var applicationId: Option[ApplicationId] = None
+      s.split(' ').foreach { w =>
+        if (w == "admin") {
+          admin = true
+        } else if (w.startsWith("actAs:")) {
+          actAs.append(Party(w.stripPrefix("actAs:")))
+        } else if (w.startsWith("readAs:")) {
+          readAs.append(Party(w.stripPrefix("readAs:")))
+        } else if (w.startsWith("applicationId:")) {
+          applicationId match {
+            case None =>
+              applicationId = Some(ApplicationId(w.stripPrefix("applicationId:")))
+            case Some(_) =>
+              throw new IllegalArgumentException(
+                "applicationId claim can only be specified once"
+              )
+          }
+        } else {
+          throw new IllegalArgumentException(s"Expected claim but got $w")
+        }
+      }
+      Claims(admin, actAs.toList, readAs.toList, applicationId)
+    }
     implicit val marshalRequestEntity: Marshaller[Claims, String] =
       Marshaller.opaque(_.toQueryString)
     implicit val unmarshalHttpEntity: Unmarshaller[String, Claims] =
-      Unmarshaller { _ => s =>
-        var admin = false
-        val actAs = ArrayBuffer[Party]()
-        val readAs = ArrayBuffer[Party]()
-        var applicationId: Option[ApplicationId] = None
-        Future.fromTry(Try {
-          s.split(' ').foreach { w =>
-            if (w == "admin") {
-              admin = true
-            } else if (w.startsWith("actAs:")) {
-              actAs.append(Party(w.stripPrefix("actAs:")))
-            } else if (w.startsWith("readAs:")) {
-              readAs.append(Party(w.stripPrefix("readAs:")))
-            } else if (w.startsWith("applicationId:")) {
-              applicationId match {
-                case None =>
-                  applicationId = Some(ApplicationId(w.stripPrefix("applicationId:")))
-                case Some(_) =>
-                  throw new IllegalArgumentException(
-                    "applicationId claim can only be specified once"
-                  )
-              }
-            } else {
-              throw new IllegalArgumentException(s"Expected claim but got $w")
-            }
-          }
-          Claims(admin, actAs.toList, readAs.toList, applicationId)
-        })
-      }
+      Unmarshaller { _ => s => Future.fromTry(Try(apply(s))) }
   }
 
   /** Auth endpoint query parameters
@@ -133,6 +133,25 @@ object Response {
         .or(provide(LoginSuccess))
   }
 
+  val authenticateChallengeName: String = "DamlAuthMiddleware"
+
+  case class AuthenticateChallenge(
+      realm: Request.Claims,
+      login: Uri,
+      auth: Uri,
+  ) {
+    def toHeader: HttpHeader = headers.`WWW-Authenticate`(
+      HttpChallenge(
+        authenticateChallengeName,
+        realm.toQueryString(),
+        Map(
+          "login" -> login.toString(),
+          "auth" -> auth.toString(),
+        ),
+      )
+    )
+  }
+
 }
 
 object JsonProtocol extends DefaultJsonProtocol {
@@ -163,6 +182,21 @@ object JsonProtocol extends DefaultJsonProtocol {
       case x => deserializationError(s"Expected RefreshToken as JsString, but got $x")
     }
   }
+  implicit object RequestClaimsFormat extends JsonFormat[Request.Claims] {
+    def write(claims: Request.Claims) = {
+      JsString(claims.toQueryString())
+    }
+    def read(value: JsValue) = value match {
+      case JsString(s) =>
+        try {
+          Request.Claims(s)
+        } catch {
+          case ex: IllegalArgumentException =>
+            deserializationError(ex.getMessage, ex)
+        }
+      case x => deserializationError(s"Expected Claims as JsString, but got $x")
+    }
+  }
   implicit val requestRefreshFormat: RootJsonFormat[Request.Refresh] =
     jsonFormat(Request.Refresh, "refresh_token")
   implicit val responseAuthorizeFormat: RootJsonFormat[Response.Authorize] =
@@ -185,4 +219,7 @@ object JsonProtocol extends DefaultJsonProtocol {
         }
     }
   }
+
+  implicit val responseAuthenticateChallengeFormat: RootJsonFormat[Response.AuthenticateChallenge] =
+    jsonFormat(Response.AuthenticateChallenge, "realm", "login", "auth")
 }

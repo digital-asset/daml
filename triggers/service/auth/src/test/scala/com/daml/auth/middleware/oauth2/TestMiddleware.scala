@@ -6,9 +6,11 @@ package com.daml.auth.middleware.oauth2
 import java.time.Duration
 
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
-import com.daml.auth.middleware.api.{Client, Request}
+import akka.http.scaladsl.unmarshalling.Unmarshal
+import com.daml.auth.middleware.api.{Client, Request, Response}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
@@ -17,7 +19,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
-import org.scalatest.OptionValues
+import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -421,11 +423,13 @@ class TestMiddlewareClientNoRedirectToLogin
     extends AsyncWordSpec
     with Matchers
     with OptionValues
+    with TryValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.No
   "the authorize client" should {
     "not redirect to /login" in {
+      import com.daml.auth.middleware.api.JsonProtocol.responseAuthenticateChallengeFormat
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
@@ -440,19 +444,27 @@ class TestMiddlewareClientNoRedirectToLogin
         _ = assert(resp.status == StatusCodes.Unauthorized)
         wwwAuthenticate = resp.header[headers.`WWW-Authenticate`].value
         challenge = wwwAuthenticate.challenges
-          .find(_.scheme == middlewareClient.authenticateChallengeName)
+          .find(_.scheme == Response.authenticateChallengeName)
           .value
         _ = challenge.params.keys should contain allOf ("auth", "login")
         authUri = challenge.params.get("auth").value
         loginUri = challenge.params.get("login").value
+        headerChallenge = Response.AuthenticateChallenge(
+          Request.Claims(challenge.realm),
+          loginUri,
+          authUri,
+        )
+        // The body should include the same challenge
+        bodyChallenge <- Unmarshal(resp).to[Response.AuthenticateChallenge]
       } yield {
-        assert(Uri(authUri) == middlewareClient.authUri(claims))
+        assert(headerChallenge.auth == middlewareClient.authUri(claims))
         assert(
-          Uri(loginUri).withQuery(Uri.Query.Empty) == middlewareClient
+          headerChallenge.login.withQuery(Uri.Query.Empty) == middlewareClient
             .loginUri(claims)
             .withQuery(Uri.Query.Empty)
         )
-        assert(Uri(loginUri).query().get("claims").value == claims.toQueryString())
+        assert(headerChallenge.login.query().get("claims").value == claims.toQueryString())
+        assert(bodyChallenge == headerChallenge)
       }
     }
   }

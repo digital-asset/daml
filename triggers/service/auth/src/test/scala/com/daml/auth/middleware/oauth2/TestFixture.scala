@@ -90,6 +90,7 @@ trait TestFixture
             callbackUri = middlewareCallbackUri,
             maxLoginRequests = maxMiddlewareLogins,
             loginTimeout = Config.DefaultLoginTimeout,
+            cookieSecure = Config.DefaultCookieSecure,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
             oauthAuthTemplate = None,
