@@ -84,7 +84,9 @@ object Config {
 
       opt[Boolean]("cookie-secure")
         .action((x, c) => c.copy(cookieSecure = x))
-        .text("Enable the Secure attribute on the cookie that stores the token.")
+        .text(
+          "Enable the Secure attribute on the cookie that stores the token. Defaults to true. Only disable this for testing and development purposes."
+        )
 
       opt[Long]("login-request-timeout")
         .action((x, c) => c.copy(loginTimeout = FiniteDuration(x, duration.SECONDS)))
