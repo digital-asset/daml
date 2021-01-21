@@ -25,7 +25,8 @@ apt-get install -qy \
   git \
   netcat \
   apt-transport-https \
-  software-properties-common
+  software-properties-common \
+  fuse2fs
 
 # Install dependencies for Chrome (to run Puppeteer tests on the gsg)
 # list taken from: https://github.com/puppeteer/puppeteer/blob/a3d1536a6b6e282a43521bea28aef027a7133df8/docs/troubleshooting.md#chrome-headless-doesnt-launch-on-unix
@@ -95,6 +96,41 @@ useradd \
   vsts
 #add docker group to user
 usermod -aG docker vsts
+
+# The Bazel cache fills up the hard drive in less than a day, and is a real
+# pain to clean up, as it consists of a very large amount of read-only files in
+# a fairly large tree of read-only directories. Therefore, it looks like the
+# best way to manage it is to mount it on a partition and reset the partition.
+
+CLEANUP=/home/vsts/cache_cleanup.sh
+cat <<'CACHE_CLEANUP' > $CLEANUP
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+local_cache=$HOME/.cache/bazel
+disk_cache=$HOME/.bazel-cache
+
+for file in local_cache disk_cache; do
+    eval path='$'$file
+    echo "$(date -Is) Cleaning up '$path'..."
+    if [ -d "$path/lost+found" ]; then
+        fusermount -u "$path"
+    fi
+    rm -f "$HOME/$file"
+    truncate -s 200g "$HOME/$file"
+    mkfs.ext2 -E root_owner=$UID:$GID "$HOME/$file"
+    mkdir -p "$path"
+    fuse2fs "$HOME/$file" "$path"
+    echo "$(date -Is) Done."
+done
+CACHE_CLEANUP
+chmod +x $CLEANUP
+chown vsts:vsts $CLEANUP
+su --login vsts $CLEANUP
+
+# Done with the cache cleanup stuff.
+
 
 su --login vsts <<'AGENT_SETUP'
 set -euo pipefail

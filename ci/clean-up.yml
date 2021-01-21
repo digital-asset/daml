@@ -4,20 +4,49 @@
 steps:
 - bash: |
     set -euo pipefail
-    # Location of the disk cache for CI servers set in their init files:
-    # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
-    # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
+    echo "$(date -Is) Current state:"
+    df -h
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 30000 ]; then
-        echo "Disk full, cleaning up..."
-        disk_cache="$HOME/.bazel-cache"
-        rm -rf "$disk_cache"
-        echo "removed '$disk_cache'"
-        local_cache="$HOME/.cache/bazel"
-        if [ -d "$local_cache" ]; then
-            chmod -R +w "$local_cache"
-            rm -rf "$local_cache"
-            echo "removed '$local_cache'"
-        fi
+        echo "$(date -Is) Disk full. Cleaning up..."
+        # Location of the disk cache for CI servers set in their init files:
+        # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
+        # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
+        case $(uname) in
+        Linux)
+            # Transition: else can be removed when new Linux image has been deployed
+            if [ -f "$HOME/cache_cleanup.sh" ]; then
+                echo "$(date -Is) Removing any dangling Bazel server..."
+                for pid in $(lsof "$local_cache" | sed 1d | awk '{print $2}' | sort -u); do
+                    kill -s KILL $pid
+                done
+                echo "$(date -Is) Done."
+                $HOME/cache_cleanup.sh
+            else
+                disk_cache="$HOME/.bazel-cache"
+                echo "$(date -Is) Removing '$disk_cache'..."
+                rm -rf "$disk_cache"
+                echo "$(date -Is) Done."
+                local_cache="$HOME/.cache/bazel"
+                echo "$(date -Is) chmod '$local_cache'..."
+                chmod -R +w "$local_cache"
+                echo "$(date -Is) Removing '$local_cache'..."
+                rm -rf "$local_cache"
+                echo "$(date -Is) Done."
+            fi
+        ;;
+        Darwin)
+            # Only uses the disk cache
+            disk_cache="$HOME/.bazel-cache"
+            echo "$(date -Is) Removing '$disk_cache'..."
+            rm -rf "$disk_cache"
+            echo "$(date -Is) Done."
+        ;;
+        *)
+            echo "Unknown uname: $(uname)"
+            exit 1
+        ;;
+        esac
+        echo "$(date -Is) State after cleanup:"
+        df -h .
     fi
-    df -h .
   displayName: clean-up disk cache
