@@ -222,7 +222,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
         (
           "daml_lf_1.proto",
           "9a9c86f4072ec08ac292517d377bb07b1436c2b9133da9ba03216c3ae8d3d27c",
-          "f7bcc05e5c3752318876fb836d6f566217984e3f0cc75387b32b326430a1072d",
+          "777d2e86086eeca236d80c6dc4e411690f6dc050ad27dc90f7b7de23f2ce1e93",
         ),
         (
           "daml_lf.proto",
