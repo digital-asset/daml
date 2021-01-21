@@ -2124,13 +2124,7 @@ object EngineTest {
                   create.versionedCoinst,
                 ),
                 create.key.fold(keys)(k =>
-                  keys.updated(
-                    GlobalKey(
-                      create.templateId,
-                      k.key.assertNoCid(cid => s"unexpected relative contract ID $cid"),
-                    ),
-                    create.coid,
-                  )
+                  keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
                 ),
               )
             case (acc, _) => acc

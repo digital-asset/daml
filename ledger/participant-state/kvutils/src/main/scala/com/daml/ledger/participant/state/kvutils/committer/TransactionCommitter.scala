@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, Tim
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
@@ -421,16 +421,13 @@ private[kvutils] class TransactionCommitter(
       .fold((true, keys)) {
         case ((allUnique, existingKeys), (_, exe: Node.NodeExercises[NodeId, Value.ContractId]))
             if exe.key.isDefined && exe.consuming =>
-          val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key))
-          )
+          val stateKey = Conversions.globalKeyToStateKey(globalKey(exe.templateId, exe.key.get.key))
           (allUnique, existingKeys - stateKey)
 
         case ((allUnique, existingKeys), (_, create: Node.NodeCreate[Value.ContractId]))
             if create.key.isDefined =>
-          val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(create.coinst.template, Conversions.forceNoContractIds(create.key.get.key))
-          )
+          val stateKey =
+            Conversions.globalKeyToStateKey(globalKey(create.coinst.template, create.key.get.key))
 
           (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
 
@@ -553,16 +550,7 @@ private[kvutils] class TransactionCommitter(
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
           Conversions.encodeGlobalKey(
-            GlobalKey
-              .build(
-                createNode.coinst.template,
-                keyWithMaintainers.key,
-              )
-              .fold(
-                _ =>
-                  throw Err.InvalidSubmission("Contract IDs are not supported in contract keys."),
-                identity,
-              )
+            globalKey(createNode.coinst.template, keyWithMaintainers.key)
           )
         )
       }
@@ -857,4 +845,8 @@ private[kvutils] object TransactionCommitter {
         case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
       }
     } yield parseTimestamp(dedupTimestamp).toInstant
+
+  private def globalKey(tmplId: Identifier, key: Value[ContractId]) =
+    GlobalKey.build(tmplId, key).fold(msg => throw Err.InternalError(msg), identity)
+
 }
