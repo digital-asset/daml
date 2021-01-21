@@ -200,7 +200,7 @@ class Server(config: Config) extends StrictLogging {
                           value = token.toCookieValue,
                           path = Some("/"),
                           maxAge = token.expiresIn.map(_.toLong),
-                          secure = true,
+                          secure = config.cookieSecure,
                           httpOnly = true,
                         )
                       ) {

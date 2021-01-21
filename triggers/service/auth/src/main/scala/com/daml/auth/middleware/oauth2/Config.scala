@@ -20,6 +20,7 @@ case class Config(
     callbackUri: Option[Uri],
     maxLoginRequests: Int,
     loginTimeout: FiniteDuration,
+    cookieSecure: Boolean,
     // OAuth2 server endpoints
     oauthAuth: Uri,
     oauthToken: Uri,
@@ -35,6 +36,7 @@ case class Config(
 )
 
 object Config {
+  val DefaultCookieSecure: Boolean = true
   val DefaultMaxLoginRequests: Int = 100
   val DefaultLoginTimeout: FiniteDuration = FiniteDuration(5, duration.MINUTES)
 
@@ -44,6 +46,7 @@ object Config {
       callbackUri = None,
       maxLoginRequests = DefaultMaxLoginRequests,
       loginTimeout = DefaultLoginTimeout,
+      cookieSecure = DefaultCookieSecure,
       oauthAuth = null,
       oauthToken = null,
       oauthAuthTemplate = None,
@@ -78,6 +81,10 @@ object Config {
         .text(
           "Maximum number of simultaneously pending login requests. Requests will be denied when exceeded until earlier requests have been completed or timed out."
         )
+
+      opt[Boolean]("cookie-secure")
+        .action((x, c) => c.copy(cookieSecure = x))
+        .text("Enable the Secure attribute on the cookie that stores the token.")
 
       opt[Long]("login-request-timeout")
         .action((x, c) => c.copy(loginTimeout = FiniteDuration(x, duration.SECONDS)))
