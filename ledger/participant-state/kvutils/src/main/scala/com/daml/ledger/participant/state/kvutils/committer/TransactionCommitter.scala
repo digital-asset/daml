@@ -15,11 +15,22 @@ import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, Tim
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party, TypeConName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, ReplayNodeMismatch, SubmittedTransaction, TransactionOuterClass, VersionedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  ReplayNodeMismatch,
+  SubmittedTransaction,
+  TransactionOuterClass,
+  VersionedTransaction,
+  Transaction => Tx,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -381,27 +392,33 @@ private[kvutils] class TransactionCommitter(
   private def buildFinalLogEntry: Step =
     (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
-  private def validateContractKeys: Step = (commitContext, transactionEntry) => {
-    val damlState = commitContext
+  private[committer] def validateContractKeys: Step = (commitContext, transactionEntry) => {
+    val preCommitDamlState = commitContext
       .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
         case (key, Some(value)) if key.hasContractKey => key -> value
-      } ++ commitContext.getOutputs
-
-    val startingKeys = damlState.collect {
-      case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
-    }.toSet
+      }
+    val preCommitContractKeyDamlStateKeysToContractIds: Map[DamlStateKey, ContractId] =
+      preCommitDamlState.collect {
+        case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty =>
+          k -> ContractId.assertFromString(v.getContractKeyState.getContractId)
+      }
+    val preCommitContractKeyDamlStateKeys: Set[DamlStateKey] =
+      preCommitContractKeyDamlStateKeysToContractIds.keySet
+    val preCommitDamlContractKeysToContractIds: Map[DamlContractKey, ContractId] =
+      preCommitContractKeyDamlStateKeysToContractIds.map(m => m._1.getContractKey -> m._2)
 
     validateContractKeyUniquenessAndConsistency(
       commitContext.recordTime,
       transactionEntry,
-      startingKeys,
+      preCommitContractKeyDamlStateKeys,
+      preCommitDamlContractKeysToContractIds,
     ) match {
       case StepContinue(transactionEntry) =>
         validateContractKeyCausalMonotonicity(
           commitContext.recordTime,
           transactionEntry,
-          startingKeys,
-          damlState,
+          preCommitContractKeyDamlStateKeys,
+          preCommitDamlState,
         )
       case err => err
     }
@@ -410,31 +427,48 @@ private[kvutils] class TransactionCommitter(
   private def validateContractKeyUniquenessAndConsistency(
       recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
-      keys: Set[DamlStateKey],
+      preCommitContractKeyDamlStateKeys: Set[DamlStateKey],
+      preCommitContractKeysToContractIds: Map[DamlContractKey, ContractId],
   ): StepResult[DamlTransactionEntrySummary] = {
     sealed abstract case class KeyValidationError()
     object Duplicate extends KeyValidationError
     object Inconsistent extends KeyValidationError
 
     case class KeyValidationState(
-        existingKeys: Set[DamlStateKey]
-    )
+        activeDamlStateKeys: Set[DamlStateKey],
+        submittedDamlContractKeyToContractId: Map[DamlContractKey, Option[ContractId]] = Map.empty,
+    ) {
+      def addSubmittedDamlContractKeyToContractIdIfEmpty(
+          submittedDamlContractKey: DamlContractKey,
+          contractId: Option[ContractId],
+      ): KeyValidationState =
+        copy(submittedDamlContractKeyToContractId =
+          if (!submittedDamlContractKeyToContractId.contains(submittedDamlContractKey)) {
+            submittedDamlContractKeyToContractId + (submittedDamlContractKey -> contractId)
+          } else {
+            submittedDamlContractKeyToContractId
+          }
+        )
+    }
 
     type KeyValidationStatus = Either[KeyValidationError, KeyValidationState]
 
     def validateKeyUniqueness(
         node: Node.GenNode[NodeId, ContractId]
     )(
-        keyValidationStatus: KeyValidationStatus,
+        keyValidationStatus: KeyValidationStatus
     ): KeyValidationStatus =
       keyValidationStatus match {
-        case Right(keyValidationState @ KeyValidationState(existingKeys)) =>
+        case Right(keyValidationState @ KeyValidationState(activeDamlStateKeys, _)) =>
           node match {
-            case exerciseNode: Node.NodeExercises[NodeId, ContractId] if exerciseNode.key.isDefined && exerciseNode.consuming =>
+            case exercise: Node.NodeExercises[NodeId, ContractId]
+                if exercise.key.isDefined && exercise.consuming =>
               val stateKey = Conversions.globalKeyToStateKey(
-                globalKey(exerciseNode.templateId, exerciseNode.key.get.key)
+                globalKey(exercise.templateId, exercise.key.get.key)
               )
-              Right(keyValidationState.copy(existingKeys = existingKeys - stateKey))
+              Right(
+                keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys - stateKey)
+              )
 
             case create: Node.NodeCreate[ContractId] if create.key.isDefined =>
               val stateKey =
@@ -442,10 +476,10 @@ private[kvutils] class TransactionCommitter(
                   globalKey(create.coinst.template, create.key.get.key)
                 )
 
-              if (existingKeys.contains(stateKey))
+              if (activeDamlStateKeys.contains(stateKey))
                 Left(Duplicate)
               else
-                Right(keyValidationState.copy(existingKeys = existingKeys + stateKey))
+                Right(keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys + stateKey))
 
             case _ => keyValidationStatus
           }
@@ -453,12 +487,93 @@ private[kvutils] class TransactionCommitter(
         case _ => keyValidationStatus
       }
 
+    def validateKeyConsistency(
+        node: Node.GenNode[NodeId, ContractId]
+    )(
+        keyValidationStatus: KeyValidationStatus
+    ): KeyValidationStatus = {
+
+      def validateKeyConsistency(
+          keyValidationState: KeyValidationState,
+          key: Option[Node.KeyWithMaintainers[Value[ContractId]]],
+          targetContractId: Option[ContractId],
+          templateId: TypeConName,
+      ): KeyValidationStatus = {
+
+        def validateKeyConsistency(
+            keyValidationState: KeyValidationState,
+            submittedDamlContractKey: DamlContractKey,
+        ): Either[Inconsistent.type, KeyValidationState] =
+          if (
+            keyValidationState.submittedDamlContractKeyToContractId
+              .get(
+                submittedDamlContractKey
+              )
+              .flatten != preCommitContractKeysToContractIds.get(submittedDamlContractKey)
+          )
+            Left(Inconsistent)
+          else
+            Right(keyValidationState)
+
+        key.fold(keyValidationStatus) { submittedKeyWithMaintainers =>
+          val submittedDamlContractKey =
+            damlContractKey(templateId, submittedKeyWithMaintainers.key)
+          val newKeyValidationState =
+            keyValidationState.addSubmittedDamlContractKeyToContractIdIfEmpty(
+              submittedDamlContractKey,
+              targetContractId,
+            )
+          validateKeyConsistency(newKeyValidationState, submittedDamlContractKey)
+        }
+      }
+
+      keyValidationStatus match {
+        case Right(keyValidationState) =>
+          node match {
+            case exercise: Node.NodeExercises[NodeId, ContractId] =>
+              validateKeyConsistency(
+                keyValidationState,
+                exercise.key,
+                Some(exercise.targetCoid),
+                exercise.templateId,
+              )
+
+            case create: Node.NodeCreate[ContractId] =>
+              validateKeyConsistency(keyValidationState, create.key, None, create.templateId)
+
+            case fetch: Node.NodeFetch[ContractId] =>
+              validateKeyConsistency(
+                keyValidationState,
+                fetch.key,
+                Some(fetch.coid),
+                fetch.templateId,
+              )
+
+            case lookupByKey: Node.NodeLookupByKey[ContractId] =>
+              validateKeyConsistency(
+                keyValidationState,
+                Some(lookupByKey.key),
+                lookupByKey.result,
+                lookupByKey.templateId,
+              )
+          }
+
+        case _ => keyValidationStatus
+      }
+    }
+
+    def validateKey(
+        node: Node.GenNode[NodeId, ContractId]
+    ): KeyValidationStatus => KeyValidationStatus =
+      validateKeyUniqueness(node) _ andThen validateKeyConsistency(node)
+
     val keysValidationOutcome = transactionEntry.transaction
       .foldInExecutionOrder[KeyValidationStatus](
-        Right(KeyValidationState(existingKeys = keys))
+        Right(KeyValidationState(activeDamlStateKeys = preCommitContractKeyDamlStateKeys))
       )(
-        (keyValidationStatus, _, exerciseBeginNode) => validateKeyUniqueness(exerciseBeginNode)(keyValidationStatus),
-        (keyValidationStatus, _, leafNode) => validateKeyUniqueness(leafNode)(keyValidationStatus),
+        (keyValidationStatus, _, exerciseBeginNode) =>
+          validateKey(exerciseBeginNode)(keyValidationStatus),
+        (keyValidationStatus, _, leafNode) => validateKey(leafNode)(keyValidationStatus),
         (accum, _, _) => accum,
       )
 
@@ -467,9 +582,10 @@ private[kvutils] class TransactionCommitter(
         StepContinue(transactionEntry)
       case Left(error) =>
         val message = error match {
-          case Duplicate => "DuplicateKey: Contract Key not unique"
-          case Inconsistent => "Contract keys inconsistent"
-            // s"Contract keys inconsistent: [${invalid.mkString(", ")}]"
+          case Duplicate => "DuplicateKeys: at least one contract key is not unique"
+          case Inconsistent =>
+            "InconsistentKeys: at least one contract key has changed since the submission"
+          // s"Contract keys inconsistent: [${invalid.mkString(", ")}]"
         }
         reject(
           recordTime,
@@ -878,6 +994,12 @@ private[kvutils] object TransactionCommitter {
         case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
       }
     } yield parseTimestamp(dedupTimestamp).toInstant
+
+  private def damlContractKey(
+      templateId: TypeConName,
+      keyValue: Value[ContractId],
+  ): DamlContractKey =
+    encodeGlobalKey(globalKey(templateId, keyValue))
 
   private def globalKey(tmplId: Identifier, key: Value[ContractId]) =
     GlobalKey.build(tmplId, key).fold(msg => throw Err.InternalError(msg), identity)
