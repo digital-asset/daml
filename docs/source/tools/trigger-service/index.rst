@@ -106,6 +106,8 @@ HTTP Response
      "status":200
    }
 
+.. _list-running-triggers:
+
 List running triggers
 *********************
 
