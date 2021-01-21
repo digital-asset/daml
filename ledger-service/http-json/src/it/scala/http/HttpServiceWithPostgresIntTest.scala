@@ -52,10 +52,9 @@ class HttpServiceWithPostgresIntTest
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def selectAllDbContracts
       : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
-    import com.daml.http.dbbackend.Queries.Implicits._
     import dao.logHandler
     import doobie.implicits._
-    import doobie.postgres.implicits._
+    import dao.jdbcDriver._, queries.Implicits._
 
     val q =
       sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
