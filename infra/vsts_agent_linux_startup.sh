@@ -25,7 +25,8 @@ apt-get install -qy \
   git \
   netcat \
   apt-transport-https \
-  software-properties-common
+  software-properties-common \
+  gcc
 
 # Install dependencies for Chrome (to run Puppeteer tests on the gsg)
 # list taken from: https://github.com/puppeteer/puppeteer/blob/a3d1536a6b6e282a43521bea28aef027a7133df8/docs/troubleshooting.md#chrome-headless-doesnt-launch-on-unix
@@ -94,6 +95,94 @@ useradd \
   vsts
 #add docker group to user
 usermod -aG docker vsts
+
+# The Bazel cache fills up the hard drive in less than a day, and is a real
+# pain to clean up, as it consists of a very large amount of read-only files in
+# a fairly large tree of read-only directories. Therefore, it looks like the
+# best way to manage it is to mount it on a partition and reset the partition.
+
+cat <<REMOUNT_CACHE > /root/remount_cache.c
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+int exists(const char* path) {
+	struct stat s;
+	return stat(path, &s) == 0 && S_ISDIR(s.st_mode);
+}
+
+int execute_f(char** args) {
+	int status;
+	char** child_env = { NULL };
+	pid_t pid = fork();
+	if (0 == pid) {
+		// child process
+		if (-1 == execve(args[0], args, child_env)) {
+			printf("Failed to start child process calling %s.", args[0]);
+			perror(0);
+			exit(1);
+		}
+		// unreachable: if execve succeeded, we're off to another executable
+	}
+	// parent
+	if (-1 == pid) {
+		printf("Failed to fork.");
+		perror(0);
+		exit(1);
+	}
+	if (-1 == waitpid(pid, &status, 0)) {
+		printf("Failed to wait for child process '%s'.", args[0]);
+		exit(1);
+	}
+	if (1 != WIFEXITED(status)) {
+		printf("Child not terminated: '%s', aborting.", args[0]);
+		exit(1);
+	}
+	if (0 != WEXITSTATUS(status)) {
+		printf("Child '%s' exited with status %d", args[0], WEXITSTATUS(status));
+		exit(WEXITSTATUS(status));
+	}
+	return 0;
+}
+
+#define execute(...) execute_f((char*[]) { __VA_ARGS__, NULL })
+
+int main() {
+	char* mount_point = "/home/vsts/.cache/bazel";
+	char* lost = "/home/vsts/.cache/bazel/lost+found";
+	char* file = "/root/cache_file";
+
+	setuid(0);
+
+	if (exists(lost)) {
+		printf("Removing existing cache...");
+        // This will fail if there are dangling processes, say Bazel servers,
+        // with open fds on the cache.
+		execute("/bin/umount", mount_point);
+	}
+
+	execute("/bin/rm", "-f", file);
+    // truncate creates a sparse file. In my testing, for this use-case, there
+    // does not seem to be a significant overhead.
+	execute("/usr/bin/truncate", "-s", "200g", file);
+	execute("/sbin/mkfs.ext3", file);
+	execute("/bin/mount", file, mount_point);
+	execute("/bin/chown", "-R", "vagrant:vagrant", mount_point);
+	return 0;
+}
+REMOUNT_CACHE
+
+mkdir -p /home/vsts/.cache/bazel
+chown -R vsts:vsts /home/vsts/.cache
+( cd /root && gcc remount_cache.c -o /usr/local/bin/remount_cache )
+chmod ug+s /usr/local/bin/remount_cache
+/usr/local/bin/remount_cache
+
+# Done with the cache cleanup stuff.
+
 
 su --login vsts <<'AGENT_SETUP'
 set -euo pipefail
