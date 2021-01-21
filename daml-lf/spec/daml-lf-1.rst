@@ -198,10 +198,8 @@ Version: 1.8
 
   + **Rename** ``Map`` to ``TextMap``.
 
-Version: 1.11 (preview)
-.......................
-
-(version 1.11 is not frozen and may still change, do not use in production)
+Version: 1.11
+.............
 
 * Introduction date:
 

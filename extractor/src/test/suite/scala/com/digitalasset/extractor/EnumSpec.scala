@@ -25,7 +25,7 @@ class EnumSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.8.dar"))
+  override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.11.dar"))
 
   override def scenario: Option[String] = Some("EnumMod:createContracts")
 
