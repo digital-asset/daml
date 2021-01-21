@@ -685,7 +685,7 @@ available for usage::
       ::= 'no_key'
        |  'key' τ eₖ eₘ
 
-  Temeplate choice observers
+  Template choice observers
     ChObs
       ::= 'no_observers'
         | 'observers' eₒ
