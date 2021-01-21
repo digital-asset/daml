@@ -670,12 +670,6 @@ private[lf] object Speedy {
               case (None, _) => crash("SValue.fromValue: record missing field name")
             }
             SRecord(id, names, values)
-          case V.ValueRecord(None, _) =>
-            crash("SValue.fromValue: record missing identifier")
-          case V.ValueVariant(None, _variant @ _, _value @ _) =>
-            crash("SValue.fromValue: variant without identifier")
-          case V.ValueEnum(None, constructor @ _) =>
-            crash("SValue.fromValue: enum without identifier")
           case V.ValueOptional(mbV) =>
             SOptional(mbV.map(go))
           case V.ValueTextMap(entries) =>
@@ -688,46 +682,58 @@ private[lf] object Speedy {
               isTextMap = false,
               entries = entries.iterator.map { case (k, v) => go(k) -> go(v) },
             )
-          case V.ValueVariant(Some(id), variant, arg) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataVariant) =>
-                    SVariant(id, variant, data.constructorRank(variant), go(arg))
-                  case _ =>
-                    crash(s"definition for variant $id not found")
-                }
+          case V.ValueVariant(Some(id), variant, mbRank, arg) =>
+            val rank = mbRank match {
+              case Some(rank) => rank
               case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    },
-                  )
-                )
-            }
-          case V.ValueEnum(Some(id), constructor) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataEnum) =>
-                    SEnum(id, constructor, data.constructorRank(constructor))
-                  case _ =>
-                    crash(s"definition for variant $id not found")
+                compiledPackages.getSignature(id.packageId) match {
+                  case Some(pkg) =>
+                    pkg.lookupVariant(id.qualifiedName) match {
+                      case Right((_, data)) => data.constructorRank(variant)
+                      case Left(err) => crash(err)
+                    }
+                  case None =>
+                    throw SpeedyHungry(
+                      SResultNeedPackage(
+                        id.packageId,
+                        pkg => {
+                          compiledPackages = pkg
+                          returnValue = go(value)
+                        },
+                      )
+                    )
                 }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    },
-                  )
-                )
             }
+            SVariant(id, variant, rank, go(arg))
+          case V.ValueEnum(Some(id), constructor, mbRank) =>
+            val rank = mbRank match {
+              case Some(rank) => rank
+              case None =>
+                compiledPackages.getSignature(id.packageId) match {
+                  case Some(pkg) =>
+                    pkg.lookupEnum(id.qualifiedName) match {
+                      case Right(data) => data.constructorRank(constructor)
+                      case Left(err) => crash(err)
+                    }
+                  case None =>
+                    throw SpeedyHungry(
+                      SResultNeedPackage(
+                        id.packageId,
+                        pkg => {
+                          compiledPackages = pkg
+                          returnValue = go(value)
+                        },
+                      )
+                    )
+                }
+            }
+            SEnum(id, constructor, rank)
+          case V.ValueRecord(None, _) =>
+            crash("SValue.fromValue: record missing identifier")
+          case V.ValueVariant(None, _, _, _) =>
+            crash("SValue.fromValue: variant without identifier")
+          case V.ValueEnum(None, _, _) =>
+            crash("SValue.fromValue: enum without identifier")
         }
       returnValue = go(value)
     }

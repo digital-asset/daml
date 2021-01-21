@@ -221,6 +221,7 @@ object ApiCodecVerbose {
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
           assertDE(Ref.Name fromString strField(value, propConstructor, "ApiVariant")),
+          None,
           jsValueToApiValue(anyField(value, propValue, "ApiVariant")),
         )
       case t =>
@@ -237,6 +238,7 @@ object ApiCodecVerbose {
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
           assertDE(Ref.Name fromString strField(value, propConstructor, "ApiEnum")),
+          None,
         )
       case t =>
         deserializationError(

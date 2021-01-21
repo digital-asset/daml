@@ -66,14 +66,14 @@ object LedgerValue {
       ctor <- Ref.Name.fromString(apiVariant.constructor).disjunction
       apiValue <- variantValueLens(apiVariant)
       value <- apiValue.convert
-    } yield V.ValueVariant(tycon, ctor, value)
+    } yield V.ValueVariant(tycon, ctor, None, value)
   }
 
   private def convertEnum(apiEnum: api.value.Enum) =
     for {
       tyCon <- apiEnum.enumId traverse convertIdentifier map (_.flatten)
       ctor <- Ref.Name.fromString(apiEnum.constructor).disjunction
-    } yield V.ValueEnum(tyCon, ctor)
+    } yield V.ValueEnum(tyCon, ctor, None)
 
   private def convertRecord(apiRecord: api.value.Record) = {
     for {

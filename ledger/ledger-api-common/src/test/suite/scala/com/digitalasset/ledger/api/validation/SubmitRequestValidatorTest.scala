@@ -586,6 +586,7 @@ class SubmitRequestValidatorTest
         val expected = Lf.ValueVariant(
           Some(DomainMocks.identifier),
           DomainMocks.values.constructor,
+          None,
           DomainMocks.values.int64,
         )
         validateValue(variant) shouldEqual Right(expected)
@@ -594,7 +595,7 @@ class SubmitRequestValidatorTest
       "tolerate missing identifiers" in {
         val variant = Value(Sum.Variant(Variant(None, api.constructor, Some(Value(api.int64)))))
         val expected =
-          Lf.ValueVariant(None, DomainMocks.values.constructor, DomainMocks.values.int64)
+          Lf.ValueVariant(None, DomainMocks.values.constructor, None, DomainMocks.values.int64)
 
         validateValue(variant) shouldEqual Right(expected)
       }

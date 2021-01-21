@@ -262,7 +262,7 @@ object TransactionBuilder {
             value match {
               // for things supported since version 1, we do not need to check
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
-              case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
+              case ValueVariant(_, _, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
               case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
                   ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) =>
@@ -271,7 +271,7 @@ object TransactionBuilder {
                 go(currentVersion, x.fold(values)(_ +: values))
               case ValueTextMap(map) =>
                 go(currentVersion, map.values ++: values)
-              case ValueEnum(_, _) =>
+              case ValueEnum(_, _, _) =>
                 go(currentVersion, values)
               // for things added after version 10, we raise the minimum if present
               case ValueGenMap(entries) =>

@@ -265,11 +265,11 @@ object TypedValueGenerators {
           type Inj[Cid] = spec.HVar[Cid]
           override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
           override def inj[Cid: IntroCtx](cp: Inj[Cid]) = {
-            val (ctor, v) = spec.injVar(cp)
-            ValueVariant(Some(name), ctor, v)
+            val (ctor, rank, v) = spec.injVar(cp)
+            ValueVariant(Some(name), ctor, Some(rank), v)
           }
           override def prj[Cid] = {
-            case ValueVariant(_, name, vv) =>
+            case ValueVariant(_, name, _, vv) =>
               spec.prjVar get name flatMap (_(vv))
             case _ => None
           }
@@ -290,9 +290,10 @@ object TypedValueGenerators {
           type Member = Ref.Name
           override val values = members
           override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
-          override def inj[Cid: IntroCtx](v: Inj[Cid]) = ValueEnum(Some(name), v)
+          override def inj[Cid: IntroCtx](v: Inj[Cid]) =
+            ValueEnum(Some(name), v, Some(members.indexOf(v)))
           override def prj[Cid] = {
-            case ValueEnum(_, dc) => get(dc)
+            case ValueEnum(_, dc, _) => get(dc)
             case _ => None
           }
           override def injord[Cid: Order] = Order.orderBy(values.indexOf)
@@ -361,9 +362,9 @@ object TypedValueGenerators {
           }
         }
 
-        override def injVar[Cid: IntroCtx](v: HVar[Cid]) = v match {
-          case Inl(hv) => (fname, h.inj(hv))
-          case Inr(tl) => self.injVar(tl)
+        override def injVar[Cid: IntroCtx](v: HVar[Cid], rank: Int) = v match {
+          case Inl(hv) => (fname, rank, h.inj(hv))
+          case Inr(tl) => self.injVar(tl, rank + 1)
         }
 
         override val prjVar = {
@@ -416,7 +417,10 @@ object TypedValueGenerators {
         : Arbitrary[HRec[Cid]]
     private[TypedValueGenerators] implicit def recshrink[Cid: Shrink]: Shrink[HRec[Cid]]
 
-    private[TypedValueGenerators] def injVar[Cid: IntroCtx](v: HVar[Cid]): (Ref.Name, Value[Cid])
+    private[TypedValueGenerators] def injVar[Cid: IntroCtx](
+        v: HVar[Cid],
+        rank: Int = 0,
+    ): (Ref.Name, Int, Value[Cid])
     private[TypedValueGenerators] type PrjResult[Cid] = Option[HVar[Cid]]
     // could be made more efficient by replacing ~> with a Nat GADT,
     // but the :+: case is tricky enough as it is
@@ -441,7 +445,8 @@ object TypedValueGenerators {
     private[TypedValueGenerators] override def recshrink[Cid: Shrink] =
       Shrink.shrinkAny
 
-    private[TypedValueGenerators] override def injVar[Cid: IntroCtx](v: CNil) = v.impossible
+    private[TypedValueGenerators] override def injVar[Cid: IntroCtx](v: CNil, rank: Int) =
+      v.impossible
     private[TypedValueGenerators] override val prjVar = Map.empty
     private[TypedValueGenerators] override def varord[Cid: Order] = (v, _) => v.impossible
     private[TypedValueGenerators] override def vararb[Cid: Arbitrary: IntroCtx] = Map.empty

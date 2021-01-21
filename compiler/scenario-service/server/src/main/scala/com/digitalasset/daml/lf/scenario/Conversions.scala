@@ -618,7 +618,7 @@ final class Conversions(
             )
             .build
         )
-      case V.ValueVariant(tycon, variant, value) =>
+      case V.ValueVariant(tycon, variant, _, value) =>
         val vbuilder = proto.Variant.newBuilder
         tycon.foreach(x => vbuilder.setVariantId(convertIdentifier(x)))
         builder.setVariant(
@@ -627,7 +627,7 @@ final class Conversions(
             .setValue(convertValue(value))
             .build
         )
-      case V.ValueEnum(tycon, constructor) =>
+      case V.ValueEnum(tycon, constructor, _) =>
         val eBuilder = proto.Enum.newBuilder.setConstructor(constructor)
         tycon.foreach(x => eBuilder.setEnumId(convertIdentifier(x)))
         builder.setEnum(eBuilder.build)

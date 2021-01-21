@@ -261,6 +261,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
           V.ValueVariant(
             Some(id),
             constructorName,
+            None,
             jsValueToApiValue(nestedValue, constructorType, defs),
           )
         case _ =>
@@ -275,6 +276,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
             V.ValueEnum(
               Some(id),
               _,
+              None,
             )
           )
           .getOrElse(

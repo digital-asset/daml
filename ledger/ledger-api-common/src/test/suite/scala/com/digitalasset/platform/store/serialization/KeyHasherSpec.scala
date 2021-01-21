@@ -46,7 +46,7 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
     builder += None -> ValueNone
     builder += None -> ValueOptional(Some(ValueText("Some")))
     builder += None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C")))
-    builder += None -> ValueVariant(None, Name.assertFromString("Variant"), ValueInt64(0))
+    builder += None -> ValueVariant(None, Name.assertFromString("Variant"), None, ValueInt64(0))
     builder += None -> ValueRecord(
       None,
       ImmArray(
@@ -154,9 +154,9 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in Variant constructor" in {
       val value1 =
-        ValueVariant(None, Name.assertFromString("A"), ValueUnit)
+        ValueVariant(None, Name.assertFromString("A"), None, ValueUnit)
       val value2 =
-        ValueVariant(None, Name.assertFromString("B"), ValueUnit)
+        ValueVariant(None, Name.assertFromString("B"), None, ValueUnit)
 
       val tid = templateId("module", "name")
 
@@ -168,9 +168,9 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in Variant value" in {
       val value1 =
-        ValueVariant(None, Name.assertFromString("A"), ValueInt64(0L))
+        ValueVariant(None, Name.assertFromString("A"), None, ValueInt64(0L))
       val value2 =
-        ValueVariant(None, Name.assertFromString("A"), ValueInt64(1L))
+        ValueVariant(None, Name.assertFromString("A"), None, ValueInt64(1L))
 
       val tid = templateId("module", "name")
 
@@ -434,9 +434,9 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val enums =
         List[Value](
-          ValueEnum(Some(EnumTypeCon), EnumCon1),
-          ValueEnum(Some(EnumTypeCon), EnumCon2),
-          ValueEnum(Some(EnumTypeConBis), EnumCon2),
+          ValueEnum(Some(EnumTypeCon), EnumCon1, Some(0)),
+          ValueEnum(Some(EnumTypeCon), EnumCon2, Some(1)),
+          ValueEnum(Some(EnumTypeConBis), EnumCon2, Some(1)),
         )
 
       val records0 =
@@ -466,10 +466,10 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
         )
 
       val variants = List[Value](
-        ValueVariant(Some(VariantTypeCon), VariantCon1, ValueFalse),
-        ValueVariant(Some(VariantTypeCon), VariantCon1, ValueTrue),
-        ValueVariant(Some(VariantTypeCon), VariantCon2, ValueFalse),
-        ValueVariant(Some(VariantTypeConBis), VariantCon1, ValueFalse),
+        ValueVariant(Some(VariantTypeCon), VariantCon1, Some(0), ValueFalse),
+        ValueVariant(Some(VariantTypeCon), VariantCon1, Some(0), ValueTrue),
+        ValueVariant(Some(VariantTypeCon), VariantCon2, Some(1), ValueFalse),
+        ValueVariant(Some(VariantTypeConBis), VariantCon1, Some(0), ValueFalse),
       )
 
       val lists = List[Value](
@@ -592,11 +592,11 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
           | 91e247b396cea58ab670b0767940d360cf1fd541b52444d5b1dcb4d74132d0f9
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
           | 10e757f68e9e602f8780440193064fec42a7e2f85bec983d416d171079b7240e
-          |ValueEnum(Some(pkgId:Mod:Color),Red)
+          |ValueEnum(Some(pkgId:Mod:Color),Red,Some(0))
           | 3bf7245f74973e912a49c95a28e77d59594f73c78ede8683663d4bf9eca5c37c
-          |ValueEnum(Some(pkgId:Mod:Color),Green)
+          |ValueEnum(Some(pkgId:Mod:Color),Green,Some(1))
           | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
+          |ValueEnum(Some(pkgId:Mod:ColorBis),Green,Some(1))
           | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
           |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
@@ -610,13 +610,13 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
           | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
           |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,Some(0),ValueBool(false))
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,Some(0),ValueBool(true))
           | bd43854d7f0bfe9fc246492fe783c5e1600a764195152cc240dc1750f7c5ce16
-          |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Right,Some(1),ValueBool(false))
           | 635185b1cff7ebfdbde5045291955d39af1d3c392b30c53d36c06615e5479b24
-          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,Some(0),ValueBool(false))
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
           |""".stripMargin
 

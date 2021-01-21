@@ -74,12 +74,12 @@ private[benchmark] final class Adapter(
 
   private[this] def adapt(value: Value[ContractId]): Value[ContractId] =
     value match {
-      case Value.ValueEnum(tycon, value) =>
-        Value.ValueEnum(tycon.map(adapt), value)
+      case Value.ValueEnum(tycon, value, rank) =>
+        Value.ValueEnum(tycon.map(adapt), value, rank)
       case Value.ValueRecord(tycon, fields) =>
         Value.ValueRecord(tycon.map(adapt), fields.map { case (f, v) => f -> adapt(v) })
-      case Value.ValueVariant(tycon, variant, value) =>
-        Value.ValueVariant(tycon.map(adapt), variant, adapt(value))
+      case Value.ValueVariant(tycon, variant, rank, value) =>
+        Value.ValueVariant(tycon.map(adapt), variant, rank, adapt(value))
       case Value.ValueList(values) =>
         Value.ValueList(values.map(adapt))
       case Value.ValueOptional(value) =>

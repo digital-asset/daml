@@ -51,7 +51,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       case VariantMatch((n1, p)) =>
         val cp = go(p);
         {
-          case V.ValueVariant(_, n2, v) if n1 == n2 => cp(v)
+          case V.ValueVariant(_, n2, _, v) if n1 == n2 => cp(v)
           case _ => false
         }
 
@@ -271,7 +271,7 @@ object ValuePredicate {
 
     def fromEnum(it: String, id: Ref.Identifier, typ: iface.Enum): Result =
       if (typ.constructors contains it)
-        Literal({ case V.ValueEnum(_, v) if it == (v: String) => }, JsString(it))
+        Literal({ case V.ValueEnum(_, v, _) if it == (v: String) => }, JsString(it))
       else
         predicateParseError(s"$it not a member of the enum $id")
 

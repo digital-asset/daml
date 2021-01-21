@@ -393,12 +393,14 @@ class ApiCodecCompressedSpec
     val bazVariant = LfValue.ValueVariant[String](
       None,
       Ref.Name.assertFromString("Baz"),
+      None,
       bazRecord,
     )
 
     val quxVariant = LfValue.ValueVariant[String](
       None,
       Ref.Name.assertFromString("Qux"),
+      None,
       LfValue.ValueUnit,
     )
 
@@ -456,7 +458,10 @@ class ApiCodecCompressedSpec
         )
 
         val expectedValueWithIds: LfValue.ValueVariant[String] =
-          bazVariant.copy(tycon = Some(fooId), value = bazRecord.copy(tycon = Some(bazRecordId)))
+          bazVariant.copy(
+            tycon = Some(fooId),
+            value = bazRecord.copy(tycon = Some(bazRecordId)),
+          )
 
         actualValue shouldBe expectedValueWithIds
       }

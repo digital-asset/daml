@@ -370,7 +370,7 @@ private[lf] object Pretty {
             },
           ) &
           char('}')
-      case ValueVariant(mbId, variant, value) =>
+      case ValueVariant(mbId, variant, _, value) =>
         (mbId match {
           case None => text("")
           case Some(id) =>
@@ -384,7 +384,7 @@ private[lf] object Pretty {
             case _ =>
               text(variant) + char('(') + prettyValue(true)(value) + char(')')
           })
-      case ValueEnum(mbId, constructor) =>
+      case ValueEnum(mbId, constructor, _) =>
         (mbId match {
           case None => text("")
           case Some(id) =>

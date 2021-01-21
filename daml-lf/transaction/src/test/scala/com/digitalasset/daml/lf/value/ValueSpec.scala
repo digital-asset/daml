@@ -35,11 +35,11 @@ class ValueSpec
 
   "serialize" - {
     val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
+      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), None, v)
     }
     val exceedsNestingError = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
     val matchesNesting = (1 to MAXIMUM_NESTING).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
+      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), None, v)
     }
 
     "rejects excessive nesting" in {
@@ -182,7 +182,7 @@ class ValueSpec
           forEvery(Table("va", details.values.toSeq: _*)) { ea =>
             implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
             forAll(minSuccessful(20)) { (a: T, b: T) =>
-              inside((a, b)) { case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
+              inside((a, b)) { case (ValueEnum(_, ac, _), ValueEnum(_, bc, _)) =>
                 (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
               }
             }

@@ -114,7 +114,8 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
   val contract1 = Contract(
     id = ApiTypes.ContractId("id1"),
     template = template1,
-    argument = record("foo" -> ValueText("bar"), "direction" -> ValueEnum(None, name("West"))),
+    argument =
+      record("foo" -> ValueText("bar"), "direction" -> ValueEnum(None, name("West"), None)),
     agreementText = None,
     signatories = List(alice),
     observers = List(bob, charlie),
@@ -132,7 +133,8 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
   val contract3 = Contract(
     id = ApiTypes.ContractId("id3"),
     template = template1,
-    argument = record("foo" -> ValueText("bar"), "direction" -> ValueEnum(None, name("East"))),
+    argument =
+      record("foo" -> ValueText("bar"), "direction" -> ValueEnum(None, name("East"), None)),
     agreementText = Some("agreement"),
     signatories = List(dana),
     observers = List(henry, ivy),

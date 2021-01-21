@@ -80,15 +80,15 @@ object KeyHasher extends KeyHasher {
         op(z1, HashTokenCollectionEnd())
 
       // Variant: [CollectionBegin(), Text(variant), Token(value), CollectionEnd()]
-      case ValueVariant(_, variant, v) =>
+      case ValueVariant(_, variant, _, v) =>
         val z1 = op(z, HashTokenCollectionBegin(1))
         val z2 = op(z1, HashTokenText(variant))
         val z3 = foldLeft(v, z2, op)
         op(z3, HashTokenCollectionEnd())
 
       // Enum: [Text(variant)]
-      case ValueEnum(_, value_) =>
-        op(z, HashTokenText(value_))
+      case ValueEnum(_, value, _) =>
+        op(z, HashTokenText(value))
 
       // List: [CollectionBegin(), Token(value)*, CollectionEnd()]
       case ValueList(xs) =>

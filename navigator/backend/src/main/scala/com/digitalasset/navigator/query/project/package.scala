@@ -150,7 +150,7 @@ object project {
                 case None => Left(UnknownProperty("record", nextCursor, expectedValue))
               }
           }
-        case V.ValueVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, _, value) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("variant", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -161,7 +161,7 @@ object project {
                 case _ => Left(UnknownProperty("variant", nextCursor, expectedValue))
               }
           }
-        case V.ValueEnum(_, constructor) =>
+        case V.ValueEnum(_, constructor, _) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("enum", cursor, expectedValue))
             case Some(nextCursor) =>

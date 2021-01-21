@@ -76,7 +76,7 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
               go(exceededNesting, errs, values.toImmArray.map(v => (v, newNesting)) ++: vs)
             }
 
-          case ValueVariant(_, _, value) =>
+          case ValueVariant(_, _, _, value) =>
             if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
@@ -158,8 +158,8 @@ object Value extends CidContainer1[Value] {
               (lbl, go(value))
             }),
           )
-        case ValueVariant(id, variant, value) =>
-          ValueVariant(id, variant, go(value))
+        case ValueVariant(id, variant, rank, value) =>
+          ValueVariant(id, variant, rank, go(value))
         case x: ValueCidlessLeaf => x
         case ValueList(vs) =>
           ValueList(vs.map(go))
@@ -180,7 +180,7 @@ object Value extends CidContainer1[Value] {
           f(coid)
         case ValueRecord(id @ _, fs) =>
           fs.foreach { case (_, value) => go(value) }
-        case ValueVariant(id @ _, variant @ _, value) =>
+        case ValueVariant(id @ _, variant @ _, rank @ _, value) =>
           go(value)
         case _: ValueCidlessLeaf =>
         case ValueList(vs) =>
@@ -249,9 +249,16 @@ object Value extends CidContainer1[Value] {
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value[Cid])],
   ) extends Value[Cid]
-  final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
-      extends Value[Cid]
-  final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf
+
+  final case class ValueVariant[+Cid](
+      tycon: Option[Identifier],
+      variant: Name,
+      rank: Option[NodeIdx],
+      value: Value[Cid],
+  ) extends Value[Cid]
+
+  final case class ValueEnum(tycon: Option[Identifier], value: Name, rank: Option[NodeIdx])
+      extends ValueCidlessLeaf
 
   final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
 
@@ -491,18 +498,18 @@ private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVarian
     case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
     case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
     case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
-    case ValueEnum(idA, a) =>
+    case ValueEnum(idA, a, _) =>
       (
         130,
-        k { case ValueEnum(idB, b) =>
+        k { case ValueEnum(idB, b, _) =>
           ctorOrder(idA, idB, a, b)
         },
       )
     case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
-    case ValueVariant(idA, conA, a) =>
+    case ValueVariant(idA, conA, _, a) =>
       (
         160,
-        k { case ValueVariant(idB, conB, b) =>
+        k { case ValueVariant(idB, conB, _, b) =>
           ctorOrder(idA, idB, conA, conB) |+| a ?|? b
         },
       )
@@ -556,13 +563,13 @@ private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]]
         import r._
         tycon == tycon2 && fields === fields2
       }
-      case v: ValueVariant[Cid] => { case ValueVariant(tycon2, variant2, value2) =>
+      case v: ValueVariant[Cid] => { case ValueVariant(tycon2, variant2, rank2, value2) =>
         import v._
-        tycon == tycon2 && variant == variant2 && value === value2
+        tycon == tycon2 && rank == rank2 && variant == variant2 && value === value2
       }
-      case v: ValueEnum => { case ValueEnum(tycon2, value2) =>
+      case v: ValueEnum => { case ValueEnum(tycon2, value2, rank2) =>
         import v._
-        tycon == tycon2 && value == value2
+        tycon == tycon2 && rank == rank2 && value == value2
       }
       case ValueContractId(value) => { case ValueContractId(value2) =>
         value === value2

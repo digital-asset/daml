@@ -101,12 +101,14 @@ message Identifier {
 message Variant {
     Identifier variant_id = 1; // optional
     string constructor = 2;
+    uint32 rank = 4; // available in >= 12
     Value value = 3;
 }
 
 message Enum {
     Identifier enum_id = 1; // optional
     string value = 2;
+    uint32 rank = 4; // available in >= 12
 }
 
 message ContractId {

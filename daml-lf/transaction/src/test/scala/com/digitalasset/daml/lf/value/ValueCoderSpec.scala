@@ -8,6 +8,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
+import com.daml.lf.value.test.ValueNormalizer
 import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -135,9 +136,7 @@ class ValueCoderSpec
     }
 
     "do variant" in {
-      forAll(variantGen) { v: ValueVariant[ContractId] =>
-        testRoundTrip(TransactionVersion.minVersion, v)
-      }
+      forAll(transactionVersionGen(), variantGen)(testRoundTrip)
     }
 
     "do record" in {
@@ -167,17 +166,18 @@ class ValueCoderSpec
     }
   }
 
-  def testRoundTrip(version: TransactionVersion, value: Value[ContractId]): Assertion = {
+  private def testRoundTrip(version: TransactionVersion, value: Value[ContractId]): Assertion = {
+    val normalized = ValueNormalizer.normalize(value, version)
     val recovered = ValueCoder.decodeValue(
       ValueCoder.CidDecoder,
       version,
-      assertRight(ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, version, value)),
+      assertRight(ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, version, normalized)),
     )
     val bytes =
       assertRight(
         ValueCoder.encodeVersionedValue(
           ValueCoder.CidEncoder,
-          VersionedValue(version, value),
+          VersionedValue(version, normalized),
         )
       ).toByteArray
 
@@ -185,23 +185,24 @@ class ValueCoderSpec
       ValueCoder.CidDecoder,
       bytes,
     )
-    Right(value) shouldEqual recovered
-    Right(value) shouldEqual fromToBytes
+    recovered shouldBe Right(normalized)
+    fromToBytes shouldBe Right(normalized)
   }
 
   def testRoundTripWithVersion(
       value0: Value[ContractId],
       version: TransactionVersion,
   ): Assertion = {
+    val normalized = ValueNormalizer.normalize(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0))
+        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, normalized))
     )
     val decoded: VersionedValue[ContractId] = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded)
     )
 
-    decoded.value shouldEqual value0
+    decoded.value shouldEqual normalized
     decoded.version shouldEqual version
 
     // emulate passing encoded proto message over wire
@@ -212,7 +213,7 @@ class ValueCoderSpec
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire)
     )
 
-    decodedSentOverWire.value shouldEqual value0
+    decodedSentOverWire.value shouldEqual normalized
     decodedSentOverWire.version shouldEqual version
   }
 }

@@ -17,6 +17,8 @@ import scala.collection.compat._
 // Note that keys are ordered using Utf8 ordering
 final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
 
+  def length: Int = entries.length
+
   def isEmpty: Boolean = entries.isEmpty
 
   def mapValue[Y](f: X => Y) = new SortedLookupList(entries.map { case (k, v) => k -> f(v) })

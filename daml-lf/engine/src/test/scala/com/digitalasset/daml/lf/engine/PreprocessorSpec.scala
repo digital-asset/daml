@@ -103,10 +103,10 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
       ),
       (
         Ast.TTyCon(variantCon),
-        ValueVariant(None, "variant1", ValueText("some test")),
+        ValueVariant(None, "variant1", None, ValueText("some test")),
         SVariant(variantCon, "variant1", 0, SText("some test")),
       ),
-      (Ast.TTyCon(enumCon), ValueEnum(None, "value1"), SEnum(enumCon, "value1", 0)),
+      (Ast.TTyCon(enumCon), ValueEnum(None, "value1", None), SEnum(enumCon, "value1", 0)),
       (
         Ast.TApp(Ast.TTyCon(tricky), Ast.TBuiltin(Ast.BTList)),
         ValueRecord(None, ImmArray(None -> ValueNil)),

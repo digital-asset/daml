@@ -135,10 +135,14 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       ),
       (
         TTyCon(variantCon),
-        ValueVariant(None, "variant1", ValueText("some test")),
-        ValueVariant(Some(variantCon), "variant1", ValueText("some test")),
+        ValueVariant(None, "variant1", None, ValueText("some test")),
+        ValueVariant(Some(variantCon), "variant1", Some(0), ValueText("some test")),
       ),
-      (TTyCon(enumCon), ValueEnum(None, "value1"), ValueEnum(Some(enumCon), "value1")),
+      (
+        TTyCon(enumCon),
+        ValueEnum(None, "value1", None),
+        ValueEnum(Some(enumCon), "value1", Some(0)),
+      ),
     )
 
     "enrich values as expected" in {

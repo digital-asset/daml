@@ -187,7 +187,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
             val pkg = unsafeGetPackage(tyCon.packageId)
             value match {
               // variant
-              case ValueVariant(mbId, constructorName, val0) =>
+              case ValueVariant(mbId, constructorName, mbRank, val0) =>
                 mbId.foreach(id =>
                   if (id != tyCon)
                     fail(
@@ -197,11 +197,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 val (dataTypParams, variantDef) = assertRight(
                   pkg.lookupVariant(tyCon.qualifiedName)
                 )
-                variantDef.constructorRank.get(constructorName) match {
-                  case None =>
-                    fail(
-                      s"Couldn't find provided variant constructor $constructorName in variant $tyCon"
-                    )
+                mbRank.orElse(variantDef.constructorRank.get(constructorName)) match {
                   case Some(rank) =>
                     val (_, argTyp) = variantDef.variants(rank)
                     val replacedTyp =
@@ -211,6 +207,10 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       constructorName,
                       rank,
                       go(replacedTyp, val0, newNesting),
+                    )
+                  case None =>
+                    fail(
+                      s"Couldn't find provided variant constructor $constructorName in variant $tyCon"
                     )
                 }
               // records
@@ -260,7 +260,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                   ArrayList(fields.map(_._2).toSeq: _*),
                 )
 
-              case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
+              case ValueEnum(mbId, constructor, mbRank) if tyArgs.isEmpty =>
                 mbId.foreach(id =>
                   if (id != tyCon)
                     fail(
@@ -268,12 +268,13 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     )
                 )
                 val dataDef = assertRight(pkg.lookupEnum(tyCon.qualifiedName))
-                dataDef.constructorRank.get(constructor) match {
+                mbRank.orElse(dataDef.constructorRank.get(constructor)) match {
                   case Some(rank) =>
                     SValue.SEnum(tyCon, constructor, rank)
                   case None =>
                     fail(s"Couldn't find provided variant constructor $constructor in enum $tyCon")
                 }
+
               case _ =>
                 typeMismatch
             }

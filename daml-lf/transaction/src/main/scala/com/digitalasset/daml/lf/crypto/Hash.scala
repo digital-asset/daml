@@ -213,9 +213,9 @@ object Hash {
           iterateOver(xs.toImmArray)((acc, x) => acc.add(x._1).addTypedValue(x._2))
         case Value.ValueRecord(_, fs) =>
           iterateOver(fs)(_ addTypedValue _._2)
-        case Value.ValueVariant(_, variant, v) =>
+        case Value.ValueVariant(_, variant, _, v) =>
           add(variant).addTypedValue(v)
-        case Value.ValueEnum(_, v) =>
+        case Value.ValueEnum(_, v, _) =>
           add(v)
         case Value.ValueGenMap(entries) =>
           iterateOver(entries.iterator, entries.length)((acc, x) =>

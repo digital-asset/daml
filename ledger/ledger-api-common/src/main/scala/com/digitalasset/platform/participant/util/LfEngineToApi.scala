@@ -126,7 +126,7 @@ object LfEngineToApi {
         vs.toImmArray.toSeq.traverseEitherStrictly(lfValueToApiValue(verbose, _)) map { xs =>
           api.Value(api.Value.Sum.List(api.List(xs)))
         }
-      case Lf.ValueVariant(tycon, variant, v) =>
+      case Lf.ValueVariant(tycon, variant, _, v) =>
         lfValueToApiValue(verbose, v) map { x =>
           api.Value(
             api.Value.Sum.Variant(
@@ -138,7 +138,7 @@ object LfEngineToApi {
             )
           )
         }
-      case Lf.ValueEnum(tyCon, value) =>
+      case Lf.ValueEnum(tyCon, value, _) =>
         Right(
           api.Value(
             api.Value.Sum.Enum(

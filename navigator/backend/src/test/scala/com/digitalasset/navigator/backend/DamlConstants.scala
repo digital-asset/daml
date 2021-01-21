@@ -119,7 +119,7 @@ case object DamlConstants {
     DamlLfImmArraySeq(simpleTextT, simpleInt64T),
   )
   val simpleVariantT = simpleVariantTC.instantiate(simpleVariantGC).asInstanceOf[DamlLfVariant]
-  def simpleVariantV = V.ValueVariant(Some(simpleVariantId), "fA", V.ValueText("foo"))
+  def simpleVariantV = V.ValueVariant(Some(simpleVariantId), "fA", None, V.ValueText("foo"))
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: recursive type (data Tree = Leaf a | Node {left: Tree a, right: Tree a})
@@ -164,11 +164,12 @@ case object DamlConstants {
   val treeLeftV = V.ValueVariant(
     Some(treeId),
     "Node",
+    None,
     V.ValueRecord(
       Some(treeNodeId),
       ImmArray(
-        Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LL")),
-        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LR")),
+        Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", None, V.ValueText("LL")),
+        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", None, V.ValueText("LR")),
       ),
     ),
   )
@@ -176,11 +177,12 @@ case object DamlConstants {
   val treeRightV = V.ValueVariant(
     Some(treeId),
     "Node",
+    None,
     V.ValueRecord(
       Some(treeNodeId),
       ImmArray(
-        Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RL")),
-        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RR")),
+        Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", None, V.ValueText("RL")),
+        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", None, V.ValueText("RR")),
       ),
     ),
   )
@@ -188,6 +190,7 @@ case object DamlConstants {
   val treeV = V.ValueVariant(
     Some(treeId),
     "Node",
+    None,
     V.ValueRecord(
       Some(treeNodeId),
       ImmArray(Some(name("left")) -> treeLeftV, Some(name("right")) -> treeRightV),
@@ -201,7 +204,7 @@ case object DamlConstants {
     DamlLfTypeConName(colorId),
     DamlLfImmArraySeq.empty,
   )
-  val redV = V.ValueEnum(Some(colorId), "Red")
+  val redV = V.ValueEnum(Some(colorId), "Red", None)
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: complex record containing all DAML types

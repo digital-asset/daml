@@ -74,12 +74,12 @@ object ValueValidator {
         validatedConstructor <- requireName(constructor, "constructor")
         v <- requirePresence(value, "value")
         validatedValue <- validateValue(v)
-      } yield Lf.ValueVariant(validatedVariantId, validatedConstructor, validatedValue)
+      } yield Lf.ValueVariant(validatedVariantId, validatedConstructor, None, validatedValue)
     case Sum.Enum(api.Enum(enumId, value)) =>
       for {
         validatedEnumId <- validateOptionalIdentifier(enumId)
         validatedValue <- requireName(value, "value")
-      } yield Lf.ValueEnum(validatedEnumId, validatedValue)
+      } yield Lf.ValueEnum(validatedEnumId, validatedValue, None)
     case Sum.List(api.List(elems)) =>
       elems
         .foldLeft[Either[StatusRuntimeException, BackStack[domain.Value]]](Right(BackStack.empty))(

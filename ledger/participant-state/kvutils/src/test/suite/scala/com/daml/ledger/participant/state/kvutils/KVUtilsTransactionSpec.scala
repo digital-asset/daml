@@ -59,6 +59,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         ValueVariant(
           Some(simplePackage.typeConstructorId("Simple:SimpleVariant")),
           name("SV"),
+          None,
           bobValue,
         )
       ),

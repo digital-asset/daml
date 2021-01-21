@@ -575,11 +575,11 @@ class HashSpec extends AnyWordSpec with Matchers {
           | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(c),ValueBool(false)))
           | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
-          |ValueEnum(Some(pkgId:Mod:Color),Red)
+          |ValueEnum(Some(pkgId:Mod:Color),Red,Some(0))
           | 048b20422b487b8eeba059a219589ad477e5f11eb769c7fea658b63f1bb1d405
-          |ValueEnum(Some(pkgId:Mod:Color),Green)
+          |ValueEnum(Some(pkgId:Mod:Color),Green,Some(1))
           | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
-          |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
+          |ValueEnum(Some(pkgId:Mod:ColorBis),Green,Some(1))
           | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
           |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
@@ -593,13 +593,13 @@ class HashSpec extends AnyWordSpec with Matchers {
           | 4f6de867c24682cee05db95d48e1ea47cf5f8b6e74fe07582d3cd8cecaea84b7
           |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
-          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,Some(0),ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
-          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,Some(0),ValueBool(true))
           | 31d69356947365e8a3dd9706774182e86774af1aa6550055efc56a22bb594745
-          |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Right,Some(1),ValueBool(false))
           | bd89c47c2379a69e8e0d46ff634c533449e8e7e532e84def4e2b2e168bc786e7
-          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,Some(0),ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
           |""".stripMargin
 

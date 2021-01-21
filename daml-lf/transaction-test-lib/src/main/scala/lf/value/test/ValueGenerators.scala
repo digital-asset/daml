@@ -117,8 +117,9 @@ object ValueGenerators {
           if (withoutLabels) (_: Identifier) => None
           else (variantId: Identifier) => Some(variantId)
         )
+      rank <- Arbitrary.arbInt.arbitrary
       value <- Gen.lzy(valueGen(nesting))
-    } yield ValueVariant(toOption(id), variantName, value)
+    } yield ValueVariant(toOption(id), variantName, Some(rank), value)
 
   def variantGen: Gen[ValueVariant[ContractId]] = variantGen(0)
 

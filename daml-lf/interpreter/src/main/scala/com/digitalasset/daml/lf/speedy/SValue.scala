@@ -43,10 +43,10 @@ sealed trait SValue {
               .map({ case (fld, sv) => (Some(fld), sv.toValue) })
           ),
         )
-      case SVariant(id, variant, _, sv) =>
-        V.ValueVariant(Some(id), variant, sv.toValue)
-      case SEnum(id, constructor, _) =>
-        V.ValueEnum(Some(id), constructor)
+      case SVariant(id, variant, rank, sv) =>
+        V.ValueVariant(Some(id), variant, Some(rank), sv.toValue)
+      case SEnum(id, constructor, rank) =>
+        V.ValueEnum(Some(id), constructor, Some(rank))
       case SList(lst) =>
         V.ValueList(lst.map(_.toValue))
       case SOptional(mbV) =>
@@ -90,8 +90,8 @@ sealed trait SValue {
         SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
       case SStruct(fields, values) =>
         SStruct(fields, mapArrayList(values, v => v.mapContractId(f)))
-      case SVariant(tycon, variant, rank, value) =>
-        SVariant(tycon, variant, rank, value.mapContractId(f))
+      case SVariant(tycon, rank, variant, value) =>
+        SVariant(tycon, rank, variant, value.mapContractId(f))
       case SList(lst) =>
         SList(lst.map(_.mapContractId(f)))
       case SOptional(mbV) =>

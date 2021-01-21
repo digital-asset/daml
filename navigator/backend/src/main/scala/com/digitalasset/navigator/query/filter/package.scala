@@ -141,7 +141,7 @@ package object filter {
                 case None => Right(false)
               }
           }
-        case V.ValueVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, _, value) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
@@ -152,7 +152,7 @@ package object filter {
                 case _ => Right(false)
               }
           }
-        case V.ValueEnum(_, constructor) =>
+        case V.ValueEnum(_, constructor, _) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
