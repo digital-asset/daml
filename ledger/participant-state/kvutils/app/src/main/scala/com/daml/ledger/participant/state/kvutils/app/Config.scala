@@ -44,7 +44,7 @@ final case class Config[Extra](
 
 object Config {
   val DefaultPort: Port = Port(6865)
-  val DefaultTrackerRetentionPeriod: FiniteDuration = FiniteDuration(24, TimeUnit.HOURS)
+  val DefaultTrackerRetentionPeriod: FiniteDuration = FiniteDuration(5, TimeUnit.MINUTES)
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
   def createDefault[Extra](extra: Extra): Config[Extra] =
@@ -188,7 +188,7 @@ object Config {
           config.copy(trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
         )
         .text(
-          "For how long the command service will keep an active command tracker for a given party. A longer retention period allows to not instantiate a new tracker for a party that seldom acts. A shorter retention period allows to quickly remove unused trackers. Default is 24 hours."
+          "For how long the command service will keep an active command tracker for a given party. A longer retention period allows to not instantiate a new tracker for a party that seldom acts. A shorter retention period allows to quickly remove unused trackers. Default is 5 minutes."
         )
 
       arg[File]("<archive>...")

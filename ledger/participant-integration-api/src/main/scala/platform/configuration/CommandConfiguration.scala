@@ -41,6 +41,6 @@ object CommandConfiguration {
       maxParallelSubmissions = 512,
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
-      retentionPeriod = 24.hours,
+      retentionPeriod = 5.minutes,
     )
 }
