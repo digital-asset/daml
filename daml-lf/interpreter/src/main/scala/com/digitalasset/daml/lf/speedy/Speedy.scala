@@ -180,7 +180,16 @@ private[lf] object Speedy {
     private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
       ledgerMode match {
         case onLedger @ OnLedger(_, _, _, _, _, _, _, _) => f(onLedger)
-        case OffLedger => throw SRequiresOnLedger(op)
+        case OffLedger =>
+          //throw SRequiresOnLedger(op)
+
+          // temporary: allow access to ledger for code which has not yet called goingOnLedger
+          sep_onLedger match {
+            case None => throw SRequiresOnLedger(op)
+            case Some(onLedger) =>
+              println(s"**${machineId},withOnLedger, allowing use of sep_onLedger")
+              f(onLedger)
+          }
       }
 
     private def innerLedgerMachine(
@@ -191,7 +200,7 @@ private[lf] object Speedy {
       val n = machineCounter
       machineCounter = machineCounter + 1
       val machineId = s"NEST#$n"
-      //println(s"**creating nested OnLedger machine: ${machineId}");
+      println(s"**creating nested OnLedger machine: ${machineId}");
 
       val traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
 
@@ -222,7 +231,7 @@ private[lf] object Speedy {
         case None => crash(s"goingOnLedger, sep_onLedger=None, for op:$op")
         case Some(onLedger) =>
           val inner: Machine = innerLedgerMachine(onLedger,expr)
-          //println(s"**${machineId},goingOnLedger... with innerMachine:${inner.machineId}")
+          println(s"**${machineId},goingOnLedger... with innerMachine:${inner.machineId}")
           f(inner)
       }
     }
@@ -432,7 +441,7 @@ private[lf] object Speedy {
       // where we must continue iteration.
       val runN : Int = runCounter
       runCounter = runCounter + 1
-      //println(s"**run(${machineId},r#${runN})...")
+      println(s"**run(${machineId},r#${runN})...")
       var result: SResult = null
       while (result == null) {
         // note: exception handler is outside while loop
@@ -476,7 +485,7 @@ private[lf] object Speedy {
         }
       }
       val _ = runN
-      //println(s"**run(${machineId},r#${runN}) --> $result")
+      println(s"**run(${machineId},r#${runN}) --> $result")
       result
     }
 
@@ -816,7 +825,7 @@ private[lf] object Speedy {
       val n = machineCounter
       machineCounter = machineCounter + 1
       val machineId = s"M#$n"
-      //println(s"**creating WAS-OnLedger, now-OffLedger machine, for apply: ${machineId}");
+      println(s"**creating WAS-OnLedger, now-OffLedger machine, for apply: ${machineId}");
 
       val onLedger =
         OnLedger(
@@ -844,12 +853,12 @@ private[lf] object Speedy {
         lastLocation = None,
 
         //these two lines have us start off-ledger, but allow us to go-onLedger later
-        //ledgerMode = OffLedger,
-        //sep_onLedger = Some(onLedger),
+        ledgerMode = OffLedger,
+        sep_onLedger = Some(onLedger),
 
         //these two lines have us start on ledger immediately...
-        ledgerMode = onLedger,
-        sep_onLedger = None,
+        //ledgerMode = onLedger,
+        //sep_onLedger = None,
 
         traceLog = traceLog,
         compiledPackages = compiledPackages,
@@ -900,7 +909,7 @@ private[lf] object Speedy {
       val n = machineCounter
       machineCounter = machineCounter + 1
       val machineId = s"M#$n"
-      //println(s"**creating OffLedger machine, for fromPureSExpr: ${machineId}");
+      println(s"**creating OffLedger machine, for fromPureSExpr: ${machineId}");
       new Machine(
         machineId,
         ctrl = expr,

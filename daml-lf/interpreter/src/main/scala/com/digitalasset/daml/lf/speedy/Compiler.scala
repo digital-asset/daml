@@ -772,7 +772,7 @@ private[lf] final class Compiler(
 
   @inline
   //private[this]
-  def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
+  def old_compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
     // let party = <partyE>
     //     update = <updateE>
     // in \token ->
@@ -796,7 +796,7 @@ private[lf] final class Compiler(
   // NICK hacking here...
   @inline
   //private[this]
-  def new_explore_compileCommit(party: Expr, update: Expr, optLoc: Option[Location]): SExpr = {
+  def compileCommit(party: Expr, update: Expr, optLoc: Option[Location]): SExpr = {
     withEnv { _ =>
       labeledUnaryFunction("submit_WHAT") { tokenPos =>
         SB_Submit(optLoc,compile(party),compile(update))(svar(tokenPos))
