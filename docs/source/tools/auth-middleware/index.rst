@@ -1,10 +1,10 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Authorization Middleware
-########################
+Auth Middleware
+###############
 
-The authorization middleware is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
+The auth middleware is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
 
 .. toctree::
    :hidden:
@@ -12,23 +12,23 @@ The authorization middleware is currently an :doc:`Early Access Feature in Labs 
    ./oauth2
 
 Daml ledgers only validate authorization tokens. The issuance of those tokens however is something defined by the ledger operator and can vary significantly even if the same ledger is being used. This poses a challenge for application developers aiming to develop applications that need to be able to acquire and refresh authorization tokens but don’t want to tie themselves to any particular mechanism for token issuance.
-The authorization middleware aims to address this problem by providing an API that decouples Daml applications from these details.
-The ledger operator can provide an authorization middleware that is suitable for their authentication and authorization mechanism.
-Daml Connect includes an implementation of an authorization middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_. If this implementation is not compatible with your mechanism for token issuance, you can implement your own authorization middleware provided it conforms to the same API.
+The auth middleware aims to address this problem by providing an API that decouples Daml applications from these details.
+The ledger operator can provide an auth middleware that is suitable for their authentication and authorization mechanism.
+Daml Connect includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_. If this implementation is not compatible with your mechanism for token issuance, you can implement your own auth middleware provided it conforms to the same API.
 
 Features
 ~~~~~~~~
 
-The authorization middleware is designed to fulfill the following goals:
+The auth middleware is designed to fulfill the following goals:
 
 - Be agnostic of the authentication and authorization protocol required by the identity and access management (IAM) system used by the ledger operator.
 - Allow fine grained access control via Daml ledger claims.
 - Support token refresh for long running clients that should not require user interaction.
 
-Authorization Middleware API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Auth Middleware API
+~~~~~~~~~~~~~~~~~~~
 
-An implementation of the authorization middleware must provide the following API.
+An implementation of the auth middleware must provide the following API.
 
 Obtain Access Token
 *******************

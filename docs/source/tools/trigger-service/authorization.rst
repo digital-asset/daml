@@ -7,31 +7,31 @@ Authorization
 The trigger service issues commands to the ledger that may require authorization through an access token.
 See :doc:`Ledger Authorization </app-dev/authorization>` for a description of authentication and authorization on Daml ledgers.
 How to obtain an access token is defined by the ledger operator.
-The trigger service interfaces with an :doc:`Authorization Middleware </tools/auth-middleware/index>`
+The trigger service interfaces with an :doc:`Auth Middleware </tools/auth-middleware/index>`
 to obtain an access token in order to decouple it from the specific authentication and authorization mechanism used for a given ledger.
 
 Enable Authorization
 ~~~~~~~~~~~~~~~~~~~~
 
-You can use the following command-line flags to configure the trigger service to interface with a given authorization middleware.
+You can use the following command-line flags to configure the trigger service to interface with a given auth middleware.
 
 ``--auth``
-    The URI to the authorization middleware.
-    The authorization middleware should be reachable under this URI from the client as well as the trigger service itself.
+    The URI to the auth middleware.
+    The auth middleware should be reachable under this URI from the client as well as the trigger service itself.
 
 ``--auth-callback``
     The login workflow may require redirection to the callback endpoint of the trigger service.
     This flag configures the URI to the trigger service's ``/cb`` endpoint, it should be reachable from the client.
 
-For example, use the following flags if the trigger service and the authorization middleware are both running behind a reverse proxy.::
+For example, use the following flags if the trigger service and the auth middleware are both running behind a reverse proxy.::
 
     --auth https://example.com/auth
     --auth-callback https://example.com/trigger/cb
 
-Assuming that the authorization middleware is available under ``https://example.com/auth/``
+Assuming that the auth middleware is available under ``https://example.com/auth/``
 and the trigger service is available under ``https://example.com/trigger/``.
 
-Note that the trigger service must be able to share cookies with the authorization middleware as described in the :ref:`Deployment notes <oauth2-middleware-deployment>`.
+Note that the trigger service must be able to share cookies with the auth middleware as described in the :ref:`Deployment notes <oauth2-middleware-deployment>`.
 
 Obtain Authorization
 ~~~~~~~~~~~~~~~~~~~~
@@ -51,7 +51,7 @@ The 401 Unauthorized response will include a `WWW-Authenticate header <https://t
 where
 
 - ``claims`` are the required :ref:`Daml Ledger Claims <auth-middleware-claims>`.
-- ``login`` is the URL to initiate the login flow on the authorization middleware.
+- ``login`` is the URL to initiate the login flow on the auth middleware.
 - ``auth`` is the URL to check whether authorization has been granted.
 
 The response will also include an entity with
@@ -80,7 +80,7 @@ Example Usage
 
 This section describes how a web frontend can interact with the trigger service when authorization is required.
 Note, to avoid cross-origin requests and to enable sharing of cookies
-the web application and authorization middleware should be exposed under the same domain,
+the web application and auth middleware should be exposed under the same domain,
 e.g. behind a shared reverse proxy.
 
 Let's start with a request to the :ref:`list running triggers <list-running-triggers>` endpoint.

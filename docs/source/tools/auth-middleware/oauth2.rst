@@ -1,10 +1,10 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-OAuth 2.0 Authorization Middleware
-##################################
+OAuth 2.0 Auth Middleware
+#########################
 
-Daml Connect includes an implementation of an authorization middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
+Daml Connect includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
 The implementation aims to be configurable to support different OAuth 2.0 providers and to allow custom mappings from Daml ledger claims to OAuth 2.0 scopes.
 
 OAuth 2.0 Configuration
@@ -24,16 +24,16 @@ These can be specified using the following environment variables:
 - ``DAML_CLIENT_ID``
 - ``DAML_CLIENT_SECRET``
 
-The authorization middleware assumes that the OAuth 2.0 provider issues JWT access tokens.
+The auth middleware assumes that the OAuth 2.0 provider issues JWT access tokens.
 The ``/auth`` endpoint will validate the token, if available, and ensure that it grants the requested claims.
-The authorization middleware accepts the same command-line flags as the :ref:`Daml Sandbox <sandbox-authorization>` to define the public key for token validation.
+The auth middleware accepts the same command-line flags as the :ref:`Daml Sandbox <sandbox-authorization>` to define the public key for token validation.
 
 Request Templates
 *****************
 
 The exact format of OAuth 2.0 requests may vary between providers.
 Furthermore, the mapping from Daml ledger claims to OAuth 2.0 scopes is defined by the IAM operator.
-For that reason OAuth 2.0 requests made by authorization middleware can be configured using user defined `Jsonnet <https://jsonnet.org/>`_ templates.
+For that reason OAuth 2.0 requests made by auth middleware can be configured using user defined `Jsonnet <https://jsonnet.org/>`_ templates.
 Templates are parameterized configurations expressed as top-level functions.
 
 Authorization Request
@@ -166,8 +166,8 @@ Example
 Deployment Notes
 ~~~~~~~~~~~~~~~~
 
-The authorization middleware API relies on sharing cookies between the authorization middleware and the Daml application.
-One way to enable this is to expose the authorization middleware and the Daml application under the same domain, e.g. through a reverse proxy.
+The auth middleware API relies on sharing cookies between the auth middleware and the Daml application.
+One way to enable this is to expose the auth middleware and the Daml application under the same domain, e.g. through a reverse proxy.
 Note that you will need to specify the external callback URI in that case using the ``--callback`` command-line flag.
 
 For example, assuming the following nginx configuration snippet:
@@ -183,7 +183,7 @@ For example, assuming the following nginx configuration snippet:
       }
     }
 
-You would invoke the OAuth 2.0 authorization middleware with the following flags:
+You would invoke the OAuth 2.0 auth middleware with the following flags:
 
 .. code-block:: shell
 

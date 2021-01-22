@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-// This is an implementation of the trigger service authentication middleware
+// This is an implementation of the trigger service auth middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
 class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
