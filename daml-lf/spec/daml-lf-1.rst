@@ -4629,7 +4629,8 @@ the sub-transaction is disclosed.
 
 The deserialization process will reject any Daml-LF 1.8 (or earlier)
 program using the field ``observers`` in the ``TemplateChoice``
-message.
+message. The missing ``observers`` field is interpreted as an
+empty list of observers.
 
 Exception
 .........
