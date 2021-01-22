@@ -120,7 +120,7 @@ for file in "${!files[@]}"; do
     fi
     rm -f "$HOME/$file"
     truncate -s 200g "$HOME/$file"
-    mkfs.ext2 -E root_owner=$UID:$GID "$HOME/$file"
+    mkfs.ext2 -E root_owner=$(id -u):$(id -g) "$HOME/$file"
     mkdir -p "$path"
     fuse2fs "$HOME/$file" "$path"
     echo "$(date -Is) Done."
