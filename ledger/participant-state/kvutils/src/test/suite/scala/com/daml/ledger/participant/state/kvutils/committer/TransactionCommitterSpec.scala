@@ -587,7 +587,6 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val lookupByKeyFound1 = newLookupByKeySubmittedTransaction(found = true)
       val lookupByKeyFound2 = newLookupByKeySubmittedTransaction(found = true)
 
-      // TODO fix
       val cases = Table(
         "transaction" -> "contractIdAtCommitter",
         lookupByKeyNotFound -> Some(s"#$freshContractId"),
