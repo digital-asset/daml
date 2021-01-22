@@ -771,7 +771,8 @@ private[lf] final class Compiler(
     }
 
   @inline
-  private[this] def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
+  //private[this]
+  def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
     // let party = <partyE>
     //     update = <updateE>
     // in \token ->
@@ -792,8 +793,20 @@ private[lf] final class Compiler(
       }
     }
 
+  // NICK hacking here...
   @inline
-  private[this] def compileMustFail(party: Expr, update: Expr, optLoc: Option[Location]): SExpr =
+  //private[this]
+  def new_explore_compileCommit(party: Expr, update: Expr, optLoc: Option[Location]): SExpr = {
+    withEnv { _ =>
+      labeledUnaryFunction("submit_WHAT") { tokenPos =>
+        SB_Submit(optLoc,compile(party),compile(update))(svar(tokenPos))
+      }
+    }
+  }
+
+  @inline
+  //private[this]
+  def compileMustFail(party: Expr, update: Expr, optLoc: Option[Location]): SExpr =
     // \token ->
     //   let _ = $beginCommit [party] <token>
     //       <r> = $catch ([update] <token>) true false
@@ -807,6 +820,19 @@ private[lf] final class Compiler(
         }
       }
     }
+
+/*
+  // NICK hacking here...
+  @inline
+  //private[this]
+  def new_explore_compileMustFail(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr = {
+    withEnv { _ =>
+      labeledUnaryFunction("submitMustFail_WHAT") { tokenPos =>
+        SB_SubmitMustFail(optLoc)(partyE,updateE,svar(tokenPos))
+      }
+    }
+  }
+ */
 
   @inline
   private[this] def compileGetParty(expr: Expr): SExpr =

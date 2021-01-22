@@ -1224,6 +1224,44 @@ private[lf] object SBuiltin {
     }
   }
 
+  // NICK hacking here...
+  final case class SB_Submit(
+    optLocation: Option[Location],
+    party: SExpr,
+    update: SExpr,
+  ) extends SBuiltin(1) {
+
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      checkToken(args.get(0))
+      println("**SB_Submit, about to call goingOnLedger");
+      machine.goingOnLedger(productPrefix,update){ inner => // NICK: what is productPrefix???
+        val _ : Machine = inner
+        println("**SB_Submit, body of goingOnLedger, about to call run()");
+        val res = inner.run()
+        println(s"**SB_Submit, body of goingOnLedger, run() returned $res");
+        //what should I do with res??
+      }
+
+    }
+
+  }
+
+  final case class SB_SubmitMustFail(optLocation: Option[Location]) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Unit = {
+      println("**SB_SubmitMustFail, about to fail with triple-?");
+      ???
+    }
+  }
+
+
+
   /** $beginCommit :: Party -> Token -> () */
   final case class SBSBeginCommit(optLocation: Option[Location]) extends OnLedgerBuiltin(2) {
     override protected final def execute(

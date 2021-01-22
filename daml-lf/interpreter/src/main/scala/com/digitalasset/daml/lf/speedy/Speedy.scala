@@ -24,6 +24,10 @@ import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
+  var machineCounter : Int = 1
+
+  private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
+
   // fake participant to generate a new transactionSeed when running scenarios
   private[this] val scenarioServiceParticipant =
     Ref.ParticipantId.assertFromString("scenario-service")
@@ -93,7 +97,8 @@ private[lf] object Speedy {
 
   private type Actuals = util.ArrayList[SValue]
 
-  private[lf] sealed trait LedgerMode
+  //private[lf]
+  sealed trait LedgerMode
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
@@ -117,6 +122,10 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
+
+      // unique name/number for this machine instance
+      val machineId: String,
+
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -158,6 +167,9 @@ private[lf] object Speedy {
          not the other way around.
        */
       val ledgerMode: LedgerMode,
+
+      val sep_onLedger: Option[OnLedger],
+
   ) {
 
     /* kont manipulation... */
@@ -170,6 +182,51 @@ private[lf] object Speedy {
         case onLedger @ OnLedger(_, _, _, _, _, _, _, _) => f(onLedger)
         case OffLedger => throw SRequiresOnLedger(op)
       }
+
+    private def innerLedgerMachine(
+      onLedger: OnLedger,
+      expr: SExpr,
+    ) : Machine = {
+
+      val n = machineCounter
+      machineCounter = machineCounter + 1
+      val machineId = s"NEST#$n"
+      //println(s"**creating nested OnLedger machine: ${machineId}");
+
+      val traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
+
+      new Machine(
+        machineId,
+        ctrl = expr,
+        returnValue = null,
+        frame = null,
+        actuals = null,
+        env = emptyEnv,
+        envBase = 0,
+        kontStack = initialKontStack(),
+        lastLocation = None,
+        ledgerMode = onLedger, //NICK, maybe access directly
+        sep_onLedger = None,
+        traceLog = traceLog,
+        compiledPackages = this.compiledPackages, //from outer machine
+        steps = 0,
+        track = Instrumentation(),
+        profile = new Profile(),
+      )
+    }
+
+    // Idea is that here we move from the off-ledger to the on-ledger state
+    // (as we pass though submit or submitMustFail)
+    private[lf] def goingOnLedger[T](op: String, expr: SExpr)(f: Machine => T): T = {
+      sep_onLedger match {
+        case None => crash(s"goingOnLedger, sep_onLedger=None, for op:$op")
+        case Some(onLedger) =>
+          val inner: Machine = innerLedgerMachine(onLedger,expr)
+          //println(s"**${machineId},goingOnLedger... with innerMachine:${inner.machineId}")
+          f(inner)
+      }
+    }
+
 
     @inline
     private[speedy] def pushKont(k: Kont): Unit = {
@@ -362,6 +419,8 @@ private[lf] object Speedy {
       track = Instrumentation()
     }
 
+    var runCounter = 1
+
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
       // Note: We have an outer and inner while loop.
@@ -371,6 +430,9 @@ private[lf] object Speedy {
       // However, we still need the outer loop because of the case:
       //    case _:SErrorDamlException if tryHandleException =>
       // where we must continue iteration.
+      val runN : Int = runCounter
+      runCounter = runCounter + 1
+      //println(s"**run(${machineId},r#${runN})...")
       var result: SResult = null
       while (result == null) {
         // note: exception handler is outside while loop
@@ -413,6 +475,8 @@ private[lf] object Speedy {
             result = SResultError(SErrorCrash(s"exception: $ex")) //stop
         }
       }
+      val _ = runN
+      //println(s"**run(${machineId},r#${runN}) --> $result")
       result
     }
 
@@ -736,8 +800,6 @@ private[lf] object Speedy {
 
   object Machine {
 
-    private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
-
     def apply(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
@@ -751,16 +813,13 @@ private[lf] object Speedy {
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.packageLanguageVersion.andThen(TransactionVersion.assignNodeVersion)
-      new Machine(
-        ctrl = expr,
-        returnValue = null,
-        frame = null,
-        actuals = null,
-        env = emptyEnv,
-        envBase = 0,
-        kontStack = initialKontStack(),
-        lastLocation = None,
-        ledgerMode = OnLedger(
+      val n = machineCounter
+      machineCounter = machineCounter + 1
+      val machineId = s"M#$n"
+      //println(s"**creating WAS-OnLedger, now-OffLedger machine, for apply: ${machineId}");
+
+      val onLedger =
+        OnLedger(
           validating = validating,
           checkAuthorization = checkAuthorization,
           ptx = PartialTransaction.initial(pkg2TxVersion, submissionTime, initialSeeding),
@@ -771,7 +830,27 @@ private[lf] object Speedy {
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
             discriminator
           },
-        ),
+        )
+
+      new Machine(
+        machineId,
+        ctrl = expr,
+        returnValue = null,
+        frame = null,
+        actuals = null,
+        env = emptyEnv,
+        envBase = 0,
+        kontStack = initialKontStack(),
+        lastLocation = None,
+
+        //these two lines have us start off-ledger, but allow us to go-onLedger later
+        //ledgerMode = OffLedger,
+        //sep_onLedger = Some(onLedger),
+
+        //these two lines have us start on ledger immediately...
+        ledgerMode = onLedger,
+        sep_onLedger = None,
+
         traceLog = traceLog,
         compiledPackages = compiledPackages,
         steps = 0,
@@ -817,8 +896,13 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         expr: SExpr,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
-    ): Machine =
+    ): Machine = {
+      val n = machineCounter
+      machineCounter = machineCounter + 1
+      val machineId = s"M#$n"
+      //println(s"**creating OffLedger machine, for fromPureSExpr: ${machineId}");
       new Machine(
+        machineId,
         ctrl = expr,
         returnValue = null,
         frame = null,
@@ -828,12 +912,14 @@ private[lf] object Speedy {
         kontStack = initialKontStack(),
         lastLocation = None,
         ledgerMode = OffLedger,
+        sep_onLedger = None,
         traceLog = traceLog,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
       )
+    }
 
     @throws[PackageNotFound]
     @throws[CompilationError]
