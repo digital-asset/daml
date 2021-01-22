@@ -36,10 +36,10 @@ Note that the trigger service must be able to share cookies with the authorizati
 Obtain Authorization
 ~~~~~~~~~~~~~~~~~~~~
 
-The trigger service will redirect to the authorization middleware if a request requires authentication and authorization of the user.
-HTML requests will be redirected to the middleware's ``/login`` endpoint using an HTTP redirect (302 Found).
-Other requests will receive a 401 Unauthorized response.
-The redirect behavior can be configured using the command-line flag ``--auth-redirect``.
+The trigger service will respond with 401 Unauthorized if a request requires authentication and authorization of the user.
+The trigger service can be configured to redirect to the ``/login`` endpoint via HTTP redirect (302 Found)
+using the command-line flag ``-auth-redirect``.
+This can be useful for testing if the IAM does not require user input.
 
 The 401 Unauthorized response will include a `WWW-Authenticate header <https://tools.ietf.org/html/rfc7235#section-4.1>`_ of the form:
 
