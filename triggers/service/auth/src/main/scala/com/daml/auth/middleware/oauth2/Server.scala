@@ -23,6 +23,7 @@ import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
@@ -300,6 +301,9 @@ class Server(config: Config) extends StrictLogging {
       post {
         refresh
       }
+    },
+    path("livez") {
+      complete(StatusCodes.OK, JsObject("status" -> JsString("pass")))
     },
   )
 }

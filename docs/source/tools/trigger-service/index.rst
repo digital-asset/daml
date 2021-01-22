@@ -4,8 +4,6 @@
 Trigger Service
 ###############
 
-The Trigger Service is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`. At this time, the documentation is limited to basic usage. As more features become available the documentation will be updated to include them. We welcome feedback about the Trigger Service on our `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_, or `on our forum <https://discuss.daml.com>`_.
-
 .. toctree::
    :hidden:
 
