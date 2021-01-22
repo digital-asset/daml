@@ -995,7 +995,7 @@ private[kvutils] object TransactionCommitter {
       }
     } yield parseTimestamp(dedupTimestamp).toInstant
 
-  private def damlContractKey(
+  private[committer] def damlContractKey(
       templateId: TypeConName,
       keyValue: Value[ContractId],
   ): DamlContractKey =
