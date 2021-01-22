@@ -115,7 +115,7 @@ files[disk_cache]=$HOME/.bazel-cache
 for file in "${!files[@]}"; do
     path="${files[$file]}"
     echo "$(date -Is) Cleaning up '$path'..."
-    if [ -d "$path/lost+found" ]; then
+    if [ -d "$path" ]; then
         fusermount -u "$path"
     fi
     rm -f "$HOME/$file"
