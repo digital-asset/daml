@@ -2999,19 +2999,6 @@ as described by the ledger model::
      (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) ChKind ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ChObs ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     ChObs[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err @τ v
-   —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
-       ⇓ᵤ
-     (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) ChKind ε)
-
-     'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ChObs ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
