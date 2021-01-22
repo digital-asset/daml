@@ -10,6 +10,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
+import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
 import com.daml.lf.archive.{Dar, DarReader}
@@ -41,6 +42,7 @@ object ServiceMain {
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
+      authRedirectToLogin: AuthClient.RedirectToLogin,
       authCallback: Option[Uri],
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
@@ -59,6 +61,7 @@ object ServiceMain {
           maxHttpEntityUploadSize,
           httpEntityUploadTimeout,
           authConfig,
+          authRedirectToLogin,
           authCallback,
           ledgerConfig,
           restartConfig,
@@ -137,6 +140,7 @@ object ServiceMain {
               config.maxHttpEntityUploadSize,
               config.httpEntityUploadTimeout,
               authConfig,
+              config.authRedirectToLogin,
               config.authCallbackUri,
               ledgerConfig,
               restartConfig,

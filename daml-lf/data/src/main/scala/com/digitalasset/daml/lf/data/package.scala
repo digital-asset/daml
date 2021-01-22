@@ -5,7 +5,8 @@ package com.daml.lf
 
 package object data {
 
-  de assertRight[X](either: Either[String, X]): X =
+  @throws[IllegalArgumentException]
+  def assertRight[X](either: Either[String, X]): X =
     either.fold(e => throw new IllegalArgumentException(e), identity)
 
   val Numeric: NumericModule = new NumericModule {

@@ -3,12 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import com.daml.metrics.Metrics
+
 import scala.concurrent.ExecutionContext
 
 object Main {
   def main(args: Array[String]): Unit =
     IntegrityChecker.run(args, commitStrategySupportFactory _)
 
-  private def commitStrategySupportFactory(executionContext: ExecutionContext) =
-    new LogAppendingCommitStrategySupport()(executionContext)
+  private def commitStrategySupportFactory(metrics: Metrics, executionContext: ExecutionContext) =
+    new LogAppendingCommitStrategySupport(metrics)(executionContext)
 }

@@ -907,8 +907,9 @@ private[lf] object SBuiltin {
       val (coid, newPtx) = onLedger.ptx
         .insertCreate(
           auth = auth,
-          coinst =
-            V.ContractInst(template = templateId, arg = createArgValue, agreementText = agreement),
+          templateId = templateId,
+          arg = createArgValue,
+          agreementText = agreement,
           optLocation = machine.lastLocation,
           signatories = sigs,
           stakeholders = sigs union obs,

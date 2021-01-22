@@ -216,12 +216,6 @@ private[state] object Conversions {
       TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst),
     )
 
-  def forceNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
-    v.ensureNoCid.fold(
-      coid => throw Err.InternalError(s"Contract identifier '$coid' encountered in contract key"),
-      identity,
-    )
-
   def contractIdStructOrStringToStateKey[A](
       coidStruct: ValueOuterClass.ContractId
   ): DamlStateKey =

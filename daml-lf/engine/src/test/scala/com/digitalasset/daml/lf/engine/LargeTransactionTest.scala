@@ -101,8 +101,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeTransactionOneContract:create", txSize),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(coid, _, _, _, _, _, _) => coid
-      case n @ _ => fail(s"Expected NodeCreate, but got: $n")
+      case create: N.NodeCreate[ContractId] => create.coid
+      case n => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
@@ -131,7 +131,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeTransactionManySmallContracts:create", num),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(coid, _, _, _, _, _, _) => coid
+      case create: N.NodeCreate[ContractId] => create.coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
@@ -161,7 +161,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeChoiceArgument:create", size),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(coid, _, _, _, _, _, _) => coid
+      case create: N.NodeCreate[ContractId] => create.coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
@@ -208,7 +208,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       }
 
     newContracts.count {
-      case N.NodeCreate(_, _, _, _, _, _, _) => true
+      case _: N.NodeCreate[ContractId] => true
       case n @ _ => fail(s"Unexpected match: $n")
     } shouldBe expectedNumberOfContracts
   }
@@ -310,11 +310,11 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       fieldName: String,
   ): Value[ContractId] = {
 
-    val contractInst: ContractInst[Value[ContractId]] =
+    val arg: Value[ContractId] =
       extractResultFromExerciseTransaction(exerciseCmdTx)
 
     val fields: ImmArray[(Option[String], Value[ContractId])] =
-      contractInst.arg match {
+      arg match {
         case ValueRecord(_, x: ImmArray[_]) => x
         case v @ _ => fail(s"Unexpected match: $v")
       }
@@ -331,7 +331,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
   private def extractResultFromExerciseTransaction(
       exerciseCmdTx: Transaction
-  ): ContractInst[Value[ContractId]] = {
+  ): Value[ContractId] = {
 
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
@@ -342,7 +342,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     }
 
     createNode match {
-      case N.NodeCreate(_, x: ContractInst[_], _, _, _, _, _) => x
+      case create: N.NodeCreate[ContractId] => create.arg
       case n @ _ => fail(s"Unexpected match: $n")
     }
   }

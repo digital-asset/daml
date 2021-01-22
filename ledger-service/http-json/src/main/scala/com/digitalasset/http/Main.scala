@@ -68,7 +68,8 @@ object Main extends StrictLogging {
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) if c.createSchema =>
         logger.info("Creating DB schema...")
-        Try(dao.transact(ContractDao.initialize(dao.logHandler)).unsafeRunSync()) match {
+        import dao.{logHandler, jdbcDriver}
+        Try(dao.transact(ContractDao.initialize).unsafeRunSync()) match {
           case Success(()) =>
             logger.info("DB schema created. Terminating process...")
             terminate()

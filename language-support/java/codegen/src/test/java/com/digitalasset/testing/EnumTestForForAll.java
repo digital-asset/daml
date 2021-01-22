@@ -19,11 +19,11 @@ import test.enummod.coloredtree.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @RunWith(JUnitPlatform.class)
-public class EnumTestFor1_6AndFor1_7AndFor1_8 {
+public class EnumTestForForAll {
 
     @Test
     void enum2Value2Enum() {
-        for(Color c: new Color[]{Color.RED, Color.GREEN, Color.BLUE}) {
+        for (Color c : new Color[]{Color.RED, Color.GREEN, Color.BLUE}) {
             Box record = new Box(c, "party");
             OptionalColor variant = new SomeColor(c);
             ColoredTree variantRecord = new Node(Color.RED, new Leaf(Unit.getInstance()), new Leaf(Unit.getInstance()));
@@ -36,7 +36,7 @@ public class EnumTestFor1_6AndFor1_7AndFor1_8 {
 
     @Test
     void value2Enum2value() {
-        for(String s: new String[]{"Red", "Green", "Blue"}) {
+        for (String s : new String[]{"Red", "Green", "Blue"}) {
             DamlEnum damlEnum = new DamlEnum(s);
             Record record = new Record(
                     new Record.Field("x", damlEnum),

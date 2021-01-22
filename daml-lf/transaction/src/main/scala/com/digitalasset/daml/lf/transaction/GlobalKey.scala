@@ -27,6 +27,7 @@ final class GlobalKey private (
 }
 
 object GlobalKey {
+
   def apply(templateId: Ref.TypeConName, key: Value[Nothing]): GlobalKey =
     new GlobalKey(templateId, key, crypto.Hash.safeHashContractKey(templateId, key))
 
@@ -34,6 +35,8 @@ object GlobalKey {
   def build(templateId: Ref.TypeConName, key: Value[ContractId]): Either[String, GlobalKey] =
     crypto.Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
+  // Like `build` but,  in case of error, throws an exception instead of returning a message.
+  @throws[IllegalArgumentException]
   def assertBuild(templateId: Ref.TypeConName, key: Value[ContractId]): GlobalKey =
     data.assertRight(build(templateId, key))
 }

@@ -67,6 +67,7 @@ jobs:
     - template: ci/report-start.yml
     - checkout: self
       persistCredentials: true
+    - template: ci/clean-up.yml
     - bash: |
         set -euo pipefail
         if git tag v$(release_tag) $(release_sha); then

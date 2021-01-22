@@ -57,6 +57,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest",
     ],
     deps = [
+        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
@@ -89,7 +90,6 @@ da_scala_binary(
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 

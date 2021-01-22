@@ -28,7 +28,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       builder.add(
         NodeCreate(
           coid = contractId,
-          coinst = someContractInstance,
+          templateId = someTemplateId,
+          arg = someValueRecord,
+          agreementText = someAgreement,
           optLocation = None,
           signatories = Set(alice),
           stakeholders = Set(alice),
@@ -44,7 +46,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       builder.add(
         NodeCreate(
           coid = contractId,
-          coinst = someContractInstance,
+          someTemplateId,
+          someValueRecord,
+          someAgreement,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(bob),
@@ -120,7 +124,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       builder.add(
         NodeCreate(
           coid = builder.newCid,
-          coinst = someContractInstance,
+          someTemplateId,
+          someValueRecord,
+          someAgreement,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),

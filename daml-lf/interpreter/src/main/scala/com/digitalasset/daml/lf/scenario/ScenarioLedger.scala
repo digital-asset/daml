@@ -26,13 +26,6 @@ import scala.collection.immutable
 /** An in-memory representation of a ledger for scenarios */
 object ScenarioLedger {
 
-  @inline
-  def assertNoContractId(key: Value[Value.ContractId]): Value[Nothing] =
-    key.ensureNoCid.fold(
-      cid => crash(s"Not expecting to find a contract id here, but found '$cid'"),
-      identity,
-    )
-
   case class TransactionId(index: Int) extends Ordered[TransactionId] {
     def next: TransactionId = TransactionId(index + 1)
     // The resulting LedgerString is at most 11 chars long
@@ -441,11 +434,7 @@ object ScenarioLedger {
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
-                          val gk = GlobalKey(
-                            nc.coinst.template,
-                            // FIXME: we probably should never crash here !
-                            assertNoContractId(keyWithMaintainers.key),
-                          )
+                          val gk = GlobalKey.assertBuild(nc.coinst.template, keyWithMaintainers.key)
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
                             case Some(_) => Left(UniqueKeyViolation(gk))
@@ -480,11 +469,7 @@ object ScenarioLedger {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>
                               newCache0_1.removeKey(
-                                GlobalKey(
-                                  ex.templateId,
-                                  // FIXME: we probably should'nt crash here !
-                                  assertNoContractId(keyWithMaintainers.key),
-                                )
+                                GlobalKey.assertBuild(ex.templateId, keyWithMaintainers.key)
                               )
                           }
                         } else newCache0

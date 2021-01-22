@@ -96,6 +96,7 @@ damlStart startCwd tmpDir = do
             , "  - daml-script"
             , "parties:"
             , "- Alice"
+            , "- Bob"
             , "init-script: Main:init"
             , "sandbox-options:"
             , "  - --ledgerid=MyLedger"
@@ -211,6 +212,7 @@ tests tmpDir =
             , testCase "daml new --list" $
               withCurrentDirectory tmpDir $ callCommandSilent "daml new --list"
             , packagingTests tmpDir
+            , damlToolTests
             , withResource (damlStart ProjDir tmpDir) (terminateProcess . startPh) damlStartTests
             , withResource (quickSandbox quickstartDir) (terminateProcess . quickSandboxPh) $
               quickstartTests quickstartDir mvnDir
@@ -314,6 +316,51 @@ packagingTests tmpDir =
           -- This also checks that we get the same Script type within an SDK version.
                       ]
               withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
+        ]
+
+-- Test tools that can run outside a daml project
+damlToolTests :: TestTree
+damlToolTests =
+    testGroup
+        "daml tools"
+        [ testCase "OAuth 2.0 middleware startup" $ do
+              withDevNull $ \devNull1 -> do
+                  withDevNull $ \devNull2 -> do
+                      middlewarePort <- getFreePort
+                      let middlewareProc =
+                              (shell $
+                               unwords
+                                   [ "daml"
+                                   , "oauth2-middleware"
+                                   , "--port"
+                                   , show middlewarePort
+                                   , "--oauth-auth"
+                                   , "http://localhost:0/authorize"
+                                   , "--oauth-token"
+                                   , "http://localhost:0/token"
+                                   , "--auth-jwt-hs256-unsafe"
+                                   , "jwt-secret"
+                                   , "--id"
+                                   , "client-id"
+                                   , "--secret"
+                                   , "client-secret"
+                                   ])
+                                  { std_out = UseHandle devNull1
+                                  , std_err = UseHandle devNull2
+                                  , std_in = CreatePipe
+                                  }
+                      withCreateProcess middlewareProc $ \_ _ _ middlewarePh ->
+                          race_ (waitForProcess' middlewareProc middlewarePh) $ do
+                              let endpoint =
+                                      "http://localhost:" <> show middlewarePort <> "/livez"
+                              waitForHttpServer (threadDelay 100000) endpoint []
+                              req <- parseRequest endpoint
+                              manager <- newManager defaultManagerSettings
+                              resp <- httpLbs req manager
+                              responseBody resp @?= "{\"status\":\"pass\"}"
+                              -- waitForProcess' will block on Windows so we explicitly kill the
+                              -- process.
+                              terminateProcess middlewarePh
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
@@ -600,6 +647,23 @@ damlStartTests getDamlStart =
           withTempDir $ \tmpDir -> do
             DamlStartResource{startPh} <- damlStart EnvAbsoluteDir tmpDir
             terminateProcess startPh
+        , testCase "run a daml deploy without project parties" $ do
+              DamlStartResource {projDir, sandboxPort} <- getDamlStart
+              withCurrentDirectory projDir $ do
+                  copyFile "daml.yaml" "daml.yaml.back"
+                  writeFileUTF8 "daml.yaml" $ unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: proj1"
+                      , "version: 0.0.1"
+                      , "source: daml"
+                      , "dependencies:"
+                      , "  - daml-prim"
+                      , "  - daml-stdlib"
+                      , "  - daml-script"
+                      ]
+                  callCommand $
+                    unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
+                  copyFile "daml.yaml.back" "daml.yaml"
         ]
 
 quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree

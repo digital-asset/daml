@@ -53,14 +53,13 @@ class ContractsService(
 
   private[http] val daoAndFetch: Option[(dbbackend.ContractDao, ContractsFetch)] = contractDao.map {
     dao =>
+      import dao.{logHandler, jdbcDriver}
       (
         dao,
         new ContractsFetch(
           getActiveContracts,
           getCreatesAndArchivesSince,
           getTermination,
-        )(
-          dao.logHandler
         ),
       )
   }
@@ -225,6 +224,7 @@ class ContractsService(
   private[this] val SearchDb: Option[Search { type LfV = JsValue }] = daoAndFetch map {
     case (dao, fetch) =>
       new Search {
+        import dao.{logHandler => doobieLog, jdbcDriver}
         // we store create arguments as JSON in DB, that is why it is `JsValue` in the result
         type LfV = JsValue
         override val lfvToJsValue = SearchValueFormat(\/.right)
@@ -238,7 +238,6 @@ class ContractsService(
             templateId <- otemplateId
             resolved <- resolveTemplateId(templateId)
           } yield unsafeRunAsync {
-            import dao.logHandler
             import doobie.implicits._, cats.syntax.apply._
             fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
               ContractDao.fetchById(parties, resolved, contractId)
@@ -257,7 +256,6 @@ class ContractsService(
           for {
             resolved <- toFuture(resolveTemplateId(templateId))
             found <- unsafeRunAsync {
-              import dao.logHandler
               import doobie.implicits._, cats.syntax.apply._
               fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
                 ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey))
@@ -272,7 +270,7 @@ class ContractsService(
 
           // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
           val fv: Future[Vector[domain.ActiveContract[JsValue]]] =
-            unsafeRunAsync(searchDb_(fetch, dao.logHandler)(ctx, queryParams))
+            unsafeRunAsync(searchDb_(fetch)(ctx, queryParams))
 
           Source.future(fv).mapConcat(identity).map(\/.right)
         }
@@ -280,7 +278,7 @@ class ContractsService(
         private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
           dao.transact(cio).unsafeToFuture()
 
-        private[this] def searchDb_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
+        private[this] def searchDb_(fetch: ContractsFetch)(
             ctx: SearchContext[Set, Id],
             queryParams: Map[String, JsValue],
         ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
@@ -291,17 +289,17 @@ class ContractsService(
           for {
             _ <- fetch.fetchAndPersist(jwt, parties, templateIds.toList)
             cts <- templateIds.toVector
-              .traverse(tpId => searchDbOneTpId_(doobieLog)(parties, tpId, queryParams))
+              .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams))
           } yield cts.flatten
         }
 
-        private[this] def searchDbOneTpId_(doobieLog: doobie.LogHandler)(
+        private[this] def searchDbOneTpId_(
             parties: OneAnd[Set, domain.Party],
             templateId: domain.TemplateId.RequiredPkg,
             queryParams: Map[String, JsValue],
         ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
           val predicate = valuePredicate(templateId, queryParams)
-          ContractDao.selectContracts(parties, templateId, predicate.toSqlWhereClause)(doobieLog)
+          ContractDao.selectContracts(parties, templateId, predicate.toSqlWhereClause)
         }
       }
   }

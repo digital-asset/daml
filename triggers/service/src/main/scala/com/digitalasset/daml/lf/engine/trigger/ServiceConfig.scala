@@ -9,6 +9,7 @@ import java.time.Duration
 import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.auth.middleware.api.{Client => AuthClient}
 import scalaz.Show
 
 import scala.concurrent.duration
@@ -23,6 +24,7 @@ private[trigger] final case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     authUri: Option[Uri],
+    authRedirectToLogin: AuthClient.RedirectToLogin,
     authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
@@ -92,6 +94,15 @@ private[trigger] object ServiceConfig {
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
+  implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] = scopt.Read.reads {
+    _.toLowerCase match {
+      case "yes" => AuthClient.RedirectToLogin.Yes
+      case "no" => AuthClient.RedirectToLogin.No
+      case "auto" => AuthClient.RedirectToLogin.Auto
+      case s => throw new IllegalArgumentException(s"'$s' is not one of 'yes', 'no', or 'auto'.")
+    }
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
@@ -123,8 +134,13 @@ private[trigger] object ServiceConfig {
       .optional()
       .action((t, c) => c.copy(authUri = Some(Uri(t))))
       .text("Auth middleware URI.")
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
+
+    opt[AuthClient.RedirectToLogin]("auth-redirect")
+      .optional()
+      .action((x, c) => c.copy(authRedirectToLogin = x))
+      .text(
+        "Redirect to auth middleware login endpoint when unauthorized. One of 'yes', 'no', or 'auto'."
+      )
 
     opt[String]("auth-callback")
       .optional()
@@ -132,8 +148,6 @@ private[trigger] object ServiceConfig {
       .text(
         "URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -162,8 +176,6 @@ private[trigger] object ServiceConfig {
       .text(
         s"Optional max number of pending authorization requests. Defaults to ${DefaultMaxAuthCallbacks}."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Long]("authorization-timeout")
       .action((x, c) => c.copy(authCallbackTimeout = FiniteDuration(x, duration.SECONDS)))
@@ -171,15 +183,11 @@ private[trigger] object ServiceConfig {
       .text(
         s"Optional authorization timeout. Defaults to ${DefaultAuthCallbackTimeout.toSeconds} seconds."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Long]("max-http-entity-upload-size")
       .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
       .optional()
       .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Long]("http-entity-upload-timeout")
       .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.SECONDS)))
@@ -187,8 +195,6 @@ private[trigger] object ServiceConfig {
       .text(
         s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -226,6 +232,7 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
+        authRedirectToLogin = AuthClient.RedirectToLogin.No,
         authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,

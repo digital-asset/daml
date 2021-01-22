@@ -60,6 +60,27 @@ object Resources {
             )
             .bind {
               concat(
+                path("authorize") {
+                  get {
+                    parameters('claims.as[Claims]) { claims =>
+                      client.authorize(claims) {
+                        case Client.Authorized(authorization) =>
+                          import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+                          import com.daml.auth.middleware.api.JsonProtocol.responseAuthorizeFormat
+                          complete(StatusCodes.OK, authorization)
+                        case Client.Unauthorized =>
+                          complete(StatusCodes.Unauthorized)
+                        case Client.LoginFailed(loginError) =>
+                          import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+                          import com.daml.auth.middleware.api.JsonProtocol.ResponseLoginFormat
+                          complete(
+                            StatusCodes.Forbidden,
+                            loginError: com.daml.auth.middleware.api.Response.Login,
+                          )
+                      }
+                    }
+                  }
+                },
                 path("login") {
                   get {
                     parameters('claims.as[Claims]) { claims =>

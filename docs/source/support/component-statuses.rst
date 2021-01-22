@@ -76,7 +76,7 @@ Runtime components
    * - :doc:`Development CLI to start individual triggers in dev environment </triggers/index>` (``daml trigger``)
      - Beta
      -
-   * - :doc:`/tools/trigger-service` (``daml trigger-service``)
+   * - :doc:`/tools/trigger-service/index` (``daml trigger-service``)
      - Alpha
      -
    * - **Extractor**

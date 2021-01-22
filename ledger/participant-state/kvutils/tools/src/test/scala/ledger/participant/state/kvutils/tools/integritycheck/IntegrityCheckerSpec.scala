@@ -27,7 +27,7 @@ final class IntegrityCheckerSpec
           .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
       )
         .thenReturn(None)
-      val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+      val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
 
       instance.compareSameSizeWriteSets(
         writeSet("key" -> "a"),
@@ -49,7 +49,7 @@ final class IntegrityCheckerSpec
           .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
       )
         .thenReturn(Some("expected explanation"))
-      val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+      val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
 
       val actual =
         instance.compareSameSizeWriteSets(writeSet("key" -> "a"), writeSet("key" -> "b"))
@@ -67,7 +67,7 @@ final class IntegrityCheckerSpec
           .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
       )
         .thenReturn(Some("first explanation"), Some("second explanation"))
-      val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+      val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
 
       val actual =
         instance.compareSameSizeWriteSets(
@@ -159,7 +159,7 @@ final class IntegrityCheckerSpec
 
   private def createMockIntegrityChecker(): IntegrityChecker[Unit] = {
     val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-    val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+    val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
     instance
   }
 

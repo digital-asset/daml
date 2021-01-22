@@ -232,7 +232,10 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
     for {
       dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
-      _ <- dao.transact(ContractDao.initialize(dao.logHandler)).unsafeToFuture(): Future[Unit]
+      _ <- {
+        import dao.{logHandler, jdbcDriver}
+        dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]
+      }
     } yield dao
 
   object UseTls extends NewBoolean.Named {

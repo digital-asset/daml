@@ -41,20 +41,18 @@ object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
-      for (insertContracts <- contractsTableExecutables.insertContracts) {
-        Timed.value(insertContractsBatch, insertContracts.execute())
-      }
+      Timed.value(insertContractsBatch, contractsTableExecutables.insertContracts.execute())
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
-      for (insertWitnesses <- contractWitnessesTableExecutables.insertWitnesses) {
-        Timed.value(insertContractWitnessesBatch, insertWitnesses.execute())
-      }
+      Timed.value(
+        insertContractWitnessesBatch,
+        contractWitnessesTableExecutables.insertWitnesses.execute(),
+      )
     }
   }
-
 }
 
 private[dao] final class TransactionsWriter(
@@ -108,10 +106,9 @@ private[dao] final class TransactionsWriter(
 
     new TransactionsWriter.PreparedInsert(
       eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
-      contractsTable.toExecutables(indexing.transaction, indexing.contracts, serialized),
+      contractsTable.toExecutables(indexing.contracts, indexing.transaction, serialized),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
     )
-
   }
 
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =

@@ -81,28 +81,25 @@ private[kvutils] object InputsAndEffects {
         case fetch: Node.NodeFetch[Value.ContractId] =>
           addContractInput(fetch.coid)
           fetch.key.foreach { keyWithMaintainers =>
-            inputs += globalKeyToStateKey(
-              GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key))
-            )
+            inputs += contractKeyToStateKey(fetch.templateId, keyWithMaintainers.key)
           }
 
         case create: Node.NodeCreate[Value.ContractId] =>
           create.key.foreach { keyWithMaintainers =>
-            inputs += globalKeyToStateKey(
-              GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key))
-            )
+            inputs += contractKeyToStateKey(create.coinst.template, keyWithMaintainers.key)
           }
 
         case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
           addContractInput(exe.targetCoid)
+          exe.key.foreach { keyWithMaintainers =>
+            inputs += contractKeyToStateKey(exe.templateId, keyWithMaintainers.key)
+          }
 
         case lookup: Node.NodeLookupByKey[Value.ContractId] =>
           // We need both the contract key state and the contract state. The latter is used to verify
           // that the submitter can access the contract.
           lookup.result.foreach(addContractInput)
-          inputs += globalKeyToStateKey(
-            GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key))
-          )
+          inputs += contractKeyToStateKey(lookup.templateId, lookup.key.key)
       }
 
       inputs ++= partyInputs(node.informeesOfNode)
@@ -126,19 +123,7 @@ private[kvutils] object InputsAndEffects {
             updatedContractKeys = create.key
               .fold(effects.updatedContractKeys)(keyWithMaintainers =>
                 effects.updatedContractKeys.updated(
-                  globalKeyToStateKey(
-                    GlobalKey
-                      .build(
-                        create.coinst.template,
-                        keyWithMaintainers.key,
-                      )
-                      .fold(
-                        _ =>
-                          throw Err
-                            .InvalidSubmission("Contract IDs are not supported in contract keys."),
-                        identity,
-                      )
-                  ),
+                  contractKeyToStateKey(create.coinst.template, keyWithMaintainers.key),
                   Some(create.coid),
                 )
               ),
@@ -151,7 +136,7 @@ private[kvutils] object InputsAndEffects {
               updatedContractKeys = exe.key
                 .fold(effects.updatedContractKeys)(key =>
                   effects.updatedContractKeys.updated(
-                    globalKeyToStateKey(GlobalKey(exe.templateId, forceNoContractIds(key.key))),
+                    contractKeyToStateKey(exe.templateId, key.key),
                     None,
                   )
                 ),
@@ -164,4 +149,11 @@ private[kvutils] object InputsAndEffects {
       }
     }
   }
+
+  private[this] def contractKeyToStateKey(tmplId: Identifier, key: Value[ContractId]) =
+    globalKeyToStateKey(
+      GlobalKey
+        .build(tmplId, key)
+        .fold(msg => throw Err.InvalidSubmission(msg), identity)
+    )
 }

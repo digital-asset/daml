@@ -10,6 +10,7 @@ import java.util.{Date, UUID}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import io.grpc.Channel
+import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.ledger.api.testing.utils.OwnedResource
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -213,6 +214,7 @@ trait AuthMiddlewareFixture
             callbackUri = None,
             maxLoginRequests = MiddlewareConfig.DefaultMaxLoginRequests,
             loginTimeout = MiddlewareConfig.DefaultLoginTimeout,
+            cookieSecure = MiddlewareConfig.DefaultCookieSecure,
             oauthAuth = uri.withPath(Path./("authorize")),
             oauthToken = uri.withPath(Path./("token")),
             oauthAuthTemplate = None,
@@ -474,6 +476,7 @@ trait TriggerServiceFixture
                 ServiceConfig.DefaultMaxHttpEntityUploadSize,
                 ServiceConfig.DefaultHttpEntityUploadTimeout,
                 authConfig,
+                AuthClient.RedirectToLogin.Yes,
                 authCallback,
                 ledgerConfig,
                 restartConfig,

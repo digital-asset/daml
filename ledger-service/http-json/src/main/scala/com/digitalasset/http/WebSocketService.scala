@@ -20,7 +20,7 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
-import doobie.{ConnectionIO, LogHandler}
+import doobie.ConnectionIO
 import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -51,11 +51,22 @@ object WebSocketService {
       resolved: Set[domain.TemplateId.RequiredPkg],
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: domain.ActiveContract[LfV] => Option[Positive],
-      dbQuery: OneAnd[Set, domain.Party] => LogHandler => ConnectionIO[
+      dbQuery: (OneAnd[Set, domain.Party], dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
       ],
   )
 
+  /** If an element satisfies `prefix`, consume it and emit the result alongside
+    * the next element (which is not similarly tested); otherwise, emit it.
+    *
+    * {{{
+    *   withOptPrefix(_ => None)
+    *     = Flow[I].map((None, _))
+    *
+    *   Source(Seq(1, 2, 3, 4)) via withOptPrefix(Some(_))
+    *     = Source(Seq((Some(1), 2), (Some(3), 4)))
+    * }}}
+    */
   private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
     Flow[I]
       .scan(none[L \/ (Option[L], I)]) { (s, i) =>
@@ -197,8 +208,9 @@ object WebSocketService {
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
-        def dbQueriesPlan
-            : (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+        def dbQueriesPlan(implicit
+            sjd: dbbackend.SupportedJdbcDriver
+        ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
             nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
           }
@@ -212,9 +224,10 @@ object WebSocketService {
           resolved,
           unresolved,
           fn,
-          { parties => implicit lh =>
-            val (dbQueries, posMap) = dbQueriesPlan
+          { (parties, dao) =>
+            import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            val (dbQueries, posMap) = dbQueriesPlan
             selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
               .map(_ map (_ rightMap (_ map posMap)))
           },
@@ -307,17 +320,20 @@ object WebSocketService {
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      def dbQueries: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+      def dbQueries(implicit
+          sjd: dbbackend.SupportedJdbcDriver
+      ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
         q.toSeq map (_ rightMap { lfvKeys =>
           val khd +: ktl = lfvKeys.toVector
           import dbbackend.Queries.{intersperse, concatFragment}
-          concatFragment(intersperse(OneAnd(khd, ktl) map keyEquality, sql" OR "))
+          concatFragment(intersperse(OneAnd(khd, ktl) map (keyEquality(_)), sql" OR "))
         })
       StreamPredicate(
         q.keySet,
         unresolved,
         fn,
-        { parties => implicit lh =>
+        { (parties, dao) =>
+          import dao.{logHandler, jdbcDriver}
           import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
           selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.Unused)
         },
@@ -327,10 +343,10 @@ object WebSocketService {
     override def renderCreatedMetadata(p: Unit) = Map.empty
   }
 
-  private[this] def keyEquality(k: LfV): doobie.Fragment = {
-    import dbbackend.Queries.Implicits._
-    sql"key = ${LfValueDatabaseCodec.apiValueToJsValue(k)}::jsonb"
-  }
+  private[this] def keyEquality(k: LfV)(implicit
+      sjd: dbbackend.SupportedJdbcDriver
+  ): doobie.Fragment =
+    sjd.queries.keyEquality(LfValueDatabaseCodec.apiValueToJsValue(k))
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Unit] {
@@ -475,7 +491,7 @@ class WebSocketService(
             { case (dao, fetch) =>
               val tx = for {
                 bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
-                mdContracts <- dbQuery(parties)(dao.logHandler)
+                mdContracts <- dbQuery(parties, dao)
               } yield (
                 Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
                   .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
