@@ -3,36 +3,47 @@
 
 package com.daml.grpc
 
-import com.daml.grpc.reflection.ServerReflectionClient
+import com.daml.grpc.reflection.{ServerReflectionClient, ServiceDescriptorInfo}
+import com.daml.resources.grpc.GrpcResourceOwnerFactories
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceOwnerFactories}
 import io.grpc._
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 
 object ReverseProxy {
 
-  def create(
+  private def proxyServices(
+      backend: Channel,
+      serverBuilder: ServerBuilder[_],
+      services: Set[ServiceDescriptorInfo],
+      interceptors: Map[String, Seq[ServerInterceptor]],
+  ): Unit =
+    for (service <- services) {
+      serverBuilder.addService(
+        ServerInterceptors.interceptForward(
+          ForwardService(backend, service),
+          interceptors.getOrElse(service.fullServiceName, Seq.empty): _*
+        )
+      )
+    }
+
+  def owner[Context](
       backend: Channel,
       serverBuilder: ServerBuilder[_],
       interceptors: Map[String, Seq[ServerInterceptor]],
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Server] = {
+  )(implicit context: HasExecutionContext[Context]): AbstractResourceOwner[Context, Server] = {
+    val factory = new ResourceOwnerFactories[Context] with GrpcResourceOwnerFactories[Context] {
+      override protected implicit val hasExecutionContext: HasExecutionContext[Context] =
+        context
+    }
     val stub = ServerReflectionGrpc.newStub(backend)
     val client = new ServerReflectionClient(stub)
-    val future = client.getAllServices()
-    future
-      .map { services =>
-        for (service <- services) {
-          serverBuilder.addService(
-            ServerInterceptors.interceptForward(
-              ForwardService(backend, service),
-              interceptors.getOrElse(service.fullServiceName, Seq.empty): _*
-            )
-          )
-        }
-        serverBuilder.build()
-      }
+    for {
+      services <- factory.forFuture(() => client.getAllServices())
+      _ = proxyServices(backend, serverBuilder, services, interceptors)
+      server <- factory.forServer(serverBuilder, shutdownTimeout = 5.seconds)
+    } yield server
   }
 
 }

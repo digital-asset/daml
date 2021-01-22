@@ -3,23 +3,92 @@
 
 package com.daml.grpc.test
 
+import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
+import io.grpc.health.v1.HealthCheckResponse.ServingStatus
+import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.reflection.v1alpha.{
+  ServerReflectionGrpc,
+  ServerReflectionRequest,
+  ServerReflectionResponse,
+}
 import io.grpc.services.HealthStatusManager
-import io.grpc.{BindableService, Channel, ManagedChannel, Server}
+import io.grpc.stub.StreamObserver
+import io.grpc.{BindableService, Channel, ClientInterceptor}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 
-import scala.concurrent.Future
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future, Promise}
+import scala.jdk.CollectionConverters._
 
 trait GrpcServer { this: AsyncFlatSpec =>
 
   object Services {
 
-    def health: BindableService = new HealthStatusManager().getHealthService
+    object Health {
 
-    def reflection: BindableService = ProtoReflectionService.newInstance()
+      object Requests {
+        val Check: HealthCheckRequest =
+          HealthCheckRequest.newBuilder().build()
+      }
+
+      val Name: String = HealthGrpc.SERVICE_NAME
+
+      def newInstance: BindableService = new HealthStatusManager().getHealthService
+
+      def getHealthStatus(channel: Channel, interceptors: ClientInterceptor*): ServingStatus =
+        HealthGrpc
+          .newBlockingStub(channel)
+          .withInterceptors(interceptors: _*)
+          .check(Requests.Check)
+          .getStatus
+
+    }
+
+    object Reflection {
+
+      object Requests {
+        val ListServices: ServerReflectionRequest =
+          ServerReflectionRequest.newBuilder().setListServices("").build()
+      }
+
+      val Name: String = ServerReflectionGrpc.SERVICE_NAME
+
+      def newInstance: BindableService = ProtoReflectionService.newInstance()
+
+      def listServices(channel: Channel, interceptors: ClientInterceptor*): Iterable[String] = {
+        val response = Promise[Iterable[String]]()
+        lazy val serverStream: StreamObserver[ServerReflectionRequest] =
+          ServerReflectionGrpc
+            .newStub(channel)
+            .withInterceptors(interceptors: _*)
+            .serverReflectionInfo(new StreamObserver[ServerReflectionResponse] {
+              override def onNext(value: ServerReflectionResponse): Unit = {
+                if (value.hasListServicesResponse) {
+                  val services = value.getListServicesResponse.getServiceList.asScala.map(_.getName)
+                  response.trySuccess(services)
+                } else {
+                  response
+                    .tryFailure(new IllegalStateException("Received unexpected response type"))
+                }
+                serverStream.onCompleted()
+              }
+
+              override def onError(throwable: Throwable): Unit = {
+                val _ = response.tryFailure(throwable)
+              }
+
+              override def onCompleted(): Unit = {
+                val _ = response.tryFailure(new IllegalStateException("No response received"))
+              }
+            })
+        serverStream.onNext(Requests.ListServices)
+        Await.result(response.future, 5.seconds)
+      }
+
+    }
 
   }
 
@@ -29,34 +98,20 @@ trait GrpcServer { this: AsyncFlatSpec =>
   )(
       test: Channel => Future[Assertion]
   ): Future[Assertion] = {
-    val setup = Future {
-      val serverName = InProcessServerBuilder.generateName()
-      val serverBuilder = InProcessServerBuilder.forName(serverName).addService(service)
-      for (additionalService <- services) {
-        serverBuilder.addService(additionalService)
-      }
-      GrpcServer.Setup(
-        server = serverBuilder.build().start(),
-        channel = InProcessChannelBuilder.forName(serverName).build(),
-      )
+    val serverName = InProcessServerBuilder.generateName()
+    val serverBuilder = InProcessServerBuilder.forName(serverName).addService(service)
+    for (additionalService <- services) {
+      serverBuilder.addService(additionalService)
     }
-    val result = setup.map(_.channel).flatMap(test)
-    result.onComplete(_ => setup.map(_.shutdownAndAwaitTerminationFor(5.seconds)))
-    result
-  }
+    val channelBuilder = InProcessChannelBuilder.forName(serverName)
+    val testResult =
+      for {
+        _ <- Resources.forServer(serverBuilder, 5.seconds).acquire()
+        channel <- Resources.forChannel(channelBuilder, 5.seconds).acquire()
+        result <- Resources.forFuture(() => test(channel)).acquire()
+      } yield result
 
-}
-
-object GrpcServer {
-
-  private final case class Setup(server: Server, channel: ManagedChannel) {
-    def shutdownAndAwaitTerminationFor(timeout: FiniteDuration): Unit = {
-      server.shutdown()
-      channel.shutdown()
-      server.awaitTermination()
-      channel.awaitTermination(timeout.length, timeout.unit)
-      ()
-    }
+    testResult.release().flatMap(_ => testResult.asFuture)
   }
 
 }
