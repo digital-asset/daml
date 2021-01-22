@@ -430,9 +430,9 @@ private[kvutils] class TransactionCommitter(
       preCommitContractKeyDamlStateKeys: Set[DamlStateKey],
       preCommitContractKeysToContractIds: Map[DamlContractKey, ContractId],
   ): StepResult[DamlTransactionEntrySummary] = {
-    sealed abstract case class KeyValidationError()
-    object Duplicate extends KeyValidationError
-    object Inconsistent extends KeyValidationError
+    sealed abstract class KeyValidationError()
+    case object Duplicate extends KeyValidationError
+    case object Inconsistent extends KeyValidationError
 
     case class KeyValidationState(
         activeDamlStateKeys: Set[DamlStateKey],

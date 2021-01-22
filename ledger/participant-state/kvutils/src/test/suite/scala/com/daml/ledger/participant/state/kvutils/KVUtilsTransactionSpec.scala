@@ -172,7 +172,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
           resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-            "Contract keys inconsistent"
+            "InconsistentKeys"
           )
         }
       }
@@ -195,7 +195,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
           resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-            "Contract keys inconsistent"
+            "InconsistentKeys"
           )
         }
       }
@@ -263,7 +263,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
           resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-            "Contract keys inconsistent"
+            "InconsistentKeys"
           )
         }
       }
@@ -333,6 +333,9 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
         logEntry3.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
         logEntry3.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
+        logEntry3.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
+          "InconsistentKeys"
+        )
       }
     }
 
@@ -421,7 +424,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT
           txEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
-
         }
     }
 
