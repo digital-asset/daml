@@ -56,6 +56,8 @@ private[lf] object Pretty {
         text(prettyFailedAuthorization(nid, fa))
       case DamlEArithmeticError(message) =>
         text(message)
+      case DamlEUnhandledException(message) =>
+        text(s"unhandled exception: $message")
       case DamlEUserError(message) =>
         text(s"User abort: $message")
       case DamlETransactionError(reason) =>
@@ -551,6 +553,10 @@ private[lf] object Pretty {
           prettySExpr(index)(SELet(List(rhs), body))
         case SELet1Builtin(builtin, args, body) =>
           prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
+
+        case SETryCatch(body, handler) =>
+          text("try-catch") + char('(') + prettySExpr(index)(body) + text(", ") +
+            prettySExpr(index)(handler) + char(')')
 
         case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)
