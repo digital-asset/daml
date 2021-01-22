@@ -30,6 +30,7 @@ da_scala_library(
         "//navigator/backend:navigator-library",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service:trigger-service",
+        "//triggers/service/auth:oauth2-middleware",
         "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",

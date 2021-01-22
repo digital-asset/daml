@@ -366,8 +366,8 @@ class TransactionCoderSpec
           if (encodedCreate.hasKeyWithMaintainers)
             cases = encodedCreate.toBuilder
               .setKeyWithMaintainers(
-                encodedCreate.getKeyWithMaintainers.toBuilder.setKey(
-                  changeVersion(encodedCreate.getKeyWithMaintainers.getKey, encodeVersion)
+                encodedCreate.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                  changeVersion(encodedCreate.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
                 )
               )
               .build() :: cases
@@ -399,8 +399,8 @@ class TransactionCoderSpec
 
           val testCase = encodedFetch.toBuilder
             .setKeyWithMaintainers(
-              encodedFetch.getKeyWithMaintainers.toBuilder.setKey(
-                changeVersion(encodedFetch.getKeyWithMaintainers.getKey, encodeVersion)
+              encodedFetch.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                changeVersion(encodedFetch.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
               )
             )
             .build()
@@ -431,8 +431,8 @@ class TransactionCoderSpec
 
           val testCase = encodedLookup.toBuilder
             .setKeyWithMaintainers(
-              encodedLookup.getKeyWithMaintainers.toBuilder.setKey(
-                changeVersion(encodedLookup.getKeyWithMaintainers.getKey, encodeVersion)
+              encodedLookup.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                changeVersion(encodedLookup.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
               )
             )
             .build()
@@ -449,44 +449,47 @@ class TransactionCoderSpec
 
     "fail if try to encode a exercise node containing value with version different from node" in {
 
-      forAll(danglingRefExerciseNodeGen, transactionVersionGen(), minSuccessful(5)) {
-        (exeNode, version) =>
-          whenever(exeNode.version != version) {
-            val nodeVersion = exeNode.version
-            val encodeVersion = ValueCoder.encodeValueVersion(version)
-            val Right(encodedNode) = TransactionCoder.encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              nodeVersion,
-              NodeId(0),
-              minimalistNode(nodeVersion)(exeNode),
-            )
-            val encodedExe = encodedNode.getExercise
-            var cases = List(
-              encodedExe.toBuilder
-                .setChosenValue(changeVersion(encodedExe.getChosenValue, encodeVersion))
-                .build(),
-              encodedExe.toBuilder
-                .setReturnValue(changeVersion(encodedExe.getReturnValue, encodeVersion))
-                .build(),
-            )
-            if (encodedExe.hasKeyWithMaintainers)
-              cases = encodedExe.toBuilder
-                .setKeyWithMaintainers(
-                  encodedExe.getKeyWithMaintainers.toBuilder.setKey(
-                    changeVersion(encodedExe.getKeyWithMaintainers.getKey, encodeVersion)
-                  )
+      forAll(
+        danglingRefExerciseNodeGen,
+        transactionVersionGen(maxVersion = TransactionVersion.minNoVersionValue),
+        minSuccessful(5),
+      ) { (exeNode, version) =>
+        whenever(exeNode.version != version) {
+          val nodeVersion = exeNode.version
+          val encodeVersion = ValueCoder.encodeValueVersion(version)
+          val Right(encodedNode) = TransactionCoder.encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            nodeVersion,
+            NodeId(0),
+            minimalistNode(nodeVersion)(exeNode),
+          )
+          val encodedExe = encodedNode.getExercise
+          var cases = List(
+            encodedExe.toBuilder
+              .setArgVersioned(changeVersion(encodedExe.getArgVersioned, encodeVersion))
+              .build(),
+            encodedExe.toBuilder
+              .setResultVersioned(changeVersion(encodedExe.getResultVersioned, encodeVersion))
+              .build(),
+          )
+          if (encodedExe.hasKeyWithMaintainers)
+            cases = encodedExe.toBuilder
+              .setKeyWithMaintainers(
+                encodedExe.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                  changeVersion(encodedExe.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
                 )
-                .build() :: cases
-            cases.foreach(node =>
-              TransactionCoder.decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                nodeVersion,
-                encodedNode.toBuilder.setExercise(node).build(),
-              ) shouldBe a[Left[_, _]]
-            )
-          }
+              )
+              .build() :: cases
+          cases.foreach(node =>
+            TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              nodeVersion,
+              encodedNode.toBuilder.setExercise(node).build(),
+            ) shouldBe a[Left[_, _]]
+          )
+        }
       }
     }
 

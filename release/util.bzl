@@ -15,6 +15,7 @@ def sdk_tarball(name, version):
             "//navigator/backend:src/main/resources/logback.xml",
             "//extractor:src/main/resources/logback.xml",
             "//ledger-service/http-json:src/main/resources/logback.xml",
+            "//triggers/service/auth:release/oauth2-middleware-logback.xml",
             "//triggers/service:release/trigger-service-logback.xml",
             "//language-support/java/codegen:src/main/resources/logback.xml",
             "//triggers/runner:src/main/resources/logback.xml",

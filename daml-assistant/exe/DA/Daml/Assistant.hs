@@ -370,6 +370,7 @@ argWhitelist = S.fromList
     , "deploy"
     , "json-api"
     , "trigger", "trigger-service", "list"
+    , "oauth2-middleware"
     , "script"
     , "test-script"
     ]
