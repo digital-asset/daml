@@ -179,7 +179,3 @@
   type: jar-scala
 - target: //triggers/runner:trigger-runner-lib
   type: jar-scala
-- target: //triggers/service:trigger-service
-  type: jar-scala
-- target: //triggers/service/auth:oauth2-middleware
-  type: jar-scala
