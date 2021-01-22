@@ -85,6 +85,10 @@ object ValueCoder {
         stringToCidString(structForm.getContractId).map(Some(_))
   }
 
+  val NoCidDecoder: DecodeCid[Nothing] = new DecodeCid {
+    override def decodeOptional(structForm: ValueOuterClass.ContractId) = Right(None)
+  }
+
   /** Simple encoding to wire of identifiers
     * @param id identifier value
     * @return wire format identifier

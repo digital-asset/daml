@@ -44,6 +44,7 @@ object TransactionVersion {
   private[lf] val minGenMap = V11
   private[lf] val minChoiceObservers = V11
   private[lf] val minNodeVersion = V11
+  private[lf] val minNoVersionValue = VDev
   private[lf] val minTypeErasure = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {

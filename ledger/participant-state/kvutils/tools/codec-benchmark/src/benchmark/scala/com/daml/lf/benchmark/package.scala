@@ -10,11 +10,10 @@ import com.daml.lf.transaction.TransactionCoder.{
   encodeTransaction,
 }
 import com.daml.lf.transaction.TransactionOuterClass.Transaction
-import com.daml.lf.transaction.{NodeId, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{NodeId, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder._
-import com.daml.lf.value.ValueOuterClass.VersionedValue
-import com.daml.lf.value.Value
+import com.daml.lf.value.ValueOuterClass
 import com.google.protobuf.ByteString
 
 package object benchmark {
@@ -34,9 +33,10 @@ package object benchmark {
     * It's the in-memory representation of the Protobuf message that
     * describes a value, not its serialized form.
     */
-  private[lf] type EncodedValue = VersionedValue
+  private[lf] type EncodedValue = Versioned[ValueOuterClass.Value]
   private[lf] object EncodedValue {
-    def deserialize(bytes: ByteString): EncodedValue = VersionedValue.parseFrom(bytes)
+    def deserialize(bytes: Versioned[ByteString]): EncodedValue =
+      bytes.map(ValueOuterClass.Value.parseFrom)
   }
 
   private[lf] type EncodedValueWithType = TypedValue[EncodedValue]
@@ -52,7 +52,7 @@ package object benchmark {
     * [[com.daml.lf.value.ValueCoder.decodeValue]].
     * It's the DAML-LF representation of a value.
     */
-  private[lf] type DecodedValue = Value[ContractId]
+  private[lf] type DecodedValue = Versioned[value.Value[ContractId]]
 
   private[lf] def assertDecode(transaction: EncodedTransaction): DecodedTransaction =
     assertDecode(decode(transaction))
@@ -75,8 +75,10 @@ package object benchmark {
   private def decode(transaction: EncodedTransaction): DecodeResult[DecodedTransaction] =
     decodeTransaction(NidDecoder, CidDecoder, transaction)
 
-  private def decode(value: EncodedValue): DecodeResult[DecodedValue] =
-    decodeValue(CidDecoder, value)
+  private def decode(
+      versionedValue: EncodedValue
+  ): DecodeResult[DecodedValue] =
+    versionedValue.traverse(decodeValue(CidDecoder, versionedValue.version, _))
 
   private def assertEncode[A](result: EncodeResult[A]): A =
     result.fold(e => sys.error(e.errorMessage), identity)
@@ -84,7 +86,7 @@ package object benchmark {
   private def encode(transaction: DecodedTransaction): EncodeResult[EncodedTransaction] =
     encodeTransaction(NidEncoder, CidEncoder, transaction)
 
-  private def encode(value: DecodedValue): EncodeResult[EncodedValue] =
-    encodeVersionedValue(CidEncoder, TransactionVersion.VDev, value)
+  private def encode(versionedValue: DecodedValue): EncodeResult[EncodedValue] =
+    versionedValue.traverse(encodeValue(CidEncoder, versionedValue.version, _))
 
 }

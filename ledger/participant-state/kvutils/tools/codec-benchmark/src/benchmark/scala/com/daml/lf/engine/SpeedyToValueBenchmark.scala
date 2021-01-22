@@ -3,9 +3,11 @@
 
 package com.daml.lf.engine
 
-import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, DecodedValue, assertDecode}
+import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, assertDecode}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.speedy.SValue
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
 
 class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
@@ -17,11 +19,11 @@ class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
     super.setup()
     val decodedValues = submissions.values.map(_.mapValue(assertDecode)).toVector
     val translator = new ValueTranslator(submissions.compiledPackages)
-    speedyValues = decodedValues.map(assertTranslate(translator))
+    speedyValues = decodedValues.map(x => assertTranslate(translator)(x.mapValue(_.value)))
   }
 
   @Benchmark
-  def run(): Vector[DecodedValue] =
+  def run(): Vector[Value[ContractId]] =
     speedyValues.map(_.toValue)
 
 }
