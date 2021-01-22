@@ -11,6 +11,7 @@ TEST_FILES = \
         "BasicTests",
         "AuthorizedDivulgence",
         "DontDiscloseNonConsumingExercisesToObservers",
+        "OnOff",
         "LargeTransaction",
         "ConjunctionChoices",
         "ContractKeys",

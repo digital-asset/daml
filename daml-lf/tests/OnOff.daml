@@ -1,0 +1,37 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module OnOff where
+
+-- @SINCE-LF 1.11
+
+-- Example to explore on/off ledger interaction...
+
+template MyTemplate with
+    owner : Party
+    value : Int
+
+  where
+    signatory owner
+    nonconsuming choice Increase: ContractId MyTemplate
+      with
+        myArg: Int
+      controller owner
+      do create this with value = this.value + myArg
+
+    nonconsuming choice Check: ()
+      with
+        expected: Int
+      controller owner
+      do
+        if value == expected then pure () else error "oops"
+
+
+test : Scenario ()
+test = scenario do
+  alice <- getParty "Alice"
+  id <- submit alice do
+    create MyTemplate with owner = alice; value = 42
+  --submitMustFail alice do
+  --  exercise id Check with expected = 55
+  pure ()
