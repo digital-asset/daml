@@ -98,7 +98,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         )
       case Some(url) if url.startsWith("jdbc:sqlite:") =>
         ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
-      case Some(url) =>
+      case Some(_) =>
         throw new InvalidDatabaseException(s"Unknown database")
       case None =>
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
