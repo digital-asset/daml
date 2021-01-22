@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
 import scopt.OptionParser
 
@@ -44,7 +44,7 @@ final case class Config[Extra](
 
 object Config {
   val DefaultPort: Port = Port(6865)
-  val DefaultTrackerRetentionPeriod: FiniteDuration = FiniteDuration(5, TimeUnit.MINUTES)
+  val DefaultTrackerRetentionPeriod: FiniteDuration = CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
   def createDefault[Extra](extra: Extra): Config[Extra] =
@@ -188,7 +188,7 @@ object Config {
           config.copy(trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
         )
         .text(
-          "For how long the command service will keep an active command tracker for a given party. A longer retention period allows to not instantiate a new tracker for a party that seldom acts. A shorter retention period allows to quickly remove unused trackers. Default is 5 minutes."
+          s"For how long the command service will keep an active command tracker for a given party. A longer retention period allows to not instantiate a new tracker for a party that seldom acts. A shorter retention period allows to quickly remove unused trackers. Default is $DefaultTrackerRetentionPeriod."
         )
 
       arg[File]("<archive>...")
