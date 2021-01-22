@@ -3,7 +3,7 @@
 
 package com.daml
 package object scalautil {
-  val NonEmpty: NonEmptyColl.type = NonEmptyColl.Instance
+  val NonEmpty: NonEmptyColl = NonEmptyColl.Instance
 
   /** A non-empty `A`.  Implicitly converts to `A` in relevant contexts.
     *
