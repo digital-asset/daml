@@ -11,8 +11,8 @@ The authorization middleware is currently an :doc:`Early Access Feature in Labs 
 
    ./oauth2
 
-How to obtain an access token for a given Daml ledger that requires authorization is defined by the ledger operator.
-The authorization middleware is an API that decouples Daml applications from these details.
+Daml ledgers only validate authorization tokens. The issuance of those tokens however is something defined by the ledger operator and can vary significantly even if the same ledger is being used. This poses a challenge for application developers aiming to develop applications that need to be able to acquire and refresh authorization tokens but don’t want to tie themselves to any particular mechanism for token issuance.
+The authorization middleware aims to address this problem by providing an API that decouples Daml applications from these details.
 The ledger operator can provide an authorization middleware that is suitable for their authentication and authorization mechanism.
 The Daml SDK includes an implementation of an authorization middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
 
