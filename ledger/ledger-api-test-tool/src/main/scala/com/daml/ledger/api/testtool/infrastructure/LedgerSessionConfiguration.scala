@@ -4,15 +4,15 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionConfiguration
-import com.daml.ledger.api.tls.TlsConfiguration
+import io.grpc.ManagedChannelBuilder
 
 private[testtool] final class LedgerSessionConfiguration(
-    participantAddresses: Vector[(String, Int)],
-    ssl: Option[TlsConfiguration],
+    participantChannelBuilders: Vector[ManagedChannelBuilder[_]],
     partyAllocation: PartyAllocationConfiguration,
     val shuffleParticipants: Boolean,
 ) {
+  participantChannelBuilders.foreach(println)
   val participants: Vector[ParticipantSessionConfiguration] =
-    for ((host, port) <- participantAddresses)
-      yield ParticipantSessionConfiguration(host, port, ssl, partyAllocation)
+    for (participantChannelBuilder <- participantChannelBuilders)
+      yield ParticipantSessionConfiguration(participantChannelBuilder, partyAllocation)
 }

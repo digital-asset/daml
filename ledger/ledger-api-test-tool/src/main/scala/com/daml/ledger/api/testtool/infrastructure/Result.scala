@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import scala.concurrent.duration.Duration
 import scala.util.control.NoStackTrace
 
-private[testtool] object Result {
+private[daml] object Result {
 
   sealed trait Success
 
