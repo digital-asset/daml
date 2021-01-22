@@ -51,6 +51,9 @@ Daml Documentation
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
+   triggers/index
+   tools/trigger-service/index
+   tools/auth-middleware/index
 
 .. toctree::
    :titlesonly:
@@ -110,10 +113,7 @@ Daml Documentation
 
    tools/extractor
    daml-integration-kit/index
-   triggers/index
    tools/visual
-   tools/trigger-service/index
-   tools/auth-middleware/index
    concepts/interoperability
 
 .. toctree::
