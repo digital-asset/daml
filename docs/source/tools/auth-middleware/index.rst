@@ -21,7 +21,7 @@ Features
 
 The authorization middleware is designed to fulfill the following goals:
 
-- Agnostic of the authentication and authorization protocol required by the identity and access management (IAM) system used by the ledger operator.
+- Be agnostic of the authentication and authorization protocol required by the identity and access management (IAM) system used by the ledger operator.
 - Allow fine grained access control via Daml ledger claims.
 - Support token refresh for long running clients that should not require user interaction.
 
