@@ -9,12 +9,15 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceO
 import io.grpc.{Channel, ManagedChannel, ManagedChannelBuilder, Server, ServerBuilder}
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioSocketChannel
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 trait GrpcResourceOwnerFactories[Context] {
   protected implicit val hasExecutionContext: HasExecutionContext[Context]
+
+  val EventLoopGroupChannelType: Class[_ <: io.netty.channel.Channel] = classOf[NioSocketChannel]
 
   def forEventLoopGroup(
       threadCount: Int,
