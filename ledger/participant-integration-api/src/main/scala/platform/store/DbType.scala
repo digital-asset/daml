@@ -35,6 +35,6 @@ private[platform] object DbType {
     case h2 if h2.startsWith("jdbc:h2:") => H2Database
     case pg if pg.startsWith("jdbc:postgresql:") => Postgres
     case otherwise =>
-      sys.error(s"JDBC URL doesn't match any supported databases (h2, pg): $otherwise")
+      sys.error(s"JDBC URL doesn't match any supported databases (h2, pg)")
   }
 }

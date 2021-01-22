@@ -62,7 +62,7 @@ private[sql] final class Cli(
     )
     parser.checkConfig(config =>
       if (config.jdbcUrl.exists(!_.startsWith("jdbc:postgresql://")))
-        Left(s"The JDBC URL, '${config.jdbcUrl.get}', is invalid. $Name only supports PostgreSQL.")
+        Left(s"The JDBC URL is invalid. $Name only supports PostgreSQL.")
       else
         Right(())
     )
