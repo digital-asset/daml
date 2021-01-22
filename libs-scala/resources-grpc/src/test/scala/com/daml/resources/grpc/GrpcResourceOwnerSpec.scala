@@ -57,7 +57,7 @@ final class GrpcResourceOwnerSpec extends AsyncFlatSpec with Matchers {
 
     val resource = for {
       server <- Resources.forServer(serverBuilder, DefaultTimeout).acquire()
-      eventLoopGroup <- Resources.forNioEventLoopGroup(1, threadFactory, DefaultTimeout).acquire()
+      eventLoopGroup <- Resources.forNioEventLoopGroup(1, threadFactory).acquire()
       channelBuilder = NettyChannelBuilder.forAddress(server.getListenSockets.get(0)).usePlaintext()
       channel <- Resources.forManagedChannel(channelBuilder, DefaultTimeout).acquire()
     } yield {

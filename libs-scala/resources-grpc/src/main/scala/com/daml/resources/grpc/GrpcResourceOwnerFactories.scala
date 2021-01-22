@@ -19,9 +19,8 @@ trait GrpcResourceOwnerFactories[Context] {
   def forEventLoopGroup(
       threadCount: Int,
       threadFactory: ThreadFactory,
-      shutdownTimeout: FiniteDuration,
   ): AbstractResourceOwner[Context, EventLoopGroup] =
-    forNioEventLoopGroup(threadCount, threadFactory, shutdownTimeout)
+    forNioEventLoopGroup(threadCount, threadFactory)
 
   def forServer(
       builder: ServerBuilder[_],
@@ -38,9 +37,8 @@ trait GrpcResourceOwnerFactories[Context] {
   private[grpc] def forNioEventLoopGroup(
       threadCount: Int,
       threadFactory: ThreadFactory,
-      shutdownTimeout: FiniteDuration,
   ): AbstractResourceOwner[Context, NioEventLoopGroup] =
-    new NioEventLoopGroupResourceOwner[Context](threadCount, threadFactory, shutdownTimeout)
+    new NioEventLoopGroupResourceOwner[Context](threadCount, threadFactory)
 
   private[grpc] def forManagedChannel(
       builder: ManagedChannelBuilder[_],
