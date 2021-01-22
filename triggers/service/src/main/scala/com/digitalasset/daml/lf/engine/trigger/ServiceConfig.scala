@@ -246,7 +246,7 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
-        authRedirectToLogin = AuthClient.RedirectToLogin.Auto,
+        authRedirectToLogin = AuthClient.RedirectToLogin.No,
         authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
