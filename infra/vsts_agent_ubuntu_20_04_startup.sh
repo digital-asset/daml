@@ -108,11 +108,12 @@ cat <<'CACHE_CLEANUP' > $CLEANUP
 
 set -euo pipefail
 
-local_cache=$HOME/.cache/bazel
-disk_cache=$HOME/.bazel-cache
+declare -A files
+files[local_cache]=$HOME/.cache/bazel
+files[disk_cache]=$HOME/.bazel-cache
 
-for file in local_cache disk_cache; do
-    eval path='$'$file
+for file in "${!files[@]}"; do
+    path="${files[$file]}"
     echo "$(date -Is) Cleaning up '$path'..."
     if [ -d "$path/lost+found" ]; then
         fusermount -u "$path"
