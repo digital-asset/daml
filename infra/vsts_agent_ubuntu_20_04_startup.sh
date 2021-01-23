@@ -112,8 +112,8 @@ declare -A files
 files[local_cache]=$HOME/.cache/bazel
 files[disk_cache]=$HOME/.bazel-cache
 
-for file in "${!files[@]}"; do
-    path="${files[$file]}"
+for file in "$${!files[@]}"; do
+    path="$${files[$file]}"
     echo "$(date -Is) Cleaning up '$path'..."
     if [ -d "$path" ]; then
         fusermount -u "$path"
