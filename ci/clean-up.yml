@@ -6,7 +6,7 @@ steps:
     set -euo pipefail
     echo "$(date -Is) Current state:"
     df -h
-    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 30000 ]; then
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 40000 ]; then
         echo "$(date -Is) Disk full. Cleaning up..."
         # Location of the disk cache for CI servers set in their init files:
         # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
