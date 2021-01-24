@@ -46,7 +46,7 @@ abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
 
   /** Acquire the [[Resource]]'s value, use it asynchronously, and release it afterwards.
     *
-    * @param behavior The aynchronous computation on the value.
+    * @param behavior The asynchronous computation on the value.
     * @param context  The acquisition context, including the asynchronous task execution engine.
     * @tparam T The asynchronous computation's value type.
     * @return The asynchronous computation's [[Future]].

@@ -9,16 +9,19 @@ import io.grpc.{Server, ServerBuilder}
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-private[grpc] final class ServerResourceOwner[Context: HasExecutionContext](
+class ServerResourceOwner[Context: HasExecutionContext](
     builder: ServerBuilder[_],
     shutdownTimeout: FiniteDuration,
 ) extends AbstractResourceOwner[Context, Server] {
   override def acquire()(implicit context: Context): Resource[Context, Server] =
     Resource[Context].apply(Future(builder.build().start())) { server =>
       Future {
-        server.shutdown()
-        server.awaitTermination(shutdownTimeout.length, shutdownTimeout.unit)
-        ()
+        // Ask to shutdown gracefully, but wait for termination for the specified timeout.
+        val done = server.shutdown().awaitTermination(shutdownTimeout.length, shutdownTimeout.unit)
+        if (!done) {
+          // If the server could not be shut down gracefully in time, ask to terminate immediately
+          server.shutdownNow().awaitTermination()
+        }
       }
     }
 }
