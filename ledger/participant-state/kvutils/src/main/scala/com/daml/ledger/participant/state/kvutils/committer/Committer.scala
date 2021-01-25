@@ -52,7 +52,7 @@ import org.slf4j.{Logger, LoggerFactory}
   * @see [[com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult]]
   */
 private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
-  private[committer] final val logger: Logger = LoggerFactory.getLogger(getClass)
+  protected final val logger: Logger = LoggerFactory.getLogger(getClass)
 
   protected val committerName: String
 
