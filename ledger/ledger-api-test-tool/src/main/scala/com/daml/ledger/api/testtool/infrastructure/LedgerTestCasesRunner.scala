@@ -210,7 +210,7 @@ final class LedgerTestCasesRunner(
 
     // When running the tests, explicitly use the materializer's execution context
     // The tests will then be executed on it instead of the implicit one -- which
-    // should only be used to
+    // should only be used to manage resources' lifecycle
     val results =
       for {
         materializer <- materializerResources.asFuture
