@@ -21,7 +21,7 @@ jobs:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
   condition: eq(variables['Build.Reason'], 'PullRequest')
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
     - checkout: self
@@ -51,7 +51,7 @@ jobs:
     pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
   condition: eq(variables['Build.Reason'], 'PullRequest')
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
     - checkout: self
@@ -86,7 +86,7 @@ jobs:
     - collect_build_data
     - check_for_release
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   variables:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
@@ -138,7 +138,7 @@ jobs:
     - check_for_release
     - check_changelog_entry
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   variables:
     pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]

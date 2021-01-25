@@ -1,28 +1,26 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-resource "secret_resource" "vsts-token" {}
-
-data "template_file" "vsts-agent-linux-startup" {
-  template = "${file("${path.module}/vsts_agent_linux_startup.sh")}"
+data "template_file" "vsts-agent-ubuntu_20_04-startup" {
+  template = "${file("${path.module}/vsts_agent_ubuntu_20_04_startup.sh")}"
 
   vars = {
     vsts_token   = "${secret_resource.vsts-token.value}"
     vsts_account = "digitalasset"
-    vsts_pool    = "linux-pool"
+    vsts_pool    = "ubuntu_20_04"
   }
 }
 
-resource "google_compute_region_instance_group_manager" "vsts-agent-linux" {
+resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04" {
   provider           = "google-beta"
-  name               = "vsts-agent-linux"
-  base_instance_name = "vsts-agent-linux"
+  name               = "vsts-agent-ubuntu-20-04"
+  base_instance_name = "vsts-agent-ubuntu-20-04"
   region             = "us-east1"
-  target_size        = 10
+  target_size        = 1
 
   version {
-    name              = "vsts-agent-linux"
-    instance_template = "${google_compute_instance_template.vsts-agent-linux.self_link}"
+    name              = "vsts-agent-ubuntu-20-04"
+    instance_template = "${google_compute_instance_template.vsts-agent-ubuntu_20_04.self_link}"
   }
 
   update_policy {
@@ -33,15 +31,15 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-linux" {
   }
 }
 
-resource "google_compute_instance_template" "vsts-agent-linux" {
-  name_prefix  = "vsts-agent-linux-"
+resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
+  name_prefix  = "vsts-agent-ubuntu-20-04-"
   machine_type = "c2-standard-8"
   labels       = "${local.machine-labels}"
 
   disk {
     disk_size_gb = 200
     disk_type    = "pd-ssd"
-    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
+    source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
   }
 
   lifecycle {
@@ -49,7 +47,7 @@ resource "google_compute_instance_template" "vsts-agent-linux" {
   }
 
   metadata {
-    startup-script = "${data.template_file.vsts-agent-linux-startup.rendered}"
+    startup-script = "${data.template_file.vsts-agent-ubuntu_20_04-startup.rendered}"
 
     shutdown-script = <<EOS
 #!/usr/bin/env bash

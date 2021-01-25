@@ -1,8 +1,6 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-resource "secret_resource" "vsts-token" {}
-
 data "template_file" "vsts-agent-linux-startup" {
   template = "${file("${path.module}/vsts_agent_linux_startup.sh")}"
 

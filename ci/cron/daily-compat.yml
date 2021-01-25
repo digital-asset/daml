@@ -26,7 +26,7 @@ jobs:
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
-      name: linux-pool
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -40,7 +40,7 @@ jobs:
     strategy:
       matrix:
         linux:
-          pool: linux-pool
+          pool: ubuntu_20_04
         macos:
           pool: macOS-pool
     pool:
@@ -73,7 +73,7 @@ jobs:
   - job: perf_speedy
     timeoutInMinutes: 120
     pool:
-      name: "linux-pool"
+      name: "ubuntu_20_04"
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -121,7 +121,7 @@ jobs:
   - job: perf_http_json
     timeoutInMinutes: 120
     pool:
-      name: "linux-pool"
+      name: "ubuntu_20_04"
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -179,7 +179,7 @@ jobs:
   - job: check_releases
     timeoutInMinutes: 240
     pool:
-      name: linux-pool
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -202,7 +202,7 @@ jobs:
   - job: blackduck_scan
     timeoutInMinutes: 1200
     pool:
-      name: linux-pool
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
