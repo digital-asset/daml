@@ -24,6 +24,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
 
@@ -514,6 +515,24 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
+  protected final def prepareInsert(
+      submitterInfo: Option[SubmitterInfo],
+      tx: LedgerEntry.Transaction,
+      offsetStep: OffsetStep,
+      divulgedContracts: List[DivulgedContract] = List.empty,
+      blindingInfo: Option[BlindingInfo] = None,
+  ): TransactionsWriter.PreparedInsert =
+    ledgerDao.prepareTransactionInsert(
+      submitterInfo,
+      tx.workflowId,
+      tx.transactionId,
+      tx.ledgerEffectiveTime,
+      offsetStep.offset,
+      tx.transaction,
+      divulgedContracts,
+      blindingInfo,
+    )
+
   protected final def store(
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       blindingInfo: Option[BlindingInfo],
@@ -531,15 +550,17 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offsetStep, entry) = offsetStepAndTx
-    val submitterInfo =
-      for (
-        actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
-        cmd <- entry.commandId
-      ) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
+    val maybeSubmitterInfo = submitterInfo(entry)
     val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
 
-    store(submitterInfo, entry, offsetStep, divulged, blindingInfo)
+    store(maybeSubmitterInfo, entry, offsetStep, divulged, blindingInfo)
   }
+
+  protected def submitterInfo(entry: LedgerEntry.Transaction) =
+    for (
+      actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
+      cmd <- entry.commandId
+    ) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)

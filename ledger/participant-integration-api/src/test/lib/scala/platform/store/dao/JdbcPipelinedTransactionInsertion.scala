@@ -21,16 +21,8 @@ trait JdbcPipelinedTransactionInsertion {
       divulgedContracts: List[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] = {
-    val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
-      submitterInfo,
-      tx.workflowId,
-      tx.transactionId,
-      tx.ledgerEffectiveTime,
-      offsetStep.offset,
-      tx.transaction,
-      divulgedContracts,
-      blindingInfo,
-    )
+    val preparedTransactionInsert =
+      prepareInsert(submitterInfo, tx, offsetStep, divulgedContracts, blindingInfo)
     for {
       _ <- ledgerDao.storeTransactionState(preparedTransactionInsert)
       _ <- ledgerDao.storeTransactionEvents(preparedTransactionInsert)

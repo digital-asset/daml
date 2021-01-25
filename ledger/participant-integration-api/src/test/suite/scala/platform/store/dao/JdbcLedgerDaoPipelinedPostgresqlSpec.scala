@@ -18,5 +18,5 @@ final class JdbcLedgerDaoPipelinedPostgresqlSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcIdempotentInsertionsSpec
+    with JdbcPipelinedInsertionsSpec
     with JdbcPipelinedTransactionInsertion
