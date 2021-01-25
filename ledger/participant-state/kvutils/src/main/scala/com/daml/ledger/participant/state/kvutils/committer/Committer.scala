@@ -52,13 +52,11 @@ import org.slf4j.{Logger, LoggerFactory}
   * @see [[com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult]]
   */
 private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
-  protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
-
-  protected final val logger: Logger = LoggerFactory.getLogger(getClass)
+  private[committer] final val logger: Logger = LoggerFactory.getLogger(getClass)
 
   protected val committerName: String
 
-  protected def steps: Iterable[(StepInfo, Step)]
+  protected def steps: Iterable[(StepInfo, Step[PartialResult])]
 
   /** The initial internal state passed to first step. */
   protected def init(ctx: CommitContext, submission: DamlSubmission): PartialResult
@@ -164,6 +162,9 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
 object Committer {
   type StepInfo = String
+
+  private[committer] type Step[PartialResult] =
+    (CommitContext, PartialResult) => StepResult[PartialResult]
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,

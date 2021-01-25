@@ -13,9 +13,14 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
+private[kvutils] object PartyAllocationCommitter {
+  type Step = Committer.Step[DamlPartyAllocationEntry.Builder]
+}
+
 private[kvutils] class PartyAllocationCommitter(
     override protected val metrics: Metrics
 ) extends Committer[DamlPartyAllocationEntry.Builder] {
+  import PartyAllocationCommitter._
 
   override protected val committerName = "party_allocation"
 
@@ -179,5 +184,4 @@ private[kvutils] class PartyAllocationCommitter(
     "deduplicate_party" -> deduplicateParty,
     "build_log_entry" -> buildLogEntry,
   )
-
 }

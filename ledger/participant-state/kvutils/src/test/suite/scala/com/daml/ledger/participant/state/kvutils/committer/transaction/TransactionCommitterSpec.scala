@@ -1,21 +1,27 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.committer
+package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
 import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.{
+import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.{
   DamlTransactionEntrySummary,
   damlContractKey,
 }
+import com.daml.ledger.participant.state.kvutils.committer.{
+  CommitContext,
+  StepContinue,
+  StepResult,
+  StepStop,
+}
+import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
@@ -603,10 +609,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           key -> contractIdAtCommitter
         )
         val result =
-          transactionCommitter.validateContractKeys.apply(
-            context,
-            DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
-          )
+          TransactionContractKeysValidation
+            .validate(transactionCommitter)
+            .apply(
+              context,
+              DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
+            )
         result shouldBe a[StepStop]
         val rejectionReason = getTransactionRejectionReason(result).getInconsistent.getDetails
         rejectionReason should startWith("InconsistentKeys")
@@ -652,8 +660,13 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       .logEntry
       .getTransactionRejectionEntry
 
-  private def createTransactionCommitter(): TransactionCommitter =
-    new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+  private def createTransactionCommitter(): committer.transaction.TransactionCommitter =
+    new committer.transaction.TransactionCommitter(
+      theDefaultConfig,
+      mock[Engine],
+      metrics,
+      inStaticTimeMode = false,
+    )
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
     createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
