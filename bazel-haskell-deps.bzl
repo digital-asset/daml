@@ -188,7 +188,7 @@ load("@rules_haskell//haskell:defs.bzl", "haskell_library")
 haskell_library(
     name = "grpc-haskell",
     srcs = glob(["src/**/*.hs"]),
-    deps = ["@grpc_haskell_core//:grpc-haskell-core", "@stackage//:base", "@stackage//:proto3-suite", "@stackage//:bytestring", "@stackage//:managed", "@stackage//:proto3-wire"],
+    deps = packages["grpc-haskell"].deps,
     visibility = ["//visibility:public"],
 )
 """,
