@@ -37,7 +37,7 @@ import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
+import "ghc-lib-parser" Outputable (ppr, showSDocForUser)
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
@@ -957,7 +957,7 @@ buildHiddenRefMap config world =
             = foldl' visitRef refGraph' refs
 
         | RValue val <- ref
-        , Right dval@LF.DefValue{..} <- LF.lookupValue val world
+        , Right dval <- LF.lookupValue val world
         , refs <- if hasDFunSig dval -- we only care about typeclass instances
             then DL.toList (refsFromDFun dval)
             else mempty

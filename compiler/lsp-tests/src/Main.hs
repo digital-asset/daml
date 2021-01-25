@@ -11,9 +11,9 @@ import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
 import Data.Char (toLower)
+import Data.Either
 import Data.Foldable (toList)
 import Data.List.Extra
-import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
@@ -335,7 +335,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , "Main.add"
                     , ": Int -> Int -> Int"
                     , "```"
-                    , "*\t*\t*"
+                    , "* * *"
                     , "*Defined at " <> T.pack fp <> ":3:1*"
                     ]
               , _range = Just $ Range (Position 8 17) (Position 8 20)
@@ -355,7 +355,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , ": NumericScale n"
                     , "=> Numeric n"
                     , "```"
-                    , "*\t*\t*"
+                    , "* * *"
                     ]
               , _range = Just $ Range (Position 1 27) (Position 1 30)
               }
@@ -567,7 +567,7 @@ executeCommandTests run _ = testGroup "execute command"
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
         let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
-        liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
+        liftIO $ assertEqual "Visulization command" (Right expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in error"  $ run $ do
         main' <- openDoc' "Empty.daml" damlId $ T.unlines
@@ -576,14 +576,12 @@ executeCommandTests run _ = testGroup "execute command"
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
-        liftIO $ _result actualDotString @?= Nothing
-        liftIO $ assertBool "Expected response error but got Nothing" (isJust $ _error actualDotString)
+        liftIO $ assertBool "Expected response error but got success" (isLeft $ _result actualDotString)
         closeDoc main'
     , testCase "Visualization command with no arguments" $ run $ do
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  Nothing Nothing
-        liftIO $ _result actualDotString @?= Nothing
-        liftIO $ assertBool "Expected response error but got Nothing" (isJust $ _error actualDotString)
+        liftIO $ assertBool "Expected response error but got Nothing" (isLeft $ _result actualDotString)
     ]
 
 -- | Do extreme things to the compiler service.
@@ -774,7 +772,7 @@ defaultCompletion label = CompletionItem
           , _commitCharacters = Nothing
           , _command = Nothing
           , _xdata = Nothing
-          , _tags = List []
+          , _tags = Nothing
           }
 
 mkTypeCompletion :: T.Text -> CompletionItem
@@ -885,7 +883,7 @@ multiPackageTests damlc
                       , "a"
                       , ": A"
                       , "```"
-                        , "*\t*\t*"
+                        , "* * *"
                         , "*Defined at " <> T.pack fpA <> ":3:1*"
                       ]
                 , _range = Just $ Range (Position 2 0) (Position 2 1)

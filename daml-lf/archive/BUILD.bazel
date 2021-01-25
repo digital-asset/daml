@@ -79,7 +79,10 @@ genrule(
 da_haskell_library(
     name = "daml_lf_dev_archive_haskell_proto",
     srcs = [":daml_lf_dev_archive_haskell_proto_src"],
-    compiler_flags = ["-O0"],  # disable optimization as this is otherwise way too slow to compile.
+    compiler_flags = [
+        "-O0",
+        "-Wno-deriving-defaults",
+    ],  # disable optimization as this is otherwise way too slow to compile.
     hackage_deps = [
         "base",
         "bytestring",

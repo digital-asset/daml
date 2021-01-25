@@ -59,7 +59,6 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import qualified System.IO
-import System.Process (proc, CreateProcess, readCreateProcessWithExitCode)
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
@@ -137,8 +136,8 @@ data ScenarioServiceException = ScenarioServiceException String deriving Show
 
 instance Exception ScenarioServiceException
 
-validateJava :: Options -> IO ()
-validateJava Options{..} = do
+validateJava :: IO ()
+validateJava = do
     getJavaVersion <- liftIO $ javaProc ["-version"]
     -- We could validate the Java version here but Java version strings are annoyingly
     -- inconsistent, e.g. you might get
@@ -201,7 +200,7 @@ withScenarioService opts@Options{..} f = do
   serverJarExists <- doesFileExist optServerJar
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
-  validateJava opts
+  validateJava
   cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
   exitExpected <- newIORef False
   let closeStdin hdl = do

@@ -32,7 +32,6 @@ import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
 import Data.List.Extra
 import Data.Maybe (fromMaybe, mapMaybe)
-import DynFlags (parseDynamicFilePragma)
 import qualified EnumSet as ES
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -68,7 +67,7 @@ toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions (optUnitId options)
-      , optGhcSession = getDamlGhcSession options
+      , optGhcSession = getDamlGhcSession
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -118,8 +117,8 @@ damlKeywords =
   , "preconsuming", "postconsuming", "with", "choice", "template", "key", "maintainer"
   ]
 
-getDamlGhcSession :: Options -> Action (FilePath -> Action HscEnvEq)
-getDamlGhcSession _options@Options{..} = do
+getDamlGhcSession :: Action (FilePath -> Action HscEnvEq)
+getDamlGhcSession = do
     findProjectRoot <- liftIO $ memoIO findProjectRoot
     pure $ \file -> do
         mbRoot <- liftIO (findProjectRoot file)

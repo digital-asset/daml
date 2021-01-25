@@ -6,8 +6,7 @@ module Options (
     parseOptions,
   ) where
 
-import           Data.Monoid ((<>))
-import           Options.Applicative
+import Options.Applicative
 
 import Types
 

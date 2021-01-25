@@ -39,8 +39,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  # GHC configured for static linking only.
-  ghcStaticPkgs = (import ./ghc.nix { inherit pkgs; }).override {
+  ghcPkgs = (import ./ghc.nix { inherit pkgs; }).override {
     overrides = self: super: {
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = false;
@@ -51,8 +50,8 @@ let shared = rec {
       hlint = pkgs.haskell.lib.justStaticExecutables super.hlint;
     };
   };
-  ghcStatic = ghcStaticPkgs.ghc;
-  hlint = ghcStaticPkgs.hlint;
+  ghc = ghcPkgs.ghc;
+  hlint = ghcPkgs.hlint;
 
 
   # Java 8 development
@@ -143,5 +142,5 @@ in shared // (if pkgs.stdenv.isLinux then {
   inherit (pkgs)
     glibcLocales
     ;
-  ghcStaticDwarf = shared.ghcStatic.override { enableDwarf = true; };
+  ghcDwarf = shared.ghc.override { enableDwarf = true; };
   } else {})
