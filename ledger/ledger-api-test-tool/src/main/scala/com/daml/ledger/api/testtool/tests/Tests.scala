@@ -1,24 +1,25 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool
+package com.daml.ledger.api.testtool.tests
 
 import java.nio.file.Path
 
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
-import com.daml.ledger.api.testtool.tests._
+import com.daml.ledger.api.testtool.suites._
 
 import scala.collection.SortedSet
+import scala.concurrent.duration.Duration
 
 object Tests {
 
-  def default(config: Config): Vector[LedgerTestSuite] =
+  def default(ledgerClockGranularity: Duration): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(config.ledgerClockGranularity),
+      new CommandDeduplicationIT(ledgerClockGranularity),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
       new DivulgenceIT,

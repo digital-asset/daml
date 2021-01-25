@@ -16,4 +16,12 @@ trait AkkaResourceOwnerFactories[Context] {
   def forMaterializer(acquire: () => Materializer): AbstractResourceOwner[Context, Materializer] =
     new ActorMaterializerResourceOwner(acquire)
 
+  def forMaterializerDirectly(
+      acquire: () => ActorSystem
+  ): AbstractResourceOwner[Context, Materializer] =
+    for {
+      actorSystem <- forActorSystem(acquire)
+      materializer <- forMaterializer(() => Materializer(actorSystem))
+    } yield materializer
+
 }
