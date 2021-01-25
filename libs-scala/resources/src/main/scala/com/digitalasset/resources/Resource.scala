@@ -73,7 +73,7 @@ abstract class Resource[Context: HasExecutionContext, +A] {
   def flatten[B](implicit nestedEvidence: A <:< R[B], context: Context): R[B] =
     flatMap(identity[A])
 
-  /** Just like [[Future]]s, an attempted [[Resource]] computation can transformed.
+  /** Just like [[Future]]s, an attempted [[Resource]] computation can be transformed.
     */
   def transformWith[B](f: Try[A] => R[B])(implicit context: Context): R[B] =
     Resource

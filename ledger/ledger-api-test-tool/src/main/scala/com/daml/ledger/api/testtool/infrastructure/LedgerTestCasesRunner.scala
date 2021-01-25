@@ -10,17 +10,19 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
 import com.daml.ledger.api.testtool.infrastructure.Result.Retired
 import com.daml.ledger.api.testtool.infrastructure.participant.{
-  ParticipantSessionManager,
+  ParticipantSession,
   ParticipantTestContext,
 }
+import io.grpc.{Channel, ClientInterceptor}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.Try
 import scala.util.control.NonFatal
-import scala.util.{Failure, Try}
 
 object LedgerTestCasesRunner {
   private val DefaultTimeout = 30.seconds
@@ -34,27 +36,31 @@ object LedgerTestCasesRunner {
 
   private final class UncaughtExceptionError(cause: Throwable)
       extends RuntimeException(uncaughtExceptionErrorMessage, cause)
+
 }
 
 final class LedgerTestCasesRunner(
-    config: LedgerSessionConfiguration,
     testCases: Vector[LedgerTestCase],
-    identifierSuffix: String,
-    suiteTimeoutScale: Double,
-    concurrentTestRuns: Int,
-    uploadDars: Boolean,
+    participants: Vector[Channel],
+    partyAllocation: PartyAllocationConfiguration = ClosedWorldWaitingForAllParticipants,
+    shuffleParticipants: Boolean = false,
+    timeoutScaleFactor: Double = 1.0,
+    concurrentTestRuns: Int = 8,
+    uploadDars: Boolean = true,
+    identifierSuffix: String = "test",
+    commandInterceptors: Seq[ClientInterceptor] = Seq.empty,
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
-      require(suiteTimeoutScale > 0, "The timeout scale factor must be strictly positive")
+      require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
   private def start(test: LedgerTestCase, session: LedgerSession)(implicit
-      ec: ExecutionContext
+      executionContext: ExecutionContext
   ): Future[Duration] = {
     val execution = Promise[Duration]
-    val scaledTimeout = DefaultTimeout * suiteTimeoutScale * test.timeoutScale
+    val scaledTimeout = DefaultTimeout * timeoutScaleFactor * test.timeoutScale
 
     val startedTest =
       session
@@ -84,7 +90,7 @@ final class LedgerTestCasesRunner(
 
   private def result(
       startedTest: Future[Duration]
-  )(implicit ec: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
+  )(implicit executionContext: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
     startedTest
       .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
       .recover[Either[Result.Failure, Result.Success]] {
@@ -110,26 +116,28 @@ final class LedgerTestCasesRunner(
       test: LedgerTestCase,
       result: Either[Result.Failure, Result.Success],
   ): LedgerTestSummary =
-    LedgerTestSummary(suite.name, test.name, test.description, config, result)
+    LedgerTestSummary(suite.name, test.name, test.description, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(implicit
-      ec: ExecutionContext
+      executionContext: ExecutionContext
   ): Future[Either[Result.Failure, Result.Success]] =
     result(start(test, session))
 
-  private def uploadDarsIfRequired(
-      participantSessionManager: ParticipantSessionManager
-  )(implicit ec: ExecutionContext): Future[Unit] =
-    if (uploadDars) {
-      def uploadDar(context: ParticipantTestContext, name: String): Future[Unit] = {
-        logger.info(s"""Uploading DAR "$name"...""")
-        context.uploadDarFile(Dars.read(name)).andThen { case _ =>
-          logger.info(s"""Uploaded DAR "$name".""")
-        }
-      }
+  private def uploadDar(context: ParticipantTestContext, name: String)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] = {
+    logger.info(s"""Uploading DAR "$name"...""")
+    context.uploadDarFile(Dars.read(name)).andThen { case _ =>
+      logger.info(s"""Uploaded DAR "$name".""")
+    }
+  }
 
+  private def uploadDarsIfRequired(
+      sessions: Vector[ParticipantSession]
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
+    if (uploadDars) {
       Future
-        .sequence(participantSessionManager.allSessions.map { session =>
+        .sequence(sessions.map { session =>
           for {
             context <- session.createInitContext("upload-dars", identifierSuffix)
             _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
@@ -140,65 +148,83 @@ final class LedgerTestCasesRunner(
       Future.successful(logger.info("DAR files upload skipped."))
     }
 
-  private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
+  private def createActorSystem(): ActorSystem =
+    ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
 
-    val system: ActorSystem = ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
-    implicit val materializer: Materializer = Materializer(system)
-    implicit val executionContext: ExecutionContext = materializer.executionContext
+  private def runTestCases(
+      ledgerSession: LedgerSession,
+      testCases: Vector[LedgerTestCase],
+      concurrency: Int,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): Future[Vector[LedgerTestSummary]] = {
+    val testCount = testCases.size
+    logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
+    Source(testCases.zipWithIndex)
+      .mapAsyncUnordered(concurrency) { case (test, index) =>
+        run(test, ledgerSession).map(summarize(test.suite, test, _) -> index)
+      }
+      .runWith(Sink.seq)
+      .map(_.toVector.sortBy(_._2).map(_._1))
+  }
 
-    def runTestCases(
-        ledgerSession: LedgerSession,
-        testCases: Vector[LedgerTestCase],
-        concurrency: Int,
-    ): Future[Vector[LedgerTestSummary]] = {
-      val testCount = testCases.size
-      logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
-      Source(testCases.zipWithIndex)
-        .mapAsyncUnordered(concurrency) { case (test, index) =>
-          run(test, ledgerSession).map(summarize(test.suite, test, _) -> index)
-        }
-        .runWith(Sink.seq)
-        .map(_.toVector.sortBy(_._2).map(_._1))
-    }
-
+  private def run(
+      participants: Vector[Channel]
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): Future[Vector[LedgerTestSummary]] = {
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
-    ParticipantSessionManager(config.participants)
-      .flatMap { participantSessionManager =>
-        val ledgerSession = LedgerSession(participantSessionManager, config.shuffleParticipants)
+    ParticipantSession(partyAllocation, participants, commandInterceptors)
+      .flatMap { sessions =>
+        val ledgerSession = LedgerSession(sessions, shuffleParticipants)
         val testResults =
           for {
-            _ <- uploadDarsIfRequired(participantSessionManager)
+            _ <- uploadDarsIfRequired(sessions)
             concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,
               concurrentTestRuns,
-            )
+            )(materializer, materializer.executionContext)
             sequentialTestResults <- runTestCases(
               ledgerSession,
               sequentialTestCases,
               concurrency = 1,
-            )
+            )(materializer, materializer.executionContext)
           } yield concurrentTestResults ++ sequentialTestResults
 
         testResults
-          .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
-          .andThen { case _ => participantSessionManager.disconnectAll() }
-      }
-      .andThen { case _ =>
-        materializer.shutdown()
-        system.terminate().failed.foreach { throwable =>
-          logger.error("The actor system failed to terminate.", throwable)
-        }
-      }
-      .onComplete { result =>
-        completionCallback(result)
+          .recover { case NonFatal(e) =>
+            throw new LedgerTestCasesRunner.UncaughtExceptionError(e)
+          }
       }
   }
 
-  def verifyRequirementsAndRun(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
-    verifyRequirements.fold(
-      throwable => completionCallback(Failure(throwable)),
-      _ => run(completionCallback),
-    )
+  private def prepareResourcesAndRun(implicit
+      executionContext: ExecutionContext
+  ): Future[Vector[LedgerTestSummary]] = {
+
+    val materializerResources =
+      ResourceOwner.forMaterializerDirectly(createActorSystem).acquire()
+
+    // When running the tests, explicitly use the materializer's execution context
+    // The tests will then be executed on it instead of the implicit one -- which
+    // should only be used to manage resources' lifecycle
+    val results =
+      for {
+        materializer <- materializerResources.asFuture
+        results <- run(participants)(materializer, materializer.executionContext)
+      } yield results
+
+    results.onComplete(_ => materializerResources.release())
+
+    results
   }
+
+  def runTests(implicit executionContext: ExecutionContext): Future[Vector[LedgerTestSummary]] =
+    verifyRequirements.fold(
+      Future.failed,
+      _ => prepareResourcesAndRun,
+    )
 }

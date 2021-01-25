@@ -221,7 +221,10 @@ da_haskell_library(
     srcs = [
         ":all-ledger-api-haskellpb-sources",
     ],
-    compiler_flags = ["-O0"],
+    compiler_flags = [
+        "-O0",
+        "-Wno-deriving-defaults",
+    ],
     hackage_deps = [
         "base",
         "bytestring",

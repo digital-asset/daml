@@ -12,7 +12,7 @@ import com.daml.lf.iface
 import com.daml.lf.value.json.JsonVariant
 import com.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
-import dbbackend.Queries.{concatFragment, contractColumnName}
+import dbbackend.Queries.concatFragment
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
@@ -71,8 +71,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     go(this)
   }
 
-  def toSqlWhereClause: Fragment = {
-    import dbbackend.Queries.Implicits._ // JsValue support
+  def toSqlWhereClause(implicit sjd: dbbackend.SupportedJdbcDriver): Fragment = {
+    import sjd.queries.contractColumnName, sjd.queries.Implicits._ // JsValue support
     type Path = Fragment
 
     final case class Rec(

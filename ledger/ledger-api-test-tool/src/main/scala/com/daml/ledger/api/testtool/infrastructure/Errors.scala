@@ -8,7 +8,7 @@ object Errors {
   sealed abstract class FrameworkException(message: String, cause: Throwable)
       extends RuntimeException(message, cause)
 
-  final class ParticipantConnectionException(address: String, cause: Throwable)
-      extends FrameworkException(s"Could not connect to the participant at $address.", cause)
+  final class ParticipantConnectionException(cause: Throwable)
+      extends FrameworkException("Could not connect to the participant.", cause)
 
 }

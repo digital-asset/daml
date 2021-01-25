@@ -198,10 +198,8 @@ Version: 1.8
 
   + **Rename** ``Map`` to ``TextMap``.
 
-Version: 1.11 (preview)
-.......................
-
-(version 1.11 is not frozen and may still change, do not use in production)
+Version: 1.11
+.............
 
 * Introduction date:
 
@@ -688,8 +686,9 @@ available for usage::
        |  'key' τ eₖ eₘ
 
   Template choice definition
-    ChDef ::= 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ)  : σ 'by' eₚ ↦ e
+    ChDef ::= 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ e
                                                     -- ChDef
+
   Definitions
     Def
       ::=
@@ -1548,8 +1547,9 @@ for the ``DefTemplate`` rule). ::
     ⊢ₛ  σ
     y : 'ContractId' Mod:T · z : τ · x : Mod:T  ⊢  e  :  'Update' σ
     z : τ · x : Mod:T  ⊢  eₚ  :  'List' 'Party'
+    z : τ · x : Mod:T  ⊢  eₒ  :  'List' 'Party'
   ——————————————————————————————————————————————————————————————— ChDef
-    x : Mod:T  ⊢  'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ e
+    x : Mod:T  ⊢  'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ e
 
             ┌────────────┐
   Valid key │ ⊢ₖ e  :  τ │
@@ -2661,7 +2661,6 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpScenarioGetParty
       'sget_party' e  ⇓  Ok ('sget_party' v)
 
-
 Note that the rules are designed such that for every expression, there is at
 most one possible outcome. In other words, results are deterministic. When
 two or more derivations apply for the same expression, they yield the same result. For
@@ -2917,7 +2916,7 @@ as described by the ledger model::
      (Err @'ContractError' v, ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'inactive')
      v = 'MAKE_CONTRACT_ERROR' "Exercise on inactive contract"
@@ -2927,7 +2926,7 @@ as described by the ledger model::
      (Err @'ContractError' v, ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Err @τ v
@@ -2935,7 +2934,7 @@ as described by the ledger model::
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)  ⇓ᵤ  (Err @τ v, ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
@@ -2947,11 +2946,24 @@ as described by the ledger model::
      (Err @'ContractError' v, ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ …, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Err @τ v
+   —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err @τ v, ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err @τ v
    —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
@@ -2959,11 +2971,12 @@ as described by the ledger model::
      (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) ChKind ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
@@ -2974,11 +2987,12 @@ as described by the ledger model::
      (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) 'consuming' itr)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
@@ -2989,11 +3003,12 @@ as described by the ledger model::
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err @τ v, itr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
@@ -3002,11 +3017,12 @@ as described by the ledger model::
      (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' itr)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
@@ -3022,7 +3038,7 @@ as described by the ledger model::
      (Err @'ContractError' v, ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err @τ v
@@ -3030,7 +3046,7 @@ as described by the ledger model::
      'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err @τ v, ε)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
@@ -4613,7 +4629,8 @@ the sub-transaction is disclosed.
 
 The deserialization process will reject any Daml-LF 1.8 (or earlier)
 program using the field ``observers`` in the ``TemplateChoice``
-message.
+message. The missing ``observers`` field is interpreted as an
+empty list of observers.
 
 Exception
 .........

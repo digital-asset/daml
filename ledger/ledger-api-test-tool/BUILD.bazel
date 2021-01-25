@@ -33,6 +33,9 @@ daml_compile(
     name = "PackageManagementTest",
     srcs = ["src/main/daml/PackageManagementTest.daml"],
     target = lf_stable_version,
+    visibility = [
+        "//:__subpackages__",
+    ],
 )
 
 dar_to_scala(
@@ -58,6 +61,9 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala",
     ]),
+    visibility = [
+        "//:__subpackages__",
+    ],
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
@@ -65,14 +71,15 @@ da_scala_library(
         "//ledger/test-common",
         "//ledger/test-common:model-tests.scala",
         "//libs-scala/grpc-utils",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_config",
-        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
         "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
@@ -81,8 +88,11 @@ da_scala_library(
 )
 
 da_scala_library_suite(
-    name = "ledger-api-test-tool-tests",
-    srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
+    name = "ledger-api-test-tool-test-suites",
+    srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/suites/**/*.scala"]),
+    visibility = [
+        "//:__subpackages__",
+    ],
     deps = [
         ":PackageManagementTest.scala",
         ":ledger-api-test-tool-lib",
@@ -104,6 +114,19 @@ da_scala_library_suite(
     ],
 )
 
+da_scala_library(
+    name = "ledger-api-test-tool-tests",
+    srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/Tests.scala"]),
+    visibility = [
+        "//:__subpackages__",
+    ],
+    deps = [
+        ":ledger-api-test-tool-lib",
+        ":ledger-api-test-tool-test-suites",
+        "//ledger/ledger-api-common",
+    ],
+)
+
 da_scala_binary(
     name = "ledger-api-test-tool",
     srcs = glob([
@@ -114,6 +137,9 @@ da_scala_binary(
         "src/main/resources/logback.xml",
         ":PackageManagementTest.dar",
         "//ledger/test-common:dar-files",
+    ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = [
         "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",
@@ -131,7 +157,13 @@ da_scala_binary(
         ":ledger-api-test-tool-tests",
         "//ledger/ledger-api-common",
         "//libs-scala/build-info",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -198,7 +230,7 @@ conformance_test(
 )
 
 # Test that both --include ContractKeysIT as well as --include ContractKeysIT:CKFetchOrLookup
-# are supporte.
+# are supported.
 conformance_test(
     name = "test-name-syntax",
     server = "//ledger/ledger-on-memory:app",

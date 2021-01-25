@@ -241,7 +241,7 @@ nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Nothing -> error "Template node lookup failed"
 
 addCreateChoice :: TemplateChoices -> Map.Map ChoiceIdentifier ChoiceDetails -> ChoiceDetails
-addCreateChoice tpl@TemplateChoices{..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
+addCreateChoice tpl lookupData = nodeIdForChoice lookupData tplNameCreateChoice
   where
     tplNameCreateChoice =
         ChoiceIdentifier
@@ -279,7 +279,7 @@ createChoiceName :: LF.ChoiceName
 createChoiceName = LF.ChoiceName "Create"
 
 actionToChoice :: Action -> ChoiceIdentifier
-actionToChoice (ACreate tpl@LF.Qualified {..}) =
+actionToChoice (ACreate tpl) =
     ChoiceIdentifier tpl createChoiceName
 actionToChoice (AExercise tpl chcT) =
     ChoiceIdentifier tpl chcT

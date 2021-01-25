@@ -23,12 +23,13 @@ import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-// This is an implementation of the trigger service authentication middleware
+// This is an implementation of the trigger service auth middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
 class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
@@ -200,7 +201,7 @@ class Server(config: Config) extends StrictLogging {
                           value = token.toCookieValue,
                           path = Some("/"),
                           maxAge = token.expiresIn.map(_.toLong),
-                          secure = true,
+                          secure = config.cookieSecure,
                           httpOnly = true,
                         )
                       ) {
@@ -300,6 +301,9 @@ class Server(config: Config) extends StrictLogging {
       post {
         refresh
       }
+    },
+    path("livez") {
+      complete(StatusCodes.OK, JsObject("status" -> JsString("pass")))
     },
   )
 }

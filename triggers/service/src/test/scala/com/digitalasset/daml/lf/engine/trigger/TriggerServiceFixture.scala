@@ -214,6 +214,7 @@ trait AuthMiddlewareFixture
             callbackUri = None,
             maxLoginRequests = MiddlewareConfig.DefaultMaxLoginRequests,
             loginTimeout = MiddlewareConfig.DefaultLoginTimeout,
+            cookieSecure = MiddlewareConfig.DefaultCookieSecure,
             oauthAuth = uri.withPath(Path./("authorize")),
             oauthToken = uri.withPath(Path./("token")),
             oauthAuthTemplate = None,

@@ -8,6 +8,8 @@ load(
     "da_scala_test",
 )
 
+exports_files(["release/oauth2-middleware-logback.xml"])
+
 scalacopts = []
 
 da_scala_library(

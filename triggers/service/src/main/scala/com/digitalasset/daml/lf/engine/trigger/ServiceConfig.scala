@@ -134,8 +134,6 @@ private[trigger] object ServiceConfig {
       .optional()
       .action((t, c) => c.copy(authUri = Some(Uri(t))))
       .text("Auth middleware URI.")
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[AuthClient.RedirectToLogin]("auth-redirect")
       .optional()
@@ -143,8 +141,6 @@ private[trigger] object ServiceConfig {
       .text(
         "Redirect to auth middleware login endpoint when unauthorized. One of 'yes', 'no', or 'auto'."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[String]("auth-callback")
       .optional()
@@ -152,8 +148,6 @@ private[trigger] object ServiceConfig {
       .text(
         "URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -182,8 +176,6 @@ private[trigger] object ServiceConfig {
       .text(
         s"Optional max number of pending authorization requests. Defaults to ${DefaultMaxAuthCallbacks}."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Long]("authorization-timeout")
       .action((x, c) => c.copy(authCallbackTimeout = FiniteDuration(x, duration.SECONDS)))
@@ -191,15 +183,11 @@ private[trigger] object ServiceConfig {
       .text(
         s"Optional authorization timeout. Defaults to ${DefaultAuthCallbackTimeout.toSeconds} seconds."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Long]("max-http-entity-upload-size")
       .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
       .optional()
       .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Long]("http-entity-upload-timeout")
       .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.SECONDS)))
@@ -207,8 +195,6 @@ private[trigger] object ServiceConfig {
       .text(
         s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds."
       )
-      // TODO[AH] Expose once the auth feature is fully implemented.
-      .hidden()
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -246,7 +232,7 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
-        authRedirectToLogin = AuthClient.RedirectToLogin.Auto,
+        authRedirectToLogin = AuthClient.RedirectToLogin.No,
         authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,

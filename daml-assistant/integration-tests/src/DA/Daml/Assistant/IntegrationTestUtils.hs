@@ -4,7 +4,6 @@ module DA.Daml.Assistant.IntegrationTestUtils (withSdkResource, throwError) wher
 
 import Conduit hiding (connect)
 import Control.Monad (forM_)
-import Control.Monad.Fail (MonadFail)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra

@@ -20,39 +20,14 @@ import spray.json._
 import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
-import cats.syntax.foldable._
 import cats.syntax.apply._
 import cats.syntax.functor._
 
-object Queries {
+sealed abstract class Queries {
+  import Queries._
   import Implicits._
 
   def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
-
-  // NB: #, order of arguments must match createContractsTable
-  final case class DBContract[+TpId, +CK, +PL, +Prt](
-      contractId: String,
-      templateId: TpId,
-      key: CK,
-      payload: PL,
-      signatories: Prt,
-      observers: Prt,
-      agreementText: String,
-  ) {
-    def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
-      copy(templateId = f(templateId))
-    def mapKeyPayloadParties[A, B, C](
-        f: CK => A,
-        g: PL => B,
-        h: Prt => C,
-    ): DBContract[TpId, A, B, C] =
-      copy(
-        key = f(key),
-        payload = g(payload),
-        signatories = h(signatories),
-        observers = h(observers),
-      )
-  }
 
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"payload"
@@ -62,7 +37,7 @@ object Queries {
   private[this] val createContractsTable: Fragment = sql"""
       CREATE TABLE
         contract
-        (contract_id TEXT PRIMARY KEY NOT NULL
+        (contract_id TEXT NOT NULL PRIMARY KEY
         ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
         ,key JSONB NOT NULL
         ,payload JSONB NOT NULL
@@ -73,14 +48,12 @@ object Queries {
     """
 
   val indexContractsTable: Fragment = sql"""
-      CREATE INDEX ON contract (tpid)
+      CREATE INDEX contract_tpid_idx ON contract (tpid)
     """
 
   private[this] val indexContractsKeys: Fragment = sql"""
-      CREATE INDEX ON contract USING BTREE (tpid, key)
+      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
   """
-
-  final case class DBOffset[+TpId](party: String, templateId: TpId, lastOffset: String)
 
   private[this] val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
 
@@ -94,16 +67,12 @@ object Queries {
         )
     """
 
-  sealed trait SurrogateTpIdTag
-  val SurrogateTpId = Tag.of[SurrogateTpIdTag]
-  type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) below
-
   private[this] val dropTemplateIdsTable: Fragment = dropTableIfExists("template_id")
 
   private[this] val createTemplateIdsTable: Fragment = sql"""
       CREATE TABLE
         template_id
-        (tpid BIGSERIAL PRIMARY KEY NOT NULL
+        (tpid BIGSERIAL NOT NULL PRIMARY KEY
         ,package_id TEXT NOT NULL
         ,template_module_name TEXT NOT NULL
         ,template_entity_name TEXT NOT NULL
@@ -116,12 +85,19 @@ object Queries {
       *> dropOffsetTable.update.run
       *> dropTemplateIdsTable.update.run).void
 
-  private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] =
-    (createTemplateIdsTable.update.run
-      *> createOffsetTable.update.run
-      *> createContractsTable.update.run
-      *> indexContractsTable.update.run
-      *> indexContractsKeys.update.run).void
+  private[this] def initDatabaseDdls: Vector[Fragment] =
+    Vector(
+      createTemplateIdsTable,
+      createOffsetTable,
+      createContractsTable,
+      indexContractsTable,
+      indexContractsKeys,
+    )
+
+  private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdls.traverse_(_.update.run)
+  }
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler
@@ -172,7 +148,10 @@ object Queries {
       lastOffsets: Map[String, String],
   )(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
-    val (existingParties, newParties) = parties.toList.partition(p => lastOffsets.contains(p))
+    val (existingParties, newParties) = {
+      import cats.syntax.foldable._
+      parties.toList.partition(p => lastOffsets.contains(p))
+    }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert = Update[(String, SurrogateTpId, String)](
       """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
@@ -219,20 +198,6 @@ object Queries {
           ++ sql")").update.run
       case _ => free.connection.pure(0)
     }
-  }
-
-  private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
-    val OneAnd(hd, tl) = xs
-    def go(s: Int, e: Int): Fragment =
-      (e - s: @annotation.switch) match {
-        case 0 => sql""
-        case 1 => tl(s)
-        case 2 => tl(s) ++ tl(s + 1)
-        case n =>
-          val pivot = s + n / 2
-          go(s, pivot) ++ go(pivot, e)
-      }
-    hd ++ go(0, tl.size)
   }
 
   @silent(" gvs .* never used")
@@ -324,6 +289,67 @@ object Queries {
     }
   }
 
+  private[http] def fetchById(
+      parties: OneAnd[Set, String],
+      tpid: SurrogateTpId,
+      contractId: String,
+  )(implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+    selectContracts(parties, tpid, sql"contract_id = $contractId").option
+
+  private[http] def fetchByKey(parties: OneAnd[Set, String], tpid: SurrogateTpId, key: JsValue)(
+      implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+    selectContracts(parties, tpid, sql"key = $key::jsonb").option
+
+  private[http] def keyEquality(key: JsValue): Fragment =
+    sql"key = $key::jsonb"
+
+  object Implicits {
+    implicit val `JsValue put`: Meta[JsValue] =
+      Meta[String].timap(_.parseJson)(_.compactPrint)
+
+    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
+      SurrogateTpId subst Meta[Long]
+  }
+}
+
+object Queries {
+  sealed trait SurrogateTpIdTag
+  val SurrogateTpId = Tag.of[SurrogateTpIdTag]
+  type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
+
+  // NB: #, order of arguments must match createContractsTable
+  final case class DBContract[+TpId, +CK, +PL, +Prt](
+      contractId: String,
+      templateId: TpId,
+      key: CK,
+      payload: PL,
+      signatories: Prt,
+      observers: Prt,
+      agreementText: String,
+  ) {
+    def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
+      copy(templateId = f(templateId))
+    def mapKeyPayloadParties[A, B, C](
+        f: CK => A,
+        g: PL => B,
+        h: Prt => C,
+    ): DBContract[TpId, A, B, C] =
+      copy(
+        key = f(key),
+        payload = g(payload),
+        signatories = h(signatories),
+        observers = h(observers),
+      )
+  }
+
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
     * and whether it may compute >1 query to run.
     *
@@ -336,6 +362,20 @@ object Queries {
   private[http] object MatchedQueryMarker {
     case object ByInt extends MatchedQueryMarker[Seq, Int]
     case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
+  }
+
+  private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
+    val OneAnd(hd, tl) = xs
+    def go(s: Int, e: Int): Fragment =
+      (e - s: @annotation.switch) match {
+        case 0 => sql""
+        case 1 => tl(s)
+        case 2 => tl(s) ++ tl(s + 1)
+        case n =>
+          val pivot = s + n / 2
+          go(s, pivot) ++ go(pivot, e)
+      }
+    hd ++ go(0, tl.size)
   }
 
   private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
@@ -356,30 +396,7 @@ object Queries {
       }
     }
 
-  private[http] def fetchById(
-      parties: OneAnd[Set, String],
-      tpid: SurrogateTpId,
-      contractId: String,
-  )(implicit
-      log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
-  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
-    selectContracts(parties, tpid, sql"contract_id = $contractId").option
-
-  private[http] def fetchByKey(parties: OneAnd[Set, String], tpid: SurrogateTpId, key: JsValue)(
-      implicit
-      log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
-  ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
-    selectContracts(parties, tpid, sql"key = $key::jsonb").option
-
-  object Implicits {
-    implicit val `JsValue put`: Meta[JsValue] =
-      Meta[String].timap(_.parseJson)(_.compactPrint)
-
-    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
-      SurrogateTpId subst Meta[Long]
-  }
+  private[http] val Postgres: Queries = PostgresQueries
 }
+
+private object PostgresQueries extends Queries

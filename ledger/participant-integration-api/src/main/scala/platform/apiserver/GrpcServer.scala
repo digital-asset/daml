@@ -5,19 +5,21 @@ package com.daml.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
-import java.util.concurrent.{Executor, TimeUnit}
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
 
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
+import com.daml.resources.grpc.ServerResourceOwner
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
 
-import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.control.NoStackTrace
+import scala.util.{Failure, Success}
 
 private[apiserver] object GrpcServer {
 
@@ -28,6 +30,36 @@ private[apiserver] object GrpcServer {
   // allow for extra information such as the exception stack trace.
   private val MaximumStatusDescriptionLength = 4 * 1024 // 4 KB
 
+  private def makeBuilder(
+      address: Option[String],
+      desiredPort: Port,
+      maxInboundMessageSize: Int,
+      sslContext: Option[SslContext],
+      interceptors: List[ServerInterceptor],
+      metrics: Metrics,
+      servicesExecutor: Executor,
+      services: Iterable[BindableService],
+  ): NettyServerBuilder = {
+    val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
+    val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
+    builder.sslContext(sslContext.orNull)
+    builder.permitKeepAliveTime(10, SECONDS)
+    builder.permitKeepAliveWithoutCalls(true)
+    builder.executor(servicesExecutor)
+    builder.maxInboundMessageSize(maxInboundMessageSize)
+    interceptors.foreach(builder.intercept)
+    builder.intercept(new MetricsInterceptor(metrics))
+    builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
+    services.foreach { service =>
+      builder.addService(service)
+      toLegacyService(service).foreach(builder.addService)
+    }
+    builder
+  }
+
+  private def causedByBindException(e: IOException): Boolean =
+    e.getCause != null && e.getCause.isInstanceOf[BindException]
+
   final class Owner(
       address: Option[String],
       desiredPort: Port,
@@ -37,43 +69,28 @@ private[apiserver] object GrpcServer {
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
-  ) extends ResourceOwner[Server] {
+  ) extends ServerResourceOwner[ResourceContext](
+        builder = makeBuilder(
+          address,
+          desiredPort,
+          maxInboundMessageSize,
+          sslContext,
+          interceptors,
+          metrics,
+          servicesExecutor,
+          services,
+        ),
+        shutdownTimeout = 1.second,
+      ) {
     override def acquire()(implicit context: ResourceContext): Resource[Server] = {
-      val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
-      Resource(Future {
-        val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
-        builder.sslContext(sslContext.orNull)
-        builder.permitKeepAliveTime(10, SECONDS)
-        builder.permitKeepAliveWithoutCalls(true)
-        builder.executor(servicesExecutor)
-        builder.maxInboundMessageSize(maxInboundMessageSize)
-        interceptors.foreach(builder.intercept)
-        builder.intercept(new MetricsInterceptor(metrics))
-        builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
-        services.foreach { service =>
-          builder.addService(service)
-          toLegacyService(service).foreach(builder.addService)
-        }
-        val server = builder.build()
-        try {
-          server.start()
-        } catch {
-          case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
-            throw new UnableToBind(desiredPort, e.getCause)
-        }
-        server
-      })(server =>
-        Future {
-          // Phase 1, initialize shutdown, but wait for termination.
-          // If the shutdown has been initiated by the reset service, this gives the service time to gracefully complete the request.
-          server.shutdown()
-          server.awaitTermination(1, TimeUnit.SECONDS)
-
-          // Phase 2: Now cut off all remaining connections.
-          server.shutdownNow()
-          server.awaitTermination()
-        }
-      )
+      super.acquire().transformWith {
+        case Success(server) =>
+          Resource.successful(server)
+        case Failure(e: IOException) if causedByBindException(e) =>
+          Resource.failed(new UnableToBind(desiredPort, e.getCause))
+        case Failure(exception) =>
+          Resource.failed(exception)
+      }
     }
   }
 
