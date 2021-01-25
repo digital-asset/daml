@@ -11,7 +11,6 @@ private[testtool] final class LedgerSessionConfiguration(
     partyAllocation: PartyAllocationConfiguration,
     val shuffleParticipants: Boolean,
 ) {
-  participantChannelBuilders.foreach(println)
   val participants: Vector[ParticipantSessionConfiguration] =
     for (participantChannelBuilder <- participantChannelBuilders)
       yield ParticipantSessionConfiguration(participantChannelBuilder, partyAllocation)
