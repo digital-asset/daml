@@ -104,14 +104,13 @@ trait GrpcServer { this: AsyncFlatSpec =>
       serverBuilder.addService(additionalService)
     }
     val channelBuilder = InProcessChannelBuilder.forName(serverName)
-    val testResult =
+    val channelOwner =
       for {
-        _ <- Resources.forServer(serverBuilder, 5.seconds).acquire()
-        channel <- Resources.forChannel(channelBuilder, 5.seconds).acquire()
-        result <- Resources.forFuture(() => test(channel)).acquire()
-      } yield result
+        _ <- Resources.forServer(serverBuilder, 5.seconds)
+        channel <- Resources.forChannel(channelBuilder, 5.seconds)
+      } yield channel
 
-    testResult.release().flatMap(_ => testResult.asFuture)
+    channelOwner.use(test)
   }
 
 }
