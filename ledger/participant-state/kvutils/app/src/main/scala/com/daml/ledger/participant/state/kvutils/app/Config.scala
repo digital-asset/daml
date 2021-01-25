@@ -188,7 +188,7 @@ object Config {
           config.copy(trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
         )
         .text(
-          s"For how long the command service will keep an active command tracker for a given party. A longer retention period allows to not instantiate a new tracker for a party that seldom acts. A shorter retention period allows to quickly remove unused trackers. Default is $DefaultTrackerRetentionPeriod."
+          s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is $DefaultTrackerRetentionPeriod."
         )
 
       arg[File]("<archive>...")
