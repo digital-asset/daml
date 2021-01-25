@@ -15,4 +15,5 @@ trait AkkaResourceOwnerFactories[Context] {
 
   def forMaterializer(acquire: () => Materializer): AbstractResourceOwner[Context, Materializer] =
     new ActorMaterializerResourceOwner(acquire)
+
 }

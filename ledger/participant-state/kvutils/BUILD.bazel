@@ -61,6 +61,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
