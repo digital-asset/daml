@@ -11,7 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStream
 import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.resources.Resource
+import com.daml.resources.{AbstractResourceOwner, Resource}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
@@ -208,28 +208,33 @@ object LedgerApiTestTool {
     )
   }
 
+  private def initializeParticipantChannel(
+      host: String,
+      port: Int,
+      tlsConfig: Option[TlsConfiguration],
+  ): AbstractResourceOwner[ExecutionContext, Channel] = {
+    logger.info(s"Setting up managed channel to participant at $host:$port...")
+    val channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext()
+    for (ssl <- tlsConfig; sslContext <- ssl.client) {
+      logger.info("Setting up managed channel with transport security.")
+      channelBuilder
+        .useTransportSecurity()
+        .sslContext(sslContext)
+        .negotiationType(NegotiationType.TLS)
+    }
+    channelBuilder.maxInboundMessageSize(10000000)
+    ResourceOwner.forChannel(channelBuilder, shutdownTimeout = 5.seconds)
+  }
+
   private def initializeParticipantChannels(
       participants: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
   )(implicit executionContext: ExecutionContext): Resource[ExecutionContext, Vector[Channel]] = {
-    val participantChannelBuilders =
+    val participantChannelOwners =
       for ((host, port) <- participants) yield {
-        logger.info(s"Setting up managed channel to participant at $host:$port...")
-        val channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext()
-        for (ssl <- tlsConfig; sslContext <- ssl.client) {
-          logger.info("Setting up managed channel with transport security.")
-          channelBuilder
-            .useTransportSecurity()
-            .sslContext(sslContext)
-            .negotiationType(NegotiationType.TLS)
-        }
-        channelBuilder.maxInboundMessageSize(10000000)
+        initializeParticipantChannel(host, port, tlsConfig)
       }
-    Resource.sequence(
-      participantChannelBuilders
-        .map(ResourceOwner.forChannel(_, shutdownTimeout = 5.seconds))
-        .map(_.acquire())
-    )
+    Resource.sequence(participantChannelOwners.map(_.acquire()))
   }
 
 }
