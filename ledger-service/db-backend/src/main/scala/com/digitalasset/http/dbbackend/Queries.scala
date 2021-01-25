@@ -122,13 +122,15 @@ sealed abstract class Queries {
       )
     }
 
-  def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
-      log: LogHandler,
-      pls: Put[Vector[String]],
+  final def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
+      log: LogHandler
   ): ConnectionIO[Map[String, String]] = {
-    val partyVector = parties.toVector
-    sql"""SELECT party, last_offset FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
-      .query[(String, String)]
+    val partyVector =
+      cats.data.OneAnd(parties.head, parties.tail.toList)
+    val q = sql"""
+      SELECT party, last_offset FROM ledger_offset WHERE tpid = $tpid AND
+    """ ++ Fragments.in(fr"party", partyVector)
+    q.query[(String, String)]
       .to[Vector]
       .map(_.toMap)
   }
