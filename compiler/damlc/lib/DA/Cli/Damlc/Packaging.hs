@@ -129,8 +129,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
                         (darsFromDataDependencies ++ darsFromDependencies)
               }
 
-      -- We perform this check before checking for unit id collisions
+      -- We perform these check before checking for unit id collisions
       -- since it provides a more useful error message.
+      whenLeft
+          (checkForInconsistentLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
       whenLeft
           (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
           exitWithError
@@ -522,6 +525,34 @@ data DependencyInfo = DependencyInfo
   -- flags which define which packages are exposed by default.
   }
 
+showDeps :: [((LF.PackageId, UnitId), LF.Version)] -> String
+showDeps deps =
+    intercalate
+        ", "
+        [ T.unpack (LF.unPackageId pkgId) <> " (" <> unitIdString unitId <> "): " <>
+        DA.Pretty.renderPretty ver
+        | ((pkgId, unitId), ver) <- deps
+        ]
+
+checkForInconsistentLfVersions :: LF.Version -> DependencyInfo -> Either String ()
+checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, mainUnitIds}
+  | null inconsistentLfDeps = Right ()
+  | otherwise = Left $ concat
+        [ "Targeted LF version "
+        , DA.Pretty.renderPretty lfTarget
+        , " but dependencies have different LF versions: "
+        , showDeps inconsistentLfDeps
+        ]
+  where
+    inconsistentLfDeps =
+        filter (\(_, ver) -> ver /= lfTarget) $
+            [ ( (LF.dalfPackageId decodedDalfPkg, decodedUnitId)
+              , (LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg) decodedDalfPkg
+              )
+            | DecodedDalf{..} <- dalfsFromDependencies
+            , decodedUnitId `elem` mainUnitIds
+            ]
+
 checkForIncompatibleLfVersions :: LF.Version -> DependencyInfo -> Either String ()
 checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, dalfsFromDataDependencies}
   | null incompatibleLfDeps = Right ()
@@ -529,11 +560,7 @@ checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, da
         [ "Targeted LF version "
         , DA.Pretty.renderPretty lfTarget
         , " but dependencies have newer LF versions: "
-        , intercalate ", "
-              [ T.unpack (LF.unPackageId pkgId) <>
-                " (" <> unitIdString unitId <> "): " <> DA.Pretty.renderPretty ver
-              | ((pkgId, unitId), ver) <- incompatibleLfDeps
-              ]
+        , showDeps incompatibleLfDeps
         ]
   where
     incompatibleLfDeps =
