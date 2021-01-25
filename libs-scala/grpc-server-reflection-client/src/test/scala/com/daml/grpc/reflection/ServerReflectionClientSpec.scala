@@ -17,13 +17,16 @@ final class ServerReflectionClientSpec extends AsyncFlatSpec with Matchers with 
 
   behavior of "getAllServices"
 
-  it should "fail if reflection is not supported" in withServices(health) { channel =>
+  it should "fail if reflection is not supported" in withServices(Health.newInstance) { channel =>
     val stub = ServerReflectionGrpc.newStub(channel)
     val client = new ServerReflectionClient(stub)
     client.getAllServices().failed.map(_ shouldBe a[StatusRuntimeException])
   }
 
-  it should "show all if reflection is supported" in withServices(health, reflection) { channel =>
+  it should "show all if reflection is supported" in withServices(
+    Health.newInstance,
+    Reflection.newInstance,
+  ) { channel =>
     val expected = Set(healthDescriptor, reflectionDescriptor)
     val stub = ServerReflectionGrpc.newStub(channel)
     val client = new ServerReflectionClient(stub)
