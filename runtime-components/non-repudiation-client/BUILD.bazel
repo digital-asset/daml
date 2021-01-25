@@ -7,7 +7,6 @@ da_java_library(
     name = "non-repudiation-client",
     srcs = glob(["src/main/java/**/*.java"]),
     tags = [
-        "javadoc_root_packages=com.daml.ledger.nonrepudiation.client",
         "maven_coordinates=com.daml:non-repudiation-client:__VERSION__",
     ],
     visibility = [

@@ -10,7 +10,6 @@ load(
 da_scala_library(
     name = "non-repudiation",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:non-repudiation:__VERSION__"],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/grpc-reverse-proxy",
