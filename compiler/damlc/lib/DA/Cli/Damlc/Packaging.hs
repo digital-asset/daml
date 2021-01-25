@@ -545,13 +545,12 @@ checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, ma
         ]
   where
     inconsistentLfDeps =
-        filter (\(_, ver) -> ver /= lfTarget) $
-            [ ( (LF.dalfPackageId decodedDalfPkg, decodedUnitId)
-              , (LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg) decodedDalfPkg
-              )
-            | DecodedDalf{..} <- dalfsFromDependencies
-            , decodedUnitId `elem` mainUnitIds
-            ]
+        [ ((LF.dalfPackageId decodedDalfPkg, decodedUnitId), ver)
+        | DecodedDalf {..} <- dalfsFromDependencies
+        , decodedUnitId `elem` mainUnitIds
+        , let ver = LF.packageLfVersion $ LF.extPackagePkg $ LF.dalfPackagePkg decodedDalfPkg
+        , ver /= lfTarget
+        ]
 
 checkForIncompatibleLfVersions :: LF.Version -> DependencyInfo -> Either String ()
 checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, dalfsFromDataDependencies}
