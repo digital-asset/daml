@@ -7,6 +7,8 @@ module DA.Cli.Damlc.Packaging
   , getUnitId
   ) where
 
+import DA.Cli.Damlc.GhcPkg (recache, Flag(..), Verbosity(..))
+
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
@@ -37,11 +39,8 @@ import System.Directory.Extra
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Info.Extra
-import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
-import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
@@ -302,35 +301,13 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
     recachePkgDb dbPath
 
--- | Fake settings, we need those to make ghc-pkg happy.
---
--- As a long-term solution, it might make sense to clone ghc-pkg
--- and strip it down to only the functionality we need. A lot of this
--- is rather sketchy in the context of daml.
-settings :: [(T.Text, T.Text)]
-settings =
-  [ ("target arch", "ArchUnknown")
-  , ("target os", "OSUnknown")
-  , ("target word size", "8")
-  , ("Unregisterised", "YES")
-  , ("target has GNU nonexec stack", "YES")
-  , ("target has .ident directive", "YES")
-  , ("target has subsections via symbols", "YES")
-  , ("cross compiling", "NO")
-  ]
-
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
-    T.writeFileUtf8 (dbPath </> "settings") $ T.pack $ show settings
-    ghcPkgPath <- getGhcPkgPath
-    callProcess
-        (ghcPkgPath </> exe "ghc-pkg")
-        [ "recache"
-        -- ghc-pkg insists on using a global package db and will try
-        -- to find one automatically if we don’t specify it here.
-        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-        , "--expand-pkgroot"
-        ]
+    recache
+      Silent
+      [ FlagGlobalConfig (dbPath </> "package.conf.d")
+      , FlagExpandPkgroot
+      ]
 
 -- TODO We should generate the list of stable packages automatically here.
 baseImports :: [PackageFlag]
@@ -413,13 +390,6 @@ writeSrc (fp, content) = do
     let path = fromNormalizedFilePath fp
     createDirectoryIfMissing True $ takeDirectory path
     writeFileUTF8 path content
-
--- | Locate ghc-pkg
-getGhcPkgPath :: IO FilePath
-getGhcPkgPath =
-    if isWindows
-        then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.10.3/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
