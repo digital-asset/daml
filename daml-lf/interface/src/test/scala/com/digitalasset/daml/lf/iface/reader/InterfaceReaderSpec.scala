@@ -1,20 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package iface
 package reader
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import org.scalatest.{Inside, Matchers, WordSpec}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{DottedName, QualifiedName}
+import com.daml.lf.language.Ast
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
+class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   private def dnfs(args: String*): Ref.DottedName = Ref.DottedName.assertFromSegments(args)
   private val moduleName: Ref.ModuleName = dnfs("Main")
@@ -27,7 +29,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     val variantDataType = Ast.DDataType(
       serializable = true,
       params = tyVars,
-      cons = Ast.DataVariant(ImmArray(varField("Call", "call"), varField("Put", "put")))
+      cons = Ast.DataVariant(ImmArray(varField("Call", "call"), varField("Put", "put"))),
     )
 
     val actual = InterfaceReader.foldModule(wrappInModule(dataName, variantDataType))
@@ -37,8 +39,9 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
         iface.InterfaceType.Normal(
           DefDataType(
             ImmArray[Ref.Name]("call", "put").toSeq,
-            Variant(ImmArray(name("Call") -> TypeVar("call"), name("Put") -> TypeVar("put")).toSeq)
-          ))
+            Variant(ImmArray(name("Call") -> TypeVar("call"), name("Put") -> TypeVar("put")).toSeq),
+          )
+        )
     )
 
     actual.typeDecls shouldBe expectedResult
@@ -48,7 +51,9 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     TypeConName(
       Ref.Identifier(
         packageId,
-        Ref.QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail))))
+        Ref.QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail)),
+      )
+    )
 
   "variant should extract a variant, nested records are not be resolved" in {
     val variantDataType = Ast.DDataType(
@@ -58,12 +63,14 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
         ImmArray(
           typeConstructorField(
             "NameClashRecordVariantA",
-            List("NameClashRecordVariant", "NameClashRecordVariantA")),
+            List("NameClashRecordVariant", "NameClashRecordVariantA"),
+          ),
           typeConstructorField(
             "NameClashRecordVariantB",
-            List("NameClashRecordVariant", "NameClashRecordVariantB"))
+            List("NameClashRecordVariant", "NameClashRecordVariantB"),
+          ),
         )
-      )
+      ),
     )
 
     val actual =
@@ -77,13 +84,16 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
               ImmArraySeq[(Ref.Name, TypeCon)](
                 (
                   "NameClashRecordVariantA",
-                  TypeCon(nameClashRecordVariantName("NameClashRecordVariantA"), ImmArraySeq())),
+                  TypeCon(nameClashRecordVariantName("NameClashRecordVariantA"), ImmArraySeq()),
+                ),
                 (
                   "NameClashRecordVariantB",
-                  TypeCon(nameClashRecordVariantName("NameClashRecordVariantB"), ImmArraySeq()))
+                  TypeCon(nameClashRecordVariantName("NameClashRecordVariantB"), ImmArraySeq()),
+                ),
               )
-            )
-          ))
+            ),
+          )
+        )
     )
 
     actual.typeDecls shouldBe expectedResult
@@ -97,10 +107,9 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
         ImmArray(
           primField("wait", Ast.BTInt64),
           primField("wait_", Ast.BTInt64),
-          primField("wait__", Ast.BTInt64)
-        ),
-        None
-      )
+          primField("wait__", Ast.BTInt64),
+        )
+      ),
     )
 
     val actual = InterfaceReader.foldModule(wrappInModule(dnfs("Record"), dataType))
@@ -114,10 +123,12 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
               ImmArraySeq[(Ref.Name, TypePrim)](
                 ("wait", TypePrim(PrimTypeInt64, ImmArraySeq())),
                 ("wait_", TypePrim(PrimTypeInt64, ImmArraySeq())),
-                ("wait__", TypePrim(PrimTypeInt64, ImmArraySeq())))
-            )
+                ("wait__", TypePrim(PrimTypeInt64, ImmArraySeq())),
+              )
+            ),
           )
-        ))
+        )
+    )
 
     actual.typeDecls shouldBe expectedResult
   }
@@ -128,19 +139,27 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       ImmArray.empty,
       Ast.DataRecord(
         ImmArray(
-          primField("map", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64)),
-        ),
-        None
-      ))
+          primField("map", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64))
+        )
+      ),
+    )
 
     val actual = InterfaceReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
-        iface.InterfaceType.Normal(DefDataType(
-          ImmArray.empty.toSeq,
-          Record(ImmArraySeq[(Ref.Name, TypePrim)](
-            ("map", TypePrim(PrimTypeTextMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
-          ))))
+        iface.InterfaceType.Normal(
+          DefDataType(
+            ImmArray.empty.toSeq,
+            Record(
+              ImmArraySeq[(Ref.Name, TypePrim)](
+                (
+                  "map",
+                  TypePrim(PrimTypeTextMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))),
+                )
+              )
+            ),
+          )
+        )
     )
 
     actual.typeDecls shouldBe expectedResult
@@ -151,8 +170,9 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       moduleName,
       Map(dataName -> dfn),
       Map.empty,
-      LanguageVersion.defaultV1,
-      Ast.FeatureFlags.default)
+      Map.empty,
+      Ast.FeatureFlags.default,
+    )
 
   private def dottedName(segments: Iterable[String]): DottedName =
     DottedName.assertFromSegments(segments)
@@ -164,7 +184,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     field -> Ast.TVar(var_)
 
   private def primField(field: Ref.Name, primType: Ast.BuiltinType, args: Ast.Type*) =
-    field -> ((Ast.TBuiltin(primType): Ast.Type) /: args)(Ast.TApp)
+    field -> (args foldLeft (Ast.TBuiltin(primType): Ast.Type))(Ast.TApp)
 
   private def typeConstructorField(field: Ast.FieldName, segments: List[String]) =
     field -> typeConName(segments)

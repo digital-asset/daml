@@ -1,4 +1,4 @@
-The unified DAML-LF interpreter and engine
+The unified Daml-LF interpreter and engine
 ==========================================
 
 This package contains the canonical in-memory LF ASTs of both the public
@@ -22,7 +22,7 @@ Components
   Protobuf utilities for reading it into a raw memory form. This should
   reflect the [official LF specification][] at any given time.  As with
   the LF specification, changes to the Protobuf definition are governed
-  by the [DAML-LF Governance process][].
+  by the [Daml-LF Governance process][].
 
 - `interface` is an ADT of the "public interface" of a given LF package,
   meaning its templates, their choices, and serializable data types in
@@ -52,10 +52,16 @@ Components
   Both have associated Protobuf definitions, also contained in this
   package, and are used in `interpreter` and `engine` respectively.
 
+- `transaction-lib-test` supplies tools to generate transaction and
+  the value and transaction ADTs provided by the `transaction` library.
+
 - `data` contains utility datatypes used in the engine, and functions
   designed around specified LF semantics.  For example, if you want
   LF-compatible decimal handling, the `Decimal` API is a good source of
   useful functions.
+
+- `data-scalacheck` supplies Scalacheck `Arbitrary`s for the custom
+  collections provided by the `data` library.
 
 - `interpreter` is the "unified interpreter" used for both the sandbox
   and the production ledger.  It is an efficient [CEK machine][],
@@ -78,13 +84,13 @@ Components
 - `testing-tools` helps you run scenarios from Scalatest.
 
 [official LF specification]: spec/daml-lf-1.rst
-[DAML-LF Governance process]: governance.rst
+[Daml-LF Governance process]: governance.rst
 [CEK machine]: https://gist.github.com/ekmett/f081b5e36bac3fed1ea6b21eb25327c6
 
 Building and testing
 --------------------
 
-DAML-LF uses Bazel to build and test the components. Please refer to top-level
+Daml-LF uses Bazel to build and test the components. Please refer to top-level
 `BAZEL.md` and `BAZEL-JVM.md` documents for high-level instructions on how to
 use Bazel and how it works within IntelliJ.
 
@@ -138,7 +144,29 @@ should be separate scala_library targets, unvisible to the outside.
 A visible scala_library target should then collect the unrelated modules
 into a single target that can be depended on from outside.
 
-DAML-LF-REPL Usage
+Benchmarking
+------------
+
+Benchmarks for scenario execution can be run with
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf
+```
+A run of this benchmark will take between 6 and 7 minutes. A faster, less
+precise benchmark which takes around 1 minute can be invoked with
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf -- -f 0
+```
+To benchmark scenarios other than the ones configured by default, you can
+invoke
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf -- -p dar=/path/to/some/dar -p scenario=Some.Module:test
+```
+This can be combined with the `-f 0` flag as well.
+
+These benchmarks are focused on Daml execution speed and try to avoid noise
+caused by, say, I/O as much as possible.
+
+Daml-LF-REPL Usage
 ------------------
 
 The REPL can be compiled with `bazel build //:daml-lf-repl` and run with
@@ -163,6 +191,29 @@ $ bazel run //:daml-lf-repl -- testAll $PWD/project.dalf
 $ bazel run //:daml-lf-repl -- test Project.tests $PWD/project.dalf
 
 NOTE: When running via `bazel run` one needs to specify full path (or relative path from repo root), since Bazel runs all commands from repository root.
+
+Profiling scenarios
+-------------------
+
+Daml-LF-REPL provides a command to run a scenario and collect profiling
+information while running it. This information is then written into a file that
+can be viewed using the [speedscope](https://www.speedscope.app/) flamegraph
+visualizer. The easiest way to install speedscope is to run
+```shell
+$ npm install -g speedscope
+```
+See the [Offline usage](https://github.com/jlfwong/speedscope#usage) section of
+its documentation for alternatives.
+
+Once speedscope is installed, the profiler can be invoked via
+```shell
+$ bazel run //:daml-lf-repl -- profile Module.Name:scenarioName /path/to.dar /path/to/output.json
+```
+and the profile viewed via
+```shell
+$ speedscope /path/to/output.json
+```
+
 
 Scala house rules
 -----------------

@@ -1,0 +1,9 @@
+transactions:
+TX #0 1970-01-01T00:00:00Z [Test:18] version: dev
+#0:0 version: dev
+│   known to (since): Alice (#0)
+└─> create Test:MapTemplate@XXXXXXXX
+    with: { party = 'Alice', value = GenMap(1 -> "c", 2 -> "a", 5 -> "b") }
+
+active contracts:
+   0019f204ef6ba77f8003a1c679c3ca245028d8e82c713ebb267ea3cc3d802d6df3

@@ -1,15 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
+package com.daml.ledger.client.binding.encoding
 
-import com.digitalasset.ledger.client.binding.encoding.{LfTypeEncodingSpec => t}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.ledger.client.binding.encoding.{LfTypeEncodingSpec => t}
+import com.daml.ledger.client.binding.{Primitive => P}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Show
 import scalaz.syntax.show._
 
-class ShowEncodingSpec extends WordSpec with Matchers {
+class ShowEncodingSpec extends AnyWordSpec with Matchers {
 
   val alice = P.Party("Alice")
 
@@ -29,7 +30,8 @@ class ShowEncodingSpec extends WordSpec with Matchers {
         t.TrialSubRec(10, 100),
         List(1, 2, 3),
         t.TrialEmptyRec(),
-        t.TrialVariant.TLeft[P.Text, P.ContractId[t.CallablePayout]]("schön"))
+        t.TrialVariant.TLeft[P.Text, P.ContractId[t.CallablePayout]]("schön"),
+      )
 
     val contract2 = t.CallablePayout(
       alice,
@@ -38,7 +40,8 @@ class ShowEncodingSpec extends WordSpec with Matchers {
       t.TrialEmptyRec(),
       t.TrialVariant.TRight[P.Text, P.ContractId[t.CallablePayout]](
         P.ContractId("abc123"),
-        P.ContractId("def456"))
+        P.ContractId("def456"),
+      ),
     )
 
     "show t.CallablePayout 1" in {

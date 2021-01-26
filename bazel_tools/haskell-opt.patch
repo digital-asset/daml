@@ -1,8 +1,8 @@
 diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index ac8725f5..3f6e4b40 100644
+index 7d882078..b31790fc 100644
 --- a/haskell/private/actions/compile.bzl
 +++ b/haskell/private/actions/compile.bzl
-@@ -250,7 +250,7 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, cc_info, srcs
+@@ -260,7 +260,7 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
  
      # Compilation mode.  Allow rule-supplied compiler flags to override it.
      if hs.mode == "opt":

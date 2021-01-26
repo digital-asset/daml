@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -28,15 +28,39 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
+rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
+rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
 
-rules_haskell_version = "eaa89858c44913f65fb48637d75e3190a912f3ae"
-rules_haskell_sha256 = "c2b42f35ecc4c90bf8a5a4d90a1c1e3937513309904809d4c02ce12cf9cc4093"
-rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
-rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
-davl_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
-davl_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
+rules_haskell_version = "3987c494f7a3b72805855246a844a28880dd0b15"
+rules_haskell_sha256 = "7f6e7005cefbce61930e2feca71d96abba9d7a23059ca1bcdc1d13355f5d448f"
+rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
+rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
+buildifier_version = "3.3.0"
+buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
+zlib_version = "1.2.11"
+zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
+rules_nodejs_version = "2.3.1"
+rules_nodejs_sha256 = "121f17d8b421ce72f3376431c3461cd66bfe14de49059edc7bb008d5aebd16be"
+rules_jvm_external_version = "3.3"
+rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
+rules_go_version = "0.23.6"
+rules_go_sha256 = "8663604808d2738dc615a2c3eb70eba54a9a982089dd09f6ffe5d0e75771bc4f"
+rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
+rules_bazel_common_sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a"
+
+# Recent davl.
+davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
+davl_sha256 = "3e8ae2a05724093e33b7f0363381e81a7e8e9655ccb3aa47ad540ea87e814321"
+
+# Pinned davl relied on by damlc packaging tests.
+davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
+davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
+
+# daml cheat sheet
+daml_cheat_sheet_version = "9d44b550de6c5d23096116da37ccb2fb4a90f7af"  # 2020-06-30
+daml_cheat_sheet_sha256 = "6429b73e33a7a937048c3d1316182bff0cb34b6aed30e2915875da698ee4d5c9"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -45,23 +69,19 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
+                # Update and remove this patch once this is upstreamed.
+                # See https://github.com/tweag/rules_haskell/pull/1281
+                "@com_github_digital_asset_daml//bazel_tools:haskell-strict-source-names.patch",
                 # The fake libs issue should be fixed in upstream rules_haskell
                 # or GHC. Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                # This is a daml specific patch and not upstreamable.
-                # rules_haskell should have builtin support for hie-bios.
-                # Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
-                # This fixes a ghc-lib specific build issue and is not upstreamable.
-                # This might also be fixed by using `stack_snapshot` in the future.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # This should be fixed in upstream rules_haskell.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cffi.patch",
+                # Can be removed once https://github.com/tweag/rules_haskell/pull/1464 is merged.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-windows.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -89,36 +109,27 @@ def daml_deps():
         http_archive(
             name = "com_github_madler_zlib",
             build_file = "@com_github_digital_asset_daml//3rdparty/c:zlib.BUILD",
-            strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
-            urls = ["https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz"],
-            sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45",
-        )
-
-    if "bzip2" not in native.existing_rules():
-        http_archive(
-            name = "bzip2",
-            build_file = "@com_github_digital_asset_daml//3rdparty/c:bzip2.BUILD",
-            strip_prefix = "bzip2-1.0.8",
-            urls = ["https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"],
-            sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
+            strip_prefix = "zlib-{}".format(zlib_version),
+            urls = ["https://github.com/madler/zlib/archive/v{}.tar.gz".format(zlib_version)],
+            sha256 = zlib_sha256,
         )
 
     if "io_bazel_rules_go" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_go",
             urls = [
-                "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.2/rules_go-v0.20.2.tar.gz",
-                "https://github.com/bazelbuild/rules_go/releases/download/v0.20.2/rules_go-v0.20.2.tar.gz",
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.tar.gz".format(version = rules_go_version),
+                "https://github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.tar.gz".format(version = rules_go_version),
             ],
-            sha256 = "b9aa86ec08a292b97ec4591cf578e020b35f98e12173bbd4a921f84f583aebd9",
+            sha256 = rules_go_sha256,
         )
 
     if "rules_jvm_external" not in native.existing_rules():
         http_archive(
             name = "rules_jvm_external",
-            strip_prefix = "rules_jvm_external-2.8",
-            sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad",
-            url = "https://github.com/bazelbuild/rules_jvm_external/archive/2.8.zip",
+            strip_prefix = "rules_jvm_external-{}".format(rules_jvm_external_version),
+            sha256 = rules_jvm_external_sha256,
+            url = "https://github.com/bazelbuild/rules_jvm_external/archive/{}.zip".format(rules_jvm_external_version),
         )
 
     if "io_bazel_rules_scala" not in native.existing_rules():
@@ -127,40 +138,23 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
+            sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-                "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
             ],
             patch_args = ["-p1"],
-        )
-
-    if "io_bazel_rules_docker" not in native.existing_rules():
-        http_archive(
-            name = "io_bazel_rules_docker",
-            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.12.1/rules_docker-v0.12.1.tar.gz",
-            strip_prefix = "rules_docker-0.12.1",
-            sha256 = "14ac30773fdb393ddec90e158c9ec7ebb3f8a4fd533ec2abbfd8789ad81a284b",
         )
 
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "1e622ce4b84b88b6d2cdf1db38d1a634fe2392d74f0b7b74ff98f3a51838ee53",
-            strip_prefix = "protobuf-3.8.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.8.0.zip"],
+            sha256 = "60d2012e3922e429294d3a4ac31f336016514a91e5a63fd33f35743ccfe1bd7d",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
+            strip_prefix = "protobuf-3.11.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:proto-zlib-url.patch",
             ],
             patch_args = ["-p1"],
-        )
-
-    if "io_bazel_skydoc" not in native.existing_rules():
-        http_archive(
-            name = "io_bazel_skydoc",
-            sha256 = "c2d66a0cc7e25d857e480409a8004fdf09072a1bd564d6824441ab2f96448eea",
-            strip_prefix = "skydoc-0.3.0",
-            urls = ["https://github.com/bazelbuild/skydoc/archive/0.3.0.tar.gz"],
         )
 
     if "bazel_gazelle" not in native.existing_rules():
@@ -188,11 +182,12 @@ def daml_deps():
     if "build_bazel_rules_nodejs" not in native.existing_rules():
         http_archive(
             name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.1.0/rules_nodejs-1.1.0.tar.gz"],
-            sha256 = "c97bf38546c220fa250ff2cc052c1a9eac977c662c1fc23eda797b0ce8e70a43",
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
+            sha256 = rules_nodejs_sha256,
             patches = [
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
+                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -205,7 +200,9 @@ def daml_deps():
             urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
             sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
             patches = [
+                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-apple.patch",
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
+                "@com_github_digital_asset_daml//bazel_tools:grpc-gettid.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -243,9 +240,9 @@ def daml_deps():
     if "com_github_bazelbuild_buildtools" not in native.existing_rules():
         http_archive(
             name = "com_github_bazelbuild_buildtools",
-            sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29",
-            strip_prefix = "buildtools-0.26.0",
-            url = "https://github.com/bazelbuild/buildtools/archive/0.26.0.tar.gz",
+            sha256 = buildifier_sha256,
+            strip_prefix = "buildtools-{}".format(buildifier_version),
+            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(
@@ -260,10 +257,20 @@ def daml_deps():
     if "com_github_google_bazel_common" not in native.existing_rules():
         http_archive(
             name = "com_github_google_bazel_common",
-            sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a",
-            strip_prefix = "bazel-common-9e3880428c1837db9fb13335ed390b7e33e346a7",
-            urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
+            sha256 = rules_bazel_common_sha256,
+            strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
+            urls = ["https://github.com/google/bazel-common/archive/{}.zip".format(rules_bazel_common_version)],
         )
+
+    maybe(
+        http_archive,
+        name = "rules_pkg",
+        urls = [
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
+        ],
+        sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",
+    )
 
     if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():
         http_file(
@@ -276,6 +283,18 @@ def daml_deps():
             executable = True,
         )
 
+    if "davl-v3" not in native.existing_rules():
+        http_archive(
+            name = "davl-v3",
+            strip_prefix = "davl-{}".format(davl_v3_version),
+            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_v3_version)],
+            sha256 = davl_v3_sha256,
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+exports_files(["released/davl-v3.dar"])
+            """,
+        )
+
     if "davl" not in native.existing_rules():
         http_archive(
             name = "davl",
@@ -284,6 +303,37 @@ def daml_deps():
             sha256 = davl_sha256,
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v3.dar", "released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
+exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
+            """,
+        )
+
+    if "daml-cheat-sheet" not in native.existing_rules():
+        http_archive(
+            name = "daml-cheat-sheet",
+            strip_prefix = "daml-cheat-sheet-{}".format(daml_cheat_sheet_version),
+            urls = ["https://github.com/digital-asset/daml-cheat-sheet/archive/{}.tar.gz".format(daml_cheat_sheet_version)],
+            sha256 = daml_cheat_sheet_sha256,
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = "site",
+  srcs = ["_config.yml"] + glob(["**/*"],
+          exclude = ["_config.yml", "LICENSE", "WORKSPACE", "BUILD.bazel", "README.md"]),
+  outs = ["cheat-sheet.tar.gz"],
+  tools = ["@jekyll_nix//:bin/jekyll"],
+  cmd = '''
+    DIR=$$(dirname $(execpath _config.yml))
+    $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
+    tar hc _site \\
+        --owner=1000 \\
+        --group=1000 \\
+        --mtime=2000-01-01\\ 00:00Z \\
+        --no-acls \\
+        --no-xattrs \\
+        --no-selinux \\
+        --sort=name \\
+        | gzip -n > $(OUTS)
+  ''',
+)
             """,
         )

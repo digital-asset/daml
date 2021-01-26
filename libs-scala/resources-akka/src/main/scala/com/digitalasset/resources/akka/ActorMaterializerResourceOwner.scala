@@ -1,15 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources.akka
+package com.daml.resources.akka
 
 import akka.stream.Materializer
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class ActorMaterializerResourceOwner(acquireMaterializer: () => Materializer)
-    extends ResourceOwner[Materializer] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Materializer] =
-    Resource(Future(acquireMaterializer()))(materializer => Future(materializer.shutdown()))
+class ActorMaterializerResourceOwner[Context: HasExecutionContext](
+    acquireMaterializer: () => Materializer
+) extends AbstractResourceOwner[Context, Materializer] {
+  override def acquire()(implicit context: Context): Resource[Context, Materializer] =
+    Resource[Context].apply(Future(acquireMaterializer()))(materializer =>
+      Future(materializer.shutdown())
+    )
 }

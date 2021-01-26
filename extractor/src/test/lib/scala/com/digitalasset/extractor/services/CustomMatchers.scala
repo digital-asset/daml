@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.services
+package com.daml.extractor.services
 
 import java.sql.Timestamp
 
 import org.scalatest._
-import matchers._
+import org.scalatest.matchers.{Matcher, MatchResult}
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 

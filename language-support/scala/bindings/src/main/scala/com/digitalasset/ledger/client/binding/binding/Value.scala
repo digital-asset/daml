@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ContractId, Party}
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-
-import scala.annotation.tailrec
-import scala.collection.generic.CanBuildFrom
-import scala.{specialized => sp}
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.lf.{data => lf}
 import scalaz.std.option._
 import scalaz.syntax.traverse._
-import com.github.ghik.silencer.silent
+
+import scala.annotation.tailrec
+import scala.collection.compat._
+import scala.{specialized => sp}
 
 sealed trait DamlCodecs // always include `object DamlCodecs` in implicit search
 
@@ -52,11 +52,9 @@ object Value {
   @SuppressWarnings(Array("org.wartremover.warts.LeakingSealed"))
   private[binding] trait InternalImpl[A] extends Value[A]
 
-  // TODO remove dependency on deprecated .name and drop this @silent
-  @silent
   private[binding] def splattedVariantId(
       baseVariantId: rpcvalue.Identifier,
-      caseName: String
+      caseName: String,
   ): rpcvalue.Identifier =
     baseVariantId copy (entityName = s"${baseVariantId.entityName}.$caseName")
 }
@@ -64,7 +62,8 @@ object Value {
 object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
   @inline private[this] def fromArgumentValueFuns[@sp(Long) A](
       _read: VSum => Option[A],
-      _write: A => VSum): Value[A] =
+      _write: A => VSum,
+  ): Value[A] =
     new Value[A] {
       override def read(argumentValue: VSum): Option[A] = _read(argumentValue)
       override def write(obj: A): VSum = _write(obj)
@@ -78,7 +77,10 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
   }
 
   implicit override val valueNumeric: Value[P.Numeric] =
-    fromArgumentValueFuns(_.numeric map BigDecimal.exact, bd => VSum.Numeric(bd.toString))
+    fromArgumentValueFuns(
+      _.numeric flatMap (lf.Numeric.fromString(_).toOption.map(BigDecimal(_))),
+      bd => VSum.Numeric(lf.Numeric.toString(bd.bigDecimal)),
+    )
 
   implicit override val valueParty: Value[P.Party] =
     Party.subst(fromArgumentValueFuns(_.party, VSum.Party))
@@ -90,15 +92,19 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
     import java.time.LocalDate
     fromArgumentValueFuns(
       _.date flatMap (i => P.Date.fromLocalDate(LocalDate ofEpochDay i.toLong)),
-      ld => VSum.Date(ld.toEpochDay.toInt))
+      ld => VSum.Date(ld.toEpochDay.toInt),
+    )
   }
 
   implicit override val valueTimestamp: Value[P.Timestamp] = P.Timestamp.subst {
-    import com.digitalasset.api.util.TimestampConversion.{microsToInstant, instantToMicros}
-    fromArgumentValueFuns({
-      case ts @ VSum.Timestamp(_) => Some(microsToInstant(ts))
-      case _ => None
-    }, instantToMicros)
+    import com.daml.api.util.TimestampConversion.{instantToMicros, microsToInstant}
+    fromArgumentValueFuns(
+      {
+        case ts @ VSum.Timestamp(_) => Some(microsToInstant(ts))
+        case _ => None
+      },
+      instantToMicros,
+    )
   }
 
   implicit override val valueUnit: Value[P.Unit] = {
@@ -110,51 +116,57 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
   implicit override val valueBool: Value[P.Bool] =
     fromArgumentValueFuns(_.bool, VSum.Bool)
 
-  private[this] def seqAlterTraverse[A, B, That](xs: Iterable[A])(f: A => Option[B])(
-      implicit cbf: CanBuildFrom[Nothing, B, That]): Option[That] = {
-    val bs = cbf()
+  private[this] def seqAlterTraverse[A, B, That](
+      xs: Iterable[A]
+  )(f: A => Option[B])(implicit factory: Factory[B, That]): Option[That] = {
+    val bs = factory.newBuilder
     val i = xs.iterator
     @tailrec def go(): Option[That] =
-      if (i.hasNext) f(i.next) match {
+      if (i.hasNext) f(i.next()) match {
         case Some(b) =>
           bs += b
           go()
         case None => None
-      } else Some(bs.result)
+      }
+      else Some(bs.result())
     go()
   }
 
   implicit override def valueList[A](implicit A: Value[A]): Value[P.List[A]] =
     fromArgumentValueFuns(
       _.list flatMap (gl => seqAlterTraverse(gl.elements)(Value.decode[A](_))),
-      as => VSum.List(rpcvalue.List(as map (Value.encode(_)))))
+      as => VSum.List(rpcvalue.List(as map (Value.encode(_)))),
+    )
 
   implicit override def valueContractId[A]: Value[P.ContractId[A]] =
     Primitive.substContractId(
-      ContractId.subst(fromArgumentValueFuns(_.contractId, VSum.ContractId)))
+      ContractId.subst(fromArgumentValueFuns(_.contractId, VSum.ContractId))
+    )
 
   implicit override def valueOptional[A](implicit A: Value[A]): Value[P.Optional[A]] =
     fromArgumentValueFuns(
       _.optional flatMap (_.value traverse (Value.decode[A](_))),
-      oa => VSum.Optional(rpcvalue.Optional(oa map (Value.encode(_)))))
+      oa => VSum.Optional(rpcvalue.Optional(oa map (Value.encode(_)))),
+    )
 
   implicit override def valueTextMap[A](implicit A: Value[A]): Value[P.TextMap[A]] =
     fromArgumentValueFuns(
       _.map.flatMap(gm =>
-        seqAlterTraverse(gm.entries)(e => e.value.flatMap(Value.decode[A](_)).map(e.key -> _))),
+        seqAlterTraverse(gm.entries)(e => e.value.flatMap(Value.decode[A](_)).map(e.key -> _))
+      ),
       oa =>
-        VSum.Map(rpcvalue.Map(oa.map {
-          case (key, value) =>
-            rpcvalue.Map.Entry(
-              key = key,
-              value = Some(Value.encode(value))
-            )
-        }.toSeq))
+        VSum.Map(rpcvalue.Map(oa.map { case (key, value) =>
+          rpcvalue.Map.Entry(
+            key = key,
+            value = Some(Value.encode(value)),
+          )
+        }.toSeq)),
     )
 
-  implicit override def valueGenMap[K, V](
-      implicit K: Value[K],
-      V: Value[V]): Value[P.GenMap[K, V]] =
+  implicit override def valueGenMap[K, V](implicit
+      K: Value[K],
+      V: Value[V],
+  ): Value[P.GenMap[K, V]] =
     fromArgumentValueFuns(
       _.genMap.flatMap(gm =>
         seqAlterTraverse(gm.entries)(e =>
@@ -163,15 +175,16 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
             k <- Value.decode[K](optK)
             optV <- e.value
             v <- Value.decode[V](optV)
-          } yield k -> v)),
+          } yield k -> v
+        )
+      ),
       oa =>
-        VSum.GenMap(rpcvalue.GenMap(oa.map {
-          case (key, value) =>
-            rpcvalue.GenMap.Entry(
-              key = Some(Value.encode(key)),
-              value = Some(Value.encode(value))
-            )
-        }.toSeq))
+        VSum.GenMap(rpcvalue.GenMap(oa.map { case (key, value) =>
+          rpcvalue.GenMap.Entry(
+            key = Some(Value.encode(key)),
+            value = Some(Value.encode(value)),
+          )
+        }.toSeq)),
     )
 
 }
@@ -193,7 +206,8 @@ abstract class ValueRefCompanion {
   protected final def ` mkDataTypeId`(
       packageId: String,
       moduleName: String,
-      entityName: String): rpcvalue.Identifier =
+      entityName: String,
+  ): rpcvalue.Identifier =
     rpcvalue.Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName)
 
   protected final def ` record`(elements: (String, rpcvalue.Value)*): VSum.Record =
@@ -202,16 +216,18 @@ abstract class ValueRefCompanion {
   protected final def ` variant`(constructor: String, value: rpcvalue.Value): VSum.Variant =
     VSum.Variant(
       rpcvalue
-        .Variant(variantId = Some(` dataTypeId`), constructor = constructor, Some(value)))
+        .Variant(variantId = Some(` dataTypeId`), constructor = constructor, Some(value))
+    )
 
   protected final def ` enum`(constructor: String): VSum.Enum =
     VSum.Enum(rpcvalue.Enum(enumId = Some(` dataTypeId`), constructor))
 
   protected final def ` createVariantOfSynthRecord`(
       k: String,
-      o: (String, rpcvalue.Value)*): VSum.Variant =
+      o: (String, rpcvalue.Value)*
+  ): VSum.Variant =
     ` variant`(
       k,
-      rpcvalue.Value(
-        VSum.Record(Primitive.arguments(Value.splattedVariantId(` dataTypeId`, k), o))))
+      rpcvalue.Value(VSum.Record(Primitive.arguments(Value.splattedVariantId(` dataTypeId`, k), o))),
+    )
 }

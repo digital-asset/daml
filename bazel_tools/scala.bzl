@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
-    "scala_macro_library",
     "scala_test",
     "scala_test_suite",
 )
@@ -17,6 +16,7 @@ load(
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version_suffix")
 
 # This file defines common Scala compiler flags and plugins used throughout
 # this repository. The initial set of flags is taken from the ledger-client
@@ -27,88 +27,117 @@ load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 # Use the macros `da_scala_*` defined in this file, instead of the stock rules
 # `scala_*` from `rules_scala` in order for these default flags to take effect.
 
-common_scalacopts = [
+version_specific = {
+    "2.12": [
+        # these two flags turn on source-incompatible enhancements that are always
+        # on in Scala 2.13.  Despite the naming, though, the most impactful and
+        # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
+        # some minor, but in one specific case (scala/bug#10283) essential bug fixes
+        "-Xsource:2.13",
+        "-Ypartial-unification",
+        # adapted args is a deprecated feature:
+        # `def foo(a: (A, B))` can be called with `foo(a, b)`.
+        # properly it should be `foo((a,b))`
+        "-Yno-adapted-args",
+        "-Xlint:unsound-match",
+        "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
+        "-Xfuture",
+        "-language:higherKinds",
+    ],
+}
+
+common_scalacopts = version_specific.get(scala_major_version, []) + [
     # doesn't allow advance features of the language without explict import
     # (higherkinds, implicits)
     "-feature",
     "-target:jvm-1.8",
     "-encoding",
     "UTF-8",
+    # more detailed type errors
+    "-explaintypes",
     # more detailed information about type-erasure related warnings
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
-    "-Xfuture",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
-    # adapted args is a deprecated feature:
-    # `def foo(a: (A, B))` can be called with `foo(a, b)`.
-    # properly it should be `foo((a,b))`
-    "-Yno-adapted-args",
+    "-Xlint:constant",  # / 0
+    "-Xlint:doc-detached",  # floating Scaladoc comment
+    "-Xlint:inaccessible",  # method uses invisible types
+    "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
+    "-Xlint:option-implicit",  # implicit conversion arg might be null
+    "-Xlint:package-object-classes",  # put them directly in the package
+    "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
+    "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:type-parameter-shadow",  # name shadowing
     "-Ywarn-dead-code",
     # Warn about implicit conversion between numerical types
     "-Ywarn-numeric-widen",
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
-    "-Ywarn-unused-import",
-    # unfortunately give false warning for the `(a, b) = someTuple`
-    # line inside a for comprehension
-    # "-Ywarn-unused"
+    "-Ywarn-unused:imports",
+    "-Ywarn-unused",
 ]
 
 plugin_deps = [
-    "@maven//:org_wartremover_wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
 
 common_plugins = [
-    "@maven//:org_wartremover_wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
+
+version_specific_warts = {
+    "2.12": [
+        # On 2.13, this also triggers in string interpolation
+        # https://github.com/wartremover/wartremover/issues/447
+        "StringPlusAny",
+    ],
+}
 
 plugin_scalacopts = [
-    # do not enable wart remover for now, because we need to fix a lot of
-    # test code, which didn't have wart remover enabled before
     "-Xplugin-require:wartremover",
-
+] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in version_specific_warts.get(scala_major_version, []) + [
     # This lists all wartremover linting passes.
-    "-P:wartremover:traverser:org.wartremover.warts.Any",
-    "-P:wartremover:traverser:org.wartremover.warts.AnyVal",
-    "-P:wartremover:traverser:org.wartremover.warts.ArrayEquals",
-    # "-P:wartremover:traverser:org.wartremover.warts.AsInstanceOf",
-    # "-P:wartremover:traverser:org.wartremover.warts.DefaultArguments",
-    # "-P:wartremover:traverser:org.wartremover.warts.EitherProjectionPartial",
-    "-P:wartremover:traverser:org.wartremover.warts.Enumeration",
-    # "-P:wartremover:traverser:org.wartremover.warts.Equals",
-    "-P:wartremover:traverser:org.wartremover.warts.ExplicitImplicitTypes",
-    # "-P:wartremover:traverser:org.wartremover.warts.FinalCaseClass",
-    # "-P:wartremover:traverser:org.wartremover.warts.FinalVal",
-    # "-P:wartremover:traverser:org.wartremover.warts.ImplicitConversion",
-    # "-P:wartremover:traverser:org.wartremover.warts.ImplicitParameter",
-    # "-P:wartremover:traverser:org.wartremover.warts.IsInstanceOf",
-    "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
-    "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
-    # "-P:wartremover:traverser:org.wartremover.warts.MutableDataStructures",
-    # "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-    # "-P:wartremover:traverser:org.wartremover.warts.Nothing",
-    # "-P:wartremover:traverser:org.wartremover.warts.Null",
-    "-P:wartremover:traverser:org.wartremover.warts.Option2Iterable",
-    # "-P:wartremover:traverser:org.wartremover.warts.OptionPartial",
-    # "-P:wartremover:traverser:org.wartremover.warts.Overloading",
-    "-P:wartremover:traverser:org.wartremover.warts.Product",
-    # "-P:wartremover:traverser:org.wartremover.warts.PublicInference",
-    # "-P:wartremover:traverser:org.wartremover.warts.Recursion",
-    "-P:wartremover:traverser:org.wartremover.warts.Return",
-    "-P:wartremover:traverser:org.wartremover.warts.Serializable",
-    "-P:wartremover:traverser:org.wartremover.warts.StringPlusAny",
-    # "-P:wartremover:traverser:org.wartremover.warts.Throw",
-    # "-P:wartremover:traverser:org.wartremover.warts.ToString",
-    # "-P:wartremover:traverser:org.wartremover.warts.TraversableOps",
-    # "-P:wartremover:traverser:org.wartremover.warts.TryPartial",
-    # "-P:wartremover:traverser:org.wartremover.warts.Var",
-    # "-P:wartremover:traverser:org.wartremover.warts.While",
-]
+    # "Any",
+    "AnyVal",
+    "ArrayEquals",
+    # "AsInstanceOf",
+    # "DefaultArguments",
+    # "EitherProjectionPartial",
+    "Enumeration",
+    # "Equals",
+    "ExplicitImplicitTypes",
+    # "FinalCaseClass",
+    # "FinalVal",
+    # "ImplicitConversion",
+    # "ImplicitParameter",
+    # "IsInstanceOf",
+    # "JavaConversions",
+    "JavaSerializable",
+    "LeakingSealed",
+    # "MutableDataStructures",
+    # "NonUnitStatements",
+    # "Nothing",
+    # "Null",
+    "Option2Iterable",
+    # "OptionPartial",
+    # "Overloading",
+    "Product",
+    # "PublicInference",
+    # "Recursion",
+    "Return",
+    "Serializable",
+    # "Throw",
+    # "ToString",
+    # "TraversableOps",
+    # "TryPartial",
+    # "Var",
+    # "While",
+]]
 
 # delete items from lf_scalacopts as they are restored to common_scalacopts and plugin_scalacopts
 # # calculate items to delete
@@ -118,20 +147,87 @@ plugin_scalacopts = [
 # []
 # ^ means nothing to remove
 lf_scalacopts = [
-    "-Ywarn-unused",
 ]
 
-def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
+default_compile_arguments = {
+    "unused_dependency_checker_mode": "error",
+}
+
+silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
+silencer_lib = "@maven//:com_github_ghik_silencer_lib_{}".format(scala_version_suffix)
+
+default_initial_heap_size = "128m"
+default_max_heap_size = "1g"
+default_scalac_stack_size = "2m"
+
+def _jvm_flags(initial_heap_size, max_heap_size):
+    return ["-Xms{}".format(initial_heap_size), "-Xmx{}".format(max_heap_size)]
+
+def _set_compile_jvm_flags(
+        arguments,
+        initial_heap_size = default_initial_heap_size,
+        max_heap_size = default_max_heap_size,
+        scalac_stack_size = default_scalac_stack_size):
+    jvm_flags = _jvm_flags(initial_heap_size, max_heap_size)
+    result = {}
+    result.update(arguments)
+    result.update({
+        "scalac_jvm_flags": arguments.get("scalac_jvm_flags", []) + ["-Xss{}".format(scalac_stack_size)] + jvm_flags,
+    })
+    return result
+
+def _set_jvm_flags(
+        arguments,
+        initial_heap_size = default_initial_heap_size,
+        max_heap_size = default_max_heap_size,
+        scalac_stack_size = default_scalac_stack_size):
+    jvm_flags = _jvm_flags(initial_heap_size, max_heap_size)
+    result = {}
+    result.update(arguments)
+    result.update({
+        "scalac_jvm_flags": arguments.get("scalac_jvm_flags", []) + ["-Xss{}".format(scalac_stack_size)] + jvm_flags,
+        "jvm_flags": arguments.get("jvm_flags", []) + jvm_flags,
+    })
+    return result
+
+def _wrap_rule(
+        rule,
+        name = "",
+        scalacopts = [],
+        plugins = [],
+        generated_srcs = [],  # hiding from the underlying rule
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        exports = [],
+        scala_exports = [],
+        silent_annotations = False,
+        **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+    runtime_deps = runtime_deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_runtime_deps]
+    exports = exports + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_exports]
+    if silent_annotations:
+        scalacopts = ["-P:silencer:checkUnused"] + scalacopts
+        plugins = [silencer_plugin] + plugins
+        deps = [silencer_lib] + deps
+    if (len(exports) > 0):
+        kwargs["exports"] = exports
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
+        deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 
-def _wrap_rule_no_plugins(rule, scalacopts = [], **kwargs):
+def _wrap_rule_no_plugins(rule, deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
     rule(
         scalacopts = common_scalacopts + scalacopts,
+        deps = deps,
         **kwargs
     )
 
@@ -309,8 +405,13 @@ def _scaladoc_jar_impl(ctx):
 
         outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
 
+        root_content = []
+        if ctx.attr.root_content != None:
+            root_content = [ctx.files.root_content[0]]
+
         args = ctx.actions.args()
         args.add_all(["-d", outdir.path])
+        args.add_all("-doc-root-content", root_content)
         args.add("-classpath")
         args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
@@ -318,9 +419,12 @@ def _scaladoc_jar_impl(ctx):
         args.add_all(ctx.attr.scalacopts)
         args.add_all(srcFiles)
 
+        if ctx.attr.doctitle != None:
+            args.add_all(["-doc-title", ctx.attr.doctitle])
+
         ctx.actions.run(
             executable = ctx.executable._scaladoc,
-            inputs = ctx.files.srcs + classpath + pluginPaths,
+            inputs = ctx.files.srcs + classpath + pluginPaths + root_content,
             outputs = [outdir],
             arguments = [args],
             mnemonic = "ScaladocGen",
@@ -364,6 +468,7 @@ scaladoc_jar = rule(
         # generated source files that should still be included.
         "generated_srcs": attr.label_list(allow_files = True),
         "scalacopts": attr.string_list(),
+        "root_content": attr.label(allow_single_file = True),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
@@ -391,24 +496,27 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(**kwargs):
+def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        plugins = []
-        if "plugins" in kwargs:
-            plugins = kwargs["plugins"]
-
+        if silent_annotations:
+            # as with _wrap_rule
+            scalacopts = ["-P:silencer:checkUnused"] + scalacopts
+            plugins = [silencer_plugin] + plugins
+            deps = [silencer_lib] + deps
         scaladoc_jar(
-            name = kwargs["name"] + "_scaladoc",
-            deps = kwargs.get("deps", []),
+            name = name + "_scaladoc",
+            deps = deps,
             plugins = plugins,
-            srcs = kwargs["srcs"],
-            scalacopts = kwargs.get("scalacopts", []),
-            generated_srcs = kwargs.get("generated_srcs", []),
+            srcs = srcs,
+            scalacopts = scalacopts,
+            generated_srcs = generated_srcs,
             tags = ["scaladoc"],
         )
 
-def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_library(name, **kwargs):
     """
     Define a Scala library.
 
@@ -418,13 +526,19 @@ def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library.md
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_library, name, **kwargs)
-    _create_scala_source_jar(name = name, **kwargs)
-    _create_scaladoc_jar(name = name, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_library, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    # We get scaladoc from nix in version 2.12 atm.
+    if scala_major_version == "2.12":
+        _create_scaladoc_jar(name = name, **arguments)
+
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
                     name = name + "_pom",
@@ -442,30 +556,20 @@ def da_scala_library_suite(name, **kwargs):
 
     [rules_scala_library_suite_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library_suite.md
     """
-    _wrap_rule(scala_library_suite, name, **kwargs)
-    _create_scala_source_jar(name = name, **kwargs)
-    _create_scaladoc_jar(name = name, **kwargs)
+    arguments = {}
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_library_suite, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break
 
-def da_scala_macro_library(**kwargs):
-    """
-    Define a Scala library that contains macros.
-
-    Applies common Scala options defined in `bazel_tools/scala.bzl`.
-    And forwards to `scala_macro_library` from `rules_scala`.
-    Refer to the [`rules_scala` documentation][rules_scala_docs].
-
-    [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
-    """
-    _wrap_rule(scala_macro_library, **kwargs)
-    _create_scala_source_jar(**kwargs)
-
-def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala executable.
 
@@ -475,11 +579,14 @@ def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_binary, name, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_binary, name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
                     name = name + "_pom",
@@ -499,7 +606,7 @@ def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
                 )
                 break
 
-def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_test(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala executable that runs the unit tests in the given source files.
 
@@ -509,10 +616,13 @@ def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_test, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_test, **arguments)
 
-def da_scala_test_suite(**kwargs):
+def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala test executable for each source file and bundle them into one target.
 
@@ -522,7 +632,10 @@ def da_scala_test_suite(**kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test_suite
     """
-    _wrap_rule(scala_test_suite, use_short_names = is_windows, **kwargs)
+    arguments = {}
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_test_suite, use_short_names = is_windows, **arguments)
 
 # TODO make the jmh rule work with plugins -- probably
 # just a matter of passing the flag in

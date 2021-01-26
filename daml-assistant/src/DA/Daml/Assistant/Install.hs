@@ -1,14 +1,16 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PatternSynonyms #-}
 
 module DA.Daml.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
     , InstallEnv (..)
     , versionInstall
-    , getLatestVersion
     , install
     , uninstallVersion
+    , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
@@ -17,6 +19,7 @@ import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion)
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -31,6 +34,7 @@ import qualified Data.ByteString.UTF8 as BS.UTF8
 import System.Environment
 import System.Exit
 import System.IO
+import System.IO.Extra (writeFileUTF8)
 import System.IO.Temp
 import System.FilePath
 import System.Directory
@@ -88,8 +92,16 @@ setupDamlPath :: DamlPath -> IO ()
 setupDamlPath (DamlPath path) = do
     createDirectoryIfMissing True (path </> "bin")
     createDirectoryIfMissing True (path </> "sdk")
-    -- For now, we only ensure that the config file exists.
-    appendFile (path </> damlConfigName) ""
+    -- Ensure that the config file exists.
+    unlessM (doesFileExist (path </> damlConfigName)) $ do
+        writeFileUTF8 (path </> damlConfigName) defaultConfig
+  where
+    defaultConfig = unlines
+        [ "update-check: never"
+        , if isWindows
+            then "auto-install: false"
+            else "auto-install: true"
+        ]
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
@@ -134,7 +146,7 @@ installExtracted env@InstallEnv{..} sourcePath =
                     ,  "Suggested fix:"
                     ,  "  - Go to https://github.com/digital-asset/daml/releases/latest"
                     ,  "  - Download and run Windows installer."
-                    ,  "  - Reinstall the DAML SDK from scratch."
+                    ,  "  - Reinstall the SDK from scratch."
                     ]
                 exitFailure
 
@@ -170,6 +182,7 @@ activateDaml env@InstallEnv{..} targetPath = do
         damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
         damlBinaryTargetPath = installedAssistantPath damlPath
         damlBinaryTargetDir = takeDirectory damlBinaryTargetPath
+        damlBinaryRelativeSourcePath = ".." </> makeRelative (unwrapDamlPath damlPath) damlBinarySourcePath
 
     unlessM (doesFileExist damlBinarySourcePath) $
         throwIO $ assistantErrorBecause
@@ -188,7 +201,7 @@ activateDaml env@InstallEnv{..} targetPath = do
                      [ "@echo off"
                      , "\"" <> damlBinarySourcePath <> "\" %*"
                      ]
-            else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+            else createSymbolicLink damlBinaryRelativeSourcePath damlBinaryTargetPath
 
     updatePath options (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
     installBashCompletions options damlPath (\s -> unlessQuiet env (output s))
@@ -355,15 +368,15 @@ versionInstall env@InstallEnv{..} version = do
             "Activating assistant version " <> versionToString version
         activateDaml env (SdkPath path)
 
--- | Install the latest stable version of the SDK.
+-- | Install the latest version of the SDK.
 latestInstall :: InstallEnv -> IO ()
-latestInstall env = do
-    version <- getLatestVersion
+latestInstall env@InstallEnv{..} = do
+    version1 <- getLatestReleaseVersion
+    version2M <- if iSnapshots options
+        then getLatestSdkSnapshotVersion
+        else pure Nothing
+    let version = maybe version1 (max version1) version2M
     versionInstall env version
-
--- | Get the latest stable version.
-getLatestVersion :: IO SdkVersion
-getLatestVersion = Github.getLatestVersion
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
@@ -380,6 +393,12 @@ shouldInstallAssistant InstallEnv{..} versionToInstall =
     in unActivateInstall (iActivate options)
     || determineAuto (isNewer || missingAssistant || installingFromOutside)
         (unwrapInstallAssistant (iAssistant options))
+
+pattern RawInstallTarget_Project :: RawInstallTarget
+pattern RawInstallTarget_Project = RawInstallTarget "project"
+
+pattern RawInstallTarget_Latest :: RawInstallTarget
+pattern RawInstallTarget_Latest = RawInstallTarget "latest"
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
@@ -410,12 +429,12 @@ install options damlPath projectPathM assistantVersion = do
                 ]
             exitFailure
 
-        Just (RawInstallTarget "project") -> do
+        Just RawInstallTarget_Project -> do
             projectPath <- required "'daml install project' must be run from within a project."
                 projectPathM
             projectInstall env projectPath
 
-        Just (RawInstallTarget "latest") ->
+        Just RawInstallTarget_Latest ->
             latestInstall env
 
         Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) ->
@@ -438,7 +457,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
     if exists then do
         when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
             hPutStr stderr . unlines $
-                [ "Cannot uninstall currently activated DAML SDK version."
+                [ "Cannot uninstall currently activated SDK version."
                 , "Please activate a different SDK version and try again."
                 , "To activate a different version, run:"
                 , ""
@@ -452,7 +471,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
         requiredIO "Failed to remove SDK files." $ do
             removePathForcibly path
 
-        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
+        putStrLn ("SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
 
     else do
-        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " is not installed.")
+        putStrLn ("SDK version " <> versionToString sdkVersion <> " is not installed.")

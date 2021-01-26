@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.daml.lf.codegen.backend.java.ObjectMethods
+import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
 
 private[inner] object RecordMethods {
@@ -14,7 +14,8 @@ private[inner] object RecordMethods {
       fields: Fields,
       className: ClassName,
       typeParameters: IndexedSeq[String],
-      packagePrefixes: Map[PackageId, String]): Vector[MethodSpec] = {
+      packagePrefixes: Map[PackageId, String],
+  ): Vector[MethodSpec] = {
 
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
@@ -29,17 +30,17 @@ private[inner] object RecordMethods {
               "$T $L = $L",
               classOf[javaapi.data.Value],
               outVar,
-              inVar
+              inVar,
             )
             .build(),
-        packagePrefixes
+        packagePrefixes,
       )
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,
         fields,
         packagePrefixes,
         ClassName.get(classOf[javaapi.data.Record]),
-        name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.Record], name)
+        name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.Record], name),
       )
       List(fromValue, toValue)
     }

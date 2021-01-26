@@ -1,14 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.testing
+package com.daml.platform.testing
 
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{Future, Promise}
 
-/**
-  * Implementation of [[StreamObserver]] designed to expose a finite amount of items
+/** Implementation of [[StreamObserver]] designed to expose a finite amount of items
   *
   * THIS WILL NEVER COMPLETE IF FED AN UNBOUND STREAM!!!
   */
@@ -19,14 +18,16 @@ private[testing] final class FiniteStreamObserver[A] extends StreamObserver[A] {
 
   val result: Future[Vector[A]] = promise.future
 
-  override def onNext(value: A): Unit = {
-    val _ = items.synchronized(items += value)
+  override def onNext(value: A): Unit = items.synchronized {
+    val _ = items += value
   }
 
-  override def onError(t: Throwable): Unit = promise.failure(t)
+  override def onError(t: Throwable): Unit = {
+    val _ = promise.tryFailure(t)
+  }
 
-  override def onCompleted(): Unit = {
-    val _ = items.synchronized(promise.success(items.result()))
+  override def onCompleted(): Unit = items.synchronized {
+    val _ = promise.trySuccess(items.result())
   }
 
 }

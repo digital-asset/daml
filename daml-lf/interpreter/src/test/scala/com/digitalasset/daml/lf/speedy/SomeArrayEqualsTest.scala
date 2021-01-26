@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{WordSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class SomeArrayEqualsTest extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
-  import com.digitalasset.daml.lf.speedy.{SomeArrayEquals => SAE}
+class SomeArrayEqualsTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+  import com.daml.lf.speedy.{SomeArrayEquals => SAE}
   import SomeArrayEqualsTest._
 
   "equals" should {

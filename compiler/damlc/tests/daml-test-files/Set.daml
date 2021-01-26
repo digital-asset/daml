@@ -1,11 +1,6 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use infix
--- @INFO Use infix
--- @INFO Use infix
--- @INFO Use infix
-
 -- @SINCE-LF 1.3
 
 module Set where
@@ -54,10 +49,10 @@ testSingleton = scenario do
   [1] === toList (singleton 1)
 
 testUnion = scenario do
-  [1, 2, 3, 4, 5] === toList (union (fromList [1, 5, 3]) (fromList [4, 3, 2]))
-  [2, 4] === toList (union S.empty (fromList [4, 2]))
-  [1, 3, 5] === toList (union (fromList [1, 5, 3]) S.empty)
-  [] === toList (union S.empty (fromList ([] : [Int])))
+  [1, 2, 3, 4, 5] === toList (fromList [1, 5, 3] `union` fromList [4, 3, 2])
+  [2, 4] === toList (S.empty `union` fromList [4, 2])
+  [1, 3, 5] === toList (fromList [1, 5, 3] `union` S.empty)
+  [] === toList (S.empty `union` fromList ([] : [Int]))
 
 testIntersection = scenario do
   [3, 5, 9] === toList (intersection (fromList [9, 1, 5, 6, 8, 3]) (fromList [4, 3, 7, 2, 5, 9]))

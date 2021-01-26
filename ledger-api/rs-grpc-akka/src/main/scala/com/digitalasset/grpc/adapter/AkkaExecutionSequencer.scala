@@ -1,25 +1,24 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter
+package com.daml.grpc.adapter
 
 import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, ExtendedActorSystem, Props}
 import akka.pattern.{AskTimeoutException, ask}
 import akka.util.Timeout
-import com.digitalasset.grpc.adapter.RunnableSequencingActor.ShutdownRequest
+import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import com.digitalasset.dec.DirectExecutionContext
+import com.daml.dec.DirectExecutionContext
 
-/**
-  * Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
+/** Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
   */
-class AkkaExecutionSequencer private (private val actorRef: ActorRef)(
-    implicit terminationTimeout: Timeout)
-    extends ExecutionSequencer {
+class AkkaExecutionSequencer private (private val actorRef: ActorRef)(implicit
+    terminationTimeout: Timeout
+) extends ExecutionSequencer {
 
   override def sequence(runnable: Runnable): Unit = actorRef ! runnable
 
@@ -28,8 +27,7 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(
     ()
   }
 
-  /**
-    * Completes Future when all scheduled Runnables that were sequenced so far have been completed,
+  /** Completes Future when all scheduled Runnables that were sequenced so far have been completed,
     * and the Actor was ordered to terminate.
     */
   def closeAsync(implicit ec: ExecutionContext): Future[Done] =
@@ -44,16 +42,18 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(
 }
 
 object AkkaExecutionSequencer {
-  def apply(name: String, terminationTimeout: FiniteDuration)(
-      implicit system: ActorSystem): AkkaExecutionSequencer = {
+  def apply(name: String, terminationTimeout: FiniteDuration)(implicit
+      system: ActorSystem
+  ): AkkaExecutionSequencer = {
     system match {
       case extendedSystem: ExtendedActorSystem =>
         new AkkaExecutionSequencer(
-          extendedSystem.systemActorOf(Props[RunnableSequencingActor], name))(
-          Timeout.durationToTimeout(terminationTimeout))
+          extendedSystem.systemActorOf(Props[RunnableSequencingActor](), name)
+        )(Timeout.durationToTimeout(terminationTimeout))
       case _ =>
-        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor], name))(
-          Timeout.durationToTimeout(terminationTimeout))
+        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor](), name))(
+          Timeout.durationToTimeout(terminationTimeout)
+        )
 
     }
   }

@@ -1,22 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.ledger.api.refinements.ApiTypes
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Product",
-    "org.wartremover.warts.Serializable"))
-class LedgerSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+class LedgerSpec extends AnyWordSpec with Matchers {
+  import com.daml.navigator.{DamlConstants => C}
 
   private val party = ApiTypes.Party("party")
 
@@ -28,14 +25,15 @@ class LedgerSpec extends WordSpec with Matchers {
   private val bob = ApiTypes.Party("Bob")
   private val charlie = ApiTypes.Party("Charlie")
 
-  def transaction(id: String): Transaction =
+  private def transaction(id: String): Transaction =
     Transaction(
       ApiTypes.TransactionId(id),
       Some(ApiTypes.CommandId("commandId")),
       Instant.now(),
       "0",
-      List.empty)
-  def contract(id: String): Contract =
+      List.empty,
+    )
+  private def contract(id: String): Contract =
     Contract(
       ApiTypes.ContractId(id),
       template,
@@ -43,8 +41,8 @@ class LedgerSpec extends WordSpec with Matchers {
       Option(""),
       List(alice),
       List(bob, charlie),
-      None)
-  def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
+      None,
+    )
 
   "A ledger with existing contracts" when {
     val subject = Ledger(alice, None, false).withTransaction(
@@ -62,10 +60,11 @@ class LedgerSpec extends WordSpec with Matchers {
             Some(""),
             List(alice),
             List(bob, charlie),
-            None
+            None,
           )
-        )),
-      templateRegistry
+        )
+      ),
+      templateRegistry,
     )
 
     "adding a transaction" should {
@@ -91,7 +90,7 @@ class LedgerSpec extends WordSpec with Matchers {
         agreementText = Some(""),
         signatories = List(alice),
         observers = List(bob, charlie),
-        key = None
+        key = None,
       )
       val created1 = contractCreated("E1", "C1")
       val created2 = contractCreated("E2", "C2")
@@ -110,7 +109,8 @@ class LedgerSpec extends WordSpec with Matchers {
 
       "consider the created contracts to be active" in {
         result.activeContracts(templateRegistry) should contain allOf (contract("C1"), contract(
-          "C2"))
+          "C2"
+        ))
       }
 
       "return the events by id" in {
@@ -155,7 +155,7 @@ class LedgerSpec extends WordSpec with Matchers {
         agreementText = Some(""),
         signatories = List(bob),
         observers = List(charlie),
-        key = None
+        key = None,
       )
 
       val created1 = contractCreated("NonVisible", "NotVisible")
@@ -180,7 +180,7 @@ class LedgerSpec extends WordSpec with Matchers {
         choice = ApiTypes.Choice("choice"),
         argument = C.simpleUnitV,
         actingParties = List(party),
-        consuming = true
+        consuming = true,
       )
       val latest = transaction("Tx1").copy(events = List(exercisedEvent))
 
@@ -232,7 +232,7 @@ class LedgerSpec extends WordSpec with Matchers {
         agreementText = Some(""),
         signatories = List(alice),
         observers = List(bob, charlie),
-        key = None
+        key = None,
       )
       val exercisedEvent = ChoiceExercised(
         id = ApiTypes.EventId("E2"),
@@ -245,7 +245,7 @@ class LedgerSpec extends WordSpec with Matchers {
         choice = ApiTypes.Choice("choice"),
         argument = C.simpleUnitV,
         actingParties = List(party),
-        consuming = true
+        consuming = true,
       )
       val latest = transaction("Tx1").copy(events = List(exercisedEvent, createdEvent))
 
@@ -304,13 +304,15 @@ class LedgerSpec extends WordSpec with Matchers {
         ApiTypes.WorkflowId("W1"),
         Instant.EPOCH,
         template.id,
-        contractArgument)
+        contractArgument,
+      )
 
       val result = subject.withCommand(createCmd)
 
       "report the status of the command as waiting" in {
         result.statusOf(ApiTypes.CommandId("Cmd1"), templateRegistry) shouldBe Some(
-          CommandStatusWaiting())
+          CommandStatusWaiting()
+        )
       }
 
       "don't report any result of the command" in {
@@ -325,7 +327,8 @@ class LedgerSpec extends WordSpec with Matchers {
         ApiTypes.WorkflowId("W1"),
         Instant.EPOCH,
         template.id,
-        contractArgument)
+        contractArgument,
+      )
 
       val latest = transaction("Tx1").copy(commandId = Some(ApiTypes.CommandId("Cmd1")))
 
@@ -333,12 +336,14 @@ class LedgerSpec extends WordSpec with Matchers {
 
       "report the status of the command as success with the transaction" in {
         result.statusOf(ApiTypes.CommandId("Cmd1"), templateRegistry) shouldBe Some(
-          CommandStatusSuccess(latest))
+          CommandStatusSuccess(latest)
+        )
       }
 
       "report the result of the command as success with the transaction" in {
         result.resultOf(ApiTypes.CommandId("Cmd1"), templateRegistry) shouldBe Some(
-          Result(ApiTypes.CommandId("Cmd1"), Right(latest)))
+          Result(ApiTypes.CommandId("Cmd1"), Right(latest))
+        )
       }
     }
   }

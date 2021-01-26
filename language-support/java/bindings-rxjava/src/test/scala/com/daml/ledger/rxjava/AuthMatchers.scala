@@ -1,10 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava
 
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import org.scalatest.{Assertion, Matchers}
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
 
 private[rxjava] trait AuthMatchers { self: Matchers =>
 

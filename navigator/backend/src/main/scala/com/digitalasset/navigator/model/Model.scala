@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.{@@, Tag}
 
 // ------------------------------------------------------------------------------------------------
@@ -72,19 +72,23 @@ final case class CreateCommand(
     workflowId: ApiTypes.WorkflowId,
     platformTime: Instant,
     template: DamlLfIdentifier,
-    argument: ApiRecord
+    argument: ApiRecord,
 ) extends Command
 
+/** @param template
+  *     The template of the given contract. Not required for the ledger API, but we keep
+  *     this denormalized information so that it's easier to serialize/deserialize the
+  *     choice argument.
+  */
 final case class ExerciseCommand(
     id: ApiTypes.CommandId,
     index: Long,
     workflowId: ApiTypes.WorkflowId,
     platformTime: Instant,
     contract: ApiTypes.ContractId,
-    /** The template of the given contract. Not required for the ledger API, but we keep this denormalized information so that it's easier to serialize/deserialize the choice argument. */
     template: DamlLfIdentifier,
     choice: ApiTypes.Choice,
-    argument: ApiValue
+    argument: ApiValue,
 ) extends Command
 
 case class Error(code: String, details: String, parameters: String)
@@ -98,11 +102,10 @@ final case class Result(id: ApiTypes.CommandId, errorOrTx: Either[Error, Transac
 case class DamlLfPackage(
     id: DamlLfRef.PackageId,
     typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType],
-    templates: Map[DamlLfIdentifier, Template]
+    templates: Map[DamlLfIdentifier, Template],
 )
 
-/**
-  * A boxed DefDataType that also includes the ID of the type.
+/** A boxed DefDataType that also includes the ID of the type.
   * This is useful for the GraphQL schema.
   */
 final case class DamlLfDefDataTypeBoxed(id: DamlLfIdentifier, value: DamlLfDefDataType)
@@ -118,7 +121,7 @@ final case class Transaction(
     commandId: Option[ApiTypes.CommandId],
     effectiveAt: Instant,
     offset: String,
-    events: List[Event]
+    events: List[Event],
 ) extends TaggedNode[ApiTypes.TransactionIdTag]
 
 // ------------------------------------------------------------------------------------------------
@@ -150,7 +153,7 @@ final case class ContractCreated(
     agreementText: Option[String],
     signatories: List[ApiTypes.Party],
     observers: List[ApiTypes.Party],
-    key: Option[ApiValue]
+    key: Option[ApiValue],
 ) extends Event
 
 final case class ChoiceExercised(
@@ -164,7 +167,7 @@ final case class ChoiceExercised(
     choice: ApiTypes.Choice,
     argument: ApiValue,
     actingParties: List[ApiTypes.Party],
-    consuming: Boolean
+    consuming: Boolean,
 ) extends Event
 
 // ------------------------------------------------------------------------------------------------
@@ -179,7 +182,7 @@ final case class Contract(
     agreementText: Option[String],
     signatories: List[ApiTypes.Party],
     observers: List[ApiTypes.Party],
-    key: Option[ApiValue]
+    key: Option[ApiValue],
 ) extends TaggedNode[ApiTypes.ContractIdTag]
 
 // ------------------------------------------------------------------------------------------------
@@ -190,7 +193,7 @@ final case class Contract(
 final case class Template(
     id: DamlLfIdentifier,
     choices: List[Choice],
-    key: Option[DamlLfType]
+    key: Option[DamlLfType],
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())
@@ -201,5 +204,5 @@ case class Choice(
     name: ApiTypes.Choice,
     parameter: DamlLfType,
     returnType: DamlLfType,
-    consuming: Boolean
+    consuming: Boolean,
 )

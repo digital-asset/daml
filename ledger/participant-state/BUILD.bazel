@@ -1,44 +1,57 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
     name = "participant-state",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state:__VERSION__"],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:participant-state:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     exports = [
-        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
     ],
     runtime_deps = [],
     deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-health",
-        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
 
-da_scala_test(
+filegroup(
+    name = "sources",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
+)
+
+da_scala_test_suite(
     name = "participant-state-tests",
     size = "small",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     deps = [
         ":participant-state",
-        "@maven//:org_scalatest_scalatest_2_12",
+        "//daml-lf/transaction",
     ],
 )

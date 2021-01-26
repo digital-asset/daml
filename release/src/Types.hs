@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds  #-}
@@ -11,14 +11,13 @@ module Types (
     GroupId,
     MavenAllowUnsecureTls(..),
     MavenCoords(..),
-    MavenUpload(..),
     MavenUploadConfig(..),
     MonadCI,
     OS(..),
     PerformUpload(..),
-    Version(..),
     (#),
     dropFileName,
+    groupIdString,
     pathToString,
     pathToText,
     throwIO,
@@ -33,7 +32,9 @@ import           Control.Monad.IO.Unlift              (MonadUnliftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Control          (MonadBaseControl)
 import           Data.Aeson
+import qualified Data.List                            as List
 import           Data.Maybe
+import           Data.SemVer (Version)
 import           Data.Text                            (Text)
 import qualified Data.Text                            as T
 import           Data.Typeable                        (Typeable)
@@ -55,8 +56,8 @@ data MavenCoords = MavenCoords
     , artifactType :: !ArtifactType
     } deriving Show
 
-newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
-    deriving (Eq, Show, FromJSON)
+groupIdString :: GroupId -> String
+groupIdString gid = List.intercalate "." (map T.unpack gid)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,
@@ -106,14 +107,6 @@ type GitRev = Text
 
 newtype PerformUpload = PerformUpload{getPerformUpload :: Bool}
     deriving (Eq, Show)
-
--- versions
--- --------------------------------------------------------------------
-
---
--- | Version number bumping is fully automated using the @VERSION@
---   files that can be found in the root directory of the repo.
-newtype Version = Version Text deriving (Eq, Show)
 
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
     deriving (Eq, Show, FromJSON)

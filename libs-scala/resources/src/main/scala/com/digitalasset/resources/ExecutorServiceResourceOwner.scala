@@ -1,18 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.{ExecutorService, TimeUnit}
 
-import com.digitalasset.resources.ExecutorServiceResourceOwner._
+import com.daml.resources.ExecutorServiceResourceOwner._
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContextExecutorService, Future}
 
-class ExecutorServiceResourceOwner[T <: ExecutorService](acquireExecutorService: () => T)
-    extends ResourceOwner[T] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource(Future {
+class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorService](
+    acquireExecutorService: () => T
+) extends AbstractResourceOwner[Context, T] {
+  override def acquire()(implicit context: Context): Resource[Context, T] =
+    Resource.apply(Future {
       val executorService = acquireExecutorService()
       // If we try and release an executor service which is itself being used to power the
       // releasing, we end up in a deadlock—the executor can't shut down, and therefore
@@ -45,11 +46,10 @@ class ExecutorServiceResourceOwner[T <: ExecutorService](acquireExecutorService:
         case _ =>
       }
       executorService
-    })(
-      executorService =>
-        Future {
-          executorService.shutdown()
-          val _ = executorService.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+    })(executorService =>
+      Future {
+        executorService.shutdown()
+        val _ = executorService.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
       }
     )
 }
@@ -58,6 +58,7 @@ object ExecutorServiceResourceOwner {
 
   class CannotAcquireExecutionContext
       extends RuntimeException(
-        "The execution context used by resource acquisition cannot itself be acquired. This is to prevent deadlock upon release.")
+        "The execution context used by resource acquisition cannot itself be acquired. This is to prevent deadlock upon release."
+      )
 
 }

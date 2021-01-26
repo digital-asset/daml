@@ -1,11 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.iface
+import com.daml.lf.iface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -16,7 +15,6 @@ private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      identifier: Identifier,
       enum: iface.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {
@@ -47,12 +45,14 @@ private[inner] object EnumClass extends StrictLogging {
     ParameterizedTypeName.get(
       ClassName.get(classOf[java.util.Map[Any, Any]]),
       ClassName.get(classOf[String]),
-      className)
+      className,
+    )
   private def hashMapType(className: ClassName) =
     ParameterizedTypeName.get(
       ClassName.get(classOf[java.util.HashMap[Any, Any]]),
       ClassName.get(classOf[String]),
-      className)
+      className,
+    )
 
   private def generateEnumsMap(className: ClassName): FieldSpec =
     FieldSpec
@@ -73,7 +73,7 @@ private[inner] object EnumClass extends StrictLogging {
 
   private def generateFromValue(
       className: ClassName,
-      enum: iface.Enum
+      enum: iface.Enum,
   ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $enum")
 
@@ -86,13 +86,13 @@ private[inner] object EnumClass extends StrictLogging {
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
         classOf[String],
         classOf[IllegalArgumentException],
-        s"Expected DamlEnum to build an instance of the Enum ${className.simpleName()}"
+        s"Expected DamlEnum to build an instance of the Enum ${className.simpleName()}",
       )
       .addStatement(
         "if (!$T.__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$)",
         className,
         classOf[IllegalArgumentException],
-        s"Expected a DamlEnum with ${className.simpleName()} constructor, found "
+        s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
       )
       .addStatement("return ($T) $T.__enums$$.get(constructor$$)", className, className)
       .build()

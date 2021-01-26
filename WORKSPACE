@@ -14,17 +14,21 @@ workspace(
 # (though with the caviat that that user needs to repeat the relevant bits of
 #  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 daml_deps()
+
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+
+rules_haskell_dependencies()
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 
-rules_haskell_dependencies()
+rules_pkg_dependencies()
 
 register_toolchains(
     "//:c2hs-toolchain",
@@ -36,6 +40,7 @@ load(
     "nixpkgs_cc_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
+    "nixpkgs_python_configure",
 )
 load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
@@ -46,9 +51,15 @@ load("//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
+load("//bazel_tools:scala_version.bzl", "scala_version")
+
+scala_version(name = "scala_version")
+
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+
 dadew(name = "dadew")
 
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
 load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
 
 ghc_dwarf(name = "ghc_dwarf")
@@ -92,17 +103,20 @@ common_nix_file_deps = [
     "//nix:nixpkgs.nix",
     "//nix:nixpkgs/default.nix",
     "//nix:nixpkgs/default.src.json",
+    "//nix:grpc-Rename-gettid-functions.patch",
+    "//nix:grpc-Fix-gettid-naming-conflict.patch",
 ]
 
 # Use Nix provisioned cc toolchain
 nixpkgs_cc_configure(
     nix_file = "//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
-        "//nix:bazel-cc-toolchain.nix",
         "//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
+
+nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
 
 # Curl system dependency
 nixpkgs_package(
@@ -110,7 +124,34 @@ nixpkgs_package(
     attribute_path = "curl",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
+)
+
+# Toxiproxy dependency
+nixpkgs_package(
+    name = "toxiproxy_nix",
+    attribute_path = "toxiproxy",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "toxiproxy_dev_env",
+    nix_include = ["bin/toxiproxy-cmd"],
+    nix_label = "@toxiproxy_nix",
+    nix_paths = ["bin/toxiproxy-cmd"],
+    tools = ["toxiproxy"],
+    win_include = ["toxiproxy-server-windows-amd64.exe"],
+    win_paths = ["toxiproxy-server-windows-amd64.exe"],
+    win_tool = "toxiproxy",
 )
 
 # Patchelf system dependency
@@ -119,6 +160,9 @@ nixpkgs_package(
     attribute_path = "patchelf",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -128,6 +172,9 @@ nixpkgs_package(
     attribute_path = "netcat-gnu",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -139,6 +186,32 @@ dev_env_tool(
     tools = ["nc"],
     win_include = ["usr/bin/nc.exe"],
     win_paths = ["usr/bin/nc.exe"],
+    win_tool = "msys2",
+)
+
+nixpkgs_package(
+    name = "openssl_nix",
+    attribute_path = "openssl",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "openssl_dev_env",
+    nix_include = ["bin/openssl"],
+    nix_label = "@openssl_nix",
+    nix_paths = ["bin/openssl"],
+    tools = ["openssl"],
+    win_include = [
+        "usr/bin",
+        "usr/ssl",
+    ],
+    win_paths = ["usr/bin/openssl.exe"],
     win_tool = "msys2",
 )
 
@@ -183,6 +256,29 @@ dev_env_tool(
     win_tool = "msys2",
 )
 
+nixpkgs_package(
+    name = "patch_nix",
+    attribute_path = "gnupatch",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "patch_dev_env",
+    nix_include = ["bin/patch"],
+    nix_label = "@patch_nix",
+    nix_paths = ["bin/patch"],
+    tools = ["patch"],
+    win_include = ["usr/bin/patch.exe"],
+    win_paths = ["usr/bin/patch.exe"],
+    win_tool = "msys2",
+)
+
 dev_env_tool(
     name = "mvn_dev_env",
     nix_include = ["bin/mvn"],
@@ -204,6 +300,9 @@ nixpkgs_package(
     attribute_path = "gawk",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -212,6 +311,9 @@ nixpkgs_package(
     attribute_path = "coreutils",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -220,13 +322,15 @@ nixpkgs_package(
     attribute_path = "grpcurl",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
 nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
-    "//nix:with-packages-wrapper.nix",
-    "//nix:overrides/ghc-8.6.5.nix",
+    "//nix:overrides/ghc-8.10.3.nix",
     "//nix:overrides/ghc-8.6.3-binary.nix",
 ]
 
@@ -235,6 +339,9 @@ nixpkgs_package(
     attribute_path = "hlint",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -244,18 +351,21 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
-dev_env_tool(
-    name = "zip_dev_env",
-    nix_include = ["bin/zip"],
-    nix_label = "@zip_nix",
-    nix_paths = ["bin/zip"],
-    tools = ["zip"],
-    win_include = ["usr/bin/zip.exe"],
-    win_paths = ["usr/bin/zip.exe"],
-    win_tool = "msys2",
+nixpkgs_package(
+    name = "jekyll_nix",
+    attribute_path = "jekyll",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
 )
 
 load(
@@ -279,19 +389,25 @@ filegroup(
 """,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
 """,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
@@ -305,7 +421,7 @@ common_ghc_flags = [
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
+    attribute_path = "ghcDwarf" if enable_ghc_dwarf else "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
@@ -318,12 +434,16 @@ haskell_register_ghc_nixpkgs(
     # with the GHCi linker to the point where :main takes several minutes rather than several seconds.
     compiler_flags = common_ghc_flags + [
         "-fexternal-dynamic-refs",
-    ] + (["-g3"] if enable_ghc_dwarf else ["-optl-s"]),
+    ] + (["-g3"] if enable_ghc_dwarf else ([
+        "-optl-unexported_symbols_list=*",
+        "-optc-mmacosx-version-min=10.14",
+        "-opta-mmacosx-version-min=10.14",
+        "-optl-mmacosx-version-min=10.14",
+    ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
     },
-    is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
@@ -333,13 +453,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.6.5",
+    version = "8.10.3",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.6.5",
+    version = "8.10.3",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -348,6 +468,9 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -369,6 +492,9 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -380,6 +506,9 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -389,6 +518,9 @@ nixpkgs_package(
     attribute_path = "sass",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -398,15 +530,21 @@ nixpkgs_package(
     attribute_path = "texlive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
 #sphinx
 nixpkgs_package(
     name = "sphinx_nix",
-    attribute_path = "sphinx183",
+    attribute_path = "sphinx183-exts",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -416,6 +554,9 @@ nixpkgs_package(
     attribute_path = "imagemagick",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -426,26 +567,10 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
-)
-
-# This will not be needed after merge of the PR to bazel adding proper javadoc filegroups:
-# https://github.com/bazelbuild/bazel/pull/7898
-# `@javadoc_dev_env//:javadoc` could be then replaced with `@local_jdk//:javadoc` and the below removed
-dev_env_tool(
-    name = "javadoc_dev_env",
-    nix_include = ["bin/javadoc"],
-    nix_label = "@jdk_nix",
-    nix_paths = ["bin/javadoc"],
-    tools = ["javadoc"],
-    win_include = [
-        "bin",
-        "include",
-        "jre",
-        "lib",
-    ],
-    win_paths = ["bin/javadoc.exe"],
-    win_tool = "java-openjdk-8u201",
 )
 
 # This only makes sense on Windows so we just put dummy values in the nix fields.
@@ -471,6 +596,9 @@ nixpkgs_package(
     attribute_path = "scala",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -520,6 +648,9 @@ nixpkgs_package(
     """,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -569,48 +700,50 @@ load("@maven//:defs.bzl", "pinned_maven_install")
 
 pinned_maven_install()
 
+load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
+
+scala_config(scala_version)
+
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_repositories",
 )
 
-scala_repositories((
-    "2.12.6",
-    {
-        "scala_compiler": "3023b07cc02f2b0217b2c04f8e636b396130b3a8544a8dfad498a19c3e57a863",
-        "scala_library": "f81d7144f0ce1b8123335b72ba39003c4be2870767aca15dd0888ba3dab65e98",
-        "scala_reflect": "ffa70d522fc9f9deec14358aa674e6dd75c9dfa39d4668ef15bb52f002ce99fa",
-    },
-))
+# note some dependencies in bazel-jvm-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
+scala_repositories(
+    fetch_sources = True,
+    overriden_artifacts =
+        {
+            "2.12": {
+                "io_bazel_rules_scala_scala_compiler": {
+                    "artifact": "org.scala-lang:scala-compiler:2.12.12",
+                    "sha256": "9dfa682ad7c2859cdcf6a31b9734c8f1ee38e7e391aeafaef91967b6ce819b6b",
+                },
+                "io_bazel_rules_scala_scala_library": {
+                    "artifact": "org.scala-lang:scala-library:2.12.12",
+                    "sha256": "1673ffe8792021f704caddfe92067ed1ec75229907f84380ad68fe621358c925",
+                },
+                "io_bazel_rules_scala_scala_reflect": {
+                    "artifact": "org.scala-lang:scala-reflect:2.12.12",
+                    "sha256": "3c502791757c0c8208f00033d8c4d778ed446efa6f49a6f89b59c6f92b347774",
+                },
+            },
+        }.get(scala_major_version, {}),
+)
 
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 
 scala_register_toolchains()
 
+load("@io_bazel_rules_scala//testing:scalatest.bzl", "scalatest_repositories", "scalatest_toolchain")
+
+scalatest_repositories()
+
+scalatest_toolchain()
+
 load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
-
-load("@io_bazel_rules_docker//repositories:repositories.bzl", container_repositories = "repositories")
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
-
-load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
-
-container_pull(
-    name = "openjdk_base",
-    registry = "docker.io",
-    repository = "openjdk",
-    tag = "8-alpine",
-)
-
-load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
-
-java_image_repositories()
 
 # TODO (aherrmann) This wrapper is only used on Windows.
 #   Replace by an appropriate Windows only `dadew_tool` call.
@@ -630,7 +763,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs-10.16.3",
+    win_tool = "nodejs-12.17.0",
 )
 
 # Setup the Node.js toolchain
@@ -652,15 +785,6 @@ yarn_install(
     package_json = "//:package.json",
     yarn_lock = "//:yarn.lock",
 )
-
-# Install all Bazel dependencies of the @npm packages
-load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
-
-install_bazel_dependencies()
-
-load("@npm_bazel_typescript//:index.bzl", "ts_setup_workspace")
-
-ts_setup_workspace()
 
 # TODO use fine-grained managed dependency
 yarn_install(
@@ -696,23 +820,10 @@ yarn_install(
         "eslint/index.bzl": "def eslint_test(*args, **kwargs):\n    pass",
         "jest-cli/BUILD.bazel": 'exports_files(["index.bzl"])',
         "jest-cli/index.bzl": "def jest_test(*args, **kwargs):\n    pass",
-        "typescript/BUILD.bazel": 'exports_files(["index.bzl"])',
-        "typescript/index.bzl": "def tsc(*args, **kwargs):\n    pass",
+        "@bazel/typescript/BUILD.bazel": 'exports_files(["index.bzl"])',
+        "@bazel/typescript/index.bzl": "def ts_project(*args, **kwargs):\n    pass",
     },
 )
-
-# Bazel Skydoc - Build rule documentation generator
-load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
-
-rules_sass_dependencies()
-
-load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
-
-sass_repositories()
-
-load("@io_bazel_skydoc//skylark:skylark.bzl", "skydoc_repositories")
-
-skydoc_repositories()
 
 # We usually use the _deploy_jar target to produce self-contained jars, but here we're using jar_jar because the size
 # of codegen tool is substantially reduced (as shown below) and that the presence of JVM internal com.sun classes could
@@ -761,18 +872,11 @@ cc_library(
     """,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
-
-nixpkgs_package(
-    name = "python3_nix",
-    attribute_path = "python3",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-register_toolchains("//:nix_python_toolchain") if not is_windows else None
 
 nixpkgs_package(
     name = "postgresql_nix",
@@ -780,8 +884,23 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 )
+
+nixpkgs_package(
+    name = "z3_nix",
+    attribute_path = "z3",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 dev_env_tool(
     name = "postgresql_dev_env",
@@ -793,16 +912,22 @@ dev_env_tool(
     ],
     nix_label = "@postgresql_nix",
     nix_paths = [
-        "bin/initdb",
         "bin/createdb",
+        "bin/dropdb",
+        "bin/initdb",
         "bin/pg_ctl",
         "bin/postgres",
     ],
+    required_tools = {
+        "initdb": ["postgres"],
+        "pg_ctl": ["postgres"],
+    },
     tools = [
         "createdb",
+        "dropdb",
         "initdb",
         "pg_ctl",
-        "postgresql",
+        "postgres",
     ],
     win_include = [
         "mingw64/bin",
@@ -817,8 +942,9 @@ dev_env_tool(
         "mingw64/share": "share",
     },
     win_paths = [
-        "bin/initdb.exe",
         "bin/createdb.exe",
+        "bin/dropdb.exe",
+        "bin/initdb.exe",
         "bin/pg_ctl.exe",
         "bin/postgres.exe",
     ],
@@ -832,10 +958,10 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "lib",
-    jars = glob(["lib/**"]),
+    jars = glob(["lib/**/*.jar"]),
 )
 """,
-    sha256 = "3ffcdf350157700b76392c951342781b771f534a594fdab638fbc34ed46b2328",
-    strip_prefix = "canton-0.9.0",
-    urls = ["https://www.canton.io/releases/canton-0.9.0.tar.gz"],
+    sha256 = "3c6ff12b65d9e6e85686383b811094d8b04d3f4033e725951fba95cc35bd804c",
+    strip_prefix = "canton-community-0.19.0",
+    urls = ["https://www.canton.io/releases/canton-community-0.19.0.tar.gz"],
 )

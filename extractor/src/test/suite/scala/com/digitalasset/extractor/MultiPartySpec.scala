@@ -1,21 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.value.ValueGenerators.{party => partyGen}
-import com.digitalasset.extractor.config.CustomScoptReaders._
-import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.services.ExtractorFixtureAroundAll
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.value.test.ValueGenerators.{party => partyGen}
+import com.daml.extractor.config.CustomScoptReaders._
+import com.daml.extractor.config.ExtractorConfig
+import com.daml.extractor.services.ExtractorFixtureAroundAll
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalacheck.Arbitrary
 import org.scalatest._
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz._
 import scalaz.scalacheck.ScalazArbitrary._
 import scalaz.std.list._
@@ -25,15 +27,14 @@ import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scopt.Read
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class MultiPartySpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
     with ExtractorFixtureAroundAll
     with Matchers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
 
@@ -53,7 +54,8 @@ class MultiPartySpec
 
   "Party parser" should "permit spaces in parties" in {
     readParties.reads("foo bar,baz quux, a b ") should ===(
-      OneAnd("foo bar", List("baz quux", " a b ")))
+      OneAnd("foo bar", List("baz quux", " a b "))
+    )
   }
 
   "Party parser" should "reject non-comma bad characters" in {

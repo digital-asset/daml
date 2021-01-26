@@ -1,97 +1,119 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package crypto
 
 import java.nio.ByteBuffer
-import java.security.{MessageDigest, SecureRandom}
-import java.util
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.value.Value
-import com.google.common.io.BaseEncoding
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
+import com.daml.lf.value.Value
+import scalaz.Order
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-import scala.util.control.NonFatal
+import scala.util.control.NoStackTrace
 
-final class Hash private (private val bytes: Array[Byte]) {
+final class Hash private (val bytes: Bytes) {
 
-  def toByteArray: Array[Byte] = bytes.clone()
+  override def hashCode(): Int = bytes.hashCode()
 
-  def toHexaString: String = Hash.hexEncoding.encode(bytes)
-
-  override def toString: String = s"Hash($toHexaString)"
-
-  override def equals(other: Any): Boolean =
-    other match {
-      case otherHash: Hash => util.Arrays.equals(bytes, otherHash.bytes)
-      case _ => false
-    }
-
-  private var _hashCode: Int = 0
-
-  override def hashCode(): Int = {
-    if (_hashCode == 0) {
-      val code = util.Arrays.hashCode(bytes)
-      _hashCode = if (code == 0) 1 else code
-    }
-    _hashCode
+  override def equals(obj: Any): Boolean = obj match {
+    case that: Hash => this.bytes equals that.bytes
+    case _ => false
   }
 
+  def toHexString: Ref.HexString = Ref.HexString.encode(bytes)
+
+  override def toString: String = s"Hash($toHexString)"
 }
 
 object Hash {
 
-  private val version = 0.toByte
-  private val underlyingHashLength = 32
+  val version = 0.toByte
+  val underlyingHashLength = 32
 
-  private val hexEncoding = BaseEncoding.base16().lowerCase()
+  private case class HashingError(msg: String) extends Exception with NoStackTrace
 
-  def fromBytes(a: Array[Byte]): Either[String, Hash] =
+  private def error(msg: String): Nothing =
+    throw HashingError(msg)
+
+  private def handleError[X](x: => X): Either[String, X] =
+    try {
+      Right(x)
+    } catch {
+      case HashingError(msg) => Left(msg)
+    }
+
+  def fromBytes(bs: Bytes): Either[String, Hash] =
     Either.cond(
-      a.length == underlyingHashLength,
-      new Hash(a.clone()),
-      s"hash should have ${underlyingHashLength} bytes, found ${a.length}",
+      bs.length == underlyingHashLength,
+      new Hash(bs),
+      s"hash should have ${underlyingHashLength} bytes, got ${bs.length}",
     )
 
-  def assertFromBytes(a: Array[Byte]): Hash =
-    data.assertRight(fromBytes(a))
+  def assertFromBytes(bs: Bytes): Hash =
+    data.assertRight(fromBytes(bs))
 
-  def secureRandom(seed: Array[Byte]): () => Hash = {
-    val random = new SecureRandom(seed)
-    () =>
-      {
-        val a = Array.ofDim[Byte](underlyingHashLength)
-        random.nextBytes(a)
-        new Hash(a)
-      }
+  def fromByteArray(a: Array[Byte]): Either[String, Hash] =
+    fromBytes(Bytes.fromByteArray(a))
+
+  def assertFromByteArray(a: Array[Byte]): Hash =
+    data.assertRight(fromByteArray(a))
+
+  // A cryptographic pseudo random generator of Hashes based on hmac
+  // Must be given a high entropy seed when used in production.
+  // Thread safe
+  def secureRandom(seed: Hash): () => Hash = {
+    val counter = new AtomicLong
+    () => hMacBuilder(seed).add(counter.getAndIncrement()).build
   }
 
-  def secureRandom: () => Hash =
-    secureRandom(SecureRandom.getSeed(underlyingHashLength))
+  implicit val ordering: Ordering[Hash] =
+    Ordering.by(_.bytes)
 
-  implicit val HashOrdering: Ordering[Hash] =
-    ((hash1, hash2) => implicitly[Ordering[Iterable[Byte]]].compare(hash1.bytes, hash2.bytes))
+  implicit val order: Order[Hash] = Order.fromScalaOrdering
 
-  private[crypto] sealed abstract class Builder(purpose: Purpose) {
+  @throws[HashingError]
+  private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
+    case cid @ Value.ContractId.V1(_, _) =>
+      cid.toBytes
+    case Value.ContractId.V0(s) =>
+      Utf8.getBytes(s)
+  }
+
+  @throws[HashingError]
+  private[lf] val noCid2String: Value.ContractId => Nothing =
+    _ => error("Contract IDs are not supported in contract keys.")
+
+  private[crypto] sealed abstract class Builder(cid2Bytes: Value.ContractId => Bytes) {
+
+    protected def update(a: ByteBuffer): Unit
 
     protected def update(a: Array[Byte]): Unit
 
-    protected def doFinal(buf: Array[Byte], offset: Int): Unit
+    protected def doFinal(buf: Array[Byte]): Unit
 
     final def build: Hash = {
       val a = Array.ofDim[Byte](underlyingHashLength)
-      doFinal(a, 0)
-      new Hash(a)
+      doFinal(a)
+      new Hash(Bytes.fromByteArray(a))
     }
 
-    final def add(a: Array[Byte]): this.type = {
-      update(a)
+    final def add(buffer: Array[Byte]): this.type = {
+      update(buffer)
       this
     }
+
+    final def add(buffer: ByteBuffer): this.type = {
+      update(buffer)
+      this
+    }
+
+    final def add(a: Bytes): this.type =
+      add(a.toByteBuffer)
 
     private val byteBuff = Array.ofDim[Byte](1)
 
@@ -107,18 +129,23 @@ object Hash {
       add(a.length).add(a)
     }
 
+    final def add(b: Boolean): this.type =
+      add(if (b) 1.toByte else 0.toByte)
+
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def add(a: Int): this.type = {
       intBuffer.rewind()
-      add(intBuffer.putInt(a).array())
+      intBuffer.putInt(a).position(0)
+      add(intBuffer)
     }
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
     final def add(a: Long): this.type = {
       longBuffer.rewind()
-      add(longBuffer.putLong(a).array())
+      longBuffer.putLong(a).position(0)
+      add(longBuffer)
     }
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
@@ -126,6 +153,9 @@ object Hash {
 
     final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](add(size))(f)
+
+    final def iterateOver[T](a: Option[T])(f: (this.type, T) => this.type): this.type =
+      a.fold[this.type](add(0))(f(add(1), _))
 
     final def addDottedName(name: Ref.DottedName): this.type =
       iterateOver(name.segments)(_ add _)
@@ -136,15 +166,28 @@ object Hash {
     final def addIdentifier(id: Ref.Identifier): this.type =
       add(id.packageId).addQualifiedName(id.qualifiedName)
 
+    final def addStringSet[S <: String](set: Set[S]): this.type = {
+      val ss = set.toSeq.sorted[String]
+      iterateOver(ss.iterator, ss.size)(_ add _)
+    }
+
+    @throws[HashingError]
+    final def addCid(cid: Value.ContractId): this.type = {
+      val bytes = cid2Bytes(cid)
+      add(bytes.length)
+      add(bytes)
+    }
+
     // In order to avoid hash collision, this should be used together
-    // with an other data representing uniquely the type of `value`.
+    // with another data representing uniquely the type of `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
-    final def addTypedValue(value: Value[Value.AbsoluteContractId]): this.type =
+    @throws[HashingError]
+    final def addTypedValue(value: Value[Value.ContractId]): this.type =
       value match {
         case Value.ValueUnit =>
           add(0.toByte)
         case Value.ValueBool(b) =>
-          add(if (b) 1.toByte else 0.toByte)
+          add(b)
         case Value.ValueInt64(v) =>
           add(v)
         case Value.ValueNumeric(v) =>
@@ -158,12 +201,8 @@ object Hash {
           add(v)
         case Value.ValueText(v) =>
           add(v)
-        case Value.ValueContractId(v) =>
-          purpose match {
-            case Purpose.ContractKey =>
-              sys.error("Hashing of contract id for contract keys is not supported")
-            case _ => add(v.coid)
-          }
+        case Value.ValueContractId(cid) =>
+          addCid(cid)
         case Value.ValueOptional(None) =>
           add(0)
         case Value.ValueOptional(Some(v)) =>
@@ -178,13 +217,11 @@ object Hash {
           add(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>
           add(v)
-        case Value.ValueGenMap(_) =>
-          sys.error("Hashing of generic map not implemented")
-        // Struct: should never be encountered
-        case Value.ValueStruct(_) =>
-          sys.error("Hashing of struct values is not supported")
+        case Value.ValueGenMap(entries) =>
+          iterateOver(entries.iterator, entries.length)((acc, x) =>
+            acc.addTypedValue(x._1).addTypedValue(x._2)
+          )
       }
-
   }
 
   // The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
@@ -194,20 +231,27 @@ object Hash {
   private[crypto] object Purpose {
     val Testing = Purpose(1)
     val ContractKey = Purpose(2)
+    val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
   }
 
   // package private for testing purpose.
   // Do not call this method from outside Hash object/
-  private[crypto] def builder(purpose: Purpose): Builder = new Builder(purpose) {
+  private[crypto] def builder(
+      purpose: Purpose,
+      cid2Bytes: Value.ContractId => Bytes,
+  ): Builder = new Builder(cid2Bytes) {
 
     private val md = MessageDigest.getInstance("SHA-256")
+
+    override protected def update(a: ByteBuffer): Unit =
+      md.update(a)
 
     override protected def update(a: Array[Byte]): Unit =
       md.update(a)
 
-    override protected def doFinal(buf: Array[Byte], offset: Int): Unit =
-      assert(md.digest(buf, offset, underlyingHashLength) == underlyingHashLength)
+    override protected def doFinal(buf: Array[Byte]): Unit =
+      assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
     md.update(version)
     md.update(purpose.id)
@@ -216,48 +260,62 @@ object Hash {
 
   private val hMacAlgorithm = "HmacSHA256"
 
-  private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(Purpose.PrivateKey) {
+  private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(noCid2String) {
 
     private val mac: Mac = Mac.getInstance(hMacAlgorithm)
 
-    mac.init(new SecretKeySpec(key.bytes, hMacAlgorithm))
+    mac.init(new SecretKeySpec(key.bytes.toByteArray, hMacAlgorithm))
+
+    override protected def update(a: ByteBuffer): Unit =
+      mac.update(a)
 
     override protected def update(a: Array[Byte]): Unit =
       mac.update(a)
 
-    override protected def doFinal(buf: Array[Byte], offset: Int): Unit =
-      mac.doFinal(buf, offset)
+    override protected def doFinal(buf: Array[Byte]): Unit =
+      mac.doFinal(buf, 0)
 
   }
 
-  def fromString(s: String): Either[String, Hash] = {
-    def error = s"Cannot parse hash $s"
-    try {
-      val bytes = hexEncoding.decode(s)
-      Either.cond(
-        bytes.length == underlyingHashLength,
-        new Hash(bytes),
-        error,
-      )
-    } catch {
-      case NonFatal(_) => Left(error)
-    }
+  def fromHexString(s: Ref.HexString): Either[String, Hash] = {
+    val bytes = Ref.HexString.decode(s)
+    Either.cond(
+      bytes.length == underlyingHashLength,
+      new Hash(bytes),
+      s"Cannot parse hash $s",
+    )
   }
+
+  def fromString(s: String): Either[String, Hash] =
+    for {
+      hexaString <- Ref.HexString.fromString(s)
+      hash <- fromHexString(hexaString)
+    } yield hash
 
   def assertFromString(s: String): Hash =
     data.assertRight(fromString(s))
 
   def hashPrivateKey(s: String): Hash =
-    builder(Purpose.PrivateKey).add(s).build
+    builder(Purpose.PrivateKey, noCid2String).add(s).build
 
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
-  def hashContractKey(templateId: Identifier, key: Value[Nothing]): Hash =
-    builder(Hash.Purpose.ContractKey)
+  @throws[HashingError]
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value[Value.ContractId]): Hash =
+    builder(Purpose.ContractKey, noCid2String)
       .addIdentifier(templateId)
       .addTypedValue(key)
       .build
+
+  def safeHashContractKey(templateId: Ref.Identifier, key: Value[Nothing]): Hash =
+    assertHashContractKey(templateId, key)
+
+  def hashContractKey(
+      templateId: Ref.Identifier,
+      key: Value[Value.ContractId],
+  ): Either[String, Hash] =
+    handleError(assertHashContractKey(templateId, key))
 
   def deriveSubmissionSeed(
       nonce: Hash,
@@ -294,7 +352,16 @@ object Hash {
   ): Hash =
     hMacBuilder(nodeSeed)
       .add(submitTime.micros)
-      .iterateOver(parties.toSeq.sorted[String].iterator, parties.size)(_ add _)
+      .addStringSet(parties)
       .build
 
+  // For DAML-on-Corda to ensure the hashing is performed in a way that will work with upgrades.
+  def deriveMaintainerContractKeyUUID(
+      keyHash: Hash,
+      maintainer: Ref.Party,
+  ): Hash =
+    builder(Purpose.MaintainerContractKeyUUID, noCid2String)
+      .add(keyHash)
+      .add(maintainer)
+      .build
 }

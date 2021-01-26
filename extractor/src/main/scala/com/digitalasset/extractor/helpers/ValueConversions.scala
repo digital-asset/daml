@@ -1,27 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.helpers
+package com.daml.extractor.helpers
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum.{
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.value.Value.Sum.{
   Numeric,
   Int64,
   Party,
   Text,
   Timestamp,
-  List => DamlListValue
+  List => DamlListValue,
 }
-import com.digitalasset.ledger.api.v1.value.{
-  Identifier,
-  Record,
-  RecordField,
-  Value,
-  List => DamlList
-}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, List => DamlList}
 
 import scala.language.implicitConversions
 
@@ -36,7 +30,8 @@ object ValueConversions {
   implicit class InstantValues(val i: Instant) extends AnyVal {
     def asTime: Value = {
       val micros = TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(
-        i.getNano.toLong)
+        i.getNano.toLong
+      )
       Value(Timestamp(micros))
     }
   }
@@ -55,8 +50,8 @@ object ValueConversions {
     def asRecordValueOf(identifier: Identifier) = Value(Value.Sum.Record(asRecordOf(identifier)))
 
     private def recordFields: Seq[RecordField] = {
-      labeledValues.map {
-        case (k, v) => RecordField(k, Some(v))
+      labeledValues.map { case (k, v) =>
+        RecordField(k, Some(v))
       }
     }
   }

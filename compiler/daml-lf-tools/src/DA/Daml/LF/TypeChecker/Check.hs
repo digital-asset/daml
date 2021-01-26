@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -30,6 +30,7 @@
 module DA.Daml.LF.TypeChecker.Check
     ( checkModule
     , expandTypeSynonyms
+    , typeOf'
     ) where
 
 import Data.Hashable
@@ -37,17 +38,22 @@ import           Control.Lens hiding (Context, para)
 import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
+import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
+import qualified Data.NameMap as NM
+import qualified Data.IntSet as IntSet
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
+import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+
 
 -- | Check that a list does /not/ contain duplicate elements.
 checkUnique :: (MonadGamma m, Eq a, Hashable a) => (a -> Error) -> [a] -> m ()
@@ -124,6 +130,20 @@ kindOfBuiltin = \case
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
+  BTAnyException -> KStar
+  BTGeneralError -> KStar
+  BTArithmeticError -> KStar
+  BTContractError -> KStar
+
+checkKind :: MonadGamma m => Kind -> m ()
+checkKind = \case
+  KNat -> pure ()
+  KStar -> pure ()
+  k@(KArrow _ KNat) ->
+    throwWithContext (ENatKindRightOfArrow k)
+  KArrow a b -> do
+    checkKind a
+    checkKind b
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -145,7 +165,9 @@ kindOf = \case
     checkType targ argKind
     pure resKind
   TBuiltin btype -> pure (kindOfBuiltin btype)
-  TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
+  TForall (v, k) t1 -> do
+    checkKind k
+    introTypeVar v k $ checkType t1 KStar $> KStar
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
 
@@ -192,13 +214,25 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
+  BEAnyExceptionMessage -> pure $ TAnyException :-> TText
+  BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
+  BEArithmeticErrorMessage -> pure $ TArithmeticError :-> TText
+  BEContractErrorMessage -> pure $ TContractError :-> TText
+  BEMakeGeneralError -> pure $ TText :-> TGeneralError
+  BEMakeArithmeticError -> pure $ TText :-> TArithmeticError
+  BEMakeContractError -> pure $ TText :-> TContractError
   BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BEGreaterGeneric   -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BEGreaterEqGeneric -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BEEqual     btype  -> pure $ tComparison btype
   BELess      btype  -> pure $ tComparison btype
   BELessEq    btype  -> pure $ tComparison btype
   BEGreater   btype  -> pure $ tComparison btype
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
+  BEToTextContractId -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
   BETextFromCodePoints -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
@@ -369,67 +403,144 @@ typeOfTmLam (var, typ) body = do
   pure (typ :-> bodyType)
 
 typeOfTyLam :: MonadGamma m => (TypeVarName, Kind) -> Expr -> m Type
-typeOfTyLam (tvar, kind) expr = TForall (tvar, kind) <$> introTypeVar tvar kind (typeOf expr)
+typeOfTyLam (tvar, kind) expr = do
+    checkKind kind
+    TForall (tvar, kind) <$>
+        introTypeVar tvar kind (typeOf expr)
 
-introCasePattern :: MonadGamma m => Type -> CasePattern -> m a -> m a
-introCasePattern scrutType patn cont = case patn of
-  CPVariant patnTCon con var -> do
-    DefDataType _loc _name _serializable tparams dataCons <- inWorld (lookupDataType patnTCon)
-    variantCons <- match _DataVariant (EExpectedVariantType patnTCon) dataCons
-    conArgType <-
-      match _Just (EUnknownDataCon con) (con `lookup` variantCons)
-    (scrutTCon, scrutTArgs) <-
-      match _TConApp (EExpectedDataType scrutType) scrutType
-    unless (scrutTCon == patnTCon) $
-      throwWithContext (ETypeConMismatch patnTCon scrutTCon)
-    -- NOTE(MH): The next line should never throw since @scrutTApp@ has passed
-    -- 'checkTypeConApp'. The call to 'substitute' is hence safe for the same
-    -- reason as in 'checkTypeConApp'.
-    subst0 <-
-      match _Just (ETypeConAppWrongArity (TypeConApp scrutTCon scrutTArgs)) (zipExactMay tparams scrutTArgs)
-    let subst1 = map (\((v, _k), t) -> (v, t)) subst0
-    let varType = substitute (Map.fromList subst1) conArgType
-    introExprVar var varType cont
-  CPEnum patnTCon con -> do
-    defDataType <- inWorld (lookupDataType patnTCon)
-    enumCons <- match _DataEnum (EExpectedEnumType patnTCon) (dataCons defDataType)
-    unless (con `elem` enumCons) $ throwWithContext (EUnknownDataCon con)
-    scrutTCon <- match _TCon (EExpectedDataType scrutType) scrutType
-    unless (scrutTCon == patnTCon) $
-      throwWithContext (ETypeConMismatch patnTCon scrutTCon)
-    cont
-  CPUnit
-    | scrutType == TUnit -> cont
-    | otherwise ->
-        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TUnit, expr = Nothing}
-  CPBool _
-    | scrutType == TBool -> cont
-    | otherwise ->
-        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TBool, expr = Nothing}
-  CPNil -> do
-    _ :: Type <- match _TList (EExpectedListType scrutType) scrutType
-    cont
-  CPCons headVar tailVar -> do
-    elemType <- match _TList (EExpectedListType scrutType) scrutType
-    -- NOTE(MH): The second 'introExprVar' will catch the bad case @headVar ==
-    -- tailVar@.
-    introExprVar headVar elemType $ introExprVar tailVar (TList elemType) cont
-  CPDefault -> cont
-  CPSome bodyVar -> do
-    bodyType <- match _TOptional (EExpectedOptionalType scrutType) scrutType
-    introExprVar bodyVar bodyType cont
-  CPNone -> do
-    _ :: Type <- match _TOptional (EExpectedOptionalType scrutType) scrutType
-    cont
+-- | Type to track which constructor ranks have be covered in a pattern matching.
+data MatchedRanks = AllRanks | SomeRanks !IntSet.IntSet
+
+emptyMR :: MatchedRanks
+emptyMR = SomeRanks IntSet.empty
+
+singletonMR :: Int -> MatchedRanks
+singletonMR k = SomeRanks (IntSet.singleton k)
+
+unionMR :: MatchedRanks -> MatchedRanks -> MatchedRanks
+unionMR AllRanks _ = AllRanks
+unionMR _ AllRanks = AllRanks
+unionMR (SomeRanks ks) (SomeRanks ls) = SomeRanks (ks `IntSet.union` ls)
+
+unionsMR :: [MatchedRanks] -> MatchedRanks
+unionsMR = foldl' unionMR emptyMR
+
+missingMR :: MatchedRanks -> Int -> Maybe Int
+missingMR AllRanks _ = Nothing
+missingMR (SomeRanks ks) n
+    | IntSet.size ks == n = Nothing
+    | otherwise = IntSet.lookupGE 0 (IntSet.fromDistinctAscList [0..n-1] `IntSet.difference` ks)
+
+typeOfAlts :: MonadGamma m => (CaseAlternative -> m (MatchedRanks, Type)) -> [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAlts f alts = do
+    (ks, ts) <- unzip <$> traverse f alts
+    case ts of
+        [] -> throwWithContext EEmptyCase
+        t:ts' -> do
+            forM_ ts' $ \t' -> unless (alphaType t t') $
+                throwWithContext ETypeMismatch{foundType = t', expectedType = t, expr = Nothing}
+            pure (unionsMR ks, t)
+
+typeOfAltsVariant :: MonadGamma m => Qualified TypeConName -> [Type] -> [TypeVarName] -> [(VariantConName, Type)] -> [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsVariant scrutTCon scrutTArgs tparams cons =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> case patn of
+        CPVariant patnTCon con var
+          | scrutTCon == patnTCon -> do
+            (conRank, conArgType) <- match _Just (EUnknownDataCon con) (con `lookupWithIndex` cons)
+            -- NOTE(MH): The next line should never throw since @scrutType@ has
+            -- already been checked. The call to 'substitute' is hence safe for
+            -- the same reason as in 'checkTypeConApp'.
+            subst <- match _Just (ETypeConAppWrongArity (TypeConApp scrutTCon scrutTArgs)) (zipExactMay tparams scrutTArgs)
+            let varType = substitute (Map.fromList subst) conArgType
+            rhsType <- introExprVar var varType $ typeOf rhs
+            pure (singletonMR conRank, rhsType)
+        CPDefault -> (,) AllRanks <$> typeOf rhs
+        _ -> throwWithContext (EPatternTypeMismatch patn (TConApp scrutTCon scrutTArgs))
+
+typeOfAltsEnum :: MonadGamma m => Qualified TypeConName -> [VariantConName] -> [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsEnum scrutTCon cons =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> case patn of
+        CPEnum patnTCon con
+          | scrutTCon == patnTCon -> do
+            conRank <- match _Just (EUnknownDataCon con) (con `elemIndex` cons)
+            rhsType <- typeOf rhs
+            pure (singletonMR conRank, rhsType)
+        CPDefault -> (,) AllRanks <$> typeOf rhs
+        _ -> throwWithContext (EPatternTypeMismatch patn (TCon scrutTCon))
+
+typeOfAltsUnit :: MonadGamma m => [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsUnit  =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPUnit -> (,) AllRanks <$> typeOf rhs
+            CPDefault -> (,) AllRanks <$> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn TUnit)
+
+typeOfAltsBool :: MonadGamma m => [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsBool =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPBool (b :: Bool) -> do
+                rhsType <- typeOf rhs
+                pure (singletonMR (fromEnum b), rhsType)
+            CPDefault -> (,) AllRanks <$> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn TBool)
+
+typeOfAltsList :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsList elemType =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPNil -> (,) (singletonMR 0) <$> typeOf rhs
+            CPCons headVar tailVar
+              | headVar == tailVar -> throwWithContext (EClashingPatternVariables headVar)
+              | otherwise -> do
+                rhsType <- introExprVar headVar elemType $ introExprVar tailVar (TList elemType) $ typeOf rhs
+                pure (singletonMR 1, rhsType)
+            CPDefault -> (,) AllRanks <$> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn (TList elemType))
+
+typeOfAltsOptional :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsOptional elemType =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPNone -> (,) (singletonMR 0) <$> typeOf rhs
+            CPSome bodyVar -> do
+                rhsType <- introExprVar bodyVar elemType $ typeOf rhs
+                pure (singletonMR 1, rhsType)
+            CPDefault -> (,) AllRanks <$> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn (TOptional elemType))
+
+-- NOTE(MH): The DAML-LF spec says that `CPDefault` matches _every_ value,
+-- regardless of its type.
+typeOfAltsOnlyDefault :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
+typeOfAltsOnlyDefault scrutType =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPDefault -> (,) AllRanks <$> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn scrutType)
 
 typeOfCase :: MonadGamma m => Expr -> [CaseAlternative] -> m Type
-typeOfCase _ [] = throwWithContext EEmptyCase
-typeOfCase scrut (CaseAlternative patn0 rhs0:alts) = do
-  scrutType <- typeOf scrut
-  rhsType <- introCasePattern scrutType patn0 (typeOf rhs0)
-  for_ alts $ \(CaseAlternative patn rhs) ->
-    introCasePattern scrutType patn (checkExpr rhs rhsType)
-  pure rhsType
+typeOfCase scrut alts = do
+    scrutType <- typeOf scrut
+    (numRanks, rankToPat, (matchedRanks, rhsType)) <- case scrutType of
+        TConApp scrutTCon scrutTArgs -> do
+            DefDataType{dataParams, dataCons} <- inWorld (lookupDataType scrutTCon)
+            case dataCons of
+                DataVariant cons -> (,,) (length cons) (\k -> CPVariant scrutTCon (fst (cons !! k)) wildcard)
+                    <$> typeOfAltsVariant scrutTCon scrutTArgs (map fst dataParams) cons alts
+                DataEnum cons ->  (,,) (length cons) (\k -> CPEnum scrutTCon (cons !! k))
+                    <$> typeOfAltsEnum scrutTCon cons alts
+                DataRecord{} -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+        TUnit -> (,,) 1 (const CPUnit) <$> typeOfAltsUnit alts
+        TBool -> (,,) 2 (CPBool . toEnum) <$> typeOfAltsBool alts
+        TList elemType -> (,,) 2 ([CPNil, CPCons wildcard wildcard] !!) <$> typeOfAltsList elemType alts
+        TOptional elemType -> (,,) 2 ([CPNone, CPSome wildcard] !!) <$> typeOfAltsOptional elemType alts
+        _ -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+    whenJust (missingMR matchedRanks numRanks) $ \k ->
+        throwWithContext (ENonExhaustivePatterns (rankToPat k) scrutType)
+    pure rhsType
+  where
+    wildcard = ExprVarName "_"
 
 typeOfLet :: MonadGamma m => Binding -> Expr -> m Type
 typeOfLet (Binding (var, typ0) expr) body = do
@@ -467,13 +578,24 @@ checkCreate tpl arg = do
   checkExpr arg (TCon tpl)
 
 typeOfExercise :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Maybe Expr -> Expr -> m Type
-typeOfExercise tpl chName cid mbActors arg = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExercise tpl chName cid arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  whenJust mbActors $ \actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
+
+typeOfExerciseByKey :: MonadGamma m =>
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExerciseByKey tplId chName key arg = do
+  tpl <- inWorld (lookupTemplate tplId)
+  case tplKey tpl of
+    Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey tplId)
+    Just tKey -> do
+      choice <- inWorld (lookupChoice (tplId, chName))
+      checkExpr key (tplKeyType tKey)
+      checkExpr arg (chcArgType choice)
+      pure (TUpdate (chcReturnType choice))
 
 checkFetch :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkFetch tpl cid = do
@@ -495,7 +617,8 @@ typeOfUpdate = \case
   UPure typ expr -> checkPure typ expr $> TUpdate typ
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
-  UExercise tpl choice cid actors arg -> typeOfExercise tpl choice cid actors arg
+  UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
+  UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
@@ -507,6 +630,12 @@ typeOfUpdate = \case
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
+  UTryCatch typ expr var handler -> do
+    checkType typ KStar
+    checkExpr expr (TUpdate typ)
+    introExprVar var TAnyException $ do
+        checkExpr handler (TOptional (TUpdate typ))
+    pure (TUpdate typ)
 
 typeOfScenario :: MonadGamma m => Scenario -> m Type
 typeOfScenario = \case
@@ -569,6 +698,19 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
+  EToAnyException ty val -> do
+    checkExceptionType ty
+    checkExpr val ty
+    pure TAnyException
+  EFromAnyException ty val -> do
+    checkExceptionType ty
+    checkExpr val TAnyException
+    pure (TOptional ty)
+  EThrow ty1 ty2 val -> do
+    checkType ty1 KStar
+    checkExceptionType ty2
+    checkExpr val ty2
+    pure ty1
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -591,11 +733,26 @@ checkGroundType ty = do
     _ <- checkType ty KStar
     checkGroundType' ty
 
+checkExceptionType' :: MonadGamma m => Type -> m ()
+checkExceptionType' = \case
+    TGeneralError -> pure ()
+    TArithmeticError -> pure ()
+    TContractError -> pure ()
+    TCon qtcon -> do
+      _ <- inWorld (lookupException qtcon)
+      pure ()
+    ty -> throwWithContext (EExpectedExceptionType ty)
+
+checkExceptionType :: MonadGamma m => Type -> m ()
+checkExceptionType ty = do
+    checkType ty KStar
+    checkExceptionType' ty
+
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
   exprType <- typeOf expr
   typX <- expandTypeSynonyms typ
-  unless (alphaEquiv exprType typX) $
+  unless (alphaType exprType typX) $
     throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 
@@ -606,6 +763,7 @@ checkExpr expr typ = void (checkExpr' expr typ)
 checkDefTypeSyn :: MonadGamma m => DefTypeSyn -> m ()
 checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   checkUnique EDuplicateTypeParam $ map fst synParams
+  mapM_ (checkKind . snd) synParams
   foldr (uncurry introTypeVar) base synParams
   where
     base = checkType synType KStar
@@ -614,6 +772,7 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 checkDefDataType :: MonadGamma m => DefDataType -> m ()
 checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
   checkUnique EDuplicateTypeParam $ map fst params
+  mapM_ (checkKind . snd) params
   foldr (uncurry introTypeVar) base params
   where
     base = case dataCons of
@@ -635,10 +794,14 @@ checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
       _ -> throwWithContext (EExpectedScenarioType typ)
 
 checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
-checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, paramType) retType upd) = do
+checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
-  introExprVar param paramType $ checkExpr actors (TList TParty)
+  introExprVar param paramType $ checkExpr controllers (TList TParty)
+  introExprVar param paramType $ do
+    whenJust mbObservers $ \observers -> do
+      _checkFeature featureChoiceObservers
+      checkExpr observers (TList TParty)
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 
@@ -671,13 +834,26 @@ checkTemplateKey param tcon TemplateKey{..} = do
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 
+checkDefException :: MonadGamma m => Module -> DefException -> m ()
+checkDefException m DefException{..} = do
+    let modName = moduleName m
+        tcon = Qualified PRSelf modName exnName
+    DefDataType _loc _name _serializable tyParams dataCons <- inWorld (lookupDataType tcon)
+    unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
+    checkExpr exnMessage (TCon tcon :-> TText)
+    _ <- match _DataRecord (EExpectedExceptionTypeIsRecord modName exnName) dataCons
+    case NM.lookup exnName (moduleTemplates m) of
+        Nothing -> pure ()
+        Just _ -> throwWithContext (EExpectedExceptionTypeIsNotTemplate modName exnName)
+
 -- NOTE(MH): It is important that the data type definitions are checked first.
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions) = do
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
+  traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
   traverse_ (with (ContextDefValue m) checkDefValue) values

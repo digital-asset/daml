@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.config
+package com.daml.ledger.client.binding.config
 
 import pureconfig.ConfigConvert
 
@@ -28,11 +28,14 @@ object Positive {
 
   private def convertPositive[T: Numeric](readStr: String => T) = {
 
-    ConfigConvert.viaStringTry[Positive[T]]({ s =>
-      for {
-        number <- Try(readStr(s))
-        positive <- apply(number)
-      } yield positive
-    }, _.toString)
+    ConfigConvert.viaStringTry[Positive[T]](
+      { s =>
+        for {
+          number <- Try(readStr(s))
+          positive <- apply(number)
+        } yield positive
+      },
+      _.toString,
+    )
   }
 }

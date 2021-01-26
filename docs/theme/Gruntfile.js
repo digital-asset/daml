@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 module.exports = function(grunt) {
@@ -160,11 +160,11 @@ module.exports = function(grunt) {
     watch: {
       /* Compile sass changes into theme directory */
       sass: {
-        files: ['sass/*.sass', 'bower_components_static/**/*.sass'],
+        files: ['sass/**/*.sass', 'bower_components_static/**/*.sass'],
         tasks: ['sass:dev']
       },
       /* Static */
-      sass: {
+      browserify: {
         files: ['da_theme_skeleton/**/*'],
         tasks: ['clean','copy:skeleton','sass:dev','browserify:dev']
       },

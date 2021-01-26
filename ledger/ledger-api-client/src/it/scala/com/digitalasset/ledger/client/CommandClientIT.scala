@@ -1,46 +1,48 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.testing.utils.{
   IsStatusException,
   MockMessages,
-  SuiteResourceManagementAroundAll
+  SuiteResourceManagementAroundAll,
 }
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField}
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.util.Ctx
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.api.v1.value.{Record, RecordField}
+import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.platform.common.LedgerIdMode
+import com.daml.dec.DirectExecutionContext
+import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -48,7 +50,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.control.NonFatal
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class CommandClientIT
     extends AsyncWordSpec
     with TestCommands
@@ -61,27 +62,26 @@ final class CommandClientIT
     CommandClientConfiguration(
       maxCommandsInFlight = 1,
       maxParallelSubmissions = 1,
-      overrideTtl = true,
-      ttl = Duration.ofSeconds(30))
+      defaultDeduplicationTime = Duration.ofSeconds(30),
+    )
 
   private val testLedgerId = domain.LedgerId("ledgerId")
   private val testNotLedgerId = domain.LedgerId("hotdog")
 
   private def commandClientWithoutTime(
-      ledgerId: domain.LedgerId = testLedgerId,
+      ledgerId: domain.LedgerId,
       applicationId: String = MockMessages.applicationId,
-      configuration: CommandClientConfiguration = defaultCommandClientConfiguration)
-    : CommandClient =
+      configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
+  ): CommandClient =
     new CommandClient(
       CommandSubmissionServiceGrpc.stub(channel),
       CommandCompletionServiceGrpc.stub(channel),
       ledgerId,
       applicationId,
       configuration,
-      None
     )
 
-  private def timeProvider(ledgerId: domain.LedgerId = testLedgerId): Future[TimeProvider] = {
+  private def timeProvider(ledgerId: domain.LedgerId): Future[TimeProvider] = {
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), ledgerId.unwrap)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
@@ -90,13 +90,12 @@ final class CommandClientIT
   private def commandClient(
       ledgerId: domain.LedgerId = testLedgerId,
       applicationId: String = MockMessages.applicationId,
-      configuration: CommandClientConfiguration = defaultCommandClientConfiguration)
-    : Future[CommandClient] =
+      configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
+  ): Future[CommandClient] =
     timeProvider(ledgerId)
-      .map(
-        tp =>
-          commandClientWithoutTime(ledgerId, applicationId, configuration)
-            .withTimeProvider(Some(tp)))(DirectExecutionContext)
+      .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))(
+        DirectExecutionContext
+      )
 
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Static(testLedgerId))
@@ -116,7 +115,11 @@ final class CommandClientIT
           Some(
             Record(
               Some(templateIds.dummy),
-              Seq(RecordField("operator", Option(MockMessages.party.asParty)))))).wrap)
+              Seq(RecordField("operator", Option(MockMessages.party.asParty))),
+            )
+          ),
+        ).wrap
+      ),
     )
 
   // Commands and completions can be read out of order. Since we use GRPC monocalls to send,
@@ -125,17 +128,16 @@ final class CommandClientIT
   private def randomDelay[T](t: T): Source[T, NotUsed] =
     Source.single(t).delay(FiniteDuration((Math.random() * 25).toLong, TimeUnit.MILLISECONDS))
 
-  /**
-    * Reads a set of elements expected in the given source. Returns a pair of sets (elements seen, elements not seen).
+  /** Reads a set of elements expected in the given source. Returns a pair of sets (elements seen, elements not seen).
     */
   private def readExpectedElements[T](
       src: Source[T, NotUsed],
       expected: Set[T],
-      timeLimit: Span = 3.seconds): Future[(Set[T], Set[T])] =
+      timeLimit: Span,
+  ): Future[(Set[T], Set[T])] =
     src
-      .scan((Set[T](), expected)) {
-        case ((elementsSeen, elementsUnseen), t) =>
-          (elementsSeen + t, elementsUnseen - t)
+      .scan((Set[T](), expected)) { case ((elementsSeen, elementsUnseen), t) =>
+        (elementsSeen + t, elementsUnseen - t)
       }
       .takeWhile({ case (_, remainingElements) => remainingElements.nonEmpty }, inclusive = true)
       .takeWithin(timeLimit)
@@ -148,31 +150,37 @@ final class CommandClientIT
   private def assertCommandFailsWithCode(
       submitRequest: SubmitRequest,
       expectedErrorCode: Code,
-      expectedMessageSubString: String): Future[Assertion] =
+      expectedMessageSubString: String,
+  ): Future[Assertion] =
     submitCommand(submitRequest).map { completion =>
-      completion.getStatus should have('code (expectedErrorCode.value))
+      completion.getStatus.code should be(expectedErrorCode.value)
       completion.getStatus.message should include(expectedMessageSubString)
     }(DirectExecutionContext)
 
-  /**
-    * Reads a set of command IDs expected in the given client after the given checkpoint.
+  /** Reads a set of command IDs expected in the given client after the given checkpoint.
     * Returns a pair of sets (elements seen, elements not seen).
     */
   private def readExpectedCommandIds(
       client: CommandClient,
       checkpoint: LedgerOffset,
       expected: Set[String],
-      timeLimit: Span = 6.seconds): Future[(Set[String], Set[String])] =
-    readExpectedElements(client.completionSource(submittingPartyList, checkpoint).collect {
-      case CompletionStreamElement.CompletionElement(c) => c.commandId
-    }, expected, timeLimit)
+      timeLimit: Span = 6.seconds,
+  ): Future[(Set[String], Set[String])] =
+    readExpectedElements(
+      client.completionSource(submittingPartyList, checkpoint).collect {
+        case CompletionStreamElement.CompletionElement(c) => c.commandId
+      },
+      expected,
+      timeLimit,
+    )
 
   private def recordWithArgument(original: Record, fieldToInclude: RecordField): Record =
     original.update(_.fields.modify(recordFieldsWithArgument(_, fieldToInclude)))
 
   private def recordFieldsWithArgument(
       originalFields: Seq[RecordField],
-      fieldToInclude: RecordField): Seq[RecordField] = {
+      fieldToInclude: RecordField,
+  ): Seq[RecordField] = {
     var replacedAnElement: Boolean = false
     val updated = originalFields.map { original =>
       if (original.label == fieldToInclude.label) {
@@ -223,7 +231,8 @@ final class CommandClientIT
       "fail with the expected status on a ledger Id mismatch" in {
         Source
           .single(
-            Ctx(1, submitRequestWithId("1").update(_.commands.ledgerId := testNotLedgerId.unwrap)))
+            Ctx(1, submitRequestWithId("1").update(_.commands.ledgerId := testNotLedgerId.unwrap))
+          )
           .via(commandClientWithoutTime(testNotLedgerId).submissionFlow())
           .runWith(Sink.head)
           .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))
@@ -292,12 +301,11 @@ final class CommandClientIT
           result
         }
 
-        resultF map {
-          case (seenCommandIds, remainingCommandIds) =>
-            // N.B.: completions may include already-seen elements, and may be out of order
-            seenCommandIds should contain allElementsOf commandIdStrings
-            remainingCommandIds.toList should have length 0
-            Succeeded
+        resultF map { case (seenCommandIds, remainingCommandIds) =>
+          // N.B.: completions may include already-seen elements, and may be out of order
+          seenCommandIds should contain allElementsOf commandIdStrings
+          remainingCommandIds.toList should have length 0
+          Succeeded
         }
       }
 
@@ -319,7 +327,8 @@ final class CommandClientIT
           (seenCommandIds, remainingCommandIds) <- readExpectedCommandIds(
             client,
             checkpoint.getOffset,
-            commandIdStrings)
+            commandIdStrings,
+          )
         } yield {
           seenCommandIds should contain allElementsOf commandIdStrings
           remainingCommandIds.toList should have length 0
@@ -360,12 +369,13 @@ final class CommandClientIT
         val commandWithInvalidArgs =
           submitRequest(
             "Creating_contracts_for_invalid_arg_test",
-            List(CreateCommand(Some(templateIds.dummy), Some(Record())).wrap))
+            List(CreateCommand(Some(templateIds.dummy), Some(Record())).wrap),
+          )
 
         assertCommandFailsWithCode(
           commandWithInvalidArgs,
           Code.INVALID_ARGUMENT,
-          expectedMessageSubstring
+          expectedMessageSubstring,
         )
       }
 
@@ -378,14 +388,18 @@ final class CommandClientIT
             List(
               CreateCommand(
                 Some(templateIds.dummy),
-                Some(List("operator" -> true.asBoolean)
-                  .asRecordOf(templateIds.dummy))).wrap)
+                Some(
+                  List("operator" -> true.asBoolean)
+                    .asRecordOf(templateIds.dummy)
+                ),
+              ).wrap
+            ),
           )
 
         assertCommandFailsWithCode(
           command,
           Code.INVALID_ARGUMENT,
-          expectedMessageSubstring
+          expectedMessageSubstring,
         )
       }
 
@@ -398,14 +412,18 @@ final class CommandClientIT
             List(
               CreateCommand(
                 Some(templateIds.dummy),
-                Some(List("hotdog" -> true.asBoolean)
-                  .asRecordOf(templateIds.dummy))).wrap)
+                Some(
+                  List("hotdog" -> true.asBoolean)
+                    .asRecordOf(templateIds.dummy)
+                ),
+              ).wrap
+            ),
           )
 
         assertCommandFailsWithCode(
           command,
           Code.INVALID_ARGUMENT,
-          expectedMessageSubstring
+          expectedMessageSubstring,
         )
       }
 
@@ -419,8 +437,9 @@ final class CommandClientIT
           List(
             CreateCommand(
               Some(templateIds.parameterShowcase),
-              Some(recordWithArgument(paramShowcaseArgs, RecordField("decimal", "1E-19".asNumeric)))
-            ).wrap)
+              Some(recordWithArgument(paramShowcaseArgs, RecordField("decimal", "1E-19".asNumeric))),
+            ).wrap
+          ),
         )
 
         assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, expectedMessageSubString)
@@ -433,20 +452,25 @@ final class CommandClientIT
             List(
               CreateCommand(
                 Some(templateIds.dummy),
-                Some(List("operator" -> ("not" + MockMessages.party).asParty)
-                  .asRecordOf(templateIds.dummy))).wrap)
+                Some(
+                  List("operator" -> ("not" + MockMessages.party).asParty)
+                    .asRecordOf(templateIds.dummy)
+                ),
+              ).wrap
+            ),
           )
 
         assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "requires authorizers")
       }
 
       "not accept exercises with bad contract IDs, return INVALID_ARGUMENT" in {
-        val contractId = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
+        val contractId = "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
         val command =
           submitRequest(
             "Exercise_contract_not_found",
             List(
-              ExerciseCommand(Some(templateIds.dummy), contractId, "DummyChoice1", Some(unit)).wrap)
+              ExerciseCommand(Some(templateIds.dummy), contractId, "DummyChoice1", Some(unit)).wrap
+            ),
           )
 
         assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "error")

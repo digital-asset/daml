@@ -16,20 +16,15 @@ let
           enableLibraryProfiling = args.enableLibraryProfiling or true;
           doCheck = args.doCheck or false;
       });
-      withPackages = packages: super.callPackage ./with-packages-wrapper.nix {
-          inherit (self) ghc llvmPackages;
-          inherit packages;
-      };
-      ghcWithPackages = selectFrom: withPackages (selectFrom self);
   });
 
-  ghc = pkgs.callPackage ./overrides/ghc-8.6.5.nix rec {
-    bootPkgs = pkgs.haskell.packages.ghc863Binary;
+  ghc = pkgs.callPackage ./overrides/ghc-8.10.3.nix rec {
+    bootPkgs = pkgs.haskell.packages.ghc865Binary;
     inherit (pkgs.python3Packages) sphinx;
     inherit (pkgs) buildLlvmPackages;
     enableIntegerSimple = true;
-    enableShared = false;
-    enableRelocatedStaticLibs = true;
+    enableShared = true;
+    enableRelocatedStaticLibs = false;
     libffi = null;
   };
 
@@ -37,7 +32,7 @@ let
     haskellLib = pkgs.haskell.lib;
     inherit ghc;
     buildHaskellPackages = packages;
-    compilerConfig = pkgs.callPackage "${toString pkgs.path}/pkgs/development/haskell-modules/configuration-ghc-8.6.x.nix" { haskellLib = pkgs.haskell.lib; };
+    compilerConfig = pkgs.callPackage "${toString pkgs.path}/pkgs/development/haskell-modules/configuration-ghc-8.10.x.nix" { haskellLib = pkgs.haskell.lib; };
     overrides = hsOverrides;
   };
 

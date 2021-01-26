@@ -1,8 +1,8 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
-import ReactMarkdown = require('react-markdown');
+import ReactMarkdown from 'react-markdown';
 import styled from '../theme';
 
 /**
@@ -79,7 +79,7 @@ export interface GuideProps {
   className?: string;
 }
 
-export const Guide: React.StatelessComponent<GuideProps> = (props) => (
+export const Guide: React.FC<GuideProps> = (props) => (
   <main className={props.className}>
     <Header>
       <Container>

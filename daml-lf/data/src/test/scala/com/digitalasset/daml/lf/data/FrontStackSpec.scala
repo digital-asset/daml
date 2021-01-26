@@ -1,21 +1,52 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-
+import com.daml.scalatest.{Unnatural, WordSpecCheckLaws}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 
+import scala.collection.compat._
+
 class FrontStackSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks
+    with ScalaCheckPropertyChecks
     with WordSpecCheckLaws {
+
   import DataArbitrary._
+
+  "apply" when {
+    "1 element is provided" should {
+      "behave the same as prepend" in forAll { x: Int =>
+        FrontStack(x) should ===(x +: FrontStack.empty)
+      }
+    }
+
+    "2 elements are provided" should {
+      "behave the same as prepend" in forAll { (x: Int, y: Int) =>
+        FrontStack(x, y) should ===(x +: y +: FrontStack.empty)
+      }
+    }
+
+    "more than 2 elements are provided" should {
+      "behave the same as prepend" in forAll { (x: Int, y: Int, z: Int, rest: Seq[Int]) =>
+        FrontStack(x, y, z, rest: _*) should ===(
+          ImmArray(Seq(x, y, z) ++ rest) ++: FrontStack.empty
+        )
+      }
+    }
+
+    "a sequence of elements is provided" should {
+      "behave the same as prepend" in forAll { xs: Seq[Int] =>
+        FrontStack(xs) should ===(ImmArray(xs) ++: FrontStack.empty)
+      }
+    }
+  }
 
   "++:" should {
     "yield equal results to +:" in forAll { (ia: ImmArray[Int], fs: FrontStack[Int]) =>
@@ -25,7 +56,7 @@ class FrontStackSpec
 
   "toImmArray" should {
     "yield same elements as iterator" in forAll { fs: FrontStack[Int] =>
-      fs.toImmArray should ===(fs.iterator.to[ImmArray])
+      fs.toImmArray should ===(fs.iterator.to(ImmArray))
     }
   }
 
@@ -37,8 +68,8 @@ class FrontStackSpec
 
   "slowApply" should {
     "throw when out of bounds" in forAll { fs: FrontStack[Int] =>
-      an[IndexOutOfBoundsException] should be thrownBy (fs.slowApply(-1))
-      an[IndexOutOfBoundsException] should be thrownBy (fs.slowApply(fs.length))
+      an[IndexOutOfBoundsException] should be thrownBy fs.slowApply(-1)
+      an[IndexOutOfBoundsException] should be thrownBy fs.slowApply(fs.length)
     }
 
     "preserve Seq's apply" in forAll { fs: FrontStack[Int] =>

@@ -12,8 +12,8 @@
     "noFallthroughCasesInSwitch": true,
     "outDir": "lib/",
     "module": "commonjs",
+    "esModuleInterop": true,
     "declaration": true,
     "sourceMap": true
-  },
-  "files": ["index.ts"]
+  }
 }

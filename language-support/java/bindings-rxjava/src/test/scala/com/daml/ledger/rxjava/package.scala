@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger
@@ -6,8 +6,8 @@ package com.daml.ledger
 import java.time.Clock
 import java.util.UUID
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth.{
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.auth.{
   AuthServiceStatic,
   Authorizer,
   Claim,
@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.auth.{
   ClaimAdmin,
   ClaimPublic,
   ClaimReadAsParty,
-  Claims
+  Claims,
 }
 
 package object rxjava {
@@ -49,7 +49,8 @@ package object rxjava {
         Claims(Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someParty))))
       case `someOtherPartyReadToken` =>
         Claims(
-          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty))))
+          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty)))
+        )
       case `someOtherPartyReadWriteToken` =>
         Claims(Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someOtherParty))))
     }

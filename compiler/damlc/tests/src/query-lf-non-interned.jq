@@ -11,3 +11,7 @@ def get_dotted_name(pkg): .name_dname.segments;
 def get_field(pkg): .field_str;
 
 def get_name(pkg): .name_str;
+
+def get_text(pkg): .text_str;
+
+def norm_ty(pkg): .;

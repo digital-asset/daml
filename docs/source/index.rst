@@ -1,8 +1,8 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML SDK documentation
-######################
+Daml Documentation
+##################
 
 .. toctree::
    :titlesonly:
@@ -18,21 +18,24 @@ DAML SDK documentation
    :caption: Getting started
 
    Installing the SDK <getting-started/installation>
-   Quickstart Guide <getting-started/quickstart>
+   Building Your App <getting-started/index>
+   getting-started/app-architecture
+   getting-started/first-feature
+   getting-started/testing
+   Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Writing DAML
+   :caption: Writing Daml
 
    daml/intro/0_Intro.rst
    daml/reference/index
-   daml/reference/base
-   daml/daml-studio
+   daml/stdlib/index
    daml/testing-scenarios
    daml/troubleshooting
-   daml/good-daml
+   /daml/patterns
 
 .. toctree::
    :titlesonly:
@@ -40,22 +43,44 @@ DAML SDK documentation
    :hidden:
    :caption: Building applications
 
-   app-dev/index
-   app-dev/bindings-java/index
-   app-dev/bindings-scala/index
-   app-dev/bindings-js
-   app-dev/grpc/index
-   app-dev/bindings-x-lang/index
    app-dev/app-arch
-   app-dev/authentication
+   app-dev/bindings-ts/index
+   json-api/index
+   Daml Script <daml-script/index>
+   Daml REPL <daml-repl/index>
+   upgrade/index
+   app-dev/authorization
+   app-dev/ledger-api
+   triggers/index
+   tools/trigger-service/index
+   tools/auth-middleware/index
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: SDK tools
+   :caption: Deploying to Daml ledgers
+
+   deploy/index
+   deploy/generic_ledger
+   deploy/ledger-topologies
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Operating Daml
+
+   ops/index
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Developer Tools
 
    tools/assistant
+   daml/daml-studio
    tools/sandbox
    tools/navigator/index
    tools/codegen
@@ -69,15 +94,8 @@ DAML SDK documentation
    concepts/glossary
    concepts/ledger-model/index
    concepts/identity-and-package-management
-
-.. toctree::
-   :titlesonly:
-   :maxdepth: 2
-   :hidden:
-   :caption: Deploying
-
-   deploy/index
-   deploy/ledger-topologies
+   concepts/time
+   concepts/local-ledger
 
 .. toctree::
    :titlesonly:
@@ -85,32 +103,26 @@ DAML SDK documentation
    :hidden:
    :caption: Examples
 
-   examples/examples
+   Examples <https://daml.com/examples>
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Experimental features
+   :caption: Early Access Features
 
-   experimental/warning
+   tools/extractor
    daml-integration-kit/index
-   tools/ledger-api-test-tool/index
-   migrate/index
-   json-api/index
-   DAML Triggers <triggers/index>
-   DAML Script <daml-script/index>
-   DAML Repl <daml-repl/index>
    tools/visual
-   daml2ts/index
-   getting-started/index
+   concepts/interoperability
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Support and updates
+   :caption: Daml Ecosystem
 
+   support/overview
+   support/releases
+   support/compatibility
    support/support
-   support/release-notes
-   Roadmap <support/roadmap>

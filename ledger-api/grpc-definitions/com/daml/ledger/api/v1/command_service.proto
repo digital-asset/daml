@@ -1,0 +1,98 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/commands.proto";
+import "com/daml/ledger/api/v1/trace_context.proto";
+import "com/daml/ledger/api/v1/transaction.proto";
+
+import "google/protobuf/empty.proto";
+
+option java_outer_classname = "CommandServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Command Service is able to correlate submitted commands with completion data, identify timeouts, and return contextual
+// information with each tracking result. This supports the implementation of stateless clients.
+service CommandService {
+
+  // Submits a single composite command and waits for its result.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
+
+  // Submits a single composite command, waits for its result, and returns the transaction id.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
+
+  // Submits a single composite command, waits for its result, and returns the transaction.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  rpc SubmitAndWaitForTransaction (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
+
+  // Submits a single composite command, waits for its result, and returns the transaction tree.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  rpc SubmitAndWaitForTransactionTree (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
+}
+
+// These commands are atomic, and will become transactions.
+message SubmitAndWaitRequest {
+
+  // The commands to be submitted.
+  // Required
+  Commands commands = 1;
+
+  // Server side tracing will be registered as a child of the submitted context.
+  // This field is a future extension point and is currently not supported.
+  // Optional
+  TraceContext trace_context = 1000;
+
+}
+
+message SubmitAndWaitForTransactionIdResponse {
+  // The id of the transaction that resulted from the submitted command.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transaction_id = 1;
+}
+
+message SubmitAndWaitForTransactionResponse {
+    // The flat transaction that resulted from the submitted command.
+    // Required
+    Transaction transaction = 1;
+}
+
+message SubmitAndWaitForTransactionTreeResponse {
+    // The transaction tree that resulted from the submitted command.
+    // Required
+    TransactionTree transaction = 1;
+}

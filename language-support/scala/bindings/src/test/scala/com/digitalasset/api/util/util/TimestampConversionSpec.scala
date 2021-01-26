@@ -1,25 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.api.util
+package com.daml.api.util
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
+import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
 import TimestampConversion._
 
 import org.scalacheck.Gen
 import org.scalacheck.Prop
 import Prop.exists
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.{Checkers, ScalaCheckDrivenPropertyChecks}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TimestampConversionSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Checkers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import TimestampConversionSpec._
 
   "instantToMicros" when {
@@ -99,7 +99,9 @@ object TimestampConversionSpec {
     Gen
       .zip(
         Gen.choose(min.getEpochSecond, max.getEpochSecond),
-        if (microsOnly) Gen.choose(0L, 999999).map(_ * 1000) else Gen.choose(0L, 999999999))
+        if (microsOnly) Gen.choose(0L, 999999).map(_ * 1000)
+        else Gen.choose(0L, 999999999),
+      )
       .map { case (s, n) => Instant.ofEpochSecond(s, n) }
 
   val anyMicroTime: Gen[Instant] = timeGen(Instant.MIN, Instant.MAX, microsOnly = true)

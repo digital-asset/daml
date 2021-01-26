@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.api.util
+package com.daml.api.util
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.value.Value
+import com.daml.ledger.api.v1.value.Value
 import com.google.protobuf.timestamp.Timestamp
 
 object TimestampConversion {
@@ -22,11 +22,13 @@ object TimestampConversion {
   def instantToMicros(t: Instant): Value.Sum.Timestamp = {
     if (t.getNano % 1000 != 0)
       throw new IllegalArgumentException(
-        s"Conversion of Instant $t to microsecond granularity would result in loss of precision.")
+        s"Conversion of Instant $t to microsecond granularity would result in loss of precision."
+      )
     else
       Value.Sum.Timestamp(
         TimeUnit.SECONDS.toMicros(t.getEpochSecond) + TimeUnit.NANOSECONDS
-          .toMicros(t.getNano.toLong))
+          .toMicros(t.getNano.toLong)
+      )
 
   }
 

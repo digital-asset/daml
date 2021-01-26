@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api
+package com.daml.platform.server.api
 
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
@@ -32,13 +32,16 @@ final class DropRepeated[T] extends GraphStage[FlowShape[T, T]] {
               push(out, element)
             }
           }
-        }
+        },
       )
 
-      setHandler(out, new OutHandler {
-        override def onPull(): Unit = {
-          pull(in)
-        }
-      })
+      setHandler(
+        out,
+        new OutHandler {
+          override def onPull(): Unit = {
+            pull(in)
+          }
+        },
+      )
     }
 }

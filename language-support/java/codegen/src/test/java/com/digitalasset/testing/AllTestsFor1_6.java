@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing;
+package com.daml.testing;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
@@ -9,6 +9,7 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         DecimalTestForAll.class,
-        EnumTestFor1_6AndFor1_7.class,
+        EnumTestForForAll.class,
 })
-public class AllTestsFor1_6 { }
+public class AllTestsFor1_6 {
+}

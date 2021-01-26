@@ -1,19 +1,41 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
-import org.scalatest.{Matchers, WordSpec}
+package com.daml.lf.engine
 
-class EngineInfoTest extends WordSpec with Matchers {
+import com.daml.lf.language.LanguageVersion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-  EngineInfo.getClass.getSimpleName should {
+class EngineInfoTest extends AnyWordSpec with Matchers {
+
+  "EngineInfo" should {
+
+    val Seq(engineInfoLegacy, engineInfoStable, engineEarlyAccess, engineInfoDev) =
+      List(
+        LanguageVersion.LegacyVersions,
+        LanguageVersion.StableVersions,
+        LanguageVersion.EarlyAccessVersions,
+        LanguageVersion.DevVersions,
+      ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
+
     "show supported LF, Transaction and Value versions" in {
-      EngineInfo.show shouldBe
-        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.dev; Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9; Value versions: 1, 2, 3, 4, 5, 6, 7"
+
+      engineInfoLegacy.show shouldBe
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8"
+
+      engineInfoStable.show shouldBe
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11"
+
+      engineEarlyAccess.show shouldBe
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11"
+
+      engineInfoDev.show shouldBe
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.dev"
     }
 
     "toString returns the same value as show" in {
-      EngineInfo.toString shouldBe EngineInfo.show
+      engineInfoStable.toString shouldBe engineInfoStable.show
     }
   }
 }

@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.util.ExceptionOps._
+import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
@@ -17,20 +17,25 @@ import scalaz.{Show, \/}
 import scala.concurrent.duration._
 import scala.util.Try
 
+// The internal transient scopt structure *and* StartSettings; external `start`
+// users should extend StartSettings or DefaultStartSettings themselves
 private[http] final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
-    address: String = "0.0.0.0",
+    address: String = com.daml.cliopts.Http.defaultAddress,
     httpPort: Int,
-    applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
+    portFile: Option[Path] = None,
     packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
+    packageMaxInboundMessageSize: Option[Int] = None,
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
+    healthTimeoutSeconds: Int = HttpService.DefaultHealthTimeoutSeconds,
+    tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
+    allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
-    defaultTtl: FiniteDuration = HttpService.DefaultTimeToLive
-)
+) extends HttpService.StartSettings
 
 private[http] object Config {
   import scala.language.postfixOps
@@ -42,7 +47,8 @@ private[http] object Config {
       throttlePer = 1 second,
       maxBurst = 20,
       ThrottleMode.Shaping,
-      heartBeatPer = 5 second)
+      heartBeatPer = 5 second,
+    )
 }
 
 private[http] abstract class ConfigCompanion[A](name: String) {
@@ -53,7 +59,7 @@ private[http] abstract class ConfigCompanion[A](name: String) {
 
   def createUnsafe(x: Map[String, String]): A = create(x).fold(
     e => sys.error(e),
-    identity
+    identity,
   )
 
   def validate(x: Map[String, String]): Either[String, Unit] =
@@ -62,12 +68,11 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalBooleanField(m: Map[String, String])(
-      k: String): Either[String, Option[Boolean]] =
+      k: String
+  ): Either[String, Option[Boolean]] =
     m.get(k).traverse(v => parseBoolean(k)(v)).toEither
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverse(v => parseLong(k)(v)).toEither
 
@@ -96,13 +101,14 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
-    createSchema: Boolean = false
+    createSchema: Boolean = false,
 )
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})")
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
+  )
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
@@ -112,18 +118,20 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       s"${indent}password -- database user password,\n" +
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
       s"${indent}Example: " + helpString(
-      "org.postgresql.Driver",
-      "jdbc:postgresql://localhost:5432/test?&ssl=true",
-      "postgres",
-      "password",
-      "false")
+        "org.postgresql.Driver",
+        "jdbc:postgresql://localhost:5432/test?&ssl=true",
+        "postgres",
+        "password",
+        "false",
+      )
 
   lazy val usage: String = helpString(
     "<JDBC driver class name>",
     "<JDBC connection url>",
     "<user>",
     "<password>",
-    "<true|false>")
+    "<true|false>",
+  )
 
   override def create(x: Map[String, String]): Either[String, JdbcConfig] =
     for {
@@ -132,21 +140,21 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
       createSchema <- optionalBooleanField(x)("createSchema")
-    } yield
-      JdbcConfig(
-        driver = driver,
-        url = url,
-        user = user,
-        password = password,
-        createSchema = createSchema.getOrElse(false)
-      )
+    } yield JdbcConfig(
+      driver = driver,
+      url = url,
+      user = user,
+      password = password,
+      createSchema = createSchema.getOrElse(false),
+    )
 
   private def helpString(
       driver: String,
       url: String,
       user: String,
       password: String,
-      createSchema: String): String =
+      createSchema: String,
+  ): String =
     s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
 }
 
@@ -157,13 +165,14 @@ final case class WebsocketConfig(
     throttlePer: FiniteDuration,
     maxBurst: Int,
     mode: ThrottleMode,
-    heartBeatPer: FiniteDuration
+    heartBeatPer: FiniteDuration,
 )
 
 private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("WebsocketConfig") {
 
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
-    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)")
+    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)"
+  )
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
@@ -173,22 +182,22 @@ private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("W
 
   lazy val usage: String = helpString(
     "<Maximum websocket session duration in minutes>",
-    "Server-side heartBeat interval in seconds")
+    "Server-side heartBeat interval in seconds",
+  )
 
   override def create(x: Map[String, String]): Either[String, WebsocketConfig] =
     for {
       md <- optionalLongField(x)("maxDuration")
       hbp <- optionalLongField(x)("heartBeatPer")
-    } yield
-      Config.DefaultWsConfig
-        .copy(
-          maxDuration = md
-            .map(t => FiniteDuration(t, TimeUnit.MINUTES))
-            .getOrElse(Config.DefaultWsConfig.maxDuration),
-          heartBeatPer = hbp
-            .map(t => FiniteDuration(t, TimeUnit.SECONDS))
-            .getOrElse(Config.DefaultWsConfig.heartBeatPer)
-        )
+    } yield Config.DefaultWsConfig
+      .copy(
+        maxDuration = md
+          .map(t => FiniteDuration(t, TimeUnit.MINUTES))
+          .getOrElse(Config.DefaultWsConfig.maxDuration),
+        heartBeatPer = hbp
+          .map(t => FiniteDuration(t, TimeUnit.SECONDS))
+          .getOrElse(Config.DefaultWsConfig.heartBeatPer),
+      )
 
   private def helpString(maxDuration: String, heartBeatPer: String): String =
     s"""\"maxDuration=$maxDuration,heartBeatPer=$heartBeatPer\""""
@@ -196,7 +205,7 @@ private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("W
 
 private[http] final case class StaticContentConfig(
     prefix: String,
-    directory: File
+    directory: File,
 )
 
 private[http] object StaticContentConfig

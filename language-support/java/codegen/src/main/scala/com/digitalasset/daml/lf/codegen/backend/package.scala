@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen
+package com.daml.lf.codegen
 
 package object backend {
 
@@ -13,7 +13,6 @@ package object backend {
 
   private[codegen] def lookupBackend(name: String): Option[Backend] = backends.get(name.toLowerCase)
 
-  private[codegen] val read: scopt.Read[Backend] = scopt.Read.stringRead.map(
-    str => lookupBackend(str).getOrElse(throw new UnknownBackend(str))
-  )
+  private[codegen] val read: scopt.Read[Backend] =
+    scopt.Read.stringRead.map(str => lookupBackend(str).getOrElse(throw new UnknownBackend(str)))
 }

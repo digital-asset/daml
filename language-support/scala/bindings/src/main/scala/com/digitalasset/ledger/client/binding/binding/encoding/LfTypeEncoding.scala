@@ -1,13 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 package encoding
 
-import scala.language.higherKinds
 import scalaz.{OneAnd, Plus}
 import scalaz.syntax.foldable1._
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.v1.{value => rpcvalue}
 
 /** A backend for accumulating well-typed information about DAML-LF ADTs
   * (records, variants, and templates) into encodings of those ADTs.
@@ -51,7 +50,6 @@ trait LfTypeEncoding {
   def fields[A](fi: Field[A]): RecordFields[A]
 
   /** Convenient wrapper for `enum` and iterated `VariantCase.plus`. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def enumAll[A](
       enumId: rpcvalue.Identifier,
       index: A => Int,
@@ -62,11 +60,11 @@ trait LfTypeEncoding {
   def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A]
 
   /** Convenient wrapper for `variant` and iterated `VariantCase.plus`. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def variantAll[A](
       variantId: rpcvalue.Identifier,
       case0: VariantCases[A],
-      cases: VariantCases[A]*): Out[A] = {
+      cases: VariantCases[A]*
+  ): Out[A] = {
     import scalaz.std.iterable._
     variant(variantId, OneAnd(case0, cases).sumr1(VariantCases.semigroup))
   }
@@ -76,7 +74,8 @@ trait LfTypeEncoding {
     * @param select Must form a prism with `inject`.
     */
   def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A]
+      select: A PartialFunction B
+  ): VariantCases[A]
 
   /** Convenience wrapper of `variantCase` for a case whose contents are a
     * splatted record.  In Scala's typical ADT encoding, variant cases
@@ -85,9 +84,11 @@ trait LfTypeEncoding {
   final def variantRecordCase[B, A >: B](
       caseName: String,
       parentVariantId: rpcvalue.Identifier,
-      o: RecordFields[B])(select: A PartialFunction B): VariantCases[A] =
+      o: RecordFields[B],
+  )(select: A PartialFunction B): VariantCases[A] =
     variantCase(caseName, record(Value.splattedVariantId(parentVariantId, caseName), o))(
-      implicitly[B <:< A])(select)
+      implicitly[B <:< A]
+    )(select)
 
   /** A language for building up record field lists and their associated
     * [[Out]]s.  The laws need only hold up to observation by `record`.
@@ -140,21 +141,20 @@ object LfTypeEncoding {
     override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       (fst.variant(variantId, cases._1), snd.variant(variantId, cases._2))
 
-    override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-        select: A PartialFunction B): VariantCases[A] =
+    override def variantCase[B, A](caseName: String, o: Out[B])(
+        inject: B => A
+    )(select: A PartialFunction B): VariantCases[A] =
       (
         fst.variantCase(caseName, o._1)(inject)(select),
-        snd.variantCase(caseName, o._2)(inject)(select))
+        snd.variantCase(caseName, o._2)(inject)(select),
+      )
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val RecordFields: InvariantApply[RecordFields] =
       fst.RecordFields product snd.RecordFields
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val VariantCases: Plus[VariantCases] =
       fst.VariantCases product snd.VariantCases
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val primitive: ValuePrimitiveEncoding[Out] =
       ValuePrimitiveEncoding.product(fst.primitive, snd.primitive)
   }

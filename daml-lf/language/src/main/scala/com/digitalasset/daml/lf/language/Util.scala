@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray}
-import com.digitalasset.daml.lf.data.Ref.TypeConName
-import com.digitalasset.daml.lf.language.Ast._
+import com.daml.lf.data.{Decimal, ImmArray, Ref}
+import com.daml.lf.language.Ast._
 
 import scala.annotation.tailrec
+import scala.collection.immutable.HashMap
 
 object Util {
 
   object TTyConApp {
-    def apply(con: TypeConName, args: ImmArray[Type]): Type =
+    def apply(con: Ref.TypeConName, args: ImmArray[Type]): Type =
       args.foldLeft[Type](TTyCon(con))((typ, arg) => TApp(typ, arg))
-    def unapply(typ: Type): Option[(TypeConName, ImmArray[Type])] = {
+    def unapply(typ: Type): Option[(Ref.TypeConName, ImmArray[Type])] = {
       @tailrec
-      def go(typ: Type, targs: List[Type]): Option[(TypeConName, ImmArray[Type])] =
+      def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConName, ImmArray[Type])] =
         typ match {
           case TApp(tfun, targ) => go(tfun, targ :: targs)
           case TTyCon(con) => Some((con, ImmArray(targs)))
@@ -74,6 +74,11 @@ object Util {
   val TDecimalScale = TNat(Decimal.scale)
   val TDecimal = TNumeric(TDecimalScale)
 
+  val TAnyException = TBuiltin(BTAnyException)
+  val TGeneralError = TBuiltin(BTGeneralError)
+  val TArithmeticError = TBuiltin(BTArithmeticError)
+  val TContractError = TBuiltin(BTContractError)
+
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
@@ -83,5 +88,107 @@ object Util {
   val CPUnit = CPPrimCon(PCUnit)
   val CPTrue = CPPrimCon(PCTrue)
   val CPFalse = CPPrimCon(PCFalse)
+
+  // Returns the `pkgIds` and all its dependencies in topological order.
+  // A package undefined w.r.t. the function `packages` is treated as a sink.
+  def dependenciesInTopologicalOrder(
+      pkgIds: List[Ref.PackageId],
+      packages: PartialFunction[Ref.PackageId, Package],
+  ): List[Ref.PackageId] = {
+
+    @tailrec
+    def buildGraph(
+        toProcess0: List[Ref.PackageId],
+        seen0: Set[Ref.PackageId],
+        graph0: Graphs.Graph[Ref.PackageId],
+    ): Graphs.Graph[Ref.PackageId] =
+      toProcess0 match {
+        case pkgId :: toProcess1 =>
+          val deps = packages.lift(pkgId).fold(Set.empty[Ref.PackageId])(_.directDeps)
+          val newDeps = deps.filterNot(seen0)
+          buildGraph(
+            newDeps.foldLeft(toProcess1)(_.::(_)),
+            seen0 ++ newDeps,
+            graph0.updated(pkgId, deps),
+          )
+        case Nil => graph0
+      }
+
+    Graphs
+      .topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty))
+      .fold(
+        // If we get a cycle in package dependencies, there is something very wrong
+        // (i.e. we find a collision in SHA256), so we crash.
+        cycle =>
+          throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
+        identity,
+      )
+  }
+
+  private[this] def toSignature(choice: TemplateChoice): TemplateChoiceSignature =
+    choice match {
+      case TemplateChoice(
+            name,
+            consuming,
+            _,
+            choiceObservers,
+            selfBinder,
+            argBinder,
+            returnType,
+            _,
+          ) =>
+        TemplateChoiceSignature(
+          name,
+          consuming,
+          (),
+          choiceObservers.map(_ => ()),
+          selfBinder,
+          argBinder,
+          returnType,
+          (),
+        )
+    }
+
+  private[this] def toSignature(key: TemplateKey): TemplateKeySignature =
+    key match {
+      case TemplateKey(typ, _, _) =>
+        TemplateKeySignature(typ, (), ())
+    }
+
+  private[this] def toSignature(template: Template): TemplateSignature =
+    template match {
+      case Template(param, _, _, _, choices, _, key) =>
+        TemplateSignature(
+          param,
+          (),
+          (),
+          (),
+          choices.transform((_, v) => toSignature(v)),
+          (),
+          key.map(toSignature),
+        )
+    }
+
+  private[this] def toSignature(module: Module): ModuleSignature =
+    module match {
+      case Module(name, definitions, templates, exceptions, featureFlags) =>
+        ModuleSignature(
+          name = name,
+          definitions = definitions.transform {
+            case (_, dvalue: GenDValue[_]) => dvalue.copy(body = ())
+            case (_, dataType: DDataType) => dataType
+            case (_, typeSyn: DTypeSyn) => typeSyn
+          },
+          templates = templates.transform((_, template) => toSignature(template)),
+          exceptions = exceptions.transform((_, _) => DefExceptionSignature),
+          featureFlags = featureFlags,
+        )
+    }
+
+  def toSignature(p: Package): PackageSignature =
+    p.copy(modules = p.modules.transform((_, mod) => toSignature(mod)))
+
+  def toSignatures(pkgs: Map[Ref.PackageId, Package]): Map[Ref.PackageId, PackageSignature] =
+    pkgs.transform((_, v) => toSignature(v))
 
 }

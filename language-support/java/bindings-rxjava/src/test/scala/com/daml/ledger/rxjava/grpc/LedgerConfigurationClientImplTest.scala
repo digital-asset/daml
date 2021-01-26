@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -7,11 +7,13 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 final class LedgerConfigurationClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues {
@@ -48,7 +50,8 @@ final class LedgerConfigurationClientImplTest
   def toAuthenticatedServer(fn: LedgerConfigurationClient => Any): Any =
     ledgerServices.withConfigurationClient(
       Seq(GetLedgerConfigurationResponse.defaultInstance),
-      mockedAuthService) { (client, _) =>
+      mockedAuthService,
+    ) { (client, _) =>
       fn(client)
     }
 
@@ -57,7 +60,8 @@ final class LedgerConfigurationClientImplTest
       toAuthenticatedServer(
         _.getLedgerConfiguration
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingFirst())
+          .blockingFirst()
+      )
     }
   }
 
@@ -66,7 +70,8 @@ final class LedgerConfigurationClientImplTest
       toAuthenticatedServer(
         _.getLedgerConfiguration(emptyToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingFirst())
+          .blockingFirst()
+      )
     }
   }
 
@@ -74,7 +79,8 @@ final class LedgerConfigurationClientImplTest
     toAuthenticatedServer(
       _.getLedgerConfiguration(publicToken)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingFirst())
+        .blockingFirst()
+    )
   }
 
 }

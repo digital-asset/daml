@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
 
 object Ast {
   //
   // Identifiers
   //
 
-  /**  Fully applied type constructor. */
+  /** Fully applied type constructor. */
   case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
     def pretty: String =
       args.foldLeft(TTyCon(tycon): Type) { case (arg, acc) => TApp(acc, arg) }.pretty
@@ -43,11 +43,11 @@ object Ast {
 
     /** Infix alias for repeated [[EApp]] application. */
     @inline final def eApp(arg: Expr, args: Expr*): EApp =
-      (EApp(this, arg) /: args)(EApp)
+      (args foldLeft EApp(this, arg))(EApp)
 
     /** Infix alias for repeated [[ETyApp]] application. */
     @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
-      (ETyApp(this, typ) /: typs)(ETyApp)
+      (typs foldLeft ETyApp(this, typ))(ETyApp)
   }
 
   /** Reference to a variable in current lexical scope. */
@@ -85,10 +85,16 @@ object Ast {
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
   /** Struct projection. */
-  final case class EStructProj(field: FieldName, struct: Expr) extends Expr
+  final case class EStructProj(field: FieldName, struct: Expr) extends Expr {
+    // The actual index is filled in by the type checker.
+    private[lf] var fieldIndex: Option[Int] = None
+  }
 
   /** Non-destructive struct update. */
-  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
+  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr {
+    // The actual index is filled in by the type checker.
+    private[lf] var fieldIndex: Option[Int] = None
+  }
 
   /** Expression application. Function can be an abstraction or a builtin function. */
   final case class EApp(fun: Expr, arg: Expr) extends Expr
@@ -100,7 +106,7 @@ object Ast {
   final case class EAbs(
       binder: (ExprVarName, Type),
       body: Expr,
-      ref: Option[DefinitionRef] // The definition in which this abstraction is defined.
+      ref: Option[DefinitionRef], // The definition in which this abstraction is defined.
   ) extends Expr
 
   /** Type abstraction. */
@@ -131,14 +137,23 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
-  /** Any constructor **/
+  /** Any constructor * */
   final case class EToAny(ty: Type, body: Expr) extends Expr
 
-  /** Extract the underlying value if it matches the ty **/
+  /** Extract the underlying value if it matches the ty * */
   final case class EFromAny(ty: Type, body: Expr) extends Expr
 
-  /** Unique textual representation of template Id **/
+  /** Unique textual representation of template Id * */
   final case class ETypeRep(typ: Type) extends Expr
+
+  /** Throw an exception */
+  final case class EThrow(returnType: Type, exceptionType: Type, exception: Expr) extends Expr
+
+  /** Construct an AnyException from its message and payload */
+  final case class EToAnyException(typ: Type, value: Expr) extends Expr
+
+  /** Extract the payload from an AnyException if it matches the given exception type */
+  final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
   //
   // Kinds
@@ -154,8 +169,8 @@ object Ast {
       case KStar => "*"
       case KNat => "nat"
       case KArrow(fun, arg) if needParens =>
-        "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false)
-        ")"
+        "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false) +
+          ")"
       case KArrow(fun, arg) =>
         prettyKind(fun, true) + "->" + prettyKind(arg, false)
     }
@@ -203,7 +218,7 @@ object Ast {
                   prettyType(t, precTApp + 1)
                 }
                 .toSeq
-                .mkString(" ")
+                .mkString(" "),
           )
         case TTyCon(con) => con.qualifiedName.name.toString
         case TBuiltin(BTArrow) => "(->)"
@@ -211,15 +226,17 @@ object Ast {
         case TApp(TApp(TBuiltin(BTArrow), param), result) =>
           maybeParens(
             prec > precTFun,
-            prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun))
+            prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun),
+          )
         case TApp(fun, arg) =>
           maybeParens(
             prec > precTApp,
-            prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
+            prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1),
+          )
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
         case TStruct(fields) =>
-          "(" + fields
+          "(" + fields.iterator
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
             .mkString(", ") + ")"
@@ -264,13 +281,7 @@ object Ast {
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
   /** Structs */
-  final case class TStruct private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
-
-  object TStruct extends (ImmArray[(FieldName, Type)] => TStruct) {
-    // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(FieldName, Type)]): TStruct =
-      new TStruct(ImmArray(fields.toSeq.sortBy(_._1: String)))
-  }
+  final case class TStruct(fields: Struct[Type]) extends Type
 
   sealed abstract class BuiltinType extends Product with Serializable
 
@@ -292,6 +303,10 @@ object Ast {
   case object BTArrow extends BuiltinType
   case object BTAny extends BuiltinType
   case object BTTypeRep extends BuiltinType
+  case object BTAnyException extends BuiltinType
+  case object BTGeneralError extends BuiltinType
+  case object BTArithmeticError extends BuiltinType
+  case object BTContractError extends BuiltinType
 
   //
   // Primitive literals
@@ -328,11 +343,16 @@ object Ast {
   final case object BTrace extends BuiltinFunction(2) // : ∀a. Text -> a -> a
 
   // Numeric arithmetic
-  final case object BAddNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BSubNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
-  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
-  final case object BRoundNumeric extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
+  final case object BAddNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BSubNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric
+      extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumeric
+      extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BRoundNumeric
+      extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
   final case object BCastNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
   final case object BShiftNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
 
@@ -358,17 +378,24 @@ object Ast {
 
   // Maps
   final case object BTextMapEmpty extends BuiltinFunction(0) // : ∀ a. TextMap a
-  final case object BTextMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
-  final case object BTextMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
-  final case object BTextMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
-  final case object BTextMapToList extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
+  final case object BTextMapInsert
+      extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
+  final case object BTextMapLookup
+      extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
+  final case object BTextMapDelete
+      extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
+  final case object BTextMapToList
+      extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
   final case object BTextMapSize extends BuiltinFunction(1) // : ∀ a. TextMap a -> Int64
 
   // Generic Maps
   final case object BGenMapEmpty extends BuiltinFunction(0) // : ∀ a b. GenMap a b
-  final case object BGenMapInsert extends BuiltinFunction(3) // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
-  final case object BGenMapLookup extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> Optional b
-  final case object BGenMapDelete extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
+  final case object BGenMapInsert
+      extends BuiltinFunction(3) // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  final case object BGenMapLookup
+      extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> Optional b
+  final case object BGenMapDelete
+      extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
   final case object BGenMapKeys extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [a]
   final case object BGenMapValues extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [b]
   final case object BGenMapSize extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> Int64
@@ -384,11 +411,14 @@ object Ast {
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
   final case object BToTextDate extends BuiltinFunction(1) // : Date -> Text
+  final case object BToTextContractId
+      extends BuiltinFunction(1) // : forall t. ContractId t -> Optional Text
   final case object BToQuotedTextParty extends BuiltinFunction(1) // : Party -> Text
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
   final case object BFromTextInt64 extends BuiltinFunction(1) // : Text -> Optional Int64
-  final case object BFromTextNumeric extends BuiltinFunction(1) // :  ∀s. Text -> Optional (Numeric s)
+  final case object BFromTextNumeric
+      extends BuiltinFunction(1) // :  ∀s. Text -> Optional (Numeric s)
   final case object BFromTextCodePoints extends BuiltinFunction(1) // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction(arity = 1) // : Text -> Text
@@ -397,39 +427,37 @@ object Ast {
   final case object BError extends BuiltinFunction(1) // : ∀a. Text → a
 
   // Comparisons
-  final case object BLessInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
   final case object BLessNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
-  final case object BLessText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BLessTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BLessDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BLessParty extends BuiltinFunction(2) // : Party → Party → Bool
+  final case object BLessEqNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
+  final case object BGreaterNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
+  final case object BGreaterEqNumeric
+      extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
+  final case object BEqualNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
 
-  final case object BLessEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BLessEqNumeric extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
-  final case object BLessEqText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BLessEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BLessEqDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BLessEqParty extends BuiltinFunction(2) // : Party → Party → Bool
-
-  final case object BGreaterInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BGreaterNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
-  final case object BGreaterText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BGreaterTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BGreaterDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BGreaterParty extends BuiltinFunction(2) // : Party → Party → Bool
-
-  final case object BGreaterEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BGreaterEqNumeric extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
-  final case object BGreaterEqText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BGreaterEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BGreaterEqDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BGreaterEqParty extends BuiltinFunction(2) // : Party → Party → Bool
-
-  final case object BEqualNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
-  final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
-  final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
+  final case object BEqualList
+      extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
+  final case object BEqualContractId
+      extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
   final case object BEqual extends BuiltinFunction(2) // ∀a. a -> a -> Bool
-  final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
+  final case object BLess extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BLessEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BGreater extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BGreaterEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+
+  final case object BCoerceContractId
+      extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
+
+  // Exceptions
+  final case object BMakeGeneralError extends BuiltinFunction(1) // Text → GeneralError
+  final case object BMakeArithmeticError extends BuiltinFunction(1) // Text → ArithmeticError
+  final case object BMakeContractError extends BuiltinFunction(1) // Text → ContractError
+  final case object BAnyExceptionMessage extends BuiltinFunction(1) // AnyException → Text
+  final case object BGeneralErrorMessage extends BuiltinFunction(1) // GeneralError → Text
+  final case object BArithmeticErrorMessage extends BuiltinFunction(1) // ArithmeticError → Text
+  final case object BContractErrorMessage extends BuiltinFunction(1) // ContractError → Text
 
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction(1) // Text → Text
@@ -457,13 +485,24 @@ object Ast {
       templateId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
-      actorsE: Option[Expr],
-      argE: Expr)
-      extends Update
+      argE: Expr,
+  ) extends Update
+  final case class UpdateExerciseByKey(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      keyE: Expr,
+      argE: Expr,
+  ) extends Update
   case object UpdateGetTime extends Update
   final case class UpdateFetchByKey(rbk: RetrieveByKey) extends Update
   final case class UpdateLookupByKey(rbk: RetrieveByKey) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
+  final case class UpdateTryCatch(
+      typ: Type,
+      body: Expr,
+      binder: ExprVarName,
+      handler: Expr,
+  ) extends Update
 
   //
   // Scenario expressions
@@ -511,82 +550,200 @@ object Ast {
   // Definitions
   //
 
-  sealed abstract class Definition extends Product with Serializable
+  sealed abstract class GenDefinition[+E] extends Product with Serializable
 
-  final case class DTypeSyn(params: ImmArray[(TypeVarName, Kind)], typ: Type) extends Definition
+  final case class DTypeSyn(params: ImmArray[(TypeVarName, Kind)], typ: Type)
+      extends GenDefinition[Nothing]
   final case class DDataType(
       serializable: Boolean,
       params: ImmArray[(TypeVarName, Kind)],
-      cons: DataCons)
-      extends Definition
-  final case class DValue(
+      cons: DataCons,
+  ) extends GenDefinition[Nothing]
+  final case class GenDValue[E](
       typ: Type,
       noPartyLiterals: Boolean,
-      body: Expr,
-      isTest: Boolean
-  ) extends Definition
+      body: E,
+      isTest: Boolean,
+  ) extends GenDefinition[E]
+
+  class GenDValueCompanion[E] {
+    def apply(typ: Type, noPartyLiterals: Boolean, body: E, isTest: Boolean): GenDValue[E] =
+      new GenDValue(typ, noPartyLiterals, body, isTest)
+
+    def unapply(arg: GenDValue[E]): Option[(Type, Boolean, E, Boolean)] =
+      GenDValue.unapply(arg)
+  }
+
+  type DValue = GenDValue[Expr]
+  object DValue extends GenDValueCompanion[Expr]
+  object DValueSignature extends GenDValueCompanion[Unit]
+
+  type Definition = GenDefinition[Expr]
+  type DefinitionSignature = GenDefinition[Unit]
 
   // Data constructor in data type definition.
   sealed abstract class DataCons extends Product with Serializable
-  final case class DataRecord(fields: ImmArray[(FieldName, Type)], optTemplate: Option[Template])
-      extends DataCons
-  final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons
-  final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons
+  final case class DataRecord(fields: ImmArray[(FieldName, Type)]) extends DataCons
+  final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons {
+    lazy val constructorRank: Map[VariantConName, Int] =
+      variants.iterator.map(_._1).zipWithIndex.toMap
+  }
+  final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons {
+    lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
+  }
 
-  case class TemplateKey(
+  case class GenTemplateKey[E](
       typ: Type,
-      body: Expr,
+      body: E,
       // function from key type to [Party]
-      maintainers: Expr,
+      maintainers: E,
   )
 
-  case class Template private (
+  sealed class GenTemplateKeyCompanion[E] {
+    def apply(typ: Type, body: E, maintainers: E): GenTemplateKey[E] =
+      new GenTemplateKey(typ, body, maintainers)
+
+    def unapply(arg: GenTemplateKey[E]): Option[(Type, E, E)] =
+      GenTemplateKey.unapply(arg)
+  }
+
+  type TemplateKey = GenTemplateKey[Expr]
+  object TemplateKey extends GenTemplateKeyCompanion[Expr]
+
+  type TemplateKeySignature = GenTemplateKey[Unit]
+  object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
+
+  case class GenTemplate[E] private[Ast] (
       param: ExprVarName, // Binder for template argument.
-      precond: Expr, // Template creation precondition.
-      signatories: Expr, // Parties agreeing to the contract.
-      agreementText: Expr, // Text the parties agree to.
-      choices: Map[ChoiceName, TemplateChoice], // Choices available in the template.
-      observers: Expr, // Observers of the contract.
-      key: Option[TemplateKey]
-  )
+      precond: E, // Template creation precondition.
+      signatories: E, // Parties agreeing to the contract.
+      agreementText: E, // Text the parties agree to.
+      choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
+      observers: E, // Observers of the contract.
+      key: Option[GenTemplateKey[E]],
+  ) extends NoCopy
 
-  object Template {
+  sealed class GenTemplateCompanion[E] {
 
     def apply(
         param: ExprVarName,
-        precond: Expr,
-        signatories: Expr,
-        agreementText: Expr,
-        choices: Traversable[(ChoiceName, TemplateChoice)],
-        observers: Expr,
-        key: Option[TemplateKey]
-    ): Template = {
+        precond: E,
+        signatories: E,
+        agreementText: E,
+        choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
+        observers: E,
+        key: Option[GenTemplateKey[E]],
+    ): GenTemplate[E] = {
 
-      findDuplicate(choices).foreach { choiceName =>
-        throw PackageError(s"collision on choice name $choiceName")
-      }
+      val choiceMap = toMapWithoutDuplicate(
+        choices,
+        (choiceName: ChoiceName) =>
+          throw PackageError(s"collision on choice name ${choiceName.toString}"),
+      )
 
-      new Template(
+      new GenTemplate[E](
         param,
         precond,
         signatories,
         agreementText,
-        choices.toMap,
+        choiceMap,
         observers,
         key,
       )
     }
+
+    def apply(arg: GenTemplate[E]): Option[
+      (
+          ExprVarName,
+          E,
+          E,
+          E,
+          Map[ChoiceName, GenTemplateChoice[E]],
+          E,
+          Option[GenTemplateKey[E]],
+      )
+    ] = GenTemplate.unapply(arg)
+
+    def unapply(arg: GenTemplate[E]): Option[
+      (
+          ExprVarName,
+          E,
+          E,
+          E,
+          Map[ChoiceName, GenTemplateChoice[E]],
+          E,
+          Option[GenTemplateKey[E]],
+      )
+    ] =
+      GenTemplate.unapply(arg)
   }
 
-  case class TemplateChoice(
+  type Template = GenTemplate[Expr]
+  object Template extends GenTemplateCompanion[Expr]
+
+  type TemplateSignature = GenTemplate[Unit]
+  object TemplateSignature extends GenTemplateCompanion[Unit]
+
+  case class GenTemplateChoice[E](
       name: ChoiceName, // Name of the choice.
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
-      controllers: Expr, // Parties that can exercise the choice.
+      controllers: E, // Parties that can exercise the choice.
+      choiceObservers: Option[E], // Additional informees for the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
-      argBinder: (Option[ExprVarName], Type), // Choice argument binder.
+      argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
-      update: Expr // The choice follow-up.
+      update: E, // The choice follow-up.
   )
+
+  sealed class GenTemplateChoiceCompanion[E] {
+    def apply(
+        name: ChoiceName,
+        consuming: Boolean,
+        controllers: E,
+        choiceObservers: Option[E],
+        selfBinder: ExprVarName,
+        argBinder: (ExprVarName, Type),
+        returnType: Type,
+        update: E,
+    ): GenTemplateChoice[E] =
+      GenTemplateChoice(
+        name,
+        consuming,
+        controllers,
+        choiceObservers,
+        selfBinder,
+        argBinder,
+        returnType,
+        update,
+      )
+
+    def unapply(
+        arg: GenTemplateChoice[E]
+    ): Option[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
+      GenTemplateChoice.unapply(arg)
+  }
+
+  type TemplateChoice = GenTemplateChoice[Expr]
+  object TemplateChoice extends GenTemplateChoiceCompanion[Expr]
+
+  type TemplateChoiceSignature = GenTemplateChoice[Unit]
+  object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
+
+  final case class GenDefException[E](message: E)
+
+  sealed class GenDefExceptionCompanion[E] {
+    def apply(message: E): GenDefException[E] =
+      GenDefException(message)
+
+    def unapply(arg: GenDefException[E]): Option[E] =
+      GenDefException.unapply(arg)
+  }
+
+  type DefException = GenDefException[Expr]
+  object DefException extends GenDefExceptionCompanion[Expr]
+
+  type DefExceptionSignature = GenDefException[Unit]
+  val DefExceptionSignature = GenDefException(())
 
   case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
@@ -600,12 +757,12 @@ object Ast {
       // disclosed to the signatories and
       // controllers of the target contract/choice
       // and not to the observers of the target contract.
-   */
+       */
   )
 
   object FeatureFlags {
     val default = FeatureFlags(
-      forbidPartyLiterals = false,
+      forbidPartyLiterals = false
     )
   }
 
@@ -613,94 +770,220 @@ object Ast {
   // Modules and packages
   //
 
-  case class Module private (
+  case class GenModule[E] private[Ast] (
       name: ModuleName,
-      definitions: Map[DottedName, Definition],
-      languageVersion: LanguageVersion,
-      featureFlags: FeatureFlags
-  )
+      definitions: Map[DottedName, GenDefinition[E]],
+      templates: Map[DottedName, GenTemplate[E]],
+      exceptions: Map[DottedName, GenDefException[E]],
+      featureFlags: FeatureFlags,
+  ) extends NoCopy
 
-  private def findDuplicate[Key, Value](xs: Traversable[(Key, Value)]) =
-    xs.groupBy(_._1).collectFirst { case (key, values) if values.size > 1 => key }
-
-  object Module {
-
-    def apply(
-        name: ModuleName,
-        definitions: Traversable[(DottedName, Definition)],
-        languageVersion: LanguageVersion,
-        featureFlags: FeatureFlags
-    ): Module =
-      Module(name, definitions, List.empty, languageVersion, featureFlags)
-
-    def apply(
-        name: ModuleName,
-        definitions: Traversable[(DottedName, Definition)],
-        templates: Traversable[(DottedName, Template)],
-        languageVersion: LanguageVersion,
-        featureFlags: FeatureFlags
-    ): Module = {
-
-      findDuplicate(definitions).foreach { defName =>
-        throw PackageError(s"Collision on definition name ${defName.toString}")
+  private[this] def toMapWithoutDuplicate[Key, Value](
+      xs: Iterable[(Key, Value)],
+      error: Key => Nothing,
+  ): Map[Key, Value] =
+    xs.foldLeft[Map[Key, Value]](Map.empty[Key, Value]) { case (acc, (key, value)) =>
+      if (acc.contains(key)) {
+        error(key)
+      } else {
+        acc.updated(key, value)
       }
-
-      val defsMap = definitions.toMap
-
-      findDuplicate(templates).foreach { templName =>
-        throw PackageError(s"Collision on template name ${templName.toString}")
-      }
-
-      val updatedRecords = templates.map {
-        case (templName, template) =>
-          defsMap.get(templName) match {
-            case Some(DDataType(serializable, params, DataRecord(fields, _))) =>
-              templName -> DDataType(serializable, params, DataRecord(fields, Some(template)))
-            case _ =>
-              throw PackageError(
-                s"Data type definition not found for template ${templName.toString}")
-          }
-      }
-
-      new Module(name, defsMap ++ updatedRecords, languageVersion, featureFlags)
     }
+
+  sealed class GenModuleCompanion[E] {
+
+    def apply(
+        name: ModuleName,
+        definitions: Iterable[(DottedName, GenDefinition[E])],
+        templates: Iterable[(DottedName, GenTemplate[E])],
+        exceptions: Iterable[(DottedName, GenDefException[E])],
+        featureFlags: FeatureFlags,
+    ): GenModule[E] = {
+
+      val definitionMap =
+        toMapWithoutDuplicate(
+          definitions,
+          (name: DottedName) => throw PackageError(s"Collision on definition name ${name.toString}"),
+        )
+
+      val templateMap =
+        toMapWithoutDuplicate(
+          templates,
+          (name: DottedName) => throw PackageError(s"Collision on template name ${name.toString}"),
+        )
+
+      val exceptionMap =
+        toMapWithoutDuplicate(
+          exceptions,
+          (name: DottedName) => throw PackageError(s"Collision on exception name ${name.toString}"),
+        )
+
+      templateMap.keysIterator.find(exceptionMap.keySet.contains).foreach { name =>
+        throw PackageError(s"Collision between exception and template name ${name.toString}")
+      }
+
+      GenModule(name, definitionMap, templateMap, exceptionMap, featureFlags)
+    }
+
+    def unapply(arg: GenModule[E]): Option[
+      (
+          ModuleName,
+          Map[DottedName, GenDefinition[E]],
+          Map[DottedName, GenTemplate[E]],
+          Map[DottedName, GenDefException[E]],
+          FeatureFlags,
+      )
+    ] =
+      GenModule.unapply(arg)
   }
+
+  type Module = GenModule[Expr]
+  object Module extends GenModuleCompanion[Expr]
+
+  type ModuleSignature = GenModule[Unit]
+  object ModuleSignature extends GenModuleCompanion[Unit]
 
   case class PackageMetadata(name: PackageName, version: PackageVersion)
 
-  case class Package(
-      modules: Map[ModuleName, Module],
+  case class GenPackage[E](
+      modules: Map[ModuleName, GenModule[E]],
       directDeps: Set[PackageId],
-      metadata: Option[PackageMetadata]) {
-    def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
-      this.modules.get(identifier.module) match {
-        case None =>
-          Left(
-            s"Could not find module ${identifier.module.toString} for name ${identifier.toString}")
-        case Some(module) =>
-          module.definitions.get(identifier.name) match {
-            case None =>
-              Left(
-                s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}")
-            case Some(defn) => Right(defn)
-          }
+      languageVersion: LanguageVersion,
+      metadata: Option[PackageMetadata],
+  ) {
+
+    def lookupModule(modName: ModuleName): Either[String, GenModule[E]] =
+      modules.get(modName).toRight(s"Could not find module ${modName.toString}")
+
+    def lookupDefinition(identifier: QualifiedName): Either[String, GenDefinition[E]] =
+      lookupModule(identifier.module).flatMap(
+        _.definitions
+          .get(identifier.name)
+          .toRight(
+            s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"
+          )
+      )
+
+    def lookupDataType(identifier: Ref.QualifiedName): Either[String, DDataType] =
+      for {
+        defn <- lookupDefinition(identifier)
+        dataTyp <- defn match {
+          case dataType: DDataType => Right(dataType)
+          case _: GenDValue[_] =>
+            Left(s"Got value definition instead of datatype when looking up $identifier")
+          case _: DTypeSyn =>
+            Left(s"Got type synonym definition instead of datatype when looking up $identifier")
+        }
+      } yield dataTyp
+
+    def lookupRecord(
+        identifier: Ref.QualifiedName
+    ): Either[String, (ImmArray[(TypeVarName, Kind)], DataRecord)] =
+      lookupDataType(identifier).flatMap { dataTyp =>
+        dataTyp.cons match {
+          case rec: DataRecord =>
+            Right((dataTyp.params, rec))
+          case _: DataVariant =>
+            Left(s"Expecting record for identifier $identifier, got variant")
+          case _: DataEnum =>
+            Left(s"Expecting record for identifier $identifier, got enum")
+        }
       }
-    }
+
+    def lookupVariant(
+        identifier: Ref.QualifiedName
+    ): Either[String, (ImmArray[(TypeVarName, Kind)], DataVariant)] =
+      lookupDataType(identifier).flatMap { dataTyp =>
+        dataTyp.cons match {
+          case v: DataVariant =>
+            Right((dataTyp.params, v))
+          case _: DataRecord =>
+            Left(s"Expecting variant for identifier $identifier, got record")
+          case _: DataEnum =>
+            Left(s"Expecting variant for identifier $identifier, got enum")
+        }
+      }
+
+    def lookupEnum(identifier: Ref.QualifiedName): Either[String, DataEnum] =
+      lookupDataType(identifier).flatMap { dataTyp =>
+        dataTyp.cons match {
+          case v: DataEnum =>
+            Right(v)
+          case _: DataVariant =>
+            Left(s"Expecting enum for identifier $identifier, got variant")
+          case _: DataRecord =>
+            Left(s"Expecting enum for identifier $identifier, got record")
+
+        }
+      }
+
+    def lookupTemplate(identifier: QualifiedName): Either[String, GenTemplate[E]] =
+      lookupModule(identifier.module).flatMap(
+        _.templates
+          .get(identifier.name)
+          .toRight(
+            s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"
+          )
+      )
   }
 
-  object Package {
+  sealed class GenPackageCompanion[E] {
 
     def apply(
-        modules: Traversable[Module],
-        directDeps: Traversable[PackageId],
-        metadata: Option[PackageMetadata]): Package = {
+        modules: Iterable[GenModule[E]],
+        directDeps: Iterable[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+    ): GenPackage[E] = {
       val modulesWithNames = modules.map(m => m.name -> m)
-      findDuplicate(modulesWithNames).foreach { modName =>
-        throw PackageError(s"Collision on module name ${modName.toString}")
-      }
-      Package(modulesWithNames.toMap, directDeps.toSet, metadata)
+      val moduleMap =
+        toMapWithoutDuplicate(
+          modulesWithNames,
+          (modName: ModuleName) =>
+            throw PackageError(s"Collision on module name ${modName.toString}"),
+        )
+      this(moduleMap, directDeps.toSet, languageVersion, metadata)
     }
+
+    def apply(
+        modules: Map[ModuleName, GenModule[E]],
+        directDeps: Set[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+    ) =
+      GenPackage(
+        modules: Map[ModuleName, GenModule[E]],
+        directDeps: Set[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+      )
+
+    def unapply(arg: GenPackage[E]): Option[
+      (
+          Map[ModuleName, GenModule[E]],
+          Set[PackageId],
+          LanguageVersion,
+          Option[PackageMetadata],
+      )
+    ] =
+      GenPackage.unapply(arg)
   }
+
+  type Package = GenPackage[Expr]
+  object Package extends GenPackageCompanion[Expr]
+
+  // [PackageSignature] is a version of the AST that does not contain
+  // LF expression. This should save memory in the [CompiledPackages]
+  // where those expressions once compiled into Speedy Expression
+  // become useless.
+  // Here the term "Signature" refers to all the type information of
+  // all the (serializable or not) data of a given package including
+  // values and type synonyms. This contrasts with the term
+  // "Interface" we conventional use to speak only about all the
+  // types of the serializable data of a package. See for instance
+  // [InterfaceReader]
+  type PackageSignature = GenPackage[Unit]
+  object PackageSignature extends GenPackageCompanion[Unit]
 
   val keyFieldName = Name.assertFromString("key")
   val valueFieldName = Name.assertFromString("value")

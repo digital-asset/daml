@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 {-# LANGUAGE ExistentialQuantification #-}
-
+-- @WARN Modules compiled with the ExistentialQuantification language extension might not work properly with data-dependencies.
 
 module Constraint where
 

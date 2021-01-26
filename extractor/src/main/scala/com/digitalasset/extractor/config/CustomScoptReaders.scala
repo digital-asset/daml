@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.Party
 
 import scalaz.OneAnd
 import scopt.Read
@@ -24,13 +24,15 @@ private[extractor] object CustomScoptReaders {
         TemplateConfig(moduleName, entityName)
       case _ =>
         throw new IllegalArgumentException(
-          s"Expected TemplateConfig string: '<moduleName>:<entityName>', got: '$s'")
+          s"Expected TemplateConfig string: '<moduleName>:<entityName>', got: '$s'"
+        )
     }
   }
 
-  implicit def nonEmptySeqRead[F[_], A](
-      implicit ev: Read[A],
-      target: CanBuildFrom[Nothing, A, F[A]]): Read[OneAnd[F, A]] = reads { s =>
+  implicit def nonEmptySeqRead[F[_], A](implicit
+      ev: Read[A],
+      target: CanBuildFrom[Nothing, A, F[A]],
+  ): Read[OneAnd[F, A]] = reads { s =>
     val Array(hd, tl @ _*) = s split Read.sep
     OneAnd(ev reads hd, tl.map(ev.reads)(breakOut))
   }

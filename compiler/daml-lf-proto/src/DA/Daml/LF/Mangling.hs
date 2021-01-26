@@ -1,15 +1,21 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-module DA.Daml.LF.Mangling (mangleIdentifier, unmangleIdentifier) where
+module DA.Daml.LF.Mangling
+    ( UnmangledIdentifier(..)
+    , mangleIdentifier
+    , unmangleIdentifier
+    ) where
 
 import Data.Bits
 import Data.Char
-import qualified Data.Set as Set
+import Data.Coerce
+import Data.Either.Combinators
 import qualified Data.Text as T
-import qualified Data.Text.Internal as T (text)
 import qualified Data.Text.Array as TA
+import qualified Data.Text.Internal as T (text)
+import qualified Data.Text.Read as T
 import Data.Word
 
 -- DAML-LF talks about *identifier* to build up different kind of
@@ -38,7 +44,7 @@ import Data.Word
 -- in the proto encoding/decoding code.
 --
 -- IMPORTANT: keep in sync with
--- `com.digitalasset.daml.lf.data.Ref.DottedName.fromSegments`
+-- `com.daml.lf.data.Ref.DottedName.fromSegments`
 
 isAsciiLetter :: Char -> Bool
 isAsciiLetter c = isAsciiLower c || isAsciiUpper c
@@ -106,41 +112,45 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
             | ord c > 0xFFFF = MangledSize 1 (word16s + 10)
             | otherwise = MangledSize 1 (word16s + 6)
 
-unmangleIdentifier :: T.Text -> Either String T.Text
-unmangleIdentifier txt = do
-  chs <- goStart (T.unpack txt)
-  if null chs
-    then Left "Empty identifier"
-    else Right (T.pack chs)
+-- | Newtype to make it explicit when we have already unmangled a string.
+newtype UnmangledIdentifier = UnmangledIdentifier { getUnmangledIdentifier :: T.Text }
+
+unmangleIdentifier :: T.Text -> Either String UnmangledIdentifier
+unmangleIdentifier txt = mapLeft (\err -> "Could not unmangle name " ++ show txt ++ ": " ++ err) $ coerce $ do
+  case T.uncons txt of
+      Nothing -> Left "Empty identifier"
+      Just (c, _)
+        | isAllowedStart c || c == '$' -> go txt
+        | otherwise -> Left ("Invalid start character: " <> show c)
   where
-    go :: (Char -> Bool) -> (String -> Either String String) -> String -> Either String String
-    go isAllowed followUp = \case
-      [] -> Right []
-      ['$'] -> Left "Got control character $ with nothing after it. It should be followed by $, u, or U"
-      '$' : ctrlCh : chs0 -> case ctrlCh of
-        '$' -> ('$' :) <$> followUp chs0
-        'u' -> do
-          (ch, chs1) <- readEscaped "$u" 4 chs0
-          (ch :) <$> followUp chs1
-        'U' -> do
-          (ch, chs1) <- readEscaped "$U" 8 chs0
-          (ch :) <$> followUp chs1
-        ch -> Left ("Control character $ should be followed by $, u, or U, but got " ++ show ch)
-      ch : chs -> if isAllowed ch
-        then (ch :) <$> followUp chs
-        else Left ("Unexpected unescaped character " ++ show ch)
-    
-    goStart = go isAllowedStart goPart
-    goPart = go isAllowedPart goPart
+    go :: T.Text -> Either String T.Text
+    go s = case T.uncons s of
+        Nothing -> Right T.empty
+        Just ('$', s) ->
+              case T.uncons s of
+                  Just ('$', s) -> T.cons '$' <$> go s
+                  Just ('u', s) -> do
+                      (ch, s') <- readEscaped "$u" 4 s
+                      T.cons ch <$> go s'
+                  Just ('U', s) -> do
+                      (ch, s') <- readEscaped "$U" 8 s
+                      T.cons ch <$> go s'
+                  _ -> Left "Control character $ should be followed by $, u or U"
+        Just (char, _) -> case T.span isAllowedPart s of
+              (prefix, suffix)
+                  | T.null prefix -> Left ("Unexpected unescaped character " ++ show char)
+                  | otherwise -> fmap (prefix <>) (go suffix)
 
     readEscaped what n chs0 = let
-      (escaped, chs) = splitAt n chs0
+      (escaped, chs) = T.splitAt n chs0
       in if
-        | length escaped < n ->
-            Left ("Expected " ++ show n ++ " characters after " ++ what ++ ", but got " ++ show (length escaped))
-        | not (all (`Set.member` escapeSequencesChars) escaped) ->
+        | T.length escaped < n ->
+            Left ("Expected " ++ show n ++ " characters after " ++ what ++ ", but got " ++ show (T.length escaped))
+        | not (T.all isEscapeSequenceChars escaped) ->
             Left ("Expected only lowercase hex code in escape sequences, but got " ++ show escaped)
-        | otherwise -> Right (toEnum (read ("0x" ++ escaped)), chs)
+        | otherwise ->
+          -- We’ve already done the validation so fromRight is safe.
+          Right (toEnum (fst $ fromRight (error $ "Internal error in unmangleIdentifier: " <> show escaped) $ T.hexadecimal escaped), chs)
 
     -- only lowercase, as per printf
-    escapeSequencesChars = Set.fromList (['a'..'f'] ++ ['0'..'9'])
+    isEscapeSequenceChars c = isDigit c || c >= 'a' && c <= 'f'

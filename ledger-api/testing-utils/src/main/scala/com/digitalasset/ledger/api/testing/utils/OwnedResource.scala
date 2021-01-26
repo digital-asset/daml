@@ -1,21 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
-import com.digitalasset.resources
+import com.daml.resources
+import com.daml.resources.AbstractResourceOwner
 
+import scala.concurrent.Await
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
 import scala.reflect.ClassTag
 
-class OwnedResource[T: ClassTag](
-    owner: resources.ResourceOwner[T],
+final class OwnedResource[Context, T: ClassTag](
+    owner: AbstractResourceOwner[Context, T],
     acquisitionTimeout: FiniteDuration = 30.seconds,
     releaseTimeout: FiniteDuration = 30.seconds,
-)(implicit executionContext: ExecutionContext)
+)(implicit context: Context)
     extends ManagedResource[T] {
-  private var resource: resources.Resource[T] = _
+  private var resource: resources.Resource[Context, T] = _
 
   override def construct(): T = {
     resource = owner.acquire()

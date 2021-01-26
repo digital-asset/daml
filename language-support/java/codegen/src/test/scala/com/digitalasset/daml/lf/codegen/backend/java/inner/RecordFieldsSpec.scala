@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
-import com.digitalasset.daml.lf.iface._
+package com.daml.lf.codegen.backend.java.inner
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
+import com.daml.lf.iface._
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class RecordFieldsSpec extends FlatSpec with Matchers {
+final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
 
   behavior of "RecordFields"
 
@@ -26,7 +26,10 @@ final class RecordFieldsSpec extends FlatSpec with Matchers {
       RecordFields(
         getFieldsWithTypes(
           ImmArraySeq(Ref.Name.assertFromString("") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-          Map())))
+          Map(),
+        )
+      )
+    )
   }
 
   it should "return the proper builder for the passed record" in {
@@ -34,8 +37,11 @@ final class RecordFieldsSpec extends FlatSpec with Matchers {
       RecordFields(
         getFieldsWithTypes(
           ImmArraySeq(
-            Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-          Map()))
+            Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)
+          ),
+          Map(),
+        )
+      )
 
     bool should have length 1
 
@@ -52,14 +58,18 @@ final class RecordFieldsSpec extends FlatSpec with Matchers {
     val packageId = Ref.PackageId.assertFromString("some other package")
     val ident = Identifier(
       packageId,
-      QualifiedName(DottedName.assertFromString("Foo.Bar"), DottedName.assertFromString("Baz")))
+      QualifiedName(DottedName.assertFromString("Foo.Bar"), DottedName.assertFromString("Baz")),
+    )
 
     val fields =
       RecordFields(
         getFieldsWithTypes(
           ImmArraySeq(
-            Ref.Name.assertFromString("field") -> TypeCon(TypeConName(ident), ImmArraySeq.empty)),
-          Map()))
+            Ref.Name.assertFromString("field") -> TypeCon(TypeConName(ident), ImmArraySeq.empty)
+          ),
+          Map(),
+        )
+      )
 
     fields should have length 1
 

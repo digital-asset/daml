@@ -3,7 +3,7 @@
 There is currently no separate documentation for the haskell ledger bindings,
 over and above the existing ledger API doc.
 
-The [.proto files](/ledger-api/grpc-definitions/com/digitalasset/ledger/api/v1)
+The [.proto files](/ledger-api/grpc-definitions/com/daml/ledger/api/v1)
 are the best primary source of truth for the API. The [Haskell
 bindings](/language-support/hs/bindings/src/DA/Ledger/Services) match closely
 the names of the services and RPCs, but of course you get much better
@@ -56,7 +56,7 @@ Also, in the instructions below we export the `daml-ledger` package to `/tmp` wh
     eval $(dev-env/bin/dade-assist)
     language-support/hs/bindings/export-package.sh /tmp
 
-## Write a DAML Ledger App in Haskell (or copy one!), and build it
+## Write a Daml Ledger App in Haskell (or copy one!), and build it
 
     cd /tmp
     cp -rp /tmp/daml/language-support/hs/bindings/examples/nim nim

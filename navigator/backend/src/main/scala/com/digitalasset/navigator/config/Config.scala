@@ -1,34 +1,33 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.config
+package com.daml.navigator.config
 
 import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption._
 
-import com.digitalasset.assistant.config.{
-  ConfigMissing => SdkConfigMissing,
+import com.daml.assistant.config.{
+  ProjectConfig,
   ConfigLoadError => SdkConfigLoadError,
+  ConfigMissing => SdkConfigMissing,
   ConfigParseError => SdkConfigParseError,
-  ProjectConfig
 }
-import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes
+import com.github.ghik.silencer.silent
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
-import pureconfig.{ConfigConvert, ConfigWriter}
+import pureconfig.{ConfigConvert, ConfigSource, ConfigWriter}
+import pureconfig.generic.auto._
 import scalaz.Tag
 
-final case class UserConfig(password: Option[String], party: PartyState, role: Option[String])
+final case class UserConfig(party: ApiTypes.Party, role: Option[String], useDatabase: Boolean)
 
 /* The configuration has an empty map as default list of users because you can login as party too */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 final case class Config(users: Map[String, UserConfig] = Map.empty[String, UserConfig]) {
 
   def userIds: Set[String] = users.keySet
 
-  def roles: Set[String] = users.values.flatMap(_.role)(collection.breakOut)
-  def parties: Set[PartyState] = users.values.map(_.party)(collection.breakOut)
+  def roles: Set[String] = users.values.flatMap(_.role.toList)(collection.breakOut)
 }
 
 sealed abstract class ConfigReadError extends Product with Serializable {
@@ -45,10 +44,10 @@ sealed abstract class ConfigOption {
 final case class DefaultConfig(path: Path) extends ConfigOption
 final case class ExplicitConfig(path: Path) extends ConfigOption
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
 object Config {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
+  private[this] def userFacingLogger = LoggerFactory.getLogger("user-facing-logs")
 
   def load(configOpt: ConfigOption, useDatabase: Boolean): Either[ConfigReadError, Config] = {
     configOpt match {
@@ -70,16 +69,18 @@ object Config {
 
   def loadNavigatorConfig(
       configFile: Path,
-      useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
+      useDatabase: Boolean,
+  ): Either[ConfigReadError, Config] = {
+    @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
+    implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
+      useDatabase = useDatabase
+    )
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
-      pureconfig
-        .loadConfig[Config](config)
+      ConfigSource
+        .fromConfig(config)
+        .load[Config]
         .left
         .map(e => ConfigParseFailed(e.toList.mkString(", ")))
     } else {
@@ -101,11 +102,13 @@ object Config {
         Right(
           Config(
             parties
-              .map(p => p -> UserConfig(None, new PartyState(ApiTypes.Party(p), useDatabase), None))
-              .toMap))
+              .map(p => p -> UserConfig(ApiTypes.Party(p), None, useDatabase))
+              .toMap
+          )
+        )
       case Right(None) =>
-        val message = "Found a SDK project config file, but it does not contain any parties."
-        Left(ConfigInvalid(message))
+        // Pick up parties from party management service
+        Right(Config())
       case Left(SdkConfigMissing(reason)) =>
         Left(ConfigNotFound(reason))
       case Left(SdkConfigParseError(reason)) =>
@@ -120,17 +123,15 @@ object Config {
   def template(useDatabase: Boolean): Config =
     Config(
       Map(
-        "OPERATOR" -> UserConfig(
-          Some("password"),
-          new PartyState(ApiTypes.Party("party"), useDatabase),
-          None)
-      ))
+        "OPERATOR" -> UserConfig(ApiTypes.Party("party"), None, useDatabase)
+      )
+    )
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
+    @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
+    implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
+      useDatabase = useDatabase
+    )
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()
@@ -141,4 +142,17 @@ object Config {
     Files.write(configFile, config.render(cro).getBytes, CREATE_NEW)
     ()
   }
+
+  final case class UserConfigHelper(password: Option[String], party: String, role: Option[String])
+
+  private[this] def mkUserConfigConvert(useDatabase: Boolean): ConfigConvert[UserConfig] =
+    implicitly[ConfigConvert[UserConfigHelper]].xmap(
+      helper => {
+        helper.password.foreach { _ =>
+          userFacingLogger.warn(s"password field set for user ${helper.party} is deprecated")
+        }
+        UserConfig(ApiTypes.Party(helper.party), helper.role, useDatabase)
+      },
+      conf => UserConfigHelper(None, Tag.unwrap(conf.party), conf.role),
+    )
 }

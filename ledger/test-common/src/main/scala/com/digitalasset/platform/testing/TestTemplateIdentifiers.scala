@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.testing
+package com.daml.platform.testing
 
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.value.Identifier
 
 final class TestTemplateIdentifiers(testPackageId: String) {
 
@@ -87,6 +87,6 @@ final class TestTemplateIdentifiers(testPackageId: String) {
       divulgence2,
       witnesses,
       maintainerNotSignatory,
-      createAndFetch
+      createAndFetch,
     )
 }

@@ -5,7 +5,7 @@ Finding your way around our Bazel build system from a Haskell developers' point 
   - How toolchains and external dependencies are defined;
   - Specifiying stock `bazel` command options.
 
-For this, one needs awareness of four files at the root level of the DAML repository : `WORKSPACE`, `deps.bzl`, `BUILD` and `.bazelrc`.
+For this, one needs awareness of four files at the root level of the Daml repository : `WORKSPACE`, `deps.bzl`, `BUILD` and `.bazelrc`.
 
 ## `.bazelrc` the Bazel configuration file
 
@@ -26,7 +26,7 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 ```
 This loads the contents of the files `http.bzl` and `git.bzl` from the external workspace [`bazel_tools`](https://github.com/bazelbuild/bazel/tree/master/tools) into the "environment". `bazel_tools` is an external workspace builtin to Bazel and provides rules for working with archives and git.
 
-*[Note : Confusingly (?), `//bazel_tools` is a DAML package (a sub-directory of the root package directory containing a `BUILD.bazel` file). Don't confuse `@bazel_tools//..` with `//bazel_tools/..`]*.
+*[Note : Confusingly (?), `//bazel_tools` is a Daml package (a sub-directory of the root package directory containing a `BUILD.bazel` file). Don't confuse `@bazel_tools//..` with `//bazel_tools/..`]*.
 
 Straight after the loading of those rules, `deps.bzl` reads,
 ```
@@ -55,7 +55,7 @@ Those toolchains are defined in `BUILD` (we'll skip listing their definitions he
 The GHC toolchain is registered within macros provided by `rules_haskell`:
 ```
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     compiler_flags = [ ... ],
     ...
@@ -125,6 +125,7 @@ stack_snapshot(
         "proto3-suite": "@proto3_suite//:proto3-suite",
     },
     local_snapshot = "//:stack-snapshot.yaml",
+    stack_snapshot_json = "//:stackage_snapshot.json",
     flags = {
         "integer-logarithms": ["-integer-gmp"],
         "text": ["integer-simple"],
@@ -136,7 +137,6 @@ stack_snapshot(
         ...
     ],
     deps = {
-        "bzlib-conduit": ["@bzip2//:libbz2"],
         "digest": ["@com_github_madler_zlib//:libz"],
         "zlib": ["@com_github_madler_zlib//:libz"],
     },
@@ -148,6 +148,20 @@ custom stack snapshot defined in `stack-snapshot.yaml`. The items listed in the
 custom snapshot and will be built using the `Cabal` library. Additionally, we
 can provide custom Bazel build definitions for packages using the
 `vendored_packages` attribute.
+
+The packages are pinned by the Stackage snapshot, in this case a
+`local_snapshot` and in the lock-file defined by `stack_snapshot_json`. If you
+wish to update packages, then you need to change the `packages` and
+`local_snapshot` attributes accordingly and afterwards execute the following
+command on Unix and Windows to update the lock-files:
+```
+bazel run @stackage-unpinned//:pin
+```
+
+You can use the ad-hoc Windows machines as described in the [release
+documentation][windows-ad-hoc] to get access to a Windows machine.
+
+[windows-ad-hoc]: ./release/RELEASE.md#tips-for-windows-testing-in-an-ad-hoc-machine
 
 The `flags` attribute can be used to override default Cabal flags. The `tools`
 attribute defines Bazel targets for known Cabal tools, e.g. `alex`, `happy`, or
@@ -226,8 +240,25 @@ alias(
 )
 ```
 
+## Editor integration
+
+The `daml` repository is configured to support [`ghcide`][ghcide] with Bazel
+and the `ghcide` executable is provided by the `dev-env`. Take a look at the
+[setup section][ghcide_setup] for example configurations for various editors.
+`ghcide` has to be built with the same `ghc` as the project you're working on.
+Be sure to either point your editor to the `dev-env` provided `ghcide` by
+absolute path, or make sure that the `dev-env` provided `ghcide` is in `$PATH`
+for your editor.
+
+Note, `ghcide` itself is built by Bazel and to load a target into the editor
+some of its dependencies have to be built by Bazel. This means that start-up
+may take some time if the required artifacts are not built or cached already.
+
+[ghcide]: https://github.com/digital-asset/ghcide
+[ghcide_setup]: https://github.com/digital-asset/ghcide#using-with-vs-code
+
 ## Further reading:
 
-- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/master/BAZEL.md) (DAML specific)
+- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/main/BAZEL.md) (Daml specific)
 - ["A Users's Guide to Bazel"](https://docs.bazel.build/versions/master/guide.html) (official documentation)
 - [`rules_haskell` documentation](https://api.haskell.build/index.html) (core Haskell rules, Haddock support, Linting, Defining toolchains, Support for protocol buffers, Interop with `cc_*` rules, Workspace rules)

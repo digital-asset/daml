@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Run formatters and linter, anything platform-independent and quick
@@ -14,6 +14,7 @@ eval "$(dev-env/bin/dade-assist)"
 ## Config ##
 is_test=
 scalafmt_args=()
+hlint_diff=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
 
@@ -56,6 +57,12 @@ USAGE
       scalafmt_args+=(--test)
       dade_copyright_arg=check
       buildifier_target=//:buildifier
+      ;;
+    --diff)
+      shift
+      merge_base="$(git merge-base origin/main HEAD)"
+      scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
+      hlint_diff=true
       ;;
     *)
       echo "fmt.sh: unknown argument $1" >&2
@@ -101,21 +108,22 @@ echo "\
 # Check for correct copyrights
 run dade-copyright-headers "$dade_copyright_arg" .
 
-# We have a Bazel test that is meant to run HLint, but we're a little sceptical of it
-# If we get this far, but hlint fails, that's a problem we should fix
-function bad_hlint() {
-  echo "UNEXPECTED HLINT FAILURE: The Bazel rules should have spotted this, please raise a GitHub issue"
-}
-trap bad_hlint EXIT
-for dir in daml-assistant libs-haskell compiler release language-support; do
-  run pushd "$dir"
-  run hlint --git -j4
-  run popd
-done
-trap - EXIT
+# We do test hlint via Bazel rules but we run it separately
+# to get linting failures early.
+HLINT=(hlint -j4)
+echo "\$ ${HLINT[*]}"
+if [ "$hlint_diff" = "true" ]; then
+  #  We do not run on deleted files, or files that have been added since we last rebased onto trunk.
+  changed_haskell_files="$(git diff --name-only --diff-filter=ACMRT "$merge_base" | grep '\.hs$' || [[ $? == 1 ]])"
+  if [[ -n "$changed_haskell_files" ]]; then
+    "${HLINT[@]}" -j4 $changed_haskell_files
+  fi
+else
+  "${HLINT[@]}" --git
+fi
 
 # check for scala code style
-run ./scalafmt.sh "${scalafmt_args[@]:-}"
+run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"

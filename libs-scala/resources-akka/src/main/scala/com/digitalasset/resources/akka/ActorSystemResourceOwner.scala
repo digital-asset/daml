@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources.akka
+package com.daml.resources.akka
 
 import akka.actor.ActorSystem
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class ActorSystemResourceOwner(acquireActorSystem: () => ActorSystem)
-    extends ResourceOwner[ActorSystem] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[ActorSystem] =
-    Resource(Future(acquireActorSystem()))(_.terminate().map(_ => ()))
+class ActorSystemResourceOwner[Context: HasExecutionContext](acquireActorSystem: () => ActorSystem)
+    extends AbstractResourceOwner[Context, ActorSystem] {
+  override def acquire()(implicit context: Context): Resource[Context, ActorSystem] =
+    Resource[Context].apply(Future(acquireActorSystem()))(_.terminate().map(_ => ()))
 }

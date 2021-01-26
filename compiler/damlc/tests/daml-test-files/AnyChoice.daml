@@ -30,7 +30,6 @@ template T2
       do pure ()
 
 main = scenario do
-  p <- getParty "alice"
   let c1 = C1
   let c1' = C1'
   let c2 = C2

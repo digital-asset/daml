@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
 import java.net.SocketAddress
 import java.util.concurrent.TimeUnit
@@ -12,8 +12,8 @@ import io.grpc.BindableService
 class AkkaStreamGrpcServerResource(
     constructServices: Materializer => Iterable[BindableService],
     actorMaterializerResource: Resource[Materializer],
-    address: Option[SocketAddress])
-    extends DerivedResource[Materializer, ServerWithChannelProvider](actorMaterializerResource) {
+    address: Option[SocketAddress],
+) extends DerivedResource[Materializer, ServerWithChannelProvider](actorMaterializerResource) {
 
   @volatile private var runningServices: Iterable[BindableService] = Nil
 
@@ -46,9 +46,11 @@ object AkkaStreamGrpcServerResource {
   def apply(
       constructServices: Materializer => Iterable[BindableService],
       actorSystemName: String = "",
-      address: Option[SocketAddress]) =
+      address: Option[SocketAddress],
+  ) =
     new AkkaStreamGrpcServerResource(
       constructServices,
       new ActorMaterializerResource(actorSystemName),
-      address)
+      address,
+    )
 }

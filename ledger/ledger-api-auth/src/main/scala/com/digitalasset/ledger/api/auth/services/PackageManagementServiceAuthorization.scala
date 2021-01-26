@@ -1,34 +1,35 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth.services
+package com.daml.ledger.api.auth.services
 
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
-import com.digitalasset.ledger.api.v1.admin.package_management_service._
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.ProxyCloseable
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
+import com.daml.ledger.api.v1.admin.package_management_service._
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-final class PackageManagementServiceAuthorization(
+private[daml] final class PackageManagementServiceAuthorization(
     protected val service: PackageManagementService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends PackageManagementService
     with ProxyCloseable
     with GrpcApiService {
 
   override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] =
+      request: ListKnownPackagesRequest
+  ): Future[ListKnownPackagesResponse] =
     authorizer.requireAdminClaims(service.listKnownPackages)(request)
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
     authorizer.requireAdminClaims(service.uploadDarFile)(request)
 
   override def bindService(): ServerServiceDefinition =
-    PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
+    PackageManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

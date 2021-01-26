@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
@@ -19,10 +19,6 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | DAML-LF version 1.5
-version1_5 :: Version
-version1_5 = V1 $ PointStable 5
-
 -- | DAML-LF version 1.6
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
@@ -31,25 +27,33 @@ version1_6 = V1 $ PointStable 6
 version1_7 :: Version
 version1_7 = V1 $ PointStable 7
 
+-- | DAML-LF version 1.8
+version1_8 :: Version
+version1_8 = V1 $ PointStable 8
+
+-- | DAML-LF version 1.11
+version1_11 :: Version
+version1_11 = V1 $ PointStable 11
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_7
+versionDefault = version1_8
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, versionDev]
+supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, versionDev]
 
 supportedInputVersions :: [Version]
-supportedInputVersions = version1_5 : supportedOutputVersions
+supportedInputVersions = supportedOutputVersions
 
 
 data Feature = Feature
     { featureName :: !T.Text
     , featureMinVersion :: !Version
-    , featureCppFlag :: !T.Text
+    , featureCppFlag :: Maybe T.Text
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
@@ -57,49 +61,56 @@ featureNumeric :: Feature
 featureNumeric = Feature
     { featureName = "Numeric type"
     , featureMinVersion = version1_7
-    , featureCppFlag = "DAML_NUMERIC"
+    , featureCppFlag = Just "DAML_NUMERIC"
     }
 
 featureAnyType :: Feature
 featureAnyType = Feature
    { featureName = "Any type"
    , featureMinVersion = version1_7
-   , featureCppFlag = "DAML_ANY_TYPE"
+   , featureCppFlag = Just "DAML_ANY_TYPE"
    }
 
 featureTypeRep :: Feature
 featureTypeRep = Feature
     { featureName = "TypeRep type"
     , featureMinVersion = version1_7
-    , featureCppFlag = "DAML_TYPE_REP"
+    , featureCppFlag = Just "DAML_TYPE_REP"
     }
 
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
     , featureMinVersion = version1_7
-    , featureCppFlag = "DAML_STRING_INTERNING"
+    , featureCppFlag = Nothing
+    }
+
+featureGenericComparison :: Feature
+featureGenericComparison = Feature
+    { featureName = "Generic order relation"
+    , featureMinVersion = version1_11
+    , featureCppFlag = Just "DAML_GENERIC_COMPARISON"
     }
 
 featureGenMap :: Feature
 featureGenMap = Feature
     { featureName = "Generic map"
-    , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_GENMAP"
+    , featureMinVersion = version1_11
+    , featureCppFlag = Just "DAML_GENMAP"
     }
 
 featureTypeSynonyms :: Feature
 featureTypeSynonyms = Feature
     { featureName = "LF type synonyms"
-    , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_TYPE_SYNONYMS"
+    , featureMinVersion = version1_8
+    , featureCppFlag = Nothing
     }
 
 featurePackageMetadata :: Feature
 featurePackageMetadata = Feature
     { featureName = "Package metadata"
-    , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_PACKAGE_METADATA"
+    , featureMinVersion = version1_8
+    , featureCppFlag = Nothing
     }
 
 -- Unstable, experimental features. This should stay in 1.dev forever.
@@ -109,7 +120,37 @@ featureUnstable :: Feature
 featureUnstable = Feature
     { featureName = "Unstable, experimental features"
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_UNSTABLE"
+    , featureCppFlag = Just "DAML_UNSTABLE"
+    }
+
+featureToTextContractId :: Feature
+featureToTextContractId = Feature
+    { featureName = "TO_TEXT_CONTRACT_ID primitive"
+    , featureMinVersion = version1_11
+    , featureCppFlag = Just "DAML_TO_TEXT_CONTRACT_ID"
+    }
+
+featureChoiceObservers :: Feature
+featureChoiceObservers = Feature
+    { featureName = "Choice observers"
+    , featureMinVersion = version1_11
+    , featureCppFlag = Just "DAML_CHOICE_OBSERVERS"
+    }
+
+featureTypeInterning :: Feature
+featureTypeInterning = Feature
+    { featureName = "Type interning"
+    , featureMinVersion = version1_11
+    , featureCppFlag = Nothing
+    }
+
+featureExceptions :: Feature
+featureExceptions = Feature
+    { featureName = "DAML Exceptions"
+    , featureMinVersion = versionDev
+        -- TODO: https://github.com/digital-asset/daml/issues/8020
+        -- Update LF version number when we stabilize exceptions.
+    , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
 allFeatures :: [Feature]
@@ -117,10 +158,16 @@ allFeatures =
     [ featureNumeric
     , featureAnyType
     , featureTypeRep
+    , featureTypeSynonyms
     , featureStringInterning
+    , featureGenericComparison
     , featureGenMap
     , featurePackageMetadata
     , featureUnstable
+    , featureToTextContractId
+    , featureChoiceObservers
+    , featureTypeInterning
+    , featureExceptions
     ]
 
 allFeaturesForVersion :: Version -> [Feature]

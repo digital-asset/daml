@@ -9,4 +9,6 @@
     <root level="INFO">
         <appender-ref ref="STDERR"/>
     </root>
+    <logger name="daml.tracelog" level="DEBUG" />
+    <logger name="com.daml.auth" level="WARN" />
 </configuration>

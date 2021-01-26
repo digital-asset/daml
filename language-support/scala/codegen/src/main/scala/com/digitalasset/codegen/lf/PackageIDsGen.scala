@@ -1,14 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
 import java.io.File
 
-import com.digitalasset.codegen.Util
-import com.digitalasset.daml.lf.data.Ref._
+import com.daml.codegen.Util
+import com.daml.lf.data.Ref._
 
-import scala.collection.breakOut
 import scala.reflect.runtime.universe._
 
 /** Record and variant source files all refer to this file so that
@@ -21,16 +20,15 @@ object PackageIDsGen {
     val imports: Seq[Tree] = Seq()
 
     val packageIdsByModule: Map[ModuleName, PackageId] =
-      util.iface.typeDecls.keys.map(id => (id.qualifiedName.module, id.packageId))(breakOut)
-    val packageIdBindings = packageIdsByModule.toSeq.sortBy(_._1.dottedName) map {
-      case (mn, pid) =>
-        q"val ${TermName(mn.dottedName)}: _root_.scala.Predef.String = $pid"
+      util.iface.typeDecls.keys.view.map(id => (id.qualifiedName.module, id.packageId)).toMap
+    val packageIdBindings = packageIdsByModule.toSeq.sortBy(_._1.dottedName) map { case (mn, pid) =>
+      q"val ${TermName(mn.dottedName)}: _root_.scala.Predef.String = $pid"
     }
 
     val packageIdsSrc: Tree =
       q"""
         package ${Util.packageNameToRefTree(util.packageName)} {
-          private object `Package IDs` {
+          private[${Util.packageNameTailToRefTree(util.packageName)}] object `Package IDs` {
             ..$packageIdBindings
           }
         }
@@ -42,6 +40,6 @@ object PackageIDsGen {
     (filePath, trees)
   }
 
-  private[lf] def reference(util: LFUtil)(moduleName: ModuleName) =
+  private[lf] def reference(moduleName: ModuleName) =
     q"`Package IDs`.${TermName(moduleName.dottedName)}"
 }

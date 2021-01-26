@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,11 +11,6 @@ load(
 navigator_scalacopts = [
     "-Xelide-below",
     "CONFIG",
-    "-Xsource:2.13",
-]
-
-common_jvm_flags = [
-    "-Xmx2G",
 ]
 
 # All frontend resource files.
@@ -30,15 +25,6 @@ java_import(
     visibility = ["//visibility:public"],
 )
 
-# Version file, as a top level resources.
-java_library(
-    name = "version-resource",
-    resources = [
-        "//:MVN_VERSION",
-    ],
-    visibility = ["//visibility:public"],
-)
-
 # Static backend resources.
 java_library(
     name = "backend-resources",
@@ -49,9 +35,10 @@ java_library(
 da_scala_library(
     name = "navigator-library",
     srcs = glob([
-        "src/main/scala/com/digitalasset/navigator/**/*.scala",
+        "src/main/scala/**/*.scala",
     ]),
     scalacopts = navigator_scalacopts,
+    silent_annotations = True,
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -61,7 +48,7 @@ da_scala_library(
     deps = [
         "//daml-assistant/scala-daml-project-config",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/language",
@@ -73,9 +60,12 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//libs-scala/build-info",
         "//libs-scala/grpc-utils",
+        "//libs-scala/scala-utils",
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_pureconfig_pureconfig_2_12",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_12",
+        "@maven//:com_github_pureconfig_pureconfig_generic_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -88,9 +78,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_gnieh_diffson_core_2_12",
-        "@maven//:org_gnieh_diffson_spray_json_2_12",
-        "@maven//:org_jline_jline",
         "@maven//:org_sangria_graphql_sangria_2_12",
         "@maven//:org_sangria_graphql_sangria_marshalling_api_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -134,9 +121,9 @@ da_scala_library(
 
 da_scala_binary(
     name = "navigator-binary",
-    main_class = "com.digitalasset.navigator.NavigatorBackend",
+    main_class = "com.daml.navigator.NavigatorBackend",
     tags = [
-        "maven_coordinates=com.digitalasset:navigator:__VERSION__",
+        "maven_coordinates=com.daml:navigator:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = [
@@ -146,7 +133,6 @@ da_scala_binary(
         ":backend-resources",
         ":frontend-resources",
         ":navigator-library",
-        ":version-resource",
     ],
 )
 
@@ -163,18 +149,32 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    data = ["//ledger/test-common:dar-files"],
     scalacopts = navigator_scalacopts,
     deps = [
         ":navigator-library",
         ":navigator-tests-library",
         ":test-resources",
-        ":version-resource",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger-service/lf-value-json",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/build-info",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
@@ -188,6 +188,7 @@ da_scala_test_suite(
         "@maven//:org_sangria_graphql_sangria_marshalling_api_2_12",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

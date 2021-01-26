@@ -8,9 +8,9 @@ This example demonstrates how to:
 This examples requires a running sandbox.
 
 ## To start a sandbox running IOU example
-- create a new DAML Assistant `quickstart-scala` project
+- create a new Daml Assistant `quickstart-scala` project
 ```
-$ daml new quickstart-scala quickstart-scala
+$ daml new quickstart-scala --template quickstart-scala
 ```
 - change directory to this project
 ```
@@ -24,7 +24,7 @@ $ daml start
 ## To run the iou-no-codegen example:
 - Run sbt command from `iou-no-codegen` folder:
 ```
-$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
+$ sbt "application/runMain com.daml.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
 ```
 
 Default sandbox port is 6865.
@@ -39,5 +39,5 @@ Package ID is the part of the template ID after `@` character. In the above exam
 
 To connect to the sandbox running on localhost, listening to the default port and with the above package ID:
 ```
-$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865 fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c"
+$ sbt "application/runMain com.daml.quickstart.iou.IouMain localhost 6865 fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c"
 ```

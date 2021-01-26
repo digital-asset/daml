@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.language.Ast.Type
-import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.daml.lf.language.Ast.Type
+import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class AlphaEquivSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class AlphaEquivSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   import SpecUtil._
 
@@ -38,7 +39,7 @@ class AlphaEquivSpec extends WordSpec with TableDrivenPropertyChecks with Matche
       val types1 = List(
         t"beta (forall beta1 . beta1 alpha)",
         t"beta (forall gamma . gamma alpha)",
-        t"beta (forall beta . beta alpha)"
+        t"beta (forall beta . beta alpha)",
       )
 
       for (t1 <- types1; t2 <- types1) t1 should ===(t2)

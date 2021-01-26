@@ -1,0 +1,114 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module AuthFailure where
+
+-- Tests for various(all) different forms of authorization failure detected during execution.
+-- Five kinds of authorization failure are tested here.
+-- Two others (NoSignatories and NoControllers) are tested in separate files, because the expected error message doesn't contain any indication of which testcase causes it.
+
+template TheContract1
+  with
+    s : Party
+  where
+    signatory s
+
+-- @ERROR failed due to a missing authorization from 'Ivy-t1'
+t1_CreateMissingAuthorization = scenario do
+  mach <- getParty "Mach-t1"
+  ivy <- getParty "Ivy-t1"
+  submit mach $ do
+    create (TheContract1 with s = ivy)
+    abort "t1 finished"
+
+template TheContract2
+  with
+    s : Party
+    m : Party
+    id : Int
+  where
+    signatory s
+    key (m, id) : (Party, Int)
+    maintainer key._1
+
+-- @ERROR failed due to that some parties are maintainers but not signatories: 'Bob-t2'
+t2_MaintainersNotSubsetOfSignatories = scenario do
+  alice <- getParty "Alice-t2"
+  bob <- getParty "Bob-t2"
+  submit alice $ do
+    create (TheContract2 with s = alice; m = bob; id = 100)
+    abort "t2 finished"
+
+template TheContract3
+  with
+    s : Party
+  where
+    signatory s
+
+template TheContractBuilder3
+  with
+    s : Party
+    c : Party
+  where
+    signatory s
+    controller c can
+      TheChoice : ContractId TheContract3
+        with s2 : Party
+        do
+          create TheContract3 with s = s2
+
+-- @ERROR failed since none of the stakeholders 'Alice-t3' is in the authorizing set 'Bob-t3'
+t3_FetchMissingAuthorization = scenario do
+  alice <- getParty "Alice-t3"
+  bob <- getParty "Bob-t3"
+  builder <- submit alice $ do
+    create (TheContractBuilder3 with s = alice; c = bob)
+  -- note: we use `builder` so `cid` is visible to bob, although he is not a stakeholder
+  cid <- submit bob $ do
+    exercise builder TheChoice with s2 = alice
+  submit bob $ do
+    _ <- fetch @TheContract3 cid
+    abort "t3 finished"
+
+template TheContract4
+  with
+    ss : [Party]
+    ms : [Party]
+    os : [Party]
+    id : Int
+  where
+    signatory ss
+    key (ms, id) : ([Party], Int)
+    maintainer key._1
+    observer os
+
+-- @ERROR failed due to a missing authorization from 'Alice-t4'
+t4_LookupByKeyMissingAuthorization = scenario do
+  alice <- getParty "Alice-t4"
+  bob <- getParty "Bob-t4"
+  submit alice $ do
+    create (TheContract4 with ss = [alice]; ms = [alice]; os = [bob]; id = 100)
+  submit bob $ do
+    lookupByKey @TheContract4 ([alice],100)
+    abort "t4 finished"
+
+template TheContract5
+  with
+    s : Party
+  where
+    signatory s
+    choice TheChoice5 : () with
+        cs : [Party]
+      controller cs
+      do
+        return ()
+
+-- @ERROR failed due to a missing authorization from 'Bob-t5'
+t5_ExerciseMissingAuthorization = scenario do
+  alice <- getParty "Alice-t5"
+  bob <- getParty "Bob-t5"
+  cid <- submit alice $ do
+    create (TheContract5 with s = alice)
+  submit alice $ do
+    exercise cid TheChoice5 with cs = [bob]
+    abort "t5 finished"

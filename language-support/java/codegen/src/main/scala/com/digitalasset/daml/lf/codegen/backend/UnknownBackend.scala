@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend
+package com.daml.lf.codegen.backend
 
-import com.digitalasset.daml.lf.codegen.backend
+import com.daml.lf.codegen.backend
 
 private[codegen] class UnknownBackend(backendName: String)
     extends RuntimeException(
       UnknownBackend.message(backendName, backend.backends.keys),
       null,
       true,
-      false
+      false,
     )
 
 private[codegen] object UnknownBackend {

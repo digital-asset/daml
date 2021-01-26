@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -6,61 +6,69 @@ module Main (main) where
 import Data.Function ((&))
 import System.FilePath.Posix ((</>))
 
-import qualified Control.Exception
+import qualified Control.Concurrent.Async
+import qualified Control.Concurrent.QSem
+import Control.Exception.Safe
 import qualified Control.Monad as Control
+import qualified Control.Monad.Extra
+import qualified Control.Monad.Loops
 import qualified Data.Aeson as JSON
+import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
+import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
-import qualified Data.List as List
-import qualified Data.List.Extra as List
+import qualified Data.List
 import qualified Data.List.Split as Split
-import qualified Data.Maybe as Maybe
+import Data.Maybe (fromMaybe)
 import qualified Data.Ord
+import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import qualified Data.Traversable as Traversable
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
-import qualified Network.HTTP.Types.Header as Header
 import qualified Network.HTTP.Types.Status as Status
+import qualified Network.URI
+import qualified Options.Applicative as Opt
+import Safe (headMay)
 import qualified System.Directory as Directory
-import qualified System.Environment as Env
+import qualified System.Environment
 import qualified System.Exit as Exit
-import qualified System.IO.Extra as Temp
+import qualified System.IO.Extra as IO
 import qualified System.Process as System
 import qualified Text.Regex.TDFA as Regex
 
-shell_exit_code :: String -> IO (Exit.ExitCode, String, String)
-shell_exit_code cmd = do
-    System.readCreateProcessWithExitCode (System.shell cmd) ""
-
-die :: String -> Exit.ExitCode -> String -> String -> IO a
-die cmd (Exit.ExitFailure exit) out err =
-    Exit.die $ unlines ["Subprocess:",
-                         cmd,
-                        "failed with exit code " <> show exit <> "; output:",
-                        "---",
-                        out,
-                        "---",
-                        "err:",
-                        "---",
-                        err,
-                        "---"]
-die _ _ _ _ = Exit.die "Type system too weak."
-
+die :: String -> Int -> String -> String -> IO a
+die cmd exit out err =
+    fail $ unlines ["Subprocess:",
+                    cmd,
+                    "failed with exit code " <> show exit <> "; output:",
+                    "---",
+                    out,
+                    "---",
+                    "err:",
+                    "---",
+                    err,
+                    "---"]
 
 shell :: String -> IO String
-shell cmd = do
-    (exit, out, err) <- shell_exit_code cmd
-    if exit == Exit.ExitSuccess
-    then return out
-    else die cmd exit out err
+shell cmd = System.readCreateProcess (System.shell cmd) ""
+
+proc :: [String] -> IO String
+proc args = System.readCreateProcess (System.proc (head args) (tail args)) ""
 
 shell_ :: String -> IO ()
 shell_ cmd = do
     Control.void $ shell cmd
+
+proc_ :: [String] -> IO ()
+proc_ args = Control.void $ proc args
+
+shell_env_ :: [(String, String)] -> String -> IO ()
+shell_env_ env cmd = do
+    parent_env <- System.Environment.getEnvironment
+    Control.void $ System.readCreateProcess ((System.shell cmd) {System.env = Just (parent_env ++ env)}) ""
 
 robustly_download_nix_packages :: IO ()
 robustly_download_nix_packages = do
@@ -68,19 +76,21 @@ robustly_download_nix_packages = do
     where
         cmd = "nix-build nix -A tools -A ci-cached"
         h n = do
-            (exit, out, err) <- shell_exit_code cmd
+            (exit, out, err) <- System.readCreateProcessWithExitCode (System.shell cmd) ""
             case (exit, n) of
               (Exit.ExitSuccess, _) -> return ()
-              (_, 0) -> die cmd exit out err
-              _ | "unexpected end-of-file" `List.isInfixOf` err -> h (n - 1)
-              _ -> die cmd exit out err
+              (Exit.ExitFailure exit, 0) -> die cmd exit out err
+              _ | "unexpected end-of-file" `Data.List.isInfixOf` err -> h (n - 1)
+              (Exit.ExitFailure exit, _) -> die cmd exit out err
+
+add_github_contact_header :: HTTP.Request -> HTTP.Request
+add_github_contact_header req =
+    req { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-app-runtime@digitalasset.com)") : HTTP.requestHeaders req }
 
 http_get :: JSON.FromJSON a => String -> IO (a, H.HashMap String String)
 http_get url = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
-    request' <- HTTP.parseRequest url
-    -- Be polite
-    let request = request' { HTTP.requestHeaders = [("User-Agent", "DAML cron (team-daml-language@digitalasset.com)")] }
+    request <- add_github_contact_header <$> HTTP.parseRequest url
     response <- HTTP.httpLbs request manager
     let body = JSON.decode $ HTTP.responseBody response
     let status = Status.statusCode $ HTTP.responseStatus response
@@ -89,273 +99,85 @@ http_get url = do
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
-http_post :: String -> Header.RequestHeaders -> LBS.ByteString -> IO LBS.ByteString
-http_post url headers body = do
-    manager <- HTTP.newManager TLS.tlsManagerSettings
-    request' <- HTTP.parseRequest url
-    -- Be polite
-    let request = request' { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-language@digitalasset.com)") : headers,
-                             HTTP.method = "POST",
-                             HTTP.requestBody = HTTP.RequestBodyBS $ BS.fromString $ LBS.toString body }
-    -- DEBUG
-    putStrLn $ "About to POST to " <> url <> "\n" <> show body
-    response <- HTTP.httpLbs request manager
-    let status = Status.statusCode $ HTTP.responseStatus response
-    -- DEBUG
-    putStrLn $ "Received " <> show status <> " with:\n" <> show (HTTP.responseBody response)
-    case status `quot` 100 of
-      2 -> return $ HTTP.responseBody response
-      _ -> Exit.die $ "POST " <> url <> " failed with " <> show status <> "."
+s3Path :: DocOptions -> FilePath -> String
+s3Path DocOptions{s3Subdir} file =
+    "s3://docs-daml-com" </> fromMaybe "" s3Subdir </> file
 
-newtype Version = Version (Int, Int, Int)
-  deriving (Eq, Ord)
-
-instance Show Version where
-    show (Version (a, b, c)) = show a <> "." <> show b <> "." <> show c
-
-to_v :: String -> Version
-to_v s = case map read $ Split.splitOn "." s of
-    [major, minor, patch] -> Version (major, minor, patch)
-    _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
-
-build_docs_folder :: String -> [String] -> String -> IO String
-build_docs_folder path versions latest = do
+build_and_push :: DocOptions -> FilePath -> [Version] -> IO ()
+build_and_push opts@DocOptions{build} temp versions = do
     restore_sha $ do
-        let old = path </> "old"
-        let new = path </> "new"
-        shell_ $ "mkdir -p " <> new
-        shell_ $ "mkdir -p " <> old
-        download_existing_site_from_s3 old
-        documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\version -> do
-            putStrLn $ "Building " <> version <> "..."
-            putStrLn "  Checking for existing folder..."
-            old_version_exists <- exists $ old </> version
-            if to_v version < to_v "0.13.36"
-            then do
-                -- Maven has stopped accepting http requests and now requires
-                -- https. We have a patch for 0.13.36 and above, which has been
-                -- merged between 0.13.43 and 0.13.44.
-                if old_version_exists
-                then do
-                    putStrLn "  Found. Too old to rebuild, copying over..."
-                    copy (old </> version) $ new </> version
-                    return $ Just version
-                else do
-                    putStrLn "  Too old to rebuild and no existing version. Skipping."
-                    return Nothing
-            else if to_v version < to_v "0.13.45"
-            then do
-                -- Versions prior to 0.13.45 do have a checksum file, and
-                -- should be buildable with the Maven cherry-pick (see `build`
-                -- function below), but their build is not reproducible
-                -- (includes date of build) and therefore the checksum file is
-                -- useless
-                if old_version_exists
-                then do
-                    putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
-                    copy (old </> version) $ new </> version
-                    return $ Just version
-                else do
-                    putStrLn "  Not found. Building..."
-                    build version new
-                    return $ Just version
-            else if old_version_exists
-            then do
-                -- Note: this checks for upload errors; this is NOT in any way
-                -- a protection against tampering at the s3 level as we get the
-                -- checksums from the s3 bucket.
-                putStrLn "  Found. Checking integrity..."
-                checksums_match <- checksums $ old </> version
-                if checksums_match
-                then do
-                    putStrLn "  Checks, reusing existing."
-                    copy (old </> version) $ new </> version
-                    return $ Just version
-                else do
-                    putStrLn "  Check failed. Rebuilding..."
-                    build version new
-                    return $ Just version
-            else do
-                putStrLn "  Not found. Building..."
-                build version new
-                return $ Just version)
-        putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
-        copy (new </> latest </> "*") (new <> "/")
-        putStrLn "Creating versions.json..."
-        create_versions_json documented_versions new
-        return new
+        Data.Foldable.for_ versions (\version -> do
+            putStrLn $ "Building " <> show version <> "..."
+            build temp version
+            putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
+            push version
+            putStrLn "Done.")
     where
         restore_sha io =
-            Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
-                                      (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
-                                      (const io)
-        download_existing_site_from_s3 path = do
-            shell_ $ "mkdir -p " <> path
-            shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
-        exists dir = Directory.doesDirectoryExist dir
-        checksums path = do
-            let cmd = "cd " <> path <> "; sha256sum -c checksum"
-            (code, _, _) <- shell_exit_code cmd
-            case code of
-                Exit.ExitSuccess -> return True
-                _ -> return False
-        copy from to = do
-            shell_ $ "cp -r " <> from <> " " <> to
-        build version path = do
-            shell_ $ "git checkout v" <> version
-            -- Maven does not accept http connections anymore; this patches the
-            -- scala rules for Bazel to use https instead. This is not needed
-            -- after 0.13.43.
-            if to_v version < to_v "0.13.44"
-            then do
-                shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
-                build_helper version path
-            else if to_v version < to_v "0.13.55"
-            then do
-                build_helper version path
-            -- Starting after 0.13.54, we have changed the way in which we
-            -- trigger releases. Rather than releasing the current commit by
-            -- changing the VERSION file, we now mark an existing commit as the
-            -- source code for a release by changing the LATEST file. However,
-            -- release notes still need to be taken from the release commit
-            -- (i.e. the one that changes the LATEST file, not the one being
-            -- pointed to).
-            else do
-                -- The release-triggering commit does not have a tag, so we
-                -- need to find it by walking through the git history of the
-                -- LATEST file.
-                sha <- find_commit_for_version version
-                Control.Exception.bracket
-                    (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
-                    (\_ -> shell_ "git reset --hard")
-                    (\_ -> build_helper version path)
-        build_helper version path = do
-            robustly_download_nix_packages
-            shell_ "bazel build //docs:docs"
-            shell_ $ "mkdir -p  " <> path </> version
-            shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
-            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
-            writeFile (path </> version </> "checksum") checksums
-        create_versions_json versions path = do
-            -- Not going through Aeson because it represents JSON objects as
-            -- unordered maps, and here order matters.
-            let versions_json = versions
-                                & List.sortOn (Data.Ord.Down . to_v)
-                                & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
-                                & List.intercalate ", "
-                                & \s -> "{" <> s <> "}"
-            writeFile (path </> "versions.json") versions_json
+            bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
+                    (\cur_sha -> proc_ ["git", "checkout", cur_sha])
+                    (const io)
+        push version =
+            proc_ ["aws", "s3", "cp",
+                   temp </> show version,
+                   s3Path opts (show version),
+                   "--recursive", "--acl", "public-read"]
 
-find_commit_for_version :: String -> IO String
-find_commit_for_version version = do
-    release_commits <- lines <$> shell "git log --format=%H origin/master -- LATEST"
-    ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
-    let expected = ver_sha <> " " <> version
-    matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
-        latest <- init <$> (shell $ "git show " <> sha <> ":LATEST")
-        if latest == expected
-        then return $ Just sha
-        else return Nothing)
-    case matching of
-      [sha] -> return sha
-      _ -> error $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
+fetch_if_missing :: DocOptions -> FilePath -> Version -> IO ()
+fetch_if_missing opts temp v = do
+    missing <- not <$> Directory.doesDirectoryExist (temp </> show v)
+    if missing then do
+        putStrLn $ "Downloading " <> show v <> "..."
+        proc_ ["aws", "s3", "cp", s3Path opts (show v), temp </> show v, "--recursive"]
+        putStrLn "Done."
+    else do
+        putStrLn $ show v <> " already present."
 
-fetch_s3_versions :: IO (Set.Set Version)
-fetch_s3_versions = do
-    temp <- shell "mktemp"
-    shell_ $ "aws s3 cp s3://docs-daml-com/versions.json " <> temp
-    s3_raw <- shell $ "cat " <> temp
-    let type_annotated_value :: Maybe JSON.Object
-        type_annotated_value = JSON.decode $ LBS.fromString s3_raw
-    case type_annotated_value of
-      Just s3_json -> return $ Set.fromList $ map (to_v . Text.unpack) $ H.keys s3_json
-      Nothing -> Exit.die "Failed to get versions from s3"
+update_s3 :: DocOptions -> FilePath -> Versions -> IO ()
+update_s3 opts temp vs = do
+    let displayed = dropdown vs
+    let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` Set.fromList displayed
+    -- The assistant depends on these three files, they are not just internal
+    -- to the docs process.
+    push (versions_json displayed) "versions.json"
+    push (versions_json hidden) "snapshots.json"
+    Control.Monad.Extra.whenJust (top vs) $ \latest -> push (show latest) "latest"
+    putStrLn "Done."
+    where
+        -- Not going through Aeson because it represents JSON objects as
+        -- unordered maps, and here order matters.
+        versions_json vs = vs
+                           & map show
+                           & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
+                           & Data.List.intercalate ", "
+                           & \s -> "{" <> s <> "}"
+        push text name = do
+            writeFile (temp </> name) text
+            proc_ ["aws", "s3", "cp", temp </> name, s3Path opts name, "--acl", "public-read"]
 
-push_to_s3 :: String -> IO ()
-push_to_s3 doc_folder = do
-    putStrLn "Pushing new versions file first..."
-    shell_ $ "aws s3 cp " <> doc_folder </> "versions.json s3://docs-daml-com/versions.json --acl public-read"
-    putStrLn "Pushing to S3 bucket..."
-    shell_ $ "aws s3 sync " <> doc_folder
-             <> " s3://docs-daml-com/"
-             <> " --delete"
-             <> " --acl public-read"
+update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
+update_top_level opts temp new mayOld = do
+    new_files <- Set.fromList <$> Directory.listDirectory (temp </> show new)
+    old_files <- case mayOld of
+        Nothing -> pure Set.empty
+        Just old -> Set.fromList <$> Directory.listDirectory (temp </> show old)
+    let to_delete = Set.toList $ old_files `Set.difference` new_files
+    Control.when (not $ null to_delete) $ do
+        putStrLn $ "Deleting top-level files: " <> show to_delete
+        Data.Foldable.for_ to_delete (\f -> do
+            proc_ ["aws", "s3", "rm", s3Path opts f, "--recursive"])
+        putStrLn "Done."
+    putStrLn $ "Pushing " <> show new <> " to top-level..."
+    let path = s3Path opts "" <> "/"
+    proc_ ["aws", "s3", "cp", temp </> show new, path, "--recursive", "--acl", "public-read"]
+    putStrLn "Done."
+
+reset_cloudfront :: IO ()
+reset_cloudfront = do
     putStrLn "Refreshing CloudFront cache..."
-    shell_ $ "aws cloudfront create-invalidation"
-             <> " --distribution-id E1U753I56ERH55"
-             <> " --paths '/*'"
+    shell_ "aws cloudfront create-invalidation --distribution-id E1U753I56ERH55 --paths '/*'"
 
-data BlogId = BlogId { blog_id :: Integer } deriving Show
-instance JSON.FromJSON BlogId where
-    parseJSON = JSON.withObject "BlogId" $ \v -> BlogId
-        <$> v JSON..: Text.pack "id"
-
-data SubmitBlog = SubmitBlog {
-                      body :: String,
-                      date :: Integer,
-                      summary :: String,
-                      version :: String
-                  } deriving Show
-instance JSON.ToJSON SubmitBlog where
-    toJSON SubmitBlog{body, date, summary, version} =
-    -- content_group_id and blog_author_id reference existing items in HubSpot
-        JSON.object ["name" JSON..= ("Release of DAML SDK " <> version),
-                     "post_body" JSON..= body,
-                     "content_group_id" JSON..= (11411412838 :: Integer),
-                     "publish_date" JSON..= date,
-                     "post_summary" JSON..= summary,
-                     "slug" JSON..= version,
-                     "blog_author_id" JSON..= (11513309969 :: Integer),
-                     "meta_description" JSON..= summary]
-
-tell_hubspot :: GitHubVersion -> IO ()
-tell_hubspot latest = do
-    putStrLn $ "Publishing "<> name latest <> " to Hubspot..."
-    desc <- http_post "https://api.github.com/markdown"
-                      [("Content-Type", "application/json")]
-                      (JSON.encode $ JSON.object [("text", JSON.String $ Text.pack $ notes latest),
-                                                  ("mode", "gfm"),
-                                                  ("context", "digital-asset/daml")])
-    -- DEBUG
-    putStrLn $ "About to read date " <> (show $ published_at latest) <> " to epoch ms"
-    date <- (read <$> (<> "000")) . init <$> (shell $ "date -d " <> published_at latest <> " +%s")
-    -- DEBUG
-    putStrLn $ "date read as " <> show date
-    let summary = "Release notes for version " <> name latest <> "."
-    -- DEBUG
-    putStrLn "Fetching hs token from env"
-    token <- Env.getEnv "HUBSPOT_TOKEN"
-    submit_blog <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts?hapikey=" <> token)
-                             [("Content-Type", "application/json")]
-                             $ JSON.encode $ SubmitBlog { body = LBS.toString desc,
-                                                          date,
-                                                          summary,
-                                                          version = name latest }
-    case JSON.decode submit_blog of
-      Nothing -> do
-          -- DEBUG
-          putStrLn "About to die because blog id could not be parsed"
-          Exit.die $ "No blog id from HubSpot: \n" <> LBS.toString submit_blog
-      Just BlogId { blog_id } -> do
-          -- DEBUG
-          putStrLn $ "Parsed blog ID as " <> show blog_id
-          _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id </> "publish-action?hapikey=" <> token)
-                         [("Content-Type", "application/json")]
-                         (JSON.encode $ JSON.object [("action", "schedule-publish")])
-          return ()
-
-data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String, published_at :: String } deriving Show
-instance JSON.FromJSON GitHubVersion where
-    parseJSON = JSON.withObject "GitHubVersion" $ \v -> GitHubVersion
-        <$> v JSON..: Text.pack "prerelease"
-        <*> v JSON..: Text.pack "tag_name"
-        <*> v JSON..:? Text.pack "body" JSON..!= ""
-        <*> v JSON..: Text.pack "published_at"
-
-name :: GitHubVersion -> String
-name gh = tail $ tag_name gh
-
-fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
+fetch_gh_paginated :: String -> IO [GitHubRelease]
 fetch_gh_paginated url = do
     (resp_0, headers) <- http_get url
     case parse_next =<< H.lookup "link" headers of
@@ -374,40 +196,263 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-fetch_gh_versions :: IO (Set.Set Version, GitHubVersion)
-fetch_gh_versions = do
-    resp <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
-    let releases = filter (not . prerelease) resp
-    let versions = Set.fromList $ map (to_v . name) releases
-    let latest = List.maximumOn (to_v . name) releases
-    return (versions, latest)
+data Asset = Asset { uri :: Network.URI.URI }
+instance JSON.FromJSON Asset where
+    parseJSON = JSON.withObject "Asset" $ \v -> Asset
+        <$> (do
+            Just url <- Network.URI.parseURI <$> v JSON..: "browser_download_url"
+            return url)
+
+data GitHubRelease = GitHubRelease { prerelease :: Bool, tag :: Version, assets :: [Asset] }
+instance JSON.FromJSON GitHubRelease where
+    parseJSON = JSON.withObject "GitHubRelease" $ \v -> GitHubRelease
+        <$> (v JSON..: "prerelease")
+        <*> (version . Text.tail <$> v JSON..: "tag_name")
+        <*> (v JSON..: "assets")
+
+data Version = Version Data.SemVer.Version
+    deriving (Ord, Eq)
+instance Show Version where
+    show (Version v) = Data.SemVer.toString v
+
+version :: Text.Text -> Version
+version t = Version $ (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fromText t
+
+data Versions = Versions { top :: Maybe Version, all_versions :: Set.Set Version, dropdown :: [Version] }
+    deriving Eq
+
+versions :: [GitHubRelease] -> Versions
+versions vs =
+    let all_versions = Set.fromList $ map tag vs
+        dropdown = vs
+                   & filter (not . prerelease)
+                   & map tag
+                   & filter (>= version "1.0.0")
+                   & Data.List.sortOn Data.Ord.Down
+        top = headMay dropdown
+    in Versions {..}
+
+fetch_gh_versions :: (Version -> Bool) -> IO Versions
+fetch_gh_versions pred = do
+    response <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
+    return $ versions $ filter (\v -> pred (tag v)) response
+
+fetch_s3_versions :: DocOptions -> IO Versions
+fetch_s3_versions opts = do
+    -- On the first run, this will fail so treat it like an empty file.
+    dropdown <- fetch "versions.json" False `catchIO` (\_ -> pure [])
+    hidden <- fetch "snapshots.json" True `catchIO` (\_ -> pure [])
+    return $ versions $ dropdown <> hidden
+    where fetch file prerelease = do
+              temp <- shell "mktemp"
+              proc_ ["aws", "s3", "cp", s3Path opts file, temp]
+              s3_raw <- proc ["cat", temp]
+              let type_annotated_value :: Maybe JSON.Object
+                  type_annotated_value = JSON.decode $ LBS.fromString s3_raw
+              case type_annotated_value of
+                  Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version s) []) $ H.keys s3_json
+                  Nothing -> Exit.die "Failed to get versions from s3"
+
+data DocOptions = DocOptions
+  { s3Subdir :: Maybe FilePath
+  , includedVersion :: Version -> Bool
+    -- Exclusive minimum version bound for which we build docs
+  , build :: FilePath -> Version -> IO ()
+  }
+
+sdkDocOpts :: DocOptions
+sdkDocOpts = DocOptions
+  { s3Subdir = Nothing
+    -- versions prior to 0.13.10 cannot be built anymore and are not present in
+    -- the repo.
+  , includedVersion = \v -> v >= version "0.13.10"
+  , build = \temp version -> do
+        proc_ ["git", "checkout", "v" <> show version]
+        robustly_download_nix_packages
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //docs:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/docs/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  }
+
+damlOnSqlDocOpts :: DocOptions
+damlOnSqlDocOpts = DocOptions
+  { s3Subdir = Just "daml-driver-for-postgresql"
+  , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
+  , build = \temp version -> do
+        proc_ ["git", "checkout", "v" <> show version]
+        robustly_download_nix_packages
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/ledger/daml-on-sql/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  }
+
+docs :: DocOptions -> IO ()
+docs opts@DocOptions{includedVersion} = do
+    putStrLn "Checking for new version..."
+    gh_versions <- fetch_gh_versions includedVersion
+    s3_versions <- fetch_s3_versions opts
+    if s3_versions == gh_versions
+    then do
+        putStrLn "Versions match, nothing to do."
+    else do
+        -- We may have added versions. We need to build and push them.
+        let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
+        IO.withTempDir $ \temp_dir -> do
+            putStrLn $ "Versions to build: " <> show added
+            build_and_push opts temp_dir added
+            -- If there is no version on GH, we don’t have to do anything.
+            Control.Monad.Extra.whenJust (top gh_versions) $ \gh_top ->
+              Control.when (Just gh_top /= top s3_versions) $ do
+                putStrLn $ "Updating top-level version from " <> (show $ top s3_versions) <> " to " <> (show $ top gh_versions)
+                fetch_if_missing opts temp_dir gh_top
+                Control.Monad.Extra.whenJust (top s3_versions) (fetch_if_missing opts temp_dir)
+                update_top_level opts temp_dir gh_top (top s3_versions)
+            putStrLn "Updating versions.json, snapshots.json, latest..."
+            update_s3 opts temp_dir gh_versions
+        reset_cloudfront
+
+download_assets :: FilePath -> GitHubRelease -> IO ()
+download_assets tmp release = do
+    manager <- HTTP.newManager TLS.tlsManagerSettings
+    tokens <- Control.Concurrent.QSem.newQSem 20
+    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
+        bracket_
+          (Control.Concurrent.QSem.waitQSem tokens)
+          (Control.Concurrent.QSem.signalQSem tokens)
+          (do
+              req <- add_github_contact_header <$> HTTP.parseRequest (show url)
+              HTTP.withResponse req manager (\resp -> do
+                  let body = HTTP.responseBody resp
+                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
+                      while (readFrom body) (writeTo handle)))))
+  where while = Control.Monad.Loops.whileJust_
+        readFrom body = ifNotEmpty <$> HTTP.brRead body
+        ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
+        writeTo = Data.ByteString.hPut
+
+verify_signatures :: FilePath -> FilePath -> String -> IO String
+verify_signatures bash_lib tmp version_tag = do
+    shell $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "source \"" <> bash_lib <> "\"",
+        "shopt -s extglob", -- enable !() pattern: things that _don't_ match
+        "cd \"" <> tmp <> "\"",
+        "for f in !(*.asc); do",
+            "p=" <> version_tag <> "/github/$f",
+            "if ! test -f $f.asc; then",
+                "echo $p: no signature file",
+            "else",
+                "LOG=$(mktemp)",
+                "if gpg_verify $f.asc >$LOG 2>&1; then",
+                    "echo $p: signature matches",
+                "else",
+                    "echo $p: signature does not match",
+                    "echo Full gpg output:",
+                    "cat $LOG",
+                    "exit 2",
+                "fi",
+            "fi",
+       "done",
+       "'"]
+
+does_backup_exist :: String -> FilePath -> FilePath -> IO Bool
+does_backup_exist gcp_credentials bash_lib path = do
+    out <- shell $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "source \"" <> bash_lib <> "\"",
+        "GCRED=$(cat <<END",
+        gcp_credentials,
+        "END",
+        ")",
+        "if gcs \"$GCRED\" ls \"" <> path <> "\" >/dev/null; then",
+            "echo True",
+        "else",
+            "echo False",
+        "fi",
+        "'"]
+    return $ read out
+
+gcs_cp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
+gcs_cp gcp_credentials bash_lib local_path remote_path = do
+    shell_ $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "source \"" <> bash_lib <> "\"",
+        "GCRED=$(cat <<END",
+        gcp_credentials,
+        "END",
+        ")",
+        "gcs \"$GCRED\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
+        "'"]
+
+check_files_match :: String -> String -> IO Bool
+check_files_match f1 f2 = do
+    (exitCode, stdout, stderr) <- System.readProcessWithExitCode "diff" [f1, f2] ""
+    case exitCode of
+      Exit.ExitSuccess -> return True
+      Exit.ExitFailure 1 -> return False
+      Exit.ExitFailure _ -> fail $ "Diff failed.\n" ++ "STDOUT:\n" ++ stdout ++ "\nSTDERR:\n" ++ stderr
+
+check_releases :: Maybe String -> String -> Maybe Int -> IO ()
+check_releases gcp_credentials bash_lib max_releases = do
+    releases' <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
+    let releases = case max_releases of
+                     Nothing -> releases'
+                     Just n -> take n releases'
+    Data.Foldable.for_ releases (\release -> do
+        let v = show $ tag release
+        putStrLn $ "Checking release " <> v <> " ..."
+        IO.withTempDir $ \temp_dir -> do
+            download_assets temp_dir release
+            verify_signatures bash_lib temp_dir v >>= putStrLn
+            Control.Monad.Extra.whenJust gcp_credentials $ \gcred ->
+                Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
+                  let local_github = temp_dir </> f
+                  let local_gcp = temp_dir </> f <> ".gcp"
+                  let remote_gcp = "gs://daml-data/releases/" <> v <> "/github/" <> f
+                  exists <- does_backup_exist gcred bash_lib remote_gcp
+                  if exists then do
+                      gcs_cp gcred bash_lib remote_gcp local_gcp
+                      check_files_match local_github local_gcp >>= \case
+                          True -> putStrLn $ f <> " matches GCS backup."
+                          False -> Exit.die $ f <> " does not match GCS backup."
+                  else do
+                      Exit.die $ remote_gcp <> " does not exist. Aborting."))
+
+data CliArgs = Docs
+             | Check { bash_lib :: String,
+                       gcp_credentials :: Maybe String,
+                       max_releases :: Maybe Int }
+
+parser :: Opt.ParserInfo CliArgs
+parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
+              (Opt.hsubparser (Opt.command "docs" docs
+                            <> Opt.command "check" check))
+  where info t p = Opt.info (p Opt.<**> Opt.helper) (Opt.progDesc t)
+        docs = info "Build & push latest docs, if needed."
+                    (pure Docs)
+        check = info "Check existing releases."
+                     (Check <$> Opt.strOption (Opt.long "bash-lib"
+                                         <> Opt.metavar "PATH"
+                                         <> Opt.help "Path to Bash library file.")
+                            <*> (Opt.optional $
+                                  Opt.strOption (Opt.long "gcp-creds"
+                                         <> Opt.metavar "CRED_STRING"
+                                         <> Opt.help "GCP credentials as a string."))
+                            <*> (Opt.optional $
+                                  Opt.option Opt.auto (Opt.long "max-releases"
+                                         <> Opt.metavar "INT"
+                                         <> Opt.help "Max number of releases to check.")))
 
 main :: IO ()
 main = do
-    robustly_download_nix_packages
-    putStrLn "Checking for new version..."
-    (gh_versions, gh_latest) <- fetch_gh_versions
-    s3_versions_before <- fetch_s3_versions
-    let prev_latest = List.maximum $ Set.toList s3_versions_before
-    if prev_latest == to_v (name gh_latest)
-    then do
-        putStrLn "No new version found, skipping."
-        Exit.exitSuccess
-    else do
-        Temp.withTempDir $ \temp_dir -> do
-            putStrLn "Building docs listing"
-            docs_folder <- build_docs_folder temp_dir (map show $ Set.toList gh_versions) $ name gh_latest
-            putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
-            s3_versions_after <- fetch_s3_versions
-            if s3_versions_after == gh_versions
-            then do
-                putStrLn "No more new version, another process must have pushed already."
-                Exit.exitSuccess
-            else do
-                push_to_s3 docs_folder
-                if to_v (name gh_latest) > prev_latest
-                then do
-                    putStrLn "New version detected, telling HubSpot"
-                    tell_hubspot gh_latest
-                else
-                    putStrLn "Not a new release, not telling HubSpot."
+    Control.forM_ [IO.stdout, IO.stderr] $
+        \h -> IO.hSetBuffering h IO.LineBuffering
+    opts <- Opt.execParser parser
+    case opts of
+      Docs -> do
+          docs sdkDocOpts
+          docs damlOnSqlDocOpts
+      Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases

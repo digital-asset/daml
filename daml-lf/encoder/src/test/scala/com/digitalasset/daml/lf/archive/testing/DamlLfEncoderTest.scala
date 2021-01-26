@@ -1,22 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.daml.lf.testing.archive
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveReader}
-import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageId}
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.data.Ref.{DottedName, PackageId}
+import com.daml.daml_lf_dev.DamlLf
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 class DamlLfEncoderTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with BazelRunfiles {
@@ -25,7 +26,7 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_1_0 = Set[DottedName](
+      val modules_1_6 = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
@@ -36,22 +37,26 @@ class DamlLfEncoderTest
         "ListMod",
         "PartyMod",
         "RecordMod",
-        "VariantMod")
+        "VariantMod",
+        "BuiltinMod",
+        "TemplateMod",
+        "OptionMod",
+        "TextMapMod",
+        "EnumMod",
+      )
 
-      val modules_1_1 = modules_1_0 + "OptionMod"
-      val modules_1_3 = modules_1_1 + "TextMapMod"
-      val modules_1_6 = modules_1_3 + "EnumMod"
-      val modules_1_7 = modules_1_6 + "NumericMod"
-      val modules_1_dev = modules_1_7 + "GenMapMod"
+      val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"
+      val modules_1_8 = modules_1_7 + "SynonymMod"
+      val modules_1_11 = modules_1_8 + "GenMapMod"
+      val modules_1_dev = modules_1_11
 
       val versions = Table(
         "versions" -> "modules",
-        "1.0" -> modules_1_0,
-        "1.1" -> modules_1_1,
-        "1.3" -> modules_1_3,
         "1.6" -> modules_1_6,
         "1.7" -> modules_1_7,
-        "1.dev" -> modules_1_dev
+        "1.8" -> modules_1_8,
+        "1.11" -> modules_1_11,
+        "1.dev" -> modules_1_dev,
       )
 
       forEvery(versions) { (version, expectedModules) =>
@@ -59,9 +64,9 @@ class DamlLfEncoderTest
           UniversalArchiveReader()
             .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
-        dar shouldBe 'success
+        dar shouldBe Symbol("success")
 
-        val findModules = dar.toOption.toList.flatMap(getModules).toSet
+        val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
         findModules shouldBe expectedModules
       }
@@ -71,7 +76,7 @@ class DamlLfEncoderTest
 
   private val preInternalizationVersions = List.range(0, 7).map(_.toString).toSet
 
-  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
+  private def getNonEmptyModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
     for {
       pkgWithId <- dar.main +: dar.dependencies
       (_, pkg) = pkgWithId
@@ -80,13 +85,18 @@ class DamlLfEncoderTest
       dottedNames = pkg.getDamlLf1.getInternedDottedNamesList.asScala.map(
         _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
       )
-      segments <- pkg.getDamlLf1.getModulesList.asScala.map(
-        mod =>
+      segments <- pkg.getDamlLf1.getModulesList.asScala.map {
+        case mod
+            if mod.getSynonymsCount != 0 ||
+              mod.getDataTypesCount != 0 ||
+              mod.getValuesCount != 0 ||
+              mod.getTemplatesCount != 0 =>
           if (preInternalizationVersions(version))
             mod.getNameDname.getSegmentsList.asScala
           else
             dottedNames(mod.getNameInternedDname)
-      )
+
+      }
     } yield DottedName.assertFromSegments(segments)
   }
 

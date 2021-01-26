@@ -1,48 +1,33 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
 
 import scala.{PartialFunction => PF}
 
-private[digitalasset] class AstRewriter(
+private[daml] class AstRewriter(
     typeRule: PF[Type, Type] = PF.empty[Type, Type],
     exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
-    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier]
+    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier],
 ) {
 
   import AstRewriter._
 
   def apply(pkg: Package): Package =
-    Package(
-      ImmArray(pkg.modules)
-        .transform { (_, x) =>
-          apply(x)
-        }
-        .toSeq
-        .toMap,
-      Set.empty[PackageId],
-      pkg.metadata,
-    )
+    pkg.copy(modules = pkg.modules.transform((_, x) => apply(x)))
 
   def apply(module: Module): Module =
-    module match {
-      case Module(name, definitions, languageVersion, featureFlags) =>
-        Module(
-          name,
-          ImmArray(definitions)
-            .transform { (_, x) =>
-              apply(x)
-            }
-            .toSeq
-            .toMap,
-          languageVersion,
-          featureFlags)
-    }
+    Module(
+      name = module.name,
+      definitions = module.definitions.transform((_, x) => apply(x)),
+      templates = module.templates.transform((_, x) => apply(x)),
+      exceptions = module.exceptions,
+      featureFlags = module.featureFlags,
+    )
 
   def apply(identifier: Identifier): Identifier =
     if (identifierRule.isDefinedAt(identifier))
@@ -63,7 +48,7 @@ private[digitalasset] class AstRewriter(
         case TForall(binder, body) =>
           TForall(binder, apply(body))
         case TStruct(fields) =>
-          TStruct(fields.map(apply))
+          TStruct(fields.mapValues(apply))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {
@@ -82,9 +67,12 @@ private[digitalasset] class AstRewriter(
         case ELocation(loc, expr) =>
           ELocation(loc, apply(expr))
         case ERecCon(tycon, fields) =>
-          ERecCon(apply(tycon), fields.transform { (_, x) =>
-            apply(x)
-          })
+          ERecCon(
+            apply(tycon),
+            fields.transform { (_, x) =>
+              apply(x)
+            },
+          )
         case ERecProj(tycon, field, record) =>
           ERecProj(apply(tycon), field, apply(record))
         case ERecUpd(tycon, field, record, update) =>
@@ -126,9 +114,15 @@ private[digitalasset] class AstRewriter(
         case ESome(typ, body) =>
           ESome(apply(typ), apply(body))
         case EToAny(ty, body) =>
-          EToAny(ty, apply(body))
+          EToAny(apply(ty), apply(body))
         case EFromAny(ty, body) =>
-          EFromAny(ty, apply(body))
+          EFromAny(apply(ty), apply(body))
+        case EThrow(returnType, exceptionType, exception) =>
+          EThrow(apply(returnType), apply(exceptionType), apply(exception))
+        case EFromAnyException(ty, body) =>
+          EFromAnyException(apply(ty), apply(body))
+        case EToAnyException(typ, body) =>
+          EToAnyException(apply(typ), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -158,8 +152,10 @@ private[digitalasset] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateFetch(templateId, contractId) =>
         UpdateFetch(apply(templateId), apply(contractId))
-      case UpdateExercise(templateId, choice, cid, actors, arg) =>
-        UpdateExercise(apply(templateId), choice, cid, actors.map(apply), apply(arg))
+      case UpdateExercise(templateId, choice, cid, arg) =>
+        UpdateExercise(apply(templateId), choice, cid, apply(arg))
+      case UpdateExerciseByKey(templateId, choice, key, arg) =>
+        UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x
       case UpdateFetchByKey(rbk) =>
         UpdateFetchByKey(apply(rbk))
@@ -167,6 +163,8 @@ private[digitalasset] class AstRewriter(
         UpdateLookupByKey(apply(rbk))
       case UpdateEmbedExpr(typ, body) =>
         UpdateEmbedExpr(apply(typ), apply(body))
+      case UpdateTryCatch(typ, body, binder, handler) =>
+        UpdateTryCatch(apply(typ), apply(body), binder, apply(handler))
     }
 
   def apply(x: RetrieveByKey): RetrieveByKey = x match {
@@ -200,8 +198,8 @@ private[digitalasset] class AstRewriter(
 
   def apply(x: Definition): Definition =
     x match {
-      case DDataType(serializable, params, DataRecord(fields, template)) =>
-        DDataType(serializable, params, DataRecord(fields.map(apply), template.map(apply)))
+      case DDataType(serializable, params, DataRecord(fields)) =>
+        DDataType(serializable, params, DataRecord(fields.map(apply)))
       case DDataType(serializable, params, DataVariant(variants)) =>
         DDataType(serializable, params, DataVariant(variants.map(apply)))
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
@@ -225,28 +223,32 @@ private[digitalasset] class AstRewriter(
             apply(x)
           },
           apply(observers),
-          key.map(apply)
+          key.map(apply),
         )
     }
 
   def apply(x: TemplateChoice): TemplateChoice =
     x match {
       case TemplateChoice(
-          name,
-          consuming,
-          controllers,
-          selfBinder,
-          (argBinderVar, argBinderType),
-          returnType,
-          update) =>
+            name,
+            consuming,
+            controllers,
+            observers,
+            selfBinder,
+            (argBinderVar, argBinderType),
+            returnType,
+            update,
+          ) =>
         TemplateChoice(
           name,
           consuming,
           apply(controllers),
+          observers.map(apply),
           selfBinder,
           (argBinderVar, apply(argBinderType)),
           apply(returnType),
-          apply(update))
+          apply(update),
+        )
     }
 
   def apply(x: TemplateKey): TemplateKey =

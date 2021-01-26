@@ -1,20 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.codegen.backend.java.{JavaEscaper, Types}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.codegen.backend.java.{JavaEscaper, Types}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 
 import scala.collection.JavaConverters._
 
-/**
-  * Produces an overload of a method or constructor that uses unboxed
+/** Produces an overload of a method or constructor that uses unboxed
   * versions of DAML-LF primitives, if any is passed
   *
   * e.g.
@@ -26,7 +25,6 @@ import scala.collection.JavaConverters._
   * method it's overloading, meaning that the return type will be
   * boxed even if it's a DAML-LF primitive
   */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 object ToValueGenerator {
 
   import Types._
@@ -36,7 +34,8 @@ object ToValueGenerator {
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
       returnType: TypeName,
-      returnStatement: String => CodeBlock): MethodSpec = {
+      returnStatement: String => CodeBlock,
+  ): MethodSpec = {
     val arrayOfFields =
       ParameterizedTypeName.get(classOf[java.util.ArrayList[_]], classOf[javaapi.data.Record.Field])
 
@@ -51,7 +50,8 @@ object ToValueGenerator {
         "$T fields = new $T($L)",
         arrayOfFields,
         arrayOfFields,
-        new Integer(fields.length))
+        Integer.valueOf(fields.length),
+      )
 
     for (FieldInfo(damlName, damlType, javaName, _) <- fields) {
       toValueMethod.addStatement(
@@ -62,7 +62,8 @@ object ToValueGenerator {
           damlType,
           CodeBlock.of("this.$L", javaName),
           newNameGenerator,
-          packagePrefixes)
+          packagePrefixes,
+        ),
       )
     }
     toValueMethod.addStatement(returnStatement("fields"))
@@ -73,7 +74,8 @@ object ToValueGenerator {
       damlType: Type,
       accessor: CodeBlock,
       args: Iterator[String],
-      packagePrefixes: Map[PackageId, String]): CodeBlock = {
+      packagePrefixes: Map[PackageId, String],
+  ): CodeBlock = {
     damlType match {
       case TypeVar(tvName) =>
         CodeBlock.of("toValue$L.apply($L)", JavaEscaper.escapeString(tvName), accessor)
@@ -91,7 +93,7 @@ object ToValueGenerator {
         val extractor = CodeBlock.of(
           "$L -> $L",
           arg,
-          generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
+          generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes),
         )
         CodeBlock.of(
           "$L.stream().collect($T.toDamlList($L))",
@@ -109,7 +111,7 @@ object ToValueGenerator {
           "$T.of($L.map($L))",
           apiOptional,
           accessor,
-          extractor
+          extractor,
         )
 
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
@@ -117,14 +119,14 @@ object ToValueGenerator {
         val extractor = CodeBlock.of(
           "$L -> $L",
           arg,
-          generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes)
+          generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes),
         )
         CodeBlock.of(
           "$L.entrySet().stream().collect($T.toDamlTextMap($T::getKey, $L)) ",
           accessor,
           apiCollectors,
           classOf[java.util.Map.Entry[_, _]],
-          extractor
+          extractor,
         )
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
@@ -132,7 +134,7 @@ object ToValueGenerator {
         val keyExtractor = CodeBlock.of(
           "$L -> $L",
           arg,
-          generateToValueConverter(keyType, CodeBlock.of("$L.getKey()", arg), args, packagePrefixes)
+          generateToValueConverter(keyType, CodeBlock.of("$L.getKey()", arg), args, packagePrefixes),
         )
         val valueExtractor = CodeBlock.of(
           "$L -> $L",
@@ -141,14 +143,15 @@ object ToValueGenerator {
             valueType,
             CodeBlock.of("$L.getValue()", arg),
             args,
-            packagePrefixes)
+            packagePrefixes,
+          ),
         )
         CodeBlock.of(
           "$L.entrySet().stream().collect($T.toDamlGenMap($L, $L))",
           accessor,
           apiCollectors,
           keyExtractor,
-          valueExtractor
+          valueExtractor,
         )
 
       case TypePrim(PrimTypeContractId, _) | TypeCon(_, Seq()) =>
@@ -164,7 +167,7 @@ object ToValueGenerator {
         CodeBlock.of(
           "$L.toValue($L)",
           accessor,
-          CodeBlock.join(extractorParams.asJava, ",")
+          CodeBlock.join(extractorParams.asJava, ","),
         )
     }
   }

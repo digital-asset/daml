@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import shapeless.test.illTyped
 
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.{Primitive => P}
 
-class TemplateSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class TemplateSpec extends AnyWordSpec with Matchers {
   import TemplateSpec._
   // avoid importing CNA to test that implicit resolution is working properly
 
@@ -44,8 +44,8 @@ object TemplateSpec {
         template: P.Int64,
         create: P.Int64,
         namedArguments: P.Int64,
-        archive: P.Int64)
-        extends Template[CNA] {
+        archive: P.Int64,
+    ) extends Template[CNA] {
       protected[this] override def templateCompanion(implicit d: DummyImplicit) = CNA
     }
     // We've already passed the first test, by scalac checking that

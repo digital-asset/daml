@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.auth.services.CommandCompletionServiceAuthorization
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
-import com.digitalasset.ledger.api.v1.command_completion_service._
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.auth.services.CommandCompletionServiceAuthorization
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
+import com.daml.ledger.api.v1.command_completion_service._
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
@@ -14,8 +14,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class CommandCompletionServiceImpl(
     completions: List[CompletionStreamResponse],
-    end: CompletionEndResponse)
-    extends CommandCompletionService
+    end: CompletionEndResponse,
+) extends CommandCompletionService
     with FakeAutoCloseable {
 
   private var lastCompletionStreamRequest: Option[CompletionStreamRequest] = None
@@ -23,7 +23,8 @@ final class CommandCompletionServiceImpl(
 
   override def completionStream(
       request: CompletionStreamRequest,
-      responseObserver: StreamObserver[CompletionStreamResponse]): Unit = {
+      responseObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit = {
     this.lastCompletionStreamRequest = Some(request)
     completions.foreach(responseObserver.onNext)
   }
@@ -42,8 +43,8 @@ object CommandCompletionServiceImpl {
   def createWithRef(
       completions: List[CompletionStreamResponse],
       end: CompletionEndResponse,
-      authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, CommandCompletionServiceImpl) = {
+      authorizer: Authorizer,
+  )(implicit ec: ExecutionContext): (ServerServiceDefinition, CommandCompletionServiceImpl) = {
     val impl = new CommandCompletionServiceImpl(completions, end)
     val authImpl = new CommandCompletionServiceAuthorization(impl, authorizer)
     (CommandCompletionServiceGrpc.bindService(authImpl, ec), impl)

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.io.File
 
@@ -17,7 +17,8 @@ object Main {
 
   final case class Config(
       generateKeys: Option[GenerateKeys] = None,
-      generateJwt: Option[GenerateJwt] = None)
+      generateJwt: Option[GenerateJwt] = None,
+  )
 
   final case class GenerateKeys(name: Option[String] = None)
   final case class GenerateJwt(publicKey: Option[File] = None, privateKey: Option[File] = None)
@@ -32,9 +33,8 @@ object Main {
             e.printStackTrace()
             sys.exit(ErrorCodes.GenerateKeysError)
         }
-      case Some(Config(None, Some(GenerateJwt(Some(publicKey), Some(privateKey))))) =>
-        JwtGenerator.generate(
-          domain.KeyPair(publicKey = Seq.empty[Byte], privateKey = Seq.empty[Byte])) match {
+      case Some(Config(None, Some(GenerateJwt(Some(publicKey @ _), Some(privateKey @ _))))) =>
+        JwtGenerator.generate match {
           case Success(a) =>
             println(s"Generated JWT: $a")
           case Failure(e) =>
@@ -42,7 +42,7 @@ object Main {
             sys.exit(ErrorCodes.GenerateJwtError)
         }
       case Some(_) =>
-        configParser.showUsage()
+        configParser.displayToErr(configParser.usage)
         sys.exit(ErrorCodes.InvalidUsage)
       case None =>
         // error is printed out by scopt... yeah I know... why?
@@ -53,9 +53,10 @@ object Main {
   private def keyPair(name: String) =
     domain.KeyPair(
       publicKey = new File(s"./$name.pub").getAbsoluteFile,
-      privateKey = new File(s"./$name.pvt").getAbsoluteFile)
+      privateKey = new File(s"./$name.pvt").getAbsoluteFile,
+    )
 
-  private def parseConfig(args: Seq[String]): Option[Config] = {
+  private def parseConfig(args: collection.Seq[String]): Option[Config] = {
     configParser.parse(args, Config())
   }
 
@@ -81,7 +82,7 @@ object Main {
         opt[File]("private-key")
           .required()
           .valueName("<private key file path>")
-          .action((x, c) => c.copy(generateJwt = c.generateJwt.map(_.copy(privateKey = Some(x)))))
+          .action((x, c) => c.copy(generateJwt = c.generateJwt.map(_.copy(privateKey = Some(x))))),
       )
   }
 }

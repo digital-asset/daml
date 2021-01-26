@@ -1,9 +1,9 @@
 // Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 // All rights reserved.
 
-import * as Moment from 'moment';
+import Moment from 'moment';
 import {NonExhaustiveMatch} from '../util'
-import {DamlLfEnum, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
+import {DamlLfEnum, DamlLfIdentifier, DamlLfPrimType, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
 
 // --------------------------------------------------------------------------------------------------------------------
 // Type definitions
@@ -40,17 +40,17 @@ export type DamlLfValue
   | DamlLfValueInt64
   | DamlLfValueNumeric
   | DamlLfValueBool
-  | DamlLfValueContractId
-  | DamlLfValueTimestamp
+  | DamlLfValueContractId
+  | DamlLfValueTimestamp
   | DamlLfValueDate
-  | DamlLfValueParty
-  | DamlLfValueUnit
-  | DamlLfValueOptional
-  | DamlLfValueList
+  | DamlLfValueParty
+  | DamlLfValueUnit
+  | DamlLfValueOptional
+  | DamlLfValueList
   | DamlLfValueTextMap
   | DamlLfValueGenMap
-  | DamlLfValueRecord
-  | DamlLfValueVariant
+  | DamlLfValueRecord
+  | DamlLfValueVariant
   | DamlLfValueEnum
   | DamlLfValueUndefined
 
@@ -61,20 +61,20 @@ export type DamlLfValue
 const valueUndef: DamlLfValueUndefined = { type: 'undefined' };
 const valueUnit: DamlLfValueUnit = { type: 'unit' };
 
-export function text(value: string): DamlLfValueText { return { type: 'text', value }}
-export function int64(value: string): DamlLfValueInt64 { return { type: 'int64', value }}
-export function numeric(value: string): DamlLfValueNumeric { return { type: 'numeric', value }}
-export function bool(value: boolean): DamlLfValueBool { return { type: 'bool', value }}
-export function contractid(value: string): DamlLfValueContractId { return { type: 'contractid', value }}
-export function timestamp(value: string): DamlLfValueTimestamp { return { type: 'timestamp', value }}
-export function date(value: string): DamlLfValueDate { return { type: 'date', value }}
-export function party(value: string): DamlLfValueParty { return { type: 'party', value }}
-export function unit(): DamlLfValueUnit { return valueUnit }
-export function optional(value: DamlLfValue | null): DamlLfValueOptional { return { type: 'optional', value }}
-export function list(value: DamlLfValue[]): DamlLfValueList { return { type: 'list', value }}
-export function textmap(value: DamlLfValueTextMapEntry[]): DamlLfValueTextMap { return { type: 'textmap', value }}
+export function text(value: string): DamlLfValueText { return { type: 'text', value }}
+export function int64(value: string): DamlLfValueInt64 { return { type: 'int64', value }}
+export function numeric(value: string): DamlLfValueNumeric { return { type: 'numeric', value }}
+export function bool(value: boolean): DamlLfValueBool { return { type: 'bool', value }}
+export function contractid(value: string): DamlLfValueContractId { return { type: 'contractid', value }}
+export function timestamp(value: string): DamlLfValueTimestamp { return { type: 'timestamp', value }}
+export function date(value: string): DamlLfValueDate { return { type: 'date', value }}
+export function party(value: string): DamlLfValueParty { return { type: 'party', value }}
+export function unit(): DamlLfValueUnit { return valueUnit }
+export function optional(value: DamlLfValue | null): DamlLfValueOptional { return { type: 'optional', value }}
+export function list(value: DamlLfValue[]): DamlLfValueList { return { type: 'list', value }}
+export function textmap(value: DamlLfValueTextMapEntry[]): DamlLfValueTextMap { return { type: 'textmap', value }}
 export function textMapEntry(key: string, value: DamlLfValue): DamlLfValueTextMapEntry { return { key, value } }
-export function genmap(value: DamlLfValueGenMapEntry[]): DamlLfValueGenMap { return { type: 'genmap', value }}
+export function genmap(value: DamlLfValueGenMapEntry[]): DamlLfValueGenMap { return { type: 'genmap', value }}
 export function genMapEntry(key: DamlLfValue, value: DamlLfValue): DamlLfValueGenMapEntry { return { key, value } }
 export function record(id: DamlLfIdentifier, fields: DamlLfRecordField[]): DamlLfValueRecord {
   return { type: 'record', id, fields }
@@ -85,7 +85,7 @@ export function variant(id: DamlLfIdentifier, constructor: string, value: DamlLf
 export function enumCon(id: DamlLfIdentifier, constructor: string): DamlLfValueEnum {
   return { type: 'enum', id, constructor }
 }
-export function undef(): DamlLfValueUndefined { return valueUndef }
+export function undef(): DamlLfValueUndefined { return valueUndef }
 
 // --------------------------------------------------------------------------------------------------------------------
 // Utility functions
@@ -212,7 +212,9 @@ export function initialValue(type: DamlLfType): DamlLfValue {
     case 'typevar': return undef();
     case 'typecon': return undef();
     case 'numeric':     return undef();
-    case 'primitive': switch (type.name) {
+    case 'primitive': {
+    const n: DamlLfPrimType = type.name;
+    switch (n) {
       case 'text':        return undef();
       case 'int64':       return undef();
       case 'bool':        return bool(false);
@@ -225,13 +227,14 @@ export function initialValue(type: DamlLfType): DamlLfValue {
       case 'list':        return list([]);
       case 'textmap':         return textmap([]);
       case 'genmap':      return genmap([]);
-      default: throw new NonExhaustiveMatch(type.name);
+      default: throw new NonExhaustiveMatch(n);
+    }
     }
     default: throw new NonExhaustiveMatch(type);
   }
 }
 
-type JSON = Object | null;
+type JSON = Record<string, unknown> | string | boolean | null | JSON[];
 
 /** A user-readeable representation of the given value. */
 export function toJSON(value: DamlLfValue): JSON {
@@ -247,10 +250,11 @@ export function toJSON(value: DamlLfValue): JSON {
     case 'unit':        return {};
     case 'optional':    return value.value === null ? null : toJSON(value.value);
     case 'list':        return value.value.map((e) => toJSON(e));
-    case 'record':
+    case 'record': {
       const r: {[label: string]: JSON} = {};
       value.fields.forEach((f) => r[f.label] = toJSON(f.value));
       return r;
+    }
     case 'variant':
       return {[value.constructor]: toJSON(value.value)};
     case 'enum' :
@@ -278,22 +282,24 @@ const momentDateFormat = 'YYYY-MM-DD';
 
 export function toMoment(value: DamlLfValue): Moment.Moment | undefined {
   switch (value.type) {
-    case 'timestamp':
+    case 'timestamp': {
       // Iso8601 UTC time
       const momentTime = Moment.utc(value.value);
       return momentTime.isValid() ? momentTime : undefined;
-    case 'date':
+    }
+    case 'date': {
       // Iso8601 local date
       const momentDate = Moment(value.value, momentDateFormat);
       return momentDate.isValid() ? momentDate : undefined;
+    }
     default: return undefined;
   }
 }
 
 export function fromMoment(value: Moment.Moment, type: 'timestamp'): DamlLfValueTimestamp;
 export function fromMoment(value: Moment.Moment, type: 'date'): DamlLfValueDate;
-export function fromMoment(value: Moment.Moment, type: 'timestamp' | 'date'): DamlLfValueTimestamp | DamlLfValueDate;
-export function fromMoment(value: Moment.Moment, type: 'timestamp' | 'date'): DamlLfValueTimestamp | DamlLfValueDate {
+export function fromMoment(value: Moment.Moment, type: 'timestamp' | 'date'): DamlLfValueTimestamp | DamlLfValueDate;
+export function fromMoment(value: Moment.Moment, type: 'timestamp' | 'date'): DamlLfValueTimestamp | DamlLfValueDate {
   switch (type) {
     case 'timestamp': return timestamp(value.utc().format());
     case 'date': return date(value.format(momentDateFormat));

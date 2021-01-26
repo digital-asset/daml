@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, Name}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.data.Ref.{DottedName, ModuleName, Name}
+import com.daml.lf.language.Ast
+import com.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {
   def modName: ModuleName
@@ -17,7 +17,7 @@ object NamedEntity {
 
   final case class NModDef(
       name: ModuleName,
-      dfns: List[(DottedName, Ast.Definition)]
+      dfns: List[(DottedName, Ast.Definition)],
   ) extends NamedEntity {
 
     def modName: ModuleName = name
@@ -48,7 +48,7 @@ object NamedEntity {
   final case class NRecDef(
       module: NModDef,
       name: DottedName,
-      dfn: Ast.DDataType
+      dfn: Ast.DDataType,
   ) extends NamedEntity {
 
     def modName: ModuleName = module.name
@@ -112,7 +112,7 @@ object NamedEntity {
 
   final case class NField(
       dfn: NRecDef,
-      name: Name
+      name: Name,
   ) extends NamedEntity {
 
     def module: NModDef = dfn.module

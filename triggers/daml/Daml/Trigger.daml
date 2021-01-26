@@ -1,13 +1,22 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger
- ( ACS
- , getContracts
- , getTemplates
+ ( query
+ , queryContractId
+ , queryContractKey
+ , ActionTriggerAny
+ , getCommandsInFlight
+ , ActionTriggerUpdate
  , Trigger(..)
  , TriggerA
+ , TriggerUpdateA
+ , TriggerInitializeA
+ , get
+ , put
+ , modify
  , emitCommands
  , runTrigger
  , CommandId
@@ -18,20 +27,33 @@ module Daml.Trigger
  , exerciseCmd
  , createCmd
  , exerciseByKeyCmd
+ , createAndExerciseCmd
  , dedupExercise
  , dedupCreate
  , dedupExerciseByKey
+ , dedupCreateAndExercise
  , Message(..)
  , Completion(..)
  , Transaction(..)
+ , Event(..)
+ , Created
+ , Archived
+ , fromCreated
+ , fromArchived
  , CompletionStatus(..)
  , RegisteredTemplates(..)
  , registeredTemplate
  , RelTime(..)
  ) where
 
+import Prelude hiding (any)
 import DA.Action
-import DA.Action.State
+import DA.Action.State (execState)
+import DA.Foldable (any)
+import DA.Functor ((<&>))
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import qualified DA.Map as GMap
+#endif
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 import DA.Optional
@@ -42,35 +64,97 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
 
-{-# DEPRECATED getTemplates "getTemplates is deprecated in favor of getContracts" #-}
-getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
-getTemplates = getContracts
-
 -- | Extract the contracts of a given template from the ACS.
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
-getContracts (ACS tpls pending) = mapOptional fromAny $ filter (\(cid, _) -> not $ cid `elem` allPending) tpls
+getContracts (ACS tpls pending) = mapOptional fromAny
+                                $ filter (\(cid, _) -> not $ cid `elem` allPending)
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+                                $ optional [] GMap.toList
+                                $ GMap.lookup (templateTypeRep @a)
+#endif
+                                  tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
 
+getContractById : forall a. Template a => ContractId a -> ACS -> Optional a
+getContractById id (ACS tpls pending) = do
+  let aid = toAnyContractId id
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+      implSpecific = GMap.lookup aid <=< GMap.lookup (templateTypeRep @a)
+#else
+      implSpecific = fmap snd . find ((aid ==) . fst)
+#endif
+  aa <- implSpecific tpls
+  a <- fromAnyTemplate aa
+  if any (elem aid) pending then None else Some a
+
+-- | Extract the contracts of a given template from the ACS.
+query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
+query = implQuery
+
+-- | Find the contract with the given `key` in the ACS, if present.
+queryContractKey : forall a k m. (Template a, HasKey a k, Eq k, ActionTriggerAny m, Functor m)
+    => k -> m (Optional (ContractId a, a))
+queryContractKey k = find (\(_, a) -> k == key a) <$> query
+
+-- | Features possible in `initialize`, `updateState`, and `rule`.
+class ActionTriggerAny m where
+  -- | Extract the contracts of a given template from the ACS.  (However, the
+  -- type parameters are in the 'm a' order, so it is not exported.)
+  implQuery : forall a. Template a => m [(ContractId a, a)]
+
+  -- | Find the contract with the given `id` in the ACS, if present.
+  queryContractId : Template a => ContractId a -> m (Optional a)
+
+instance ActionTriggerAny (TriggerA s) where
+  implQuery = TriggerA $ pure . getContracts
+  queryContractId id = TriggerA $ pure . getContractById id
+
+instance ActionTriggerAny (TriggerUpdateA s) where
+  implQuery = TriggerUpdateA $ pure . getContracts . snd
+  queryContractId id = TriggerUpdateA $ pure . getContractById id . snd
+
+instance ActionTriggerAny TriggerInitializeA where
+  implQuery = TriggerInitializeA getContracts
+  queryContractId = TriggerInitializeA . getContractById
+
+-- | Features possible in `updateState` and `rule`.
+class ActionTriggerAny m => ActionTriggerUpdate m where
+  -- | Retrieve command submissions made by this trigger that have not yet
+  -- completed.  If the trigger has restarted, it will not contain commands from
+  -- before the restart; therefore, this should be treated as an optimization
+  -- rather than an absolute authority on ledger state.
+  getCommandsInFlight : m (Map CommandId [Command])
+
+instance ActionTriggerUpdate (TriggerUpdateA s) where
+  getCommandsInFlight = TriggerUpdateA $ \(cif, _) -> pure cif
+
+instance ActionTriggerUpdate (TriggerA s) where
+  getCommandsInFlight = liftTriggerRule $ get <&> \s -> s.commandsInFlight
+
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
 data Trigger s = Trigger
-  { initialize : ACS -> s
+  { initialize : TriggerInitializeA s
   -- ^ Initialize the user-defined state based on the ACS.
-  , updateState : ACS -> Message -> s -> s
-  -- ^ Update the user-defined state based on the ACS and a transaction or
-  -- completion message.
-  , rule : Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ()
+  , updateState : Message -> TriggerUpdateA s ()
+  -- ^ Update the user-defined state based on a transaction or
+  -- completion message.  It can manipulate the state with `get`, `put`,
+  -- and `modify`, or query the ACS with `query`.
+  , rule : Party -> TriggerA s ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
   -- The rule depends on the following arguments:
   --
   --   * The party your trigger is running as.
+  --   * The user-defined state.
+  --
+  -- and can retrieve other data with functions in `TriggerA`:
+  --
   --   * The current state of the ACS.
   --   * The current time (UTC in wallclock mode, Unix epoch in static mode)
   --   * The commands in flight.
-  --   * The user-defined state.
   , registeredTemplates : RegisteredTemplates
   -- ^ The templates the trigger will receive events for.
   , heartbeat : Optional RelTime
@@ -82,15 +166,13 @@ data Trigger s = Trigger
 -- These contracts will automatically be filtered from getContracts until we
 -- either get the corresponding transaction event for this command or
 -- a failing completion.
-emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
+emitCommands : [Command] -> [AnyContractId] -> TriggerA s CommandId
 emitCommands cmds pending = do
-  state <- TriggerA get
-  let id = CommandId $ show $ state.nextCommandId
+  id <- liftTriggerRule $ submitCommands cmds
   let commands = Commands id cmds
-  TriggerA $ modify $ \s -> s
-    { emittedCommands = commands :: s.emittedCommands
+  liftTriggerRule $ modify $ \s -> s
+    { commandsInFlight = addCommands s.commandsInFlight commands
     , pendingContracts = Map.insert id pending s.pendingContracts
-    , nextCommandId = s.nextCommandId + 1
     }
   pure id
 
@@ -100,15 +182,33 @@ emitCommands cmds pending = do
 -- Note that this will send the create as a single-command transaction.
 -- If you need to send multiple commands in one transaction, use
 -- `emitCommands` with `createCmd` and handle filtering yourself.
-dedupCreate : (Eq t, Template t) => t -> TriggerA ()
+dedupCreate : (Eq t, Template t) => t -> TriggerA s ()
 dedupCreate t = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some t ==) . fromCreate) cmds) $
     void $ emitCommands [createCmd t] []
+
+-- | Create the template and exercise a choice on it it’s not already in the list of commands
+-- in flight (it will still be created if it is in the ACS).
+--
+-- Note that this will send the create and exercise as a
+-- single-command transaction.  If you need to send multiple commands
+-- in one transaction, use `emitCommands` with `createAndExerciseCmd`
+-- and handle filtering yourself.
+dedupCreateAndExercise : (Eq t, Eq c, Template t, Choice t c r) => t -> c -> TriggerA s ()
+dedupCreateAndExercise t c = do
+  aState <- liftTriggerRule get
+  -- This is a very naive approach that is linear in the number of
+  -- commands in flight.  We probably want to change this to express
+  -- the commands in flight as some kind of map to make these lookups
+  -- cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
+  unless (any ((Some (t, c) ==) . fromCreateAndExercise) cmds) $
+    void $ emitCommands [createAndExerciseCmd t c] []
 
 -- | Exercise the choice on the given contract if it is not already
 -- in flight.
@@ -119,13 +219,13 @@ dedupCreate t = do
 --
 -- If you are calling a consuming choice, you might be better off by using
 -- `emitCommands` and adding the contract id to the pending set.
-dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA ()
+dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA s ()
 dedupExercise cid c = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some (cid, c) ==) . fromExercise) cmds) $
     void $ emitCommands [exerciseCmd cid c] []
 
@@ -135,13 +235,13 @@ dedupExercise cid c = do
 -- Note that this will send the exercise as a single-command transaction.
 -- If you need to send multiple commands in one transaction, use
 -- `emitCommands` with `exerciseCmd` and handle filtering yourself.
-dedupExerciseByKey : forall t c r k. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA ()
+dedupExerciseByKey : forall t c r k s. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA s ()
 dedupExerciseByKey k c = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
@@ -154,35 +254,41 @@ runTrigger userTrigger = LowLevel.Trigger
   , heartbeat = userTrigger.heartbeat
   }
   where
-    initialState party time (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS [] Map.empty) createdEvents
-          userState = userTrigger.initialize acs
-          state = TriggerState acs party userState Map.empty 0
-      in runRule userTrigger.rule time state
-    update time msg state =
+    initialState party (ActiveContracts createdEvents) =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
+          userState = runTriggerInitializeA userTrigger.initialize acs
+          state = TriggerState acs party userState Map.empty
+      in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
+    utUpdateState commandsInFlight acs msg = execState $ flip runTriggerUpdateA (commandsInFlight, acs) $ userTrigger.updateState msg
+    update msg = do
+      time <- getTime
+      state <- get
       case msg of
         MCompletion completion ->
-          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+          -- NB: the commands-in-flight and ACS updateState sees are those
+          -- prior to updates incurred by the msg
+          let userState = utUpdateState state.commandsInFlight state.acs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
               -- We delete successful completions when we receive the corresponding transaction
               -- to avoid removing a command from commandsInFlight before we have modified the ACS.
-              (state { userState }, [] )
-            Failed {} ->
+              put $ state { userState }
+            Failed {} -> do
                 let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
                     acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
-                    state' = state { commandsInFlight, userState, acs }
-                in runRule userTrigger.rule time state'
-        MTransaction transaction ->
+                put $ state { commandsInFlight, userState, acs }
+                runRule userTrigger.rule
+        MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
-              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+              -- again, we use the commands-in-flight and ACS before the update below
+              userState = utUpdateState state.commandsInFlight acs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
                 Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
-              state' = state { acs = acs', userState, commandsInFlight }
-          in runRule userTrigger.rule time state'
-        MHeartbeat ->
-          let userState = userTrigger.updateState state.acs MHeartbeat state.userState
-              state' = state { userState }
-          in runRule userTrigger.rule time state'
+          put $ state { acs = acs', userState, commandsInFlight }
+          runRule userTrigger.rule
+        MHeartbeat -> do
+          let userState = utUpdateState state.commandsInFlight state.acs MHeartbeat state.userState
+          put $ state { userState }
+          runRule userTrigger.rule

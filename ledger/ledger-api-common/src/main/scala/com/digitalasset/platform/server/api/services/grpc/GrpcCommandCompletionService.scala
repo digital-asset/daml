@@ -1,30 +1,30 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.messages.command.completion.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.messages.command.completion.{
   CompletionStreamRequest => ValidatedCompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.command_completion_service._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
-import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
+import com.daml.ledger.api.v1.command_completion_service._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.daml.platform.server.api.services.domain.CommandCompletionService
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object GrpcCommandCompletionService {
 
   private[this] val completionStreamDefaultOffset = Some(domain.LedgerOffset.LedgerEnd)
 
   private def fillInWithDefaults(
-      request: ValidatedCompletionStreamRequest): ValidatedCompletionStreamRequest =
+      request: ValidatedCompletionStreamRequest
+  ): ValidatedCompletionStreamRequest =
     if (request.offset.isDefined) {
       request
     } else {
@@ -36,20 +36,26 @@ object GrpcCommandCompletionService {
 class GrpcCommandCompletionService(
     ledgerId: LedgerId,
     service: CommandCompletionService,
-    partyNameChecker: PartyNameChecker
-)(implicit protected val esf: ExecutionSequencerFactory, protected val mat: Materializer)
-    extends CommandCompletionServiceAkkaGrpc {
+    partyNameChecker: PartyNameChecker,
+)(implicit
+    protected val mat: Materializer,
+    protected val esf: ExecutionSequencerFactory,
+    executionContext: ExecutionContext,
+) extends CommandCompletionServiceAkkaGrpc {
 
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] = {
-    validator
-      .validateCompletionStreamRequest(request)
-      .fold(
-        Source.failed[CompletionStreamResponse],
-        GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource
-      )
+      request: CompletionStreamRequest
+  ): Source[CompletionStreamResponse, akka.NotUsed] = {
+    Source.future(service.getLedgerEnd(LedgerId(request.ledgerId))).flatMapConcat { ledgerEnd =>
+      validator
+        .validateCompletionStreamRequest(request, ledgerEnd, service.offsetOrdering)
+        .fold(
+          Source.failed[CompletionStreamResponse],
+          GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource,
+        )
+    }
   }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
@@ -61,8 +67,8 @@ class GrpcCommandCompletionService(
           service
             .getLedgerEnd(req.ledgerId)
             .map(abs =>
-              CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))(
-              DirectExecutionContext)
+              CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
+            ),
       )
 
 }

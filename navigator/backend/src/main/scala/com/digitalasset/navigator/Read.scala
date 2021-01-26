@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
@@ -12,8 +12,7 @@ final case class ReadFailed(from: String)
 /** A simple `Read` typeclass */
 sealed trait Read[To] {
 
-  /**
-    * Convert `from` to a value of type `To`
+  /** Convert `from` to a value of type `To`
     *
     * @return `Right` wrapping an instance of `To` in case of success in reading, a `Left` wrapping a `ReadFailed`
     *        otherwise
@@ -34,14 +33,13 @@ object Read {
   def fail[To](implicit classTag: ClassTag[To]): Either[ReadFailed, To] =
     Left(ReadFailed(classTag.runtimeClass.getSimpleName))
 
-  /**
-    * Catches the exceptions thrown while read a value of type `To` from a `String`
+  /** Catches the exceptions thrown while read a value of type `To` from a `String`
     */
   def fromUnsafeFunction[To](f: String => To)(implicit classTag: ClassTag[To]): Read[To] =
     fromFunction[To] { str =>
       Try(f(str)) match {
         case Success(str) => Right(str)
-        case Failure(f) => Read.fail[To](classTag)
+        case Failure(_) => Read.fail[To](classTag)
       }
     }
 

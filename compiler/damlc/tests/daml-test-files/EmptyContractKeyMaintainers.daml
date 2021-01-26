@@ -1,0 +1,30 @@
+-- @ERROR range=14:1-14:19; Attempt to create a contract key with an empty set of maintainers
+-- @ERROR range=20:1-20:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=26:1-26:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+module EmptyContractKeyMaintainers where
+
+template NoMaintainer
+  with
+    sig: Party
+  where
+    signatory sig
+    key sig : Party
+    maintainer [] @Party
+
+createNoMaintainer = scenario do
+  alice <- getParty "Alice"
+
+  submit alice $ create NoMaintainer with sig = alice
+  pure ()
+
+lookupNoMaintainer = scenario do
+  alice <- getParty "Alice"
+
+  submit alice $ lookupByKey @NoMaintainer alice
+  pure ()
+
+fetchNoMaintainer = scenario do
+  alice <- getParty "Alice"
+
+  submit alice $ fetchByKey @NoMaintainer alice
+  pure ()

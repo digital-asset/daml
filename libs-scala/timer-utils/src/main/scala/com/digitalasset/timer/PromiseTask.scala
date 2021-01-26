@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.timer
+package com.daml.timer
 
 import java.util.TimerTask
 
@@ -11,10 +11,10 @@ import scala.util.control.NonFatal
 
 private class PromiseTask[A](value: => Future[A]) extends TimerTask with Promise[A] {
 
-  private val p = Promise[A]
+  private val p = Promise[A]()
 
   override def run(): Unit = {
-    p.tryCompleteWith {
+    p.completeWith {
       try value
       catch { case NonFatal(t) => Future.failed(t) }
     }

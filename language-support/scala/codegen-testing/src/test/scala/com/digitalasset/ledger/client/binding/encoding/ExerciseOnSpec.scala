@@ -1,14 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 package encoding
 
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.{Primitive => P}
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import com.github.ghik.silencer.silent
 
-class ExerciseOnSpec extends WordSpec with Matchers {
+@silent(" exer .* is never used") // testing typechecking only
+class ExerciseOnSpec extends AnyWordSpec with Matchers {
   import ExerciseOnSpec._
 
   val owner: P.Party = P.Party("owner")
@@ -24,7 +27,7 @@ class ExerciseOnSpec extends WordSpec with Matchers {
 
     "select an instance, even if singleton type" in {
       def exer(id: Sth.ContractId) =
-        Sth.`Sth syntax`[id.type](id).exerciseFoo(owner)
+        Sth.`Sth syntax`(id).exerciseFoo(owner)
     }
 
     "still select an instance if imported" in {
@@ -80,7 +83,8 @@ object ExerciseOnSpec {
       * behave. Do *not* import `Sth syntax`; the whole point is to make sure
       * this all works without doing that.
       */
-    implicit final class `Sth syntax`[+` ExOn`](private val id: ` ExOn`) extends AnyVal {
+    implicit final class `Sth syntax`[+ ` ExOn`](private val id: ` ExOn`) extends AnyVal {
+      @silent("(controller|exOn) .* is never used") // used only for arg typechecking
       def exerciseFoo(controller: P.Party)(implicit ` exOn`: ExerciseOn[` ExOn`, Sth]): Unit = ()
     }
   }

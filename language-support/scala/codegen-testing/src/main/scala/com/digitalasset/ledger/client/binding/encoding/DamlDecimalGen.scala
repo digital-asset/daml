@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
+package com.daml.ledger.client.binding.encoding
 
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.{Primitive => P}
 
 // DAML Decimal is DECIMAL(38, 10)
 object DamlDecimalGen {
@@ -29,8 +29,10 @@ object DamlDecimalGen {
       MinDamlDecimal,
       BigDecimal(0).setScale(scale),
       BigDecimal(1).setScale(scale),
-      BigDecimal(-1).setScale(scale))
+      BigDecimal(-1).setScale(scale),
+    )
 
   lazy val arbDamlDecimal: Arbitrary[P.Numeric] = Arbitrary(
-    Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal)))
+    Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal))
+  )
 }

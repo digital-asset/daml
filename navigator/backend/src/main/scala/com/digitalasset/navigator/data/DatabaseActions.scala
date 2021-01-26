@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.sql.DriverManager
+import java.util.concurrent.Executors.newWorkStealingPool
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.{Blocker, ContextShift, IO}
 import cats.implicits._
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model._
 import com.typesafe.scalalogging.LazyLogging
 import doobie._
 import doobie.implicits._
@@ -17,21 +18,21 @@ import scalaz.syntax.tag._
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-/**
-  * This class is responsible for running the queries
+/** This class is responsible for running the queries
   * and make the transformation between Scala and data store types
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DatabaseActions extends LazyLogging {
 
-  /**
-    * Uncomment the log handler to enable query logging
+  /** Uncomment the log handler to enable query logging
     */
   //  implicit private val lh: LogHandler = doobie.util.log.LogHandler.jdkLogHandler
   implicit private val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
-  /**
-    * Initializing a new database.
+  // How many transactions can be executed in parallel.
+  // 256 comes from https://github.com/scala/scala/blob/v2.12.12/src/library/scala/concurrent/impl/ExecutionContextImpl.scala#L115-L116
+  private val maxConnections = 256
+
+  /** Initializing a new database.
     * Every :memory: database is distinct from every other.
     * So, opening two database connections each with the filename
     * ":memory:" will create two independent in-memory databases.
@@ -39,10 +40,10 @@ class DatabaseActions extends LazyLogging {
     */
   private val xa = Transactor.fromConnection[IO](
     DriverManager.getConnection("jdbc:sqlite::memory:"),
-    ExecutionContext.global)
+    Blocker liftExecutorService newWorkStealingPool(maxConnections),
+  )
 
-  /**
-    * Creating the tables when initializing the DatabaseActions object
+  /** Creating the tables when initializing the DatabaseActions object
     */
   (Queries.createContractTable.update.run *>
     Queries.contractIdIndex.update.run *>
@@ -151,7 +152,8 @@ class DatabaseActions extends LazyLogging {
 
   def createEventByContractId(
       id: ApiTypes.ContractId,
-      types: PackageRegistry): Try[ContractCreated] = logErrors {
+      types: PackageRegistry,
+  ): Try[ContractCreated] = logErrors {
     Try {
       Queries
         .eventByTypeAndContractId("ContractCreated", id.unwrap)
@@ -171,7 +173,8 @@ class DatabaseActions extends LazyLogging {
 
   def archiveEventByContractId(
       id: ApiTypes.ContractId,
-      types: PackageRegistry): Try[Option[ChoiceExercised]] = logErrors {
+      types: PackageRegistry,
+  ): Try[Option[ChoiceExercised]] = logErrors {
     Try {
       Queries
         .eventByTypeAndContractId("ContractArchived", id.unwrap)
@@ -192,7 +195,8 @@ class DatabaseActions extends LazyLogging {
 
   def choiceExercisedEventByContractById(
       id: ApiTypes.ContractId,
-      types: PackageRegistry): Try[List[ChoiceExercised]] = logErrors {
+      types: PackageRegistry,
+  ): Try[List[ChoiceExercised]] = logErrors {
     Try {
       Queries
         .eventByTypeAndContractId("ChoiceExercised", id.unwrap)
@@ -223,7 +227,8 @@ class DatabaseActions extends LazyLogging {
 
   def transactionById(
       id: ApiTypes.TransactionId,
-      types: PackageRegistry): Try[Option[Transaction]] = logErrors {
+      types: PackageRegistry,
+  ): Try[Option[Transaction]] = logErrors {
     Try {
       Queries
         .topLevelEventsByTransactionId(id.unwrap)
@@ -302,7 +307,8 @@ class DatabaseActions extends LazyLogging {
 
   def commandStatusByCommandId(
       commandId: ApiTypes.CommandId,
-      types: PackageRegistry): Try[Option[CommandStatus]] = logErrors {
+      types: PackageRegistry,
+  ): Try[Option[CommandStatus]] = logErrors {
     Try {
       Queries
         .commandStatusByCommandId(commandId.unwrap)
@@ -367,7 +373,8 @@ class DatabaseActions extends LazyLogging {
 
   def archiveContract(
       contractId: ApiTypes.ContractId,
-      archiveTransactionId: ApiTypes.TransactionId): Try[Int] = logErrors {
+      archiveTransactionId: ApiTypes.TransactionId,
+  ): Try[Int] = logErrors {
     Try {
       Queries
         .archiveContract(contractId.unwrap, archiveTransactionId.unwrap)
@@ -450,7 +457,8 @@ class DatabaseActions extends LazyLogging {
 
   def activeContractsForTemplate(
       tId: DamlLfIdentifier,
-      types: PackageRegistry): Try[List[Contract]] = logErrors {
+      types: PackageRegistry,
+  ): Try[List[Contract]] = logErrors {
     Try {
       Queries
         .activeContractsForTemplate(tId.asOpaqueString)

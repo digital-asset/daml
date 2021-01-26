@@ -16,7 +16,7 @@
         <appender-ref ref="STDOUT-SIMPLE" />
     </root>
 
-    <logger level="ERROR" name="com.digitalasset.daml.lf.codegen.backend.java.inner" additivity="false">
+    <logger level="ERROR" name="com.daml.lf.codegen.backend.java.inner" additivity="false">
         <appender-ref ref="STDOUT-BACKEND" />
     </logger>
 

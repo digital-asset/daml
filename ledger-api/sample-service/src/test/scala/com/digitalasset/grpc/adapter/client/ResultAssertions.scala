@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.client
+package com.daml.grpc.adapter.client
 
-import com.digitalasset.platform.hello.HelloResponse
+import com.daml.platform.hello.HelloResponse
 import com.google.protobuf.ByteString
 import io.grpc.{Status, StatusRuntimeException}
-import org.scalatest.{Assertion, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.Random
 

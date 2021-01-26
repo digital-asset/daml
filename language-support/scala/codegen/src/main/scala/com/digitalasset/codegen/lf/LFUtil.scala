@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
-import com.digitalasset.{codegen => parent}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.{codegen => parent}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
-import com.digitalasset.daml.lf.iface
+import com.daml.lf.iface
 import iface.{PrimType => PT, Type => IType, _}
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.iface.reader.InterfaceType
 import java.io.File
 
 import scalaz._
@@ -24,17 +24,15 @@ object DefTemplateWithRecord {
   type FWT = DefTemplateWithRecord[IType]
 }
 
-/**
-  *  In order to avoid endlessly passing around "packageName" and "iface" to
+/**  In order to avoid endlessly passing around "packageName" and "iface" to
   *  utility functions we initialise a class with these values and allow all the
   *  methods to have access to them.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final case class LFUtil(
     override val packageName: String,
     override val iface: EnvironmentInterface,
-    override val outputDir: File)
-    extends parent.Util(packageName, outputDir) {
+    override val outputDir: File,
+) extends parent.Util(packageName, outputDir) {
 
   import scala.reflect.runtime.universe._
   import parent.Util._
@@ -54,12 +52,14 @@ final case class LFUtil(
   // there are good reasons to make it do so
   def mkDamlScalaName(
       codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: Ref.Identifier): DamlScalaName =
+      metadataAlias: Ref.Identifier,
+  ): DamlScalaName =
     mkDamlScalaName(codeGenDeclKind, metadataAlias.qualifiedName)
 
   def mkDamlScalaName(
       codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: Ref.QualifiedName): DamlScalaName = {
+      metadataAlias: Ref.QualifiedName,
+  ): DamlScalaName = {
     val (damlNameSpace, name) = qualifiedNameToDirsAndName(metadataAlias)
     mkDamlScalaNameFromDirsAndName(damlNameSpace, name.capitalize)
   }
@@ -68,8 +68,7 @@ final case class LFUtil(
     DamlScalaName(nameSpace, name)
   }
 
-  /**
-    *  This method is responsible for generating Scala reflection API "tree"s.
+  /**  This method is responsible for generating Scala reflection API "tree"s.
     *  It maps from Core package interface types to:
     *  a) the wrapper types defined in the typed-ledger-api project
     *  b) the classes that will be generated for the user defined types defined in
@@ -87,7 +86,8 @@ final case class LFUtil(
         case PT.Unit => q"$primitiveObject.Unit"
         case PT.List | PT.ContractId | PT.Optional | PT.TextMap | PT.GenMap =>
           throw UnsupportedDamlTypeException(
-            s"type $refType should not occur in a Data-kinded position; this is an invalid input LF")
+            s"type $refType should not occur in a Data-kinded position; this is an invalid input LF"
+          )
         case TypeConName(tyCon) =>
           val damlScalaName = mkDamlScalaName(UserDefinedType, tyCon)
           damlScalaName.toRefTree
@@ -121,9 +121,8 @@ final case class LFUtil(
     }
   }
 
-  def genArgsWithTypes(fields: Seq[FieldWithType]): Seq[Typed] = fields.map {
-    case (label, typ) =>
-      q"${toIdent(escapeIfReservedName(label))}: ${genTypeToScalaType(typ)}"
+  def genArgsWithTypes(fields: Seq[FieldWithType]): Seq[Typed] = fields.map { case (label, typ) =>
+    q"${toIdent(escapeIfReservedName(label))}: ${genTypeToScalaType(typ)}"
   }
 
   /** Produces the for-comprehension body of a "reader" method.
@@ -151,7 +150,8 @@ final case class LFUtil(
       params: Seq[FieldWithType],
       paramIds: Iterable[Ident],
       nameOfRecord: String,
-      inner: Tree): Tree = {
+      inner: Tree,
+  ): Tree = {
     require(params.size == paramIds.size)
     val numFields = params.size
     val zvs = generateIds(params.size, "zv")
@@ -188,11 +188,10 @@ final case class LFUtil(
     q"$domainApiAlias.Value.encode($paramRef)"
 
   def toNamedArgumentsMap(params: List[FieldWithType], path: Option[Tree]): Tree = {
-    val ps = params.map {
-      case (n, t) =>
-        val unqualified = TermName(n)
-        val pr = path.cata(p => q"$p.$unqualified", q"$unqualified")
-        q"($n, ${paramRefAndGenTypeToArgumentValue(pr, t)})"
+    val ps = params.map { case (n, t) =>
+      val unqualified = TermName(n)
+      val pr = path.cata(p => q"$p.$unqualified", q"$unqualified")
+      q"($n, ${paramRefAndGenTypeToArgumentValue(pr, t)})"
     }
     q"` arguments`(..$ps)"
   }
@@ -201,19 +200,22 @@ final case class LFUtil(
       templateType: Ident,
       idType: TypeName,
       choiceId: Ref.ChoiceName,
-      choiceInterface: TemplateChoice.FWT): Seq[Tree] = {
+      choiceInterface: TemplateChoice.FWT,
+  ): Seq[Tree] = {
     val choiceMethod = TermName(s"exercise$choiceId")
     val choiceParam = choiceInterface.param
     val choiceParamName = toIdent("choiceArgument")
     def nonunitaryCase(
         ty: IType,
         apn: String,
-        dn: Option[(Ref.QualifiedName, ImmArraySeq[FieldWithType])]) =
+        dn: Option[(Ref.QualifiedName, ImmArraySeq[FieldWithType])],
+    ) =
       (
         Some(q"$choiceParamName: ${genTypeToScalaType(ty)}"),
         q"_root_.scala.Some(${paramRefAndGenTypeToArgumentValue(choiceParamName, ty)})",
         apn,
-        dn)
+        dn,
+      )
     val (typedParam, namedArguments, actorParamName, denominalized1) =
       choiceParam match {
         case TypePrim(PT.Unit, ImmArraySeq()) => (None, q"_root_.scala.None", "actor", None)
@@ -229,30 +231,30 @@ final case class LFUtil(
             nonunitaryCase(
               choiceParam,
               "actor".whileDo(na => s"${na}_", orecArgNames.toSet[String]),
-              Some((tyCon.qualifiedName, fields)))
+              Some((tyCon.qualifiedName, fields)),
+            )
           } getOrElse {
             nonunitaryCase(choiceParam, "actor", None)
           }
         case ty =>
           nonunitaryCase(ty, "actor", None)
       }
-    val denominalized = denominalized1.map {
-      case (name, fields) =>
-        (
-          genArgsWithTypes(fields),
-          mkDamlScalaName(UserDefinedType, name).qualifiedTermName,
-          fields.map { case (label, _) => toIdent(escapeIfReservedName(label)) })
+    val denominalized = denominalized1.map { case (name, fields) =>
+      (
+        genArgsWithTypes(fields),
+        mkDamlScalaName(UserDefinedType, name).qualifiedTermName,
+        fields.map { case (label, _) => toIdent(escapeIfReservedName(label)) },
+      )
     }
     val actorParam = q"${TermName(actorParamName)}: $domainApiAlias.Primitive.Party"
     val exerciseOnParam = q"` exOn`: $domainApiAlias.encoding.ExerciseOn[$idType, $templateType]"
     val resultType = genTypeToScalaType(choiceInterface.returnType)
-    val body = q"` exercise`(id, $choiceId, $namedArguments)"
+    val body = q"` exercise`(${TermName(actorParamName)}, id, $choiceId, $namedArguments)"
 
     Seq(q"""def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
                 : $domainApiAlias.Primitive.Update[$resultType] = $body""") ++
-      denominalized.map {
-        case (dparams, dctorName, dargs) =>
-          q"""def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
+      denominalized.map { case (dparams, dctorName, dargs) =>
+        q"""def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
                   : $domainApiAlias.Primitive.Update[$resultType] =
                 $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
       }.toList
@@ -283,7 +285,8 @@ object LFUtil {
       "productIterator",
       "productPrefix",
       "toString",
-      "wait").map(Regex.quote).mkString("(?:", "|", ")_*").r.anchored
+      "wait",
+    ).map(Regex.quote).mkString("(?:", "|", ")_*").r.anchored
   }
 
   /** Either mangle a reserved name, or return it unchanged. Reserved
@@ -318,11 +321,11 @@ object LFUtil {
       extends Product
       with Serializable {
     def map[B](f: A => B): TupleNesting[B] =
-      TupleNesting(run map (_ bimap (f, _ map f)))
+      TupleNesting(run map (_.bimap(f, _ map f)))
 
     // not tail recursive
     def fold[Z](pure: A => Z)(roll: NonEmptyList[Z] => Z): Z =
-      roll(run map (_ fold (pure, _.fold(pure)(roll))))
+      roll(run map (_.fold(pure, _.fold(pure)(roll))))
   }
 
   /** Group `flat` into the shallowest permissible tree, given that a maximum of
@@ -352,12 +355,16 @@ object LFUtil {
           assert(remaining.isEmpty, "unfold must group all")
           None
         }
-    } else IList.empty
+    }
+    else IList.empty
     (lefts.map(\/.left[A, TupleNesting[A]])
       ++ groupedRights.map(g => \/.right(tupleNesting(g, subtrees, subtrees)))).toNel
       .map(TupleNesting(_))
-      .getOrElse(throw new IllegalStateException(
-        "impossible; either lefts or groupedRights must be non-empty"))
+      .getOrElse(
+        throw new IllegalStateException(
+          "impossible; either lefts or groupedRights must be non-empty"
+        )
+      )
   }
 
   private[this] def unfoldIList[S, A](init: S)(step: S => Option[(A, S)]): IList[A] =
@@ -369,16 +376,17 @@ object LFUtil {
   val higherKindsImport: Tree =
     q"import _root_.scala.language.higherKinds"
   val domainApiImport: Tree =
-    q"import _root_.com.digitalasset.ledger.client.{binding => ` lfdomainapi`}"
+    q"import _root_.com.daml.ledger.client.{binding => ` lfdomainapi`}"
   val rpcValueImport: Tree =
-    q"import _root_.com.digitalasset.ledger.api.v1.{value => ` rpcvalue`}"
+    q"import _root_.com.daml.ledger.api.v1.{value => ` rpcvalue`}"
   val rpcEventImport: Tree =
-    q"import _root_.com.digitalasset.ledger.api.v1.{event => ` rpcevent`}"
+    q"import _root_.com.daml.ledger.api.v1.{event => ` rpcevent`}"
   val primitiveObject: Tree = q"$domainApiAlias.Primitive"
   val stdMapType = tq"_root_.scala.collection.immutable.Map"
   val stdMapCompanion = q"_root_.scala.collection.immutable.Map"
   val stdVectorType = tq"_root_.scala.collection.immutable.Vector"
   val stdSeqCompanion = q"_root_.scala.collection.immutable.Seq"
+  val nothingType = q"_root_.scala.Nothing"
 
   def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"
 

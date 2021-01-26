@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -12,6 +12,9 @@ module DA.Daml.Assistant.Version
     , getAvailableSdkVersionsCached
     , refreshAvailableSdkVersions
     , getLatestSdkVersionCached
+    , getAvailableSdkSnapshotVersions
+    , getLatestSdkSnapshotVersion
+    , getLatestReleaseVersion
     ) where
 
 import DA.Daml.Assistant.Types
@@ -28,9 +31,18 @@ import Data.Maybe
 import Data.List
 import Data.Either.Extra
 import Data.Aeson (eitherDecodeStrict')
+import Data.Text.Encoding
 import Safe
 import Network.HTTP.Simple
-import Network.HTTP.Client (Request(responseTimeout), responseTimeoutMicro)
+import Network.HTTP.Client
+    ( Request(responseTimeout)
+    , responseBody
+    , responseStatus
+    , responseTimeoutMicro
+    )
+import qualified Network.HTTP.Client as Http
+import Network.HTTP.Types (ok200)
+import Network.HTTP.Client.TLS (newTlsManager)
 
 import qualified Data.HashMap.Strict as M
 
@@ -109,7 +121,7 @@ getDefaultSdkVersion damlPath = do
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
--- | Get the list of available versions afresh. This will fetch.
+-- | Get the list of available versions afresh. This will fetch
 -- https://docs.daml.com/versions.json and parse the obtained list
 -- of versions.
 getAvailableSdkVersions :: IO [SdkVersion]
@@ -130,23 +142,77 @@ getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
 
     pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
 
+-- | Get the list of available snapshot versions. This will fetch
+-- https://docs.daml.com/snapshots.json and parse the obtained list
+-- of versions.
+getAvailableSdkSnapshotVersions :: IO [SdkVersion]
+getAvailableSdkSnapshotVersions = wrapErr "Fetching list of available SDK snapshot versions" $ do
+    response <- requiredAny "HTTP connection to docs.daml.com failed" $ do
+        request <- parseRequest "GET http://docs.daml.com/snapshots.json"
+        httpBS request { responseTimeout = responseTimeoutMicro 2000000 }
+
+    when (getResponseStatusCode response /= 200) $ do
+        throwIO $ assistantErrorBecause
+            "Fetching list of available SDK snapshot versions from docs.daml.com failed"
+            (pack . show $ getResponseStatus response)
+
+    versionsMap :: M.HashMap Text Text <-
+        fromRightM
+            (throwIO . assistantErrorBecause "Snapshot versions list from docs.daml.com does not contain valid JSON" . pack)
+            (eitherDecodeStrict' (getResponseBody response))
+
+    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
+
 -- | Same as getAvailableSdkVersions, but writes result to cache.
-refreshAvailableSdkVersions :: DamlPath -> IO [SdkVersion]
-refreshAvailableSdkVersions damlPath = do
+refreshAvailableSdkVersions :: CachePath -> IO [SdkVersion]
+refreshAvailableSdkVersions cachePath = do
     versions <- getAvailableSdkVersions
-    saveAvailableSdkVersions damlPath versions
+    saveAvailableSdkVersions cachePath versions
     pure versions
 
 -- | Same as getAvailableSdkVersions, but result is cached based on the duration
 -- of the update-check value in daml-config.yaml (defaults to 1 day).
-getAvailableSdkVersionsCached :: DamlPath -> IO [SdkVersion]
-getAvailableSdkVersionsCached damlPath =
-    cacheAvailableSdkVersions damlPath getAvailableSdkVersions
+getAvailableSdkVersionsCached :: DamlPath -> CachePath -> IO [SdkVersion]
+getAvailableSdkVersionsCached damlPath cachePath =
+    cacheAvailableSdkVersions damlPath cachePath getAvailableSdkVersions
 
 -- | Get the latest released SDK version, cached as above.
-getLatestSdkVersionCached :: DamlPath -> IO (Maybe SdkVersion)
-getLatestSdkVersionCached damlPath = do
-    versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath
+getLatestSdkVersionCached :: DamlPath -> CachePath -> IO (Maybe SdkVersion)
+getLatestSdkVersionCached damlPath cachePath = do
+    versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath cachePath
     pure $ do
         versions <- eitherToMaybe versionsE
         maximumMay versions
+
+-- | Get the latest snapshot SDK version.
+getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
+getLatestSdkSnapshotVersion = do
+    versionsE <- tryAssistant getAvailableSdkSnapshotVersions
+    pure $ do
+        versions <- eitherToMaybe versionsE
+        maximumMay versions
+
+latestReleaseVersionUrl :: String
+latestReleaseVersionUrl = "https://docs.daml.com/latest"
+
+getLatestReleaseVersion :: IO SdkVersion
+getLatestReleaseVersion = do
+    manager <- newTlsManager
+    request <- parseRequest latestReleaseVersionUrl
+    Http.withResponse request manager $ \resp -> do
+        case responseStatus resp of
+            s | s == ok200 -> do
+                    body <- responseBody resp
+                    case parseVersion $ decodeUtf8 body of
+                        Right v -> pure v
+                        Left invalidVersion ->
+                            throwIO $
+                            assistantErrorBecause
+                                (pack $
+                                 "Failed to parse SDK version from " <> latestReleaseVersionUrl)
+                                (pack $ ivMessage invalidVersion)
+            otherStatus ->
+                throwIO $
+                assistantErrorBecause
+                    (pack $ "Bad response status code when requesting " <> latestReleaseVersionUrl)
+                    (pack $ show otherStatus)

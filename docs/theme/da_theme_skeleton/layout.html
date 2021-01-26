@@ -1,9 +1,10 @@
-<!-- Copyright (c) 2020 The DAML Authors. All rights reserved. -->
+<!-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 {# TEMPLATE VAR SETTINGS #}
 {%- set url_root = pathto('', 1) %}
 {%- if url_root == '#' %}{% set url_root = '' %}{% endif %}
+{%- set is_index = theme_index_page_boxes and url_root == './' %}
 {%- if not embedded and docstitle %}
 {%- set titlesuffix = " &mdash; "|safe + docstitle|e %}
 {%- else %}
@@ -106,7 +107,7 @@
   {%- endif %}
   {%- endblock %}
   {%- block extrahead %} {% endblock %}
-  {%- if url_root == './' %}
+  {%- if is_index %}
   <style>
     .wy-nav-content {
       max-width: initial;
@@ -119,9 +120,6 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ pathto('_static/images/favicon/favicon-32x32.png', 1) }}">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ pathto('_static/images/favicon/favicon-16x16.png', 1) }}">
 
-  <!-- Start of HubSpot Embed Code -->
-  <script type="text/javascript" id="hs-script-loader" async defer src="//js.hs-scripts.com/5388578.js"></script>
-  <!-- End of HubSpot Embed Code -->
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -148,7 +146,6 @@
       <div class="wy-side-scroll">
 
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          <i data-toggle="wy-nav-top" class="fa fa-times"><span class="wy-menu-vertical-title">Digital Asset</span></i>
           {% block menu %}
           {#
           The singlehtml builder doesn't handle this toctree call when the
@@ -167,38 +164,38 @@
           <div class="local-toc">{{ toc }}</div>
           {% endif %}
           {% endblock %}
+          {% if theme_pdf_download %}
           <div class="pdf-download"><a href="{{ pathto('_downloads/DigitalAssetSDK.pdf', 1) }}" download>Download as PDF</a></div>
+          {% endif %}
         </div>
       </div>
     </nav>
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
-      <nav class="wy-nav-top" aria-label="top navigation">
-        {% block mobile_nav %}
-        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="{{ pathto(master_doc) }}">{{ project }}</a>
-        {% endblock %}
-      </nav>
-      {%- if url_root == './' %}
+      {%- if is_index %}
       {% set addClass = ' landing' %}
       {% endif %}
       <div class="topbar fixed">
+        {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
+        <nav class="wy-nav-top" aria-label="top navigation">
+          {% block mobile_nav %}
+          <i data-toggle="wy-nav-top" class="wy-nav-top-toggle"></i>
+          {% endblock %}
+        </nav>
         {% include "navbar.html" %}
 
         <div class="version {{addClass}}">
-          {%- if url_root == './' %}
-          <span class="hide-mobile">Documentation Version&nbsp;</span> <span class="version_switcher_placeholder"></span>
+          {%- if is_index %}
+          <span class="hide-tablet">Documentation&nbsp;</span><span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% else %}
-          <span class="hide-mobile">Version&nbsp;</span> <span class="version_switcher_placeholder"></span>
+          <span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% endif %}
         </div>
 
 
         {% include "searchinput.html" %}
 
-        {%- if url_root != './' %}
+        {%- if not is_index %}
           {% include "onthispage.html" %}
         {% endif %}
 
@@ -213,15 +210,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             {%- block document %}
             <div itemprop="articleBody">
-              {%- if url_root != './' %}
-                <div id="feedback-container">
-                  <div id="inpageContent"></div>
-                  <a onclick='srv.openModal(true, "708a82385638b3e808089a278636337b67cb4901")'>Detailed Feedback</a>
-                </div>
-              {% else %}
-                <div id="inpageContent" style="display: none;"></div>
-              {% endif %}
-              {%- if url_root == './' and activePage != 'search.html' %}
+              {%- if is_index and activePage != 'search.html' %}
                 {% include "boxes.html" %}
               {% else %}
                 {% block body %}
@@ -233,6 +222,9 @@
               {% block comments %}{% endblock %}
             </div>
             {% endif%}
+            {% if  not is_index %}
+              {% include "footer.html" %}
+            {% endif %}
           </div>
           {%- endblock %}
         </div>
@@ -249,7 +241,7 @@
       });
   </script>
 
-  {# Do not conflict with RTD insertion of analytics script #}
+{# Do not conflict with RTD insertion of analytics script #}
   {% if not READTHEDOCS %}
     {% if theme_analytics_id %}
     <!-- Theme Analytics -->
@@ -268,7 +260,11 @@
     {% endif %}
   {% endif %}
 
-  {%- block footer %} {% endblock %}
+  {%- if not is_index %}
+  <div id="inpageContent"></div>
+  {% else %}
+  <div id="inpageContent" style="display: none;"></div>
+  {% endif %}
 
 </body>
 </html>

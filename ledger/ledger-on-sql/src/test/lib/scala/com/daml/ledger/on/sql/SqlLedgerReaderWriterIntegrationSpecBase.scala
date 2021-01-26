@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -6,26 +6,33 @@ package com.daml.ledger.on.sql
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.ResourceOwner
-
-import scala.concurrent.ExecutionContext
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService}
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 
 abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: String)
     extends ParticipantStateIntegrationSpecBase(implementationName) {
-  protected final implicit val ec: ExecutionContext = ExecutionContext.global
-
   protected def jdbcUrl(id: String): String
 
-  override final val startIndex: Long = StartIndex
+  override protected final val startIndex: Long = StartIndex
 
-  override final def participantStateFactory(
-      ledgerId: Option[LedgerId],
+  override protected final def participantStateFactory(
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    SqlLedgerReaderWriter
-      .owner(ledgerId, participantId, jdbcUrl(testId))
-      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+      metrics: Metrics,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
+    new SqlLedgerReaderWriter.Owner(
+      ledgerId,
+      participantId,
+      metrics,
+      engine = Engine.DevEngine(),
+      jdbcUrl(testId),
+      resetOnStartup = false,
+      // Using a weak random source to avoid slowdown during tests.
+      seedService = SeedService(Seeding.Weak),
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }

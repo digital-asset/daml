@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -46,6 +46,9 @@ data ExprF expr
   | EToAnyF !Type !expr
   | EFromAnyF !Type !expr
   | ETypeRepF !Type
+  | EToAnyExceptionF !Type !expr
+  | EFromAnyExceptionF !Type !expr
+  | EThrowF !Type !Type !expr
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -55,12 +58,14 @@ data UpdateF expr
   = UPureF     !Type !expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
-  | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !(Maybe expr) !expr
+  | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
+  | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
   | ULookupByKeyF !(RetrieveByKeyF expr)
+  | UTryCatchF !Type !expr !ExprVarName !expr
   deriving (Foldable, Functor, Traversable)
 
 data RetrieveByKeyF expr = RetrieveByKeyF
@@ -99,12 +104,14 @@ projectUpdate = \case
   UPure a b -> UPureF a b
   UBind a b -> UBindF (projectBinding a) b
   UCreate a b -> UCreateF a b
-  UExercise a b c d e -> UExerciseF a b c d e
+  UExercise a b c d -> UExerciseF a b c d
+  UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
   UFetchByKey a -> UFetchByKeyF (projectRetrieveByKey a)
+  UTryCatch a b c d -> UTryCatchF a b c d
 
 projectRetrieveByKey :: RetrieveByKey -> RetrieveByKeyF Expr
 projectRetrieveByKey (RetrieveByKey tpl key) = RetrieveByKeyF tpl key
@@ -114,12 +121,14 @@ embedUpdate = \case
   UPureF a b -> UPure a b
   UBindF a b -> UBind (embedBinding a) b
   UCreateF a b -> UCreate a b
-  UExerciseF a b c d e -> UExercise a b c d e
+  UExerciseF a b c d -> UExercise a b c d
+  UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)
   ULookupByKeyF a -> ULookupByKey (embedRetrieveByKey a)
+  UTryCatchF a b c d -> UTryCatch a b c d
 
 embedRetrieveByKey :: RetrieveByKeyF Expr -> RetrieveByKey
 embedRetrieveByKey RetrieveByKeyF{..} = RetrieveByKey
@@ -178,6 +187,9 @@ instance Recursive Expr where
     EToAny a b  -> EToAnyF a b
     EFromAny a b -> EFromAnyF a b
     ETypeRep a -> ETypeRepF a
+    EToAnyException a b -> EToAnyExceptionF a b
+    EFromAnyException a b -> EFromAnyExceptionF a b
+    EThrow a b c -> EThrowF a b c
 
 instance Corecursive Expr where
   embed = \case
@@ -208,3 +220,6 @@ instance Corecursive Expr where
     EToAnyF a b  -> EToAny a b
     EFromAnyF a b -> EFromAny a b
     ETypeRepF a -> ETypeRep a
+    EToAnyExceptionF a b -> EToAnyException a b
+    EFromAnyExceptionF a b -> EFromAnyException a b
+    EThrowF a b c -> EThrow a b c

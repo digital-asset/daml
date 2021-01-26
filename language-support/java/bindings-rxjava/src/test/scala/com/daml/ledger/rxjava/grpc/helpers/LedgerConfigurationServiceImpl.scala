@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.auth.services.LedgerConfigurationServiceAuthorization
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.auth.services.LedgerConfigurationServiceAuthorization
+import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
+import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
-  LedgerConfigurationServiceGrpc
+  LedgerConfigurationServiceGrpc,
 }
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
@@ -24,7 +24,8 @@ class LedgerConfigurationServiceImpl(responses: Seq[GetLedgerConfigurationRespon
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
-      responseObserver: StreamObserver[GetLedgerConfigurationResponse]): Unit = {
+      responseObserver: StreamObserver[GetLedgerConfigurationResponse],
+  ): Unit = {
     this.lastRequest = Some(request)
     responses.foreach(responseObserver.onNext)
   }
@@ -33,8 +34,9 @@ class LedgerConfigurationServiceImpl(responses: Seq[GetLedgerConfigurationRespon
 }
 
 object LedgerConfigurationServiceImpl {
-  def createWithRef(responses: Seq[GetLedgerConfigurationResponse], authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, LedgerConfigurationServiceImpl) = {
+  def createWithRef(responses: Seq[GetLedgerConfigurationResponse], authorizer: Authorizer)(implicit
+      ec: ExecutionContext
+  ): (ServerServiceDefinition, LedgerConfigurationServiceImpl) = {
     val impl = new LedgerConfigurationServiceImpl(responses)
     val authImpl = new LedgerConfigurationServiceAuthorization(impl, authorizer)
     (LedgerConfigurationServiceGrpc.bindService(authImpl, ec), impl)

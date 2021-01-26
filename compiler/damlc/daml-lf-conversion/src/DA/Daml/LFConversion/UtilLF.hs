@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -73,9 +73,6 @@ varV1 = mkVar "v1"
 varV2 = mkVar "v2"
 varV3 = mkVar "v3"
 
-varT1 :: (TypeVarName, Kind)
-varT1 = (mkTypeVar "t1", KStar)
-
 fromTCon :: HasCallStack => Type -> TypeConApp
 fromTCon (TConApp con args) = TypeConApp con args
 fromTCon t = error $ "fromTCon failed, " ++ show t
@@ -109,3 +106,21 @@ instance Outputable Expr where
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
   Range (Position slin scol) (Position elin ecol)
+
+mkBuiltinEqual :: Version -> BuiltinType -> Expr
+mkBuiltinEqual v ty =
+    if v `supports` featureGenericComparison
+        then EBuiltin BEEqualGeneric `ETyApp` TBuiltin ty
+        else EBuiltin (BEEqual ty)
+
+mkBuiltinLess :: Version -> BuiltinType -> Expr
+mkBuiltinLess v ty =
+    if v `supports` featureGenericComparison
+        then EBuiltin BELessGeneric `ETyApp` TBuiltin ty
+        else EBuiltin (BELess ty)
+
+mkBuiltinGreater :: Version -> BuiltinType -> Expr
+mkBuiltinGreater v ty =
+    if v `supports` featureGenericComparison
+        then EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
+        else EBuiltin (BEGreater ty)

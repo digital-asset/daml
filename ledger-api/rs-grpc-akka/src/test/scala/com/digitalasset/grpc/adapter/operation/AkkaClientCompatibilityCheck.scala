@@ -1,26 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.operation
+package com.daml.grpc.adapter.operation
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink
 import akka.stream.{Materializer, ThrottleMode}
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.ResultAssertions
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.platform.hello.HelloRequest
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloServiceStub
-import io.grpc.{ClientCall, MethodDescriptor}
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.ResultAssertions
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.platform.hello.HelloRequest
+import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait AkkaClientCompatibilityCheck {
-  self: WordSpec with Matchers with ScalaFutures with ResultAssertions =>
+  self: AnyWordSpec with Matchers with ScalaFutures with ResultAssertions =>
 
   implicit protected def system: ActorSystem
 
@@ -29,9 +28,6 @@ trait AkkaClientCompatibilityCheck {
   implicit protected def esf: ExecutionSequencerFactory
 
   def akkaClientCompatible(helloStub: => HelloServiceStub): Unit = {
-
-    def getCall[Req, Resp](call: MethodDescriptor[Req, Resp]): ClientCall[Req, Resp] =
-      helloStub.getChannel.newCall(call, helloStub.getCallOptions)
 
     "respond with the correct number of elements and correct content in 1-* setup" in {
       val elemsF = ClientAdapter
@@ -50,11 +46,10 @@ trait AkkaClientCompatibilityCheck {
       whenReady(for {
         elems1 <- elemsF1
         elems2 <- elemsF2
-      } yield elems1 -> elems2)({
-        case (elems1, elems2) =>
-          val check = assertElementsAreInOrder(elemCount.toLong) _
-          check(elems1)
-          check(elems2)
+      } yield elems1 -> elems2)({ case (elems1, elems2) =>
+        val check = assertElementsAreInOrder(elemCount.toLong) _
+        check(elems1)
+        check(elems2)
       })
     }
 

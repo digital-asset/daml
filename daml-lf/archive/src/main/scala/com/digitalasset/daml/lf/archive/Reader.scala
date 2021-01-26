@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.io.InputStream
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 abstract class Reader[+Pkg] {
@@ -25,7 +25,7 @@ abstract class Reader[+Pkg] {
     protected[this] override def readArchivePayloadOfVersion(
         hash: PackageId,
         lf: DamlLf.ArchivePayload,
-        version: LanguageVersion
+        version: LanguageVersion,
     ): Pkg =
       Reader.this.readArchivePayloadOfVersion(hash, lf, version)
   }
@@ -51,7 +51,8 @@ abstract class Reader[+Pkg] {
         }
         val ourHash =
           PackageId.assertFromString(
-            MessageDigest.getInstance("SHA-256").digest(payload).map("%02x" format _).mkString)
+            MessageDigest.getInstance("SHA-256").digest(payload).map("%02x" format _).mkString
+          )
         if (ourHash != theirHash) {
           throw ParseError(s"Mismatching hashes! Expected $ourHash but got $theirHash")
         }
@@ -73,22 +74,19 @@ abstract class Reader[+Pkg] {
   @throws[ParseError]
   final def readArchivePayloadAndVersion(
       hash: PackageId,
-      lf: DamlLf.ArchivePayload): (Pkg, LanguageMajorVersion) = {
+      lf: DamlLf.ArchivePayload,
+  ): (Pkg, LanguageMajorVersion) = {
     val majorVersion = readArchiveVersion(lf)
-    // for DAML-LF v1, we translate "no version" to minor version 0,
-    // since we introduced minor versions once DAML-LF v1 was already
-    // out, and we want to be able to parse packages that were compiled
-    // before minor versions were a thing. DO NOT replicate this code
-    // beyond major version 1!
-    val minorVersion = (majorVersion, lf.getMinor) match {
-      case (LanguageMajorVersion.V1, "") => "0"
-      case (_, minor) => minor
-    }
+    val minorVersion = lf.getMinor
     val version =
-      LanguageVersion(majorVersion, LanguageVersion.Minor fromProtoIdentifier minorVersion)
+      LanguageVersion(majorVersion, LanguageVersion.Minor(minorVersion))
     if (!(majorVersion supportsMinorVersion minorVersion)) {
+      val supportedVersions =
+        majorVersion.acceptedVersions.map(v => s"$majorVersion.${v.identifier}")
       throw ParseError(
-        s"LF file $majorVersion.$minorVersion unsupported; maximum supported $majorVersion.x is $majorVersion.${majorVersion.maxSupportedStableMinorVersion.toProtoIdentifier: String}")
+        s"LF $majorVersion.$minorVersion unsupported. Supported LF versions are ${supportedVersions
+          .mkString(",")}"
+      )
     }
     (readArchivePayloadOfVersion(hash, lf, version), majorVersion)
   }
@@ -96,15 +94,18 @@ abstract class Reader[+Pkg] {
   protected[this] def readArchivePayloadOfVersion(
       hash: PackageId,
       lf: DamlLf.ArchivePayload,
-      version: LanguageVersion): Pkg
+      version: LanguageVersion,
+  ): Pkg
 }
 
 object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
+
   final case class ParseError(error: String) extends RuntimeException(error)
 
   def damlLfCodedInputStreamFromBytes(
       payload: Array[Byte],
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT): CodedInputStream = {
+      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
+  ): CodedInputStream = {
     val cos = com.google.protobuf.CodedInputStream.newInstance(payload)
     cos.setRecursionLimit(recursionLimit)
     cos
@@ -112,7 +113,8 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
 
   def damlLfCodedInputStream(
       is: InputStream,
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT): CodedInputStream = {
+      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
+  ): CodedInputStream = {
     val cos = com.google.protobuf.CodedInputStream.newInstance(is)
     cos.setRecursionLimit(recursionLimit)
     cos
@@ -123,7 +125,6 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
     import DamlLf.ArchivePayload.{SumCase => SC}
     import language.{LanguageMajorVersion => LMV}
     lf.getSumCase match {
-      case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1
       case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
     }
@@ -134,4 +135,14 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
       lf: DamlLf.ArchivePayload,
       version: LanguageVersion,
   ): (PackageId, DamlLf.ArchivePayload) = (hash, lf)
+
+  // Archive Reader that just checks package hash.
+  val HashChecker = new Reader[Unit] {
+    override protected[this] def readArchivePayloadOfVersion(
+        hash: PackageId,
+        lf: DamlLf.ArchivePayload,
+        version: LanguageVersion,
+    ): Unit = ()
+  }
+
 }

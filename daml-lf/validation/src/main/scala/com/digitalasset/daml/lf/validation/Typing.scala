@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.validation.AlphaEquiv._
-import com.digitalasset.daml.lf.validation.Util._
-import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.validation.AlphaEquiv._
+import com.daml.lf.validation.Util._
+import com.daml.lf.validation.iterable.TypeIterable
 
 import scala.annotation.tailrec
 
@@ -19,12 +19,13 @@ private[validation] object Typing {
   /* Typing */
 
   private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
-    (Set.empty[A] /: xs)((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
+    (xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
     ()
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
+        BTAnyException | BTGeneralError | BTArithmeticError | BTContractError =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
@@ -52,10 +53,12 @@ private[validation] object Typing {
         alpha.name -> KNat,
         TForall(
           beta.name -> KNat,
-          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
+          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
+        ),
+      )
     val tNumConversion =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
-    def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
+    val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
     val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
@@ -86,46 +89,45 @@ private[validation] object Typing {
       BFoldl ->
         TForall(
           alpha.name -> KStar,
-          TForall(
-            beta.name -> KStar,
-            (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+          TForall(beta.name -> KStar, (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
       BFoldr ->
         TForall(
           alpha.name -> KStar,
-          TForall(
-            beta.name -> KStar,
-            (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+          TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
       // Maps
       BTextMapEmpty ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha)
+          TTextMap(alpha),
         ),
       BTextMapInsert ->
         TForall(
           alpha.name -> KStar,
-          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha)
+          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha),
         ),
       BTextMapLookup ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TTextMap(alpha) ->: TOptional(alpha)
+          TText ->: TTextMap(alpha) ->: TOptional(alpha),
         ),
       BTextMapDelete ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TTextMap(alpha) ->: TTextMap(alpha)
+          TText ->: TTextMap(alpha) ->: TTextMap(alpha),
         ),
       BTextMapToList ->
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TList(
-            TStruct(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
+            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha)))
+          ),
         ),
       BTextMapSize ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha) ->: TInt64
+          TTextMap(alpha) ->: TInt64,
         ),
       // GenMaps
       BGenMapEmpty ->
@@ -135,42 +137,49 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta))),
+            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
+          ),
+        ),
       BGenMapLookup ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta)
-          )),
+            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta),
+          ),
+        ),
       BGenMapDelete ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
-          )),
+            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
+          ),
+        ),
       BGenMapKeys ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TList(alpha)
-          )),
+            TGenMap(alpha, beta) ->: TList(alpha),
+          ),
+        ),
       BGenMapValues ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TList(beta)
-          )),
+            TGenMap(alpha, beta) ->: TList(beta),
+          ),
+        ),
       BGenMapSize ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TInt64
-          )),
+            TGenMap(alpha, beta) ->: TInt64,
+          ),
+        ),
       // Text functions
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),
@@ -180,6 +189,7 @@ private[validation] object Typing {
       BToTextTimestamp -> (TTimestamp ->: TText),
       BToTextParty -> (TParty ->: TText),
       BToTextDate -> (TDate ->: TText),
+      BToTextContractId -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
       BToTextCodePoints -> (TList(TInt64) ->: TText),
@@ -189,43 +199,37 @@ private[validation] object Typing {
       BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
-      BLessInt64 -> tComparison(BTInt64),
       BLessNumeric -> tNumComparison,
-      BLessText -> tComparison(BTText),
-      BLessTimestamp -> tComparison(BTTimestamp),
-      BLessDate -> tComparison(BTDate),
-      BLessParty -> tComparison(BTParty),
-      BLessEqInt64 -> tComparison(BTInt64),
       BLessEqNumeric -> tNumComparison,
-      BLessEqText -> tComparison(BTText),
-      BLessEqTimestamp -> tComparison(BTTimestamp),
-      BLessEqDate -> tComparison(BTDate),
-      BLessEqParty -> tComparison(BTParty),
-      BGreaterInt64 -> tComparison(BTInt64),
       BGreaterNumeric -> tNumComparison,
-      BGreaterText -> tComparison(BTText),
-      BGreaterTimestamp -> tComparison(BTTimestamp),
-      BGreaterDate -> tComparison(BTDate),
-      BGreaterParty -> tComparison(BTParty),
-      BGreaterEqInt64 -> tComparison(BTInt64),
       BGreaterEqNumeric -> tNumComparison,
-      BGreaterEqText -> tComparison(BTText),
-      BGreaterEqTimestamp -> tComparison(BTTimestamp),
-      BGreaterEqDate -> tComparison(BTDate),
-      BGreaterEqParty -> tComparison(BTParty),
       BImplodeText -> (TList(TText) ->: TText),
       BEqualNumeric -> tNumComparison,
       BEqualList ->
         TForall(
           alpha.name -> KStar,
-          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
+          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool,
+        ),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
-      BEqual -> TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool),
+      BEqual -> tComparison,
+      BLess -> tComparison,
+      BLessEq -> tComparison,
+      BGreater -> tComparison,
+      BGreaterEq -> tComparison,
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
-          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
+          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta)),
+        ),
+      // Exception functions
+      BMakeGeneralError -> (TText ->: TGeneralError),
+      BMakeArithmeticError -> (TText ->: TArithmeticError),
+      BMakeContractError -> (TText ->: TContractError),
+      BAnyExceptionMessage -> (TAnyException ->: TText),
+      BGeneralErrorMessage -> (TGeneralError ->: TText),
+      BArithmeticErrorMessage -> (TArithmeticError ->: TText),
+      BContractErrorMessage -> (TContractError ->: TText),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),
@@ -244,51 +248,65 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit = {
+    val languageVersion = world.lookupPackage(NoContext, pkgId).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextDefDataType(pkgId, mod.name, dfnName), params.toMap)
+        params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
-          case DataRecord(fields, template) =>
+          case DataRecord(fields) =>
             env.checkRecordType(fields)
-            template.foreach { tmpl =>
-              if (params.nonEmpty) throw EExpectedTemplatableType(env.ctx, tyConName)
-              env.checkTemplate(tyConName, tmpl)
-            }
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
             env.checkEnumType(tyConName, params, values)
         }
       case (dfnName, dfn: DValue) =>
-        Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+        params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
+    mod.templates.foreach { case (dfnName, template) =>
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+      val env = Env(languageVersion, world, ContextTemplate(tyConName), Map.empty)
+      world.lookupDataType(env.ctx, tyConName) match {
+        case DDataType(_, ImmArray(), DataRecord(_)) =>
+          env.checkTemplate(tyConName, template)
+        case _ =>
+          throw EExpectedTemplatableType(env.ctx, tyConName)
+      }
+    }
+    mod.exceptions.foreach { case (exnName, message) =>
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
+      val env = Env(languageVersion, world, ContextDefException(tyConName), Map.empty)
+      world.lookupDataType(env.ctx, tyConName) match {
+        case DDataType(_, ImmArray(), DataRecord(_)) =>
+          env.checkDefException(tyConName, message)
+        case _ =>
+          throw EExpectedExceptionableType(env.ctx, tyConName)
+      }
+    }
+  }
 
   case class Env(
       languageVersion: LanguageVersion,
       world: World,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
-      eVars: Map[ExprVarName, Type] = Map.empty
+      eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
     import world._
 
     /* Env Ops */
-
-    private val supportsFlexibleControllers =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "2"))
-
-    private val supportsComplexContractKeys =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
 
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
       copy(tVars = tVars + (v -> k))
@@ -299,11 +317,33 @@ private[validation] object Typing {
     private def introExprVar(xOpt: Option[ExprVarName], t: Type): Env =
       xOpt.fold(this)(introExprVar(_, t))
 
+    private def newLocation(loc: Location): Env =
+      copy(ctx = ContextLocation(loc))
+
     private def lookupExpVar(name: ExprVarName): Type =
       eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
 
     private def lookupTypeVar(name: TypeVarName): Kind =
       tVars.getOrElse(name, throw EUnknownTypeVar(ctx, name))
+
+    def checkKind(kind: Kind): Unit = {
+      @tailrec
+      def loop(k: Kind, stack: List[Kind] = List.empty): Unit =
+        k match {
+          case KArrow(_, KNat) =>
+            throw ENatKindRightOfArrow(ctx, k)
+          case KArrow(param, result) =>
+            loop(param, result :: stack)
+          case KStar | KNat =>
+            stack match {
+              case head :: tail =>
+                loop(head, tail)
+              case Nil =>
+            }
+        }
+
+      loop(kind)
+    }
 
     /* Typing Ops*/
 
@@ -313,9 +353,9 @@ private[validation] object Typing {
     }
 
     def checkEnumType[X](
-        tyConName: TypeConName,
+        tyConName: => TypeConName,
         params: ImmArray[X],
-        values: ImmArray[EnumConName]
+        values: ImmArray[EnumConName],
     ): Unit = {
       if (params.nonEmpty) throw EIllegalHigherEnumType(ctx, tyConName)
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
@@ -347,21 +387,21 @@ private[validation] object Typing {
     private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
       choice match {
         case TemplateChoice(
-            name @ _,
-            consuming @ _,
-            controllers,
-            selfBinder,
-            (param, paramType),
-            returnType,
-            update) =>
+              name @ _,
+              consuming @ _,
+              controllers,
+              choiceObservers @ _,
+              selfBinder,
+              (param, paramType),
+              returnType,
+              update,
+            ) =>
           checkType(paramType, KStar)
           checkType(returnType, KStar)
-          if (supportsFlexibleControllers) {
-            introExprVar(param, paramType).checkExpr(controllers, TParties)
-          } else {
-            param.filter(eVars.isDefinedAt).foreach(x => throw EIllegalShadowingExprVar(ctx, x))
-            checkExpr(controllers, TParties)
-          }
+          introExprVar(param, paramType).checkExpr(controllers, TParties)
+          choiceObservers.foreach(
+            introExprVar(param, paramType).checkExpr(_, TParties)
+          )
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
             .introExprVar(param, paramType)
             .checkExpr(update, TUpdate(returnType))
@@ -380,27 +420,15 @@ private[validation] object Typing {
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkExpr(key.body, key.typ)
-        if (!supportsComplexContractKeys) {
-          checkValidKeyExpression(key.body)
-        }
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
     }
 
-    private def checkValidKeyExpression(expr0: Expr): Unit = expr0 match {
-      case ERecCon(_, fields) =>
-        fields.values.foreach(checkValidKeyExpression)
-      case otherwise =>
-        checkValidProjections(otherwise)
-    }
-
-    private def checkValidProjections(expr0: Expr): Unit = expr0 match {
-      case EVar(_) =>
-      case ERecProj(_, _, rec) =>
-        checkValidProjections(rec)
-      case e =>
-        throw EIllegalKeyExpression(ctx, e)
+    def checkDefException(excepName: TypeConName, defException: DefException): Unit = {
+      val DefException(message) = defException
+      checkExpr(message, TTyCon(excepName) ->: TText)
+      ()
     }
 
     private def checkTypConApp(app: TypeConApp): DataCons = app match {
@@ -441,10 +469,11 @@ private[validation] object Typing {
       case TBuiltin(bType) =>
         kindOfBuiltin(bType)
       case TForall((v, k), b) =>
+        checkKind(k)
         introTypeVar(v, k).checkType(b, KStar)
         KStar
-      case TStruct(recordType) =>
-        checkRecordType(recordType)
+      case TStruct(fields) =>
+        checkRecordType(fields.toImmArray)
         KStar
     }
 
@@ -465,9 +494,7 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
       case TStruct(recordType) =>
-        TStruct(recordType.transform { (_, x) =>
-          expandTypeSynonyms(x)
-        })
+        TStruct(recordType.mapValues(expandTypeSynonyms(_)))
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
@@ -480,7 +507,7 @@ private[validation] object Typing {
 
     private def checkRecCon(typ: TypeConApp, recordExpr: ImmArray[(FieldName, Expr)]): Unit =
       checkTypConApp(typ) match {
-        case DataRecord(recordType, _) =>
+        case DataRecord(recordType) =>
           val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
           if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
@@ -509,7 +536,7 @@ private[validation] object Typing {
 
     private def typeOfRecProj(typ0: TypeConApp, field: FieldName, record: Expr): Type =
       checkTypConApp(typ0) match {
-        case DataRecord(recordType, _) =>
+        case DataRecord(recordType) =>
           val fieldType = recordType.lookup(field, EUnknownField(ctx, field))
           checkExpr(record, typeConAppToType(typ0))
           fieldType
@@ -519,7 +546,7 @@ private[validation] object Typing {
 
     private def typeOfRecUpd(typ0: TypeConApp, field: FieldName, record: Expr, update: Expr): Type =
       checkTypConApp(typ0) match {
-        case DataRecord(recordType, _) =>
+        case DataRecord(recordType) =>
           val typ1 = typeConAppToType(typ0)
           checkExpr(record, typ1)
           checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field)))
@@ -528,25 +555,35 @@ private[validation] object Typing {
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type = {
-      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TStruct(fields.transform { (_, x) =>
-        typeOf(x)
-      })
-    }
+    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type =
+      Struct
+        .fromSeq(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq)
+        .fold(name => throw EDuplicateField(ctx, name), TStruct)
 
-    private def typeOfStructProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
+    private def typeOfStructProj(proj: EStructProj): Type = typeOf(proj.struct) match {
       case TStruct(structType) =>
-        structType.lookup(field, EUnknownField(ctx, field))
+        val index = structType.indexOf(proj.field)
+        if (index < 0)
+          throw EUnknownField(ctx, proj.field)
+        else {
+          proj.fieldIndex = Some(index)
+          structType.toImmArray(index)._2
+        }
       case typ =>
         throw EExpectedStructType(ctx, typ)
     }
 
-    private def typeOfStructUpd(field: FieldName, struct: Expr, update: Expr): Type =
-      typeOf(struct) match {
+    private def typeOfStructUpd(upd: EStructUpd): Type =
+      typeOf(upd.struct) match {
         case typ @ TStruct(structType) =>
-          checkExpr(update, structType.lookup(field, EUnknownField(ctx, field)))
-          typ
+          val index = structType.indexOf(upd.field)
+          if (index < 0)
+            throw EUnknownField(ctx, upd.field)
+          else {
+            upd.fieldIndex = Some(index)
+            checkExpr(upd.update, structType.toImmArray(index)._2)
+            typ
+          }
         case typ =>
           throw EExpectedStructType(ctx, typ)
       }
@@ -573,99 +610,160 @@ private[validation] object Typing {
       typ ->: introExprVar(x, typ).typeOf(body)
     }
 
-    private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Type =
+    private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Type = {
+      checkKind(kind)
       TForall(tVar -> kind, introTypeVar(tVar, kind).typeOf(expr))
-
-    private def introCasePattern[A](scrutType: Type, patn: CasePat): Env = patn match {
-      case CPVariant(patnTCon, con, varName) =>
-        val DDataType(_, tparams, dataCons) = lookupDataType(ctx, patnTCon)
-        dataCons match {
-          case DataVariant(variantCons) =>
-            val conArgType0 = variantCons.lookup(con, EUnknownVariantCon(ctx, con))
-            scrutType match {
-              case TTyConApp(scrutTCon, scrutTArgs) =>
-                if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
-                val conArgType =
-                  TypeSubst.substitute((tparams.map(_._1) zip scrutTArgs).toMap, conArgType0)
-                introExprVar(varName, conArgType)
-              case _ =>
-                throw EExpectedDataType(ctx, scrutType)
-            }
-          case _ =>
-            throw EExpectedVariantType(ctx, patnTCon)
-        }
-
-      case CPEnum(patnTCon, con) =>
-        val DDataType(_, _, dataCons) = lookupDataType(ctx, patnTCon)
-        dataCons match {
-          case DataEnum(enumCons) =>
-            if (!enumCons.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
-            scrutType match {
-              case TTyCon(scrutTCon) =>
-                if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
-                this
-              case _ =>
-                throw EExpectedDataType(ctx, scrutType)
-            }
-          case _ =>
-            throw EExpectedVariantType(ctx, patnTCon)
-        }
-
-      case CPPrimCon(con) =>
-        val conType = typeOfPRimCon(con)
-        if (!alphaEquiv(scrutType, conType))
-          throw ETypeMismatch(ctx, foundType = scrutType, expectedType = conType, expr = None)
-        this
-
-      case CPNil =>
-        scrutType match {
-          case TList(_) =>
-            this
-          case _ =>
-            throw EExpectedOptionType(ctx, scrutType)
-        }
-
-      case CPCons(headVar, tailVar) =>
-        scrutType match {
-          case TList(elemType) =>
-            introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))
-          case _ =>
-            throw EExpectedListType(ctx, scrutType)
-        }
-
-      case CPNone =>
-        scrutType match {
-          case TOptional(_) =>
-            this
-          case _ =>
-            throw EExpectedOptionType(ctx, scrutType)
-        }
-
-      case CPSome(bodyVar) =>
-        scrutType match {
-          case TOptional(bodyType) =>
-            introExprVar(bodyVar, bodyType)
-          case _ =>
-            throw EExpectedOptionType(ctx, scrutType)
-        }
-
-      case CPDefault =>
-        this
     }
 
-    private def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type =
-      if (alts.isEmpty)
-        throw EEmptyCase(ctx)
-      else {
-        val CaseAlt(patn0, rhs0) = alts(0)
-        val scrutType = typeOf(scrut)
-        val rhsType = introCasePattern(scrutType, patn0).typeOf(rhs0)
-        for (i <- alts.indices.drop(1)) {
-          val CaseAlt(patn, rhs) = alts(i)
-          introCasePattern(scrutType, patn).checkExpr(rhs, rhsType)
-        }
-        rhsType
+    private[this] def introPatternVariant(
+        scrutTCon: TypeConName,
+        scrutTArgs: ImmArray[Type],
+        tparams: ImmArray[TypeVarName],
+        cons: ImmArray[(VariantConName, Type)],
+    ): PartialFunction[CasePat, Env] = {
+      case CPVariant(patnTCon, con, bodyVar) if scrutTCon == patnTCon =>
+        val conArgType = cons.lookup(con, EUnknownVariantCon(ctx, con))
+        val bodyType =
+          TypeSubst.substitute((tparams.iterator zip scrutTArgs.iterator).toMap, conArgType)
+        introExprVar(bodyVar, bodyType)
+      case CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TTyConApp(scrutTCon, scrutTArgs))
+    }
+
+    private[this] def introPatternEnum(
+        scrutTCon: TypeConName,
+        cons: ImmArray[VariantConName],
+    ): CasePat => Env = {
+      case CPEnum(patnTCon, con) if scrutTCon == patnTCon =>
+        if (!cons.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
+        this
+      case CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TTyCon(scrutTCon))
+    }
+
+    private[this] val introPatternUnit: CasePat => Env = {
+      case CPUnit | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TUnit)
+    }
+
+    private[this] val introPatternBool: CasePat => Env = {
+      case CPTrue | CPFalse | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TBool)
+    }
+
+    private[this] def introPatternList(elemType: Type): CasePat => Env = {
+      case CPCons(headVar, tailVar) =>
+        if (headVar == tailVar) throw EClashingPatternVariables(ctx, headVar)
+        introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))
+      case CPNil | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TList(elemType))
+    }
+
+    private[this] def introPatternOptional(elemType: Type): CasePat => Env = {
+      case CPSome(bodyVar) => introExprVar(bodyVar, elemType)
+      case CPNone | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TOptional(elemType))
+    }
+
+    private[this] def introOnlyPatternDefault(scrutType: Type): CasePat => Env = {
+      case CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, scrutType)
+    }
+
+    private[this] def addPatternRank(ranks: Set[Int], pat: CasePat): MatchedRanks =
+      pat match {
+        case CPVariant(tycon, variant, _) =>
+          lookupDataType(ctx, tycon) match {
+            case DDataType(_, _, data: DataVariant) =>
+              SomeRanks(ranks + data.constructorRank(variant))
+            case _ =>
+              throw EUnknownDefinition(ctx, LEDataVariant(tycon))
+          }
+        case CPEnum(tycon, constructor) =>
+          lookupDataType(ctx, tycon) match {
+            case DDataType(_, _, data: DataEnum) =>
+              SomeRanks(ranks + data.constructorRank(constructor))
+            case _ =>
+              throw EUnknownDefinition(ctx, LEDataEnum(tycon))
+          }
+        case CPPrimCon(pc) =>
+          pc match {
+            case PCFalse | PCUnit => SomeRanks(ranks + 1)
+            case PCTrue => SomeRanks(ranks + 0)
+          }
+        case CPCons(_, _) | CPSome(_) =>
+          SomeRanks(ranks + 1)
+        case CPNil | CPNil | CPNone =>
+          SomeRanks(ranks + 0)
+        case CPDefault =>
+          AllRanks
       }
+
+    private[this] def checkPatternExhaustiveness(
+        expectedPatterns: ExpectedPatterns,
+        alts: ImmArray[CaseAlt],
+        scrutType: Type,
+    ): Unit = {
+      val foundPattern = alts.iterator.foldLeft[MatchedRanks](EmptyMatchedRanks) {
+        case (AllRanks, _) => AllRanks
+        case (SomeRanks(ranks), CaseAlt(pattern, _)) => addPatternRank(ranks, pattern)
+      }
+
+      foundPattern match {
+        case SomeRanks(ranks) if ranks.size < expectedPatterns.number =>
+          throw ENonExhaustivePatterns(ctx, expectedPatterns.missingPatterns(ranks), scrutType)
+        case _ =>
+      }
+    }
+
+    private[this] def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type = {
+      val scrutType = typeOf(scrut)
+      val (expectedPatterns, introPattern) = scrutType match {
+        case TTyConApp(scrutTCon, scrutTArgs) =>
+          lookupDataType(ctx, scrutTCon) match {
+            case DDataType(_, dataParams, dataCons) =>
+              dataCons match {
+                case DataRecord(_) =>
+                  (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
+                case DataVariant(cons) =>
+                  (
+                    variantExpectedPatterns(scrutTCon, cons),
+                    introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons),
+                  )
+                case DataEnum(cons) =>
+                  (
+                    enumExpectedPatterns(scrutTCon, cons),
+                    introPatternEnum(scrutTCon, cons),
+                  )
+              }
+          }
+        case TUnit =>
+          (unitExpectedPatterns, introPatternUnit)
+        case TBool =>
+          (booleanExpectedPatterns, introPatternBool)
+        case TList(elem) =>
+          (listExpectedPatterns, introPatternList(elem))
+        case TOptional(elem) =>
+          (optionalExpectedPatterns, introPatternOptional(elem))
+        case _ =>
+          (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
+      }
+
+      val types = alts.iterator.map { case CaseAlt(patn, rhs) =>
+        introPattern(patn).typeOf(rhs)
+      }.toList
+
+      types match {
+        case t :: ts =>
+          ts.foreach(otherType =>
+            if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
+          )
+          checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
+          t
+        case Nil =>
+          throw EEmptyCase(ctx)
+      }
+    }
 
     private def typeOfLet(binding: Binding, body: Expr): Type = binding match {
       case Binding(Some(vName), typ0, expr) =>
@@ -691,11 +789,10 @@ private[validation] object Typing {
     }
 
     private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Type = {
-      val env = bindings.foldLeft(this) {
-        case (env, Binding(vName, typ, bound)) =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TScenario(typ))
-          env.introExprVar(vName, typ)
+      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
+        env.checkType(typ, KStar)
+        env.checkExpr(bound, TScenario(typ))
+        env.introExprVar(vName, typ)
       }
       env.typeOf(body) match {
         case bodyTyp @ TScenario(_) => bodyTyp
@@ -704,11 +801,10 @@ private[validation] object Typing {
     }
 
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Type = {
-      val env = bindings.foldLeft(this) {
-        case (env, Binding(vName, typ, bound)) =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TUpdate(typ))
-          env.introExprVar(vName, typ)
+      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
+        env.checkType(typ, KStar)
+        env.checkExpr(bound, TUpdate(typ))
+        env.introExprVar(vName, typ)
       }
       env.typeOf(body) match {
         case bodyTyp @ TUpdate(_) => bodyTyp
@@ -726,27 +822,38 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        actors: Option[Expr],
-        arg: Expr
+        arg: Expr,
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      actors.foreach(checkExpr(_, TParties))
+      checkExpr(arg, choice.argBinder._2)
+      TUpdate(choice.returnType)
+    }
+
+    private def typeOfExerciseByKey(
+        tmplId: TypeConName,
+        chName: ChoiceName,
+        key: Expr,
+        arg: Expr,
+    ): Type = {
+      checkByKey(tmplId, key)
+      val choice = lookupChoice(ctx, tmplId, chName)
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
+      lookupTemplate(ctx, tpl)
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
 
-    private def checkRetrieveByKey(retrieveByKey: RetrieveByKey): Unit = {
-      lookupTemplate(ctx, retrieveByKey.templateId).key match {
+    private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
+      lookupTemplate(ctx, tmplId).key match {
         case None =>
-          throw EKeyOperationForTemplateWithNoKey(ctx, retrieveByKey.templateId)
-        case Some(key) =>
-          checkExpr(retrieveByKey.key, key.typ)
+          throw EKeyOperationForTemplateWithNoKey(ctx, tmplId)
+        case Some(tmplKey) =>
+          checkExpr(key, tmplKey.typ)
           ()
       }
     }
@@ -759,8 +866,10 @@ private[validation] object Typing {
         typeOfUpdateBlock(bindings, body)
       case UpdateCreate(tpl, arg) =>
         typeOfCreate(tpl, arg)
-      case UpdateExercise(tpl, choice, cid, actors, arg) =>
-        typeOfExercise(tpl, choice, cid, actors, arg)
+      case UpdateExercise(tpl, choice, cid, arg) =>
+        typeOfExercise(tpl, choice, cid, arg)
+      case UpdateExerciseByKey(tpl, choice, key, arg) =>
+        typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>
         typeOfFetch(tpl, cid)
       case UpdateGetTime =>
@@ -769,16 +878,27 @@ private[validation] object Typing {
         checkExpr(exp, TUpdate(typ))
         TUpdate(typ)
       case UpdateFetchByKey(retrieveByKey) =>
-        checkRetrieveByKey(retrieveByKey)
+        checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         // fetches return the contract id and the contract itself
         TUpdate(
           TStruct(
-            ImmArray(
-              (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
-              (contractFieldName, TTyCon(retrieveByKey.templateId)))))
+            Struct.assertFromSeq(
+              List(
+                contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
+                contractFieldName -> TTyCon(retrieveByKey.templateId),
+              )
+            )
+          )
+        )
       case UpdateLookupByKey(retrieveByKey) =>
-        checkRetrieveByKey(retrieveByKey)
+        checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
+      case UpdateTryCatch(typ, body, binder, handler) =>
+        checkType(typ, KStar)
+        val updTyp = TUpdate(typ)
+        checkExpr(body, updTyp)
+        introExprVar(binder, TAnyException).checkExpr(handler, TOptional(updTyp))
+        updTyp
     }
 
     private def typeOfCommit(typ: Type, party: Expr, update: Expr): Type = {
@@ -817,19 +937,31 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
-    // we check that typ contains neither variables nor quantifiers
-    private def checkGroundType_(typ: Type): Unit = {
+    // checks that typ contains neither variables, nor quantifiers, nor synonyms
+    private def checkAnyType_(typ: Type): Unit = {
       typ match {
-        case TVar(_) | TForall(_, _) =>
+        case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkGroundType_)
+          TypeIterable(typ).foreach(checkAnyType_)
       }
     }
 
-    private def checkGroundType(typ: Type): Unit = {
-      checkGroundType_(typ)
+    private def checkAnyType(typ: Type): Unit = {
+      checkAnyType_(typ)
       checkType(typ, KStar)
+    }
+
+    private def checkExceptionType(typ: Type): Unit = {
+      typ match {
+        case TGeneralError | TArithmeticError | TContractError =>
+          ()
+        case TTyCon(tyCon) =>
+          lookupException(ctx, tyCon)
+          ()
+        case _ =>
+          throw EExpectedExceptionType(ctx, typ)
+      }
     }
 
     def typeOf(expr: Expr): Type = {
@@ -863,10 +995,10 @@ private[validation] object Typing {
         TTyCon(tyCon)
       case EStructCon(fields) =>
         typeOfStructCon(fields)
-      case EStructProj(field, struct) =>
-        typeOfStructProj(field, struct)
-      case EStructUpd(field, struct, update) =>
-        typeOfStructUpd(field, struct, update)
+      case proj: EStructProj =>
+        typeOfStructProj(proj)
+      case upd: EStructUpd =>
+        typeOfStructUpd(upd)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
       case ETyApp(expr, typ) =>
@@ -889,8 +1021,8 @@ private[validation] object Typing {
         typeOfUpdate(update)
       case EScenario(scenario) =>
         typeOfScenario(scenario)
-      case ELocation(_, expr) =>
-        typeOf(expr)
+      case ELocation(loc, expr) =>
+        newLocation(loc).typeOf(expr)
       case ENone(typ) =>
         checkType(typ, KStar)
         TOptional(typ)
@@ -899,16 +1031,29 @@ private[validation] object Typing {
         val _ = checkExpr(body, typ)
         TOptional(typ)
       case EToAny(typ, body) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         checkExpr(body, typ)
         TAny
       case EFromAny(typ, body) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         checkExpr(body, TAny)
         TOptional(typ)
       case ETypeRep(typ) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         TTypeRep
+      case EThrow(returnTyp, excepTyp, body) =>
+        checkType(returnTyp, KStar)
+        checkExceptionType(excepTyp)
+        checkExpr(body, excepTyp)
+        returnTyp
+      case EToAnyException(typ, value) =>
+        checkExceptionType(typ)
+        checkExpr(value, typ)
+        TAnyException
+      case EFromAnyException(typ, value) =>
+        checkExceptionType(typ)
+        checkExpr(value, TAnyException)
+        TOptional(typ)
     }
 
     def checkExpr(expr: Expr, typ0: Type): Type = {
@@ -929,5 +1074,34 @@ private[validation] object Typing {
   private def typeConAppToType(app: TypeConApp): Type = app match {
     case TypeConApp(tcon, targs) => targs.foldLeft[Type](TTyCon(tcon))(TApp)
   }
+
+  private[this] class ExpectedPatterns(val number: Int, patterns: => Iterator[CasePat]) {
+    def missingPatterns(ranks: Set[Int]): List[CasePat] =
+      patterns.zipWithIndex.collect { case (p, i) if !ranks(i) => p }.toList
+  }
+  private[this] object ExpectedPatterns {
+    def apply(patterns: CasePat*) = new ExpectedPatterns(patterns.length, patterns.iterator)
+  }
+
+  private[this] val wildcard: ExprVarName = Name.assertFromString("_")
+  private[this] def variantExpectedPatterns(
+      scrutTCon: TypeConName,
+      cons: ImmArray[(VariantConName, _)],
+  ) = new ExpectedPatterns(
+    cons.length,
+    cons.iterator.map { case (variants, _) => CPVariant(scrutTCon, variants, wildcard) },
+  )
+  private[this] def enumExpectedPatterns(scrutTCon: TypeConName, cons: ImmArray[EnumConName]) =
+    new ExpectedPatterns(cons.length, cons.iterator.map(CPEnum(scrutTCon, _)))
+  private[this] val unitExpectedPatterns = ExpectedPatterns(CPUnit)
+  private[this] val booleanExpectedPatterns = ExpectedPatterns(CPFalse, CPTrue)
+  private[this] val listExpectedPatterns = ExpectedPatterns(CPNil, CPCons(wildcard, wildcard))
+  private[this] val optionalExpectedPatterns = ExpectedPatterns(CPNone, CPSome(wildcard))
+  private[this] val defaultExpectedPatterns = ExpectedPatterns(CPDefault)
+
+  private[this] sealed trait MatchedRanks
+  private[this] final case object AllRanks extends MatchedRanks
+  private[this] final case class SomeRanks(ranks: Set[Int]) extends MatchedRanks
+  private[this] val EmptyMatchedRanks = SomeRanks(Set.empty)
 
 }

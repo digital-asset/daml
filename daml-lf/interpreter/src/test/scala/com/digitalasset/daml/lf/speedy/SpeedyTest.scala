@@ -1,27 +1,74 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.{FrontStack, Ref}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError.SError
-import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{FrontStack, ImmArray, Struct}
+import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.Compiler.FullStackTrace
+import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.validation.Validation
 import org.scalactic.Equality
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class SpeedyTest extends WordSpec with Matchers {
+class SpeedyTest extends AnyWordSpec with Matchers {
 
   import SpeedyTest._
   import defaultParserParameters.{defaultPackageId => pkgId}
+  def qualify(name: String) = Identifier(pkgId, QualifiedName.assertFromString(name))
+
+  val pkgs = typeAndCompile(p"")
+
+  "application arguments" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        (\ (a: Int64) (b: Int64) -> SUB_INT64 a b) 88 33
+      """,
+        pkgs,
+        // Test should fail if we get the order of the function arguments wrong.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
+
+  "stack variables" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        let a : Int64 = 88 in
+        let b : Int64 = 33 in
+        SUB_INT64 a b
+      """,
+        pkgs,
+        // Test should fail if we access the stack with incorrect indexing.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
+
+  "free variables" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        (\(a : Int64) ->
+         let b : Int64 = 33 in
+         (\ (x: Unit) -> SUB_INT64 a b) ()) 88
+      """,
+        pkgs,
+        // Test should fail if we index free-variables of a closure incorrectly.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
 
   "pattern matching" should {
 
@@ -71,11 +118,11 @@ class SpeedyTest extends WordSpec with Matchers {
         SOptional(
           Some(
             SStruct(
-              Ref.Name.Array(n"x1", n"x2"),
+              Struct.assertFromNameSeq(List(n"x1", n"x2")),
               ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
-            ),
-          ),
-        ),
+            )
+          )
+        )
       )
     }
 
@@ -86,7 +133,7 @@ class SpeedyTest extends WordSpec with Matchers {
 
     "works as expected on Variants" in {
       eval(e"""Matcher:variant @Int64 (Mod:Tree:Leaf @Int64 23)""", pkgs) shouldEqual Right(
-        SInt64(23),
+        SInt64(23)
       )
       eval(
         e"""Matcher:variant @Int64 (Mod:Tree:Node @Int64 (Mod:Tree.Node @Int64 {left = Mod:Tree:Leaf @Int64 27, right = Mod:Tree:Leaf @Int64 29 }))""",
@@ -141,10 +188,10 @@ class SpeedyTest extends WordSpec with Matchers {
             Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
-          ),
+          )
         )
     }
     "succeed on record type with parameters" in {
@@ -157,10 +204,10 @@ class SpeedyTest extends WordSpec with Matchers {
             ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
-          ),
+          )
         )
       eval(e"""to_any @(Test:T3 Text) (Test:T3 @Text {party = 'Alice'})""", anyPkgs) shouldEqual
         Right(
@@ -171,10 +218,10 @@ class SpeedyTest extends WordSpec with Matchers {
             ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
-          ),
+          )
         )
     }
   }
@@ -182,27 +229,33 @@ class SpeedyTest extends WordSpec with Matchers {
   "from_any" should {
 
     "throw an exception on Int64" in {
-      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe 'left
+      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe a[Left[_, _]]
     }
 
     "return Some(tpl) if template type matches" in {
-      eval(e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldEqual
+      eval(
+        e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""",
+        anyPkgs,
+      ) shouldEqual
         Right(
           SOptional(
             Some(
               SRecord(
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-                Name.Array(Name.assertFromString("party")),
+                ImmArray(Name.assertFromString("party")),
                 ArrayList(SParty(Party.assertFromString("Alice"))),
-              ),
-            ),
-          ),
+              )
+            )
+          )
         )
     }
 
     "return None if template type does not match" in {
-      eval(e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldEqual Right(
-        SOptional(None),
+      eval(
+        e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""",
+        anyPkgs,
+      ) shouldEqual Right(
+        SOptional(None)
       )
     }
     "return Some(v) if type parameter is the same" in {
@@ -214,11 +267,11 @@ class SpeedyTest extends WordSpec with Matchers {
           Some(
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
-            ),
-          ),
-        ),
+            )
+          )
+        )
       )
     }
     "return None if type parameter is different" in {
@@ -235,37 +288,252 @@ class SpeedyTest extends WordSpec with Matchers {
       eval(e"""type_rep @Test:T1""", anyPkgs) shouldEqual Right(STypeRep(t"Test:T1"))
       eval(e"""type_rep @Test2:T2""", anyPkgs) shouldEqual Right(STypeRep(t"Test2:T2"))
       eval(e"""type_rep @(Mod:Tree (List Text))""", anyPkgs) shouldEqual Right(
-        STypeRep(t"Mod:Tree (List Text)"),
+        STypeRep(t"Mod:Tree (List Text)")
       )
       eval(e"""type_rep @((ContractId Mod:T) -> Mod:Color)""", anyPkgs) shouldEqual Right(
-        STypeRep(t"(ContractId Mod:T) -> Mod:Color"),
+        STypeRep(t"(ContractId Mod:T) -> Mod:Color")
       )
     }
 
+  }
+
+  val recUpdPkgs = typeAndCompile(p"""
+    module M {
+      record Point = { x: Int64, y: Int64 } ;
+      val f: Int64 -> Int64 = \(x: Int64) -> MUL_INT64 2 x ;
+      val origin: M:Point = M:Point { x = 0, y = 0 } ;
+      val p_1_0: M:Point = M:Point { M:origin with x = 1 } ;
+      val p_1_2: M:Point = M:Point { M:Point { M:origin with x = 1 } with y = 2 } ;
+      val p_3_4_loc: M:Point = loc(M,p_3_4_loc,0,0,0,0) M:Point {
+        loc(M,p_3_4_loc,1,1,1,1) M:Point {
+          loc(M,p_3_4_loc,2,2,2,2) M:origin with x = 3
+        } with y = 4
+      } ;
+      val p_6_8: M:Point = M:Point { M:Point { M:origin with x = M:f 3 } with y = M:f 4 } ;
+      val p_3_2: M:Point = M:Point { M:Point { M:Point { M:origin with x = 1 } with y = 2 } with x = 3 } ;
+    }
+  """)
+
+  "record update" should {
+    "use SBRecUpd for single update" in {
+      val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
+      p_1_0 shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpd(qualify("M:Point"), 0),
+                Array(SELocS(1), SEValue(SInt64(1))),
+              ),
+            )
+          )
+        )
+
+    }
+
+    "produce expected output for single update" in {
+      eval(e"M:p_1_0", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(1), SInt64(0)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for multi update" in {
+      val p_1_2 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_2")))
+      p_1_2 shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                Array(
+                  SELocS(1),
+                  SEValue(SInt64(1)),
+                  SEValue(SInt64(2)),
+                ),
+              ),
+            )
+          )
+        )
+    }
+
+    "produce expected output for multi update" in {
+      eval(e"M:p_1_2", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(1), SInt64(2)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for multi update with location annotations" in {
+      def mkLocation(n: Int) =
+        Location(
+          pkgId,
+          ModuleName.assertFromString("M"),
+          "p_3_4_loc",
+          (n, n),
+          (n, n),
+        )
+      val p_3_4 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_4_loc")))
+      p_3_4 shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
+              SELocation(
+                mkLocation(0),
+                SEAppAtomicSaturatedBuiltin(
+                  SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                  Array(
+                    SELocS(1),
+                    SEValue(SInt64(3)),
+                    SEValue(SInt64(4)),
+                  ),
+                ),
+              ),
+            )
+          )
+        )
+    }
+
+    "produce expected output for multi update with location annotations" in {
+      eval(e"M:p_3_4_loc", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(3), SInt64(4)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for non-atomic multi update" in {
+      recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_6_8"))) shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SELet1General(
+                SEVal(LfDefRef(qualify("M:f"))),
+                SELet1General(
+                  SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(3)))),
+                  SELet1General(
+                    SEVal(LfDefRef(qualify("M:f"))),
+                    SELet1General(
+                      SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
+                      SEAppAtomicSaturatedBuiltin(
+                        SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                        Array(
+                          SELocS(5),
+                          SELocS(3),
+                          SELocS(1),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          )
+        )
+    }
+
+    "produce expected output for non-atomic multi update" in {
+      eval(e"M:p_6_8", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(6), SInt64(8)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for overwriting multi update" in {
+      recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_2"))) shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpdMulti(qualify("M:Point"), Array(0, 1, 0)),
+                Array(
+                  SELocS(1),
+                  SEValue(SInt64(1)),
+                  SEValue(SInt64(2)),
+                  SEValue(SInt64(3)),
+                ),
+              ),
+            )
+          )
+        )
+    }
+
+    "produce expected output for overwriting multi update" in {
+      eval(e"M:p_3_2", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(3), SInt64(2)),
+          )
+        )
+    }
+  }
+
+  "profiler" should {
+    "evaluate arguments before open event" in {
+      val events = profile(e"""
+        let f: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 1 in
+        let g: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 2 in
+        f (g 1)
+      """)
+      events should have size 4
+      events.get(0) should matchPattern { case Profile.Event(true, "g", _) => }
+      events.get(1) should matchPattern { case Profile.Event(false, "g", _) => }
+      events.get(2) should matchPattern { case Profile.Event(true, "f", _) => }
+      events.get(3) should matchPattern { case Profile.Event(false, "f", _) => }
+    }
   }
 }
 
 object SpeedyTest {
 
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      checkSubmitterInMaintainers = true,
-      compiledPackages = packages,
-      scenario = false,
-    )
+    val machine = Speedy.Machine.fromPureExpr(packages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
-      while (!machine.isFinal) machine.step() match {
-        case SResultContinue => ()
+      val value = machine.run() match {
+        case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
-
-      Right(machine.toSValue)
+      Right(value)
     } catch {
       case Goodbye(err) => Left(err)
     }
+  }
+  private val noPackages =
+    PureCompiledPackages(
+      Map.empty,
+      Map.empty,
+      Compiler.Config.Default
+        .copy(profiling = Compiler.FullProfile, stacktracing = Compiler.FullStackTrace),
+    )
+
+  private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
+    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
+    machine.run()
+    machine.profile.events
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -277,8 +545,10 @@ object SpeedyTest {
 
   private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId)
-    PureCompiledPackages(rawPkgs).right.get
+    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
+    data.assertRight(
+      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+    )
   }
 
   private def intList(xs: Long*): String =

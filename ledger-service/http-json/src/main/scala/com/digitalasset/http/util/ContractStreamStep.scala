@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package util
 
 import Collections._
 import InsertDeleteStep.{Cid, Inserts}
 
-import scalaz.\/
+import scalaz.{Semigroup, \/}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
 
@@ -18,7 +18,7 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
 
   def toInsertDelete: InsertDeleteStep[D, C] = this match {
     case Acs(inserts) => InsertDeleteStep(inserts, Map.empty)
-    case LiveBegin(_) => InsertDeleteStep(Vector.empty, Map.empty)
+    case LiveBegin(_) => InsertDeleteStep.Empty
     case Txn(step, _) => step
   }
 
@@ -29,11 +29,13 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
         Txn(toInsertDelete, off)
       case (Acs(_) | Txn(_, _), Txn(ostep, off)) =>
         Txn(toInsertDelete append ostep, off)
-      case (LiveBegin(_), Txn(_, _) | LiveBegin(_)) => o
+      case (LiveBegin(_), Txn(_, _)) => o
       // the following cases should never happen in a real stream; we attempt to
       // provide definitions that make `append` totally associative, anyway
-      case (Acs(_), LiveBegin(LedgerBegin)) => this
-      case (LiveBegin(LedgerBegin), Acs(_)) => o
+      case (Acs(_) | LiveBegin(_), LiveBegin(LedgerBegin)) => this
+      case (LiveBegin(LedgerBegin), Acs(_) | LiveBegin(_)) |
+          (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
+        o
       case (LiveBegin(AbsoluteBookmark(off)), Acs(_)) => Txn(o.toInsertDelete, off)
       case (Txn(step, off), Acs(_) | LiveBegin(LedgerBegin)) =>
         Txn(step append o.toInsertDelete, off)
@@ -43,9 +45,8 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
   def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] =
     mapInserts(_ map f)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
-      implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
+  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
+      LDS: CanBuildFrom[Map[String, D], LD, LDS]
   ): (LDS, Inserts[LC], ContractStreamStep[DD, CC]) =
     this match {
       case Acs(inserts) =>
@@ -73,6 +74,12 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
     case LiveBegin(_) => true // unnatural wrt `toInsertDelete`, but what nonEmpty is used for here
     case Txn(step, _) => step.nonEmpty
   }
+
+  def bookmark: Option[BeginBookmark[domain.Offset]] = this match {
+    case Acs(_) => Option.empty
+    case LiveBegin(bookmark) => Some(bookmark)
+    case Txn(_, offset) => Some(AbsoluteBookmark(offset))
+  }
 }
 
 private[http] object ContractStreamStep extends WithLAV1[ContractStreamStep] {
@@ -82,4 +89,7 @@ private[http] object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Txn[+D, +C](step: InsertDeleteStep[D, C], offsetAfter: domain.Offset)
       extends ContractStreamStep[D, C]
   object Txn extends WithLAV1[Txn]
+
+  implicit def `CSS semigroup`[D, C: Cid]: Semigroup[ContractStreamStep[D, C]] =
+    Semigroup instance (_ append _)
 }

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
 import sangria.ast.StringValue
 import sangria.schema.ScalarType
@@ -24,7 +24,7 @@ object StringAliasType {
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(s)
         case _ ⇒ Left(StringCoercionViolation)
-      }
+      },
     )
 
   def tagged[T](name: String, description: Option[String] = None): ScalarType[String @@ T] =
@@ -39,6 +39,6 @@ object StringAliasType {
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(Tag.of[T](s))
         case _ ⇒ Left(StringCoercionViolation)
-      }
+      },
     )
 }

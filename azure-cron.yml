@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -6,7 +6,7 @@
 # Do not run on PRs
 pr: none
 
-# Do not run on merge to master
+# Do not run on merge to main
 trigger: none
 
 # Do run on a schedule (hourly)
@@ -24,7 +24,7 @@ trigger: none
 #  displayName: hourly cron
 #  branches:
 #    include:
-#    - master
+#    - main
 #  always: true
 
 jobs:
@@ -32,30 +32,27 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/cron/run.sh
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+
+          bazel build //ci/cron:cron
+          ./bazel-bin/ci/cron/cron docs
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-          HUBSPOT_TOKEN: $(HUBSPOT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.team-daml)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
       - template: ci/tell-slack-failed.yml
 
   - job: docker_image
     timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -63,9 +60,15 @@ jobs:
 
           eval "$(dev-env/bin/dade-assist)"
           HEAD=$(git rev-parse HEAD)
-          while ! nix-build -A tools.sed -A tools.jq -A tools.curl nix; do :; done
+          while ! nix-build -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
+
+          trap 'rm -rf ~/.docker' EXIT
           echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
-          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          echo $DOCKER_CONTENT_TRUST_KEY | base64 -d > ~/.docker/da_automation.key
+          chmod 600 ~/.docker/da_automation.key
+          docker trust key load ~/.docker/da_automation.key --name $DOCKER_CONTENT_TRUST_USERNAME
+
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '.[] | .tag_name')
           DIR=$(pwd)
           VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
           # Our docker tags should be stable. Therefore, we only build the image if it has not already
@@ -81,7 +84,10 @@ jobs:
               git checkout "$version"
               cd ci/docker/daml-sdk
               docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
-              docker push digitalasset/daml-sdk:${version#v}
+              # Despite the name not suggesting it at all, this actually signs
+              # _and pushes_ the image; see
+              # https://docs.docker.com/engine/security/trust/#signing-images-with-docker-content-trust
+              docker trust sign digitalasset/daml-sdk:${version#v}
               cd "$DIR"
               git checkout $HEAD
               echo "Done."
@@ -90,12 +96,18 @@ jobs:
         env:
           DOCKER_LOGIN: $(DOCKER_LOGIN)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+          DOCKER_CONTENT_TRUST_KEY: $(DOCKER_CONTENT_TRUST_KEY)
+          DOCKER_CONTENT_TRUST_USERNAME: $(DOCKER_CONTENT_TRUST_USERNAME)
+          # Does not appear explicitly in the script, but is used by
+          # docker trust key load
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: $(DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE)
       - template: ci/tell-slack-failed.yml
 
   - job: vscode_marketplace
     timeoutInMinutes: 10
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -109,17 +121,46 @@ jobs:
                         -s \
                         "https://marketplace.visualstudio.com/_apis/gallery/publishers/DigitalAssetHoldingsLLC/extensions/daml?flags=1" \
                         | jq -r '.versions[0].version')
-          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[0]')
-          if [[ "${GITHUB#v}" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c $GITHUB; then
+          # This jq expression should ensure that we always upload the
+          # highest-number version. Here is how this works:
+          #
+          # 1. The GitHub API documentation does not specify the order for the
+          #    "list releases" endpoint, but does specify that the "latest"
+          #    endpoint returns the release that points to the most recent commit.
+          #    Assuming the same sort order is applied for the list endpoint
+          #    (which empirically seems to hold so far), this means that they may
+          #    be out-of-order wrt version numbers, e.g. 1.1.0 may appear after
+          #    1.0.2.
+          # 2. The `.tag_name | .[1:] | split (".") | map(tonumber)` part will
+          #    turn "v1.0.2" into an array [1, 0, 2].
+          # 3. jq documents its sort method to sort numbers in numeric order
+          #    and arrays in lexical order (ascending in both cases).
+          #
+          # This is required because, while the VSCode Marketplace does show
+          # _a_ version number, it doesn't handle versions at all: we can only
+          # have one version on the marketplace at any given time, and any
+          # upload replaces the existing version.
+          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -s \
+                   | jq -r '. | map(select(.prerelease == false)
+                                    | .tag_name
+                                    | .[1:]
+                                    | split (".")
+                                    | map(tonumber))
+                              | sort
+                              | reverse
+                              | .[0]
+                              | map(tostring)
+                              | join(".")')
+          if [[ "$GITHUB" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c v$GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
-            git checkout $GITHUB
+            git checkout v$GITHUB
             cd compiler/daml-extension
             # This produces out/src/extension.js
             bazel run @nodejs//:yarn
             bazel run @nodejs//:yarn compile
-            bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
+            bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
           else
-            if [[ "${GITHUB#v}" == "$MARKET" ]]; then
+            if [[ "$GITHUB" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."
             else
               echo "Latest version is not ready for marketplace publication."
@@ -133,6 +174,7 @@ jobs:
     timeoutInMinutes: 10
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |

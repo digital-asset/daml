@@ -1,9 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
 
 import DA.TextMap
+import qualified DA.Map
 import Lib.Mod
 
 import T
@@ -32,6 +33,10 @@ template AllTypes with
     tuple: (Int, Text)
     enum: Color
     enumList: [Color]
+    enumList2: [Color]
+    optcol1: OptColor1
+    optcol2: OptColor2
+    optcol3: OptColor2
     variant: Expr Int
     optionalVariant: Expr Int
     sumProd : Quux
@@ -41,6 +46,10 @@ template AllTypes with
     n0 : Numeric 0
     n5 : Numeric 5
     n10 : Decimal
+    rec : Recursive
+    voidRecord: Optional VoidRecord
+    voidEnum: Optional VoidEnum
+    genMap : DA.Map.Map (Expr2 Int) Int
   where
     signatory party
 
@@ -68,6 +77,14 @@ template Person with
         archive self
         create this with name = newName
 
+    nonconsuming choice AddOthersFriends: ContractId Person with
+        otherCid: ContractId Person
+      controller party
+      do
+        other <- fetch otherCid
+        archive self
+        create this with friends = friends ++ other.friends
+
 data Pair a b = Pair {
   one: a;
   two: b
@@ -82,6 +99,18 @@ data Foo a b = Foo {
   z: b
 }
 
+-- Non-polymorhpic variant
+data OptColor1 =
+    Color1 Color
+  | Transparent1
+  deriving (Show, Eq)
+
+-- Non-polymorphic sum of products
+data OptColor2 =
+    Color2 {color2 : Color}
+  | Transparent2
+  deriving (Show, Eq)
+
 data Expr a =
     Lit a
   | Var Text
@@ -92,7 +121,7 @@ data Expr2 a =
     Lit2 a
   | Var2 Text
   | Add2 {lhs : Expr2 a, rhs: Expr2 a}
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data Color = Red | Blue | Yellow deriving (Eq, Show)
 
@@ -113,3 +142,30 @@ template U with
       C: ContractId T with
         do
           create T with party
+
+data Recursive = Recursive with
+    recOptional : Optional Recursive
+    recList: [Recursive]
+    recTextMap : TextMap Recursive
+  deriving (Eq, Show)
+
+data VoidRecord = VoidRecord with
+    inner: VoidRecord
+  deriving (Eq, Show)
+
+data VoidEnum = VoidEnum VoidEnum
+  deriving (Eq, Show)
+
+template Counter with
+    p: Party
+    t: Text
+    c: Int
+  where
+    signatory p
+    key (p, t): (Party, Text)
+    maintainer key._1
+    controller p can
+      preconsuming Change: ContractId Counter
+        with n: Int
+        do
+          create Counter {c = n, ..}

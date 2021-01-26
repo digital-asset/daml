@@ -1,19 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
-import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.extractor.targets._
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.extractor.targets._
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import CustomScoptReaders._
+import com.daml.ports.Port
 import scalaz.OneAnd
 
-import scala.util.Try
 import scopt.OptionParser
 
 object ConfigParser {
@@ -38,22 +37,20 @@ object ConfigParser {
       postgresMultiTableMergeIdentical: Boolean = false,
       postgresStripPrefix: Option[String] = None,
       ledgerHost: String = "127.0.0.1",
-      ledgerPort: Int = 6865,
+      ledgerPort: Port = Port(6865),
       ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiBytes
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
       templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
       to: Option[String] = None,
-      tlsPem: Option[String] = None,
-      tlsCrt: Option[String] = None,
-      tlsCaCrt: Option[String] = None,
+      tlsConfiguration: TlsConfiguration = TlsConfiguration(false, None, None, None),
       accessTokenFile: Option[Path] = None,
   )
 
   private val configParser: OptionParser[CliParams] =
     new scopt.OptionParser[CliParams]("extractor") {
 
-      override def showUsageOnError: Boolean = true
+      override val showUsageOnError: Option[Boolean] = Some(true)
 
       val colSpacer = "                           "
 
@@ -83,7 +80,7 @@ object ConfigParser {
                 s"${colSpacer}Optional, default is 1000."
             )
             .optional()
-            .action((h, c) => c.copy(pprintHeight = h))
+            .action((h, c) => c.copy(pprintHeight = h)),
         )
 
       note("") // newline
@@ -157,7 +154,7 @@ object ConfigParser {
             .text(
               "Parts of template names to cut from the beginning when using the multi-table strategy\n" +
                 s"${colSpacer}Optional."
-            )
+            ),
         )
 
       note("\nCommon options:\n")
@@ -170,7 +167,7 @@ object ConfigParser {
 
       opt[Int]('p', "ledger-port")
         .optional()
-        .action((x, c) => c.copy(ledgerPort = x))
+        .action((x, c) => c.copy(ledgerPort = Port(x)))
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
 
@@ -183,13 +180,16 @@ object ConfigParser {
       opt[ExtractorConfig.Parties]("party")
         .required()
         .action((x, c) => c.copy(party = x))
-        .text("The party or parties whose contract data should be extracted.\n" +
-          s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar")
+        .text(
+          "The party or parties whose contract data should be extracted.\n" +
+            s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar"
+        )
 
       opt[Seq[TemplateConfig]]('t', "templates")
         .optional()
         .validate(x =>
-          validateUniqueElements(x, s"The list of templates must contain unique elements"))
+          validateUniqueElements(x, s"The list of templates must contain unique elements")
+        )
         .action((x, c) => c.copy(templateConfigs = x.toSet))
         .valueName("<module1>:<entity1>,<module2>:<entity2>...")
         .text("The list of templates to subscribe for. Optional, defaults to all ledger templates.")
@@ -219,51 +219,36 @@ object ConfigParser {
 
       note("\nTLS configuration:")
 
-      opt[String]("pem")
-        .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(validatePath(_, "The file specified via --pem does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsPem = Some(path))
-        }
-      opt[String]("crt")
-        .optional()
-        .text(
-          s"TLS: The crt file to be used as the cert chain.\n${colSpacer}" +
-            s"Required if any other TLS parameters are set."
-        )
-        .validate(validatePath(_, "The file specified via --crt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCrt = Some(path))
-        }
-      opt[String]("cacrt")
-        .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
-        .validate(validatePath(_, "The file specified via --cacrt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCaCrt = Some(path))
-        }
+      TlsConfigurationCli.parse(this, colSpacer)((f, c) =>
+        c copy (tlsConfiguration = f(c.tlsConfiguration))
+      )
 
-      note("\nAuthentication:")
+      note("\nAuthorization:")
 
       opt[String]("access-token-file")
         .text(
-          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+          s"provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default"
+        )
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
 
       checkConfig { c =>
-        if (c.postgresMultiTableUseSchemes && !List("multi-table", "combined").contains(
-            c.postgresOutputFormat)) {
+        if (
+          c.postgresMultiTableUseSchemes && !List("multi-table", "combined").contains(
+            c.postgresOutputFormat
+          )
+        ) {
           failure(
             "\n`--schema-per-package` was set `true`, while the data format strategy wasn't set to\n" +
               "use separate tables per contract. This setting won't have any effects.\n" +
               "Change the `--output-format` parameter to \"multi-table\" or \"combined\" to have a multi-table setup,\n" +
               "or remove this parameter.\n"
           )
-        } else if (c.postgresMultiTableMergeIdentical && !List("multi-table", "combined").contains(
+        } else if (
+          c.postgresMultiTableMergeIdentical && !List("multi-table", "combined").contains(
             c.postgresOutputFormat
-          )) {
+          )
+        ) {
           failure(
             "\n`--merge-identical` was set `true`, while the data format strategy wasn't set to\n" +
               "use separate tables per contract. This setting won't have any effects.\n" +
@@ -296,12 +281,7 @@ object ConfigParser {
         case x => SnapshotEndSetting.Until(x)
       }
 
-      val tlsConfig = TlsConfiguration(
-        enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined,
-        keyCertChainFile = cliParams.tlsCrt.map(new File(_)),
-        keyFile = cliParams.tlsPem.map(new File(_)),
-        trustCertCollectionFile = cliParams.tlsCaCrt.map(new File(_))
-      )
+      val tlsConfig = cliParams.tlsConfiguration
 
       val config = ExtractorConfig(
         cliParams.ledgerHost,
@@ -312,7 +292,7 @@ object ConfigParser {
         cliParams.party,
         cliParams.templateConfigs,
         tlsConfig,
-        cliParams.accessTokenFile
+        cliParams.accessTokenFile,
       )
 
       val target = cliParams.target match {
@@ -326,20 +306,12 @@ object ConfigParser {
             cliParams.postgresOutputFormat,
             cliParams.postgresMultiTableUseSchemes,
             cliParams.postgresMultiTableMergeIdentical,
-            cliParams.postgresStripPrefix
+            cliParams.postgresStripPrefix,
           )
       }
 
       (config, target)
     }
-  }
-
-  def showUsage(): Unit =
-    configParser.showUsage()
-
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (valid) Right(()) else Left(message)
   }
 
   private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =

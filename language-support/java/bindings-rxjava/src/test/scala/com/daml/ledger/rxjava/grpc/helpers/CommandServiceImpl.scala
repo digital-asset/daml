@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.auth.services.CommandServiceAuthorization
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.digitalasset.ledger.api.v1.command_service._
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.auth.services.CommandServiceAuthorization
+import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
+import com.daml.ledger.api.v1.command_service._
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
@@ -16,8 +16,8 @@ final class CommandServiceImpl(
     submitAndWaitResponse: Future[Empty],
     submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
     submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
-    submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse])
-    extends CommandService
+    submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+) extends CommandService
     with FakeAutoCloseable {
 
   private var lastRequest: Option[SubmitAndWaitRequest] = None
@@ -28,19 +28,22 @@ final class CommandServiceImpl(
   }
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionIdResponse] = {
     this.lastRequest = Some(request)
     submitAndWaitForTransactionIdResponse
   }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionResponse] = {
     this.lastRequest = Some(request)
     submitAndWaitForTransactionResponse
   }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionTreeResponse] = {
     this.lastRequest = Some(request)
     submitAndWaitForTransactionTreeResponse
   }
@@ -55,13 +58,14 @@ object CommandServiceImpl {
       submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
-      authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, CommandServiceImpl) = {
+      authorizer: Authorizer,
+  )(implicit ec: ExecutionContext): (ServerServiceDefinition, CommandServiceImpl) = {
     val impl = new CommandServiceImpl(
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
-      submitAndWaitForTransactionTreeResponse)
+      submitAndWaitForTransactionTreeResponse,
+    )
     val authImpl = new CommandServiceAuthorization(impl, authorizer)
     (CommandServiceGrpc.bindService(authImpl, ec), impl)
   }

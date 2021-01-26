@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test
+package com.daml.navigator.test
 
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.navigator.test.config.Arguments
-import com.digitalasset.navigator.test.runner.{HeadNavigator, PackagedDamlc, PackagedSandbox}
+import com.daml.navigator.test.config.Arguments
+import com.daml.navigator.test.runner.{HeadNavigator, PackagedDamlc, PackagedSandbox}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.io.Source
@@ -16,7 +16,7 @@ class ComponentsFixture(
     val args: Arguments,
     val navigatorPort: Int,
     val sandboxPort: Int,
-    val scenario: String
+    val scenario: String,
 ) extends LazyLogging {
 
   // A list of commands on how to destroy started processes
@@ -28,7 +28,7 @@ class ComponentsFixture(
       url: String,
       connectTimeout: Int = 1000,
       readTimeout: Int = 1000,
-      requestMethod: String = "GET"
+      requestMethod: String = "GET",
   ): String = {
     import java.net.{URL, HttpURLConnection}
     val connection = (new URL(url)).openConnection.asInstanceOf[HttpURLConnection]
@@ -49,7 +49,8 @@ class ComponentsFixture(
         sandbox <- Try(PackagedSandbox.runAsync(sandboxPort, darFile, scenario))
         _ = killProcs.updateAndGet(s => sandbox :: s)
         navigator <- Try(
-          HeadNavigator.runAsync(args.navConfPAth, args.navigatorDir, navigatorPort, sandboxPort))
+          HeadNavigator.runAsync(args.navConfPAth, args.navigatorDir, navigatorPort, sandboxPort)
+        )
         _ = killProcs.updateAndGet(s => navigator :: s)
       } yield { () }
     } else {
@@ -64,7 +65,8 @@ class ComponentsFixture(
         case Failure(e) =>
           if (count > maxRetries) {
             logger.error(
-              s"Navigator is not available after $maxRetries retries with $delayMillis millis interval.")
+              s"Navigator is not available after $maxRetries retries with $delayMillis millis interval."
+            )
             Failure(e)
           } else {
             logger.info(s"Navigator is not available yet, waiting $delayMillis millis ")

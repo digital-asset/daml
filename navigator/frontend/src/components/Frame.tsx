@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Frame as CoreFrame, makeSidebarLink } from '@da/ui-core';
@@ -27,7 +27,7 @@ interface FrameProps {
   toWatcher(action: LedgerWatcher.Action): App.Action;
 }
 
-const Frame = ({
+const Frame: React.FC<FrameProps> = ({
   user,
   page,
   watcher,

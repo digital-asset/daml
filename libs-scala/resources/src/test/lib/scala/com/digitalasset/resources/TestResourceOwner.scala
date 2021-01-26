@@ -1,37 +1,36 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.resources.TestResourceOwner._
+import com.daml.resources.TestResourceOwner._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
-    extends ResourceOwner[T] {
+    extends AbstractResourceOwner[TestContext, T] {
   private val acquired = new AtomicBoolean(false)
 
   def hasBeenAcquired: Boolean = acquired.get
 
-  def acquire()(implicit executionContext: ExecutionContext): Resource[T] = {
+  def acquire()(implicit context: TestContext): Resource[TestContext, T] = {
     if (!acquired.compareAndSet(false, true)) {
       throw new TriedToAcquireTwice
     }
-    Resource(acquire)(
-      value =>
-        if (acquired.compareAndSet(true, false))
-          release(value)
-        else
-          Future.failed(new TriedToReleaseTwice)
+    Resource[TestContext].apply(acquire)(value =>
+      if (acquired.compareAndSet(true, false))
+        release(value)
+      else
+        Future.failed(new TriedToReleaseTwice)
     )
   }
 }
 
 object TestResourceOwner {
   def apply[T](value: T): TestResourceOwner[T] =
-    new TestResourceOwner(Future.successful(value), _ => Future.successful(()))
+    new TestResourceOwner(Future.successful(value), _ => Future.unit)
 
   final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")
 

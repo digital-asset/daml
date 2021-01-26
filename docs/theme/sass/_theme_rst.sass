@@ -58,20 +58,9 @@
     margin: 0
     padding: $base-line-height / 2 $base-line-height / 2
     font-family: $code-font-family
+    font-weight: $weight-code
     display: block
     overflow: auto
-  pre.literal-block, div[class^='highlight']
-    overflow-x: auto
-    // 1px hack otherwise border won't show. lame
-    margin: 35px 0 35px -56px
-
-    +media($desktop-wider)
-      margin: 35px 0 35px -56px
-
-    div[class^='highlight']
-      padding: 0px
-      border: none
-      margin: 0
   // Needs 100% width for line highlighting to work properly
   div[class^='highlight'] td.code
     width: 100%
@@ -79,12 +68,15 @@
     margin: 0
     padding: $base-line-height / 2 $base-line-height / 2
     font-family: $code-font-family
+    font-weight: $weight-code
     user-select: none
     pointer-events: none
   div[class^='highlight'] pre
+    font-family: $code-font-family
+    font-weight: $weight-code
     white-space: pre
     margin: 0
-    padding: $base-line-height / 2 $base-line-height / 2
+    padding: $base-line-height / 2 0
     display: block
     overflow: auto
     & .hll
@@ -94,6 +86,7 @@
       padding: 0 $base-line-height / 2
   pre.literal-block, div[class^='highlight'] pre, .linenodiv pre
     font-family: $code-font-family
+    font-weight: $weight-code
     font-size: 13px
     color: #FFFFFF
 
@@ -155,7 +148,7 @@
 
   // Generics handling of headings and toc stuff.
   .topic-title
-    font-weight: bold
+    font-weight: $weight-title
     margin-bottom: $base-line-height / 2
   .toc-backref
     color: $text-color
@@ -208,7 +201,7 @@
     .sidebar-title
       display: block
       font-family: $custom-font-family
-      font-weight: bold
+      font-weight: $weight-title
       background: $table-border-color
       padding: $base-line-height / 4 $base-line-height / 2
       margin: -$base-line-height
@@ -218,7 +211,7 @@
   .highlighted
     background: $highlight-color
     display: inline-block
-    font-weight: bold
+    font-weight: $weight-title
     padding: 0 $base-line-height / 4
 
   // These are the little citation links [1] that show up within paragraphs.
@@ -293,17 +286,18 @@
       line-height: normal
 
     &.xref, a &
-      font-weight: bold
+      font-weight: $weight-title
       color: $text-codexref-color
   pre, kbd, samp
     font-family: $code-font-family
+    font-weight: $weight-code
   // If the literal is inside an a tag, let's color it like a link
   a tt, a code
     color: $link-color
   dl
     margin-bottom: $base-line-height
     dt
-      font-weight: bold
+      font-weight: $weight-title
       margin-bottom: $base-line-height / 2
     // Most of the content within these dls are one liners, so I halve the normal margins.
     p, table, ul, ol
@@ -323,11 +317,8 @@
     dt
       display: table
       margin: $base-line-height / 4 0
-      font-size: 90%
       line-height: normal
-      background: lighten($class-color, 50%)
       color: $class-color
-      border-top: solid 3px lighten($class-color, 20%)
       padding: $base-line-height / 4
       position: relative
       &:before
@@ -339,8 +330,6 @@
     dl dt
       margin-bottom: $base-line-height / 4
       border: none
-      border-left: solid 3px hsl(0,0%,80%)
-      background: hsl(0,0%,94%)
       color: $method-color
       .headerlink
         color: $headerlink-color
@@ -349,20 +338,20 @@
       margin-top: 0
     // Since dts get the callout style, we treat this less as callouts.
     tt, code
-      font-weight: bold
+      font-weight: $weight-title
       &.descname, &.descclassname
         background-color: transparent
         border: none
         padding: 0
         font-size: 100% !important
       &.descname
-        font-weight: bold
+        font-weight: $weight-title
     // This is for more advanced parameter control
     .optional
       display: inline-block
       padding: 0 4px
       color: $black
-      font-weight: bold
+      font-weight: $weight-title
     .property
       display: inline-block
       padding-right: 8px
@@ -377,7 +366,7 @@
     float: right
   p.rubric
     margin-bottom: 12px
-    font-weight: bold
+    font-weight: $weight-title
   //Download link
   code.download
     background: inherit
@@ -407,7 +396,7 @@
     border: 1px solid lighten($guilabel-color, 25%)
     background: lighten($guilabel-color, 50%)
     font-size: 80%
-    font-weight: 700
+    font-weight: $weight-title
     border-radius: $base-line-height / 6
     padding: $base-line-height / 10 $base-line-height / 4
     margin: auto $base-line-height / 12

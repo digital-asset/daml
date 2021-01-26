@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.logging
+package com.daml.logging
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.digitalasset.grpc.GrpcException
+import com.daml.grpc.GrpcException
 import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -27,8 +27,7 @@ object ContextualizedLogger {
   private[logging] def createFor(name: String): ContextualizedLogger =
     createFor(LoggerFactory.getLogger(name))
 
-  /**
-    * Gets from cache (or creates) a [[ContextualizedLogger]].
+  /** Gets from cache (or creates) a [[ContextualizedLogger]].
     * Automatically strips the `$` at the end of Scala `object`s' name.
     */
   def get(clazz: Class[_]): ContextualizedLogger = {
@@ -49,10 +48,12 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   private def internalOrUnknown(code: Status.Code): Boolean =
     code == Status.Code.INTERNAL || code == Status.Code.UNKNOWN
 
-  private def logError(t: Throwable)(implicit logCtx: LoggingContext): Unit =
+  private def logError(t: Throwable)(implicit loggingContext: LoggingContext): Unit =
     error("Unhandled internal error", t)
 
-  def logErrorsOnCall[Out](implicit logCtx: LoggingContext): PartialFunction[Try[Out], Unit] = {
+  def logErrorsOnCall[Out](implicit
+      loggingContext: LoggingContext
+  ): PartialFunction[Try[Out], Unit] = {
     case Failure(e @ GrpcException(s, _)) =>
       if (internalOrUnknown(s.getCode)) {
         logError(e)
@@ -61,7 +62,7 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
       logError(e)
   }
 
-  def logErrorsOnStream[Out](implicit logCtx: LoggingContext): Flow[Out, Out, NotUsed] =
+  def logErrorsOnStream[Out](implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
     Flow[Out].mapError {
       case e @ GrpcException(s, _) =>
         if (internalOrUnknown(s.getCode)) {

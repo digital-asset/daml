@@ -25,8 +25,7 @@ let
 in rec {
   inherit pkgs;
 
-  # GHC with static linking patches.
-  ghcStatic = bazel_dependencies.ghcStatic;
+  ghc = bazel_dependencies.ghc;
 
   # Tools used in the dev-env. These are invoked through wrappers
   # in dev-env/bin. See the development guide for more information:
@@ -41,10 +40,10 @@ in rec {
     protoc          = bazel_dependencies.protobuf3_8;
 
     # Haskell development
-    ghcStatic       = bazel_dependencies.ghcStatic;
+    ghc             = bazel_dependencies.ghc;
     ghcid           = pkgs.haskellPackages.ghcid;
-    hlint           = bazel_dependencies.ghcStaticPkgs.hlint;
-    ghci            = bazel_dependencies.ghcStatic;
+    hlint           = bazel_dependencies.ghcPkgs.hlint;
+    ghci            = bazel_dependencies.ghc;
 
     # Hazel’s configure step currently searches for the C compiler in
     # PATH instead of taking it from our cc toolchain so we have to add
@@ -113,8 +112,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    live-server =
-      (import ./tools/live-server { inherit pkgs; nodejs = tools.node; }).live-server;
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
@@ -135,16 +132,14 @@ in rec {
       python3 = python3;
     };
 
-    sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
-    sphinx-build      = sphinx;
-    sphinx-quickstart = sphinx;
+    sphinx-build      = sphinx183;
+    sphinx-quickstart = sphinx183;
 
-    sphinx-autobuild = import ./tools/sphinx-autobuild {
+    sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
       inherit pkgs;
-      python37Packages = pkgs.python37Packages;
     };
 
-    sphinx183 = bazel_dependencies.sphinx183;
+    sphinx183 = bazel_dependencies.sphinx183-exts;
 
     convert = bazel_dependencies.imagemagick;
 
@@ -155,6 +150,8 @@ in rec {
     tred      = graphviz;
     unflatten = graphviz;
     circo     = graphviz;
+
+    pandoc = pkgs.pandoc;
 
     # Build tools
 
@@ -176,7 +173,6 @@ in rec {
           >&2 echo "Please run bazel inside of the dev-env"
           exit 1
       fi
-      export BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -189,18 +185,22 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
+    lsof = pkgs.lsof;
 
     patch = pkgs.patch;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
-    jo   = pkgs.jo;
-    jq   = bazel_dependencies.jq;
-    gawk = bazel_dependencies.gawk;
-    sed = pkgs.gnused;
     base64 = pkgs.coreutils;
+    bc = pkgs.bc;
+    find = pkgs.findutils;
+    gawk = bazel_dependencies.gawk;
+    grep = pkgs.gnugrep;
+    jq = bazel_dependencies.jq;
+    sed = pkgs.gnused;
     sha1sum = pkgs.coreutils;
+    xargs = pkgs.findutils;
     xmlstarlet = pkgs.xmlstarlet;
 
     # Cryptography tooling
@@ -214,18 +214,15 @@ in rec {
     tar = bazel_dependencies.gnutar;
 
     semver = pkgs.callPackage ./tools/semver-tool {};
-    osht = pkgs.callPackage ./tools/osht {};
-    bats = pkgs.callPackage ./tools/bats {};
-    dade-test-sh = pkgs.callPackage ./tools/dade-test-sh {};
 
     undmg = pkgs.undmg;
-    jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
     # Cloud tools
     aws = pkgs.awscli;
     gcloud = pkgs.google-cloud-sdk;
-    bq     = gcloud;
+    bq = gcloud;
     gsutil = gcloud;
+    docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
@@ -246,8 +243,6 @@ in rec {
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };
-    # Used by CI
-    minio  = pkgs.minio;
   } // (if pkgs.stdenv.isLinux then {
     # The following packages are used for CI docker based builds
     bash = pkgs.bash;
@@ -257,11 +252,9 @@ in rec {
     cheat = pkgs.cheat;
     coreutils = pkgs.coreutils;
     dockerd = pkgs.docker;
-    findutils = pkgs.findutils;
     ftop = pkgs.ftop;
     gcc7 = pkgs.gcc7;
     glibc = pkgs.glibc;
-    gnugrep = pkgs.gnugrep;
     iputils = pkgs.iputils;
     less = pkgs.less;
     ltrace = pkgs.ltrace;

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -20,6 +20,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
+    "LF_VERSIONS",
     "lf_latest_version",
     "lf_stable_version",
 )
@@ -32,8 +34,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen",
-    data = ["//:MVN_VERSION"],
-    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
+    main_class = "com.daml.lf.codegen.StandaloneMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
 )
@@ -43,13 +44,12 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     resources = [
         "src/main/resources/logback.xml",
-        "//:MVN_VERSION",
     ],
-    tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//language-support/codegen-common",
@@ -78,7 +78,7 @@ da_scala_test(
         ":lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//language-support/codegen-common",
@@ -88,20 +88,21 @@ da_scala_test(
         "@maven//:com_squareup_javapoet",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 daml_compile(
     name = "test-daml",
-    main_src = "src/test/daml/Foo.daml",
+    srcs = ["src/test/daml/Foo.daml"],
 )
 
 jar_jar(
     name = "shaded_binary",
     input_jar = "//language-support/java/codegen:codegen_deploy.jar",
     rules = "shade_rule",
-    tags = ["maven_coordinates=com.daml.java:codegen:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
     visibility = ["//visibility:public"],
 )
 
@@ -125,15 +126,6 @@ scala_source_jar(
     srcs = [],
 )
 
-test_daml_lf_target_versions = [
-    "1.0",
-    "1.1",
-    "1.3",
-    "1.6",
-    "1.7",
-    "1.dev",
-]
-
 [
     [
         dar_to_java(
@@ -147,7 +139,7 @@ test_daml_lf_target_versions = [
                 "src/test/java/**/*ForAll*.java",
                 "src/test/java/**/*For%s*.java" % mangle_for_java(target),
             ]),
-            test_class = "com.digitalasset.testing.AllTestsFor%s" % mangle_for_java(target),
+            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
                 ":test-model-%s.jar" % target,
                 "//language-support/java/bindings:bindings-java",
@@ -158,65 +150,91 @@ test_daml_lf_target_versions = [
             ],
         ),
     ]
-    for target in test_daml_lf_target_versions
+    for target in COMPILER_LF_VERSIONS
 ]
 
 ########################################################
 ####  Integration Tests
 ########################################################
 
-it_daml_lf_target_versions = [
-    "1.0",
-    "1.1",
-    "1.5",
-    "latest",
-]
-
-# This file was created using a patched version of 0.12.12.
-# See https://github.com/digital-asset/daml/pull/2443 for more details
-alias(
-    name = "integration-tests-model-1.0.dar",
-    actual = ":src/it/dar/integration-tests-model-1.0.dar",
-)
-
-# This file was created using
-# DAML_SDK_VERSION=0.12.20 daml damlc package src/it/daml/Lib.daml integration-tests-model-1.1 --target=1.1 --output src/it/dar/integration-tests-model-1.1.dar
-alias(
-    name = "integration-tests-model-1.1.dar",
-    actual = ":src/it/dar/integration-tests-model-1.1.dar",
-)
-
-# This file was created using
-# DAML_SDK_VERSION=0.13.10 daml damlc package src/it/daml/Lib.daml integration-tests-model-1.5 --target=1.5 --output src/it/dar/integration-tests-model-1.5.dar
-alias(
-    name = "integration-tests-model-1.5.dar",
-    actual = ":src/it/dar/integration-tests-model-1.5.dar",
+daml_compile(
+    name = "integration-tests-model-1_6",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_6.daml",
+        ],
+        exclude = [
+            "src/it/daml/Tests/NumericTest.daml",
+            "src/it/daml/Tests/GenMapTest.daml",
+        ],
+    ),
+    target = "1.6",
 )
 
 daml_compile(
-    name = "integration-tests-model-latest",
-    srcs = glob(["src/it/daml/**/*.daml"]),
-    main_src = "src/it/daml/Lib.daml",
-    target = lf_latest_version,
+    name = "integration-tests-model-1_7",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_7.daml",
+        ],
+        exclude = [
+            "src/it/daml/Tests/GenMapTest.daml",
+        ],
+    ),
+    target = "1.7",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_8",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_8.daml",
+        ],
+        exclude = [
+            "src/it/daml/Tests/GenMapTest.daml",
+        ],
+    ),
+    target = "1.8",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_11",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_111.daml",
+        ],
+    ),
+    target = "1.11",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_dev",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Libdev.daml",
+        ],
+    ),
+    target = "1.dev",
 )
 
 [
-    #
-    # Compile the DAR files with and without a package to allow
-    # DAML-LF version agnostic tests to be run using generated
-    # Java classes with the same qualified name, while the DAML-LF
-    # specific tests run using Java classes generated with a
-    # package name qualified by the DAML-LF version.
-    #
     [
-        dar_to_java(
-            name = "integration-tests-model-noprefix-%s" % target,
-            src = ":integration-tests-model-%s.dar" % target,
-        ),
+        #
+        #
+        # Compile the DAR files with and without a package to allow
+        # DAML-LF version agnostic tests to be run using generated
+        # Java classes with the same qualified name, while the DAML-LF
+        # specific tests run using Java classes generated with a
+        # package name qualified by the DAML-LF version.
+        #
         dar_to_java(
             name = "integration-tests-model-%s" % target,
-            src = ":integration-tests-model-%s.dar" % target,
-            package_prefix = "lf_%s" % mangle_for_java(target),
+            src = ":integration-tests-model-%s.dar" % mangle_for_java(target),
         ),
         java_test(
             name = "integration-tests-%s" % target,
@@ -224,12 +242,11 @@ daml_compile(
                 "src/it/java-%s/**/*.java" % target,
                 "src/it/java/**/*.java",
             ]),
-            test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
+            test_class = "com.daml.AllTests",
             deps = [
                 ":integration-tests-model-%s.jar" % target,
-                ":integration-tests-model-noprefix-%s.jar" % target,
                 "//language-support/java/bindings:bindings-java",
-                "//ledger/sandbox:sandbox-scala-tests-lib",
+                "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -238,7 +255,7 @@ daml_compile(
             ],
         ),
     ]
-    for target in it_daml_lf_target_versions
+    for target in COMPILER_LF_VERSIONS
 ]
 
 ########################################################
@@ -248,7 +265,6 @@ daml_compile(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    main_src = "src/ledger-tests/daml/AllTests.daml",
     target = lf_stable_version,
 )
 
@@ -271,11 +287,17 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/ledger-resources:ledger-resources-test-lib",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",

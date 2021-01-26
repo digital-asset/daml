@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.codegen.{Main => ScalaCodegen}
-import com.digitalasset.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java, Scala}
-import com.digitalasset.daml.lf.codegen.conf.{CodegenConfigReader, Conf}
-import com.digitalasset.daml.lf.codegen.{CodeGenRunner => JavaCodegen}
+import com.daml.codegen.{Main => ScalaCodegen}
+import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java, Scala}
+import com.daml.lf.codegen.conf.{CodegenConfigReader, Conf}
+import com.daml.lf.codegen.{CodeGenRunner => JavaCodegen}
 
 import scala.util.{Failure, Success, Try}
 
@@ -27,7 +27,7 @@ object CodegenMain {
         scalaCodegen(args.tail)
       case Some(FrontEndConfig(None)) | None =>
         println("\n")
-        cliConfigParser.showUsage()
+        cliConfigParser.displayToOut(cliConfigParser.usage)
         UsageError
     }
     sys.exit(exitCode.code)
@@ -47,7 +47,7 @@ object CodegenMain {
     configO match {
       case None =>
         println("\n")
-        Conf.parser.showUsage
+        Conf.parser.displayToOut(Conf.parser.usage)
         UsageError
       case Some(conf) =>
         Try(generate(conf)) match {
@@ -79,7 +79,7 @@ object CodegenMain {
   private val cliConfigParser = new scopt.OptionParser[FrontEndConfig]("codegen-front-end") {
     head("Codegen front end")
 
-    override def showUsageOnError = false
+    override val showUsageOnError = Some(false)
 
     help("help").text("Prints this usage text")
     note("\n")

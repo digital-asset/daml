@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import org.slf4j.LoggerFactory
@@ -27,9 +27,12 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
-          .setUncaughtExceptionHandler((thread, _) =>
-            logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
-          .build()))
+          .setUncaughtExceptionHandler((thread, e) =>
+            logger.error(s"got an uncaught exception on thread: ${thread.getName}", e)
+          )
+          .build()
+      )
+    )
 
   protected implicit lazy val system: ActorSystem =
     ActorSystem(actorSystemName, defaultExecutionContext = Some(executionContext))

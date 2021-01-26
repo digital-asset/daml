@@ -1,8 +1,25 @@
-#!/bin/bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+#!/usr/bin/env bash
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-set -euo pipefail
+set -eou pipefail
+
+# It's sometimes useful to be able to run this test in a filesystem
+# that one can inspect.
+if [[ -z "${BUILD_AND_LINT_TMP_DIR:-}" ]];
+then
+    TMP_DIR=$(mktemp -d)
+    cleanup() {
+        cd /
+        rm -rf $TMP_DIR
+    }
+    trap cleanup EXIT
+else
+    TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
+    rm -rf $TMP_DIR && mkdir -p $TMP_DIR
+fi
+export YARN_CACHE_FOLDER=$TMP_DIR/yarn
+echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -20,22 +37,20 @@ YARN=$(rlocation "$TEST_WORKSPACE/$2")
 DAML2TS=$(rlocation "$TEST_WORKSPACE/$3")
 SANDBOX=$(rlocation "$TEST_WORKSPACE/$4")
 JSON_API=$(rlocation "$TEST_WORKSPACE/$5")
+# language-support/ts/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
 DAR=$(rlocation "$TEST_WORKSPACE/$6")
+# language-support/ts/codegen/tests/ts/package.json
 PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
+# language-support/ts/codegen/tests/ts
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
-VERSION="${10}"
+SDK_VERSION=${10}
+UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${11}")
 
-TMP_DIR=$(mktemp -d)
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
-cleanup() {
-  cd /
-  rm -rf $TMP_DIR
-}
-trap cleanup EXIT
-echo "TMP_DIR = $TMP_DIR"
+
 mkdir -p $TMP_DAML_TYPES
 mkdir -p $TMP_DAML_LEDGER
 
@@ -45,10 +60,14 @@ cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 
-$DAML2TS -o generated/src/daml $DAR
-sed -i "s/0.0.0-SDKVERSION/${VERSION}/" generated/package.json
-$YARN install --frozen-lockfile
-cd generated
-$YARN build
-$YARN lint
-JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test
+# Call daml2js.
+PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
+
+# Build, lint, test.
+cd build-and-lint-test
+$YARN install --pure-lockfile > /dev/null
+$YARN run build
+$YARN run lint
+# Invoke 'yarn test'. Control is thereby passed to
+# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
+JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR $YARN test

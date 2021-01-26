@@ -1,27 +1,27 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.transactions
+package com.daml.ledger.client.services.transactions
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
-import com.digitalasset.util.akkastreams.ImmutableIterable
+import com.daml.util.akkastreams.ImmutableIterable
 import io.grpc.stub.StreamObserver
 
 object TransactionSource {
 
   def trees(
       stub: (GetTransactionsRequest, StreamObserver[GetTransactionTreesResponse]) => Unit,
-      request: GetTransactionsRequest)(
-      implicit esf: ExecutionSequencerFactory): Source[TransactionTree, NotUsed] = {
+      request: GetTransactionsRequest,
+  )(implicit esf: ExecutionSequencerFactory): Source[TransactionTree, NotUsed] = {
 
     ClientAdapter
       .serverStreaming(request, stub)
@@ -30,8 +30,8 @@ object TransactionSource {
 
   def flat(
       stub: (GetTransactionsRequest, StreamObserver[GetTransactionsResponse]) => Unit,
-      request: GetTransactionsRequest)(
-      implicit esf: ExecutionSequencerFactory): Source[Transaction, NotUsed] = {
+      request: GetTransactionsRequest,
+  )(implicit esf: ExecutionSequencerFactory): Source[Transaction, NotUsed] = {
 
     ClientAdapter
       .serverStreaming(request, stub)

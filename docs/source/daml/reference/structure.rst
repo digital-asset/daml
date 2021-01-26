@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Overview: template structure
@@ -6,14 +6,14 @@ Overview: template structure
 
 This page covers what a template looks like: what parts of a template there are, and where they go.
 
-For the structure of a DAML file *outside* a template, see :doc:`file-structure`.
+For the structure of a Daml file *outside* a template, see :doc:`file-structure`.
 
 .. _daml-ref-template-structure:
 
 Template outline structure
 **************************
 
-Here’s the structure of a DAML template:
+Here’s the structure of a Daml template:
 
 .. literalinclude:: ../code-snippets/Structure.daml
    :start-after: -- start of template outline snippet
@@ -30,10 +30,15 @@ template body
 
     Can include:
 
+    :ref:`template-local definitions <daml-ref-template-let>`
+        ``let`` keyword
+
+        Lets you make definitions that have access to the contract arguments and are available in the rest of the template definition.
+
     :ref:`signatories <daml-ref-signatories>`
         ``signatory`` keyword
 
-        Required. The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of an instance of this contract. You won't be able to create an instance of this contract until all of these parties have authorized it.
+        Required. The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of this contract. You won't be able to create this contract until all of these parties have authorized it.
 
     :ref:`observers <daml-ref-observers>`
     	``observer`` keyword
@@ -53,7 +58,7 @@ template body
     :ref:`a contract key <daml-ref-contract-keys>`
         ``key`` keyword
 
-        Optional. Lets you specify a combination of a party and other data that uniquely identifies an instance of this contract template. See :doc:`/daml/reference/contract-keys`.
+        Optional. Lets you specify a combination of a party and other data that uniquely identifies a contract of this template. See :doc:`/daml/reference/contract-keys`.
 
     :ref:`maintainers <daml-ref-maintainers>`
         ``maintainer`` keyword
@@ -90,6 +95,15 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     Who can exercise the choice.
 
+:ref:`choice observers <daml-ref-choice-observers>`
+    ``observer`` keyword
+
+    Optional. Additional parties that are guaranteed to be informed of an exercise of the choice.
+
+    To specify choice observers, you must start you choice with the ``choice`` keyword.
+
+    The optional ``observer`` keyword must preceed the mandatory ``controller`` keyword.
+
 :ref:`consumption annotation <daml-ref-consumability>`
     Optionally one of ``preconsuming``, ``postconsuming``, ``nonconsuming``, which changes the behavior of the choice with respect to privacy and if and when the contract is archived.
     See :ref:`contract consumption in choices <daml-ref-consumability>` for more details.
@@ -120,7 +134,7 @@ A choice body contains ``Update`` expressions, wrapped in a :ref:`do <daml-ref-d
 The update expressions are:
 
 :ref:`create <daml-ref-create>`
-    Create a new contract instance of this template.
+    Create a new contract of this template.
 
     ``create NameOfContract with contractArgument1 = value1; contractArgument2 = value2; ...``
 
@@ -130,7 +144,7 @@ The update expressions are:
     ``exercise idOfContract NameOfChoiceOnContract with choiceArgument1 = value1; choiceArgument2 = value 2; ...``
 
 :ref:`fetch <daml-ref-fetch>`
-    Fetch a contract instance using its ID. Often used with assert to check conditions on the contract’s content.
+    Fetch a contract using its ID. Often used with assert to check conditions on the contract’s content.
 
     ``fetchedContract <- fetch IdOfContract``
 
@@ -155,7 +169,7 @@ The update expressions are:
     ``assert (amount > 0)``
 
 :ref:`getTime <daml-ref-gettime>`
-    Gets the ledger effective time. Usually used to restrict when a choice can be exercised.
+    Gets the ledger time. Usually used to restrict when a choice can be exercised.
 
     ``currentTime <- getTime``
 

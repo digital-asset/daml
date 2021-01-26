@@ -1,7 +1,6 @@
 import sbt._
 
 import Versions._
-import Artifactory._
 
 version in ThisBuild := "0.0.1"
 scalaVersion in ThisBuild := "2.12.8"
@@ -12,7 +11,7 @@ lazy val parent = project
   .settings(
     name := "quickstart-scala",
     publishArtifact in (Compile, packageDoc) := false,
-    publishArtifact in (Compile, packageSrc) := false
+    publishArtifact in (Compile, packageSrc) := false,
   )
   .aggregate(`scala-codegen`, `application`)
 
@@ -44,18 +43,19 @@ lazy val commonSettings = Seq(
     "-Xsource:2.13",
     "-unchecked",
     "-Xfuture",
-    "-Xlint:_,-unused"
+    "-Xlint:_,-unused",
   ),
-  resolvers ++= daResolvers,
+  // uncomment next line, if you have to build against local maven repository
+  // resolvers += Resolver.mavenLocal,
   classpathTypes += "maven-plugin",
 )
 
 // <doc-ref:dependencies>
 lazy val codeGenDependencies = Seq(
-  "com.daml.scala" %% "bindings" % daSdkVersion,
+  "com.daml" %% "bindings-scala" % damlSdkVersion
 )
 
 lazy val applicationDependencies = Seq(
-  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
+  "com.daml" %% "bindings-akka" % damlSdkVersion
 )
 // </doc-ref:dependencies>

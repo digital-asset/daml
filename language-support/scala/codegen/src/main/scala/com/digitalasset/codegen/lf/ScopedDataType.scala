@@ -1,21 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 package lf
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface.{DataType, DefDataType}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.iface.{DataType, DefDataType}
 
-import scala.language.higherKinds
 import scalaz.{Apply, Comonad, Traverse1}
 import scalaz.syntax.functor._
 
 final case class ScopedDataType[+DT](
     name: ScopedDataType.Name,
     typeVars: ImmArraySeq[Ref.Name],
-    dataType: DT)
+    dataType: DT,
+)
 
 object ScopedDataType {
   type Name = Ref.Identifier
@@ -24,7 +24,8 @@ object ScopedDataType {
 
   def fromDefDataType[RF, VF](
       name: Ref.Identifier,
-      ddt: DefDataType[RF, VF]): ScopedDataType[DataType[RF, VF]] = {
+      ddt: DefDataType[RF, VF],
+  ): ScopedDataType[DataType[RF, VF]] = {
     val DefDataType(typeVars, dataType) = ddt
     apply(name, typeVars, dataType)
   }
@@ -35,13 +36,15 @@ object ScopedDataType {
         z(fa.dataType)
 
       override def traverse1Impl[G[_]: Apply, A, B](fab: ScopedDataType[A])(
-          f: A => G[B]): G[ScopedDataType[B]] =
+          f: A => G[B]
+      ): G[ScopedDataType[B]] =
         f(fab.dataType) map (b => fab copy (dataType = b))
 
       override def copoint[A](p: ScopedDataType[A]): A = p.dataType
 
       override def cobind[A, B](fa: ScopedDataType[A])(
-          f: ScopedDataType[A] => B): ScopedDataType[B] =
+          f: ScopedDataType[A] => B
+      ): ScopedDataType[B] =
         fa copy (dataType = f(fa))
     }
 }

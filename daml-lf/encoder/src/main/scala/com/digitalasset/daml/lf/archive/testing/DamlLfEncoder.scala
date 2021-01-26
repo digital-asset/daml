@@ -1,24 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive.testing
+package com.daml.lf.archive.testing
 
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.util.zip.ZipEntry
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parseModules}
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.testing.parser.{ParserParameters, parseModules}
+import com.daml.lf.validation.Validation
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
-import scala.collection.breakOut
 import scala.io.Source
 import scala.util.control.NonFatal
 
-private[digitalasset] object DamlLfEncoder extends App {
+private[daml] object DamlLfEncoder extends App {
 
   import Encode._
 
@@ -37,7 +38,7 @@ private[digitalasset] object DamlLfEncoder extends App {
       implicit val parserParameters: ParserParameters[this.type] =
         ParserParameters(
           defaultPackageId = pkgId,
-          languageVersion = appArgs.languageVersion
+          languageVersion = appArgs.languageVersion,
         )
 
       makeDar(readSources(appArgs.inputFiles), Paths.get(appArgs.outputFile).toFile)
@@ -50,22 +51,35 @@ private[digitalasset] object DamlLfEncoder extends App {
     }
 
   private def readSources(files: Seq[String]): String =
-    files.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8"))(breakOut)
+    files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
-  private def makeArchive(source: String)(
-      implicit parserParameters: ParserParameters[this.type]) = {
+  private def makeArchive(
+      source: String
+  )(implicit parserParameters: ParserParameters[this.type]) = {
 
     val modules = parseModules[this.type](source).fold(error, identity)
 
-    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId], None))
+    val metadata =
+      if (parserParameters.languageVersion >= LanguageVersion.Features.packageMetadata) {
+        Some(
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("encoder_binary"),
+            Ref.PackageVersion.assertFromString("1.0.0"),
+          )
+        )
+      } else None
 
-    Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
+    val pkg = Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkgs = Map(pkgId -> pkg)
+
+    Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
 
     encodeArchive(pkgId -> pkgs(pkgId), parserParameters.languageVersion)
   }
 
-  private def makeDar(source: String, file: File)(
-      implicit parserParameters: ParserParameters[this.type]) = {
+  private def makeDar(source: String, file: File)(implicit
+      parserParameters: ParserParameters[this.type]
+  ) = {
     import java.io.FileOutputStream
     import java.util.zip.ZipOutputStream
 
@@ -86,7 +100,7 @@ private[digitalasset] object DamlLfEncoder extends App {
   private case class Arguments(
       inputFiles: List[String],
       outputFile: String,
-      languageVersion: LanguageVersion
+      languageVersion: LanguageVersion,
   )
 
   private def parseArgs() = {
@@ -95,7 +109,7 @@ private[digitalasset] object DamlLfEncoder extends App {
     @tailrec
     def go(
         appArgs: Arguments = Arguments(List.empty, "", LanguageVersion.default),
-        i: Int = 0
+        i: Int = 0,
     ): Arguments =
       if (i == nAgrs) {
         if (appArgs.outputFile.isEmpty)
@@ -112,7 +126,8 @@ private[digitalasset] object DamlLfEncoder extends App {
             go(appArgs.copy(outputFile = args(i + 1)), i + 2)
           case _ if i + 1 >= nAgrs =>
             error(
-              s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]")
+              s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]"
+            )
           case x =>
             go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), i + 1)
         }
@@ -124,7 +139,7 @@ private[digitalasset] object DamlLfEncoder extends App {
     version.split("""\.""").toSeq match {
       case Seq("1", minor)
           if LanguageMajorVersion.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LanguageMajorVersion.V1, minor)
+        LanguageVersion(LanguageMajorVersion.V1, LanguageVersion.Minor(minor))
       case _ =>
         error(s"version '$version' not supported")
     }

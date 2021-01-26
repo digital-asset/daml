@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -11,13 +11,14 @@ import qualified DA.Service.Logger as L
 import qualified DA.Service.Logger.Impl.Pure as L
 import qualified DA.Service.Logger.Impl.GCP as L
 import DA.Daml.Project.Config
+import DA.Daml.Project.Consts (sdkVersionEnvVar)
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Command
 import DA.Daml.Assistant.Version
 import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Util
-import System.Environment (getArgs)
+import System.Environment (getArgs, lookupEnv)
 import System.FilePath
 import System.Directory
 import System.Process.Typed
@@ -55,10 +56,10 @@ main = do
         builtinCommandM <- tryBuiltinCommand
         case builtinCommandM of
             Just builtinCommand -> do
-                env <- getDamlEnv damlPath
+                env <- getDamlEnv damlPath (commandWantsProjectPath builtinCommand)
                 handleCommand env logger builtinCommand
             Nothing -> do
-                env@Env{..} <- autoInstall =<< getDamlEnv damlPath
+                env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForProjectPath True)
 
                 -- We already know we can't parse the command without an installed SDK.
                 -- So if we can't find it, let the user know. This will happen whenever
@@ -70,7 +71,7 @@ main = do
                                 | Just v <- envSdkVersion = versionToString v
                                 | otherwise = "latest"
                         hPutStr stderr . unlines $
-                            [ "DAML SDK not installed. Cannot run command without SDK."
+                            [ "SDK not installed. Cannot run command without SDK."
                             , "To proceed, please install the SDK by running:"
                             , ""
                             , "    daml install " <> installTarget
@@ -84,6 +85,15 @@ main = do
                         userCommand <- getCommand sdkCommands
                         versionChecks env
                         handleCommand env logger userCommand
+
+commandWantsProjectPath :: Command -> LookForProjectPath
+commandWantsProjectPath cmd = LookForProjectPath $
+    case cmd of
+        Builtin (Install InstallOptions{..})
+            | Just RawInstallTarget_Project <- iTargetM -> True
+            | otherwise -> False
+        Builtin Uninstall{} -> False
+        _ -> True
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.
@@ -99,9 +109,11 @@ versionChecks Env{..} =
         -- Project SDK version is outdated.
         when (not isHead && projectSdkVersionIsOld) $ do
             hPutStr stderr . unlines $
-                [ "WARNING: Using an outdated version of the DAML SDK in project."
-                , "To migrate to the latest DAML SDK, please set the sdk-version"
-                , "field in daml.yaml to " <> versionToString latestVersion
+                [ "SDK " <> versionToString latestVersion <> " has been released!"
+                , "See https://github.com/digital-asset/daml/releases/tag/v"
+                  <> versionToString latestVersion <> " for details."
+                -- Carefully crafted wording to make sure it’s < 80 characters so
+                -- we do not get a line break.
                 , ""
                 ]
 
@@ -129,11 +141,12 @@ autoInstall env@Env{..} = do
         let sdkVersion = fromJust envSdkVersion
             options = InstallOptions
                 { iTargetM = Nothing
+                , iSnapshots = False
                 , iQuiet = QuietInstall False
                 , iAssistant = InstallAssistant Auto
                 , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
-                , iSetPath = SetPath True
+                , iSetPath = SetPath Auto
                 , iBashCompletions = BashCompletions Auto
                 , iZshCompletions = ZshCompletions Auto
                 }
@@ -172,12 +185,17 @@ handleCommand env@Env{..} logger command = do
         ]
 
 runCommand :: Env -> Command -> IO ()
-runCommand env@Env{..}  = \case
+runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
-        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
+        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envCachePath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
+        envSelectedVersionM <- lookupEnv sdkVersionEnvVar
+        snapshotVersionsE <- tryAssistant $
+            if vSnapshots
+                then getAvailableSdkSnapshotVersions
+                else pure []
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
@@ -205,7 +223,9 @@ runCommand env@Env{..}  = \case
                     Right vs -> (`elem` vs)
 
             versionAttrs v = catMaybes
-                [ "project SDK version from daml.yaml"
+                [ ("selected by env var " <> pack sdkVersionEnvVar)
+                    <$ guard (Just (unpack $ versionToText v) == envSelectedVersionM)
+                , "project SDK version from daml.yaml"
                     <$ guard (Just v == projectVersionM && isJust envProjectPath)
                 , "default SDK version for new projects"
                     <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
@@ -221,6 +241,7 @@ runCommand env@Env{..}  = \case
                 [ envVersions
                 , fromRight [] installedVersionsE
                 , if vAll then fromRight [] availableVersionsE else []
+                , fromRight [] snapshotVersionsE
                 ]
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
             versionWidth = maximum (1 : map (T.length . fst) versionTable)
@@ -235,7 +256,7 @@ runCommand env@Env{..}  = \case
                     ]
                 | (v,attrs) <- versionTable ]
 
-        putStr . unpack $ T.unlines ("DAML SDK versions:" : versionLines)
+        putStr . unpack $ T.unlines ("SDK versions:" : versionLines)
 
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
         install options envDamlPath envProjectPath envDamlAssistantSdkVersion
@@ -277,24 +298,24 @@ handleErrors logger m = m `catches`
         exitFailure
 
 withLogger :: DamlPath -> (L.Handle IO -> IO ()) -> IO ()
-withLogger damlPath k = do
+withLogger (DamlPath damlPath) k = do
+    cache <- getCachePath
+    let cachePath = unwrapCachePath cache
     let logOfInterest prio = prio `elem` [L.Telemetry, L.Warning, L.Error]
         gcpConfig = L.GCPConfig
             { gcpConfigTag = "assistant"
-            , gcpConfigDamlPath = Just (unwrapDamlPath damlPath)
+            , gcpConfigCachePath = Just cachePath
+            , gcpConfigDamlPath = Just damlPath
             }
-        optedOutPath = unwrapDamlPath damlPath </> ".opted_out"
-        optedInPath = unwrapDamlPath damlPath </> ".opted_in"
-
-    isOptedOut <- doesPathExist optedOutPath
-    isOptedIn <- doesPathExist optedInPath
+    isOptedIn <- L.isOptedIn cachePath
+    isOptedOut <- L.isOptedOut cachePath
     if isOptedIn && not isOptedOut
-        then
-            L.withGcpLogger gcpConfig logOfInterest L.makeNopHandle $ \gcpState logger -> do
-                L.logMetaData gcpState
-                k logger
-        else
-            k L.makeNopHandle
+      then
+        L.withGcpLogger gcpConfig logOfInterest L.makeNopHandle $ \gcpStateM logger -> do
+            whenJust gcpStateM $ \gcpState -> L.logMetaData gcpState
+            k logger
+      else
+        k L.makeNopHandle
 
 -- | Get the arguments to `daml` and anonimize all but the first.
 -- That way, the daml command doesn't get accidentally anonimized.
@@ -331,7 +352,7 @@ argWhitelist = S.fromList
     , "install", "latest", "project"
     , "uninstall"
     , "studio", "never", "always", "published"
-    , "new", "skeleton", "quickstart-java", "quickstart-scala", "copy-trigger"
+    , "new", "skeleton", "empty-skeleton", "quickstart-java", "quickstart-scala", "copy-trigger"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
     , "migrate"
@@ -340,15 +361,16 @@ argWhitelist = S.fromList
     , "test"
     , "start", "none"
     , "clean"
-    , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "doctest", "lint"
+    , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "validate-dar", "doctest", "lint"
     , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
     , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
     , "extractor", "prettyprint", "postgresql"
-    , "ledger", "list-parties", "allocate-parties", "upload-dar"
-    , "codegen", "java", "scala", "ts"
+    , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
+    , "codegen", "java", "scala", "js"
     , "deploy"
     , "json-api"
-    , "trigger", "list"
+    , "trigger", "trigger-service", "list"
+    , "oauth2-middleware"
     , "script"
     , "test-script"
     ]

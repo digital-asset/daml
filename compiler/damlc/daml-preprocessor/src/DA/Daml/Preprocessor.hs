@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -14,15 +14,24 @@ import           DA.Daml.Preprocessor.EnumType
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
+import qualified "ghc-lib-parser" Bag as GHC
+import qualified "ghc-lib-parser" EnumSet as ES
 import qualified "ghc-lib-parser" SrcLoc as GHC
 import qualified "ghc-lib-parser" Module as GHC
+import qualified "ghc-lib-parser" RdrName as GHC
+import qualified "ghc-lib-parser" OccName as GHC
 import qualified "ghc-lib-parser" FastString as GHC
+import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
-import           Control.Monad.Extra
-import           Data.List
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty as NE
+import           Data.List.Extra
 import           Data.Maybe
+import qualified Data.Set as Set
 import           System.FilePath (splitDirectories)
+
+import qualified Data.Generics.Uniplate.Data as Uniplate
 
 
 isInternal :: GHC.ModuleName -> Bool
@@ -37,39 +46,65 @@ isInternal (GHC.moduleNameString -> x)
       , "DA.Time.Types"
       ]
 
-mayImportInternal :: [GHC.ModuleName]
-mayImportInternal =
-    map GHC.mkModuleName
-        [ "Prelude"
-        , "DA.Time"
-        , "DA.Date"
-        , "DA.Record"
-        , "DA.TextMap"
-        , "DA.Map"
-        , "DA.Generics"
-        , "DA.Text"
-        , "DA.Numeric"
+preprocessorExceptions :: Set.Set GHC.ModuleName
+preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
+    -- These modules need to import internal modules.
+    [ "Prelude"
+    , "DA.Time"
+    , "DA.Date"
+    , "DA.Record"
+    , "DA.TextMap"
+    , "DA.Map"
+    , "DA.Generics"
+    , "DA.Text"
+    , "DA.Numeric"
+    , "DA.Stack"
 
-        -- These modules are just listed to disable the record preprocessor.
-        , "DA.NonEmpty.Types"
-        , "DA.Monoid.Types"
-        ]
+    -- These modules need to have the record preprocessor disabled.
+    , "DA.NonEmpty.Types"
+    , "DA.Monoid.Types"
+
+    -- This module needs to use the PatternSynonyms extension.
+    , "DA.Maybe"
+    ]
+
+shouldSkipPreprocessor :: GHC.ModuleName -> Bool
+shouldSkipPreprocessor name =
+    isInternal name
+    || Set.member name preprocessorExceptions
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSource
-damlPreprocessor mbUnitId x
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
+damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor dataDependableExtensions mbUnitId dflags x
+    | maybe False shouldSkipPreprocessor name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkModuleName x
-        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
-        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
+        { preprocWarnings = concat
+            [ checkDamlHeader x
+            , checkVariantUnitConstructors x
+            , checkLanguageExtensions dataDependableExtensions dflags x
+            , checkImportsWrtDataDependencies x
+            , checkKinds x
+            ]
+        , preprocErrors = concat
+            [ checkImports x
+            , checkDataTypes x
+            , checkModuleDefinition x
+            , checkRecordConstructor x
+            , checkModuleName x
+            ]
+        , preprocSource =
+            rewriteLets
+            . recordDotPreprocessor
+            . importDamlPreprocessor
+            . genericsPreprocessor mbUnitId
+            $ enumTypePreprocessor "GHC.Types" x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 -- | Preprocessor for generated code.
-generatedPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
-generatedPreprocessor x =
+generatedPreprocessor :: GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+generatedPreprocessor _dflags x =
     IdePreprocessedSource
       { preprocWarnings = []
       , preprocErrors = []
@@ -77,8 +112,8 @@ generatedPreprocessor x =
       }
 
 -- | No preprocessing.
-noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
-noPreprocessor x =
+noPreprocessor :: GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+noPreprocessor _dflags x =
     IdePreprocessedSource
       { preprocWarnings = []
       , preprocErrors = []
@@ -106,7 +141,7 @@ checkModuleName (GHC.L _ m)
     , expected <- GHC.moduleNameSlashes modName ++ ".daml"
     , Just actual <- GHC.unpackFS <$> GHC.srcSpanFileName_maybe nameLoc
     , not (splitDirectories expected `isSuffixOf` splitDirectories actual)
-    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. This rule will be enforced in a future SDK version. Please change the filename to " ++ expected ++ " in preparation.")]
+    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. Please change the filename to " ++ expected ++ ".")]
 
     | otherwise
     = []
@@ -117,6 +152,71 @@ checkImports x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
 
+-- | Emit a warning if the "daml 1.2" version header is present.
+checkDamlHeader :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkDamlHeader (GHC.L _ m)
+    | Just (GHC.L ss doc) <- GHC.hsmodHaddockModHeader m
+    , "HAS_DAML_VERSION_HEADER" `isPrefixOf` GHC.unpackHDS doc
+    = [(ss, "The \"daml 1.2\" version header is deprecated, please remove it.")]
+
+    | otherwise
+    = []
+
+-- | Emit a warning if a variant constructor has a single argument of unit type '()'.
+-- See issue #7207.
+checkVariantUnitConstructors :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkVariantUnitConstructors (GHC.L _ m) =
+    [ let tyNameStr = GHC.occNameString (GHC.rdrNameOcc (GHC.unLoc ltyName))
+          conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
+      in (ss, message tyNameStr conNameStr)
+    | GHC.L ss (GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn}) <- GHC.hsmodDecls m
+    , GHC.HsDataDefn{dd_cons=cons} <- [dataDefn]
+    , length cons > 1
+    , GHC.L _ con <- cons
+    , GHC.PrefixCon [GHC.L _ (GHC.HsTupleTy _ _ [])] <- [GHC.con_args con]
+    , GHC.L _ conName <- GHC.getConNames con
+    ]
+  where
+    message tyNameStr conNameStr = unwords
+      [ "Variant type", tyNameStr, "constructor", conNameStr
+      , "has a single argument of type (). The argument will not be"
+      , "preserved when importing this package via data-dependencies."
+      , "Possible solution: Remove the constructor's argument." ]
+
+-- | Emit an error if a record constructor name does not match the record type name.
+-- See issue #4718.
+checkRecordConstructor :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
+  where
+    getRecordError :: GHC.LHsDecl GHC.GhcPs -> Maybe (GHC.SrcSpan, String)
+    getRecordError (GHC.L ss decl)
+        | GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn} <- decl
+        , GHC.HsDataDefn{dd_ND=nd, dd_cons=[con]} <- dataDefn
+        , isNewType nd || isRecCon (GHC.con_args (GHC.unLoc con))
+        , GHC.L _ tyName <- ltyName
+        , [GHC.L _ conName] <- GHC.getConNames (GHC.unLoc con)
+        , let tyNameStr = GHC.occNameString (GHC.rdrNameOcc tyName)
+        , let conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
+        , tyNameStr /= conNameStr
+        = Just (ss, message nd tyNameStr conNameStr)
+
+        | otherwise
+        = Nothing
+
+    isNewType :: GHC.NewOrData -> Bool
+    isNewType = (GHC.NewType ==)
+
+    isRecCon :: GHC.HsConDeclDetails GHC.GhcPs -> Bool
+    isRecCon = \case
+        GHC.RecCon{} -> True
+        _ -> False
+
+    message :: GHC.NewOrData -> String -> String -> String
+    message nd tyNameStr conNameStr = unwords
+        [ if isNewType nd then "Newtype" else "Record type"
+        , tyNameStr, "has constructor", conNameStr
+        , "with different name."
+        , "Possible solution: Change the constructor name to", tyNameStr ]
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m
@@ -176,6 +276,39 @@ checkModuleDefinition x
         ]
     | otherwise = []
 
+checkLanguageExtensions :: ES.EnumSet GHC.Extension -> GHC.DynFlags -> GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkLanguageExtensions dataDependableExtensions dflags x =
+    let exts = ES.toList (GHC.extensionFlags dflags)
+        badExts = filter (\ext -> not (ext `ES.member` dataDependableExtensions)) exts
+    in
+    [ (modNameLoc, warning ext) | ext <- badExts ]
+  where
+    warning ext = unlines
+        [ "Modules compiled with the " ++ show ext ++ " language extension"
+        , "might not work properly with data-dependencies. This might stop the"
+        , "whole package from being extensible or upgradable using other versions"
+        , "of the SDK. Use this language extension at your own risk."
+        ]
+    -- NOTE(MH): Neither the `DynFlags` nor the `ParsedSource` contain
+    -- information about where a `{-# LANGUAGE ... #-}` pragma has been used.
+    -- In fact, there might not even be such a pragma if a `-X...` flag has been
+    -- used on the command line. Thus, we always put the warning at the location
+    -- of the module name.
+    modNameLoc = maybe GHC.noSrcSpan GHC.getLoc (GHC.hsmodName (GHC.unLoc x))
+
+checkImportsWrtDataDependencies :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkImportsWrtDataDependencies x =
+    [ (loc, warning)
+    | GHC.L loc GHC.ImportDecl{ideclName = GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x
+    , GHC.moduleNameString m == "DA.Generics"
+    ]
+  where
+    warning = unlines
+        [ "Modules importing DA.Generics do not work with data-dependencies."
+        , "This will prevent the whole package from being extensible or upgradable"
+        , "using other versions of the SDK. Use DA.Generics at your own risk."
+        ]
+
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]
 -- equivalent to universeBi, but specialised to be faster
@@ -183,3 +316,189 @@ universeConDecl m = concat
     [ dd_cons
     | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons}} <- map GHC.unLoc $ GHC.hsmodDecls $ GHC.unLoc m
     ]
+
+-- | Emit a warning if GHC.Types.Symbol was used in a top-level kind signature.
+checkKinds :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkKinds (GHC.L _ m) = do
+    GHC.L _ decl <- GHC.hsmodDecls m
+    checkDeclKinds decl
+  where
+    checkDeclKinds :: GHC.HsDecl GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkDeclKinds = \case
+        GHC.TyClD _ GHC.SynDecl{..} -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.DataDecl{..} -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.ClassDecl{..} -> checkQTyVars tcdTyVars
+        _ -> []
+
+    checkQTyVars :: GHC.LHsQTyVars GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkQTyVars = \case
+        GHC.HsQTvs{..} -> concatMap checkTyVarBndr hsq_explicit
+        _ -> []
+
+    checkTyVarBndr :: GHC.LHsTyVarBndr GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkTyVarBndr (GHC.L _ var) = case var of
+        GHC.KindedTyVar _ _ kind -> checkKind kind
+        _ -> []
+
+    checkKind :: GHC.LHsKind GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkKind (GHC.L _ kind) = case kind of
+        GHC.HsTyVar _ _ v -> checkRdrName v
+        GHC.HsFunTy _ k1 k2 -> checkKind k1 ++ checkKind k2
+        GHC.HsParTy _ k -> checkKind k
+        _ -> []
+
+    checkRdrName :: GHC.Located GHC.RdrName -> [(GHC.SrcSpan, String)]
+    checkRdrName (GHC.L loc name) = case name of
+        GHC.Unqual (GHC.occNameString -> "Symbol") ->
+            [(loc, symbolKindMsg)]
+        GHC.Qual (GHC.moduleNameString -> "GHC.Types") (GHC.occNameString -> "Symbol") ->
+            [(loc, ghcTypesSymbolMsg)]
+        _ -> []
+
+    symbolKindMsg :: String
+    symbolKindMsg = unlines
+        [ "Reference to Symbol kind will not be preserved during DAML compilation."
+        , "This will cause problems when importing this module via data-dependencies."
+        ]
+
+    ghcTypesSymbolMsg :: String
+    ghcTypesSymbolMsg = unlines
+        [ "Reference to GHC.Types.Symbol will not be preserved during DAML compilation."
+        , "This will cause problems when importing this module via data-dependencies."
+        ]
+
+-- | Issue #6788: Rewrite multi-binding let expressions,
+--
+--      let x1 = e1
+--          x2 = e2
+--          ...
+--          xn = en
+--      in b
+--
+-- Into a chain of single-binding let expressions,
+--
+--      let x1 = e1 in
+--        let x2 = e2 in
+--          ...
+--            let xn = en in
+--              b
+--
+-- Likewise, rewrite multi-binding let statements in a "do" block,
+--
+--      do
+--          ...
+--          let x1 = e1
+--              x2 = e2
+--              ...
+--              xn = en
+--          ...
+--
+-- Into single-binding let statements,
+--
+--      do
+--          ...
+--          let x1 = e1
+--          let x2 = e2
+--          ...
+--          let xn = en
+--          ...
+--
+rewriteLets :: GHC.ParsedSource -> GHC.ParsedSource
+rewriteLets = fmap onModule
+  where
+    onModule :: GHC.HsModule GHC.GhcPs -> GHC.HsModule GHC.GhcPs
+    onModule x = x { GHC.hsmodDecls = map onDecl $ GHC.hsmodDecls x }
+
+    onDecl :: GHC.LHsDecl GHC.GhcPs -> GHC.LHsDecl GHC.GhcPs
+    onDecl = fmap (Uniplate.descendBi onExpr)
+
+    onExpr :: GHC.LHsExpr GHC.GhcPs -> GHC.LHsExpr GHC.GhcPs
+    onExpr = Uniplate.transform $ \case
+        GHC.L loc (GHC.HsLet GHC.NoExt letBinds letBody) ->
+            foldr (\bind body -> GHC.L loc (GHC.HsLet GHC.NoExt bind body))
+                letBody
+                (sequenceLocalBinds letBinds)
+
+        GHC.L loc1 (GHC.HsDo GHC.NoExt doContext (GHC.L loc2 doStmts)) ->
+            GHC.L loc1 (GHC.HsDo GHC.NoExt doContext
+                (GHC.L loc2 (concatMap onStmt doStmts)))
+
+        x -> x
+
+    onStmt :: GHC.ExprLStmt GHC.GhcPs -> [GHC.ExprLStmt GHC.GhcPs]
+    onStmt = \case
+        GHC.L loc (GHC.LetStmt GHC.NoExt letBinds) ->
+            map (GHC.L loc . GHC.LetStmt GHC.NoExt) (sequenceLocalBinds letBinds)
+        x -> [x]
+
+    sequenceLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> [GHC.LHsLocalBinds GHC.GhcPs]
+    sequenceLocalBinds = \case
+        GHC.L loc (GHC.HsValBinds GHC.NoExt valBinds)
+            | GHC.ValBinds GHC.NoExt bindBag sigs <- valBinds
+            , bind : binds <- GHC.bagToList bindBag
+            , notNull binds
+            -> makeLocalValBinds loc (bind :| binds) sigs
+        binds -> [binds]
+
+    makeLocalValBinds :: GHC.SrcSpan
+        -> NonEmpty (GHC.LHsBindLR GHC.GhcPs GHC.GhcPs)
+        -> [GHC.LSig GHC.GhcPs]
+        -> [GHC.LHsLocalBinds GHC.GhcPs]
+    makeLocalValBinds loc binds sigs =
+        let (bind1, bindRestM) = NE.uncons binds
+        in case bindRestM of
+            Nothing -> [ makeLocalValBind loc bind1 sigs ]
+            Just bindRest ->
+                let (sig1, sigRest) = peelRelevantSigs bind1 sigs
+                in makeLocalValBind loc bind1 sig1 : makeLocalValBinds loc bindRest sigRest
+
+    makeLocalValBind :: GHC.SrcSpan
+        -> GHC.LHsBindLR GHC.GhcPs GHC.GhcPs
+        -> [GHC.LSig GHC.GhcPs]
+        -> GHC.LHsLocalBinds GHC.GhcPs
+    makeLocalValBind loc bind sigs =
+        GHC.L loc (GHC.HsValBinds GHC.NoExt
+            (GHC.ValBinds GHC.NoExt (GHC.unitBag bind) sigs))
+
+    -- | List of names bound in HsBindLR
+    bindNames :: GHC.HsBindLR GHC.GhcPs GHC.GhcPs -> [GHC.RdrName]
+    bindNames = \case
+        GHC.FunBind { fun_id } -> [ GHC.unLoc fun_id ]
+        GHC.PatBind { pat_lhs } -> Uniplate.universeBi pat_lhs -- safe overapproximation
+        GHC.VarBind { var_id } -> [ var_id ]
+        GHC.PatSynBind _ GHC.PSB { psb_id } -> [ GHC.unLoc psb_id ]
+        GHC.PatSynBind _ GHC.XPatSynBind { } -> unexpected "XPatSynBind"
+        GHC.AbsBinds {} -> unexpected "AbsBinds"
+        GHC.XHsBindsLR {} -> unexpected "XHsBindsLR"
+
+    -- Given a binding and a set of signatures, split it into the signatures relevant to this binding and other signatures.
+    peelRelevantSigs :: GHC.LHsBindLR GHC.GhcPs GHC.GhcPs
+        -> [GHC.LSig GHC.GhcPs]
+        -> ([GHC.LSig GHC.GhcPs], [GHC.LSig GHC.GhcPs])
+    peelRelevantSigs bind sigs =
+        let names = Set.fromList (bindNames (GHC.unLoc bind))
+            (sigs1, sigs2) = unzip (map (peelRelevantSig names) sigs)
+        in (concat sigs1, concat sigs2)
+
+    peelRelevantSig :: Set.Set GHC.RdrName -> GHC.LSig GHC.GhcPs -> ([GHC.LSig GHC.GhcPs], [GHC.LSig GHC.GhcPs])
+    peelRelevantSig relevantNames = \case
+        GHC.L loc (GHC.TypeSig GHC.NoExt sigNames sigType) ->
+            partitionByRelevance relevantNames sigNames
+                (\ns -> GHC.L loc (GHC.TypeSig GHC.NoExt ns sigType))
+        GHC.L loc (GHC.PatSynSig GHC.NoExt sigNames sigType) ->
+            partitionByRelevance relevantNames sigNames
+                (\ns -> GHC.L loc (GHC.PatSynSig GHC.NoExt ns sigType))
+        _ -> unexpected "local signature"
+
+    partitionByRelevance :: Set.Set GHC.RdrName
+        -> [GHC.Located GHC.RdrName]
+        -> ([GHC.Located GHC.RdrName] -> t)
+        -> ([t], [t])
+    partitionByRelevance relevantNames sigNames f =
+        let (names1, names2) = partition ((`Set.member` relevantNames) . GHC.unLoc) sigNames
+            sigs1 = [ f names1 | notNull names1 ]
+            sigs2 = [ f names2 | notNull names2 ]
+        in (sigs1, sigs2)
+
+    unexpected :: String -> t
+    unexpected x = error (unwords ["Unexpected", x, "in daml-preprocessor"])

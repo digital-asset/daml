@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.config
+package com.daml.navigator.config
 
 import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.navigator.time.TimeProviderType
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.navigator.time.TimeProviderType
 import scopt.{OptionDef, OptionParser}
 
 import scala.util.Try
@@ -28,33 +28,34 @@ case class Arguments(
     tlsConfig: Option[TlsConfiguration] = None,
     accessTokenFile: Option[Path] = None,
     configFile: Option[Path] = None,
-    startConsole: Boolean = false,
     startWebServer: Boolean = false,
     useDatabase: Boolean = false,
-    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024 // 50 MiB
+    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
+    ignoreProjectParties: Boolean = false,
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
   def hostname: OptionDef[String, Arguments] =
     arg[String]("<host>")
       .text(
-        s"hostname or IP address of the Ledger API server (default ${Arguments.default.participantHost})")
+        s"hostname or IP address of the Ledger API server (default ${Arguments.default.participantHost})"
+      )
       .optional()
-      .action(
-        (ip, arguments) =>
-          arguments.copy(
-            participantHost = ip
-        ))
+      .action((ip, arguments) =>
+        arguments.copy(
+          participantHost = ip
+        )
+      )
 
   def port: OptionDef[Int, Arguments] =
     arg[Int]("<port>")
       .text(s"port number of the Ledger API server (default ${Arguments.default.participantPort})")
       .optional()
-      .action(
-        (port, arguments) =>
-          arguments.copy(
-            participantPort = port
-        ))
+      .action((port, arguments) =>
+        arguments.copy(
+          participantPort = port
+        )
+      )
 }
 
 object Arguments {
@@ -68,9 +69,11 @@ object Arguments {
 
   private val crtConfig = (path: String, arguments: Arguments) =>
     arguments.copy(
-      tlsConfig = arguments.tlsConfig.fold(
-        Some(TlsConfiguration(true, Some(new File(path)), None, None)))(c =>
-        Some(c.copy(keyCertChainFile = Some(new File(path))))))
+      tlsConfig =
+        arguments.tlsConfig.fold(Some(TlsConfiguration(true, Some(new File(path)), None, None)))(
+          c => Some(c.copy(keyCertChainFile = Some(new File(path))))
+        )
+    )
 
   private def argumentParser(defaultConfigFile: Path) =
     new OptionParser[Arguments]("navigator") with ArgumentsHelper {
@@ -86,7 +89,8 @@ object Arguments {
 
       opt[String]("access-token-file")
         .text(
-          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+        )
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
 
@@ -99,73 +103,88 @@ object Arguments {
           .mkString(", ")}. Default: ${Arguments.default.time.name}")
         .action((t, arguments) => arguments.copy(time = t))
 
+      // TODO: the 4 following TLS options can be defined by TlsConfigurationCli instead
+
       opt[String]("pem")
         .optional()
         .text("TLS: The pem file to be used as the private key.")
         .validate(path => validatePath(path, "The file specified via --pem does not exist"))
         .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(
+              Some(TlsConfiguration(true, None, Some(new File(path)), None))
+            )(c => Some(c.copy(keyFile = Some(new File(path)))))
+          )
+        )
 
       opt[String]("crt")
         .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
         .validate(path => validatePath(path, "The file specified via --crt does not exist"))
         .action(crtConfig)
 
       opt[String]("cacrt")
         .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .text("TLS: The crt file to be used as the trusted root CA.")
         .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
         .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
-            Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(
+              Some(TlsConfiguration(true, None, None, Some(new File(path))))
+            )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
+          )
+        )
+
+      opt[Unit]("tls")
+        .optional()
+        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+        .action((_, arguments) =>
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))
+          )
+        )
 
       opt[Unit]("database")
         .hidden()
         .text("EXPERIMENTAL: use an SQLite data store")
-        .action(
-          (_, arguments) =>
-            arguments.copy(
-              useDatabase = true
-          ))
+        .action((_, arguments) =>
+          arguments.copy(
+            useDatabase = true
+          )
+        )
 
       opt[Int]("ledger-api-inbound-message-size-max")
-        .hidden()
         .text(
-          s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}.")
+          s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}."
+        )
         .valueName("<bytes>")
         .validate(x => Either.cond(x > 0, (), "Buffer size must be positive"))
-        .action((x, arguments) =>
+        .action((ledgerInboundMessageSizeMax, arguments) => {
           arguments.copy(
-            ledgerInboundMessageSizeMax = x
-        ))
+            ledgerInboundMessageSizeMax = ledgerInboundMessageSizeMax
+          )
+        })
+
+      opt[Unit]("ignore-project-parties")
+        .hidden()
+        .optional()
+        .text(
+          "Ignore the parties specified in the project configuration file and query the ledger for parties instead."
+        )
+        .action((_, arguments) => arguments.copy(ignoreProjectParties = true))
 
       cmd("server")
         .text("serve data from platform")
-        .action(
-          (_, arguments) =>
-            arguments.copy(
-              command = RunServer,
-              startWebServer = true
-          ))
-        .children(hostname, port)
-
-      cmd("console")
-        .text("start the console")
-        .action(
-          (_, arguments) =>
-            arguments.copy(
-              command = RunServer,
-              useDatabase = true,
-              startConsole = true
-          ))
+        .action((_, arguments) =>
+          arguments.copy(
+            command = RunServer,
+            startWebServer = true,
+          )
+        )
         .children(hostname, port)
 
       cmd("dump-graphql-schema")
-        .text("Dumps the full GraphQL schema to stdout")
+        .text("Early Access (Labs). Dumps the full GraphQL schema to stdout")
         .action((_, arguments) => arguments.copy(command = DumpGraphQLSchema))
 
       cmd("create-config")
@@ -176,6 +195,8 @@ object Arguments {
   def parse(args: Array[String], defaultConfigFile: Path): Option[Arguments] =
     this.argumentParser(defaultConfigFile).parse(args, Arguments.default)
 
-  def showUsage(defaultConfigFile: Path): Unit =
-    this.argumentParser(defaultConfigFile).showUsage()
+  def showUsage(defaultConfigFile: Path): Unit = {
+    val parser = this.argumentParser(defaultConfigFile)
+    parser.displayToOut(parser.usage)
+  }
 }

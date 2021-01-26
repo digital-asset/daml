@@ -1,28 +1,29 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import java.time.Instant
 
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.refinements.ApiTypes._
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record}
-import com.digitalasset.ledger.client.testing.AkkaTest
+import com.daml.ledger.api.refinements.ApiTypes._
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.value.{Identifier, Record}
+import com.daml.ledger.client.testing.AkkaTest
 import com.google.protobuf.timestamp.Timestamp
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable
 
-class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
+class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest {
   private val mockContract =
     Contract(Primitive.ContractId("contractId"), MockTemplate(), None, Seq.empty, Seq.empty, None)
-  private val transactionMapper = new DomainTransactionMapper(createdEvent => Right(mockContract))
+  private val transactionMapper = new DomainTransactionMapper(_ => Right(mockContract))
 
   private def getResult(source: immutable.Iterable[Transaction]): Seq[DomainTransaction] =
     drain(
@@ -38,7 +39,10 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
           contractId,
           Some(Identifier("pkgId", "modName", "createdTemplateId")),
           None,
-          Some(Record()))))
+          Some(Record()),
+        )
+      )
+    )
 
   def archivedEvent(contractId: String) =
     Event(
@@ -46,7 +50,10 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
         ArchivedEvent(
           "archivedEventId",
           contractId,
-          Some(Identifier("pkgId", "modName", "archivedTemplateId")))))
+          Some(Identifier("pkgId", "modName", "archivedTemplateId")),
+        )
+      )
+    )
 
   def domainCreatedEvent(contractId: String) =
     DomainCreatedEvent(
@@ -55,7 +62,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       TemplateId(Identifier("pkgId", "modName", "createdTemplateId")),
       List.empty,
       CreateArguments(Record()),
-      mockContract
+      mockContract,
     )
 
   def domainArchivedEvent(contractId: String) =
@@ -63,12 +70,13 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       EventId("archivedEventId"),
       ContractId(contractId),
       TemplateId(Identifier("pkgId", "modName", "archivedTemplateId")),
-      List.empty
+      List.empty,
     )
 
   case class MockTemplate() extends Template[MockTemplate] {
-    override protected[this] def templateCompanion(
-        implicit d: DummyImplicit): TemplateCompanion[MockTemplate] =
+    override protected[this] def templateCompanion(implicit
+        d: DummyImplicit
+    ): TemplateCompanion[MockTemplate] =
       new TemplateCompanion.Empty[MockTemplate] {
         override val onlyInstance = MockTemplate()
         override val id: Primitive.TemplateId[MockTemplate] =
@@ -91,7 +99,8 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       CommandId("cid"),
       time,
       events,
-      None)
+      None,
+    )
 
   "DomainTransactionMapper" should {
     "should map events to domain events" in {

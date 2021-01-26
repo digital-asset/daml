@@ -1,3 +1,5 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
 
 
 -- | Minimal example of issue #3777
@@ -7,4 +9,4 @@ baz : (a1 -> a2) -> (b1 -> b2) -> (b1 -> b2)
 baz f g = bar f g
 
 bar : (b1 -> b2) -> (a1 -> a2) -> (a1 -> a2)
-bar f g = g
+bar _ g = g

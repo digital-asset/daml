@@ -1,62 +1,116 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
     name = "ledger-on-memory",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:on-memory:__VERSION__"],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:ledger-on-memory:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
-da_scala_test(
+da_scala_library(
+    name = "ledger-on-memory-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    deps = [
+        ":ledger-on-memory",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/ledger-resources:ledger-resources-test-lib",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+    ],
+)
+
+da_scala_test_suite(
     name = "ledger-on-memory-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
     ],
-    resources = glob(["src/test/resources/*"]),
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+    ],
     deps = [
         ":ledger-on-memory",
+        ":ledger-on-memory-test-lib",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/ledger-resources:ledger-resources-test-lib",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_mockito_mockito_core",
     ],
 )
 
@@ -64,23 +118,29 @@ da_scala_library(
     name = "ledger-on-memory-app",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
-        "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -103,13 +163,27 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-batch-size-bytes=262144",
     ],
     test_tool_args = [
         "--verbose",
-        "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
-        "--exclude=CommandDeduplicationIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-pre-execution",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--batching enable=false",
+        "--force-pre-execution=true",
+    ],
+    test_tool_args = [
+        "--verbose",
     ],
 )
 
@@ -121,26 +195,77 @@ conformance_test(
     ],
     server = ":app",
     server_args = [
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example1,port=6865",
         "--participant participant-id=example2,port=6866",
+        "--batching enable=true,max-batch-size-bytes=262144",
     ],
     test_tool_args = [
         "--verbose",
-        "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=CommandDeduplicationIT",
     ],
 )
 
 conformance_test(
-    name = "conformance-test-config-management",
+    name = "conformance-test-split-participant",
+    ports = [
+        6865,
+    ],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
+        "--participant participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
+        "--batching enable=true,max-batch-size-bytes=262144",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-participant-pruning",
     ports = [6865],
     server = ":app",
     server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-batch-size-bytes=262144",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-party-submission",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-batch-size-bytes=262144",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
+
+conformance_test(
+    name = "benchmark-performance-envelope",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [
         "--verbose",
-        "--include=ConfigManagementServiceIT",
+        "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
+        "--perf-tests=PerformanceEnvelope.Latency.1000ms",
+        "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )

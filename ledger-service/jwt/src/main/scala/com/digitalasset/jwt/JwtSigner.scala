@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.nio.charset.Charset
 import java.security.interfaces.{ECPrivateKey, RSAPrivateKey}
@@ -28,9 +28,9 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield
-        domain.Jwt(
-          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+      } yield domain.Jwt(
+        s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
+      )
   }
 
   object RSA256 {
@@ -46,16 +46,17 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield
-        domain.Jwt(
-          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+      } yield domain.Jwt(
+        s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
+      )
   }
 
   object ECDSA {
     def sign(
         jwt: domain.DecodedJwt[String],
         privateKey: ECPrivateKey,
-        algorithm: ECPrivateKey => Algorithm): Error \/ domain.Jwt =
+        algorithm: ECPrivateKey => Algorithm,
+    ): Error \/ domain.Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
@@ -67,14 +68,13 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield
-        domain.Jwt(
-          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+      } yield domain.Jwt(
+        s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
+      )
   }
 
   private def str(bs: Array[Byte]) = new String(bs, charset)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def base64Encode(a: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[Array[Byte]] =
     a.traverse(base64Encode)
 
@@ -84,7 +84,7 @@ object JwtSigner {
   private def base64Encode(bs: Array[Byte]): Error \/ Array[Byte] =
     Base64
       .encodeWithoutPadding(bs)
-      .leftMap(e => Error('base64Encode, e.shows))
+      .leftMap(e => Error(Symbol("base64Encode"), e.shows))
 
   final case class Error(what: Symbol, message: String)
 

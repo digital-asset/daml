@@ -1,6 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- @INFO range=9:22-9:39; Use catOptionals
+
 module ActionFail where
 
 catOptionalsComp : [Optional a] -> [a]

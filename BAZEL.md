@@ -1,6 +1,6 @@
 # Bazel User Guide
 
-This document explains how to use the Bazel build system on the DAML repository
+This document explains how to use the Bazel build system on the Daml repository
 from a users perspective. I.e. assuming the project you are working on has
 already been ported to Bazel.
 
@@ -13,7 +13,7 @@ project to Bazel.
 ## Setup
 
 This section goes through the required steps for a basic but fully functioning
-setup of the Bazel build system for work on the DAML repository. Additional setup
+setup of the Bazel build system for work on the Daml repository. Additional setup
 as for the IntelliJ integration is listed in its own section below.
 
 ### Bazel Executable
@@ -70,7 +70,7 @@ da_scala_library(
         ) + [
             "//:MVN_VERSION",
         ],
-    tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -92,7 +92,7 @@ details depend on the rule in question.
 
 The following rules are commonly used in this repository. For Scala projects
 `da_scala_library`, `da_scala_test_suite`, `da_scala_binary`. For Java projects
-`java_library`, `java_test_suite`, `java_binary`. For DAML projects `daml`.
+`java_library`, `java_test_suite`, `java_binary`. For Daml projects `daml`.
 
 Labels can point to a specific target, or to a set of targets using a
 wild-card. The following wild-card patterns are recognized.
@@ -147,9 +147,8 @@ plugin referencing [ij.bazel.build][intellij_plugin].
 
 If the correct plugin does not exist in the list, then your IntelliJ version
 might be too recent, and the Bazel plugin might not have been upgraded to
-support it, yet. Check for version compatibility on the [Jetbrains plugin
-page][intellij_plugin_jetbrains]. At the time of writing the Bazel IntelliJ
-plugin version 2018.10.08.0.2 has been tested on IDEA Community 2018.2.5.
+support it, yet. Check for version compatibility on the [JetBrains plugin
+page][intellij_plugin_jetbrains].
 
 [intellij_plugin]: https://ij.bazel.build/
 [intellij_plugin_install]: https://ij.bazel.build/docs/bazel-plugin.html#getting-started
@@ -159,42 +158,12 @@ plugin version 2018.10.08.0.2 has been tested on IDEA Community 2018.2.5.
 
 To import a Bazel project into IntelliJ select "Import Bazel Project" in the
 welcome dialog, or `File > Import Bazel Project` in the editor window. In the
-import dialog under "Workspace:" enter the path to the DAML repository root.
+import dialog under "Workspace:" enter the path to the Daml repository root.
 
 The Bazel IntelliJ integration uses a *project view* file to define the list of
 directories and targets to make accessible in IntelliJ and to control other
 aspects of the project. Refer to the [official
 documentation][intellij_project_view] for a detailed description.
-
-[intellij_project_view]: https://ij.bazel.build/docs/project-views.html
-
-Here we will focus on two use-cases: "Import project view file" (recommended),
-and "Generate from BUILD file".
-
-#### Import project view file
-
-Check if the project you will be working on already has a project view file.
-These are typically stored under `project/path/.bazelproject`.  If the project
-does not have a project view file yet, then you can generate one using the
-`bazel-project-view` tool in dev-env as follows:
-
-```
-bazel-project-view -o ledger/sandbox/.bazelproject ledger/sandbox
-```
-
-Choose the "Import Project View File" option and select the project view file
-that you would like to import. Then, click on "Next".
-
-The following dialog allows you to define the project name, or infer it, and
-to set the location of the project data directory. It also allows you to modify
-the imported project view file. This should not be necessary. If you do wish to
-modify the project view file, then refer to the next section for instructions.
-
-Click "Next" once you are ready. You will be able to modify the project view
-file later on as well. IntelliJ will now import the project. This process will
-take a while.
-
-#### Generate from BUILD file
 
 Choose the "Generate from BUILD file" option and select the `BUILD.bazel` file
 of the project that you will be working on. Then, click on "Next".
@@ -205,12 +174,16 @@ the default project view file. The default should have the following structure:
 
 ```
 directories:
-  path/to/project
+  .
+
+# Automatically includes all relevant targets under the 'directories' above
+derive_targets_from_directories: true
 
 targets:
-  //path/to/project/...:all
+  # If source code isn't resolving, add additional targets that compile it here
 
 additional_languages:
+  # Uncomment any additional languages you want supported
   # ...
 ```
 
@@ -218,35 +191,84 @@ Make sure to add Scala, or other languages that you require, to the
 `additional_languages` section. The section will be pre-populated with a list
 of comments specifying the automatically detected supported languages.
 
-Add any additional directories you would like accessible in the directory tree
-to the `directories` section.
+If you'd like to work with all directories, we recommend the following project
+view configuration, which stops IntelliJ from indexing the Bazel cache, and
+avoids rebuilding the documentation:
 
-The default value in the `targets` section is a wild-card to select all project
-and sub-project targets. Note that wild-cards will not automatically generate
-*run configurations*. Run configurations are required to build targets or run
-tests from within IntelliJ. The details are explained below.
+```
+directories:
+  .
+  -docs
+
+# Automatically includes all relevant targets under the 'directories' above
+derive_targets_from_directories: true
+
+targets:
+  # If source code isn't resolving, add additional targets that compile it here
+
+additional_languages:
+  javascript
+  python
+  scala
+  typescript
+```
+
+However, you can also provide an allowed list of directories for a faster
+experience.
 
 If you wish to define a specific set of targets to work, then you can list
-these in the `targets` section.
+these in the `targets` section. This is not usually necessary, as they
+will be derived automatically.
 
-After these modifications the project view file might look like this:
+If you choose to limit the directories, you might end up with a project view
+file looking like this:
 
 ```
 directories:
   ledger/sandbox
-  ...
+  # ...
+
+# Automatically includes all relevant targets under the 'directories' above
+derive_targets_from_directories: true
 
 targets:
-  //ledger/sandbox:sandbox
-  ...
+  # If source code isn't resolving, add additional targets that compile it here
 
 additional_languages:
   scala
 ```
 
 Click "Next" once you are ready. You will be able to modify the project view
-file later on as well. IntelliJ will now import the project. This process will
-take a while.
+file whenever you like, so don't worry too much.
+
+The first import of the project might fail due to a resolution error of the
+`bazel` binary. In order to solve this, configure the Bazel plugin settings
+with the location of the `bazel` binary,
+by setting _Preferences_ → _Bazel Settings_ → _Bazel binary location_
+to `./dev-env/bin/bazel`.
+
+Now, re-trigger a sync of the workspace (IntelliJ Action:
+_Sync project with BUILD files_). This process will take a while.
+
+[intellij_project_view]: https://ij.bazel.build/docs/project-views.html
+
+### Configuring the JDK in IntelliJ
+
+Daml downloads the version of the JDK it uses from Nix. A symlink will be
+created by the dev-env utilities (make sure you've set these up) in
+_dev-env/jdk_.
+
+TO configure IntelliJ to use this JDK:
+
+1. Open the _Project Structure_ window.
+2. Under _Platform Settings_, select _SDKs_.
+3. Press the _plus_ button and select "Add JDK".
+4. Choose the _dev-env/jdk_ directory.
+5. Name it "Daml JDK" or something similar.
+6. Ensure there's sources attached under the _Sourcepath_ tab. If not, add them.
+   Press the _plus_ button and select _dev-env/jdk/lib/openjdk/src.zip_.
+7. Open _Project Settings_ →  _Project_.
+8. Select the Daml JDK from the _Project SDK_ list.
 
 ### Overview over Bazel IntelliJ Integration
 
@@ -303,6 +325,12 @@ Bazel command (`run`, `test`, etc.). If applicable, you can also define Bazel
 command-line flags or command-line flags to the executable. Click on "Apply",
 or "OK" to add the run configuration.
 
+#### Attaching sources to scala library
+
+If you do not have the Scala library sources linked (you only see the decompiled
+ sources), you can attach it manually by selecting the `Choose sources...`
+ button on the yellow bar at the top, and selecting `scala-library...-src.jar`.
+
 ### Known Issues
 
 #### Missing folders in project tree
@@ -324,6 +352,17 @@ Scala test-cases. Please refer to the [issue tracker][rerun_failed_tests_issue]
 for details.
 
 [rerun_failed_tests_issue]: https://github.com/bazelbuild/intellij/issues/446
+
+### Troubleshooting
+
+#### 'tools.dade-exec-nix-tool' not found
+
+If you get the error
+```
+error: attribute 'dade-exec-nix-tool' in selection path 'tools.dade-exec-nix-tool' not found
+```
+in the bazel console during project import, try starting IntelliJ from the root
+of the `daml` repository by calling `idea .`.
 
 ## Bazel Command Reference
 
@@ -376,26 +415,27 @@ detailed information.
 - Execute a specific Scala test-suite class
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala
+    bazel test //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala
     ```
-    
+
 - Execute a test with a specific name
 
     ```
     bazel test \
-    //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+    //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala \
       --test_arg=-t \
-      --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
+      --test_arg="JdbcLedgerDao (divulgence) should preserve divulged contracts"
     ```
 
-- Pass an argument to a test case in a Scala test-suite
+- Execute tests that include a string in their name
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+    bazel test \
+    //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala \
       --test_arg=-z \
-      --test_arg="should return true"
+      --test_arg="preserve divulged"
     ```
-    
+
     More broadly, for Scala tests you can pass through any of the args outlined in http://www.scalatest.org/user_guide/using_the_runner, separating into two instances of the --test-arg parameter as shown in the two examples above.
 
 ### Running Executables
@@ -579,7 +619,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
 )
 ```
-To build this single target from the root of the DAML repository, the
+To build this single target from the root of the Daml repository, the
 command would be:
 ```
 bazel build //compiler/damlc/daml-compiler
@@ -713,47 +753,8 @@ More comprehensive documentation on the `bazel` command can be found
 If your work goes beyond simply adding targets to existing
 `BUILD.bazel` files and involves things like defining toolchains and
 external dependencies, then [this
-document](https://github.com/digital-asset/daml/blob/master/BAZEL-haskell.md)
+document](https://github.com/digital-asset/daml/blob/main/BAZEL-haskell.md)
 is for you!
-
-## Documentation packages in Bazel
-
-'daml-foundations' documentation resides in the DA git repository in
-sub-directories of the path `//daml-foundations/daml-tools/docs`. Each
-sub-directory there is a documentation "package". A documentation
-package contains a `BUILD.bazel` file.
-
-The rule for producing a documentation package under Bazel is
-`da_doc_package` and it is brought into the scope of a `BUILD.bazel`
-file with the following directive.
-```
-load ("//bazel_tools:docs.bzl", "da_doc_package")
-```
-
-### Synopsis
-
-`da_doc_package (name, prepare, extra_sources)`
-
-Build a documentation package.
-
-Attributes:
-  - `name`
-    Required. A unique name for the package.
-  - `prepare`
-    Optional. If provided then it is interpreted as a bash script to be
-    executed on the documentation sources before the bundle generation
-    step (see below for what that means).
-  - `extra_sources`
-    Optional. Default value is the empty list.
-
-The output of `da_doc_package` with name `"foo"` is a bundle
-`sources.tar.gzip` in the path
-`//bazel-bin/daml-foundations/daml-tools/docs/foo`. The bundle for `"foo"` would be produced with the command:
-```
-bazel build //daml-foundations/daml-tools/docs/foo:foo
-```
-The contents of the bundle will be copies of files under the directory
-`//daml-foundations/daml-tools/doc/foo/sources`.
 
 ## Scala in Bazel
 
@@ -846,12 +847,6 @@ da_scala_library(
 )
 ```
 
-### Scala Macro Libraries
-
-If a Scala library defines macros that should be used by other Scala targets
-later on, then it has to be defined using `da_scala_macro_library`. Macros may
-not be defined and used within the same target.
-
 ### Scala Executables
 
 Scala executables are defined using `da_scala_binary`. It takes most of the
@@ -865,7 +860,7 @@ are:
 - `data`:
     Files that are needed at runtime. In order to access such files at runtime
     you should use the utility library in
-    `com.digitalasset.testing.BuildSystemSupport`.
+    `com.daml.testing.BuildSystemSupport`.
 
 ### Scala Test Cases
 
@@ -902,33 +897,33 @@ the target `foo_deploy.jar` next to the regular `foo.jar` target. Building the
 `foo_deploy.jar` target will generate a self-contained fat JAR suitable to be
 passed to `java -jar`.
 
-### DAML Packages
+### Daml Packages
 
-DAML package targets are defined using the `daml` rule loaded from
+Daml package targets are defined using the `daml` rule loaded from
 `//rules_daml:daml.bzl`. To explain it we will take an example instance and
 describe the individual attributes.
 
 ```
 daml(
   name = "it-daml",
-  # The main DAML file. This file will be passed to damlc.
+  # The main Daml file. This file will be passed to damlc.
   main_src = "src/it/resources/TestAll.daml",
-  # Other DAML files that may be imported by the main DAML file.
+  # Other Daml files that may be imported by the main Daml file.
   srcs = glob(["src/it/resources/**/*.daml"]),
   # The directory prefix under which to create the DAR tree.
   target_dir = "target/scala-2.12/resource_managed/it/dars",
   # The group ID.
-  group = "com.digitalasset.sample",
+  group = "com.daml.sample",
   # The artifact ID.
   artifact = "test-all",
   # The package version.
   version = "0.1",
   # The package name.
-  package = "com.digitalasset.sample",
+  package = "com.daml.sample",
 )
 ```
 
-This will compile and package the DAML code into a DAR file under the following
+This will compile and package the Daml code into a DAR file under the following
 target, where `<group-dir>` is the `group` attribute with `.` replaced by `/`.
 
 ```
@@ -956,10 +951,10 @@ For example:
 it-daml.srcjar
 ```
 
-### DAML Executables
+### Daml Executables
 
 The rule `daml_binary` is provided to generate executable targets that execute
-the DAML sandbox on a given DAR package. For example:
+the Daml sandbox on a given DAR package. For example:
 
 ```
 daml_binary(
@@ -969,7 +964,7 @@ daml_binary(
 ```
 
 Such a target can then be executed as follows, where arguments after `--` are
-passed to the DAML sandbox.
+passed to the Daml sandbox.
 
 ```
 bazel run //ledger-client/nanobot-sample-app:ping-pong-exec -- --help
@@ -994,7 +989,9 @@ resolution and import the required artifacts into the Bazel build.
 
 The resolved versions are pinned in the file `maven_install.json`. Execute
 `bazel run @unpinned_maven//:pin` when you wish to update or add a new
-dependency. See [`rules_jvm_external`][rules_jvm_external] for details.
+dependency. You also need to run this a second time to update the deps for 2.13
+`DAML_SCALA_VERSION=2.13.3 bazel run @unpinned_maven//:pin`.
+See [`rules_jvm_external`][rules_jvm_external] for details.
 
 [rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
@@ -1009,7 +1006,7 @@ For an example, please see `compiler/daml-extension/BUILD.bazel`.
 
 ## Protocol buffers in Bazel
 
-We use protocol buffers for DAML-LF and the Ledger API. The DAML-LF protocol
+We use protocol buffers for Daml-LF and the Ledger API. The Daml-LF protocol
 buffer build rules can be found from //daml-lf/archive/BUILD.bazel.
 It produces bindings for Java and Haskell (via proto3-suite).
 
@@ -1037,7 +1034,20 @@ Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc
 
 This will also mean that changes made locally will need to be rebuilt, but it's likely that this will still result in a net positive gain on your build time.
 
+If you are still rebuilding after this, you probably also have a
+poisoned Nix cache. To clear that run through the following steps:
+
+    bazel clean --expunge # clean the build cache
+    rm -r .bazel-cache    # clean the local cache
+    rm dev-env/var/gc-roots/* # Remove dev-env GC roots
+    rm result* # Remove GC roots you might have from previous nix-build invocations.
+    nix-store --gc --print-roots # View all garbage collection roots
+    # Verify that there is nothing from our repo or some Bazel cache.
+    # If you are not sure ask in #team-daml
+    nix-store --gc # Run garbage collection
+    nix-build nix -A tools -A cached --no-out-link # Build the nix derivations (they should be fetched from the cache)
+    bazel build //... # You should now see things being fetched from the cache
+
 ### Working in environments with low or intermittent connectivity
 
 Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
-

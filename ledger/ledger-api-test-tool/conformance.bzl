@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,6 +6,7 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 def conformance_test(
         name,
@@ -29,15 +30,12 @@ def conformance_test(
         ],
         server = server,
         server_args = server_args,
-        server_files = [
-            "$(rootpaths //ledger/test-common:dar-files)",
-        ],
         tags = [
             "dont-run-on-darwin",
             "exclusive",
         ] + tags,
         flaky = flaky,
-    ) if not is_windows else None
+    ) if not is_windows and scala_major_version == "2.12" else None
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False):
     for server_name, server in servers.items():

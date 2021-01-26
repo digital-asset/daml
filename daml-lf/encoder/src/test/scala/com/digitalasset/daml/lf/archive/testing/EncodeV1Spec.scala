@@ -1,31 +1,28 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.daml.lf.testing.archive
 
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.archive.testing.Encode
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.testing.Encode
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.{AstRewriter, ParserParameters}
+import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import EncodeV1Spec._
 
   val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters(
-      pkgId,
-      LanguageVersion(V1, "7")
-    )
+    ParserParameters(pkgId, LanguageVersion.v1_dev)
 
   "Encode and Decode" should {
     "form a prism" in {
@@ -35,6 +32,8 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
       val pkg: Ast.Package =
         p"""
+
+         metadata ( 'foobar' : '0.0.1' )
 
          module Mod {
 
@@ -46,8 +45,14 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
               observers Cons @Party [Mod:Person {person} this] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Sleep (u: Unit): Unit by Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Unit (),
-                choice @nonConsuming Nap (i : Int64) : Int64 by Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Int64 i
+                choice Sleep (self) (u: Unit) : Unit, 
+                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                    observers Nil @Party
+                  to upure @Unit (),
+                choice @nonConsuming Nap (self) (i : Int64): Int64, 
+                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                    observers Cons @Party [Mod:Person {person} this] (Nil @Party)
+                to upure @Int64 i
               },
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
             };
@@ -119,9 +124,6 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
              create @Mod:Person person;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep cId ();
-           val anExerciseWithActor: (ContractId Mod:Person) -> List Party -> Update Int64 =
-             \(cId: ContractId Mod:Person) (parties: List Party) ->
-                exercise_with_actors @Mod:Person Nap cId parties 1;
            val aFecthByKey: Party -> Update <contract: Mod:Person, contractId: ContractId Mod:Person> = \(party: Party) ->
              fetch_by_key @Mod:Person party;
            val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->
@@ -136,41 +138,11 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
       """
 
       validate(pkgId, pkg)
-
       val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
       val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
-      pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
-    }
-
-    "Encoding of function type with different versions should work as expected" in {
-
-      val text =
-        """
-        module Mod{
-        
-          val f : forall (a:*) (b: *) (c: *). a -> b -> c -> Unit =
-            /\  (a:*) (b: *) (c: *). \ (xa: a) (xb: b) (xc: c) -> ();
-        }
-     """
-      val versions =
-        Table(
-          "minVersion",
-          LanguageVersion(V1, "0"),
-          LanguageVersion(V1, "1"),
-          LanguageVersion.default)
-
-      forEvery(versions) { version =>
-        implicit val parserParameters: ParserParameters[version.type] =
-          ParserParameters(pkgId, version)
-
-        val pkg = Package(parseModules(text).right.get, Set.empty, None)
-        val archive = Encode.encodeArchive(pkgId -> pkg, version)
-        val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
-
-        pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
-      }
-
+      val pkg1 = normalize(decodedPackage, hashCode, pkgId)
+      pkg shouldBe pkg1
     }
   }
 
@@ -187,9 +159,8 @@ object EncodeV1Spec {
     val replacePkId: PartialFunction[Identifier, Identifier] = {
       case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
     }
-    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = {
-      case EAbs(binder, body, Some(_)) =>
-        EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
+      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
     }
     lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
 
@@ -198,7 +169,7 @@ object EncodeV1Spec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(Map(pkgId -> pkg), pkgId)
+      .checkPackage(Map(pkgId -> pkg), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

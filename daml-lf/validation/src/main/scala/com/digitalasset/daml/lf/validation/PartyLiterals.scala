@@ -1,20 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.validation.traversable.ExprTraversable
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.Ast._
+import com.daml.lf.validation.iterable.ExprIterable
 
 private[validation] object PartyLiterals {
 
   @throws[EForbiddenPartyLiterals]
-  def checkModule(world: World, pkgId: PackageId, module: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
     module.definitions.foreach {
-      case (defName, DDataType(_, _, DataRecord(fields @ _, Some(template)))) =>
-        def context = ContextDefValue(pkgId, module.name, defName)
-        ExprTraversable(template).foreach(checkExpr(world, context, _))
       case (defName, DValue(typ @ _, noPartyLiterals, body, isTest @ _)) =>
         def context = ContextDefValue(pkgId, module.name, defName)
         if (noPartyLiterals)
@@ -23,6 +20,11 @@ private[validation] object PartyLiterals {
           throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(context.ref))
       case _ =>
     }
+    module.templates.foreach { case (defName, template) =>
+      def context = ContextDefValue(pkgId, module.name, defName)
+      ExprIterable(template).foreach(checkExpr(world, context, _))
+    }
+  }
 
   private def checkExpr(world: World, context: => Context, expr: Expr): Unit =
     expr match {
@@ -31,7 +33,7 @@ private[validation] object PartyLiterals {
       case EVal(valRef) if !world.lookupValue(context, valRef).noPartyLiterals =>
         throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(valRef))
       case otherwise =>
-        ExprTraversable(otherwise).foreach(checkExpr(world, context, _))
+        ExprIterable(otherwise).foreach(checkExpr(world, context, _))
     }
 
 }

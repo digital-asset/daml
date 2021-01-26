@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 'use strict';
@@ -45,12 +45,8 @@ export async function activate(context: vscode.ExtensionContext) {
     damlLanguageClient.registerProposedFeatures();
 
     const webviewFiles: WebviewFiles = {
-        src:
-            vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
-            with({scheme: 'vscode-resource'}),
-        css:
-            vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.css')).
-            with({scheme: 'vscode-resource'}),
+        src: vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')),
+        css: vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.css')),
     };
     let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewFiles);
     context.subscriptions.push(virtualResourceManager);
@@ -138,7 +134,7 @@ function checkVersionUpgrade(version1: string, version2: string) {
     return o.compare(comps2, comps1) > 0;
 }
 
-// Show the release notes from the DAML Blog.
+// Show the release notes from the Daml Blog.
 // We display the HTML in a new editor tab using a "webview":
 // https://code.visualstudio.com/api/extension-guides/webview
 async function showReleaseNotes(version: string) {
@@ -148,7 +144,7 @@ async function showReleaseNotes(version: string) {
         if (res.ok) {
             const panel = vscode.window.createWebviewPanel(
                 'releaseNotes', // Identifies the type of the webview. Used internally
-                `New DAML SDK ${version} Available`, // Title of the panel displayed to the user
+                `New Daml SDK ${version} Available`, // Title of the panel displayed to the user
                 vscode.ViewColumn.One, // Editor column to show the new webview panel in
                 {} // No webview options for now
             );
@@ -183,7 +179,7 @@ function visualize() {
         }
     }
     else {
-        vscode.window.showInformationMessage("Please open a DAML module to be visualized and then run the command")
+        vscode.window.showInformationMessage("Please open a Daml module to be visualized and then run the command")
     }
 }
 
@@ -211,7 +207,7 @@ function addIfInConfig(config:vscode.WorkspaceConfiguration, baseArgs: string[],
 export function createLanguageClient(config: vscode.WorkspaceConfiguration, telemetryConsent: boolean|undefined): LanguageClient {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
-        // Register the server for DAML
+        // Register the server for Daml
         documentSelector: ["daml"],
     };
 
@@ -225,7 +221,7 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
         if (fs.existsSync(damlCmdPath)) {
             command = damlCmdPath;
         } else {
-            vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
+            vscode.window.showErrorMessage("Failed to start the Daml language server. Make sure the assistant is installed.");
             throw new Error("Failed to locate assistant.");
         }
     }
@@ -249,11 +245,11 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
         ]);
 
     if(config.get('experimental')){
-        vscode.window.showWarningMessage('DAMLs Experimental feature flag is enabled, this may cause instability')
+        vscode.window.showWarningMessage('Daml\'s Experimental feature flag is enabled, this may cause instability')
     }
 
     return new LanguageClient(
-        'daml-language-server', 'DAML Language Server',
+        'daml-language-server', 'Daml Language Server',
         { args: serverArgs, command: command, options: {cwd: vscode.workspace.rootPath }},
         clientOptions, true);
 }
@@ -275,7 +271,7 @@ let keepAliveInterval = 60000; // Send KA every 60s.
 // Wait for max 120s before restarting process.
 // NOTE(JM): If you change this, make sure to also change the server-side timeouts to get
 // detailed errors rather than cause a restart.
-// Legacy DAML timeout for language server is defined in
+// Legacy Daml timeout for language server is defined in
 // DA.Daml.LanguageServer.
 let keepAliveTimeout = 120000;
 
@@ -291,7 +287,7 @@ function stopKeepAliveWatchdog() {
 function keepAlive() {
     function killDamlc() {
         vscode.window.showErrorMessage(
-           "Sorry, you’ve hit a bug requiring a DAML Language Server restart. We’d greatly appreciate a bug report — ideally with example files."
+           "Sorry, you’ve hit a bug requiring a Daml Language Server restart. We’d greatly appreciate a bug report — ideally with example files."
         );
 
         // Terminate the damlc process with SIGTERM. The language client will restart the process automatically.
@@ -428,11 +424,11 @@ class VirtualResourceManager {
     }
 
     public setContent(uri: UriString, contents: ScenarioResult) {
-        contents = contents.replace('$webviewSrc', this._webviewFiles.src.toString());
-        contents = contents.replace('$webviewCss', this._webviewFiles.css.toString());
-        this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);
         if (panel) {
+            contents = contents.replace('$webviewSrc', panel.webview.asWebviewUri(this._webviewFiles.src).toString());
+            contents = contents.replace('$webviewCss', panel.webview.asWebviewUri(this._webviewFiles.css).toString());
+            this._panelContents.set(uri, contents);
             // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
             panel.webview.html = contents + "<!-- " + new Date() + " -->";
             const panelState = this._panelStates.get(uri);
@@ -465,7 +461,7 @@ let telemetryOverride = {
     fromConsent: "From consent popup"
 }
 const options = {
-    yes : "Yes, I would like to help improve DAML!",
+    yes : "Yes, I would like to help improve Daml!",
     no : "No, I'd rather not.",
     read : "I'd like to read the privacy policy first."
 }

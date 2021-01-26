@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
@@ -9,10 +9,10 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.daml.lf.data.InsertOrdMap
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.lf.data.InsertOrdMap
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.{Primitive => P}
 import org.scalacheck.Shrink
 import org.scalacheck.Shrink.{shrinkContainer, shrinkContainer2, shrinkFractional, shrinkIntegral}
 import scalaz.{OneAnd, Plus}
@@ -54,8 +54,9 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
       if (index(a) == 0) Stream.empty else Stream(cases.head._2)
     }
 
-  override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
+  override def variantCase[B, A](caseName: String, o: Out[B])(
+      inject: B => A
+  )(select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
     val ob: Option[B] = select.lift(a)
     val osa: Option[Stream[A]] = ob.map(b_ => o.shrink(b_).map(inject))
     osa.getOrElse(Stream.empty[A])
@@ -73,8 +74,9 @@ object ShrinkEncoding extends ShrinkEncoding {
     override def xmap[A, B](fa: RecordFields[A], f: A => B, g: B => A): RecordFields[B] =
       Shrink.xmap(f, g)(fa)
 
-    override def xmapN[A, B, Z](fa: RecordFields[A], fb: RecordFields[B])(f: (A, B) => Z)(
-        g: Z => (A, B)): RecordFields[Z] = {
+    override def xmapN[A, B, Z](fa: RecordFields[A], fb: RecordFields[B])(
+        f: (A, B) => Z
+    )(g: Z => (A, B)): RecordFields[Z] = {
       implicit val ifa: Shrink[A] = fa
       implicit val ifb: Shrink[B] = fb
       Shrink.xmap(f.tupled, g)
@@ -100,26 +102,25 @@ object ShrinkEncoding extends ShrinkEncoding {
     private def myShrinkString: Shrink[String] = Shrink { s0: String =>
       import scalaz.std.stream.unfold
 
-      val stream: Stream[Set[String]] = unfold((Set(s0), Set.empty[String])) {
-        case (seed, seen) =>
-          if (seed.isEmpty) {
-            if (seen.contains("")) None
-            else {
-              val as = Set("")
-              Some((as, (as, seen ++ as)))
-            }
-          } else {
-            val as: Set[String] = seed
-              .flatMap { a: String =>
-                if (a.length == 1) Set(a)
-                else {
-                  val (l, r) = a.splitAt(a.length / 2)
-                  Set(a, l, r)
-                }
-              }
-              .diff(seen)
+      val stream: Stream[Set[String]] = unfold((Set(s0), Set.empty[String])) { case (seed, seen) =>
+        if (seed.isEmpty) {
+          if (seen.contains("")) None
+          else {
+            val as = Set("")
             Some((as, (as, seen ++ as)))
           }
+        } else {
+          val as: Set[String] = seed
+            .flatMap { a: String =>
+              if (a.length == 1) Set(a)
+              else {
+                val (l, r) = a.splitAt(a.length / 2)
+                Set(a, l, r)
+              }
+            }
+            .diff(seen)
+          Some((as, (as, seen ++ as)))
+        }
       }
 
       stream.flatten

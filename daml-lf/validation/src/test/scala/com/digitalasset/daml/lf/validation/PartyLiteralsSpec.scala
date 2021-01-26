@@ -1,15 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   import PartyLiterals._
 
@@ -39,7 +40,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Unit) : Unit by party to
+                  choice Ch (self) (i : Unit) : Unit, controllers party to
                     upure @Unit ()
                 }
             } ;
@@ -63,7 +64,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Unit by party to
+                  choice Ch (self) (i : Mod:R): Unit, controllers party to
                     upure @Unit ()
                 }
             } ;
@@ -77,7 +78,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Unit by party to
+                  choice Ch (self) (i : Mod:R): Unit, controllers party to
                     upure @Unit ()
                 }
             } ;
@@ -91,7 +92,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party ['Alice'] (Nil @Party),    // disallowed party literal 'Alice'
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Unit by 'Alice' to
+                  choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
                     upure @Unit ()
                 }
             } ;
@@ -105,7 +106,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                   observers Cons @Party [party] (Nil @Party),
                   agreement TO_TEXT_PARTY 'Alice',               // disallowed party literal 'Alice'
                   choices {
-                    choice Ch (i : Mod:R) : Unit by 'Alice' to
+                    choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
                       upure @Unit ()
                   }
               } ;
@@ -119,7 +120,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Party by party to
+                  choice Ch (self) (i : Mod:R): Party, controllers party to
                      upure @Party 'Alice'                        // disallowed party literal 'Alice'
                 }
             } ;
@@ -148,7 +149,8 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
       checkModule(
         world,
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString("NegativeTestCase")))
+        pkg.modules(DottedName.assertFromString("NegativeTestCase")),
+      )
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
           checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))

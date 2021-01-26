@@ -1,25 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.util.akkastreams
+package com.daml.util.akkastreams
 
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.codahale.metrics.Counter
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Minute, Span}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration._
 
-class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll with ScalaFutures {
+class MaxInFlightTest
+    extends AnyWordSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll
+    with ScalaFutures {
 
   "MaxInFlight" should {
 
     "not interfere with elements passing through" in {
       val elemCount = 1000L
-      val bidi = MaxInFlight[Long, Long](1)
+      val bidi = MaxInFlight[Long, Long](1, new Counter, new Counter)
 
       val result = Source.repeat(1L).take(elemCount).via(bidi.join(Flow[Long])).runFold(0L)(_ + _)
 
@@ -29,7 +35,7 @@ class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll 
     "actually keep the number of in-flight elements bounded" in {
       val elemCount = 1000L
       val maxElementsInFlight = 10
-      val bidi = MaxInFlight[Long, Long](maxElementsInFlight)
+      val bidi = MaxInFlight[Long, Long](maxElementsInFlight, new Counter, new Counter)
 
       val flow = bidi.join(new DiesOnTooManyInFlights(maxElementsInFlight, 1.second))
 
@@ -68,13 +74,16 @@ class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll 
             }
 
             override def onUpstreamFinish(): Unit = ()
-          }
+          },
         )
 
-        setHandler(out, new OutHandler {
-          // Initial handler is noop, we keep accumulating elements until the handler is replaced.
-          override def onPull(): Unit = ()
-        })
+        setHandler(
+          out,
+          new OutHandler {
+            // Initial handler is noop, we keep accumulating elements until the handler is replaced.
+            override def onPull(): Unit = ()
+          },
+        )
 
         private def flush() = {
           accumulator match {
@@ -95,12 +104,15 @@ class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll 
         override protected def onTimer(timerKey: Any): Unit = {
           timerKey match {
             case `replaceHandlerTimerKey` =>
-              setHandler(out, new OutHandler {
-                override def onPull(): Unit = {
-                  flush()
-                  if (isClosed(in)) completeStage()
-                }
-              })
+              setHandler(
+                out,
+                new OutHandler {
+                  override def onPull(): Unit = {
+                    flush()
+                    if (isClosed(in)) completeStage()
+                  }
+                },
+              )
               if (isAvailable(out)) flush()
             case `scheduledFlushTimerKey` =>
               flush()

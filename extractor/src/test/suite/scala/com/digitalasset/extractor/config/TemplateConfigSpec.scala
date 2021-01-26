@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
-import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
-import com.digitalasset.extractor.config.Generators.arbTemplateConfig
-import org.scalatest.{FlatSpec, Matchers}
+import com.daml.scalatest.FlatSpecCheckLaws
+import com.daml.extractor.config.Generators.arbTemplateConfig
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalazProperties
 
-class TemplateConfigSpec extends FlatSpec with Matchers with FlatSpecCheckLaws {
+class TemplateConfigSpec extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
 
   behavior of TemplateConfig.getClass.getSimpleName
 

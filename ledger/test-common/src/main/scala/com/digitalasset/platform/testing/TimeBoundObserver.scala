@@ -1,36 +1,46 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.testing
+package com.daml.platform.testing
 
-import com.digitalasset.timer.Delayed
+import com.daml.timer.Delayed
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise}
 
-final class TimeBoundObserver[T](duration: FiniteDuration)(
-    implicit executionContext: ExecutionContext)
-    extends StreamObserver[T] {
+final class TimeBoundObserver[A](
+    duration: FiniteDuration
+)(delegate: StreamObserver[A])(implicit executionContext: ExecutionContext)
+    extends StreamObserver[A] {
 
-  private val promise = Promise[Vector[T]]
-  private val buffer = Vector.newBuilder[T]
+  private var done = false
 
-  Delayed.by(duration)(onCompleted())
+  Delayed.by(duration)(synchronized {
+    if (!done) {
+      onCompleted()
+      val _ = Context.current().withCancellation().cancel(null)
+    }
+  })
 
-  def result: Future[Vector[T]] = promise.future
-
-  override def onNext(value: T): Unit = {
-    buffer += value
+  override def onNext(value: A): Unit = synchronized {
+    if (!done) {
+      delegate.onNext(value)
+    }
   }
 
-  override def onError(t: Throwable): Unit = {
-    val _ = promise.tryFailure(t)
+  override def onError(t: Throwable): Unit = synchronized {
+    if (!done) {
+      delegate.onError(t)
+      done = true
+    }
   }
 
-  override def onCompleted(): Unit = {
-    val _succeeded = promise.trySuccess(buffer.result())
-    val _cancelled = Context.current().withCancellation().cancel(null)
+  override def onCompleted(): Unit = synchronized {
+    if (!done) {
+      delegate.onCompleted()
+      done = true
+    }
   }
 }

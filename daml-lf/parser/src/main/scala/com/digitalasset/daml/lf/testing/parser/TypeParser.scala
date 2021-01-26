@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data
+import com.daml.lf.data.{ImmArray, Ref, Struct}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
 private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
@@ -31,14 +31,15 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "GenMap" -> BTGenMap,
     "Any" -> BTAny,
     "TypeRep" -> BTTypeRep,
+    "AnyException" -> BTAnyException,
+    "GeneralError" -> BTGeneralError,
+    "ArithmeticError" -> BTArithmeticError,
+    "ContractError" -> BTContractError,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =
-    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
-      case pkgId ~ modName ~ _ ~ name =>
-        Ref.Identifier(
-          pkgId.getOrElse(parameters.defaultPackageId),
-          Ref.QualifiedName(modName, name))
+    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ { case pkgId ~ modName ~ _ ~ name =>
+      Ref.Identifier(pkgId.getOrElse(parameters.defaultPackageId), Ref.QualifiedName(modName, name))
     }
 
   private[parser] lazy val typeBinder: Parser[(TypeVarName, Kind)] =
@@ -46,18 +47,21 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
       id ^^ (_ -> KStar)
 
   private[parser] def tNat: Parser[TNat] =
-    accept("Number", {
-      case Number(l) if l.toInt == l => TNat(data.Numeric.Scale.assertFromLong(l))
-    })
+    accept(
+      "Number",
+      {
+        case Number(l) if l.toInt == l => TNat(data.Numeric.Scale.assertFromLong(l))
+      },
+    )
 
   private lazy val tForall: Parser[Type] =
-    `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs :\ t)(TForall) }
+    `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs foldRight t)(TForall) }
 
   private lazy val fieldType: Parser[(FieldName, Type)] =
     id ~ `:` ~ typ ^^ { case name ~ _ ~ t => name -> t }
 
   private lazy val tStruct: Parser[Type] =
-    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(ImmArray(fs)))
+    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(Struct.assertFromSeq(fs)))
 
   private lazy val tTypeSynApp: Parser[Type] =
     `|` ~> fullIdentifier ~ rep(typ0) <~ `|` ^^ { case id ~ tys => TSynApp(id, ImmArray(tys)) }

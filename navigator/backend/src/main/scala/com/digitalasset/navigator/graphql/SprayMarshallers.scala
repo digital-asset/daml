@@ -1,15 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
 import sangria.marshalling._
 import spray.json._
 
 import scala.util.Try
 
-/**
-  * Custom marshallers and unmarshallers for dealing with raw JSON values.
+/** Custom marshallers and unmarshallers for dealing with raw JSON values.
   *
   * The declared implicit objects replace the ones you would usually import from `sangria.marshalling.sprayJson`.
   * In fact they are largely identical to those except for the additional support for non-scalar JSON values.
@@ -29,7 +28,8 @@ object SprayMarshallers {
         builder: MapBuilder,
         key: String,
         value: Node,
-        optional: Boolean): ArrayMapBuilder[JsValue] = builder.add(key, value)
+        optional: Boolean,
+    ): ArrayMapBuilder[JsValue] = builder.add(key, value)
 
     def mapNode(builder: MapBuilder) = JsObject(builder.toMap)
     def mapNode(keyValues: Seq[(String, JsValue)]) = JsObject(keyValues: _*)

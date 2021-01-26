@@ -1,14 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.log
+package com.daml.ledger.client.binding.log
 
 import ch.qos.logback.classic.filter.ThresholdFilter
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.spi.FilterReply
 
-/**
-  * Logs at specific level and above, excluded logger logs everything.
+/** Logs at specific level and above, excluded logger logs everything.
   * If you don't have exclusions, use regular ThresholdFilter. Without provided excludeLogger this
   * implementation logs every event with no filtering at all.
   */

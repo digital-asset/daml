@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -61,7 +61,7 @@ export interface CellRenderParams<C, R> {
   columnIndex: number;
   rowData: R;
   rowIndex: number;
-};
+}
 
 export type CellAlignment
   = 'none'   // Do nothing, output content as is
@@ -115,7 +115,7 @@ export type TableRowDataGetter<
 
 /** Inner wrapper (table) */
 export const TableContainer
-  : React.ComponentClass<React.HTMLProps<HTMLDivElement>>
+  : React.FC<React.HTMLProps<HTMLDivElement>>
   = styled.div`
   flex: 1;
   overflow: hidden;
@@ -197,7 +197,7 @@ export const TableContainer
 
 /** Outer wrapper (action bar + table) */
 export const TableOuterWrapper
-  : React.ComponentClass<React.HTMLProps<HTMLDivElement>>
+  : React.FC<React.HTMLProps<HTMLDivElement>>
   = styled.div`
   height: 100%;
   width: 100%;
@@ -218,7 +218,7 @@ const CellPadding = styled.div`
   flex: 1;
 `;
 
-export function align(alignment: CellAlignment, content: JSX.Element) {
+export function align(alignment: CellAlignment, content: JSX.Element): JSX.Element {
   switch (alignment) {
     case 'none': return content;
     case 'left': return content;
@@ -233,11 +233,11 @@ export function createColumns<
   R
 >(props: {
   readonly config: C,
-  readonly columns: ColumnConfig<R, {}>[],
+  readonly columns: ColumnConfig<R, unknown>[],
   onConfigChange?(config: C): void,
-}) {
+}): JSX.Element[] {
   const { columns } = props;
-  return columns.map((col: ColumnConfig<R, {}>, idx: number) => (
+  return columns.map((col: ColumnConfig<R, unknown>, idx: number) => (
     <Column
       key={idx}
       dataKey={col.key}

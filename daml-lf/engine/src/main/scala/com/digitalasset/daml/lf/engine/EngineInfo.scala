@@ -1,38 +1,34 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf
+package engine
 
-import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml.lf.transaction.TransactionVersions
-import com.digitalasset.daml.lf.value.ValueVersions
+class EngineInfo(config: EngineConfig) {
 
-object EngineInfo {
+  import language.{LanguageVersion => LV}
 
-  override lazy val toString: String = show
+  override def toString: String = show
+  def show: String = {
 
-  lazy val show: String =
-    s"DAML LF Engine supports LF versions: $formatLfVersions; Transaction versions: $formatTransactionVersions; Value versions: $formatValueVersions"
+    val allLangVersions =
+      for {
+        major <- LV.Major.All
+        minor <- major.supportedMinorVersions
+      } yield LV(major, minor)
 
-  private def formatValueVersions: String =
-    format(ValueVersions.acceptedVersions.map(_.protoValue))
+    val allowedLangVersions =
+      allLangVersions.filter(config.allowedLanguageVersions.contains)
 
-  private def formatTransactionVersions: String =
-    format(TransactionVersions.acceptedVersions.map(_.protoValue))
-
-  private def formatLfVersions: String = {
-    val allVersions: Iterable[String] =
-      LV.Major.All flatMap (mv => lfVersions(mv.pretty, mv.supportedMinorVersions))
-    format(allVersions)
+    s"DAML LF Engine supports LF versions: ${formatLangVersions(allowedLangVersions)}"
   }
 
-  private def lfVersions(
-      majorVersion: String,
-      minorVersions: Iterable[LV.Minor]): Iterable[String] =
-    minorVersions.map { a =>
-      val ap = a.toProtoIdentifier
-      s"$majorVersion${if (ap.isEmpty) "" else s".$ap"}"
-    }
+  private[this] def formatLangVersions(versions: Iterable[LV]) =
+    versions
+      .map { case LV(major, minor) =>
+        val ap = minor.toProtoIdentifier
+        s"${major.pretty}${if (ap.isEmpty) "" else s".$ap"}"
+      }
+      .mkString(", ")
 
-  private def format(as: Iterable[String]): String = as.mkString(", ")
 }

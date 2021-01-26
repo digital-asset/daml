@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -8,8 +8,7 @@ import java.util.concurrent.CompletionStage
 /** An interface for on-boarding parties via a participant. */
 trait WritePartyService {
 
-  /**
-    * Adds a new party to the set managed by the ledger.
+  /** Adds a new party to the set managed by the ledger.
     *
     * Caller specifies a party identifier suggestion, the actual identifier
     * allocated might be different and is implementation specific.
@@ -34,6 +33,6 @@ trait WritePartyService {
   def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId
+      submissionId: SubmissionId,
   ): CompletionStage[SubmissionResult]
 }

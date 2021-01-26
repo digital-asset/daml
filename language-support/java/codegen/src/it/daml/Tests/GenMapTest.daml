@@ -1,0 +1,26 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Tests.GenMapTest where
+
+import DA.Map
+
+data MapRecord = MapRecord
+    with
+        field: Map (Optional Int) Text
+
+data MapMapRecord = MapMapRecord
+    with
+        field: Map (Map Int Text) (Map Text Int)
+
+template TemplateWithMap
+    with
+        owner : Party
+        valueMap : Map Int Text
+    where
+        signatory owner
+
+data MapVariant x y = IntVariant (Map Int Int) |
+                      TextVariant (Map Text Text) |
+                      ParameterizedVariant (Map x y ) |
+                      RecordVariant with x: Map Text Int

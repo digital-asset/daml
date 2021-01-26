@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MagicHash #-}
@@ -93,7 +93,7 @@ pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions :: GHC.Module
+pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
@@ -101,6 +101,7 @@ pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
 pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Template.Functions"
+pattern DA_Internal_Exception <- ModuleIn DamlStdlib "DA.Internal.Exception"
 
 -- | Deconstruct a dictionary function (DFun) identifier into a tuple
 -- containing, in order:
@@ -265,3 +266,15 @@ unpackCStringUtf8 :: BS.ByteString -> T.Text
 unpackCStringUtf8 bs = unsafePerformIO $
     BS.useAsCString bs $ \(Ptr a) -> do
         evaluate $ T.unpackCString# a
+
+collectNonRecLets :: GHC.Expr Var -> ([(GHC.Var, GHC.Expr Var)], GHC.Expr Var)
+collectNonRecLets = \case
+    Let (NonRec x y) rest ->
+        let (lets, body) = collectNonRecLets rest
+        in ((x,y):lets, body)
+    expr ->
+        ([], expr)
+
+makeNonRecLets :: [(GHC.Var, GHC.Expr Var)] -> GHC.Expr Var -> GHC.Expr Var
+makeNonRecLets lets body =
+    foldr (\(x,y) b -> Let (NonRec x y) b) body lets

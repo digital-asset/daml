@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.time
+package com.daml.navigator.time
 
 import scopt.Read
 
@@ -42,7 +42,9 @@ object TimeProviderType {
       unapply(s).getOrElse(
         throw new IllegalArgumentException(
           s"$s is not a valid time provider. The following values are accepted: ${acceptedValues
-            .mkString(", ")}."))
+            .mkString(", ")}."
+        )
+      )
     }
   }
 

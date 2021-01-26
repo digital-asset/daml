@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Language reference docs
 #######################
 
-This section contains a reference to writing templates for DAML contracts. It includes:
+This section contains a reference to writing templates for Daml contracts. It includes:
 
 .. toctree::
    :maxdepth: 1

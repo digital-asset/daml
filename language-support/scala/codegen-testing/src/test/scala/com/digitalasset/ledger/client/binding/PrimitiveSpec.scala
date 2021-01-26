@@ -1,24 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import java.time.{Instant, LocalDate}
 
 import org.scalacheck.Gen
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import shapeless.test.illTyped
 
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.{Primitive => P}
 
-class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import PrimitiveSpec._
 
   "Primitive types" when {
     "defined concretely" should {
       "have nice companion aliases" in {
-        P.List: collection.generic.TraversableFactory[P.List]
+        P.List: test.CollectionCompat.IterableFactory[P.List]
       }
     }
     "defined abstractly" should {
@@ -26,13 +27,16 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
         def check[A, B]() = {
           illTyped(
             "implicitly[P.ContractId[A] =:= P.ContractId[B]]",
-            "Cannot prove that .*ContractId\\[A\\] =:= .*ContractId\\[B\\].")
+            "Cannot prove that .*ContractId\\[A\\] =:= .*ContractId\\[B\\].",
+          )
           illTyped(
             "implicitly[P.TemplateId[A] =:= P.TemplateId[B]]",
-            "Cannot prove that .*TemplateId\\[A\\] =:= .*TemplateId\\[B\\].")
+            "Cannot prove that .*TemplateId\\[A\\] =:= .*TemplateId\\[B\\].",
+          )
           illTyped(
             "implicitly[P.Update[A] =:= P.Update[B]]",
-            "Cannot prove that .*Update\\[A\\] =:= .*Update\\[B\\].")
+            "Cannot prove that .*Update\\[A\\] =:= .*Update\\[B\\].",
+          )
         }
         check[Unit, Unit]()
       }
@@ -40,7 +44,7 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
   }
 
   "Date.fromLocalDate" should {
-    import ValueSpec.dateArb
+    import ValueGen.dateArb
 
     "pass through existing dates" in forAll { d: P.Date =>
       P.Date.fromLocalDate(d: LocalDate) shouldBe Some(d)
@@ -59,7 +63,7 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
   }
 
   "Timestamp.discardNanos" should {
-    import ValueSpec.timestampArb
+    import ValueGen.timestampArb
 
     "pass through existing times" in forAll { t: P.Timestamp =>
       P.Timestamp.discardNanos(t: Instant) shouldBe Some(t)
@@ -78,7 +82,7 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
 
     "preapprove values for TimestampConversion.instantToMicros" in forAll(anyInstantGen) { i =>
       P.Timestamp.discardNanos(i) foreach { t =>
-        noException should be thrownBy com.digitalasset.api.util.TimestampConversion
+        noException should be thrownBy com.daml.api.util.TimestampConversion
           .instantToMicros(t)
       }
     }
@@ -93,6 +97,7 @@ object PrimitiveSpec {
     Gen
       .zip(
         Gen.choose(Instant.MIN.getEpochSecond, Instant.MAX.getEpochSecond),
-        Gen.choose(0L, 999999999))
+        Gen.choose(0L, 999999999),
+      )
       .map { case (s, n) => Instant.ofEpochSecond(s, n) }
 }

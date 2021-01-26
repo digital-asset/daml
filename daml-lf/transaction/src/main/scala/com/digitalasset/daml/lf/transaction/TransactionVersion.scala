@@ -1,86 +1,80 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.VersionedValue
-import com.digitalasset.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.value.Value
 
-final case class TransactionVersion(protoValue: String)
+import scala.collection.immutable.HashMap
 
-/**
-  * Currently supported versions of the DAML-LF transaction specification.
+sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
+    extends Product
+    with Serializable
+
+/** Currently supported versions of the DAML-LF transaction specification.
   */
-object TransactionVersions
-    extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
-      _.protoValue,
-    ) {
+object TransactionVersion {
 
-  private[this] val minVersion = TransactionVersion("1")
-  private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
-  private[transaction] val minFetchActors = TransactionVersion("5")
-  private[transaction] val minNoControllers = TransactionVersion("6")
-  private[transaction] val minExerciseResult = TransactionVersion("7")
-  private[transaction] val minContractKeyInExercise = TransactionVersion("8")
-  private[transaction] val minMaintainersInExercise = TransactionVersion("9")
+  case object V10 extends TransactionVersion("10", 10)
+  case object V11 extends TransactionVersion("11", 11)
+  case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  def assignVersion(
-      a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
-  ): TransactionVersion = {
-    require(a != null)
-    import VersionTimeline.Implicits._
+  val All = List(V10, V11, VDev)
 
-    VersionTimeline.latestWhenAllPresent(
-      minVersion,
-      // latest version used by any value
-      a.foldValues(ValueVersion("1")) { (z, vv) =>
-        VersionTimeline.maxVersion(z, vv.version)
-      },
-      // a NodeCreate with defined `key` or a NodeLookupByKey
-      // implies minimum version 3
-      if (a.nodes.values.exists {
-          case nc: Node.NodeCreate[_, _] => nc.key.isDefined
-          case _: Node.NodeLookupByKey[_, _] => true
-          case _: Node.NodeFetch[_] | _: Node.NodeExercises[_, _, _] => false
-        }) minKeyOrLookupByKey
-      else
-        minVersion,
-      // a NodeFetch with actingParties implies minimum version 5
-      if (a.nodes.values
-          .exists { case nf: Node.NodeFetch[_] => nf.actingParties.nonEmpty; case _ => false })
-        minFetchActors
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case ne: Node.NodeExercises[_, _, _] => ne.exerciseResult.isDefined
-            case _ => false
-          })
-        minExerciseResult
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case ne: Node.NodeExercises[_, _, _] => ne.key.isDefined
-            case _ => false
-          })
-        minContractKeyInExercise
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case ne: Node.NodeExercises[_, _, _] =>
-              ne.key match {
-                case Some(KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
-                case _ => false
-              }
-            case _ => false
-          })
-        minMaintainersInExercise
-      else
-        minVersion,
+  private[lf] implicit val Ordering: scala.Ordering[TransactionVersion] = scala.Ordering.by(_.index)
+
+  private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
+
+  def fromString(vs: String): Either[String, TransactionVersion] =
+    stringMapping.get(vs) match {
+      case Some(value) => Right(value)
+      case None =>
+        Left(s"Unsupported transaction version '$vs'")
+    }
+
+  def assertFromString(vs: String): TransactionVersion =
+    data.assertRight(fromString(vs))
+
+  val minVersion: TransactionVersion = All.min
+  def maxVersion: TransactionVersion = VDev
+
+  private[lf] val minGenMap = V11
+  private[lf] val minChoiceObservers = V11
+  private[lf] val minNodeVersion = V11
+  private[lf] val minNoVersionValue = VDev
+  private[lf] val minTypeErasure = VDev
+
+  private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
+    import LanguageVersion._
+    Map(
+      v1_6 -> V10,
+      v1_7 -> V10,
+      v1_8 -> V10,
+      v1_11 -> V11,
+      v1_dev -> VDev,
     )
   }
+
+  private[lf] def asVersionedTransaction(
+      roots: ImmArray[NodeId],
+      nodes: HashMap[NodeId, Node.GenNode[NodeId, Value.ContractId]],
+  ): VersionedTransaction[NodeId, Value.ContractId] = {
+    import scala.Ordering.Implicits.infixOrderingOps
+
+    val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
+      acc max nodes(nodeId).version
+    )
+
+    VersionedTransaction(txVersion, nodes, roots)
+  }
+
+  private[lf] val StableVersions: VersionRange[TransactionVersion] =
+    LanguageVersion.StableVersions.map(assignNodeVersion)
+
+  private[lf] val DevVersions: VersionRange[TransactionVersion] =
+    LanguageVersion.DevVersions.map(assignNodeVersion)
+
 }

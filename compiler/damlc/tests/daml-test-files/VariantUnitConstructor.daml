@@ -1,0 +1,21 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @WARN Variant type Bar constructor Bar1 has a single argument of type ()
+-- @WARN Variant type Baz constructor Baz1 has a single argument of type ()
+-- @WARN Variant type Baz constructor Baz2 has a single argument of type ()
+module VariantUnitConstructor where
+
+-- This is fine (single constructor variant type can only be
+-- written with a unit type argument).
+data Foo = Foo1 ()
+
+-- This should result in warning for Bar1.
+data Bar
+    = Bar1 ()
+    | Bar2
+
+-- This should result in warning for Baz1 and Baz2.
+data Baz
+    = Baz1 ()
+    | Baz2 ()

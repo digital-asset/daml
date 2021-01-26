@@ -1,7 +1,6 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE PatternSynonyms     #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
 
@@ -44,8 +43,16 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
-convertPrim v "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenMap =
+convertPrim v "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
     EBuiltin BEEqualGeneric `ETyApp` a1
+convertPrim v "BELess" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+    EBuiltin BELessGeneric `ETyApp` a1
+convertPrim v "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+    EBuiltin BELessEqGeneric `ETyApp` a1
+convertPrim v "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+    EBuiltin BEGreaterGeneric `ETyApp` a1
+convertPrim v "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+    EBuiltin BEGreaterEqGeneric `ETyApp` a1
 convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEEqual a1
 convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
@@ -59,7 +66,7 @@ convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
 convertPrim v "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
-    if v `supports` featureGenMap
+    if v `supports` featureGenericComparison
         then EBuiltin BEEqualGeneric `ETyApp` TContractId a1
         else EBuiltin BEEqualContractId `ETyApp` a1
 
@@ -224,17 +231,25 @@ convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
 convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim v "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenMap
+    if v `supports` featureGenericComparison
         then ETyApp (EBuiltin BEEqualGeneric) (TNumeric n1)
         else ETyApp (EBuiltin BEEqualNumeric) n1
-convertPrim _ "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    ETyApp (EBuiltin BELessNumeric) n1
-convertPrim _ "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    ETyApp (EBuiltin BELessEqNumeric) n1
-convertPrim _ "BEGreaterEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    ETyApp (EBuiltin BEGreaterEqNumeric) n1
-convertPrim _ "BEGreaterNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    ETyApp (EBuiltin BEGreaterNumeric) n1
+convertPrim v "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    if v `supports` featureGenericComparison
+        then ETyApp (EBuiltin BELessGeneric) (TNumeric n1)
+        else ETyApp (EBuiltin BELessNumeric) n1
+convertPrim v "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    if v `supports` featureGenericComparison
+        then ETyApp (EBuiltin BELessEqGeneric) (TNumeric n1)
+        else ETyApp (EBuiltin BELessEqNumeric) n1
+convertPrim v "BEGreaterEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    if v `supports` featureGenericComparison
+        then ETyApp (EBuiltin BEGreaterEqGeneric) (TNumeric n1)
+        else ETyApp (EBuiltin BEGreaterEqNumeric) n1
+convertPrim v "BEGreaterNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    if v `supports` featureGenericComparison
+        then ETyApp (EBuiltin BEGreaterGeneric) (TNumeric n1)
+        else ETyApp (EBuiltin BEGreaterNumeric) n1
 convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
     ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
@@ -254,6 +269,12 @@ convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = EBuiltin BETextRe
 convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = EBuiltin BETextSplitOn
 convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin BETextIntercalate
 
+-- Conversion from ContractId to Text
+
+convertPrim _ "BEToTextContractId" (TContractId t :-> TOptional TText) =
+    ETyApp (EBuiltin BEToTextContractId) t
+
+
 -- Template Desugaring.
 
 convertPrim _ "UCreate" (TCon template :-> TUpdate (TContractId (TCon template')))
@@ -270,7 +291,7 @@ convertPrim _ "UExercise"
     (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) Nothing (EVar (mkVar "arg"))
+    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
@@ -351,6 +372,38 @@ convertPrim version "EToAnyContractKey"
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
         ETmLam (mkVar "key", key) $
         EToAny key (EVar $ mkVar "key")
+
+-- Exceptions
+convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
+    EBuiltin BEAnyExceptionMessage
+convertPrim _ "BEGeneralErrorMessage" (TBuiltin BTGeneralError :-> TText) =
+    EBuiltin BEGeneralErrorMessage
+convertPrim _ "BEArithmeticErrorMessage" (TBuiltin BTArithmeticError :-> TText) =
+    EBuiltin BEArithmeticErrorMessage
+convertPrim _ "BEContractErrorMessage" (TBuiltin BTContractError :-> TText) =
+    EBuiltin BEContractErrorMessage
+
+-- TODO #8020 https://github.com/digital-asset/daml/issues/8020
+-- Handle these three in LFConversion.hs and check that ty1 is an exception type.
+convertPrim _ "EThrow" (ty1 :-> ty2) =
+    ETmLam (mkVar "x", ty1) (EThrow ty2 ty1 (EVar (mkVar "x")))
+convertPrim _ "EToAnyException" (ty :-> TBuiltin BTAnyException) =
+    ETmLam (mkVar "x", ty) (EToAnyException ty (EVar (mkVar "x")))
+convertPrim _ "EFromAnyException" (TBuiltin BTAnyException :-> TOptional ty) =
+    ETmLam (mkVar "x", TBuiltin BTAnyException) (EFromAnyException ty (EVar (mkVar "x")))
+
+-- TODO #8020 https://github.com/digital-asset/daml/issues/8020
+-- Make sure this indirection is eliminated when doing "try ... catch ..."
+-- in the Update monad. This may require a specific LFConversion rule.
+convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :-> TOptional (TUpdate t2)) :-> TUpdate t3)
+    | t1 == t2, t2 == t3
+        = ETmLam (mkVar "t", TUnit :-> TUpdate t1)
+        $ ETmLam (mkVar "c", TBuiltin BTAnyException :-> TOptional (TUpdate t2))
+        $ EUpdate
+        $ UTryCatch t3
+            (EVar (mkVar "t") `ETmApp` EUnit)
+            (mkVar "x")
+            (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
 
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty

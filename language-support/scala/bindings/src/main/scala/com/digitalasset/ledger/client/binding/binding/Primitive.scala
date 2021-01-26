@@ -1,19 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import encoding.ExerciseOn
-import com.digitalasset.daml.lf.data.InsertOrdMap
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
+import com.daml.lf.data.InsertOrdMap
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
-import scala.language.higherKinds
 import scala.collection.{mutable, immutable => imm}
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
 
@@ -52,7 +51,7 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type TextMap[+V] <: imm.Map[String, V] with imm.MapLike[String, V, TextMap[V]]
+  type TextMap[+V] <: imm.Map[String, V] with CollectionCompat.MapLike[String, V, TextMap[V]]
   val TextMap: TextMapApi
 
   @deprecated("Use TextMap", since = "0.13.40")
@@ -74,13 +73,12 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Update[+A] <: DomainCommand
 
   sealed abstract class TextMapApi {
-    type Coll = TextMap[_]
     def empty[V]: TextMap[V]
     def apply[V](elems: (String, V)*): TextMap[V]
     def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
-    implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
+    implicit def factory[V]: Factory[(String, V), TextMap[V]]
     final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V].subst[Id](map)
-    def subst[F[_[_]]](fa: F[imm.Map[String, ?]]): F[TextMap]
+    def subst[F[_[_]]](fa: F[imm.Map[String, *]]): F[TextMap]
     final def leibniz[V]: imm.Map[String, V] === TextMap[V] =
       subst[Lambda[g[_] => imm.Map[String, V] === g[V]]](scalaz.Leibniz.refl)
   }
@@ -121,7 +119,8 @@ sealed abstract class Primitive extends PrimitiveInstances {
     def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String): TemplateId[Tpl]
+        entityName: String,
+    ): TemplateId[Tpl]
 
     private[binding] def substEx[F[_]](fa: F[rpcvalue.Identifier]): F[TemplateId[_]]
 
@@ -134,17 +133,20 @@ sealed abstract class Primitive extends PrimitiveInstances {
 
   private[binding] def createFromArgs[Tpl](
       companion: TemplateCompanion[_ <: Tpl],
-      na: rpcvalue.Record): Update[ContractId[Tpl]]
+      na: rpcvalue.Record,
+  ): Update[ContractId[Tpl]]
 
   private[binding] def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out]
+      argument: rpcvalue.Value,
+  )(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out]
 
   private[binding] def arguments(
       recordId: rpcvalue.Identifier,
-      args: Seq[(String, rpcvalue.Value)]): rpcvalue.Record
+      args: Seq[(String, rpcvalue.Value)],
+  ): rpcvalue.Record
 }
 
 private[client] object OnlyPrimitive extends Primitive {
@@ -160,14 +162,15 @@ private[client] object OnlyPrimitive extends Primitive {
     override def empty[V]: TextMap[V] = imm.Map.empty
     override def apply[V](elems: (String, V)*): TextMap[V] = imm.Map(elems: _*)
     override def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]] = imm.Map.newBuilder
-    override def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]] = imm.Map.canBuildFrom
+    override def factory[V]: Factory[(String, V), TextMap[V]] =
+      implicitly[Factory[(String, V), imm.Map[String, V]]]
     override def subst[F[_[_]]](fa: F[TextMap]): F[TextMap] = fa
   }
 
   override val Map = TextMap
 
   object Date extends DateApi {
-    import com.digitalasset.api.util.TimestampConversion
+    import com.daml.api.util.TimestampConversion
     private val UTC = TimeZone.getTimeZone("UTC")
     override val MIN = LocalDateTime.ofInstant(TimestampConversion.MIN, UTC.toZoneId).toLocalDate
     override val MAX = LocalDateTime.ofInstant(TimestampConversion.MAX, UTC.toZoneId).toLocalDate
@@ -182,7 +185,7 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   object Timestamp extends TimeApi {
-    import com.digitalasset.api.util.TimestampConversion
+    import com.daml.api.util.TimestampConversion
     override val MIN = TimestampConversion.MIN
     override val MAX = TimestampConversion.MAX
 
@@ -200,11 +203,12 @@ private[client] object OnlyPrimitive extends Primitive {
     override def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String
+        entityName: String,
     ): TemplateId[Tpl] =
       ApiTypes.TemplateId(
         rpcvalue
-          .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName))
+          .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName)
+      )
 
     private[binding] override def substEx[F[_]](fa: F[rpcvalue.Identifier]) =
       ApiTypes.TemplateId subst fa
@@ -223,22 +227,27 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   private[binding] override def substContractId[F[_], Tpl](
-      tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]] = tc
+      tc: F[ApiTypes.ContractId]
+  ): F[ContractId[Tpl]] = tc
 
   private[binding] override def createFromArgs[Tpl](
       companion: TemplateCompanion[_ <: Tpl],
-      na: rpcvalue.Record): Update[ContractId[Tpl]] =
+      na: rpcvalue.Record,
+  ): Update[ContractId[Tpl]] =
     DomainCommand(
       rpccmd.Command(
         rpccmd.Command.Command
-          .Create(rpccmd.CreateCommand(templateId = Some(companion.id.unwrap), Some(na)))),
-      companion)
+          .Create(rpccmd.CreateCommand(templateId = Some(companion.id.unwrap), Some(na)))
+      ),
+      companion,
+    )
 
   private[binding] override def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out] =
+      argument: rpcvalue.Value,
+  )(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out] =
     DomainCommand(
       rpccmd.Command {
         ev match {
@@ -248,28 +257,42 @@ private[client] object OnlyPrimitive extends Primitive {
                 templateId = Some(templateCompanion.id.unwrap),
                 contractId = (receiver: ContractId[Tpl]).unwrap,
                 choice = choiceId,
-                choiceArgument = Some(argument)
-              ))
+                choiceArgument = Some(argument),
+              )
+            )
           case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
             rpccmd.Command.Command.CreateAndExercise(
               rpccmd.CreateAndExerciseCommand(
                 templateId = Some(templateCompanion.id.unwrap),
                 createArguments = Some((receiver: Template.CreateForExercise[Tpl]).value.arguments),
                 choice = choiceId,
-                choiceArgument = Some(argument)
+                choiceArgument = Some(argument),
+              )
+            )
+          case _: ExerciseOn.OnKey[Tpl] =>
+            rpccmd.Command.Command.ExerciseByKey(
+              rpccmd.ExerciseByKeyCommand(
+                templateId = Some(templateCompanion.id.unwrap),
+                contractKey = Some((receiver: Template.Key[Tpl]).encodedKey),
+                choice = choiceId,
+                choiceArgument = Some(argument),
               )
             )
         }
       },
-      templateCompanion
+      templateCompanion,
     )
 
   private[binding] override def arguments(
       recordId: rpcvalue.Identifier,
-      args: Seq[(String, rpcvalue.Value)]): rpcvalue.Record =
-    rpcvalue.Record(recordId = Some(recordId), args.map {
-      case (k, v) => rpcvalue.RecordField(k, Some(v))
-    })
+      args: Seq[(String, rpcvalue.Value)],
+  ): rpcvalue.Record =
+    rpcvalue.Record(
+      recordId = Some(recordId),
+      args.map { case (k, v) =>
+        rpcvalue.RecordField(k, Some(v))
+      },
+    )
 }
 
 sealed abstract class PrimitiveInstances
@@ -279,8 +302,8 @@ object PrimitiveInstances {
   import language.implicitConversions
   import Primitive.TextMap
 
-  implicit def textMapCanBuildFrom[V]: CanBuildFrom[TextMap.Coll, (String, V), TextMap[V]] =
-    TextMap.canBuildFrom
+  implicit def textMapFactory[V]: Factory[(String, V), TextMap[V]] =
+    TextMap.factory
 
   /** Applied in contexts that ''expect'' a `TextMap`, iff -Xsource:2.13. */
   implicit def textMapFromMap[V](m: imm.Map[String, V]): TextMap[V] = TextMap fromMap m

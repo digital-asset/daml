@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
+import com.daml.lf.language.Ast._
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.value.Value._
 import scalaz.Monad
 
 import scala.annotation.tailrec
@@ -39,11 +39,11 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
   }
 
-  // quick and dirty way to consume a Result
   def consume(
-      pcs: AbsoluteContractId => Option[ContractInst[VersionedValue[AbsoluteContractId]]],
+      pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
-      keys: GlobalKey => Option[AbsoluteContractId]): Either[Error, A] = {
+      keys: GlobalKeyWithMaintainers => Option[ContractId],
+  ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
       res match {
@@ -58,10 +58,12 @@ sealed trait Result[+A] extends Product with Serializable {
 }
 
 final case class ResultDone[A](result: A) extends Result[A]
+object ResultDone {
+  val Unit: ResultDone[Unit] = new ResultDone(())
+}
 final case class ResultError(err: Error) extends Result[Nothing]
 
-/**
-  * Intermediate result indicating that a [[ContractInst]] is required to complete the computation.
+/** Intermediate result indicating that a [[ContractInst]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
   * <li>`Some(contractInstance)`, if the caller can dereference `acoid` to `contractInstance`</li>
@@ -69,12 +71,11 @@ final case class ResultError(err: Error) extends Result[Nothing]
   * </ul>
   */
 final case class ResultNeedContract[A](
-    acoid: AbsoluteContractId,
-    resume: Option[ContractInst[VersionedValue[AbsoluteContractId]]] => Result[A])
-    extends Result[A]
+    acoid: ContractId,
+    resume: Option[ContractInst[VersionedValue[ContractId]]] => Result[A],
+) extends Result[A]
 
-/**
-  * Intermediate result indicating that a [[Package]] is required to complete the computation.
+/** Intermediate result indicating that a [[Package]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
   * <li>`Some(package)`, if the caller can dereference `packageId` to `package`</li>
@@ -84,76 +85,33 @@ final case class ResultNeedContract[A](
 final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Package] => Result[A])
     extends Result[A]
 
-final case class ResultNeedKey[A](key: GlobalKey, resume: Option[AbsoluteContractId] => Result[A])
-    extends Result[A]
+final case class ResultNeedKey[A](
+    key: GlobalKeyWithMaintainers,
+    resume: Option[ContractId] => Result[A],
+) extends Result[A]
 
 object Result {
   // fails with ResultError if the package is not found
-  def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
-    ResultNeedPackage(packageId, {
-      case None => ResultError(Error(s"Couldn't find package $packageId"))
-      case Some(pkg) => resume(pkg)
-    })
-
-  def needPackage[A](
-      compiledPackages: MutableCompiledPackages,
-      packageId: PackageId,
-      resume: Package => Result[A]): Result[A] =
-    compiledPackages.getPackage(packageId) match {
-      case Some(pkg) => resume(pkg)
-      case None =>
-        ResultNeedPackage(
-          packageId, {
-            case None => ResultError(Error(s"Couldn't find package $packageId"))
-            case Some(pkg) =>
-              compiledPackages.addPackage(packageId, pkg).flatMap(_ => resume(pkg))
-          }
-        )
-    }
-
-  def needDefinition[A](
-      packagesCache: MutableCompiledPackages,
-      identifier: Identifier,
-      resume: Definition => Result[A]): Result[A] =
-    needPackage(
-      packagesCache,
-      identifier.packageId,
-      pkg =>
-        fromEither(PackageLookup.lookupDefinition(pkg, identifier.qualifiedName))
-          .flatMap(resume)
+  private[lf] def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
+    ResultNeedPackage(
+      packageId,
+      {
+        case None => ResultError(Error(s"Couldn't find package $packageId"))
+        case Some(pkg) => resume(pkg)
+      },
     )
 
-  def needDataType[A](
-      packagesCache: MutableCompiledPackages,
-      identifier: Identifier,
-      resume: DDataType => Result[A]): Result[A] =
-    needPackage(
-      packagesCache,
-      identifier.packageId,
-      pkg =>
-        fromEither(PackageLookup.lookupDataType(pkg, identifier.qualifiedName))
-          .flatMap(resume)
+  private[lf] def needContract[A](
+      acoid: ContractId,
+      resume: ContractInst[VersionedValue[ContractId]] => Result[A],
+  ) =
+    ResultNeedContract(
+      acoid,
+      {
+        case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
+        case Some(contract) => resume(contract)
+      },
     )
-
-  def needTemplate[A](
-      packagesCache: MutableCompiledPackages,
-      identifier: Identifier,
-      resume: Template => Result[A]): Result[A] =
-    needPackage(
-      packagesCache,
-      identifier.packageId,
-      pkg =>
-        fromEither(PackageLookup.lookupTemplate(pkg, identifier.qualifiedName))
-          .flatMap(resume)
-    )
-
-  def needContract[A](
-      acoid: AbsoluteContractId,
-      resume: ContractInst[VersionedValue[AbsoluteContractId]] => Result[A]) =
-    ResultNeedContract(acoid, {
-      case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
-      case Some(contract) => resume(contract)
-    })
 
   def sequence[A](results0: ImmArray[Result[A]]): Result[ImmArray[A]] = {
     @tailrec
@@ -168,30 +126,31 @@ object Result {
               ResultNeedPackage(
                 packageId,
                 pkg =>
-                  resume(pkg).flatMap(
-                    x =>
-                      Result
-                        .sequence(results_)
-                        .map(otherResults => (okResults :+ x) :++ otherResults)))
+                  resume(pkg).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
             case ResultNeedContract(acoid, resume) =>
               ResultNeedContract(
                 acoid,
                 coinst =>
-                  resume(coinst).flatMap(
-                    x =>
-                      Result
-                        .sequence(results_)
-                        .map(otherResults => (okResults :+ x) :++ otherResults)))
+                  resume(coinst).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
             case ResultNeedKey(gk, resume) =>
               ResultNeedKey(
                 gk,
                 mbAcoid =>
-                  resume(mbAcoid).flatMap(
-                    x =>
-                      Result
-                        .sequence(results_)
-                        .map(otherResults => (okResults :+ x) :++ otherResults)
-                )
+                  resume(mbAcoid).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
               )
           }
       }
@@ -204,9 +163,10 @@ object Result {
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =
-    if (assertion) {
-      ResultDone(())
-    } else ResultError(err)
+    if (assertion)
+      ResultDone.Unit
+    else
+      ResultError(err)
 
   implicit val resultInstance: Monad[Result] = new Monad[Result] {
     override def point[A](a: => A): Result[A] = ResultDone(a)

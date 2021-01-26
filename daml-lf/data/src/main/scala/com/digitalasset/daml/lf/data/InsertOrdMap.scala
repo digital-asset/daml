@@ -1,15 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import scalaz.{Cord, Show}
 
-import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
-import scala.collection.immutable.{AbstractMap, HashMap, Map, Queue}
+import scala.collection.immutable.{HashMap, Queue}
 
-/**
-  * Insert-ordered Map (like ListMap), but with efficient lookups.
+/** Insert-ordered Map (like ListMap), but with efficient lookups.
   *
   * Implemented as (Queue[K], HashMap[K, V]).
   * Asymptotics:
@@ -20,10 +18,8 @@ import scala.collection.immutable.{AbstractMap, HashMap, Map, Queue}
   */
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],
-    hashMap: HashMap[K, V]
-) extends AbstractMap[K, V]
-    with Map[K, V]
-    with MapKOps[K, V, InsertOrdMap[K, +?]] {
+    hashMap: HashMap[K, V],
+) extends AbstractInsertOrdMap[K, V] {
 
   override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 
@@ -42,26 +38,30 @@ final class InsertOrdMap[K, +V] private (
     updated(key, value)
   }
 
-  override def -(k: K): InsertOrdMap[K, V] =
+  override def removed(k: K): InsertOrdMap[K, V] =
     new InsertOrdMap(keys.filter(_ != k), hashMap - k)
-
 }
 
-object InsertOrdMap extends ImmutableMapFactory[InsertOrdMap] {
+object InsertOrdMap extends InsertOrdMapCompanion {
 
   private val Empty: InsertOrdMap[Unit, Nothing] = new InsertOrdMap(Queue.empty, HashMap.empty)
 
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
-  implicit def canBuildFrom[A, B]: CanBuildFrom[Coll, (A, B), InsertOrdMap[A, B]] =
-    new MapCanBuildFrom[A, B]
+  // Here only for 2.12 (harmless in 2.13); placed in InsertOrdMapCompanion the
+  // implicit gets in an unwinnable fight with Map's version
+  implicit override def canBuildFrom[A, B]: Factory[A, B] =
+    super.canBuildFrom
 
   implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
     Show.show { m =>
       "InsertOrdMap[" +:
-        Cord.mkCord(", ", m.toSeq.map { x =>
-        Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
-      }: _*) :+ "]"
+        Cord.mkCord(
+          ", ",
+          m.toSeq.map { x =>
+            Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
+          }: _*
+        ) :+ "]"
     }
 
 }

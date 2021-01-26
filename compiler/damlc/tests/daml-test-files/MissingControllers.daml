@@ -1,0 +1,24 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module MissingControllers where
+
+template TheContract
+  with
+    s : Party
+  where
+    signatory s
+    choice TheChoice : () with
+        cs : [Party]
+      controller cs
+      do
+        return ()
+
+-- @ERROR failed due missing controllers
+test_NoControllers = scenario do
+  alice <- getParty "Alice"
+  cid <- submit alice $ do
+    create (TheContract with s = alice)
+  submit alice $ do
+    exercise cid TheChoice with cs = []
+    abort "finished"

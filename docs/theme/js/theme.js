@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 var jQuery = (typeof (window) != 'undefined') ? window.jQuery : require('jquery');
@@ -256,7 +256,7 @@ function menu() {
     if ($(window).width() >= 1600) {
         var contentMenuOffsetTop = 172;
         // $contentMenu.removeClass('collapsed');
-        if ($contentMenuToc.innerHeight() + contentMenuOffsetTop + 150 >= $(window).height()) {
+        if ($contentMenuToc.innerHeight() + contentMenuOffsetTop + 160 >= $(window).height()) {
             $contentMenu.css({
                 'height': $(window).height() - contentMenuOffsetTop - 50
             });
@@ -265,14 +265,14 @@ function menu() {
             });
         } else {
             $contentMenu.css({
-                'height': $contentMenuToc.innerHeight() + 100
+                'height': $contentMenuToc.innerHeight() + 110
             });
             $contentMenuWrapper.css({
                 'height': '100%'
             });
         }
     } else {
-        var height = Math.min($(window).height() - 150, $contentMenuToc.innerHeight() + 50);
+        var height = Math.min($(window).height() - 150, $contentMenuToc.innerHeight() + 60);
         $contentMenu.css({
             'height': 'auto'
         });
@@ -304,7 +304,8 @@ function scrollContentMenu($sections) {
 }
 
 function setHighlighterWidth() {
-    $('div[class*="highlight"]').css('width', ($('.wy-nav-content').outerWidth() + 23) + 'px')
+    var contentWidth = $('.wy-nav-content').outerWidth();
+    $('div[class*="highlight"]:has(div[class*="highlight"])').css('width', contentWidth + 'px');
 }
 
 function performSearch(fullSearchState, search, results, inline) {
@@ -391,7 +392,7 @@ function createSearchResults(items, error, query, resultsNode) {
         }
         resultsNode.append(list);
         var numRes = Math.min(3, items.length);
-        status.appendChild(document.createTextNode('Showing top ' + numRes +' of ' + items.length + ' results.'));
+        status.appendChild(document.createTextNode('Showing top ' + numRes +' of ' + items.length + ' results. '));
         var allLink = document.createElement('a');
         allLink.setAttribute("href", '/search.html?query=' + query);
         allLink.appendChild(document.createTextNode('See all results...'));
@@ -518,7 +519,7 @@ $(document).ready(function () {
         $(item).parent().addClass('h6-section');
     });
     if (searchEngine === 'custom') {
-        var queryParam = location.search.split('query=')[1];
+        var queryParam = new URLSearchParams(window.location.search).get('query');
         if (queryParam !== undefined) {
             $('#rtd-search-inline-form [name=q]').val(unescape(queryParam));
             searchState.latestQuery = queryParam;

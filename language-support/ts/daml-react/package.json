@@ -21,35 +21,13 @@
   "dependencies": {
     "@daml/ledger": "0.0.0-SDKVERSION",
     "@daml/types": "0.0.0-SDKVERSION",
-    "immutable": "^4.0.0-rc.12",
-    "jwt-simple": "^0.5.6",
     "react": "^16.12.0"
   },
   "scripts": {
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
     "test": "jest",
-    "lint": "eslint --ext .ts ./ --max-warnings 0"
-  },
-  "eslintConfig": {
-    "extends": [
-      "eslint:recommended",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:@typescript-eslint/recommended",
-      "plugin:@typescript-eslint/recommended-requiring-type-checking"
-    ],
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "project": "./tsconfig.json"
-    },
-    "plugins": [
-      "@typescript-eslint"
-    ],
-    "rules": {
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-inferrable-types": "off"
-    }
+    "lint": "eslint --ext .ts --ignore-pattern lib/ --max-warnings 0 ./"
   },
   "devDependencies": {
     "@testing-library/react-hooks": "^3.2.1",
@@ -58,10 +36,9 @@
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
-    "fast-deep-equal": "^3.1.1",
     "jest": "^24.9.0",
     "react-test-renderer": "^16.12.0",
     "ts-jest": "^24.2.0",
-    "typescript": "3.7.4"
+    "typescript": "~3.8.3"
   }
 }

@@ -1,15 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.data.{Time => LfTime}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.extractor.json.JsonConverters._
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.ledger.types._
+import com.daml.lf.data.{Time => LfTime}
+import com.daml.lf.value.{Value => V}
+import com.daml.extractor.json.JsonConverters._
+import com.daml.extractor.Types._
+import com.daml.extractor.ledger.types._
 import doobie._
 import doobie.implicits._
+// legacy versions required for postgres see https://github.com/tpolecat/doobie/releases/tag/v0.8.8
+import doobie.implicits.legacy.instant._
+import doobie.implicits.legacy.localdate._
 import java.time.{Instant, LocalDate}
 
 import scalaz._
@@ -29,8 +32,7 @@ object Queries {
   def setTableComment(table: String, comment: String): Fragment =
     setComment("TABLE", table, comment)
 
-  /**
-    * PostgreSQL doesn't support DDL queries like this one as prepared statement,
+  /** PostgreSQL doesn't support DDL queries like this one as prepared statement,
     * thus parameters can't be escaped. We have to make sure to use sensible comments (no 's, etc.).
     */
   private def setComment(obj: String, name: String, comment: String): Fragment =
@@ -174,7 +176,8 @@ object Queries {
     def setContractArchived(
         contractId: String,
         transactionId: String,
-        archivedByEventId: String): Fragment =
+        archivedByEventId: String,
+    ): Fragment =
       sql"""
         UPDATE contract
         SET
@@ -203,7 +206,9 @@ object Queries {
 
   object MultiTable {
     def createContractTable(table: String, columns: List[(String, String)]): Fragment = {
-      val columnDefs = columns.map { case (name, typeDef) => s"$name $typeDef" } mkString (", ", ", \n", "")
+      val columnDefs = columns.map { case (name, typeDef) =>
+        s"$name $typeDef"
+      } mkString (", ", ", \n", "")
 
       val query =
         s"""CREATE TABLE
@@ -227,7 +232,7 @@ object Queries {
         table: String,
         contractId: String,
         transactionId: String,
-        archivedByEventId: String
+        archivedByEventId: String,
     ): Fragment =
       Fragment.const(s"UPDATE ${table} SET ") ++
         fr"_archived_by_transaction_id = ${transactionId}, " ++
@@ -237,20 +242,21 @@ object Queries {
         table: String,
         event: CreatedEvent,
         transactionId: String,
-        isRoot: Boolean): Fragment = {
+        isRoot: Boolean,
+    ): Fragment = {
       // using `DEFAULT`s so there's no need to explicitly list field names (which btw aren't available in the event)
       val baseColumns = List(
-        Fragment("?", event.eventId), // _event_id
+        fr0"${event.eventId}", // _event_id
         Fragment.const("DEFAULT"), // _archived_by_event_id
-        Fragment("?", event.contractId), // _contract_id
-        Fragment("?", transactionId), // _transaction_id
+        fr0"${event.contractId}", // _contract_id
+        fr0"${transactionId}", // _transaction_id
         Fragment.const("DEFAULT"), // _archived_by_transaction_id
         Fragment.const(if (isRoot) "TRUE" else "FALSE"), // _is_root_event
-        Fragment("?::jsonb", toJsonString(event.stakeholders)) // _stakeholders
+        fr0"${toJsonString(event.stakeholders)}::jsonb", // _stakeholders
       )
 
-      val contractArgColumns = event.createArguments.fields.map {
-        case (_, value) => toFragmentNullable(value)
+      val contractArgColumns = event.createArguments.fields.map { case (_, value) =>
+        toFragmentNullable(value)
       }
 
       val columns = baseColumns ++ contractArgColumns.toSeq
@@ -277,37 +283,34 @@ object Queries {
         case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ V.ValueRecord(_, _) =>
-          Fragment("?::jsonb", toJsonString(r))
+          fr0"${toJsonString(r)}::jsonb"
         case v @ V.ValueVariant(_, _, _) =>
-          Fragment("?::jsonb", toJsonString(v))
+          fr0"${toJsonString(v)}::jsonb"
         case V.ValueEnum(_, constructor) =>
-          Fragment("?", constructor: String)
+          fr0"${constructor: String}"
         case o @ V.ValueOptional(_) =>
-          Fragment("?::jsonb", toJsonString(o))
-        case V.ValueContractId(value) => Fragment("?", value)
+          fr0"${toJsonString(o)}::jsonb"
+        case V.ValueContractId(value) => fr0"${value}"
         case l @ V.ValueList(_) =>
-          Fragment("?::jsonb", toJsonString(l))
+          fr0"${toJsonString(l)}::jsonb"
         case V.ValueInt64(value) =>
-          Fragment("?", value)
+          fr0"${value}"
         case V.ValueNumeric(value) =>
-          Fragment(s"?::numeric(38,${value.scale})", value: BigDecimal)
+          fr0"${value: BigDecimal}::numeric(38,${value.scale})"
         case V.ValueText(value) =>
-          Fragment("?", value)
+          fr0"${value}"
         case ts @ V.ValueTimestamp(_) =>
-          Fragment("?", ts)
+          fr0"${ts}"
         case V.ValueParty(value) =>
-          Fragment("?", value: String)
+          fr0"${value: String}"
         case V.ValueUnit =>
           Fragment.const("FALSE")
         case V.ValueDate(LfTime.Date(days)) =>
-          Fragment("?", LocalDate.ofEpochDay(days.toLong))
+          fr0"${LocalDate.ofEpochDay(days.toLong)}"
         case V.ValueTextMap(value) =>
-          Fragment("?::jsonb", toJsonString(value))
+          fr0"${toJsonString(value)}::jsonb"
         case V.ValueGenMap(entries) =>
-          Fragment("?::jsonb", toJsonString(entries))
-        case struct @ V.ValueStruct(_) =>
-          throw new IllegalArgumentException(
-            s"struct should not be present in contract, as raw structs are not serializable: $struct")
+          fr0"${toJsonString(entries)}::jsonb"
       }
     }
   }

@@ -1,19 +1,17 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: expressions
 ######################
 
-This page gives reference information for DAML expressions that are not :doc:`updates <updates>`:
-
-.. contents:: :local:
+This page gives reference information for Daml expressions that are not :doc:`updates <updates>`.
 
 .. _daml-ref-def:
 
 Definitions
 ***********
 
-Use assignement to bind values or functions at the top level of a DAML file or in a contract template body.
+Use assignement to bind values or functions at the top level of a Daml file or in a contract template body.
 
 Values
 ======
@@ -90,12 +88,12 @@ Comparison operators
    * - ``<``, ``<=``, ``>``, ``>=``
      - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``
    * - ``==``, ``/=``
-     - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``, and :ref:`identifiers of contract instances <daml-ref_contract-identifiers>` stemming from the same contract template
+     - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``, and :ref:`identifiers of contracts <daml-ref_contract-identifiers>` stemming from the same contract template
 
 Logical operators
 *****************
 
-The logical operators in DAML are:
+The logical operators in Daml are:
 
 - ``not`` for negation, e.g., ``not True == False``
 - ``&&`` for conjunction, where ``a && b == and a b``

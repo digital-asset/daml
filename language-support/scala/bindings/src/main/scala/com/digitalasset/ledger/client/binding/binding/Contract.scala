@@ -1,12 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.v1.{value => rpcvalue}
 
-/**
-  * A class representing a DAML contract of specific type (DAML template) with assigned contract ID and agreement text.
+/** A class representing a DAML contract of specific type (DAML template) with assigned contract ID and agreement text.
   *
   * @param contractId     Contract ID.
   * @param value          Contract instance as defined in DAML template (without `contractId` and `agreementText`).
@@ -26,7 +25,8 @@ final case class Contract[+T](
     agreementText: Option[String],
     signatories: Seq[String],
     observers: Seq[String],
-    key: Option[rpcvalue.Value]) {
+    key: Option[rpcvalue.Value],
+) {
   def arguments: rpcvalue.Record = value.arguments
 }
 

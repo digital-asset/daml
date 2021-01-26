@@ -1,29 +1,32 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
+import com.daml.scalatest.FlatSpecCheckLaws
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup._
-import scalaz.{@@, Equal, Monoid, Tag}
+import scalaz.{@@, Equal, Tag}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class InsertDeleteStepTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with FlatSpecCheckLaws
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import InsertDeleteStepTest._
 
-  behavior of "InsertDeleteStep append monoid"
+  override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 100)
+
+  behavior of "append monoid"
 
   checkLaws(ScalazProperties.monoid.laws[IDS])
 
-  behavior of "InsertDeleteStep.appendWithCid"
+  behavior of "append"
 
   it should "never insert a deleted item" in forAll { (x: IDS, y: IDS) =>
     val xy = x |+| y.copy(inserts = y.inserts filterNot Cid.subst(x.deletes.keySet))
@@ -56,25 +59,20 @@ object InsertDeleteStepTest {
   type Cid = String @@ Alpha
   val Cid = Tag.of[Alpha]
 
-  implicit val `Alpha arb`: Arbitrary[Cid] = Cid subst Arbitrary(
-    Gen.alphaUpperChar map (_.toString))
+  implicit val `Alpha arb`: Arbitrary[Cid] =
+    Cid subst Arbitrary(Gen.alphaUpperChar map (_.toString))
 
-  private implicit val `IDS monoid`
-    : Monoid[IDS] = Monoid instance (_.append(_)(Cid.unwrap), InsertDeleteStep(
-    Vector.empty,
-    Map.empty,
-  ))
+  private[util] implicit val `test Cid`: InsertDeleteStep.Cid[Cid] = Cid.unwrap
 
   implicit val `IDS arb`: Arbitrary[IDS] =
-    Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map {
-      case (is, ds) =>
-        InsertDeleteStep(is filterNot ds.keySet, Cid.unsubst[Map[?, Unit], String](ds))
+    Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map { case (is, ds) =>
+      InsertDeleteStep(is filterNot ds.keySet, Cid.unsubst[Map[*, Unit], String](ds))
     })
 
   implicit val `IDS shr`: Shrink[IDS] =
     Shrink.xmap[(Vector[Cid], Map[Cid, Unit]), IDS](
-      { case (is, ds) => InsertDeleteStep(is, Cid.unsubst[Map[?, Unit], String](ds)) },
-      step => (step.inserts, Cid.subst[Map[?, Unit], String](step.deletes)),
+      { case (is, ds) => InsertDeleteStep(is, Cid.unsubst[Map[*, Unit], String](ds)) },
+      step => (step.inserts, Cid.subst[Map[*, Unit], String](step.deletes)),
     )
 
   implicit val `IDS eq`: Equal[IDS] = Equal.equalA

@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import sangria.parser.QueryParser
 import sangria.schema.SchemaChange.DescriptionChange
 import sangria.schema.Schema
 
 import scala.io.Source
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class GraphQLSchemaSpec extends WordSpec with Matchers {
+class GraphQLSchemaSpec extends AnyWordSpec with Matchers {
   "The rendered schema" should {
     "match the expected schema definition" in {
       val idl =
@@ -25,7 +25,8 @@ class GraphQLSchemaSpec extends WordSpec with Matchers {
 
       if (changes.nonEmpty) {
         fail(
-          s"Schema definition does not match:\n- ${changes.map(_.description).mkString("\n- ")}\n")
+          s"Schema definition does not match:\n- ${changes.map(_.description).mkString("\n- ")}\n"
+        )
       }
     }
   }

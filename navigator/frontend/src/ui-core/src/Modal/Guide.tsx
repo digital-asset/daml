@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -48,7 +48,7 @@ const modalContent = (onClose: () => void) => (
 
 export default class ModalGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       isOpen: false,
       content: modalContent(() => this.close()),
@@ -56,19 +56,19 @@ export default class ModalGuide extends React.Component<{}, State> {
     };
   }
 
-  open() {
+  open(): void {
     this.setState({
       isOpen: true,
     });
   }
 
-  close() {
+  close(): void {
     this.setState({
       isOpen: false,
     });
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Modal"

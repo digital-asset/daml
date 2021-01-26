@@ -1,17 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.sample.MyMain.NameClashRecordVariant
+import com.daml.sample.MyMain.NameClashRecordVariant
 import NameClashRecordVariant.{NameClashRecordVariantA, NameClashRecordVariantB}
-import com.digitalasset.ledger.client.binding.{Primitive => P, Value}
+import com.daml.ledger.client.binding.{Primitive => P, Value}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class NameClashRecordVariantUT extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class NameClashRecordVariantUT
+    extends AnyWordSpec
+    with Matchers
+    with ScalaCheckDrivenPropertyChecks {
 
   "generated variants have compatible read and write methods" in forAll(nameClashRecordVariantGen) {
     a1 =>

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.targets
+package com.daml.extractor.targets
 
 sealed abstract class Target
 final case class PostgreSQLTarget(
@@ -11,7 +11,7 @@ final case class PostgreSQLTarget(
     outputFormat: String,
     schemaPerPackage: Boolean,
     mergeIdentical: Boolean,
-    stripPrefix: Option[String]
+    stripPrefix: Option[String],
 ) extends Target
 final case object TextPrintTarget extends Target
 final case class PrettyPrintTarget(width: Int, height: Int) extends Target

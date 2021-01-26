@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen
+package com.daml.lf.codegen
 
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.digitalasset.daml.lf.archive.DarManifestReader
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.codegen.backend.Backend
-import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
-import com.digitalasset.daml.lf.codegen.conf.Conf
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.digitalasset.daml.lf.iface.{Type => _, _}
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.archive.DarManifestReader
+import com.daml.lf.archive.DarReader
+import com.daml.lf.codegen.backend.Backend
+import com.daml.lf.codegen.backend.java.JavaBackend
+import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.lf.iface.{Type => _, _}
+import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -33,14 +33,13 @@ object CodeGenRunner extends StrictLogging {
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
     LoggerFactory
-      .getLogger("com.digitalasset.daml.lf.codegen.backend.java.inner")
+      .getLogger("com.daml.lf.codegen.backend.java.inner")
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
 
-    conf.darFiles.foreach {
-      case (path, _) =>
-        assertInputFileExists(path)
-        assertInputFileIsReadable(path)
+    conf.darFiles.foreach { case (path, _) =>
+      assertInputFileExists(path)
+      assertInputFileIsReadable(path)
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
@@ -54,7 +53,7 @@ object CodeGenRunner extends StrictLogging {
           t.setName(s"java-codegen-${n.getAndIncrement}")
           t
         }
-      }
+      },
     )
     val ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
@@ -63,28 +62,28 @@ object CodeGenRunner extends StrictLogging {
     val _ = executor.shutdownNow()
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[codegen] def collectDamlLfInterfaces(
-      conf: Conf): (Seq[Interface], Map[PackageId, String]) = {
-    val interfacesAndPrefixes = conf.darFiles.toList.flatMap {
-      case (path, pkgPrefix) =>
-        val file = path.toFile
-        // Explicitly calling `get` to bubble up any exception when reading the dar
-        val dar = ArchiveReader.readArchiveFromFile(file).get
-        dar.all.map { archive =>
-          val (errors, interface) = InterfaceReader.readInterface(archive)
-          if (!errors.equals(Errors.zeroErrors)) {
-            throw new RuntimeException(
-              InterfaceReader.InterfaceReaderError.treeReport(errors).toString)
-          }
-          logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")
-          (interface, interface.packageId -> pkgPrefix)
+      conf: Conf
+  ): (Seq[Interface], Map[PackageId, String]) = {
+    val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
+      val file = path.toFile
+      // Explicitly calling `get` to bubble up any exception when reading the dar
+      val dar = ArchiveReader.readArchiveFromFile(file).get
+      dar.all.map { archive =>
+        val (errors, interface) = InterfaceReader.readInterface(archive)
+        if (!errors.equals(Errors.zeroErrors)) {
+          throw new RuntimeException(
+            InterfaceReader.InterfaceReaderError.treeReport(errors).toString
+          )
         }
+        logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")
+        (interface, interface.packageId -> pkgPrefix)
+      }
     }
 
     val interfaces = interfacesAndPrefixes.map(_._1)
-    val prefixes = interfacesAndPrefixes.collect {
-      case (_, (key, Some(value))) => (key, value)
+    val prefixes = interfacesAndPrefixes.collect { case (_, (key, Some(value))) =>
+      (key, value)
     }.toMap
     (interfaces, prefixes)
   }
@@ -92,9 +91,11 @@ object CodeGenRunner extends StrictLogging {
   private[CodeGenRunner] def generateFile(
       outputFile: Path,
       dataTypes: ImmArray[DefDataType.FWT],
-      templates: ImmArray[DefTemplate.FWT]): Unit = {
+      templates: ImmArray[DefTemplate.FWT],
+  ): Unit = {
     logger.warn(
-      s"Started writing file '$outputFile' with data types ${dataTypes.toString} and templates ${templates.toString}")
+      s"Started writing file '$outputFile' with data types ${dataTypes.toString} and templates ${templates.toString}"
+    )
     val _ = Files.createDirectories(outputFile.getParent)
     if (!Files.exists(outputFile)) {
       val _ = Files.createFile(outputFile)
@@ -102,18 +103,20 @@ object CodeGenRunner extends StrictLogging {
     val os = Files.newOutputStream(
       outputFile,
       StandardOpenOption.WRITE,
-      StandardOpenOption.TRUNCATE_EXISTING)
+      StandardOpenOption.TRUNCATE_EXISTING,
+    )
     os.close()
     logger.warn(s"Finish writing file '$outputFile'")
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[CodeGenRunner] def generateCode(
       interfaces: Seq[Interface],
       conf: Conf,
-      pkgPrefixes: Map[PackageId, String])(implicit ec: ExecutionContext): Unit = {
+      pkgPrefixes: Map[PackageId, String],
+  )(implicit ec: ExecutionContext): Unit = {
     logger.info(
-      s"Start processing packageIds '${interfaces.map(_.packageId).mkString(", ")}' in directory '${conf.outputDirectory}'")
+      s"Start processing packageIds '${interfaces.map(_.packageId).mkString(", ")}' in directory '${conf.outputDirectory}'"
+    )
 
     // TODO (mp): pre-processing and escaping
     val preprocessingFuture: Future[InterfaceTrees] =
@@ -123,12 +126,13 @@ object CodeGenRunner extends StrictLogging {
       for {
         preprocessedInterfaceTrees <- preprocessingFuture
         _ <- Future.traverse(preprocessedInterfaceTrees.interfaceTrees)(
-          processInterfaceTree(_, conf, pkgPrefixes))
+          processInterfaceTree(_, conf, pkgPrefixes)
+        )
       } yield ()
     }
 
     // TODO (mp): make the timeout configurable
-    val _ = Await.result(future, Duration.create(10l, TimeUnit.MINUTES))
+    val _ = Await.result(future, Duration.create(10L, TimeUnit.MINUTES))
     logger.info(s"Finish processing packageIds ''${interfaces.map(_.packageId).mkString(", ")}''")
   }
 
@@ -138,7 +142,8 @@ object CodeGenRunner extends StrictLogging {
   private[CodeGenRunner] def processInterfaceTree(
       interfaceTree: InterfaceTree,
       conf: Conf,
-      packagePrefixes: Map[PackageId, String])(implicit ec: ExecutionContext): Future[Unit] = {
+      packagePrefixes: Map[PackageId, String],
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
     for {
       _ <- interfaceTree.process(backend.process(_, conf, packagePrefixes))
@@ -168,13 +173,14 @@ object CodeGenRunner extends StrictLogging {
       val _ = Files.createDirectories(outputPath)
     } else if (!Files.isDirectory(outputPath)) {
       throw new IllegalArgumentException(
-        s"Output directory '$outputPath' exists but it is not a directory")
+        s"Output directory '$outputPath' exists but it is not a directory"
+      )
     }
   }
 
   object ArchiveReader
       extends DarReader[DamlLf.Archive](
         DarManifestReader.dalfNames,
-        { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+        { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) },
       )
 }

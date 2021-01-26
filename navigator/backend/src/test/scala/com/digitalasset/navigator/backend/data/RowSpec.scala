@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model.{
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.{
   ChoiceExercised,
   CommandStatusError,
   CommandStatusSuccess,
@@ -16,14 +16,15 @@ import com.digitalasset.navigator.model.{
   CreateCommand,
   ExerciseCommand,
   PackageRegistry,
-  Transaction
+  Transaction,
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
-class RowSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+class RowSpec extends AnyWordSpec with Matchers {
+  import com.daml.navigator.{DamlConstants => C}
 
   private val registry: PackageRegistry = PackageRegistry().withPackages(List(C.iface))
 
@@ -31,11 +32,11 @@ class RowSpec extends WordSpec with Matchers {
     "converting CreateCommand" should {
       val value = CreateCommand(
         ApiTypes.CommandId("c01"),
-        1l,
+        1L,
         ApiTypes.WorkflowId("w01"),
         Instant.EPOCH,
         C.complexRecordId,
-        C.complexRecordV
+        C.complexRecordV,
       )
 
       "not change the value" in {
@@ -46,13 +47,13 @@ class RowSpec extends WordSpec with Matchers {
     "converting ExerciseCommand" should {
       val value = ExerciseCommand(
         ApiTypes.CommandId("c01"),
-        1l,
+        1L,
         ApiTypes.WorkflowId("w01"),
         Instant.EPOCH,
         ApiTypes.ContractId("#0:0"),
         C.complexRecordId,
         ApiTypes.Choice("text"),
-        C.simpleTextV
+        C.simpleTextV,
       )
 
       "not change the value" in {
@@ -69,7 +70,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(None)) shouldBe Success(value)
+          .toCommandStatus(_ => Success(None)) shouldBe Success(value)
       }
     }
 
@@ -80,7 +81,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(None)) shouldBe Success(value)
+          .toCommandStatus(_ => Success(None)) shouldBe Success(value)
       }
     }
 
@@ -91,14 +92,14 @@ class RowSpec extends WordSpec with Matchers {
         Some(ApiTypes.CommandId("c01")),
         Instant.EPOCH,
         "1",
-        List.empty
+        List.empty,
       )
       val value = CommandStatusSuccess(tx)
 
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(Some(tx))) shouldBe Success(value)
+          .toCommandStatus(_ => Success(Some(tx))) shouldBe Success(value)
       }
     }
 
@@ -109,7 +110,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(None)) shouldBe Success(value)
+          .toCommandStatus(_ => Success(None)) shouldBe Success(value)
       }
     }
   }
@@ -133,7 +134,7 @@ class RowSpec extends WordSpec with Matchers {
         Some("agreement"),
         List(alice),
         List(bob, charlie),
-        None
+        None,
       )
 
       "not change the value" in {
@@ -153,7 +154,7 @@ class RowSpec extends WordSpec with Matchers {
         ApiTypes.Choice("text"),
         C.simpleTextV,
         List(ApiTypes.Party("p01")),
-        true
+        true,
       )
 
       "not change the value" in {

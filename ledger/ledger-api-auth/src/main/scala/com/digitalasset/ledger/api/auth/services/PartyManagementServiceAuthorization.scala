@@ -1,38 +1,43 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth.services
+package com.daml.ledger.api.auth.services
 
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.digitalasset.ledger.api.v1.admin.party_management_service._
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.ProxyCloseable
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.daml.ledger.api.v1.admin.party_management_service._
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-final class PartyManagementServiceAuthorization(
+private[daml] final class PartyManagementServiceAuthorization(
     protected val service: PartyManagementService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends PartyManagementService
     with ProxyCloseable
     with GrpcApiService {
 
   override def getParticipantId(
-      request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
+      request: GetParticipantIdRequest
+  ): Future[GetParticipantIdResponse] =
     authorizer.requireAdminClaims(service.getParticipantId)(request)
+
+  override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
+    authorizer.requireAdminClaims(service.getParties)(request)
+
+  override def listKnownParties(
+      request: ListKnownPartiesRequest
+  ): Future[ListKnownPartiesResponse] =
+    authorizer.requireAdminClaims(service.listKnownParties)(request)
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
     authorizer.requireAdminClaims(service.allocateParty)(request)
 
-  override def listKnownParties(
-      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
-    authorizer.requireAdminClaims(service.listKnownParties)(request)
-
   override def bindService(): ServerServiceDefinition =
-    PartyManagementServiceGrpc.bindService(this, DirectExecutionContext)
+    PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

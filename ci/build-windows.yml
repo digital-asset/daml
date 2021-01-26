@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -29,10 +29,10 @@ steps:
       artifactName: 'Test logs'
 
   - bash: |
-      export DAML_SDK_RELEASE_VERSION=${{parameters.release_tag}}
+      set -euo pipefail
       INSTALLER=daml-sdk-${{parameters.release_tag}}-windows.exe
       mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$(Build.StagingDirectory)/$INSTALLER"
-      chmod +x "$(Build.StagingDirectory)/$INSTALLER"
+      chmod +wx "$(Build.StagingDirectory)/$INSTALLER"
       cleanup () {
           rm -f signing_key.pfx
       }
@@ -40,28 +40,29 @@ steps:
       echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
       MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
       rm signing_key.pfx
+      trap - EXIT
       echo "##vso[task.setvariable variable=installer;isOutput=true]$INSTALLER"
-      bazel build //release:sdk-release-tarball
       TARBALL=daml-sdk-${{parameters.release_tag}}-windows.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$TARBALL
       echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
     name: publish
     env:
       SIGNING_KEY: $(microsoft-code-signing)
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.installer)
       artifactName: $(publish.installer)
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)

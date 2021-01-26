@@ -1,19 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import java.util.Optional
 
 import com.daml.ledger.javaapi
 import com.squareup.javapoet.{ClassName, ParameterizedTypeName, TypeName}
 import javax.lang.model.element.Modifier
-import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
+import org.scalatest.{OptionValues, TryValues}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues with TryValues {
+final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValues with TryValues {
 
   behavior of "TemplateClass.generateFromIdAndRecord"
 
@@ -33,7 +34,7 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
       "agreementText" -> optionalString,
       "key" -> optionalContractKey,
       "signatories" -> setOfStrings,
-      "observers" -> setOfStrings
+      "observers" -> setOfStrings,
     )
   }
 
@@ -45,7 +46,8 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
       "record$" -> record,
       "agreementText" -> optionalString,
       "signatories" -> setOfStrings,
-      "observers" -> setOfStrings)
+      "observers" -> setOfStrings,
+    )
   }
 
   private[this] val className = ClassName.bestGuess("Test")
@@ -57,7 +59,8 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
       className,
       templateClassName,
       idClassName,
-      Some(ckClassName))
+      Some(ckClassName),
+    )
   private[this] val fromIdAndRecordWithoutKey =
     TemplateClass.generateFromIdAndRecord(className, templateClassName, idClassName, None)
   private[this] val string = TypeName.get(classOf[String])

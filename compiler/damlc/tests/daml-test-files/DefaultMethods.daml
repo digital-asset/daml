@@ -4,9 +4,6 @@
 -- Check that default implementations for type class methods can be translated
 -- even in corner cases.
 
--- @INFO Use identity
-
-
 module DefaultMethods where
 
 -- Default implementation for method without arguments.
@@ -31,7 +28,7 @@ class (Functor t, FoldableX t) => TraversableX t where
 -- a value cycle.
 class Id a where
   id : a -> a
-  id = \x -> x
+  id = identity
 
 instance Id Int where
 

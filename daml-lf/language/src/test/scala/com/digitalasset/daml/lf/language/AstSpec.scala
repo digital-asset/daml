@@ -1,16 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private def defaultVersion = LanguageVersion.defaultV1
 
@@ -20,19 +21,24 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       Package(
         List(
-          Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
-          Module(modName2, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
+          Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
+          Module(modName2, List.empty, List.empty, List.empty, FeatureFlags.default),
+        ),
         Set.empty,
-        None
+        defaultVersion,
+        None,
       )
       a[PackageError] shouldBe thrownBy(
         Package(
           List(
-            Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
-            Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
+            Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
+          ),
           Set.empty,
-          None
-        ))
+          defaultVersion,
+          None,
+        )
+      )
 
     }
 
@@ -47,12 +53,12 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       agreementText = eText,
       choices = Map.empty,
       observers = eParties,
-      key = None
+      key = None,
     )
-    val recordDefWithoutTemplate =
-      DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty, None))
-    val recordDefWithTemplate =
-      DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty, Some(template)))
+    def exception = DefException(
+      message = eText
+    )
+    val recordDef = DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty))
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
     val valDef = DValue(TUnit, false, EUnit, false)
 
@@ -63,13 +69,13 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       Module.apply(
         name = modName1,
         definitions = List(
-          defName("def1") -> recordDefWithoutTemplate,
-          defName("def2") -> recordDefWithTemplate,
+          defName("def1") -> recordDef,
+          defName("def2") -> recordDef,
           defName("def3") -> variantDef,
-          defName("def4") -> valDef
+          defName("def4") -> valDef,
         ),
-        templates = List.empty,
-        languageVersion = defaultVersion,
+        templates = List(defName("def3") -> template),
+        exceptions = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -77,15 +83,16 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         Module.apply(
           name = modName1,
           definitions = List(
-            defName("def1") -> recordDefWithoutTemplate,
-            defName("def2") -> recordDefWithTemplate,
+            defName("def1") -> recordDef,
+            defName("def2") -> recordDef,
             defName("def3") -> variantDef,
-            defName("def1") -> valDef
+            defName("def1") -> valDef,
           ),
-          templates = List.empty,
-          languageVersion = defaultVersion,
+          templates = List(defName("def3") -> template),
+          exceptions = List.empty,
           featureFlags = FeatureFlags.default,
-        ))
+        )
+      )
 
     }
 
@@ -94,13 +101,13 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       Module.apply(
         name = modName1,
         definitions = List(
-          defName("defName1") -> recordDefWithoutTemplate,
-          defName("defName2") -> recordDefWithTemplate,
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
         ),
         templates = List(
-          defName("defName1") -> template,
+          defName("defName1") -> template
         ),
-        languageVersion = defaultVersion,
+        exceptions = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -108,30 +115,30 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         Module.apply(
           name = modName1,
           definitions = List(
-            defName("defName1") -> recordDefWithoutTemplate,
-            defName("defName2") -> recordDefWithTemplate,
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
           ),
           templates = List(
             defName("defName1") -> template,
             defName("defName1") -> template,
           ),
-          languageVersion = defaultVersion,
+          exceptions = List.empty,
           featureFlags = FeatureFlags.default,
-        ))
+        )
+      )
     }
 
-    "catch templates without record definition" in {
-
+    "catch exception collisions" in {
       Module.apply(
         name = modName1,
         definitions = List(
-          defName("defName1") -> recordDefWithoutTemplate,
-          defName("defName2") -> recordDefWithTemplate,
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
         ),
-        templates = List(
-          defName("defName1") -> template,
+        templates = List.empty,
+        exceptions = List(
+          defName("defName1") -> exception
         ),
-        languageVersion = defaultVersion,
         featureFlags = FeatureFlags.default,
       )
 
@@ -139,15 +146,51 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         Module.apply(
           name = modName1,
           definitions = List(
-            defName("defName1") -> recordDefWithoutTemplate,
-            defName("defName2") -> recordDefWithTemplate,
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+          ),
+          templates = List.empty,
+          exceptions = List(
+            defName("defName1") -> exception,
+            defName("defName1") -> exception,
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    }
+
+    "catch collisions between exception and template" in {
+      Module.apply(
+        name = modName1,
+        definitions = List(
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
+        ),
+        templates = List(
+          defName("defName1") -> template
+        ),
+        exceptions = List(
+          defName("defName2") -> exception
+        ),
+        featureFlags = FeatureFlags.default,
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.apply(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
           ),
           templates = List(
-            defName("defName3") -> template,
+            defName("defName1") -> template
           ),
-          languageVersion = defaultVersion,
+          exceptions = List(
+            defName("defName1") -> exception
+          ),
           featureFlags = FeatureFlags.default,
-        ))
+        )
+      )
     }
 
   }
@@ -158,8 +201,11 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       name = name,
       consuming = true,
       controllers = eParties,
+      // TODO https://github.com/digital-asset/daml/issues/7709
+      //  need test for the Some case
+      choiceObservers = None,
       selfBinder = Name.assertFromString("self"),
-      argBinder = (None, TUnit),
+      argBinder = Name.assertFromString("arg") -> TUnit,
       returnType = TUnit,
       update = EUpdate(UpdatePure(typ, expr)),
     )
@@ -177,10 +223,10 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         choices = List(
           choice1 -> builder(choice1, TUnit, EUnit),
           choice2 -> builder(choice2, TBool, ETrue),
-          choice3 -> builder(choice3, TText, eText)
+          choice3 -> builder(choice3, TText, eText),
         ),
         observers = eParties,
-        key = None
+        key = None,
       )
 
       a[PackageError] shouldBe thrownBy(
@@ -192,11 +238,12 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           choices = List(
             choice1 -> builder(choice1, TUnit, EUnit),
             choice2 -> builder(choice2, TBool, ETrue),
-            choice1 -> builder(choice1, TText, eText)
+            choice1 -> builder(choice1, TText, eText),
           ),
           observers = eParties,
-          key = None
-        ))
+          key = None,
+        )
+      )
     }
   }
 

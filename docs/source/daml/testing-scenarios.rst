@@ -1,18 +1,16 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _testing-using-scenarios:
 
 Testing using scenarios
 #######################
 
-DAML has a built-in mechanism for testing templates called *scenarios*.
+Daml has a built-in mechanism for testing templates called *scenarios*.
 
-Scenarios emulate the ledger. You can specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on the sandbox ledger or ledger server. :doc:`DAML Studio </daml/daml-studio>` shows you the resulting Transaction graph.
+Scenarios emulate the ledger. You can specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on the sandbox ledger or ledger server. :doc:`Daml Studio </daml/daml-studio>` shows you the resulting Transaction graph.
 
 For more on how scenarios work, see the :ref:`daml-testing-examples` below.
-
-On this page:
-
-.. contents:: :local:
 
 Scenario syntax
 ***************
@@ -24,7 +22,7 @@ Scenarios
    :language: daml
    :lines: 24-25
 
-A ``scenario`` emulates the ledger, in order to test that a DAML template or sequence of templates are working as they should.
+A ``scenario`` emulates the ledger, in order to test that a Daml template or sequence of templates are working as they should.
 
 It consists of a sequence of transactions to be submitted to the ledger (after ``do``), together with success or failure assertions.
 
@@ -38,7 +36,7 @@ Transaction submission
 
 The :ref:`submit <daml-ref-commits>` function attempts to submit a transaction to the ledger on behalf of a ``Party``.
 
-For example, a transaction could be :ref:`creating <daml-ref-create>` a contract instance on the ledger, or :ref:`exercising <daml-ref-exercise>` a choice on an existing contract.
+For example, a transaction could be :ref:`creating <daml-ref-create>` a contract on the ledger, or :ref:`exercising <daml-ref-exercise>` a choice on an existing contract.
 
 Asserting transaction failure
 =============================
@@ -57,10 +55,10 @@ Full syntax
 
 For detailed syntax, see :doc:`reference/scenarios`.
 
-Running scenarios in DAML Studio
+Running scenarios in Daml Studio
 ********************************
 
-When you load a file that includes scenarios into :doc:`DAML Studio </daml/daml-studio>`, it displays a "Scenario results" link above the scenario. Click the link to see a representation of the ledger after the scenario has run.
+When you load a file that includes scenarios into :doc:`Daml Studio </daml/daml-studio>`, it displays a "Scenario results" link above the scenario. Click the link to see a representation of the ledger after the scenario has run.
 
 .. _daml-testing-examples:
 
@@ -89,15 +87,15 @@ This example tests a contract that gives both parties an explicit opportunity to
    :language: daml
    :lines: 33-45
 
-In the first transaction of the scenario, party ``bankOfEngland`` (created using ``getParty "Bank of England"``) creates an instance of the ``CallablePayout`` contract with ``alice`` as the receiver and ``bankOfEngland`` as the giver.
+In the first transaction of the scenario, party ``bankOfEngland`` (created using ``getParty "Bank of England"``) creates a ``CallablePayout`` contract with ``alice`` as the receiver and ``bankOfEngland`` as the giver.
 
 When the contract is submitted to the ledger, it is given a unique contract identifier of type ``ContractId CallablePayout``. ``payAlice <-`` assigns that identifier to the variable ``payAlice``.
 
-In the second statement, ``exercise payAlice Call``, is an exercise of the ``Call`` choice on the contract instance identified by ``payAlice``. This causes a ``Payout`` agreement with her as the ``receiver`` to be written to the ledger.
+In the second statement, ``exercise payAlice Call``, is an exercise of the ``Call`` choice on the contract identified by ``payAlice``. This causes a ``Payout`` agreement with her as the ``receiver`` to be written to the ledger.
 
 The workflow described by the above scenario models both parties explicitly exercising their rights and accepting their obligations:
 
-- Party ``"Bank of England"`` is assumed to know the definition of the ``CallablePayout`` contract template and the consequences of submitting a contract instance to the ledger.
+- Party ``"Bank of England"`` is assumed to know the definition of the ``CallablePayout`` contract template and the consequences of submitting a contract to the ledger.
 - Party ``"Alice"`` is assumed to know the definition of the contract template, as well as the consequences of exercising the ``Call`` choice on it. If ``"Alice"`` does not want to receive five pounds, she can simply not exercise that choice.
 
 Example with submitMustFail
@@ -111,4 +109,4 @@ To test this expectation, use the ``submitMustFail`` function:
    :language: daml
    :lines: 56-73
 
-When the ``Call`` choice is exercised, the contract instance is archived. The ``fails`` keyword checks that if ``'Alice'`` submits ``exercise payAlice Call`` again, it would fail.
+When the ``Call`` choice is exercised, the contract is archived. The ``fails`` keyword checks that if ``'Alice'`` submits ``exercise payAlice Call`` again, it would fail.

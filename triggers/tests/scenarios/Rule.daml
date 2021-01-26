@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -9,6 +9,7 @@ import DA.Assert
 import qualified DA.Next.Map as Map
 import Daml.Trigger
 import Daml.Trigger.Assert
+import qualified Daml.Script as Script
 
 template T
   with
@@ -26,29 +27,43 @@ template T
         do
           pure ()
 
+-- not instances we want in the stdlib, but good enough for this test
+instance CanAbort (TriggerA s) where
+  abort = error
+instance ActionFail (TriggerA s) where
+  fail = error
+
 trigger : Trigger Int
 trigger = Trigger with
-  initialize = const 0
-  updateState = \acs _msg count -> length (getContracts @T acs)
-  rule = \party acs _time _commandsInFlight count -> do
+  initialize = pure 0
+  updateState = \_msg -> put . length =<< query @T
+  rule = \party -> do
+    count <- get
     when (count == 1) do
+      priorCIF <- getCommandsInFlight
       -- Create two additional T.
       dedupCreate T with party, count
       dedupCreate T with party, count = succ count
       -- Exercise a choice
-      let [(tId, _)] = getContracts @T acs
+      ts <- query @T
+      let [(tId, _)] = ts
       dedupExercise tId Poke with n = 0
       -- Exercise a choice by key
       dedupExerciseByKey @T (party, 0) Poke with n = 1
+      newCIF <- getCommandsInFlight
+      let changedCIF = Map.size (Map.filterWithKey (\k _ -> not (Map.member k priorCIF)) newCIF)
+      assertEq changedCIF 4
+    put (-1) -- just introducing some chaos
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
 
-test = scenario do
-  alice <- getParty "Alice"
-  tId <- submit alice do create T with party = alice, count = 1
+test = do
+  alice <- Script.allocateParty "Alice"
+  tId <- submit alice do Script.createCmd T with party = alice, count = 1
   let activeContracts = toACS tId
   let commandsInFlight = Map.empty
-  commands <- testRule trigger alice activeContracts commandsInFlight 1
+  (endCount, commands) <- testRule trigger alice activeContracts commandsInFlight 1
+  assertEq endCount (-1)
   let flatCommands = flattenCommands commands
   assertCreateCmd flatCommands $ \T { party, count } -> do
     assertEq party alice
@@ -60,3 +75,33 @@ test = scenario do
     assertEq k (alice, 0)
     assertEq choiceArg (Poke 1)
   pure ()
+
+queryIds : Trigger ()
+queryIds = Trigger with
+  initialize = pure ()
+  updateState = const (pure ())
+  rule = \party -> do
+    [(tId, queried), (tId', queried')] <- query @T
+    assertById tId queried
+    assertById tId' queried'
+    -- exercise leaves the contract there
+    dedupExercise tId Poke with n = 43
+    assertById tId queried
+    -- emit will filter out after the rule runs
+    emitCommands [exerciseCmd tId Poke with n = 44] [toAnyContractId tId]
+    assertById tId queried
+    assertById tId' queried'
+  registeredTemplates = RegisteredTemplates [registeredTemplate @T]
+  heartbeat = None
+
+assertById tId lookedUp = do
+  Some c <- queryContractId tId
+  assertEq c lookedUp
+
+testQueryIds = do
+  alice <- Script.allocateParty "Alice"
+  tId <- submit alice do Script.createCmd T with party = alice, count = 42
+  tId' <- submit alice do Script.createCmd T with party = alice, count = 43
+  let activeContracts = toACS tId <> toACS tId'
+  let commandsInFlight = Map.empty
+  testRule queryIds alice activeContracts commandsInFlight ()

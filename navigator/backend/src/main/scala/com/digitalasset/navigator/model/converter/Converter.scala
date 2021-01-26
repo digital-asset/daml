@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model.converter
+package com.daml.navigator.model.converter
 
 case object Converter {
 
@@ -14,7 +14,7 @@ case object Converter {
   /** Returns the value of a required protobuf3 field, or RequiredFieldDoesNotExistError if it doesn't exist. */
   def checkExists[T](
       fieldName: String,
-      maybeElement: Option[T]
+      maybeElement: Option[T],
   ): Either[ConversionError, T] =
     maybeElement match {
       case Some(element) => Right(element)
@@ -23,7 +23,7 @@ case object Converter {
 
   def checkExists[T](
       maybeElement: Option[T],
-      error: ConversionError
+      error: ConversionError,
   ): Either[ConversionError, T] =
     maybeElement match {
       case Some(element) => Right(element)

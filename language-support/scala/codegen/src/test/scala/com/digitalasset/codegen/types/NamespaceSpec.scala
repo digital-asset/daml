@@ -1,17 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.types
+package com.daml.codegen.types
 
-import org.scalatest.{WordSpec, Matchers, Inside}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scalaz.std.anyVal._
 import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.bifunctor._
 
-class NamespaceSpec extends WordSpec with Matchers with Inside with GeneratorDrivenPropertyChecks {
+class NamespaceSpec
+    extends AnyWordSpec
+    with Matchers
+    with Inside
+    with ScalaCheckDrivenPropertyChecks {
   "fromHierarchy" should {
     "be lossless for keysets" in forAll { m: Map[List[Int], Int] =>
       NamespaceSpec
@@ -23,7 +29,7 @@ class NamespaceSpec extends WordSpec with Matchers with Inside with GeneratorDri
 }
 
 object NamespaceSpec {
-  import com.digitalasset.codegen.lf.HierarchicalOutput.`scalaz ==>> future`
+  import com.daml.codegen.lf.HierarchicalOutput.`scalaz ==>> future`
 
   def paths[K, A](n: Namespace[K, A]): Vector[(List[K], A)] =
     n.foldTreeStrict[Vector[(List[K], A)]] { (a, kVecs) =>

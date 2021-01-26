@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphqless
+package com.daml.navigator.graphqless
 
 import sangria.schema.OutputType
 
@@ -16,16 +16,14 @@ object GraphQLOutputType {
 
 trait DerivedGraphQLOutputType {
 
-  implicit def graphQLLeafToGraphQLOutputType[T](
-      implicit
+  implicit def graphQLLeafToGraphQLOutputType[T](implicit
       graphQLLeaf: GraphQLLeaf[T]
   ): GraphQLOutputType[T] = new GraphQLOutputType[T] {
     override def outputType[Ctx]: OutputType[T] =
       graphQLLeaf.to
   }
 
-  implicit def graphQLObjectToGraphQLOutputType[T](
-      implicit
+  implicit def graphQLObjectToGraphQLOutputType[T](implicit
       graphQLObject: GraphQLObject[T]
   ): GraphQLOutputType[T] = new GraphQLOutputType[T] {
     override def outputType[Ctx]: OutputType[T] =

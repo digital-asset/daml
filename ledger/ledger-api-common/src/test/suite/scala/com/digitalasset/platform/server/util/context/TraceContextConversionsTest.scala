@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.util.context
+package com.daml.platform.server.util.context
 
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TraceContextConversionsTest extends WordSpec with Matchers {
+class TraceContextConversionsTest extends AnyWordSpec with Matchers {
 
   private val sut = TraceContextConversions
 

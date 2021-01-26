@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes._
-import com.digitalasset.navigator.graphql._
-import com.digitalasset.navigator.graphql.SprayMarshallers._
-import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.navigator.store.Store.StoreException
+import com.daml.navigator.graphql._
+import com.daml.navigator.graphql.SprayMarshallers._
+import com.daml.navigator.model.PartyState
+import com.daml.navigator.store.Store.StoreException
 import com.typesafe.scalalogging.LazyLogging
 import sangria.ast.Document
 import sangria.execution._
@@ -23,8 +23,7 @@ import scala.util.Try
 
 case class ParseResult(ast: Document, operationName: Option[String], variables: JsValue)
 
-/**
-  * Provides a way of executing GraphQL queries.
+/** Provides a way of executing GraphQL queries.
   */
 trait GraphQLHandler {
   def schema: Schema[GraphQLContext, Unit]
@@ -40,11 +39,11 @@ object GraphQLHandler {
   type CustomEndpoints = Set[CustomEndpoint[_]]
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 case class DefaultGraphQLHandler(
     customEndpoints: GraphQLHandler.CustomEndpoints,
-    platformStore: Option[ActorRef])(
-    implicit executionContext: ExecutionContext
+    platformStore: Option[ActorRef],
+)(implicit
+    executionContext: ExecutionContext
 ) extends GraphQLHandler
     with LazyLogging {
 
@@ -57,8 +56,8 @@ case class DefaultGraphQLHandler(
     for {
       fields <- Try(request.asJsObject.fields)
       JsString(query) <- Try(fields("query"))
-      operationName = fields.get("operationName").collect {
-        case JsString(value) => value
+      operationName = fields.get("operationName").collect { case JsString(value) =>
+        value
       }
       vars: JsValue = fields.get("variables") match {
         case Some(obj: JsObject) => obj
@@ -79,9 +78,9 @@ case class DefaultGraphQLHandler(
           context,
           variables = parsed.variables,
           operationName = parsed.operationName,
-          exceptionHandler = ExceptionHandler {
-            case (_, StoreException(message)) => HandledException(message)
-          }
+          exceptionHandler = ExceptionHandler { case (_, StoreException(message)) =>
+            HandledException(message)
+          },
         )
         .map(OK -> _)
         .recover {

@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 
 private[validation] object Serializability {
 
@@ -21,10 +21,6 @@ private[validation] object Serializability {
 
     import world._
 
-    private val supportsSerializablePolymorphicContractIds =
-      LanguageVersion.ordering
-        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "5"))
-
     def unserializable(reason: UnserializabilityReason): Nothing =
       throw EExpectedSerializableType(ctx, requirement, typeToSerialize, reason)
 
@@ -37,23 +33,8 @@ private[validation] object Serializability {
     def checkType(): Unit = checkType(typeToSerialize)
 
     def checkType(typ0: Type): Unit = typ0 match {
-      case TApp(TBuiltin(BTContractId), tArg) => {
-        if (supportsSerializablePolymorphicContractIds) {
-          checkType(tArg)
-        } else {
-          tArg match {
-            case TTyCon(tCon) => {
-              lookupDataType(ctx, tCon) match {
-                case DDataType(_, _, DataRecord(_, Some(_))) =>
-                  ()
-                case _ =>
-                  unserializable(URContractId)
-              }
-            }
-            case _ => unserializable(URContractId)
-          }
-        }
-      }
+      case TApp(TBuiltin(BTContractId), tArg) =>
+        checkType(tArg)
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>
@@ -81,7 +62,9 @@ private[validation] object Serializability {
         checkType(targ)
       case TBuiltin(builtinType) =>
         builtinType match {
-          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit |
+              BTAnyException | BTGeneralError | BTArithmeticError | BTContractError =>
+            ()
           case BTNumeric =>
             unserializable(URNumeric)
           case BTList =>
@@ -117,9 +100,11 @@ private[validation] object Serializability {
       world: World,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
-      dataCons: DataCons): Unit = {
+      dataCons: DataCons,
+  ): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
-    val env = (Env(version, world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
+    val env =
+      (params.iterator foldLeft Env(version, world, context, SRDataType, tyCon))(_.introVar(_))
     val typs = dataCons match {
       case DataVariant(variants) =>
         if (variants.isEmpty) env.unserializable(URUninhabitatedType)
@@ -127,7 +112,7 @@ private[validation] object Serializability {
       case DataEnum(constructors) =>
         if (constructors.isEmpty) env.unserializable(URUninhabitatedType)
         else Iterator.empty
-      case DataRecord(fields, _) =>
+      case DataRecord(fields) =>
         fields.iterator.map(_._2)
     }
     typs.foreach(env.checkType)
@@ -150,18 +135,30 @@ private[validation] object Serializability {
     template.key.foreach(k => Env(version, world, context, SRKey, k.typ).checkType())
   }
 
+  def checkException(
+      version: LanguageVersion,
+      world: World,
+      tyCon: TTyCon,
+  ): Unit = {
+    val context = ContextDefException(tyCon.tycon)
+    Env(version, world, context, SRExceptionArg, tyCon).checkType()
+  }
+
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
-    val version = module.languageVersion
+    val version = world.lookupPackage(NoContext, pkgId).languageVersion
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
         if (serializable) checkDataType(version, world, tyCon, params, dataCons)
-        dataCons match {
-          case DataRecord(_, Some(template)) =>
-            checkTemplate(version, world, tyCon, template)
-          case _ =>
-        }
       case _ =>
+    }
+    module.templates.foreach { case (defName, template) =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkTemplate(version, world, tyCon, template)
+    }
+    module.exceptions.keys.foreach { defName =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkException(version, world, tyCon)
     }
   }
 }

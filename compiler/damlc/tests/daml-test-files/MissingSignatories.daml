@@ -1,0 +1,17 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module MissingSignatories where
+
+template TheContract
+  with
+    ss : [Party]
+  where
+    signatory ss
+
+-- @ERROR failed due missing signatories
+test__NoSignatories = scenario do
+  ivy <- getParty "Ivy"
+  submit ivy $ do
+    create (TheContract with ss = [])
+    abort "finished"

@@ -43,14 +43,15 @@ function da_auto_prevent_update {
 }
 
 function da_clear_buckets {
-    Remove-Item $scoopInstallDir\apps\scoop\current\bucket\* -r -force
+    Remove-Item $scoopInstallDir\buckets\dadew -r -force -ErrorAction Ignore
+    New-Item $scoopInstallDir\buckets\dadew -ItemType "directory" -Force
 }
 
 function da_sync_buckets([String] $Directory) {
     da_clear_buckets
     $files = Get-ChildItem $Directory | Where-Object {$_.Name -like '*.json'}
     ForEach ($file in $files) {
-        Get-Content "$Directory\$file" | Set-Content "$scoopInstallDir\apps\scoop\current\bucket\$file"
+        Get-Content "$Directory\$file" | Set-Content "$scoopInstallDir\buckets\dadew\$file"
     }
 }
 
@@ -134,7 +135,7 @@ function da_install_all([String] $Directory) {
                 $installedSha = (Get-FileHash $scoopInstallDir\apps\$app\current\manifest.json).Hash
             }
 
-            $availableSha = (Get-FileHash $scoopInstallDir\apps\scoop\current\bucket\$app.json).Hash
+            $availableSha = (Get-FileHash $scoopInstallDir\buckets\dadew\$app.json).Hash
 
             If ($installedSha -eq $availableSha) {
                 da_success "<< ok"

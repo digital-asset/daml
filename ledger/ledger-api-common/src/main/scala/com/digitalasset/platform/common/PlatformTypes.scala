@@ -1,59 +1,38 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.common
+package com.daml.platform.common
 
-import com.digitalasset.daml.lf.transaction.{Node => N}
-import com.digitalasset.daml.lf.value.{ValueVersions, Value => V}
-import com.digitalasset.daml.lf.{transaction => T}
-import com.digitalasset.daml.lf.{engine => E}
-import com.digitalasset.daml.lf.data.Ref
-import scala.collection.breakOut
+import com.daml.lf.transaction.{Node => N}
+import com.daml.lf.{engine => E}
+import com.daml.lf.data.Ref
 
 object PlatformTypes {
 
-  type GenTransaction[Nid, Cid] = T.GenTransaction.WithTxValue[Nid, Cid]
-  val GenTransaction: T.GenTransaction.type = T.GenTransaction
+  type GenNode[Nid, Cid] = N.GenNode[Nid, Cid]
 
-  type GenNode[Nid, Cid] = N.GenNode.WithTxValue[Nid, Cid]
-
-  type NodeCreate[Cid] = N.NodeCreate.WithTxValue[Cid]
+  type NodeCreate[Cid] = N.NodeCreate[Cid]
   val NodeCreate: N.NodeCreate.type = N.NodeCreate
 
-  type NodeLookupByKey[Cid] = N.NodeLookupByKey.WithTxValue[Cid]
+  type NodeLookupByKey[Cid] = N.NodeLookupByKey[Cid]
   val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
 
   type NodeFetch[Cid] = N.NodeFetch[Cid]
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
-  type NodeExercises[Nid, Cid] = N.NodeExercises.WithTxValue[Nid, Cid]
+  type NodeExercises[Nid, Cid] = N.NodeExercises[Nid, Cid]
   val NodeExercises: N.NodeExercises.type = N.NodeExercises
 
-  type Event[Nid, Cid] = E.Event[Nid, Cid, T.Transaction.Value[Cid]]
+  type Event[Nid, Cid] = E.Event[Nid, Cid]
 
-  type Events[Nid, Cid] = E.Event.Events[Nid, Cid, T.Transaction.Value[Cid]]
+  type Events[Nid, Cid] = E.Event.Events[Nid, Cid]
   val Events: E.Event.Events.type = E.Event.Events
 
-  type CreateEvent[Cid] = E.CreateEvent[Cid, T.Transaction.Value[Cid]]
+  type CreateEvent[Cid] = E.CreateEvent[Cid]
   val CreateEvent: E.CreateEvent.type = E.CreateEvent
 
-  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, T.Transaction.Value[Cid]]
+  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid]
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
-
-  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-  def mapContractIdAndValue[Nid, Cid, Cid2](tx: GenTransaction[Nid, Cid])(
-      f: Cid => Cid2): GenTransaction[Nid, Cid2] =
-    tx.mapContractIdAndValue(f, _.mapContractId(f))
-
-  def asVersionedValue[Cid <: V.ContractId](
-      v: V[Cid]): scala.Either[String, V.VersionedValue[Cid]] =
-    ValueVersions.asVersionedValue(v)
-
-  def asVersionedValueOrThrow[Cid <: V.ContractId](v: V[Cid]): V.VersionedValue[Cid] = {
-    asVersionedValue(v).fold(
-      s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
-      identity)
-  }
 
   def packageId(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 
@@ -65,7 +44,7 @@ object PlatformTypes {
 
   def party(str: String): Ref.Party = Ref.Party.assertFromString(str)
 
-  def parties(as: Iterable[String]): Set[Ref.Party] = as.map(a => party(a))(breakOut)
+  def parties(as: Iterable[String]): Set[Ref.Party] = as.view.map(a => party(a)).toSet
 
   def ss(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 

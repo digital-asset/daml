@@ -1,4 +1,4 @@
-# DAML SDK documentation
+# Daml Documentation
 
 This directory contains all of the documentation that gets published to docs.daml.com.
 
@@ -13,13 +13,14 @@ To edit documentation:
 
   Don't forget you need to add your file to the `toctree` in `/docs/source/index.rst` *and* `/docs/configs/pdf/index.rst`.
 - **Make sure you preview** before you push.
+- Don't insert line-breaks inside inline literals. Building preview will treat this as an error.
 
 ### Generated documentation
 
 Not all of our docs are in rst files: some get generated. They are:
 
 - the ledger API proto docs
-- the DAML standard library reference
+- the Daml standard library reference
 - the Java bindings reference
 
 To edit those docs, edit the content inside the code source.

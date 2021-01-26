@@ -1,0 +1,46 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Main where
+
+import Daml.Script
+import Iou
+import IouTrade()
+
+initialize : Script ()
+initialize = do
+  -- allocate parties
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  usBank <- allocatePartyWithHint "USD_Bank" (PartyIdHint "USD_Bank")
+  eurBank <- allocatePartyWithHint "EUR_Bank" (PartyIdHint "EUR_Bank")
+
+  -- Banks issue IOU transfers.
+  iouEurBankCid <- submit eurBank do
+    createCmd Iou with
+      issuer = eurBank
+      owner = eurBank
+      currency = "EUR"
+      amount = 100.0
+      observers = []
+
+  iouTransferAliceCid <- submit eurBank do
+    exerciseCmd iouEurBankCid Iou_Transfer with newOwner = alice
+
+  iouUsBankCid <- submit usBank do
+    createCmd Iou with
+      issuer = usBank
+      owner = usBank
+      currency = "USD"
+      amount = 110.0
+      observers = []
+
+  iouTransferBobCid <- submit usBank do
+    exerciseCmd iouUsBankCid Iou_Transfer with newOwner = bob
+
+  -- Bob and Alice accept.
+  submit alice do exerciseCmd iouTransferAliceCid IouTransfer_Accept
+  submit bob do exerciseCmd iouTransferBobCid IouTransfer_Accept
+
+  pure ()

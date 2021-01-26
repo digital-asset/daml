@@ -1,8 +1,8 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML SDK Documentation
-======================
+Daml Documentation
+==================
 
 Getting started
 ---------------
@@ -12,9 +12,13 @@ Getting started
    :maxdepth: 2
 
    Installing the SDK <getting-started/installation>
-   Quickstart Guide <getting-started/quickstart>
+   Building Your App <getting-started/index>
+   getting-started/app-architecture
+   getting-started/first-feature
+   getting-started/testing
+   Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
-Writing DAML
+Writing Daml
 ------------
 
 .. toctree::
@@ -23,10 +27,10 @@ Writing DAML
 
    daml/intro/0_Intro.rst
    daml/reference/index
-   daml/daml-studio
+   daml/stdlib/index
    daml/testing-scenarios
    daml/troubleshooting
-   daml/good-daml
+   /daml/patterns
 
 Building applications
 ---------------------
@@ -35,25 +39,47 @@ Building applications
    :titlesonly:
    :maxdepth: 2
 
-   app-dev/index
-   app-dev/bindings-java/index
-   app-dev/bindings-scala/index
-   app-dev/bindings-js
-   app-dev/grpc/index
-   app-dev/bindings-x-lang/index
    app-dev/app-arch
-   app-dev/authentication
+   app-dev/bindings-ts/index
+   json-api/index
+   Daml Script <daml-script/index>
+   Daml REPL <daml-repl/index>
+   upgrade/index
+   app-dev/authorization
+   app-dev/ledger-api
 
-SDK tools
----------
+Deploying to Daml ledgers
+-------------------------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   deploy/index
+   deploy/generic_ledger
+   deploy/ledger-topologies
+
+Operating Daml
+--------------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   ops/index
+
+Developer Tools
+---------------
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
 
    tools/assistant
+   daml/daml-studio
    tools/sandbox
    tools/navigator/index
+   tools/codegen
 
 Background concepts
 -------------------
@@ -64,15 +90,9 @@ Background concepts
 
    concepts/glossary
    concepts/ledger-model/index
-
-Deploying
----------
-
-.. toctree::
-   :titlesonly:
-   :maxdepth: 2
-
-   deploy/index
+   concepts/identity-and-package-management
+   concepts/time
+   concepts/local-ledger
 
 Examples
 --------
@@ -81,32 +101,30 @@ Examples
    :titlesonly:
    :maxdepth: 2
 
-   examples/examples
+   Examples <https://daml.com/examples>
 
-Experimental features
+Early Access Features
 ---------------------
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
 
-   experimental/warning
+   tools/extractor
    daml-integration-kit/index
-   json-api/index
    triggers/index
-   daml-script/index
-   daml-repl/index
    tools/visual
-   daml2ts/index
-   getting-started/index
+   tools/trigger-service
+   concepts/interoperability
 
-Support and updates
--------------------
+Daml Ecosystem
+--------------
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
 
+   support/overview
+   support/releases
+   support/compatibility
    support/support
-   support/release-notes
-   Roadmap <support/roadmap>

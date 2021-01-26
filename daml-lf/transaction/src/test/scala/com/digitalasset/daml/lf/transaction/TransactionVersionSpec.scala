@@ -1,65 +1,35 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import data.ImmArray
-import value.Value
-import Value.{ContractId, ValueOptional, VersionedValue}
-import value.ValueVersions.asVersionedValue
-import TransactionVersions.assignVersion
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.lf.language.LanguageVersion
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.immutable.HashMap
+class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-class TransactionVersionSpec extends WordSpec with Matchers {
-  import TransactionVersionSpec._
+  import LanguageVersion.{v1_6, v1_7, v1_8, v1_11, v1_dev}
+  import TransactionVersion.{V10, V11, VDev}
 
-  "assignVersion" should {
-    "prefer picking an older version" in {
-      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe TransactionVersion("1")
-    }
+  "TransactionVersion.assignNodeVersion" should {
 
-    "pick version 2 when confronted with newer data" in {
-      val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(usingOptional)) shouldBe TransactionVersion("2")
-    }
+    val testCases = Table(
+      "language version" -> "transaction version",
+      v1_6 -> V10,
+      v1_7 -> V10,
+      v1_8 -> V10,
+      v1_11 -> V11,
+      v1_dev -> VDev,
+    )
 
-    "pick version 7 when confronted with exercise result" in {
-      val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("7")
-    }
-
-    "pick version 2 when confronted with exercise result" in {
-      val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("2")
+    "be stable" in {
+      forEvery(testCases) { (languageVersion, transactionVersions) =>
+        TransactionVersion.assignNodeVersion(languageVersion) shouldBe transactionVersions
+      }
     }
 
   }
-
-  private[this] def assignValueVersions[Nid, Cid <: ContractId](
-      t: GenTransaction[Nid, Cid, Value[Cid]],
-  ): GenTransaction[Nid, Cid, VersionedValue[Cid]] =
-    t map3 (identity, identity, v =>
-      asVersionedValue(v) fold (e =>
-        fail(s"We didn't write traverse for GenTransaction: $e"), identity))
-}
-
-object TransactionVersionSpec {
-  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
-  private[this] val singleId = "a"
-  private val dummyCreateTransaction =
-    StringTransaction(HashMap(singleId -> dummyCreateNode), ImmArray(singleId))
-  private val dummyExerciseWithResultTransaction =
-    StringTransaction(HashMap(singleId -> dummyExerciseNode(ImmArray.empty)), ImmArray(singleId))
-  private val dummyExerciseTransaction =
-    StringTransaction(
-      HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
-      ImmArray(singleId),
-    )
-
 }

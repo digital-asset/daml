@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -67,7 +67,7 @@ export default class TableActionBarGuide extends React.Component<{}, State> {
     this.onConfigChange = this.onConfigChange.bind(this);
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Table action bar"
@@ -139,7 +139,7 @@ export default class TableActionBarGuide extends React.Component<{}, State> {
     );
   }
 
-  onConfigChange(config: Config) {
+  onConfigChange(config: Config): void {
     this.setState({ config });
   }
 }

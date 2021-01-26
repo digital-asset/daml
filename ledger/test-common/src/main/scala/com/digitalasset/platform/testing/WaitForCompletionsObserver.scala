@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.testing
+package com.daml.platform.testing
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
@@ -15,8 +15,11 @@ object WaitForCompletionsObserver {
 
   def apply(n: Int)(attach: StreamObserver[CompletionStreamResponse] => Unit): Future[Unit] = {
     if (n < 1) {
-      Future.failed(new IllegalArgumentException(
-        s"Invalid argument $n, `WaitForCompletionsObserver` requires a strictly positive integer as an argument"))
+      Future.failed(
+        new IllegalArgumentException(
+          s"Invalid argument $n, `WaitForCompletionsObserver` requires a strictly positive integer as an argument"
+        )
+      )
     } else {
       val observer = new WaitForCompletionsObserver(n)
       attach(observer)
@@ -29,7 +32,7 @@ object WaitForCompletionsObserver {
 final class WaitForCompletionsObserver private (expectedCompletions: Int)
     extends StreamObserver[CompletionStreamResponse] {
 
-  private val promise = Promise[Unit]
+  private val promise = Promise[Unit]()
   private val counter = new AtomicInteger(0)
 
   val result: Future[Unit] = promise.future
@@ -37,8 +40,9 @@ final class WaitForCompletionsObserver private (expectedCompletions: Int)
   override def onNext(v: CompletionStreamResponse): Unit = {
     val total = counter.addAndGet(v.completions.size)
     if (total >= expectedCompletions) {
-      val _1 = promise.trySuccess(())
-      val _2 = Context.current().withCancellation().cancel(null)
+      promise.trySuccess(())
+      Context.current().withCancellation().cancel(null)
+      ()
     }
   }
 

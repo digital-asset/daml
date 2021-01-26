@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell #-}
@@ -7,12 +7,14 @@ module DA.Daml.LF.Ast.World(
     World,
     DalfPackage(..),
     getWorldSelf,
+    getWorldImported,
     initWorld,
     initWorldSelf,
     extendWorldSelf,
     ExternalPackage(..),
     LookupError,
     lookupTemplate,
+    lookupException,
     lookupTypeSyn,
     lookupDataType,
     lookupChoice,
@@ -42,10 +44,12 @@ data World = World
   , _worldSelf :: Package
   }
 
+
 getWorldSelf :: World -> Package
 getWorldSelf = _worldSelf
 
-makeLensesFor [("_worldSelf","worldSelf")] ''World
+getWorldImported :: World -> [ExternalPackage]
+getWorldImported world = map (uncurry ExternalPackage) $ HMS.toList (_worldImported world)
 
 -- | A package where all references to `PRSelf` have been rewritten
 -- to `PRImport`.
@@ -55,6 +59,8 @@ data ExternalPackage = ExternalPackage
   } deriving (Show, Eq, Generic)
 
 instance NFData ExternalPackage
+
+makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 data DalfPackage = DalfPackage
     { dalfPackageId :: PackageId
@@ -89,6 +95,7 @@ data LookupError
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
   | LETemplate !(Qualified TypeConName)
+  | LEException !(Qualified TypeConName)
   | LEChoice !(Qualified TypeConName) !ChoiceName
   deriving (Eq, Ord, Show)
 
@@ -129,6 +136,9 @@ lookupValue = lookupDefinition moduleValues LEValue
 lookupTemplate :: Qualified TypeConName -> World -> Either LookupError Template
 lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
+lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
+lookupException = lookupDefinition moduleExceptions LEException
+
 lookupChoice :: (Qualified TypeConName, ChoiceName) -> World -> Either LookupError TemplateChoice
 lookupChoice (tplRef, chName) world = do
   tpl <- lookupTemplate tplRef world
@@ -145,4 +155,5 @@ instance Pretty LookupError where
     LEDataType datRef -> "unknown data type:" <-> pretty datRef
     LEValue valRef-> "unknown value:" <-> pretty valRef
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef
+    LEException exnRef -> "unknown exception:" <-> pretty exnRef
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName

@@ -1,24 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf
+package speedy
 package testing
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.speedy.Pretty._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.validation.Validation
-import com.digitalasset.daml.lf.testing.parser
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.VersionTimeline
+import com.daml.lf.data._
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.Pretty._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.speedy.SExpr.LfDefRef
+import com.daml.lf.validation.Validation
+import com.daml.lf.testing.parser
+import com.daml.lf.language.{LanguageVersion => LV}
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -29,7 +28,8 @@ import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, S
 import org.jline.reader.impl.history.DefaultHistory
 
 import scala.collection.immutable.ListMap
-import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 
 object Main extends App {
   // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
@@ -37,68 +37,70 @@ object Main extends App {
   val out = new PrintStream(System.out, true, "UTF-8")
   System.setOut(out)
 
-  def usage(): Unit = {
-    println(
-      """
-     |usage: daml-lf-speedy COMMAND ARGS...
-     |
-     |commands:
-     |  repl [file]             Run the interactive repl. Load the given packages if any.
-     |  test <name> [file]      Load given packages and run the named scenario with verbose output.
-     |  testAll [file]          Load the given packages and run all scenarios.
-     |  validate [file]         Load the given packages and validate them.
-     |  [file]                  Same as 'repl' when all given files exist.
+  def usage(): Unit =
+    println("""
+        |usage: daml-lf-speedy COMMAND ARGS...
+        |
+        |commands:
+        |  repl [file]             Run the interactive repl. Load the given packages if any.
+        |  test <name> [file]      Load given packages and run the named scenario with verbose output.
+        |  testAll [file]          Load the given packages and run all scenarios.
+        |  profile <name> [infile] [outfile]  Run the name scenario and write a profile in speedscope.app format
+        |  validate [file]         Load the given packages and validate them.
+        |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
 
+  val (replArgs, compilerConfig) = args.toList match {
+    case "--dev" :: rest =>
+      rest -> Repl.devCompilerConfig
+    case list =>
+      list -> Repl.defaultCompilerConfig
   }
-
-  def defaultCommand(possibleFile: String): Unit =
-    if (!Paths.get(possibleFile).toFile.isFile) {
+  replArgs match {
+    case "-h" :: _ | "--help" :: _ =>
+      usage()
+    case List("repl", file) =>
+      Repl.repl(compilerConfig, file)
+    case List("testAll", file) =>
+      if (!Repl.testAll(compilerConfig, file)._1) System.exit(1)
+    case List("test", id, file) =>
+      if (!Repl.test(compilerConfig, id, file)._1) System.exit(1)
+    case List("profile", scenarioId, inputFile, outputFile) =>
+      if (!Repl.profile(compilerConfig, scenarioId, inputFile, Paths.get(outputFile))._1)
+        System.exit(1)
+    case List("validate", file) =>
+      if (!Repl.validate(compilerConfig, file)._1) System.exit(1)
+    case List(possibleFile) if Paths.get(possibleFile).toFile.isFile =>
+      Repl.repl(compilerConfig, possibleFile)
+    case _ =>
       usage()
       System.exit(1)
-    } else
-      Repl.repl(possibleFile)
-
-  if (args.isEmpty) {
-    usage()
-    System.exit(1)
-  } else {
-    var replArgs = args.toList
-    var allowDev = false
-    replArgs match {
-      case "--decode-lfdev" :: rest =>
-        replArgs = rest
-        allowDev = true
-      case _ => ()
-    }
-    replArgs match {
-      case "-h" :: _ => usage()
-      case "--help" :: _ => usage()
-      case List("repl", file) => Repl.repl(file)
-      case List("testAll", file) =>
-        if (!Repl.testAll(allowDev, file)._1) System.exit(1)
-      case List("test", id, file) =>
-        if (!Repl.test(allowDev, id, file)._1) System.exit(1)
-      case List("validate", file) =>
-        if (!Repl.validate(allowDev, file)._1) System.exit(1)
-      case List(possibleFile) =>
-        defaultCommand(possibleFile)
-      case _ =>
-        usage()
-        System.exit(1)
-    }
   }
 }
 
 // The DAML-LF Read-Eval-Print-Loop
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any"
-  ))
 object Repl {
 
-  def repl(): Unit = repl(initialState())
-  def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
+  val defaultCompilerConfig: Compiler.Config =
+    Compiler.Config(
+      allowedLanguageVersions = LV.StableVersions,
+      packageValidation = Compiler.FullPackageValidation,
+      profiling = Compiler.NoProfile,
+      stacktracing = Compiler.FullStackTrace,
+    )
+
+  val devCompilerConfig: Compiler.Config =
+    defaultCompilerConfig.copy(
+      allowedLanguageVersions = LV.DevVersions
+    )
+
+  private val nextSeed =
+    // We use a static seed to get reproducible run
+    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
+
+  def repl(compilerConfig: Compiler.Config, darFile: String): Unit =
+    repl(load(compilerConfig, darFile) getOrElse initialState(compilerConfig))
+
   def repl(state0: State): Unit = {
     var state = state0
     state.history.load
@@ -109,13 +111,14 @@ object Repl {
         state = dispatch(state, line)
       }
     } catch {
-      case _: org.jline.reader.EndOfFileException => Unit
+      case _: org.jline.reader.EndOfFileException => ()
     }
     state.history.save
   }
 
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
-    def fMap(f: State => (Boolean, State)): (Boolean, State) =
+
+    def chain(f: State => (Boolean, State)): (Boolean, State) =
       x match {
         case (true, state) => f(state)
         case _ => x
@@ -128,22 +131,39 @@ object Repl {
       }
   }
 
-  def testAll(allowDev: Boolean, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate fMap cmdTestAll
+  def testAll(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
+    load(compilerConfig, file) chain
+      cmdValidate chain
+      cmdTestAll
 
-  def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
+  def test(compilerConfig: Compiler.Config, id: String, file: String): (Boolean, State) =
+    load(compilerConfig, file) chain
+      cmdValidate chain
+      (x => invokeScenario(x, Seq(id)))
 
-  def validate(allowDev: Boolean, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate
+  def profile(
+      compilerConfig: Compiler.Config,
+      scenarioId: String,
+      inputFile: String,
+      outputFile: Path,
+  ): (Boolean, State) =
+    load(compilerConfig.copy(profiling = Compiler.FullProfile), inputFile) chain
+      cmdValidate chain
+      (state => cmdProfile(state, scenarioId, outputFile))
+
+  def validate(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
+    load(compilerConfig, file) chain
+      cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
-    val validationResults = state.packages.keys.map(Validation.checkPackage(state.packages, _))
-    validationResults collectFirst {
-      case Left(e) =>
-        println(s"Context: ${e.context}")
-        println(s"Error: ${e.getStackTrace.mkString("\n")}")
-        false -> state
+    val (validationResults, validationTime) = time(state.packages.map { case (pkgId, pkg) =>
+      Validation.checkPackage(state.packages, pkgId, pkg)
+    })
+    System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
+    validationResults collectFirst { case Left(e) =>
+      println(s"Context: ${e.context}")
+      println(s"Error: ${e.getStackTrace.mkString("\n")}")
+      false -> state
     } getOrElse true -> state
   }
 
@@ -155,17 +175,40 @@ object Repl {
       scenarioRunner: ScenarioRunnerHelper,
       reader: LineReader,
       history: History,
-      quit: Boolean
-  )
+      quit: Boolean,
+  ) {
+    def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
+  }
 
-  case class ScenarioRunnerHelper(packages: Map[PackageId, Package]) {
-    private val build = Speedy.Machine
-      .newBuilder(PureCompiledPackages(packages).right.get)
-      .fold(err => sys.error(err.toString), identity)
-    def run(submissionVersion: LanguageVersion, expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) = {
-      val mach = build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), expr)
-      (mach, ScenarioRunner(mach).run())
+  case class ScenarioRunnerHelper(
+      packages: Map[PackageId, Package],
+      compilerConfig: Compiler.Config,
+  ) {
+
+    val (compiledPackages, compileTime) =
+      time(data.assertRight(PureCompiledPackages(packages, compilerConfig)))
+
+    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
+
+    private val seed = nextSeed()
+
+    val transactionVersions =
+      if (compilerConfig.allowedLanguageVersions.contains(LV.v1_dev)) {
+        transaction.TransactionVersion.DevVersions
+      } else {
+        transaction.TransactionVersion.StableVersions
+      }
+
+    def run(
+        expr: Expr
+    ): (Speedy.Machine, Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
+      val machine =
+        Speedy.Machine.fromScenarioExpr(
+          compiledPackages,
+          seed,
+          expr,
+        )
+      (machine, ScenarioRunner(machine).run())
     }
   }
 
@@ -173,18 +216,29 @@ object Repl {
 
   final val commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":reset" -> Command("reset the REPL.", (s, _) => initialState()),
+    ":reset" -> Command("reset the REPL.", (_, _) => initialState(defaultCompilerConfig)),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
-    ":speedy" -> Command("compile given expression to speedy and print it", (s, args) => {
-      speedyCompile(s, args); s
-    }),
+    ":speedy" -> Command(
+      "compile given expression to speedy and print it",
+      { (s, args) =>
+        speedyCompile(s, args); s
+      },
+    ),
     ":quit" -> Command("quit the REPL.", (s, _) => s.copy(quit = true)),
     ":scenario" -> Command(
       "execute the scenario expression pointed to by given identifier.",
-      (s, args) => { invokeScenario(s, args); s }),
-    ":testall" -> Command("run all loaded scenarios.", (s, _) => {
-      cmdTestAll(s); s
-    }),
+      (s, args) => { invokeScenario(s, args); s },
+    ),
+    ":testall" -> Command(
+      "run all loaded scenarios.",
+      (s, _) => {
+        cmdTestAll(s); s
+      },
+    ),
+    ":devmode" -> Command(
+      "switch in devMode. This reset the state of REPL.",
+      (_, _) => initialState(devCompilerConfig),
+    ),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
   final val commandCompleter = new ArgumentCompleter(new StringsCompleter(commands.keys.asJava))
@@ -204,16 +258,17 @@ object Repl {
     cmpl
   }
 
-  def initialState(): State =
+  def initialState(compilerCompiler: Compiler.Config): State =
     rebuildReader(
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty),
+        ScenarioRunnerHelper(Map.empty, compilerCompiler),
         reader = null,
         history = new DefaultHistory(),
-        quit = false
-      ))
+        quit = false,
+      )
+    )
 
   def definitionCompleter(state: State): StringsCompleter = {
     val names =
@@ -231,10 +286,12 @@ object Repl {
       reader = LineReaderBuilder.builder
         .appName("daml-lf-repl")
         .completer(
-          new AggregateCompleter(loadCompleter, definitionCompleter(state), commandCompleter))
+          new AggregateCompleter(loadCompleter, definitionCompleter(state), commandCompleter)
+        )
         .variable(
           LineReader.HISTORY_FILE,
-          Paths.get(System.getProperty("user.home"), ".daml-lf.history"))
+          Paths.get(System.getProperty("user.home"), ".daml-lf.history"),
+        )
         .history(state.history)
         .build
     )
@@ -252,21 +309,18 @@ object Repl {
   }
 
   def list(state: State): Unit = {
-    state.packages.foreach {
-      case (pkgId, pkg) =>
-        println(pkgId)
-        pkg.modules.foreach {
-          case (mname, mod) =>
-            val maxLen =
-              if (mod.definitions.nonEmpty) mod.definitions.map(_._1.toString.length).max
-              else 0
-            mod.definitions.toList.sortBy(_._1.toString).foreach {
-              case (name, defn) =>
-                val paddedName = name.toString.padTo(maxLen, ' ')
-                val typ = prettyDefinitionType(defn, pkgId, mod.name)
-                println(s"    ${mname.toString}:$paddedName ∷ $typ")
-            }
+    state.packages.foreach { case (pkgId, pkg) =>
+      println(pkgId)
+      pkg.modules.foreach { case (mname, mod) =>
+        val maxLen =
+          if (mod.definitions.nonEmpty) mod.definitions.map(_._1.toString.length).max
+          else 0
+        mod.definitions.toList.sortBy(_._1.toString).foreach { case (name, defn) =>
+          val paddedName = name.toString.padTo(maxLen, ' ')
+          val typ = prettyDefinitionType(defn, pkgId, mod.name)
+          println(s"    ${mname.toString}:$paddedName ∷ $typ")
         }
+      }
     }
   }
 
@@ -300,7 +354,7 @@ object Repl {
         maybeParens(
           prec > precTApp,
           prettyQualified(pkgId, modId, syn)
-            + " " + args.map(t => prettyType(t, precTApp + 1)).toSeq.mkString(" ")
+            + " " + args.map(t => prettyType(t, precTApp + 1)).toSeq.mkString(" "),
         )
       case TVar(n) => n
       case TNat(n) => n.toString
@@ -310,15 +364,17 @@ object Repl {
       case TApp(TApp(TBuiltin(BTArrow), param), result) =>
         maybeParens(
           prec > precTFun,
-          prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun))
+          prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun),
+        )
       case TApp(fun, arg) =>
         maybeParens(
           prec > precTApp,
-          prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
+          prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1),
+        )
       case TForall((v, _), body) =>
         maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
       case TStruct(fields) =>
-        "(" + fields
+        "(" + fields.iterator
           .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
           .toSeq
           .mkString(", ") + ")"
@@ -332,27 +388,40 @@ object Repl {
     prettyType(typ)
   }
 
+  private def time[R](block: => R): (R, Long) = {
+    val startTime = System.nanoTime()
+    val result = block // call-by-name
+    val endTime = System.nanoTime()
+    result -> Duration.fromNanos(endTime - startTime).toMillis
+  }
+
   // Load DAML-LF packages from a set of files.
-  def load(darFile: String): (Boolean, State) = {
-    val state = initialState()
+  def load(
+      compilerConfig: Compiler.Config,
+      darFile: String,
+  ): (Boolean, State) = {
+    val state = initialState(compilerConfig)
     try {
-      val packages =
-        UniversalArchiveReader().readFile(new File(darFile)).get
-      val packagesMap = Map(packages.all.map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-      }: _*)
-      val (mainPkgId, mainPkgArchive) = packages.main
-      val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+      val (packagesMap, loadingTime) = time {
+        val packages =
+          UniversalArchiveReader().readFile(new File(darFile)).get
+        Map(packages.all.map { case (pkgId, pkgArchive) =>
+          Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+        }: _*)
+      }
+
       val npkgs = packagesMap.size
       val ndefs =
         packagesMap.flatMap(_._2.modules.values.map(_.definitions.size)).sum
-      println(s"$ndefs definitions from $npkgs package(s) loaded.")
+
+      System.err.println(s"$ndefs definition(s) from $npkgs package(s) loaded in $loadingTime ms.")
 
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap)
-        ))
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, compilerConfig),
+        )
+      )
     } catch {
       case ex: Throwable => {
         val sw = new StringWriter
@@ -364,20 +433,26 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val compiler = Compiler(state.packages)
-    val defs = compiler.compilePackages(state.packages.keys)
+    val defs = assertRight(
+      Compiler.compilePackages(
+        toSignatures(state.packages),
+        state.packages,
+        state.scenarioRunner.compilerConfig,
+      )
+    )
     defs.get(idToRef(state, args(0))) match {
       case None =>
-        println("Error: definition '" + args(0) + "' not found. Try :list."); usage
-      case Some(expr) =>
-        println(Pretty.SExpr.prettySExpr(0)(expr).render(80))
+        println("Error: definition '" + args(0) + "' not found. Try :list.")
+        usage()
+      case Some(defn) =>
+        println(Pretty.SExpr.prettySExpr(0)(defn.body).render(80))
     }
   }
 
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LanguageVersion.defaultV1,
+      languageVersion = LV.defaultV1,
     )
 
   // Invoke the given top-level function with given arguments.
@@ -388,52 +463,39 @@ object Repl {
 
     parser.parseExprs[this.type](args.mkString(" ")) match {
 
-      case Left(error) =>
+      case Left(error @ _) =>
         println(s"Error: cannot parser arguments '${args.mkString(" ")}'")
 
       case Right(argExprs) =>
         lookup(state, id) match {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
-            usage
-          case Some((lfVer, DValue(_, _, body, _))) =>
+            usage()
+          case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val machine =
-              Speedy.Machine.fromExpr(
-                expr = expr,
-                checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
-                compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false
-              )
-            var count = 0
+            val compiledPackages = PureCompiledPackages(state.packages).toOption.get
+            val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
-            var errored = false
-            while (!machine.isFinal && !errored) {
-              machine.step match {
-                case SResultError(err) =>
-                  println(prettyError(err, machine.ptx).render(128))
-                  errored = true
-                case SResultContinue =>
-                  ()
-                case other =>
-                  sys.error("unimplemented callback: " + other.toString)
-              }
-              count += 1
+            val valueOpt = machine.run() match {
+              case SResultError(err) =>
+                println(prettyError(err).render(128))
+                None
+              case SResultFinalValue(v) =>
+                Some(v)
+              case other =>
+                sys.error("unimplemented callback: " + other.toString)
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000
-            machine.print(count)
-            println(s"steps: $count")
+            machine.print(1)
             println(s"time: ${diff}ms")
-            if (!errored) {
-              val result = machine.ctrl match {
-                case Speedy.CtrlValue(sv) =>
-                  prettyValue(true)(sv.toValue).render(128)
-                case x => x.toString
-              }
-              println("result:")
-              println(result)
+            valueOpt match {
+              case None => ()
+              case Some(value) =>
+                val result = prettyValue(true)(value.toValue).render(128)
+                println("result:")
+                println(result)
             }
           case Some(_) =>
             println("Error: " + id + " not a value.")
@@ -441,40 +503,42 @@ object Repl {
     }
   }
 
-  def buildExpr(state: State, idAndArgs: Seq[String]): Option[(LanguageVersion, Expr)] =
+  def buildExpr(state: State, idAndArgs: Seq[String]): Option[Expr] =
     idAndArgs match {
       case id :: args =>
         lookup(state, id) match {
           case None =>
             println("Error: " + id + " not found.")
             None
-          case Some((lfVer, DValue(_, _, body, _))) =>
+          case Some(DValue(_, _, body, _)) =>
             val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
-            Some((lfVer, argExprs.foldLeft(body)((e, arg) => EApp(e, arg))))
+            Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
           case Some(_) =>
             println("Error: " + id + " is not a value.")
             None
         }
       case _ =>
-        usage(); None
+        usage()
+        None
     }
 
   def invokeScenario(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExpr(state, idAndArgs)
-      .map {
-        case (lfVer, expr) =>
-          val (machine, errOrLedger) =
-            state.scenarioRunner.run(lfVer, expr)
+      .map { expr =>
+        val (machine, errOrLedger) =
+          state.scenarioRunner.run(expr)
+        machine.withOnLedger("invokeScenario") { onLedger =>
           errOrLedger match {
             case Left((err, ledger @ _)) =>
-              println(prettyError(err, machine.ptx).render(128))
+              println(prettyError(err, onLedger.ptx).render(128))
               (false, state)
-            case Right((diff @ _, steps @ _, ledger)) =>
+            case Right((diff @ _, steps @ _, ledger, value @ _)) =>
               // NOTE(JM): cannot print this, output used in tests.
               //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
               println(prettyLedger(ledger).render(128))
               (true, state)
           }
+        }
       }
       .getOrElse((false, state))
   }
@@ -488,33 +552,63 @@ object Repl {
         definition <- mod.definitions
         (dfnName, dfn) = definition
         bodyScenario <- List(dfn).collect { case DValue(TScenario(_), _, body, _) => body }
-      } yield QualifiedName(modName, dfnName).toString -> ((mod.languageVersion, bodyScenario))
+      } yield QualifiedName(modName, dfnName).toString -> bodyScenario
     var failures = 0
     var successes = 0
     val state = state0
     var totalTime = 0.0
     var totalSteps = 0
-    allScenarios.foreach {
-      case (name, (lfVer, body)) =>
-        print(name + ": ")
-        val (machine, errOrLedger) = state.scenarioRunner.run(lfVer, body)
+    allScenarios.foreach { case (name, body) =>
+      print(name + ": ")
+      val (machine, errOrLedger) = state.scenarioRunner.run(body)
+      machine.withOnLedger("cmdTestAll") { onLedger =>
         errOrLedger match {
           case Left((err, ledger @ _)) =>
             println(
               "failed at " +
                 prettyLoc(machine.lastLocation).render(128) +
-                ": " + prettyError(err, machine.ptx).render(128))
+                ": " + prettyError(err, onLedger.ptx).render(128)
+            )
             failures += 1
-          case Right((diff, steps, ledger @ _)) =>
+          case Right((diff, steps, ledger @ _, value @ _)) =>
             successes += 1
             totalTime += diff
             totalSteps += steps
             println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
         }
+      }
     }
     println(
-      s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps.")
+      s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps."
+    )
     (failures == 0, state)
+  }
+
+  def cmdProfile(state: State, scenarioId: String, outputFile: Path): (Boolean, State) = {
+    buildExpr(state, Seq(scenarioId))
+      .map { expr =>
+        println("Warming up JVM for 10s...")
+        val start = System.nanoTime()
+        while (System.nanoTime() - start < 10L * 1000 * 1000 * 1000) {
+          state.scenarioRunner.run(expr)
+        }
+        println("Collecting profile...")
+        val (machine, errOrLedger) =
+          state.scenarioRunner.run(expr)
+        machine.withOnLedger("cmdProfile") { onLedger =>
+          errOrLedger match {
+            case Left((err, ledger @ _)) =>
+              println(prettyError(err, onLedger.ptx).render(128))
+              (false, state)
+            case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
+              println("Writing profile...")
+              machine.profile.name = scenarioId
+              machine.profile.writeSpeedscopeJson(outputFile)
+              (true, state)
+          }
+        }
+      }
+      .getOrElse((false, state))
   }
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
@@ -537,7 +631,7 @@ object Repl {
     LfDefRef(DefinitionRef(packageId, qualName))
   }
 
-  def lookup(state: State, id: String): Option[(LanguageVersion, Definition)] = {
+  def lookup(state: State, id: String): Option[Definition] = {
     val (defRef, optPackageId): (String, Option[PackageId]) =
       id.split("@").toList match {
         case defRef :: packageId :: Nil =>
@@ -550,20 +644,19 @@ object Repl {
     }
     optPackageId match {
       case Some(packageId) =>
-        state.packages
-          .get(packageId)
-          .flatMap(pkg => pkg.modules.get(qualName.module))
-          .flatMap(module =>
-            module.definitions.get(qualName.name).map(defn => (module.languageVersion, defn)))
+        for {
+          pkg <- state.packages.get(packageId)
+          module <- pkg.modules.get(qualName.module)
+          defn <- module.definitions.get(qualName.name)
+        } yield defn
       case None =>
-        state.packages.view
-          .flatMap { case (pkgId @ _, pkg) => pkg.modules.get(qualName.module).toList }
-          .flatMap(
-            module =>
-              module.definitions
-                .get(qualName.name)
-                .toList
-                .map(defn => (module.languageVersion, defn)))
+        state.packages.values.view
+          .flatMap(pkg =>
+            for {
+              module <- pkg.modules.get(qualName.module).toList
+              defn <- module.definitions.get(qualName.name).toList
+            } yield defn
+          )
           .headOption
 
     }
@@ -571,10 +664,9 @@ object Repl {
 
   def usage(): Unit = {
     val cmds = commands
-      .map {
-        case (name: String, cmd: Command) =>
-          val help: String = cmd.help
-          f"| $name%-25s $help"
+      .map { case (name: String, cmd: Command) =>
+        val help: String = cmd.help
+        f"| $name%-25s $help"
       }
       .mkString("\n")
     println(s"""
@@ -585,11 +677,6 @@ object Repl {
     """.stripMargin)
   }
 
-  case class ParseError(error: String) extends RuntimeException(error)
-
   private def assertRight[X](e: Either[String, X]): X =
-    e.fold(
-      err => throw ParseError(err),
-      identity
-    )
+    e.fold(err => throw new RuntimeException(err), identity)
 }

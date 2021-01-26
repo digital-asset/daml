@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -35,12 +35,12 @@ export default class SearchInput extends React.Component<Props, State> {
     const value = event.target.value;
     this.setState({ value });
     clearTimeout(this.delayTimer);
-    this.delayTimer = setTimeout(() => {
+    this.delayTimer = window.setTimeout(() => {
       this.props.onChange(value);
     }, this.props.debounceTime || DEBOUNCE_TIME_DEFAULT);
   }
 
-  render() {
+  render(): JSX.Element {
     const {
       className,
       placeholder = '',
@@ -60,7 +60,7 @@ export default class SearchInput extends React.Component<Props, State> {
     );
   }
 
-  componentDidMount() {
+  componentDidMount(): void {
     if (this.props.focusAfterMount) { this.searchField.focus(); }
   }
 }

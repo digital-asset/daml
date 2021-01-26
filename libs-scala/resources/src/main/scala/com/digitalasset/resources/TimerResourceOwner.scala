@@ -1,13 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.Timer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class TimerResourceOwner(acquireTimer: () => Timer) extends ResourceOwner[Timer] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Timer] =
-    Resource(Future(acquireTimer()))(timer => Future(timer.cancel()))
+class TimerResourceOwner[Context: HasExecutionContext](acquireTimer: () => Timer)
+    extends AbstractResourceOwner[Context, Timer] {
+  override def acquire()(implicit context: Context): Resource[Context, Timer] =
+    Resource.apply(Future(acquireTimer()))(timer => Future(timer.cancel()))
 }

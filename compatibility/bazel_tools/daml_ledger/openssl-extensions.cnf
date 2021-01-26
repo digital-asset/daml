@@ -1,0 +1,7 @@
+
+[ req_ext ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS = localhost
+IP = 127.0.0.1

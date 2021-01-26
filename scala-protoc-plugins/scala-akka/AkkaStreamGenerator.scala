@@ -1,6 +1,6 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.digitalasset.protoc.plugins.akka
+package com.daml.protoc.plugins.akka
 
 import com.google.protobuf.Descriptors._
 import com.google.protobuf.ExtensionRegistry
@@ -9,7 +9,7 @@ import protocbridge.ProtocCodeGenerator
 import scalapb.compiler._
 import scalapb.options.compiler.Scalapb
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.io.Streamable
 
 // This file is mostly copied over from ScalaPbCodeGenerator and ProtobufGenerator
@@ -25,7 +25,7 @@ object AkkaStreamCompilerPlugin {
 
 class AkkaStreamGenerator(val params: GeneratorParams, files: Seq[FileDescriptor])
     extends DescriptorImplicits(params, files) {
-  def generateServiceFiles(file: FileDescriptor): Seq[CodeGeneratorResponse.File] = {
+  def generateServiceFiles(file: FileDescriptor): collection.Seq[CodeGeneratorResponse.File] = {
     file.getServices.asScala.flatMap { service =>
       val p = new AkkaGrpcServicePrinter(service, params)
       p.printService(FunctionalPrinter()).fold[List[CodeGeneratorResponse.File]](Nil) { p =>
@@ -59,7 +59,7 @@ object AkkaStreamGenerator extends ProtocCodeGenerator {
           Right(params.copy(singleLineToProtoString = true))
         case (Right(params), "ascii_format_to_string") =>
           Right(params.copy(asciiFormatToString = true))
-        case (Right(params), p) => Left(s"Unrecognized parameter: '$p'")
+        case (Right(_), p) => Left(s"Unrecognized parameter: '$p'")
         case (x, _) => x
       }
   }

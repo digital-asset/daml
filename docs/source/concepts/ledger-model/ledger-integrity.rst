@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-integrity:
@@ -65,7 +65,7 @@ Then, `act'` happens after `act`.
 .. _da-model-contract-consistency:
 
 Contract consistency
-````````````````````
+~~~~~~~~~~~~~~~~~~~~
 
 Contract consistency ensures that contracts are used after they have been created and before they are consumed.
 
@@ -76,7 +76,7 @@ Definition »contract consistency«
 
   #. either `act` is itself **Create c** or a **Create c** happens before `act`
   #. `act` does not happen before any **Create c** action
-  #. `act` does not happen after any exercise consuming `c`.
+  #. `act` does not happen after any **Exercise** action consuming `c`.
 
 
 The consistency condition rules out the double spend example.
@@ -132,7 +132,7 @@ of contracts `Iou Bank P` and `PaintAgree P A`.
 .. _da-model-key-consistency:
 
 Key consistency
-```````````````
+~~~~~~~~~~~~~~~
 
 Contract keys introduce a key uniqueness constraint for the ledger.
 To capture this notion, the contract model must specify for every contract in the system whether the contract has a key and, if so, the key.
@@ -194,16 +194,17 @@ It grants `P` the choice to perform such an assertion, which is needed for :ref:
 
 Key consistency extends to actions, transactions and lists of transactions just like the other consistency notions.
 
+.. _da-model-ledger-consistency:
 
 Ledger consistency
-``````````````````
+~~~~~~~~~~~~~~~~~~
 
 Definition »ledger consistency«
   A ledger is **consistent** if it is consistent for all contracts and for all keys.
 
 
 Internal consistency
-````````````````````
+~~~~~~~~~~~~~~~~~~~~
 The above consistency requirement is too strong for actions and transactions
 in isolation.
 For example, the acceptance transaction from the paint offer example is not consistent as a ledger, because `PaintOffer A P Bank`
@@ -267,7 +268,7 @@ Definition »input key«
 In the :ref:`blacklisting example <paint-offer-blacklist>`, `P`\ 's transaction has two input keys: `(U, A)` due to the **NoSuchKey** action and `(P, P123)` as it creates a `PaintOffer` contract.
 
 
-.. _`da-model-conformance`:
+.. _da-model-conformance:
 
 Conformance
 +++++++++++
@@ -292,7 +293,7 @@ parameters in a box (such as
 obligor or owner) can be instantiated by arbitrary values of the
 appropriate type. To facilitate understanding, each box includes a label
 describing the intuitive purpose of the corresponding set of actions.
-As the image suggest, the transfer box imposes the
+As the image suggests, the transfer box imposes the
 constraint that the bank must remain the same both in the exercised
 IOU contract, and in the newly created IOU contract. However, the
 owner can change arbitrarily. In contrast, in the settle actions, both
@@ -301,9 +302,9 @@ Furthermore, to be conformant, the actor of a transfer action must be the same a
 
 Of course, the constraints on the relationship between the parameters can be
 arbitrarily complex, and cannot conveniently be reproduced in this
-graphical representation. This is the role of DAML -- it
+graphical representation. This is the role of Daml -- it
 provides a much more convenient way of representing contract models.
-The link between DAML and contract models is explained in more detail in a :ref:`later section <da-model-daml>`.
+The link between Daml and contract models is explained in more detail in a :ref:`later section <da-model-daml>`.
 
 To see the conformance criterion in action, assume that
 the contract model allows only the following actions on `PaintOffer`
@@ -330,9 +331,9 @@ Authorization
 +++++++++++++
 
 The last criterion rules out the last two problematic examples,
-:ref:`an obligation imposed on a painter
-<obligation-imposed-on-painter>`, and :ref:`the painter stealing
-Alice's money <painter-stealing-ious>`. The first of those is visualized below.
+:ref:`an obligation imposed on a painter <obligation-imposed-on-painter>`,
+and :ref:`the painter stealing Alice's money <painter-stealing-ious>`.
+The first of those is visualized below.
 
 .. image:: ./images/invalid-obligation.svg
    :align: center
@@ -347,7 +348,7 @@ and imposed on the contract's *signatories*.
 .. _da-signatories-agreements-maintainers:
 
 Signatories, Agreements, and Maintainers
-````````````````````````````````````````
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To capture these elements of real-world contracts, the **contract model**
 additionally specifies, for each contract in the system:
@@ -402,14 +403,14 @@ signatories yields the image below.
 .. _da-ledgers-authorization-rules:
 
 Authorization Rules
-```````````````````
+~~~~~~~~~~~~~~~~~~~
 
 Signatories allow one to precisely state that the painter has an obligation.
 The imposed obligation is intuitively invalid because the painter did not
 agree to this obligation. In other words, the painter did not *authorize*
 the creation of the obligation.
 
-In a DA ledger, a party can **authorize** a subaction of a commit in
+In a Daml ledger, a party can **authorize** a subaction of a commit in
 either of the following ways:
 
 * Every top-level action of the commit is authorized by all requesters
@@ -445,7 +446,7 @@ We lift this notion to ledgers, whereby a ledger is well-authorized exactly when
 
 
 Examples
-````````
+~~~~~~~~
 
 An intuition for how the authorization definitions work is most easily
 developed by looking at some examples. The main example, the
@@ -518,7 +519,7 @@ is discussed in the next section about :ref:`privacy <da-model-privacy-authoriza
 Valid Ledgers, Obligations, Offers and Rights
 +++++++++++++++++++++++++++++++++++++++++++++
 
-DA ledgers are designed to mimic real-world interactions between
+Daml ledgers are designed to mimic real-world interactions between
 parties, which are governed by contract law. The validity conditions
 on the ledgers, and the information contained in contract models have
 several subtle links to the concepts of the contract law that are
@@ -534,7 +535,7 @@ already modeled as permissible actions on the ledger. For example,
 `P`'s obligation to paint the house cannot be sensibly modeled on the
 ledger, and must thus be specified by the agreement text.
 
-Second, every contract on a DA ledger can simultaneously model both:
+Second, every contract on a Daml ledger can simultaneously model both:
 
 * a real-world offer, whose consequences (both on- and off-ledger)
   are specified by the **Exercise** actions on the contract allowed
@@ -543,17 +544,17 @@ Second, every contract on a DA ledger can simultaneously model both:
 * a real-world contract "proper", specified through the contract's
   (optional) agreement text.
 
-Third, in DA ledgers, as in the real world, one person's rights are
+Third, in Daml ledgers, as in the real world, one person's rights are
 another person's obligations. For example, `A`'s right to accept the
 `PaintOffer` is `P`'s obligation to paint her house in case she
 accepts.
-In DA ledgers, a party's rights according to a contract model are the exercise actions the party can perform according to the authorization and conformance rules.
+In Daml ledgers, a party's rights according to a contract model are the exercise actions the party can perform according to the authorization and conformance rules.
 
 Finally, validity conditions ensure three important properties of the DA
 ledger model, that mimic the contract law.
 
 #. **Obligations need consent**.
-   DA ledgers follow the offer-acceptance pattern of the
+   Daml ledgers follow the offer-acceptance pattern of the
    contract law, and thus ensures that all ledger contracts are
    formed voluntarily. For example, the following
    ledger is not valid.
@@ -600,7 +601,7 @@ ledger model, that mimic the contract law.
    section, enable such scenarios.
 
 #. **On-ledger obligations cannot be unilaterally escaped**. Once an
-   obligation is recorded on a DA ledger, it can only be removed in
+   obligation is recorded on a Daml ledger, it can only be removed in
    accordance with the contract model. For example, assuming the IOU
    contract model shown earlier, if the ledger records the creation
    of a `MustPay` contract, the bank cannot later simply record an

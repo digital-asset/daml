@@ -77,25 +77,26 @@ compiler and core libraries to use:
 
 ```
 load('@io_bazel_rules_scala//scala:scala.bzl', 'scala_repositories')
-scala_repositories(("2.12.6", {
-    "scala_compiler": "3023b07cc02f2b0217b2c04f8e636b396130b3a8544a8dfad498a19c3e57a863",
-    "scala_library": "f81d7144f0ce1b8123335b72ba39003c4be2870767aca15dd0888ba3dab65e98",
-    "scala_reflect": "ffa70d522fc9f9deec14358aa674e6dd75c9dfa39d4668ef15bb52f002ce99fa"
-}))
+scala_repositories((
+    "2.12.12",
+    {
+        "scala_compiler": "9dfa682ad7c2859cdcf6a31b9734c8f1ee38e7e391aeafaef91967b6ce819b6b",
+        "scala_library": "1673ffe8792021f704caddfe92067ed1ec75229907f84380ad68fe621358c925",
+        "scala_reflect": "3c502791757c0c8208f00033d8c4d778ed446efa6f49a6f89b59c6f92b347774",
+    },
+))
 load('@io_bazel_rules_scala//scala:toolchains.bzl', 'scala_register_toolchains')
 scala_register_toolchains()
 ```
 
 If you need to update the Scala version, make sure to also update the
-corresponding SHA-256 hashes in hexadecimal encoding. The hashes can be looked
-up in the [Artifactory repository browser][artifactory_browser_hash] in the
-very bottom of the "General" pane.
+corresponding SHA-256 hashes in hexadecimal encoding. If you don't know the
+hash, set it to 64 zeroes and Bazel will correct you.
 
 See the [`rules_scala` setup guide][rules_scala_setup] for further details.
 
 [rules_scala]: https://github.com/bazelbuild/rules_scala
 [rules_scala_setup]: https://github.com/bazelbuild/rules_scala#getting-started
-[artifactory_browser_hash]: https://digitalasset.jfrog.io/digitalasset/webapp/#/artifacts/browse/tree/General/jcenter-cache/org/scala-lang/scala-reflect/2.12.6/scala-reflect-2.12.6.jar
 
 ### Maven JAR Dependencies
 
@@ -160,11 +161,14 @@ symbols are replaced by `_` characters. E.g. the artifact
 `org.scalaz:scalaz-core_2.12:7.2.24` is available as
 `@maven//:org_scalaz_scalaz_core_2_12`.
 
-Adding, changing, or removing a Maven dependency requires two steps: First, you
-need to modify the `artifacts` attribute to `maven_install`, second, you need
-to execute `bazel run @unpinned_maven//:pin` to update `maven_install.json`.
-You should also run `@unpinned_maven//:pin` if you change other attributes to
-`maven_install`.
+Adding, changing, or removing a Maven dependency requires two steps:
+First, you need to modify the `artifacts` attribute to
+`maven_install`, second, you need to execute `bazel run
+@unpinned_maven//:pin` to update `maven_install.json`.  You should
+also run `@unpinned_maven//:pin` if you change other attributes to
+`maven_install`. You need to run this once per Scala version with the
+default being 2.12 so run it again for 2.13:
+``DAML_SCALA_VERSION=2.13.3 bazel run @unpinned_maven//:pin``.
 
 Refer to the [`rules_jvm_external` documentation][rules_jvm_external] for
 further information.
@@ -217,12 +221,12 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── SomeSpec.scala
     │                   ⋮
     ├── module2
@@ -268,13 +272,13 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── BUILD.bazel
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── BUILD.bazel
     │                   ├── SomeSpec.scala
     │                   ⋮
@@ -307,12 +311,12 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── SomeSpec.scala
     │                   ⋮
     └── module2
@@ -498,17 +502,6 @@ Scala source file, and bundle them in one target. This rule takes the same
 attributes as `da_scala_library` with the exception of
 `unused_dependency_checker_mode` which will always be disabled.
 
-If a Scala library defines macros then you must use the
-`da_scala_macro_library` rule instead of the above. Otherwise, you will encounter 
-compiler errors of the following form (formatted for readability):
-
-```
-error: macro annotation could not be expanded (the most common reason
-for that is that you need to enable the macro paradise plugin; another
-possibility is that you try to use macro annotation in the same
-compilation run that defines it)
-```
-
 #### Tests
 
 Scala tests can be defined using the `da_scala_test` rule. It will generate an
@@ -547,12 +540,21 @@ da_scala_test_suite(
     # Expected runtime and resource requirements.
     size = "small",
     ...
+
+    # You can adjust the heap size as follows:
+    initial_heap_size = "512m",
+    max_heap_size = "2g",
 )
 ```
 
 The `size` attribute is used to determine the default timeout and resource
 requirements. Refer to the [official documentation][bazel_test_size] for
 details about test size and other common test attributes.
+
+A couple of arguments have been added:
+
+  * `initial_heap_size` is translated to `-Xms`, and defaults to `512m`, and
+  * `max_heap_size` is translated to `-Xmx`, and defaults to `2g`.
 
 #### Executables
 
@@ -581,6 +583,10 @@ da_scala_binary(
     # A list of files that should be present in the runtime path at runtime.
     data = [ ... ],
     ...
+
+    # You can adjust the heap size as follows:
+    initial_heap_size = "512m",
+    max_heap_size = "2g",
 )
 ```
 
@@ -636,11 +642,11 @@ files.
 [scalafmt]: https://github.com/scalameta/scalafmt
 [scala_format_test]: https://github.com/DACH-NY/da/blob/e904c8eac1427633ef20b6106906a59f590de5a6/bazel_tools/scalafmt/scalafmt.bzl#L31
 
-### DAML
+### Daml
 
 The SBT build of the `ledger-client` component defines a custom SBT plugin for
-handling DAML code. It covers compilation to LF, packaging to DAR, Scala code
-generation, and executing the DAML sandbox. This plugin was ported to Bazel as
+handling Daml code. It covers compilation to LF, packaging to DAR, Scala code
+generation, and executing the Daml sandbox. This plugin was ported to Bazel as
 a set of custom Bazel rules defined in [`rules_daml`][rules_daml]. Refer to the
 [user guide][bazel_user_guide] or the [API docs][bazel-api-documentation] for
 details.

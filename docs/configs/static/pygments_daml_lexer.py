@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from pygments.lexers.haskell import HaskellLexer
@@ -7,7 +7,7 @@ from pygments.token import *
 
 class DAMLLexer(HaskellLexer):
 
-    name = 'DAML'
+    name = 'Daml'
     aliases = ['daml']
     filenames = ['*.daml']
 
@@ -17,6 +17,7 @@ class DAMLLexer(HaskellLexer):
         'root': [
             (r'\b(%s)(?!\')\b' % '|'.join(daml_reserved), Keyword.Reserved),
             (r'\b(True|False)\b', Keyword.Constant),
+            (r'≡', Operator),
             inherit
         ]
     }

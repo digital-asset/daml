@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.services
+package com.daml.extractor.services
 
 import cats.data.NonEmptyList
 import cats.implicits._
@@ -28,7 +28,7 @@ trait Types {
       package_id: String,
       template: String,
       create_arguments: Json,
-      stakeholders: Json
+      stakeholders: Json,
   )
 
   case class TransactionResult(
@@ -37,7 +37,7 @@ trait Types {
       workflow_id: String,
       effective_at: java.sql.Timestamp,
       extracted_at: java.sql.Timestamp,
-      ledger_offset: String
+      ledger_offset: String,
   )
 
   case class ExerciseResult(
@@ -52,7 +52,7 @@ trait Types {
       acting_parties: Json,
       consuming: Boolean,
       witness_parties: Json,
-      child_event_ids: Json
+      child_event_ids: Json,
   )
 }
 

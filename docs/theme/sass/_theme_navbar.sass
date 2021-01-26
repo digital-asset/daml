@@ -9,93 +9,101 @@
     display: flex
     height: 65px
     padding-left: 47px
+    padding-right: 32px
     justify-content: space-between
-    width: 100%
     align-items: center
 
-.navbar-menu
-    display: flex
-    align-items: center
-    color: #687BA3
-    font-weight: bold
-    height: 100%
+    h1
+        &:before
+            padding-left: 0
+            margin-bottom: initial
+            display: none
 
-    font-size: 18px
+    .navbar-menu
+        display: flex
+        justify-content: flex-end
+        align-items: center
+        margin-top: -75px
 
-.navbar-menu > ul
-    display: flex
-    flex-direction: row
-    height: 100%
-    justify-content: flex-end
+        
+        .da-menu-item
+            display: flex
+            font-weight: 700
+            font-size: 16px
+            line-height: 29px
+            margin-left: 32px
 
-.navbar-menu ul li
-    height: 100%
-    padding: 29px 18px 0
-    margin-left: 37px
-    margin-right: 10px
-
-.navbar-menu ul li a
-    color: #687BA3
-    font-family: 'Montserrat'
-
-.navbar-menu ul li.active
-    border-top: 3px solid #5C86DF
-    padding-top: 26px
-
-.navbar-menu ul li.active a
-    color: #3A478F
-
-
-.navbar-menu 
-
-    .version
-        padding: 0
-        padding-left: 14px
-        border-top: 3px solid #5C86DF
-
-        span 
-            font-size: 12pt
+        .da-menu-link
             position: relative
-            top: -4px
+            text-decoration: none
+            color: $text-dark
+            overflow: hidden
 
-        .nice-select
-            padding-left: 6px
-            font-size: 12pt
-
-            .list
-                left: auto
-                right: 11%
-
-            .option
-                padding-top: 0
-            
-            &.open
-
-                &:after
-                    top: 40%
-                    right: 14px
+            &:before
+                content: ''
+                position: absolute
+                width: 100%
+                bottom: 0
+                left: 0
+                height: 2px
+                background-color: $text-medium
+                transform: translateX(-101%)
 
             &:after
-                background-size: contain
-                width: 12px
-                height: 7px
-                top: 46%
-                right: 11px
+                content: ''
+                position: absolute
+                width: 100%
+                bottom: 0
+                left: 0
+                height: 2px
+                background-color: $text-medium
+                transition: transform 500ms cubic-bezier(0.645, 0.045, 0.355, 1)
+                transform: translateX(101%)
 
+            &:hover
+                color: $text-medium
 
+                &:before
+                    transform: translateX(0)
+                    transition: 500ms cubic-bezier(0.645, 0.045, 0.355, 1)
+
+                &:after
+                    transform: translateX(0)
+                    transition-delay: 490ms
+                    transition-duration: 10ms
 
 +media($tablet)
     .navbar
-        padding-left: 150px
+        padding-left: 65px
         h1
             margin-top: 12px
             max-width: 141px
-            margin-left: -85px
 
-    .shift
++media($mobile)
+    .wy-nav-content-wrap
         .navbar
-            h1
-                +media($mobile)
-                    margin-left: -85px
+            .navbar-menu
+                display: none
+                margin-top: 0
+                flex-direction: column
+                align-items: start
+                position: absolute
+                top: 66px
+                left: 64px
+                width: 100%
+                height: auto
+                font-size: 14px
+                box-shadow: none
+                -moz-box-shadow: none
+                -webkit-box-shadow: none
+                padding-bottom: 10px
 
-                margin-left: -130px
+                .da-menu-item
+                    margin-left: 0
+                    margin-bottom: 3px
+
+        &.shift
+            .navbar
+                .navbar-menu
+                    display: flex
+                    

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.ledger.types
+package com.daml.extractor.ledger.types
 
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.ledger.api.{v1 => api}
+import com.daml.lf.value.{Value => V}
+import com.daml.ledger.api.{v1 => api}
 import Identifier._
 import LedgerValue._
 import api.event
@@ -19,7 +19,7 @@ final case class CreatedEvent(
     contractId: String,
     templateId: Identifier,
     createArguments: OfCid[V.ValueRecord],
-    stakeholders: Set[String]
+    stakeholders: Set[String],
 ) extends Event
 
 final case class ExercisedEvent(
@@ -31,7 +31,7 @@ final case class ExercisedEvent(
     actingParties: Set[String],
     consuming: Boolean,
     witnessParties: Set[String],
-    childEventIds: Set[String]
+    childEventIds: Seq[String],
 ) extends Event
 
 object Event {
@@ -60,14 +60,13 @@ object Event {
         templateId = apiTemplateId.convert
         apiRecord <- createdArgumentsLens(apiEvent)
         createArguments <- apiRecord.convert
-      } yield
-        CreatedEvent(
-          apiEvent.eventId,
-          apiEvent.contractId,
-          templateId,
-          createArguments,
-          (apiEvent.observers ++ apiEvent.signatories).toSet
-        )
+      } yield CreatedEvent(
+        apiEvent.eventId,
+        apiEvent.contractId,
+        templateId,
+        createArguments,
+        (apiEvent.observers ++ apiEvent.signatories).toSet,
+      )
     }
   }
 
@@ -78,18 +77,17 @@ object Event {
         templateId = apiTemplateId.convert
         apiChoiceArg <- exercisedChoiceArgLens(apiEvent)
         choiceArg <- apiChoiceArg.convert
-      } yield
-        ExercisedEvent(
-          apiEvent.eventId,
-          apiEvent.contractId,
-          templateId,
-          apiEvent.choice,
-          choiceArg,
-          apiEvent.actingParties.toSet,
-          apiEvent.consuming,
-          apiEvent.witnessParties.toSet,
-          apiEvent.childEventIds.toSet
-        )
+      } yield ExercisedEvent(
+        apiEvent.eventId,
+        apiEvent.contractId,
+        templateId,
+        apiEvent.choice,
+        choiceArg,
+        apiEvent.actingParties.toSet,
+        apiEvent.consuming,
+        apiEvent.witnessParties.toSet,
+        apiEvent.childEventIds,
+      )
     }
   }
 }

@@ -1,47 +1,47 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.retrying
+package com.daml.ledger.client.binding.retrying
 
 import java.time.{Duration, Instant}
 
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.client.testing.AkkaTest
-import com.digitalasset.ledger.client.binding.retrying.CommandRetryFlow.{
-  In,
-  Out,
-  SubmissionFlowType
-}
-import com.digitalasset.util.Ctx
-import com.google.protobuf.timestamp.Timestamp
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.client.testing.AkkaTest
+import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
+import com.daml.util.Ctx
+import com.github.ghik.silencer.silent
+import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
 class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
 
-  /**
-    * Uses the status received in the context for the first time,
+  /** Uses the status received in the context for the first time,
     * then replies OK status as the ledger effective time is stepped.
     */
   val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
     Flow[In[RetryInfo[Status]]]
       .map {
-        case Ctx(
-            context @ RetryInfo(_, _, _, status),
-            SubmitRequest(Some(Commands(_, _, _, commandId, _, let, _, _, _)), tc)) =>
-          if (let.get.seconds == 0) {
-            Ctx(context, Completion(commandId, Some(status), traceContext = tc))
+        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands), tc)) =>
+          if (commands.deduplicationTime.get.nanos == 0) {
+            Ctx(context, Completion(commands.commandId, Some(status), traceContext = tc))
           } else {
             Ctx(
               context,
-              Completion(commandId, Some(status.copy(code = Code.OK_VALUE)), traceContext = tc))
+              Completion(
+                commands.commandId,
+                Some(status.copy(code = Code.OK_VALUE)),
+                traceContext = tc,
+              ),
+            )
           }
         case x =>
           throw new RuntimeException(s"Unexpected input: '$x'")
@@ -50,11 +50,12 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
   private val timeProvider = TimeProvider.Constant(Instant.ofEpochSecond(60))
   private val maxRetryTime = Duration.ofSeconds(30)
 
+  @silent(" completion .* is never used") // matches createGraph signature
   private def createRetry(retryInfo: RetryInfo[Status], completion: Completion) = {
     val commands = retryInfo.request.commands.get
-    val let = commands.ledgerEffectiveTime.get
-    val newLet = let.copy(seconds = let.seconds + 1)
-    SubmitRequest(Some(commands.copy(ledgerEffectiveTime = Some(newLet))))
+    val dedupTime = commands.deduplicationTime.get
+    val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)
+    SubmitRequest(Some(commands.copy(deduplicationTime = Some(newDedupTime))))
   }
 
   val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
@@ -70,10 +71,11 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
           "applicationId",
           "commandId",
           "party",
-          Some(Timestamp(0, 0)),
-          Some(Timestamp(0, 0)),
-          Seq.empty)),
-      None
+          Seq.empty,
+          Some(protoDuration.of(120, 0)),
+        )
+      ),
+      None,
     )
 
     val input =
@@ -101,7 +103,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
           .values()
           .toList
           .filterNot(c =>
-            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES.contains(c.getNumber))
+            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES.contains(c.getNumber)
+          )
       val failedSubmissions = codesToFail.map { code =>
         submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>
           result.size shouldBe 1

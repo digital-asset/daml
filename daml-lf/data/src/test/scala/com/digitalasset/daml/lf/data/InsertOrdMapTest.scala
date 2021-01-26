@@ -1,11 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class InsertOrdMapTest extends WordSpec with Matchers {
+class InsertOrdMapTest extends AnyWordSpec with Matchers {
   "toSeq" should {
     "preserve order" in {
       (InsertOrdMap.empty + (1 -> "a") + (2 -> "b")).toSeq shouldEqual Seq(1 -> "a", 2 -> "b")
@@ -19,7 +20,8 @@ class InsertOrdMapTest extends WordSpec with Matchers {
       InsertOrdMap(1 -> "a", 2 -> "b").updated(3, "c").toSeq shouldEqual Seq(
         1 -> "a",
         2 -> "b",
-        3 -> "c")
+        3 -> "c",
+      )
     }
 
     "insert without changing order if key is present" in {

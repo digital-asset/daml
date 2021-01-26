@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
@@ -7,9 +7,10 @@ import com.daml.ledger.javaapi.data.{Identifier, Party, Record, Text}
 import com.daml.ledger.rxjava.components.helpers.{
   CreatedContract,
   CreatedContractContext,
-  TemplateUtils
+  TemplateUtils,
 }
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import templateutils.{TemplateA, TemplateB, TemplateC}
 
 class TestContext extends CreatedContractContext {
@@ -17,12 +18,13 @@ class TestContext extends CreatedContractContext {
   def getWorkflowId(): String = ???
 }
 
-class ContractTransformationTest extends FlatSpec with Matchers {
+class ContractTransformationTest extends AnyFlatSpec with Matchers {
 
   private def createCreatedContract(identifier: Identifier, argument: String): CreatedContract = {
     val arguments = new Record(
       new Record.Field("argument", new Text(argument)),
-      new Record.Field("owner", new Party("party")))
+      new Record.Field("owner", new Party("party")),
+    )
     new CreatedContract(identifier, arguments, new TestContext())
   }
 

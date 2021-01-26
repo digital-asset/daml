@@ -1,0 +1,484 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+jobs:
+- job: git_sha
+  pool:
+    name: 'linux-pool'
+    demands: assignment -equals default
+  steps:
+    - bash: |
+        set -euo pipefail
+        if [ "$(Build.Reason)" == "PullRequest" ]; then
+            echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
+            echo "##vso[task.setvariable variable=main;isOutput=true]$(git rev-parse HEAD^1)"
+            echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
+        else
+            echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
+            echo "##vso[task.setvariable variable=main;isOutput=true]$(git rev-parse HEAD^1)"
+            echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
+        fi
+      name: out
+
+- template: da-ghc-lib/compile.yml
+  parameters:
+    final_job_name: da_ghc_lib
+
+- job: Linux
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+  variables:
+    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+  timeoutInMinutes: 360
+  pool:
+    name: 'linux-pool'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+      condition: eq(variables.is_release, 'true')
+    - template: clean-up.yml
+    - template: build-unix.yml
+      parameters:
+        release_tag: $(release_tag)
+        name: 'linux'
+        is_release: variables.is_release
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+        bazel build //release:release
+        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+      condition: and(succeeded(), ne(variables['is_release'], 'true'))
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathtoPublish: 'bazel-bin/docs/html.tar.gz'
+        artifactName: 'Docs bundle'
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml
+
+- job: macOS
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+  timeoutInMinutes: 360
+  pool:
+    name: macOS-pool
+    demands: assignment -equals default
+  variables:
+    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+  steps:
+    - template: report-start.yml
+    - template: clear-shared-segments-macos.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+      condition: eq(variables.is_release, 'true')
+    - template: clean-up.yml
+    - template: build-unix.yml
+      parameters:
+        release_tag: $(release_tag)
+        name: macos
+        is_release: variables.is_release
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml
+
+- template: patch_bazel_windows/compile.yml
+  parameters:
+    final_job_name: patch_bazel_windows
+
+- job: Windows
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+    - patch_bazel_windows
+  variables:
+    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+  timeoutInMinutes: 360
+  pool:
+    name: 'windows-pool'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+      condition: eq(variables.is_release, 'true')
+    - template: build-windows.yml
+      parameters:
+        release_tag: $(release_tag)
+        is_release: variables.is_release
+    - task: PublishBuildArtifacts@1
+      condition: succeededOrFailed()
+      inputs:
+        pathtoPublish: '$(Build.StagingDirectory)'
+        artifactName: 'Bazel Logs'
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml
+
+- job: Linux_scala_2_13
+  dependsOn:
+    - da_ghc_lib
+  timeoutInMinutes: 360
+  pool:
+    name: 'linux-pool'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - template: clean-up.yml
+    - bash: |
+        source dev-env/lib/ensure-nix
+        ci/dev-env-push.py
+      displayName: 'Push Developer Environment build results'
+      condition: eq(variables['System.PullRequest.IsFork'], 'False')
+      env:
+        # to upload to the Nix cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+
+    - bash: ci/configure-bazel.sh
+      displayName: 'Configure Bazel'
+      env:
+        IS_FORK: $(System.PullRequest.IsFork)
+        # to upload to the bazel cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+        bazel build --config scala_2_13 -- \
+          //libs-scala/... \
+          //daml-lf/... \
+          //language-support/scala/... \
+          //ledger-api/... \
+          //ledger/... \
+          -//language-support/scala/examples/... \
+          -//language-support/scala/codegen-sample-app/... \
+          -//ledger/ledger-api-test-tool/... \
+          -//ledger/ledger-api-test-tool-on-canton/...
+          # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
+        bazel test --config scala_2_13 -- \
+          //libs-scala/... \
+          //daml-lf/... \
+          //language-support/scala/... \
+          //ledger-api/... \
+          //ledger/... \
+          -//libs-scala/gatling-utils/... \
+          -//language-support/scala/examples/... \
+          -//language-support/scala/codegen-sample-app/... \
+          -//ledger/ledger-api-test-tool/... \
+          -//ledger/ledger-api-test-tool-on-canton/...
+      displayName: 'Build'
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml
+
+- job: compatibility_ts_libs
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+  timeoutInMinutes: 360
+  pool:
+    name: linux-pool
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - template: clean-up.yml
+    - template: compatibility_ts_libs.yml
+    - template: tell-slack-failed.yml
+    - template: report-end.yml
+
+- job: compatibility_linux
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+    - compatibility_ts_libs
+  timeoutInMinutes: 360
+  pool:
+    name: linux-pool
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - template: clean-up.yml
+    - template: compatibility.yml
+      parameters:
+        test_flags: '--quick'
+    - template: tell-slack-failed.yml
+    - template: report-end.yml
+
+- job: compatibility_macos
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+    - compatibility_ts_libs
+  timeoutInMinutes: 360
+  pool:
+    name: macOS-pool
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - template: clear-shared-segments-macos.yml
+    - checkout: self
+    - template: clean-up.yml
+    - template: compatibility.yml
+      parameters:
+        test_flags: '--quick'
+    - template: tell-slack-failed.yml
+    - template: report-end.yml
+
+- job: compatibility_windows
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+    - compatibility_ts_libs
+    - patch_bazel_windows
+  timeoutInMinutes: 360
+  pool:
+    name: 'windows-pool'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - template: compatibility-windows.yml
+      parameters:
+        test_flags: '--quick'
+    - template: tell-slack-failed.yml
+    - template: report-end.yml
+    - task: PublishBuildArtifacts@1
+      condition: succeededOrFailed()
+      inputs:
+        pathtoPublish: '$(Build.StagingDirectory)'
+        artifactName: 'Bazel Compatibility Logs'
+
+- job: check_for_release
+  dependsOn:
+    - git_sha
+  variables:
+    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+    fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+  pool:
+    name: "linux-pool"
+    demands: assignment -equals default
+  steps:
+    - bash: |
+        set -euo pipefail
+
+        ./release.sh check
+
+        changes_release_files() {
+            changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
+            [ "LATEST" = "$changed" ]
+        }
+
+        changes_one_line_in_latest() {
+            changed="$(git diff-tree --no-commit-id --numstat -r $(fork_sha) $(branch_sha) -- LATEST | awk '{print $1 "_" $2}')"
+            add_one="1_0"
+            change_one="1_1"
+            [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
+        }
+
+        setvar() {
+            echo "Setting '$1' to '$2'"
+            echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+        }
+
+        added_line() {
+            echo "$(git diff $(fork_sha) $(branch_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
+        }
+
+        if changes_release_files; then
+            if changes_one_line_in_latest; then
+                setvar is_release true
+                setvar trigger_sha $(branch_sha)
+                setvar release_sha "$(added_line | awk '{print $1}')"
+                setvar release_tag "$(added_line | awk '{print $2}')"
+            else
+                echo "Release commit should only add one version."
+                exit 1
+            fi
+        else
+            setvar is_release false
+        fi
+      name: out
+
+- job: collect_build_data
+  condition: always()
+  dependsOn:
+    - Linux
+    - macOS
+    - Windows
+    - release
+    - git_sha
+    - compatibility_macos
+    - compatibility_linux
+    - compatibility_windows
+    - Linux_scala_2_13
+  pool:
+    name: "linux-pool"
+    demands: assignment -equals default
+  variables:
+    Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
+    Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
+    Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
+    Linux.status: $[ dependencies.Linux.result ]
+    macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
+    macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
+    macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
+    macOS.status: $[ dependencies.macOS.result ]
+    Windows.start: $[ dependencies.Windows.outputs['start.time'] ]
+    Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
+    Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
+    Windows.status: $[ dependencies.Windows.result ]
+    Linux_scala_2_13.start: $[ dependencies.Linux_scala_2_13.outputs['start.time'] ]
+    Linux_scala_2_13.machine: $[ dependencies.Linux_scala_2_13.outputs['start.machine'] ]
+    Linux_scala_2_13.end: $[ dependencies.Linux_scala_2_13.outputs['end.time'] ]
+    Linux_scala_2_13.status: $[ dependencies.Linux_scala_2_13.result ]
+    release.start: $[ dependencies.release.outputs['start.time'] ]
+    release.machine: $[ dependencies.release.outputs['start.machine'] ]
+    release.end: $[ dependencies.release.outputs['end.time'] ]
+    release.status: $[ dependencies.release.result ]
+    compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
+    compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
+    compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
+    compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+    compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
+    compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
+    compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
+    compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
+    compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
+    compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
+    compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
+    compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
+
+    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+    main_sha: $[ dependencies.git_sha.outputs['out.main'] ]
+    fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+
+    # Using expression syntax so we get an empty string if not set, rather
+    # than the raw $(VarName) string. Expression syntax works on the
+    # variables key, but not on the env one, so we need an extra indirection.
+    # Note: These Azure variables are only set for PR builds.
+    pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
+    pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
+  steps:
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        REPORT=$(mktemp)
+        cat >$REPORT <<END
+        {"jobs": {"Linux": {"start": "$(Linux.start)",
+                            "machine": "$(Linux.machine)",
+                            "end": "$(Linux.end)",
+                            "status": "$(Linux.status)"},
+                  "macOS": {"start": "$(macOS.start)",
+                            "machine": "$(macOS.machine)",
+                            "end": "$(macOS.end)",
+                            "status": "$(macOS.status)"},
+                  "Windows": {"start": "$(Windows.start)",
+                              "machine": "$(Windows.machine)",
+                              "end": "$(Windows.end)",
+                              "status": "$(Windows.status)"},
+                  "release": {"start": "$(release.start)",
+                              "machine": "$(release.machine)",
+                              "end": "$(release.end)",
+                              "status": "$(release.status)"},
+                  "compatibility_linux": {"start": "$(compatibility_linux.start)",
+                                          "machine": "$(compatibility_linux.machine)",
+                                          "end": "$(compatibility_linux.end)",
+                                          "status": "$(compatibility_linux.status)"},
+                  "compatibility_macos": {"start": "$(compatibility_macos.start)",
+                                          "machine": "$(compatibility_macos.machine)",
+                                          "end": "$(compatibility_macos.end)",
+                                          "status": "$(compatibility_macos.status)"},
+                  "compatibility_windows": {"start": "$(compatibility_windows.start)",
+                                            "machine": "$(compatibility_windows.machine)",
+                                            "end": "$(compatibility_windows.end)",
+                                            "status": "$(compatibility_windows.status)"}},
+         "id": "$(Build.BuildId)",
+         "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
+         "name": "$(Build.DefinitionName)",
+         "version": "$(Build.DefinitionVersion)",
+         "queued_by": "$(Build.QueuedBy)",
+         "reason": "$(Build.Reason)",
+         "branch": "$(Build.SourceBranch)",
+         "merge_commit": "$(Build.SourceVersion)",
+         "branch_commit": "$(branch_sha)",
+         "main_commit": "$(main_sha)",
+         "fork_point_commit": "$(fork_sha)",
+         "commit_message": $(echo -n "$COMMIT_MSG" | jq -sR),
+         "is_fork": "$(System.PullRequest.IsFork)",
+         "pr": "$PR_NUM",
+         "pr_url": "https://github.com/digital-asset/daml/pull/$PR_NUM",
+         "pr_source_branch": "$PR_BRANCH"}
+        END
+        # Test above JSON is well formed
+        cat $REPORT | jq '.'
+        REPORT_GZ=$(mktemp)
+        cat $REPORT | gzip -9 > $REPORT_GZ
+        # Application credentials will not be set for forks. We give up on
+        # tracking those for now. "Not set" in Azure world means set to the
+        # expression Azure would otherwise substitute, i.e. the literal value
+        # of the string in the `env:` block below.
+        if [[ "${GCRED:1:${#GCRED}-1}" != '(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
+            gcs "$GCRED" cp "$REPORT_GZ" "gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz"
+        else
+            echo "Could not save build data: no credentials."
+        fi
+
+        # Linux, macOS and Windows are always required and should always
+        # succeed.
+        #
+        # release only run on releases and is skipped otherwise.
+        if [[ "$(Linux.status)" != "Succeeded"
+            || "$(macOS.status)" != "Succeeded"
+            || "$(Windows.status)" != "Succeeded"
+            || "$(compatibility_linux.status)" != "Succeeded"
+            || "$(compatibility_macos.status)" != "Succeeded"
+            || "$(compatibility_windows.status)" != "Succeeded"
+            || "$(release.status)" == "Canceled" ]]; then
+            exit 1
+        fi
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        # Commit message is always set
+        COMMIT_MSG: $(Build.SourceVersionMessage)
+        # Because these variables are always set (in the variables block),
+        # hopefully these should be set as expected (i.e. either correct
+        # value or empty string, but not $(Azure.Variable.Name)).
+        PR_NUM: $(pr.num)
+        PR_BRANCH: $(pr.branch)
+

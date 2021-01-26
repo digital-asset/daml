@@ -1,17 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CollisionSpec extends WordSpec with Matchers {
+class CollisionSpec extends AnyWordSpec with Matchers {
 
   def check(pkg: Package): Unit =
-    Collision.checkPackage(defaultPackageId, pkg.modules)
+    Collision.checkPackage(defaultPackageId, pkg)
 
   "Collision validation" should {
 

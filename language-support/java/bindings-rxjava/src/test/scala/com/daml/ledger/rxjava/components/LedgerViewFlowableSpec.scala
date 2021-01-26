@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
@@ -8,9 +8,10 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.{Identifier, LedgerOffset, WorkflowEvent}
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import io.reactivex.Flowable
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class LedgerViewFlowableSpec extends FlatSpec with Matchers {
+class LedgerViewFlowableSpec extends AnyFlatSpec with Matchers {
 
   behavior of "LedgerViewFlowable.of"
 
@@ -21,7 +22,7 @@ class LedgerViewFlowableSpec extends FlatSpec with Matchers {
       Flowable.never[LedgerViewFlowable.CompletionFailure](),
       Flowable.never[WorkflowEvent](),
       Flowable.never[CommandsAndPendingSet](),
-      _ => ()
+      _ => (),
     )
 
     intercept[RuntimeException] {
@@ -30,7 +31,7 @@ class LedgerViewFlowableSpec extends FlatSpec with Matchers {
       // the emitted element with a proper failure.
       // The test should also never be result in a false negative, which
       // means that even is the element is emitted after the timeout, the
-      // test would still be green and cause no red masters.
+      // test would still be green and cause no red mains.
       ledgerViewFlowable
         .timeout(10, TimeUnit.MILLISECONDS)
         .blockingFirst()
@@ -47,7 +48,7 @@ class LedgerViewFlowableSpec extends FlatSpec with Matchers {
       Flowable.never[LedgerViewFlowable.CompletionFailure](),
       Flowable.never[WorkflowEvent](),
       Flowable.never[CommandsAndPendingSet](),
-      _ => ()
+      _ => (),
     )
 
     ledgerViewFlowable

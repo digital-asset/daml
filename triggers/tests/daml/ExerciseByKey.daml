@@ -1,35 +1,35 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module ExerciseByKey where
 
-import DA.Next.Map (Map)
-
 import Daml.Trigger
 
 exerciseByKeyTrigger : Trigger Int
 exerciseByKeyTrigger = Trigger
-  { initialize = \_acs -> 3
-  , updateState = \_acs msg allowedFail -> case msg of
+  { initialize = pure 3
+  , updateState = \msg -> case msg of
       MCompletion c
-        | Failed {} <- c.status -> allowedFail - 1
-      _ -> allowedFail
+        | Failed {} <- c.status -> modify (subtract 1)
+      _ -> pure ()
   , rule = retryRule
   , registeredTemplates = AllInDar
   , heartbeat = None
   }
 
 -- Create one T template and then call a choice by key to create T_.
-retryRule : Party -> ACS -> Time -> Map CommandId [Command] -> Int -> TriggerA ()
-retryRule party acs _time commandsInFlight allowedRetries
-  | [] <- getContracts @T acs = do
-    dedupCreate T { p = party }
-  | ((_, T { p = party' } ) :: _) <- getContracts @T acs
-  , [] <- getContracts @T_ acs
-  , party == party' = do
-    dedupExerciseByKey @T party C
-  | otherwise = pure ()
+retryRule : Party -> TriggerA Int ()
+retryRule party = do
+  allowedRetries <- get
+  ts <- queryContractKey @T party
+  t_s <- query @T_
+  case (ts, t_s) of
+    (None, _) ->
+      dedupCreate T { p = party }
+    (Some _, []) ->
+      dedupExerciseByKey @T party C
+    otherwise -> pure ()
 
 template T
   with

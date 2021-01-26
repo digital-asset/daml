@@ -15,7 +15,7 @@ main = scenario do
     rs <- minstd_initFromTime
     (rs, s1) <- pure $ d6 rs
     (rs, s2) <- pure $ d6 rs
-    (rs, s3) <- pure $ d6 rs
+    (_, s3) <- pure $ d6 rs
 
     let s = s1 + s2 + s3
     assert $ s >= 3 && s <= 18

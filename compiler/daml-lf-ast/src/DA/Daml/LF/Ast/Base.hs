@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
@@ -36,14 +36,14 @@ infixr 1 `KArrow`
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey)
 
 -- | Name for a module. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Name for a type synonym. Must match the regex
 --
@@ -113,14 +113,14 @@ newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
 -- > [a-zA-Z0-9_-]+
 newtype PackageName = PackageName{unPackageName :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, FromJSON)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Human-readable version of a package. Must match the regex
 --
 -- > (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*
 newtype PackageVersion = PackageVersion{unPackageVersion :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, FromJSON)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Reference to a package.
 data PackageRef
@@ -179,6 +179,10 @@ data BuiltinType
   | BTArrow
   | BTAny
   | BTTypeRep
+  | BTAnyException
+  | BTGeneralError
+  | BTArithmeticError
+  | BTContractError
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -230,9 +234,22 @@ data BuiltinExpr
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
 
-  -- Polymorphic functions
+  -- Exceptions
   | BEError                      -- :: ∀a. Text -> a
+  | BEAnyExceptionMessage        -- :: AnyException -> Text
+  | BEGeneralErrorMessage        -- :: GeneralError -> Text
+  | BEArithmeticErrorMessage     -- :: ArithmeticError -> Text
+  | BEContractErrorMessage       -- :: ContractError -> Text
+  | BEMakeGeneralError           -- :: Text -> GeneralError
+  | BEMakeArithmeticError        -- :: Text -> ArithmeticError
+  | BEMakeContractError          -- :: Text -> ContractError
+
+  -- Polymorphic functions
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
+  | BELessGeneric                -- :: ∀t. t -> t -> Bool
+  | BELessEqGeneric              -- :: ∀t. t -> t -> Bool
+  | BEGreaterGeneric             -- :: ∀t. t -> t -> Bool
+  | BEGreaterEqGeneric           -- :: ∀t. t -> t -> Bool
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELessEq     !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
@@ -240,6 +257,7 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
+  | BEToTextContractId           -- :: forall t. ContractId t -> Option Text
 
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
@@ -496,6 +514,22 @@ data Expr
     , fromAnyBody :: !Expr
     }
   | ETypeRep !Type
+  -- | Construct an 'AnyException' value from a value of an exception type.
+  | EToAnyException
+    { toAnyExceptionType :: !Type
+    , toAnyExceptionValue :: !Expr
+    }
+  -- | Convert 'AnyException' back to its underlying value, if possible.
+  | EFromAnyException
+    { fromAnyExceptionType :: !Type
+    , fromAnyExceptionValue :: !Expr
+    }
+  -- | Throw an exception.
+  | EThrow
+    { throwReturnType :: !Type
+    , throwExceptionType :: !Type
+    , throwExceptionValue :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -576,7 +610,7 @@ data Update
     , creArg      :: !Expr
       -- ^ Argument for the contract template.
     }
-  -- | Exercise choice on a cotract template instance.
+  -- | Exercise choice on a contract given a contract ID.
   | UExercise
     { exeTemplate   :: !(Qualified TypeConName)
       -- ^ Qualified type constructor corresponding to the contract template.
@@ -584,8 +618,17 @@ data Update
       -- ^ Choice to exercise.
     , exeContractId :: !Expr
       -- ^ Contract id of the contract template instance to exercise choice on.
-    , exeActors     :: !(Maybe Expr)
-      -- ^ Parties exercising the choice.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
+    }
+  -- | Exercise a choice on a contract by key.
+  | UExerciseByKey
+    { exeTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeKey        :: !Expr
+      -- ^ Key of the contract template instance to exercise choice on.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }
@@ -606,6 +649,12 @@ data Update
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
+  | UTryCatch
+    { tryCatchType :: !Type
+    , tryCatchExpr :: !Expr
+    , tryCatchVar :: !ExprVarName
+    , tryCatchHandler :: !Expr
+    }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the scenario monad
@@ -782,6 +831,14 @@ data Template = Template
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
+-- | Definition of an exception type.
+data DefException = DefException
+  { exnLocation :: !(Maybe SourceLoc)
+  , exnName :: !TypeConName
+  , exnMessage :: !Expr
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
 -- | Single choice of a contract template.
 data TemplateChoice = TemplateChoice
   { chcLocation :: !(Maybe SourceLoc)
@@ -793,7 +850,9 @@ data TemplateChoice = TemplateChoice
     -- instance or not.
   , chcControllers :: !Expr
     -- ^ The controllers of the choice. They have type @List Party@ and the
-    -- template parameter in scope, but not the choice parameter.
+    -- template parameter in scope, and (since 1.2) also the choice parameter.
+  , chcObservers :: !(Maybe Expr)
+    -- ^ The observers of the choice. When they are present, they have type @List Party@.
   , chcSelfBinder :: !ExprVarName
     -- ^ Variable to bind the ContractId of the contract this choice is
     -- exercised on to.
@@ -851,6 +910,7 @@ data Module = Module
     -- ^ Top-level value definitions.
   , moduleTemplates :: !(NM.NameMap Template)
     -- ^ Template definitions.
+  , moduleExceptions :: !(NM.NameMap DefException)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -894,6 +954,10 @@ instance NM.Named DefDataType where
 instance NM.Named DefValue where
   type Name DefValue = ExprValName
   name = fst . dvalBinder
+
+instance NM.Named DefException where
+  type Name DefException = TypeConName
+  name = exnName
 
 instance NM.Named Template where
   type Name Template = TypeConName

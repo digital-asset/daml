@@ -1,11 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module PendingSet where
 
 import DA.Foldable (mapA_)
-import DA.Next.Map (Map)
 import Daml.Trigger
 
 template Foo
@@ -36,16 +35,16 @@ template Done
 
 booTrigger : Trigger ()
 booTrigger = Trigger with
-  initialize = \acs -> ()
-  updateState = \acs _ s -> s
+  initialize = pure ()
+  updateState = \_ -> pure ()
   rule = booRule
   registeredTemplates = AllInDar
   heartbeat = None
 
-booRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
-booRule party acs _time _commandsInFlight _userState = do
-  let foos : [(ContractId Foo, Foo)] = getContracts @Foo acs
-  let boos : [(ContractId Boo, Boo)] = getContracts @Boo acs
+booRule : Party -> TriggerA () ()
+booRule party = do
+  foos : [(ContractId Foo, Foo)] <- query @Foo
+  boos : [(ContractId Boo, Boo)] <- query @Boo
   case (boos, foos) of
     ([], []) -> do
       -- initialization so we don’t have to create contracts from Scala

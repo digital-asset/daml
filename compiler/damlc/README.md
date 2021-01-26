@@ -4,7 +4,7 @@ The following list is ordered topologicaly based on the dependency graph.
 
 ### daml-preprocessor
 
-`daml-preprocessor` contains the DAML preprocessor which runs our version of the
+`daml-preprocessor` contains the Daml preprocessor which runs our version of the
 `record-dot-preprocessor` and the preprocessor for generating
 `Generic` instances. The preprocessor also performs a few additional
 checks, e.g., that you do not import internal modules.
@@ -23,12 +23,12 @@ making everything depend on `daml-preprocessor`.
 
 ### daml-lf-conversion
 
-`daml-lf-conversion` handles the conversion from GHC’s Core to DAML-LF.
+`daml-lf-conversion` handles the conversion from GHC’s Core to Daml-LF.
 
 ### daml-ide-core
 
-`daml-ide-core` is a wrapper around `ghcide` that adds DAML-specific
-rules such as rules for producing `DAML-LF`.
+`daml-ide-core` is a wrapper around `ghcide` that adds Daml-specific
+rules such as rules for producing `Daml-LF`.
 
 
 ### daml-doc
@@ -61,8 +61,8 @@ This is a tiny wrapper around `lib` to produce the `damlc` executable.
 When working on the compiler:
 
 ```
-da-ghcid //compiler/damlc/tests:integration-dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
-bazel run //compiler/damlc/tests:integration-dev -- --pattern=
+da-ghcid //compiler/damlc/tests:integration-v1dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
+bazel run //compiler/damlc/tests:integration-v1dev -- --pattern=
 bazel run damlc -- compile $PWD/MyDaml12File.daml
 ```
 
@@ -83,6 +83,30 @@ work via `bazel run`. For testing, install the SDK with
 `daml-sdk-head` and then use `daml-head damlc`.
 
 
+## Updating expected diagnostics in the damlc integration tests
+
+Most of the `.daml` files in `tests/daml-test-files` contain comments of the
+form
+```haskell
+-- @WARN range=1:1-1:10; Something to warn about
+```
+These comments specify the diagnostics we expect when compiling the file.
+Sometimes these expectations change for various reasons and updating the
+comments can be quite tedious, particularly when there are many of them.
+You can extract the comments reflecting the updated expectations from the
+compiler output by copying the output into the clipboard and running
+```sh
+# On MacOS
+pbpaste | sed -n -r -f compiler/damlc/tests/extract-diagnostics.sed
+
+# On Linux
+xclip -out -selection clipboard | sed -n -r -f compiler/damlc/tests/extract-diagnostics.sed
+```
+If a test case in the `damlc` intgration tests fails, it will print the
+compiler output. Alternative, you can run `damlc` as described above to get
+the output.
+
+
 ## Updating daml-doc's golden tests
 
 Run
@@ -96,14 +120,15 @@ to accept the current documentation as new golden files.
 Standard library docs are exposed under the bazel rules which you can build with:
 
 ```
-bazel build //compiler/damlc:daml-base-rst-docs
-bazel build //compiler/damlc:daml-base-hoogle-docs
+bazel build //compiler/damlc:daml-base-docs
 ```
 
-## DAML Packages and Database
+This creates a tarball containing RST (ReStructured Text) docs, and a hoogle database.
 
-A DAML project is compiled to a DAML package and can be distributed as a DAML archive (DAR). This is
-essentially a zip archive containing the DAML source code of the library together with the compiled
+## Daml Packages and Database
+
+A Daml project is compiled to a Daml package and can be distributed as a Daml archive (DAR). This is
+essentially a zip archive containing the Daml source code of the library together with the compiled
 .dalf file. The damlc package loading mechanism is based on GHC's package database
 and uses the same .conf file format. GHC's package
 database is documented at
@@ -112,8 +137,8 @@ https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/packages.html.
 ### Loading packages
 
 `damlc` loads packages from a package database given by the option `--package-db`. It creates a
-map from package name to DAML-LF file from all the contained .dalf files in this directory and links
-the created DAML-LF against these packages. It uses the .hi interface files created upon
+map from package name to Daml-LF file from all the contained .dalf files in this directory and links
+the created Daml-LF against these packages. It uses the .hi interface files created upon
 installation of the packages for type checking.
 
 ### Base packages

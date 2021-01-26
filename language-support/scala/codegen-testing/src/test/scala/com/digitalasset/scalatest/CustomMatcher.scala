@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.scalatest
+package com.daml.scalatest
 
 import org.scalatest.{Assertion, Succeeded}
 import scalaz.syntax.show._
@@ -19,8 +19,9 @@ object CustomMatcher {
       if (eqEv.equal(underlying, other)) reportFailure(underlying, " === ", other)
       else Succeeded
 
-    private def reportFailure(underlying: A, str: String, other: A)(
-        implicit showEv: Show[A]): Assertion =
+    private def reportFailure(underlying: A, str: String, other: A)(implicit
+        showEv: Show[A]
+    ): Assertion =
       throw CustomMatcherException(s"${underlying.shows}$str${other.shows}")
   }
 

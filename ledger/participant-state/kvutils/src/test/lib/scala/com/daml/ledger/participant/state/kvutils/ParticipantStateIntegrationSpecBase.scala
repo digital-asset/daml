@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -7,38 +7,47 @@ import java.io.File
 import java.time.{Clock, Duration}
 import java.util.UUID
 
+import akka.Done
 import akka.stream.scaladsl.Sink
+import com.codahale.metrics.MetricRegistry
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.crypto
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party.ordering
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
+import com.daml.platform.common.MismatchException
 import org.scalatest.Inside._
-import org.scalatest.Matchers._
-import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
+import org.scalatest.matchers.should.Matchers._
+import org.scalatest.{Assertion, BeforeAndAfterEach}
+import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.immutable.HashMap
+import scala.collection.compat._
+import scala.collection.mutable
+import scala.collection.immutable.SortedSet
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.util.{Failure, Success, Try}
 
 //noinspection DuplicatedCode
-abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
-    extends AsyncWordSpec
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(implicit
+    testExecutionContext: ExecutionContext = ExecutionContext.global
+) extends AsyncWordSpec
+    with TestResourceContext
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
-
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
@@ -53,22 +62,20 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
+      metrics: Metrics,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
-    newParticipantState(newLedgerId())
+    newParticipantState(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
 
-  private def newParticipantState(): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
-      participantStateFactory(None, participantId, testId)
-    }
-
-  private def newParticipantState(ledgerId: LedgerId): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
-      participantStateFactory(Some(ledgerId), participantId, testId)
+  private def newParticipantState(
+      ledgerId: LedgerId
+  ): ResourceOwner[ParticipantState] =
+    newLoggingContext { implicit loggingContext =>
+      participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
     }
 
   override protected def beforeEach(): Unit = {
@@ -83,7 +90,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(ledgerId).use { ps =>
+      newParticipantState(ledgerId = ledgerId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -98,16 +105,16 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "provide an update" in participantState.use { ps =>
         val submissionId = newSubmissionId()
         for {
-          result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
+          result <- ps.uploadPackages(submissionId, List(anArchive), sourceDescription).toScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
-          matchPackageUpload(update, submissionId, List(archives.head))
+          matchPackageUpload(update, submissionId, List(anArchive))
         }
       }
 
@@ -121,38 +128,35 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           matchPackageUpload(update, submissionId, archives)
         }
       }
 
       "remove a duplicate package from the update" in participantState.use { ps =>
-        val archive1 :: archive2 :: _ = archives
         val (subId1, subId2, subId3) =
           (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
-          result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
-          result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+          result1 <- ps.uploadPackages(subId1, List(anArchive), sourceDescription).toScala
+          (offset1, update1) <- waitForNextUpdate(ps, None)
+          result2 <- ps.uploadPackages(subId2, List(anArchive), sourceDescription).toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
+          result3 <- ps.uploadPackages(subId3, List(anotherArchive), sourceDescription).toScala
+          (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(3)
-            .runWith(Sink.seq)
           updates = Seq(update1, update2, update3)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
           // first upload arrives as head update:
-          offset1 should be(theOffset(0, 0))
-          matchPackageUpload(update1, subId1, List(archive1))
-          offset2 should be(theOffset(1, 0))
+          offset1 should be(toOffset(1))
+          matchPackageUpload(update1, subId1, List(anArchive))
+          offset2 should be(toOffset(2))
           matchPackageUpload(update2, subId2, List())
-          offset3 should be(theOffset(2, 0))
-          matchPackageUpload(update3, subId3, List(archive2))
+          offset3 should be(toOffset(3))
+          matchPackageUpload(update3, subId3, List(anotherArchive))
         }
       }
 
@@ -171,37 +175,33 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
-          inside(update) {
-            case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
-              actualSubmissionId should be(submissionId)
+          inside(update) { case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
+            actualSubmissionId should be(submissionId)
           }
         }
       }
 
       "reject a duplicate submission" in participantState.use { ps =>
         val submissionIds = (newSubmissionId(), newSubmissionId())
-        val archive1 :: archive2 :: _ = archives
 
         for {
-          result1 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
-          result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
-          result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
+          result1 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
+          (offset1, _) <- waitForNextUpdate(ps, None)
+          // Second submission is a duplicate, it fails without an update.
+          result2 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
+          result3 <- ps
+            .uploadPackages(submissionIds._2, List(anotherArchive), sourceDescription)
+            .toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          // second submission is a duplicate, it fails silently
-          Seq(_, (offset2, update2)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(2)
-            .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(2, 0))
+          offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
-          inside(update2) {
-            case PublicPackageUpload(_, _, _, Some(submissionId)) =>
-              submissionId should be(submissionIds._2)
+          inside(update2) { case PublicPackageUpload(_, _, _, Some(submissionId)) =>
+            submissionId should be(submissionIds._2)
           }
         }
       }
@@ -217,12 +217,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
             .toScala
           _ = result should be(SubmissionResult.Acknowledged)
-          (offset, update) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .runWith(Sink.head)
+          (offset, update) <- waitForNextUpdate(ps, None)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           inside(update) {
             case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
@@ -239,12 +236,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         for {
           result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
           _ = result should be(SubmissionResult.Acknowledged)
-          (offset, update) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .runWith(Sink.head)
+          (offset, update) <- waitForNextUpdate(ps, None)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           inside(update) {
             case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
@@ -259,23 +253,19 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val hints =
           (Some(Ref.Party.assertFromString("Alice")), Some(Ref.Party.assertFromString("Bob")))
         val displayNames = ("Alice Cooper", "Bob de Boumaa")
-
         val submissionIds = (newSubmissionId(), newSubmissionId())
 
         for {
           result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).toScala
+          (offset1, _) <- waitForNextUpdate(ps, None)
+          // Second submission is a duplicate, it should not generate an update.
           result2 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._1).toScala
           result3 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._2).toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          // second submission is a duplicate, it fails silently
-          Seq(_, (offset2, update2)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(2)
-            .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(2, 0))
+          offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
           inside(update2) {
             case PartyAddedToParticipant(_, displayName, _, _, Some(submissionId)) =>
@@ -288,23 +278,18 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "reject a duplicate party" in participantState.use { ps =>
         val hint = Some(Ref.Party.assertFromString("Alice"))
         val displayName = Some("Alice Cooper")
-
         for {
           result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+          (offset1, _) <- waitForNextUpdate(ps, None)
           result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          Seq(_, (offset2, update2)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(2)
-            .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
           update2.recordTime should be >= rt
-          inside(update2) {
-            case PartyAllocationRejected(_, _, _, rejectionReason) =>
-              rejectionReason should be("Party already exists")
+          inside(update2) { case PartyAllocationRejected(_, _, _, rejectionReason) =>
+            rejectionReason should be("Party already exists")
           }
         }
       }
@@ -314,16 +299,18 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "provide an update after a transaction submission" in participantState.use { ps =>
         for {
           _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
+          (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
-            .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+            .submitTransaction(
+              submitterInfo(alice),
+              transactionMeta(rt),
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
+            )
             .toScala
-          (offset, _) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .drop(1)
-            .runWith(Sink.head)
+          (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
-          offset should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
         }
       }
 
@@ -332,76 +319,81 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
         for {
           result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
+          (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._1),
+              submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
+          // Below submission is a duplicate, should get dropped.
           result3 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._1),
+              submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
           result4 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._2),
+              submitterInfo(alice, commandIds._2),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
+          (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3, result4)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(3)
-            .runWith(Sink.seq)
           updates = Seq(update1, update2, update3)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
 
-          offset1 should be(theOffset(0, 0))
+          offset1 should be(toOffset(1))
           update1 should be(a[PartyAddedToParticipant])
 
-          offset2 should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
           matchTransaction(update2, commandIds._1)
 
-          offset3 should be(theOffset(3, 0))
+          offset3 should be(toOffset(4))
           matchTransaction(update3, commandIds._2)
         }
       }
 
-      "return the third update with beginAfter=1" in participantState.use { ps =>
+      "return the third update with beginAfter=2" in participantState.use { ps =>
         for {
           result1 <- ps
             .allocateParty(hint = Some(alice), None, newSubmissionId())
             .toScala // offset now at [1,0]
+          (offset1, _) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, "X1"),
+              submitterInfo(alice, "X1"),
               transactionMeta(rt),
-              emptyTransaction)
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
+            )
             .toScala
+          (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, "X2"),
+              submitterInfo(alice, "X2"),
               transactionMeta(rt),
-              emptyTransaction)
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
+            )
             .toScala
+          (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          (offset, update) <- ps
-            .stateUpdates(beginAfter = Some(theOffset(1, 0)))
-            .idleTimeout(IdleTimeout)
-            .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(2, 0))
-          update.recordTime should be >= rt
-          update should be(a[TransactionAccepted])
+          offset3 should be(toOffset(3))
+          update3.recordTime should be >= rt
+          update3 should be(a[TransactionAccepted])
         }
       }
 
@@ -414,19 +406,22 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = newSubmissionId(),
               config = lic.config.copy(
-                generation = lic.config.generation + 1,
+                generation = lic.config.generation + 1
               ),
             )
             .toScala
+          (offset1, update1) <- waitForNextUpdate(ps, None)
 
           // Submit without allocation
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, unallocatedParty),
+              submitterInfo(unallocatedParty),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
 
           // Allocate a party and try the submission again with an allocated party.
           result <- ps
@@ -437,43 +432,40 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             )
             .toScala
           _ = result should be(a[SubmissionResult])
+          (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
 
           //get the new party off state updates
           newParty <- ps
-            .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+            .stateUpdates(beginAfter = Some(toOffset(2)))
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
             .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, party = newParty),
+              submitterInfo(party = newParty),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
+          (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
 
-          Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(4)
-            .runWith(Sink.seq)
           updates = Seq(update1, update2, update3, update4)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
 
-          offset1 should be(theOffset(0, 0))
+          offset1 should be(toOffset(1))
           update1 should be(a[ConfigurationChanged])
 
-          offset2 should be(theOffset(1, 0))
-          inside(update2) {
-            case CommandRejected(_, _, reason) =>
-              reason should be(RejectionReason.PartyNotKnownOnLedger)
+          offset2 should be(toOffset(2))
+          inside(update2) { case CommandRejected(_, _, reason) =>
+            reason should be(a[RejectionReason.PartyNotKnownOnLedger])
           }
 
-          offset3 should be(theOffset(2, 0))
+          offset3 should be(toOffset(3))
           update3 should be(a[PartyAddedToParticipant])
 
-          offset4 should be(theOffset(3, 0))
+          offset4 should be(toOffset(4))
           update4 should be(a[TransactionAccepted])
         }
       }
@@ -490,10 +482,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = newSubmissionId(),
               config = lic.config.copy(
-                generation = lic.config.generation + 1,
+                generation = lic.config.generation + 1
               ),
             )
             .toScala
+          (offset1, update1) <- waitForNextUpdate(ps, None)
 
           // Submit another configuration change that uses stale "current config".
           _ <- ps
@@ -506,24 +499,15 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
-                  Duration.ofSeconds(123),
-                  Duration.ofSeconds(123),
-                  Duration.ofSeconds(123),
                 ).get,
               ),
             )
             .toScala
-
-          Seq((_, update1), (_, update2)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(2)
-            .runWith(Sink.seq)
+          (_, update2) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
           // The first submission should change the config.
-          inside(update1) {
-            case ConfigurationChanged(_, _, _, newConfiguration) =>
-              newConfiguration should not be lic.config
+          inside(update1) { case ConfigurationChanged(_, _, _, newConfiguration) =>
+            newConfiguration should not be lic.config
           }
 
           // The second submission should get rejected.
@@ -542,17 +526,18 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = submissionIds._1,
               config = lic.config.copy(
-                generation = lic.config.generation + 1,
+                generation = lic.config.generation + 1
               ),
             )
             .toScala
+          (offset1, _) <- waitForNextUpdate(ps, None)
           // this is a duplicate, which fails silently
           result2 <- ps
             .submitConfiguration(
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = submissionIds._1,
               config = lic.config.copy(
-                generation = lic.config.generation + 2,
+                generation = lic.config.generation + 2
               ),
             )
             .toScala
@@ -561,59 +546,76 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = submissionIds._2,
               config = lic.config.copy(
-                generation = lic.config.generation + 2,
+                generation = lic.config.generation + 2
               ),
             )
             .toScala
+          (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
+
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-
-          // second submission is a duplicate, and is therefore dropped
-          Seq(_, (offset2, update2)) <- ps
-            .stateUpdates(beginAfter = None)
-            .idleTimeout(IdleTimeout)
-            .take(2)
-            .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(2, 0))
+          offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
-          inside(update2) {
-            case ConfigurationChanged(_, submissionId, _, _) =>
-              submissionId should be(submissionIds._2)
+          inside(update2) { case ConfigurationChanged(_, submissionId, _, _) =>
+            submissionId should be(submissionIds._2)
           }
         }
       }
     }
 
-    "process commits serially" in participantState.use { ps =>
+    "process many party allocations" in participantState.use { ps =>
       val partyCount = 1000L
       val partyIds = 1L to partyCount
       val partyIdDigits = partyCount.toString.length
       val partyNames =
         partyIds
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
-          .toVector
+          .to(SortedSet)
 
-      val updatesF = ps
+      val expectedOffsets = partyIds.map(i => toOffset(i)).to(SortedSet)
+
+      val updates = mutable.Buffer.empty[(Offset, Update)]
+      val stateUpdatesF = ps
         .stateUpdates(beginAfter = None)
         .idleTimeout(IdleTimeout)
         .take(partyCount)
-        .runWith(Sink.seq)
+        .runWith(Sink.foreach { update =>
+          updates.synchronized {
+            updates += update
+            ()
+          }
+        })
       for {
-        results <- Future.sequence(
-          partyNames.map(name =>
-            ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala),
+        results <- Future.traverse(partyNames.toVector)(name =>
+          ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala
         )
         _ = all(results) should be(SubmissionResult.Acknowledged)
-        updates <- updatesF
+
+        _ <- stateUpdatesF.transform {
+          case Success(Done) => Success(())
+          case Failure(exception: TimeoutException) =>
+            val acceptedPartyNames =
+              updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName)
+            val missingPartyNames = partyNames.map(name => name: String) -- acceptedPartyNames
+            Failure(
+              new RuntimeException(
+                s"Timed out with parties missing: ${missingPartyNames.mkString(", ")}",
+                exception,
+              )
+            )
+          case Failure(exception) => Failure(exception)
+        }
       } yield {
-        val expectedOffsets = partyIds.map(i => theOffset(i - 1, 0)).toVector
-        val actualOffsets = updates.map(_._1).sorted.toVector
-        actualOffsets should be(expectedOffsets)
+        updates.size should be(partyCount)
+
+        val (actualOffsets, actualUpdates) = updates.unzip
+        all(actualUpdates) should be(a[PartyAddedToParticipant])
+        actualOffsets.to(SortedSet) should be(expectedOffsets)
 
         val actualNames =
-          updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
-        actualNames should be(partyNames)
+          actualUpdates.map(_.asInstanceOf[PartyAddedToParticipant].displayName)
+        actualNames.to(SortedSet) should be(partyNames)
       }
     }
 
@@ -621,10 +623,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "store the ledger ID and re-use it" in {
         val ledgerId = newLedgerId()
         for {
-          retrievedLedgerId1 <- newParticipantState(ledgerId).use { ps =>
+          retrievedLedgerId1 <- newParticipantState(ledgerId = ledgerId).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
-          retrievedLedgerId2 <- newParticipantState().use { ps =>
+          retrievedLedgerId2 <- newParticipantState(ledgerId = ledgerId).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
         } yield {
@@ -637,31 +639,31 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val ledgerId = newLedgerId()
         val attemptedLedgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId).use { _ =>
+          _ <- newParticipantState(ledgerId = ledgerId).use { _ =>
             Future.unit
           }
-          exception <- newParticipantState(attemptedLedgerId).use { _ =>
+          exception <- newParticipantState(ledgerId = attemptedLedgerId).use { _ =>
             Future.unit
           }.failed
         } yield {
-          exception should be(a[LedgerIdMismatchException])
-          val mismatchException = exception.asInstanceOf[LedgerIdMismatchException]
-          mismatchException.existingLedgerId should be(ledgerId)
-          mismatchException.providedLedgerId should be(attemptedLedgerId)
+          exception should be(a[MismatchException.LedgerId])
+          val mismatchException = exception.asInstanceOf[MismatchException.LedgerId]
+          mismatchException.existing should be(ledgerId)
+          mismatchException.provided should be(attemptedLedgerId)
         }
       }
 
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId).use { ps =>
+          _ <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState().use { ps =>
+          updates <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
@@ -682,34 +684,49 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
   }
 
-  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
+  private def submitterInfo(party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(
-      submitter = party,
+      actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      maxRecordTime = inTheFuture(10.seconds),
+      deduplicateUntil = inTheFuture(10.seconds).toInstant,
     )
-
-  private def theOffset(first: Long, rest: Long*): Offset =
-    Offset(Array(first + startIndex, rest: _*))
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
     rt.add(Duration.ofNanos(duration.toNanos))
+
+  private def waitForNextUpdate(
+      ps: ParticipantState,
+      offset: Option[Offset],
+  ): Future[(Offset, Update)] =
+    ps.stateUpdates(beginAfter = offset)
+      .idleTimeout(IdleTimeout)
+      .runWith(Sink.head)
 }
 
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val IdleTimeout = 5.seconds
-  private val emptyTransaction: SubmittedTransaction =
-    GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
+  private val IdleTimeout: FiniteDuration = 15.seconds
+  private val DefaultInterpretationCost = 0L
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
-  private val archives =
-    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
+  private val darReader = DarReader[DamlLf.Archive] { case (_, is) =>
+    Try(DamlLf.Archive.parseFrom(is))
+  }
+  private val darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
+  private val archives = darReader.readArchiveFromFile(darFile).get.all
+
+  // 2 self consistent archives
+  protected val List(anArchive, anotherArchive) =
+    archives
+      .sortBy(_.getSerializedSize) // look at the smallest archives first to limit decoding work
+      .iterator
+      .filter(Decode.decodeArchive(_)._2.directDeps.isEmpty)
+      .take(2)
+      .toList
 
   private val alice = Ref.Party.assertFromString("alice")
 
@@ -719,10 +736,18 @@ object ParticipantStateIntegrationSpecBase {
   private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
-  private def transactionMeta(let: Timestamp) = TransactionMeta(
-    ledgerEffectiveTime = let,
-    workflowId = Some(Ref.LedgerString.assertFromString("tests")),
-  )
+  private def transactionMeta(let: Timestamp) =
+    TransactionMeta(
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+      submissionTime = let.addMicros(-1000),
+      submissionSeed = crypto.Hash.assertFromString(
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ),
+      optUsedPackages = Some(Set.empty),
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    )
 
   private def matchPackageUpload(
       update: Update,
@@ -731,10 +756,10 @@ object ParticipantStateIntegrationSpecBase {
   ): Assertion =
     inside(update) {
       case PublicPackageUpload(
-          actualArchives,
-          actualSourceDescription,
-          _,
-          Some(actualSubmissionId),
+            actualArchives,
+            actualSourceDescription,
+            _,
+            Some(actualSubmissionId),
           ) =>
         actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
         actualSourceDescription should be(sourceDescription)
@@ -743,7 +768,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
     }
 }

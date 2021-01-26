@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -14,6 +14,7 @@ module DA.Daml.LF.Proto3.DecodeV1
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.Util as Util
+import Data.Coerce
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
@@ -21,17 +22,22 @@ import Data.Int
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as LF1
+import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
-import qualified Data.Vector as V
+import qualified Data.Vector.Extended as V
 import qualified Proto3.Suite as Proto
 
 
 data DecodeEnv = DecodeEnv
-    { internedStrings :: !(V.Vector T.Text)
-    , internedDottedNames :: !(V.Vector [T.Text])
+    -- We cache unmangled identifiers here so that we only do the unmangling once
+    -- and so that we can share the unmangled identifiers. Since not all strings in the string
+    -- interning tables are mangled, we store the potential error from unmangling rather than
+    -- erroring out when producing the string interning table.
+    { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
+    , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
+    , internedTypes :: !(V.Vector Type)
     , selfPackageRef :: PackageRef
     }
 
@@ -47,12 +53,12 @@ lookupInterned interned mkError id = do
           Nothing -> throwError $ mkError id
           Just x -> pure x
 
-lookupString :: Int32 -> Decode T.Text
+lookupString :: Int32 -> Decode (T.Text, Either String UnmangledIdentifier)
 lookupString strId = do
     DecodeEnv{internedStrings} <- ask
     lookupInterned internedStrings BadStringId strId
 
-lookupDottedName :: Int32 -> Decode [T.Text]
+lookupDottedName :: Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
 lookupDottedName id = do
     DecodeEnv{internedDottedNames} <- ask
     lookupInterned internedDottedNames BadDottedNameId id
@@ -66,15 +72,25 @@ lookupDottedName id = do
 decodeString :: TL.Text -> T.Text
 decodeString = TL.toStrict
 
+-- | Decode of a string that cannot be interned, e.g, the entries of the
+-- interning table itself.
+decodeMangledString :: TL.Text -> (T.Text, Either String UnmangledIdentifier)
+decodeMangledString t = (decoded, unmangledOrErr)
+    where !decoded = decodeString t
+          unmangledOrErr = unmangleIdentifier decoded
+
 -- | Decode a string that will be interned in DAML-LF 1.7 and onwards.
 -- At the protobuf level, we represent internable non-empty lists of strings
 -- by a repeatable string and a number. If there's at least one string,
 -- then the number must not be set, i.e. zero. If there are no strings,
 -- then the number is treated as an index into the interning table.
-decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode [T.Text]
+decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternableStrings strs id
     | V.null strs = lookupDottedName id
-    | id == 0 = pure $ map decodeString (V.toList strs)
+    | id == 0 =
+      let decodedStrs = map decodeString (V.toList strs)
+          unmangled = mapM unmangleIdentifier decodedStrs
+      in pure (decodedStrs, unmangled)
     | otherwise = throwError $ ParseError "items and interned id both set for string list"
 
 -- | Decode the name of a syntactic object, e.g., a variable or a data
@@ -84,16 +100,21 @@ decodeName
     :: Util.EitherLike TL.Text Int32 e
     => (T.Text -> a) -> Maybe e -> Decode a
 decodeName wrapName mbStrOrId = mayDecode "name" mbStrOrId $ \strOrId -> do
-    mangled <- case Util.toEither strOrId of
-        Left str -> pure $ decodeString str
-        Right strId -> lookupString strId
-    decodeNameString wrapName mangled
+    unmangledOrErr <- case Util.toEither strOrId of
+        Left str -> pure $ snd $ decodeMangledString str
+        Right strId -> snd <$> lookupString strId
+    decodeNameString wrapName unmangledOrErr
 
-decodeNameString :: (T.Text -> a) -> T.Text -> Decode a
-decodeNameString wrapName mangled =
-    case unmangleIdentifier mangled of
-        Left err -> throwError $ ParseError $ "Could not unmangle name " ++ show mangled ++ ": " ++ err
-        Right unmangled -> pure $ wrapName unmangled
+decodeNameId :: (T.Text -> a) -> Int32 -> Decode a
+decodeNameId wrapName strId = do
+    (_, s) <- lookupString strId
+    decodeNameString wrapName s
+
+decodeNameString :: (T.Text -> a) -> Either String UnmangledIdentifier -> Decode a
+decodeNameString wrapName unmangledOrErr =
+    case unmangledOrErr of
+        Left err -> throwError $ ParseError err
+        Right (UnmangledIdentifier unmangled) -> pure $ wrapName unmangled
 
 -- | Decode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names will be interned
@@ -101,26 +122,31 @@ decodeNameString wrapName mangled =
 decodeDottedName :: Util.EitherLike LF1.DottedName Int32 e
                  => ([T.Text] -> a) -> Maybe e -> Decode a
 decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
-    mangled <- case Util.toEither dottedNameOrId of
+    (_, unmangledOrErr) <- case Util.toEither dottedNameOrId of
         Left (LF1.DottedName mangledV) -> decodeInternableStrings mangledV 0
-        Right dnId -> decodeInternableStrings V.empty dnId
-    wrapDottedName <$> mapM (decodeNameString id) mangled
+        Right dnId -> lookupDottedName dnId
+    case unmangledOrErr of
+      Left err -> throwError $ ParseError err
+      Right unmangled -> pure $ wrapDottedName (coerce unmangled)
+
+decodeDottedNameId :: ([T.Text] -> a) -> Int32 -> Decode a
+decodeDottedNameId wrapDottedName dnId = do
+  (_, unmangledOrErr) <- lookupDottedName dnId
+  case unmangledOrErr of
+    Left err -> throwError $ ParseError err
+    Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
 -- | Decode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
 decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
 decodeValueName ident mangledV dnId = do
-    mangled <- decodeInternableStrings mangledV dnId
-    case mangled of
-        [] -> throwError $ MissingField ident
-        [unmangled] -> do
-            mangled <- decodeNameString id unmangled
-            case unmangleIdentifier mangled of
-                Right unmangled -> pure $ ExprValName unmangled
-                -- NOTE(MH): This is an ugly hack to keep backwards compatibility.
-                -- We need to fix this in DAML-LF 2.
-                Left _ -> pure $ ExprValName mangled
-        _ -> throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
+    (mangled, unmangledOrErr) <- decodeInternableStrings mangledV dnId
+    case unmangledOrErr of
+      Left err -> throwError $ ParseError err
+      Right [UnmangledIdentifier unmangled] -> pure $ ExprValName unmangled
+      Right [] -> throwError $ MissingField ident
+      Right _ ->
+          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
@@ -137,7 +163,7 @@ decodePackageRef (LF1.PackageRef pref) =
     mayDecode "packageRefSum" pref $ \case
         LF1.PackageRefSumSelf _ -> asks selfPackageRef
         LF1.PackageRefSumPackageIdStr pkgId -> pure $ PRImport $ PackageId $ decodeString pkgId
-        LF1.PackageRefSumPackageIdInternedStr strId -> PRImport . PackageId <$> lookupString strId
+        LF1.PackageRefSumPackageIdInternedStr strId -> PRImport . PackageId . fst <$> lookupString strId
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
@@ -158,25 +184,30 @@ decodeVersion minorText = do
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
-decodeInternedDottedName :: LF1.InternedDottedName -> Decode [T.Text]
-decodeInternedDottedName (LF1.InternedDottedName ids) =
-    mapM lookupString $ V.toList ids
+decodeInternedDottedName :: LF1.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
+decodeInternedDottedName (LF1.InternedDottedName ids) = do
+    (mangled, unmangledOrErr) <- unzip <$> mapM lookupString (V.toList ids)
+    pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata) = do
+decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
   version <- decodeVersion (decodeString minorText)
-  let internedStrings = V.map decodeString internedStringsV
+  let internedStrings = V.map decodeMangledString internedStringsV
   let internedDottedNames = V.empty
+  let internedTypes = V.empty
   let env0 = DecodeEnv{..}
   internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
-  let env = DecodeEnv{..}
-  runDecode env $ do
+  let env1 = env0{internedDottedNames}
+  internedTypes <- V.constructNE (V.length internedTypesV) $ \prefix i ->
+      runDecode env1{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
+  let env2 = env1{internedTypes}
+  runDecode env2 $ do
     Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
 
 decodePackageMetadata :: LF1.PackageMetadata -> Decode PackageMetadata
 decodePackageMetadata LF1.PackageMetadata{..} = do
-    pkgName <- PackageName <$> lookupString packageMetadataNameInternedStr
-    pkgVersion <- PackageVersion <$> lookupString packageMetadataVersionInternedStr
+    pkgName <- PackageName . fst <$> lookupString packageMetadataNameInternedStr
+    pkgVersion <- PackageVersion . fst <$> lookupString packageMetadataVersionInternedStr
     pure (PackageMetadata pkgName pkgVersion)
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
@@ -185,7 +216,7 @@ decodeScenarioModule minorText protoPkg = do
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
-decodeModule (LF1.Module name flags synonyms dataTypes values templates) =
+decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptions) =
   Module
     <$> decodeDottedName ModuleName name
     <*> pure Nothing
@@ -194,6 +225,7 @@ decodeModule (LF1.Module name flags synonyms dataTypes values templates) =
     <*> decodeNM DuplicateDataType decodeDefDataType dataTypes
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
+    <*> decodeNM DuplicateException decodeDefException exceptions
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -212,6 +244,13 @@ decodeDefTypeSyn LF1.DefTypeSyn{..} =
     <*> traverse decodeTypeVarWithKind (V.toList defTypeSynParams)
     <*> mayDecode "typeSynType" defTypeSynType decodeType
 
+decodeDefException :: LF1.DefException -> Decode DefException
+decodeDefException LF1.DefException{..} =
+  DefException
+    <$> traverse decodeLocation defExceptionLocation
+    <*> decodeDottedNameId TypeConName defExceptionNameInternedDname
+    <*> mayDecode "exceptionMessage" defExceptionMessage decodeExpr
+
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
   DefDataType
@@ -228,11 +267,11 @@ decodeDataCons = \case
   LF1.DefDataTypeDataConsVariant (LF1.DefDataType_Fields fs) ->
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
   LF1.DefDataTypeDataConsEnum (LF1.DefDataType_EnumConstructors cs cIds) -> do
-    mangled <- if
-      | V.null cIds -> pure $ map decodeString (V.toList cs)
-      | V.null cs -> mapM lookupString (V.toList cIds)
+    unmangledOrErr <- if
+      | V.null cIds -> pure $ map (snd . decodeMangledString) (V.toList cs)
+      | V.null cs -> mapM (fmap snd . lookupString) (V.toList cIds)
       | otherwise -> throwError $ ParseError "strings and interned string ids both set for enum constructor"
-    DataEnum <$> mapM (decodeNameString VariantConName) mangled
+    DataEnum <$> mapM (decodeNameString VariantConName) unmangledOrErr
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
@@ -305,6 +344,7 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> decodeName ChoiceName templateChoiceName
     <*> pure templateChoiceConsuming
     <*> mayDecode "templateChoiceControllers" templateChoiceControllers decodeExpr
+    <*> traverse decodeExpr templateChoiceObservers
     <*> decodeName ExprVarName templateChoiceSelfBinder
     <*> mayDecode "templateChoiceArgBinder" templateChoiceArgBinder decodeVarWithType
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
@@ -312,6 +352,12 @@ decodeChoice LF1.TemplateChoice{..} =
 
 decodeBuiltinFunction :: LF1.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = pure . \case
+  LF1.BuiltinFunctionEQUAL -> BEEqualGeneric
+  LF1.BuiltinFunctionLESS -> BELessGeneric
+  LF1.BuiltinFunctionLESS_EQ -> BELessEqGeneric
+  LF1.BuiltinFunctionGREATER -> BEGreaterGeneric
+  LF1.BuiltinFunctionGREATER_EQ -> BEGreaterEqGeneric
+
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
   LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqualNumeric
@@ -321,7 +367,6 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
   LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
   LF1.BuiltinFunctionEQUAL_TYPE_REP -> BEEqual BTTypeRep
-  LF1.BuiltinFunctionEQUAL -> BEEqualGeneric
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
@@ -362,6 +407,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> BEToText BTTimestamp
   LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
+  LF1.BuiltinFunctionTO_TEXT_CONTRACT_ID -> BEToTextContractId
   LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
   LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
   LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
@@ -394,7 +440,15 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionFOLDR          -> BEFoldr
   LF1.BuiltinFunctionEQUAL_LIST     -> BEEqualList
   LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
+
   LF1.BuiltinFunctionERROR          -> BEError
+  LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> BEAnyExceptionMessage
+  LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> BEGeneralErrorMessage
+  LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> BEArithmeticErrorMessage
+  LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> BEContractErrorMessage
+  LF1.BuiltinFunctionMAKE_GENERAL_ERROR -> BEMakeGeneralError
+  LF1.BuiltinFunctionMAKE_ARITHMETIC_ERROR -> BEMakeArithmeticError
+  LF1.BuiltinFunctionMAKE_CONTRACT_ERROR -> BEMakeContractError
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
   LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert
@@ -438,6 +492,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTEXT_SPLIT_ON -> BETextSplitOn
   LF1.BuiltinFunctionTEXT_INTERCALATE -> BETextIntercalate
 
+
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
   mbModRef' <- traverse decodeModuleRef mbModRef
@@ -454,8 +509,8 @@ decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
 
 decodeExprSum :: Maybe LF1.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
-  LF1.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (decodeString var)
-  LF1.ExprSumVarInternedStr strId -> EVar <$> (lookupString strId >>= decodeNameString ExprVarName)
+  LF1.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (snd $ decodeMangledString var)
+  LF1.ExprSumVarInternedStr strId -> EVar <$> decodeNameId ExprVarName strId
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
@@ -549,6 +604,16 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
+  LF1.ExprSumToAnyException LF1.Expr_ToAnyException {..} -> EToAnyException
+    <$> mayDecode "expr_ToAnyExceptionType" expr_ToAnyExceptionType decodeType
+    <*> mayDecode "expr_ToAnyExceptionExpr" expr_ToAnyExceptionExpr decodeExpr
+  LF1.ExprSumFromAnyException LF1.Expr_FromAnyException {..} -> EFromAnyException
+    <$> mayDecode "expr_FromAnyExceptionType" expr_FromAnyExceptionType decodeType
+    <*> mayDecode "expr_FromAnyExceptionExpr" expr_FromAnyExceptionExpr decodeExpr
+  LF1.ExprSumThrow LF1.Expr_Throw {..} -> EThrow
+    <$> mayDecode "expr_ThrowReturnType" expr_ThrowReturnType decodeType
+    <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
+    <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -568,8 +633,13 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
-      <*> traverse decodeExpr update_ExerciseActor
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
+    fmap EUpdate $ UExerciseByKey
+      <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
+      <*> decodeNameId ChoiceName update_ExerciseByKeyChoiceInternedStr
+      <*> mayDecode "update_ExerciseByKeyKey" update_ExerciseByKeyKey decodeExpr
+      <*> mayDecode "update_ExerciseByKeyArg" update_ExerciseByKeyArg decodeExpr
   LF1.UpdateSumFetch LF1.Update_Fetch{..} ->
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
@@ -584,6 +654,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
   LF1.UpdateSumFetchByKey retrieveByKey ->
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
+  LF1.UpdateSumTryCatch LF1.Update_TryCatch{..} ->
+    fmap EUpdate $ UTryCatch
+      <$> mayDecode "update_TryCatchReturnType" update_TryCatchReturnType decodeType
+      <*> mayDecode "update_TryCatchTryExpr" update_TryCatchTryExpr decodeExpr
+      <*> decodeNameId ExprVarName update_TryCatchVarInternedStr
+      <*> mayDecode "update_TryCatchCatchExpr" update_TryCatchCatchExpr decodeExpr
 
 decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> Decode RetrieveByKey
 decodeRetrieveByKey LF1.Update_RetrieveByKey{..} = RetrieveByKey
@@ -670,12 +746,12 @@ decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
   LF1.PrimLitSumDecimalStr sDec -> decodeDecimalLit $ decodeString sDec
-  LF1.PrimLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit
+  LF1.PrimLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit . fst
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumTextStr x -> pure $ BEText $ decodeString x
-  LF1.PrimLitSumTextInternedStr strId ->  BEText <$> lookupString strId
+  LF1.PrimLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
   LF1.PrimLitSumPartyStr p -> pure $ BEParty $ PartyLiteral $ decodeString p
-  LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral <$> lookupString strId
+  LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral . fst <$> lookupString strId
   LF1.PrimLitSumDate days -> pure $ BEDate days
 
 decodeDecimalLit :: T.Text -> Decode BuiltinExpr
@@ -718,6 +794,10 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
+  LF1.PrimTypeANY_EXCEPTION -> BTAnyException
+  LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
+  LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
+  LF1.PrimTypeCONTRACT_ERROR -> BTContractError
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =
@@ -740,18 +820,17 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     decodeWithArgs args $ TBuiltin <$> decodePrim prim
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Prim" idx)
-  LF1.TypeSumFun (LF1.Type_Fun params mbResult) -> do
-    mkTFuns
-      <$> mapM decodeType (V.toList params)
-      <*> mayDecode "type_FunResult" mbResult decodeType
   LF1.TypeSumForall (LF1.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF1.TypeSumStruct (LF1.Type_Struct flds) ->
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
+  LF1.TypeSumInterned n -> do
+    DecodeEnv{internedTypes} <- ask
+    lookupInterned internedTypes BadTypeId n
   where
     decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
-    decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args
+    decodeWithArgs args fun = foldl' TApp <$> fun <*> traverse decodeType args
 
 
 decodeFieldWithType :: (T.Text -> a) -> LF1.FieldWithType -> Decode (a, Type)

@@ -1,12 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: scenarios
 ####################
 
-This page gives reference information on scenario syntax, used for testing templates:
-
-.. contents:: :local:
+This page gives reference information on scenario syntax, used for testing templates.
 
 For an introduction to scenarios, see :doc:`../testing-scenarios`.
 
@@ -26,7 +24,7 @@ Submit
 - Submits an action (a create or an exercise) to the ledger.
 - Takes two arguments, the party submitting followed by the expression, for example: ``submit bankOfEngland do create ...``
 
-.. Changes in DAML 1.2.
+.. Changes in Daml 1.2.
 
 .. _daml-ref-fails:
 

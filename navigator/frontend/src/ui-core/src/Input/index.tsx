@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
 import styled from '../theme';
 
 export interface StyledProps {
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   innerRef?(instance: any): void;
 }
 
 export const StyledTextInput
-  : React.ComponentClass<React.HTMLProps<HTMLInputElement> & StyledProps>
-  = styled.input`
+  : React.FC<React.HTMLProps<HTMLInputElement> & StyledProps>
+  = styled.input<StyledProps>`
   width: 100%;
   display: block;
   outline: none;

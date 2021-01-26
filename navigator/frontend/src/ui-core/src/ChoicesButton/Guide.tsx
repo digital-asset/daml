@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -54,7 +54,7 @@ const ExhibitWrapper = styled.div`
 
 const description = `Icon that opens a popover with contract choices.`;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Choice buttons"
     description={description}

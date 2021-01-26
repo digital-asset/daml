@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Code lifted from <https://github.com/ndmitchell/record-dot-preprocessor/blob/master/plugin/RecordDotPlugin.hs>.
@@ -6,6 +6,7 @@ module DA.Daml.Preprocessor.Records
     ( importGenerated
     , mkImport
     , recordDotPreprocessor
+    , onExp
     ) where
 
 
@@ -18,7 +19,6 @@ import           Data.Tuple.Extra
 import           "ghc-lib-parser" Bag
 import qualified "ghc-lib" GHC
 import qualified "ghc-lib" GhcPlugins as GHC
-import           "ghc-lib-parser" HsExtension (GhcPs)
 import           "ghc-lib-parser" HsSyn
 import           "ghc-lib-parser" SrcLoc
 import           "ghc-lib-parser" TcEvidence
@@ -160,7 +160,15 @@ onExp (L o (SectionR _ mid@(isDot -> True) rhs))
     , Just sels <- getSelectors rhs
     -- Don't bracket here. The argument came in as a section so it's
     -- already enclosed in brackets.
-    = setL o $ foldl1 (\x y -> noL $ OpApp noE x (mkVar var_dot) y) $ map (mkVar var_getField `mkAppType`) $ reverse sels
+    = setL o $ case sels of
+        [] -> error "IMPOSSIBLE: getSelectors never returns an empty list"
+        -- NOTE(MH): We don't want a lambda for a single projection since we
+        -- don't need it when the record type is unknown. When the record type
+        -- is known, the conversion to DAML-LF needs to add the lambda anyway.
+        [sel] -> mkVar var_getField `mkAppType` sel
+        _:_:_ -> mkLam var_record $ foldl' (\x sel -> mkVar var_getField `mkAppType` sel `mkApp` x) (mkVar var_record) sels
+          where
+            var_record = GHC.mkRdrUnqual $ GHC.mkVarOcc "record"
 
 -- Turn a{b=c, ...} into setField calls
 onExp (L o upd@RecordUpd{rupd_expr,rupd_flds=L _ (HsRecField (fmap rdrNameAmbiguousFieldOcc -> lbl) arg pun):flds})
@@ -226,6 +234,9 @@ mkApp x y = noL $ HsApp noE x y
 
 mkAppType :: LHsExpr GhcPs -> LHsType GhcPs -> LHsExpr GhcPs
 mkAppType expr typ = noL $ HsAppType noE expr (HsWC noE typ)
+
+mkLam :: GHC.RdrName -> LHsExpr GhcPs -> LHsExpr GhcPs
+mkLam v x = mkHsLam [VarPat noE $ noL v] x
 
 -- | Are the end of a and the start of b next to each other, no white space
 adjacent :: Located a -> Located b -> Bool

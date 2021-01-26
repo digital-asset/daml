@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -9,12 +9,22 @@ load(
 da_scala_binary(
     name = "repl",
     srcs = glob(["src/main/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.speedy.testing.Main",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-repl:__VERSION__"],
+    main_class = "com.daml.lf.speedy.testing.Main",
+    max_heap_size = "8g",
+    scala_deps = [
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    tags = ["maven_coordinates=com.daml:daml-lf-repl:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -24,7 +34,5 @@ da_scala_binary(
         "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_jline_jline",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )

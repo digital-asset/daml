@@ -1,21 +1,25 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 6 Parties and authority
 =======================
 
-DAML is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
+Daml is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
 
-In this section you will learn about DAML's authorization rules and how to develop contract models that give all parties the required guarantees. In particular, you'll learn how to:
+In this section you will learn about Daml's authorization rules and how to develop contract models that give all parties the required guarantees. In particular, you'll learn how to:
 
 - Pass authority from one contract to another
 - Write advanced choices
-- Reason through DAML's Authorization model
+- Reason through Daml's Authorization model
+
+.. hint::
+
+  Remember that you can load all the code for this section into a folder called ``6_Parties`` by running ``daml new 6_Parties --template daml-intro-6``
 
 Preventing IOU revocation
 -------------------------
 
-The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it again after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
+The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -44,6 +48,9 @@ There's a new problem here: There is no way for Alice to issue or transfer this 
 This may seem awkward, but notice that the ``ensure`` clause is gone from the ``Iou`` again. The above ``Iou`` can contain negative values so Bob should be glad that ``Alice`` cannot put his signature on any ``Iou``.
 
 You'll now learn a couple of common ways of building issuance and transfer workflows for the above ``Iou``, before diving into the authorization model in full.
+
+
+.. _intro propose accept:
 
 Use propose-accept workflows for one-off authorization
 ------------------------------------------------------
@@ -94,9 +101,9 @@ Bob can now transfer his ``Iou``. The transfer workflow can even be used for iss
 Use role contracts for ongoing authorization
 --------------------------------------------
 
-Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in DAML through relationship or role contracts.
+Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in Daml through relationship or role contracts.
 
-Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the scenario above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
+Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -123,10 +130,10 @@ Here it is in action:
   :start-after: -- SENDER_SCENARIO_BEGIN
   :end-before: -- SENDER_SCENARIO_END
 
-DAML's authorization model
+Daml's authorization model
 --------------------------
 
-Hopefully, the above will have given you a good intuition for how authority is passed around in DAML. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
+Hopefully, the above will have given you a good intuition for how authority is passed around in Daml. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
 
 In :ref:`choices` you learned that a transaction is, equivalently, a tree of transactions, or a forest of actions, where each transaction is a list of actions, and each action has a child-transaction called its consequences.
 
@@ -148,12 +155,13 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The final transaction in the scenario of the the source file for this section is authorized as follows, ignoring fetches:
+Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` conctract.
+It is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob as ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.
 - The consequences of the ``Send_Iou`` action are authorized by its actors, Bob, as well as signatories of the contract on which the action was taken. That's Charlie in this case, so the consequences are  authorized by both Bob and Charlie.
-- The consequences contain a single action, which is a ``Mutual_Exercise`` with Charlie as ``newOwner`` on an ``Iou`` with ``issuer`` alice and ``owner`` Bob. The required authorizers of the action are the ``owner``, Bob, and the ``newOwner``, Charlie, which matches the parent's authorizers.
+- The consequences contain a single action, which is a ``Mutual_Transfer`` with Charlie as ``newOwner`` on an ``Iou`` with ``issuer`` Alice and ``owner`` Bob. The required authorizers of the action are the ``owner``, Bob, and the ``newOwner``, Charlie, which matches the parent's authorizers.
 - The consequences of ``Mutual_Transfer`` are authorized by the actors (Bob and Charlie), as well as the signatories on the Iou (Alice and Bob).
 - The single action on the consequences, the creation of an Iou with ``issuer`` Alice and ``owner`` Charlie has required authorizers Alice and Charlie, which is a proper subset of the parent's authorizers.
 
@@ -207,4 +215,4 @@ Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's auth
 Next up
 -------
 
-In :doc:`7_Composing` you will finally put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/getting-started/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on DAML ledgers.
+In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.

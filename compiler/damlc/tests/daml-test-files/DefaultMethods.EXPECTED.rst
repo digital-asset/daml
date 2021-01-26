@@ -31,17 +31,17 @@ Typeclasses
 
 .. _class-defaultmethods-traversablex-59027:
 
-**class** (`Functor <https://docs.daml.com/daml/reference/base.html#class-ghc-base-functor-73448>`_ t, `FoldableX <class-defaultmethods-foldablex-48748_>`_ t) \=\> `TraversableX <class-defaultmethods-traversablex-59027_>`_ t **where**
+**class** (`Functor <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-73448>`_ t, `FoldableX <class-defaultmethods-foldablex-48748_>`_ t) \=\> `TraversableX <class-defaultmethods-traversablex-59027_>`_ t **where**
 
   .. _function-defaultmethods-traversex-21140:
   
   `traverseX <function-defaultmethods-traversex-21140_>`_
-    \: Applicative m \=\> (a \-\> m b) \-\> t a \-\> m (t b)
+    \: `Applicative <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-43914>`_ m \=\> (a \-\> m b) \-\> t a \-\> m (t b)
   
   .. _function-defaultmethods-sequencex-86855:
   
   `sequenceX <function-defaultmethods-sequencex-86855_>`_
-    \: Applicative m \=\> t (m a) \-\> m (t a)
+    \: `Applicative <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-43914>`_ m \=\> t (m a) \-\> m (t a)
 
 .. _class-defaultmethods-id-77721:
 
@@ -52,7 +52,7 @@ Typeclasses
   `id <function-defaultmethods-id-57162_>`_
     \: a \-\> a
   
-  **instance** `Id <class-defaultmethods-id-77721_>`_ `Int <https://docs.daml.com/daml/reference/base.html#type-ghc-types-int-68728>`_
+  **instance** `Id <class-defaultmethods-id-77721_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
 
 .. _class-defaultmethods-myshow-63359:
 
@@ -63,12 +63,12 @@ Typeclasses
   .. _function-defaultmethods-myshow-41356:
   
   `myShow <function-defaultmethods-myshow-41356_>`_
-    \: t \-\> `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+    \: t \-\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-57703>`_
     
     Doc for method\.
   
   **default** myShow
   
-    \: `Show <https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447>`_ t \=\> t \-\> `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+    \: `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-56447>`_ t \=\> t \-\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-57703>`_
     
     Doc for default\.

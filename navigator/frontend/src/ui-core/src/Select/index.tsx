@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -23,8 +23,8 @@ export interface State {
   open: boolean;
 }
 
-// tslint:disable-next-line:no-any
-const DropdownContainer = styled<{minWidth: string}>('ul' as any)`
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DropdownContainer = styled('ul')<{minWidth: string}>`
   min-width: ${({ minWidth }) => minWidth};
   padding: 0;
   margin: 0;
@@ -100,7 +100,7 @@ export default class Select extends React.Component<Props, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     const { value, disabled, options, onChange, minWidth } = this.props;
 
     return (

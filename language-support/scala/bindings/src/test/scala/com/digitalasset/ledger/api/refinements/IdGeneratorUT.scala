@@ -1,17 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.refinements
+package com.daml.ledger.api.refinements
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{
-  CommandId,
-  CommandIdTag,
-  WorkflowId,
-  WorkflowIdTag
-}
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.ledger.api.refinements.ApiTypes.{CommandId, CommandIdTag, WorkflowId, WorkflowIdTag}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class IdGeneratorUT extends WordSpec with Matchers {
+class IdGeneratorUT extends AnyWordSpec with Matchers {
 
   "IdGenerator" should {
 

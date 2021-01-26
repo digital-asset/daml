@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -15,9 +15,12 @@ import           Control.Monad.State.Strict
 
 import qualified Data.Bifunctor as Bf
 import           Data.Coerce
+import           Data.Either
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
+import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -28,7 +31,7 @@ import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.Util as Util
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 
@@ -50,6 +53,8 @@ data EncodeEnv = EncodeEnv
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
     , nextInternedDottedNameId :: !Int32
       -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
+    , internedTypes :: !(Map.Map P.TypeSum Int32)
+    , nextInternedTypeId :: !Int32
     }
 
 initEncodeEnv :: Version -> WithInterning -> EncodeEnv
@@ -59,6 +64,8 @@ initEncodeEnv version withInterning =
     , internedStrings = HMS.empty
     , internedDottedNames = HMS.empty
     , nextInternedDottedNameId = 0
+    , internedTypes = Map.empty
+    , nextInternedTypeId = 0
     , ..
     }
 
@@ -127,6 +134,13 @@ encodeName'
 encodeName' unwrapName (unwrapName -> unmangled) = do
     Util.fromEither @TL.Text @Int32 <$> coerce (encodeNames @Identity) unmangled
 
+encodeNameId :: (a -> T.Text) -> a -> Encode Int32
+encodeNameId unwrapName (unwrapName -> unmangled) = do
+    (encoded :: Either TL.Text Int32) <- encodeName' id unmangled
+    case encoded of
+        Left _ -> error ("could not intern name " <> show unmangled)
+        Right id -> pure id
+
 encodeNames :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
 encodeNames = encodeInternableStrings . fmap mangleName
     where
@@ -142,8 +156,8 @@ encodeNames = encodeInternableStrings . fmap mangleName
 encodeDottedName :: Util.EitherLike P.DottedName Int32 e
                  => (a -> [T.Text]) -> a -> Encode (Just e)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
-    Just <$>
-      Util.fromEither @P.DottedName @Int32 <$>
+    Just .
+      Util.fromEither @P.DottedName @Int32 .
       Bf.first P.DottedName <$>
       encodeDottedName' unmangled
 
@@ -155,6 +169,13 @@ encodeDottedName' unmangled = do
         Right ids -> do
             id <- allocDottedName ids
             pure $ Right id
+
+encodeDottedNameId :: (a -> [T.Text]) -> a -> Encode Int32
+encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) = do
+    encoded <- encodeDottedName' unmangled
+    case encoded of
+        Left _ -> error ("could not intern dotted name " <> show unmangled)
+        Right id -> pure id
 
 -- | Encode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
@@ -193,7 +214,7 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 
-encodeQualTypeSynName' :: Qualified TypeSynName -> Encode (P.TypeSynName)
+encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
     typeSynNameModule <- encodeModuleRef pref mname
     typeSynNameName <- encodeDottedName unTypeSynName syn
@@ -202,7 +223,7 @@ encodeQualTypeSynName' (Qualified pref mname syn) = do
 encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
 encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
 
-encodeQualTypeConName' :: Qualified TypeConName -> Encode (P.TypeConName)
+encodeQualTypeConName' :: Qualified TypeConName -> Encode P.TypeConName
 encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
     typeConNameName <- encodeDottedName unTypeConName con
@@ -287,9 +308,14 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
     BTTypeRep -> P.PrimTypeTYPE_REP
+    BTAnyException -> P.PrimTypeANY_EXCEPTION
+    BTGeneralError -> P.PrimTypeGENERAL_ERROR
+    BTArithmeticError -> P.PrimTypeARITHMETIC_ERROR
+    BTContractError -> P.PrimTypeCONTRACT_ERROR
 
 encodeType' :: Type -> Encode P.Type
-encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
+encodeType' typ = do
+  ptyp <- case typ ^. _TApps of
     (TVar var, args) -> do
         type_VarVar <- encodeName unTypeVarName var
         type_VarArgs <- encodeList encodeType' args
@@ -325,9 +351,27 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
     -- which we don't support.
     (TForall{}, _:_) -> error "Application of TForall"
     (TSynApp{}, _:_) -> error "Application of TSynApp"
+  allocType ptyp
 
 encodeType :: Type -> Encode (Just P.Type)
 encodeType t = Just <$> encodeType' t
+
+allocType :: P.TypeSum -> Encode P.Type
+allocType ptyp = fmap (P.Type . Just) $ do
+    env@EncodeEnv{version, withInterning, internedTypes, nextInternedTypeId = n} <- get
+    if getWithInterning withInterning && version `supports` featureTypeInterning then
+        case ptyp `Map.lookup` internedTypes of
+            Just n -> pure (P.TypeSumInterned n)
+            Nothing -> do
+                when (n == maxBound) $
+                    error "Type interning table grew too large"
+                put $! env
+                    { internedTypes = Map.insert ptyp n internedTypes
+                    , nextInternedTypeId = n + 1
+                    }
+                pure (P.TypeSumInterned n)
+    else
+        pure ptyp
 
 ------------------------------------------------------------------------
 -- Encoding of expressions
@@ -361,6 +405,11 @@ encodeBuiltinExpr = \case
         True -> P.PrimConCON_TRUE
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
+    BELessGeneric -> builtin P.BuiltinFunctionLESS
+    BELessEqGeneric -> builtin P.BuiltinFunctionLESS_EQ
+    BEGreaterGeneric -> builtin P.BuiltinFunctionGREATER
+    BEGreaterEqGeneric -> builtin P.BuiltinFunctionGREATER_EQ
+
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
       BTDecimal -> builtin P.BuiltinFunctionEQUAL_DECIMAL
@@ -422,6 +471,7 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
+    BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
     BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
     BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
@@ -465,7 +515,15 @@ encodeBuiltinExpr = \case
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
     BEImplodeText -> builtin P.BuiltinFunctionIMPLODE_TEXT
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
+
     BEError -> builtin P.BuiltinFunctionERROR
+    BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
+    BEGeneralErrorMessage -> builtin P.BuiltinFunctionGENERAL_ERROR_MESSAGE
+    BEArithmeticErrorMessage -> builtin P.BuiltinFunctionARITHMETIC_ERROR_MESSAGE
+    BEContractErrorMessage -> builtin P.BuiltinFunctionCONTRACT_ERROR_MESSAGE
+    BEMakeGeneralError -> builtin P.BuiltinFunctionMAKE_GENERAL_ERROR
+    BEMakeArithmeticError -> builtin P.BuiltinFunctionMAKE_ARITHMETIC_ERROR
+    BEMakeContractError -> builtin P.BuiltinFunctionMAKE_CONTRACT_ERROR
 
     BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
     BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT
@@ -614,6 +672,19 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
+    EToAnyException ty val -> do
+        expr_ToAnyExceptionType <- encodeType ty
+        expr_ToAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToAnyException P.Expr_ToAnyException{..}
+    EFromAnyException ty val -> do
+        expr_FromAnyExceptionType <- encodeType ty
+        expr_FromAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumFromAnyException P.Expr_FromAnyException{..}
+    EThrow ty1 ty2 val -> do
+        expr_ThrowReturnType <- encodeType ty1
+        expr_ThrowExceptionType <- encodeType ty2
+        expr_ThrowExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
@@ -638,9 +709,16 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
         update_ExerciseCid <- encodeExpr exeContractId
-        update_ExerciseActor <- traverse encodeExpr' exeActors
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+    UExerciseByKey{..} -> do
+        update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
+        update_ExerciseByKeyChoiceInternedStr <-
+          fromRight (error "INTERNAL: exercise_by_key is only available in DAML-LF versions supporting string interning")
+           <$> encodeName' @(Either TL.Text Int32) unChoiceName exeChoice
+        update_ExerciseByKeyKey <- encodeExpr exeKey
+        update_ExerciseByKeyArg <- encodeExpr exeArg
+        pure $ P.UpdateSumExerciseByKey P.Update_ExerciseByKey{..}
     UFetch{..} -> do
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
@@ -654,6 +732,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey rbk
     ULookupByKey rbk ->
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey rbk
+    UTryCatch{..} -> do
+        update_TryCatchReturnType <- encodeType tryCatchType
+        update_TryCatchTryExpr <- encodeExpr tryCatchExpr
+        update_TryCatchVarInternedStr <- encodeNameId unExprVarName tryCatchVar
+        update_TryCatchCatchExpr <- encodeExpr tryCatchHandler
+        pure $ P.UpdateSumTryCatch P.Update_TryCatch{..}
 
 encodeRetrieveByKey :: RetrieveByKey -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey RetrieveByKey{..} = do
@@ -771,6 +855,13 @@ encodeDefValue DefValue{..} = do
     defValueLocation <- traverse encodeSourceLoc dvalLocation
     pure P.DefValue{..}
 
+encodeDefException :: DefException -> Encode P.DefException
+encodeDefException DefException{..} = do
+    defExceptionNameInternedDname <- encodeDottedNameId unTypeConName exnName
+    defExceptionLocation <- traverse encodeSourceLoc exnLocation
+    defExceptionMessage <- encodeExpr exnMessage
+    pure P.DefException{..}
+
 encodeTemplate :: Template -> Encode P.DefTemplate
 encodeTemplate Template{..} = do
     defTemplateTycon <- encodeDottedName unTypeConName tplTypeCon
@@ -792,11 +883,21 @@ encodeTemplateKey TemplateKey{..} = do
     defTemplate_DefKeyMaintainers <- encodeExpr tplKeyMaintainers
     pure P.DefTemplate_DefKey{..}
 
+encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
+encodeChoiceObservers chcObservers = do
+  EncodeEnv{..} <- get
+  -- The choice-observers field is mandatory when supported. So, when choice-observers are
+  -- not syntactically explicit, we generate an empty-party-list expression here.
+  if version `supports` featureChoiceObservers
+  then encodeExpr (fromMaybe (ENil TParty) chcObservers)
+  else traverse encodeExpr' chcObservers
+
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
+    templateChoiceObservers <- encodeChoiceObservers chcObservers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType
@@ -827,6 +928,7 @@ encodeModule Module{..} = do
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
+    moduleExceptions <- encodeNameMap encodeDefException moduleExceptions
     pure P.Module{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
@@ -839,12 +941,14 @@ encodePackageMetadata PackageMetadata{..} = do
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version (WithInterning True)
-        ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames}) =
+        ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames, internedTypes}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> traverse encodePackageMetadata metadata) env
         packageInternedStrings =
             V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
         packageInternedDottedNames =
             V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
+        packageInternedTypes =
+            V.fromList $ map (P.Type . Just . fst) $ L.sortOn snd $ Map.toList internedTypes
     in
     P.Package{..}
 

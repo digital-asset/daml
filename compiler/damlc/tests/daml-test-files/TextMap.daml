@@ -2,12 +2,6 @@
 -- All rights reserved.
 -- @SINCE-LF 1.3
 
--- @INFO Use /=
--- @INFO Use /=
--- @INFO Use /=
--- @INFO Use /=
-
-
 module TextMap where
 
 import DA.TextMap as TM
@@ -51,11 +45,11 @@ testNull = scenario do
 
 testEq = scenario do
   (TM.empty : TextMap Int) === (TM.empty : TextMap Int)
-  assert (not (TM.empty == TM.fromList [("1", 1)]))
+  assert (TM.empty /= TM.fromList [("1", 1)])
   TM.fromList [("1", 1), ("2", 2), ("3", 3)] === TM.fromList [("1", 1), ("2", 2), ("3", 3)]
-  assert (not (TM.fromList [("1", 1), ("2", 2), ("3", 3)] == TM.fromList [("1", 2), ("2", 2)]))
-  assert (not (TM.fromList [("1", 1), ("2", 2), ("3", 3)] == TM.fromList [("1", 2), ("2", 2), ("3", 4)]))
-  assert (not (TM.fromList [("1", 1), ("2", 2), ("3", 3)] == TM.fromList [("1", 2), ("2", 2), ("4", 3)]))
+  assert (TM.fromList [("1", 1), ("2", 2), ("3", 3)] /= TM.fromList [("1", 2), ("2", 2)])
+  assert (TM.fromList [("1", 1), ("2", 2), ("3", 3)] /= TM.fromList [("1", 2), ("2", 2), ("3", 4)])
+  assert (TM.fromList [("1", 1), ("2", 2), ("3", 3)] /= TM.fromList [("1", 2), ("2", 2), ("4", 3)])
 
 testInsert = scenario do
   [("1", True), ("2", False), ("3", True), ("4", False), ("5", False)]
@@ -76,8 +70,8 @@ testMerge = scenario do
   let m1 = fromList [("C", "aa"), ("A", "bb"), ("D", "cc"), ("B", "dd"), ("F", "ee")]
   let m2 = fromList [("A", "a"), ("C", "b"), ("B", "c"), ("E", "d"), ("", "e")]
 
-  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> Some v) empty (empty : TextMap Text))
-  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> None) m1 m1)
-  [("A", "bb"), ("C", "aa")] === toList (merge (\k v -> if v <= "bb" then Some v else None) (\k v -> Some v) (\k v w -> None) m1 empty)
-  [("A", "a"), ("C", "b")] === toList (merge (\k v -> Some v) (\k v -> if v <= "bb" then Some v else None) (\k v w -> None) empty m2)
-  [("A","bb"), ("B","dd"), ("C","aa")] === toList (merge (\k v -> None) (\k v -> None) (\k v w -> Some v) m1 m2)
+  [] === toList (merge (\_ v -> Some v) (\_ v -> Some v) (\_ v _ -> Some v) empty (empty : TextMap Text))
+  [] === toList (merge (\_ v -> Some v) (\_ v -> Some v) (\_ _ _ -> None) m1 m1)
+  [("A", "bb"), ("C", "aa")] === toList (merge (\_ v -> if v <= "bb" then Some v else None) (\_ v -> Some v) (\_ _ _ -> None) m1 empty)
+  [("A", "a"), ("C", "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) empty m2)
+  [("A","bb"), ("B","dd"), ("C","aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)

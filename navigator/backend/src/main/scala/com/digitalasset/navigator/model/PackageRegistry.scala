@@ -1,37 +1,37 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
-import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.navigator.{model => Model}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.data.{Ref => DamlLfRef}
 
 /** Manages a set of known DAML-LF packages. */
 case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
-    private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty
+    private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
 ) {
   private[this] def template(
       packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
-      r: DamlLfRecord,
-      t: DamlLfIface.DefTemplate[DamlLfIface.Type]
+      t: DamlLfIface.DefTemplate[DamlLfIface.Type],
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
     t.choices.toList.map(c => choice(c._1, c._2)),
-    t.key
+    t.key,
   )
 
   private[this] def choice(
       name: String,
-      c: DamlLfIface.TemplateChoice[DamlLfIface.Type]): Model.Choice = Model.Choice(
+      c: DamlLfIface.TemplateChoice[DamlLfIface.Type],
+  ): Model.Choice = Model.Choice(
     ApiTypes.Choice(name),
     c.param,
     c.returnType,
-    c.consuming
+    c.consuming,
   )
 
   def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
@@ -45,8 +45,8 @@ case class PackageRegistry(
             DamlLfIdentifier(p.packageId, qname) -> DamlLfDefDataType(DamlLfImmArraySeq.empty, r)
         }
         val templates = p.typeDecls.collect {
-          case (qname, DamlLfIface.reader.InterfaceType.Template(r, t)) =>
-            DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, r, t)
+          case (qname, DamlLfIface.reader.InterfaceType.Template(r @ _, t)) =>
+            DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
         }
         p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
       }
@@ -60,7 +60,7 @@ case class PackageRegistry(
     copy(
       packages = packages ++ newPackages,
       templates = templates ++ newTemplates,
-      typeDefs = typeDefs ++ newTypeDefs
+      typeDefs = typeDefs ++ newTypeDefs,
     )
   }
 
@@ -111,17 +111,17 @@ case class PackageRegistry(
   def damlLfDefDataType(id: DamlLfIdentifier): Option[DamlLfDefDataType] =
     typeDefs.get(id)
 
-  /**
-    * Returns a list of all user defined types required to evaluate the given user defined type.
+  /** Returns a list of all user defined types required to evaluate the given user defined type.
     * maxDepth defines the maximum depth of instantiate() calls (i.e., recursive type lookups)
     */
   def typeDependencies(
       typ: DamlLfDefDataType,
-      maxDepth: Int = Int.MaxValue): Map[DamlLfIdentifier, DamlLfDefDataType] = {
+      maxDepth: Int = Int.MaxValue,
+  ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
     def foldType(
         typ: DamlLfType,
         deps: Map[DamlLfIdentifier, DamlLfDefDataType],
-        instantiatesRemaining: Int
+        instantiatesRemaining: Int,
     ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
       typ match {
         case DamlLfTypeVar(_) | DamlLfTypeNumeric(_) => deps
@@ -149,7 +149,7 @@ case class PackageRegistry(
     def foldDataType(
         ddt: DamlLfDefDataType,
         deps: Map[DamlLfIdentifier, DamlLfDefDataType],
-        instantiatesRemaining: Int
+        instantiatesRemaining: Int,
     ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
       ddt.dataType match {
         case DamlLfRecord(fields) =>

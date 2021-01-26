@@ -1,11 +1,11 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
@@ -13,7 +13,15 @@ da_scala_library(
     name = "app",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-app:__VERSION__"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+    ],
+    silent_annotations = True,
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -24,24 +32,49 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//language-support/scala/bindings",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/participant-state-metrics",
+        "//ledger/participant-state/kvutils",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_netty_netty_handler",
+    ],
+)
+
+da_scala_test_suite(
+    name = "app-tests",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    deps = [
+        ":app",
+        "//daml-lf/data",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//ledger/sandbox",
-        "//libs-scala/contextualized-logging",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+        "@maven//:org_mockito_mockito_core",
     ],
 )

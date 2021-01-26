@@ -1,19 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
 
 import java.io.File
 import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.util.concurrent.Executors
 
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
-import com.daml.ledger.api.testtool.infrastructure.{
-  LedgerSessionConfiguration,
-  LedgerTestSuiteRunner,
-  LedgerTestSummary,
-}
+import com.daml.ledger.api.testtool.infrastructure._
+import com.daml.ledger.api.testtool.tests.Tests
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.resources.{AbstractResourceOwner, Resource}
+import io.grpc.Channel
+import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
 object LedgerApiTestTool {
@@ -37,13 +41,28 @@ object LedgerApiTestTool {
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
-  private def printAvailableTests(): Unit = {
-    println("Tests marked with * are run by default.\n")
-    Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
-    Tests.optional.keySet.toSeq.sorted.foreach(println(_))
+  private def printListOfTests[A](tests: Seq[A])(getName: A => String): Unit = {
+    println("All tests are run by default.")
+    println()
+    tests.map(getName).sorted.foreach(println(_))
+
+    println()
+    println("Alternatively, you can run performance tests.")
+    println("They are not run by default, but can be run with `--perf-tests=TEST-NAME`.")
+    println()
+    Tests.PerformanceTestsKeys.foreach(println(_))
+  }
+  private def printAvailableTestSuites(testSuites: Vector[LedgerTestSuite]): Unit = {
+    println("Listing test suites. Run with --list-all to see individual tests.")
+    printListOfTests(testSuites)(_.name)
   }
 
-  private def extractResources(resources: String*): Unit = {
+  private def printAvailableTests(testSuites: Vector[LedgerTestSuite]): Unit = {
+    println("Listing all tests. Run with --list to only see test suites.")
+    printListOfTests(testSuites.flatMap(_.tests))(_.name)
+  }
+
+  private def extractResources(resources: Seq[String]): Unit = {
     val pwd = Paths.get(".").toAbsolutePath
     println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
     for (resource <- resources) {
@@ -55,21 +74,43 @@ object LedgerApiTestTool {
     }
   }
 
+  private def cases(m: Map[String, LedgerTestSuite]): Vector[LedgerTestCase] =
+    m.values.view.flatMap(_.tests).toVector
+
+  private def matches(prefixes: Iterable[String])(test: LedgerTestCase): Boolean =
+    prefixes.exists(test.name.startsWith)
+
   def main(args: Array[String]): Unit = {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
+    val defaultTests: Vector[LedgerTestSuite] = Tests.default(config.ledgerClockGranularity)
+    val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ Tests.optional
+    val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
+    val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
+    val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
+      allTestCaseNames.exists(_.startsWith(prefix))
+    )
+    if (missingTests.nonEmpty) {
+      println("The following exclusion or inclusion does not match any test:")
+      missingTests.foreach { testName =>
+        println(s"  - $testName")
+      }
+      sys.exit(64)
+    }
+
+    if (config.listTestSuites) {
+      printAvailableTestSuites(visibleTests)
+      sys.exit(0)
+    }
+
     if (config.listTests) {
-      printAvailableTests()
+      printAvailableTests(visibleTests)
       sys.exit(0)
     }
 
     if (config.extract) {
-      extractResources(
-        "/ledger/test-common/SemanticTests.dar",
-        "/ledger/test-common/Test-stable.dar",
-        "/ledger/test-common/Test-dev.dar",
-      )
+      extractResources(Dars.resources)
       sys.exit(0)
     }
 
@@ -78,25 +119,12 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val missingTests = (config.included ++ config.excluded).filterNot(Tests.all.contains)
-    if (missingTests.nonEmpty) {
-      println("The following tests could not be found:")
-      missingTests.foreach { testName =>
-        println(s"  - $testName")
-      }
-      sys.exit(2)
-    }
+    val performanceTestsToRun =
+      Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
 
-    val included =
-      if (config.allTests) Tests.all.keySet
-      else if (config.included.isEmpty) Tests.default.keySet
-      else config.included
-
-    val testsToRun = Tests.all.filterKeys(included -- config.excluded)
-
-    if (testsToRun.isEmpty) {
-      println("No tests to run.")
-      sys.exit(0)
+    if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
+      println("Either regular or performance tests can be run, but not both.")
+      sys.exit(64)
     }
 
     Thread
@@ -106,29 +134,107 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
-    val runner = new LedgerTestSuiteRunner(
-      LedgerSessionConfiguration(
-        config.participants,
-        config.shuffleParticipants,
-        config.tlsConfig,
-        config.commandSubmissionTtlScaleFactor,
-        config.loadScaleFactor,
-        config.waitForParties
-      ),
-      testsToRun.values.toVector,
-      identifierSuffix,
-      config.timeoutScaleFactor,
-      config.concurrentTestRuns,
-    )
+    val defaultCases = defaultTests.flatMap(_.tests)
+    val allCases = defaultCases ++ Tests.optional.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
 
-    runner.verifyRequirementsAndRun {
+    val includedTests =
+      if (config.included.isEmpty) defaultCases
+      else allCases.filter(matches(config.included))
+
+    val testsToRun: Vector[LedgerTestCase] =
+      includedTests.filterNot(matches(config.excluded))
+
+    implicit val resourceManagementExecutionContext: ExecutionContext =
+      ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+
+    val runner =
+      if (performanceTestsToRun.nonEmpty)
+        newSequentialLedgerCasesRunner(
+          config,
+          cases(performanceTestsToRun),
+        )
+      else
+        newLedgerCasesRunner(
+          config,
+          testsToRun,
+        )
+
+    runner.flatMap(_.runTests).onComplete {
       case Success(summaries) =>
-        new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
+        new ColorizedPrintStreamReporter(
+          System.out,
+          config.verbose,
+        ).report(summaries, identifierSuffix)
         sys.exit(exitCode(summaries, config.mustFail))
-      case Failure(e) =>
-        logger.error(e.getMessage, e)
+      case Failure(exception: Errors.FrameworkException) =>
+        logger.error(exception.getMessage)
+        logger.debug(exception.getMessage, exception)
+        sys.exit(1)
+      case Failure(exception) =>
+        logger.error(exception.getMessage, exception)
         sys.exit(1)
     }
+  }
+
+  private[this] def newSequentialLedgerCasesRunner(
+      config: Config,
+      cases: Vector[LedgerTestCase],
+  )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] =
+    createLedgerCasesRunner(config, cases, concurrentTestRuns = 1)
+
+  private[this] def newLedgerCasesRunner(
+      config: Config,
+      cases: Vector[LedgerTestCase],
+  )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] =
+    createLedgerCasesRunner(config, cases, config.concurrentTestRuns)
+
+  private[this] def createLedgerCasesRunner(
+      config: Config,
+      cases: Vector[LedgerTestCase],
+      concurrentTestRuns: Int,
+  )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] = {
+    initializeParticipantChannels(config.participants, config.tlsConfig).asFuture.map(
+      participants =>
+        new LedgerTestCasesRunner(
+          testCases = cases,
+          participants = participants,
+          partyAllocation = config.partyAllocation,
+          shuffleParticipants = config.shuffleParticipants,
+          timeoutScaleFactor = config.timeoutScaleFactor,
+          concurrentTestRuns = concurrentTestRuns,
+          uploadDars = config.uploadDars,
+          identifierSuffix = identifierSuffix,
+        )
+    )
+  }
+
+  private def initializeParticipantChannel(
+      host: String,
+      port: Int,
+      tlsConfig: Option[TlsConfiguration],
+  ): AbstractResourceOwner[ExecutionContext, Channel] = {
+    logger.info(s"Setting up managed channel to participant at $host:$port...")
+    val channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext()
+    for (ssl <- tlsConfig; sslContext <- ssl.client) {
+      logger.info("Setting up managed channel with transport security.")
+      channelBuilder
+        .useTransportSecurity()
+        .sslContext(sslContext)
+        .negotiationType(NegotiationType.TLS)
+    }
+    channelBuilder.maxInboundMessageSize(10000000)
+    ResourceOwner.forChannel(channelBuilder, shutdownTimeout = 5.seconds)
+  }
+
+  private def initializeParticipantChannels(
+      participants: Vector[(String, Int)],
+      tlsConfig: Option[TlsConfiguration],
+  )(implicit executionContext: ExecutionContext): Resource[ExecutionContext, Vector[Channel]] = {
+    val participantChannelOwners =
+      for ((host, port) <- participants) yield {
+        initializeParticipantChannel(host, port, tlsConfig)
+      }
+    Resource.sequence(participantChannelOwners.map(_.acquire()))
   }
 
 }

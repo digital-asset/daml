@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.validation.NamedEntity._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
+import com.daml.lf.validation.NamedEntity._
+import com.daml.lf.validation.Util._
 
 private[validation] object Collision {
 
-  def checkPackage(pkgId: PackageId, modules: Traversable[(ModuleName, Ast.Module)]): Unit = {
-    val entitiesMap = namedEntitiesFromPkg(modules).groupBy(_.fullyResolvedName)
+  def checkPackage(pkgId: PackageId, pkg: Ast.Package): Unit = {
+    val entitiesMap = namedEntitiesFromPkg(pkg.modules).groupBy(_.fullyResolvedName)
     entitiesMap.values.foreach(cs => checkCollisions(pkgId, cs.toList))
   }
 
@@ -35,27 +35,26 @@ private[validation] object Collision {
     } throw ECollision(pkgId, entity1, entity2)
 
   private def namedEntitiesFromPkg(
-      modules: Traversable[(ModuleName, Ast.Module)]
-  ): Traversable[NamedEntity] =
-    modules.flatMap {
-      case (modName, module) =>
-        val namedModule = NModDef(modName, module.definitions.toList)
-        namedModule :: namedEntitiesFromMod(namedModule, module.definitions.toList)
+      modules: Iterable[(ModuleName, Ast.Module)]
+  ): Iterable[NamedEntity] =
+    modules.flatMap { case (modName, module) =>
+      val namedModule = NModDef(modName, module.definitions.toList)
+      namedModule :: namedEntitiesFromMod(namedModule, module.definitions.toList)
     }
 
   private def namedEntitiesFromMod(
       module: NModDef,
-      defns: List[(DottedName, Ast.Definition)]
+      defns: List[(DottedName, Ast.Definition)],
   ): List[NamedEntity] =
     defns.flatMap { case (defName, defn) => namedEntitiesFromDef(module, defName, defn) }
 
   private def namedEntitiesFromDef(
       module: NModDef,
       defName: DottedName,
-      defn: Ast.Definition
+      defn: Ast.Definition,
   ): List[NamedEntity] =
     defn match {
-      case dDef @ Ast.DDataType(_, _, Ast.DataRecord(fields, _)) =>
+      case dDef @ Ast.DDataType(_, _, Ast.DataRecord(fields)) =>
         val recordDef = NRecDef(module, defName, dDef)
         recordDef :: fields.toList.map { case (name, _) => NField(recordDef, name) }
       case dDef @ Ast.DDataType(_, _, Ast.DataVariant(variants)) =>

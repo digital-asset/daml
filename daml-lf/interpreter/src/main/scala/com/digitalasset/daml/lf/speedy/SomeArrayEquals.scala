@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 import scala.annotation.tailrec
 import scala.util.hashing.MurmurHash3._
@@ -35,10 +35,16 @@ trait SomeArrayEquals extends Product with Serializable {
       @tailrec def lp(i: Int, seed: Int): Int =
         if (i >= arr) seed
         else
-          lp(i + 1, mix(seed, productElement(i) match {
-            case a: Array[_] => arrayHash(a)
-            case a => a.##
-          }))
+          lp(
+            i + 1,
+            mix(
+              seed,
+              productElement(i) match {
+                case a: Array[_] => arrayHash(a)
+                case a => a.##
+              },
+            ),
+          )
       finalizeHash(lp(0, productSeed), arr)
     }
   }

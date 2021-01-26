@@ -1,15 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import org.scalatest.{FlatSpec, Matchers}
+import com.daml.scalatest.{FlatSpecCheckLaws, Unnatural}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
+
 import ImmArray.ImmArraySeq
 
-class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
+class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
   import DataArbitrary._
+  import ImmArraySeq._
 
   behavior of "toString"
 
@@ -66,14 +70,15 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
     import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.list.listInstance
 
-    ImmArray(1, 2).traverseU(n => (0 to n).toList) shouldBe
+    ImmArray(1, 2).traverse(n => (0 to n).toList) shouldBe
       List(
         ImmArray(0, 0),
         ImmArray(0, 1),
         ImmArray(0, 2),
         ImmArray(1, 0),
         ImmArray(1, 1),
-        ImmArray(1, 2))
+        ImmArray(1, 2),
+      )
   }
 
   it should "work with Either as applicative" in {
@@ -83,8 +88,10 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
     type F[A] = Either[Int, A]
 
     ImmArray(1, 2, 3).traverse[F, Int](n => Right(n)) shouldBe Right(ImmArray(1, 2, 3))
-    ImmArray(1, 2, 3).traverse[F, Int](n => if (n >= 2) { Left(n) } else { Right(n) }) shouldBe Left(
-      2)
+    ImmArray(1, 2, 3).traverse[F, Int](n =>
+      if (n >= 2) { Left(n) }
+      else { Right(n) }
+    ) shouldBe Left(2)
   }
 
   it should "work with Writer as applicative" in {
@@ -107,7 +114,7 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
 
     ImmArray(1, 2, 3)
       .traverse[Function0, String](n => () => n.toString)
-      .apply shouldBe ImmArray("1", "2", "3")
+      .apply() shouldBe ImmArray("1", "2", "3")
   }
 
   behavior of "slice"
@@ -146,16 +153,16 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
   behavior of "ImmArraySeq"
 
   it should "use CanBuildFrom of ImmArraySeq" in {
-    val seq = ImmArray.ImmArraySeq("hello")
-    val stillSeq: ImmArray.ImmArraySeq[String] = seq.map(_ => "hello")
+    val seq: ImmArraySeq[String] = ImmArraySeq("hello")
+    val stillSeq: ImmArraySeq[String] = seq.map(_ => "hello")
     seq shouldBe stillSeq
-    val stillSeqAgain: ImmArray.ImmArraySeq[String] = seq.flatMap(_ => Seq("hello"))
+    val stillSeqAgain: ImmArraySeq[String] = seq.flatMap(_ => Seq("hello"))
     seq shouldBe stillSeqAgain
   }
 
   it should "drop correctly" in {
-    ImmArray.ImmArraySeq[Int](1).drop(1) shouldBe ImmArray.ImmArraySeq[Int]()
-    ImmArray.ImmArraySeq[Int]().drop(1) shouldBe ImmArray.ImmArraySeq[Int]()
+    ImmArraySeq[Int](1).drop(1) shouldBe ImmArraySeq[Int]()
+    ImmArraySeq[Int]().drop(1) shouldBe ImmArraySeq[Int]()
   }
 
   behavior of "Equal instance"

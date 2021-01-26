@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.security.KeyPair
 import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.ECGenParameterSpec
 
 import com.auth0.jwt.algorithms.Algorithm
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.show._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class SignatureSpec extends WordSpec with Matchers {
+class SignatureSpec extends AnyWordSpec with Matchers {
 
   "Jwt" when {
 

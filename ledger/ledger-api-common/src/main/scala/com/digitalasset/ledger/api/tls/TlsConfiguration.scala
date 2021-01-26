@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.tls
+package com.daml.ledger.api.tls
 
 import java.io.File
 
@@ -12,16 +12,25 @@ final case class TlsConfiguration(
     enabled: Boolean,
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
-    trustCertCollectionFile: Option[File] // System default if null
+    trustCertCollectionFile: Option[File], // System default if null
+    clientAuth: ClientAuth =
+      ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
+    enableCertRevocationChecking: Boolean = false,
 ) {
 
   def keyFileOrFail: File =
-    keyFile.getOrElse(throw new IllegalStateException(
-      s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."))
+    keyFile.getOrElse(
+      throw new IllegalStateException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
+      )
+    )
 
   def keyCertChainFileOrFail: File =
-    keyCertChainFile.getOrElse(throw new IllegalStateException(
-      s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."))
+    keyCertChainFile.getOrElse(
+      throw new IllegalStateException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
+      )
+    )
 
   /** If enabled and all required fields are present, it returns an SslContext suitable for client usage */
   def client: Option[SslContext] = {
@@ -29,7 +38,7 @@ final case class TlsConfiguration(
       Some(
         GrpcSslContexts
           .forClient()
-          .keyManager(keyCertChainFile.orNull, keyFileOrFail)
+          .keyManager(keyCertChainFile.orNull, keyFile.orNull)
           .trustManager(trustCertCollectionFile.orNull)
           .build()
       )
@@ -43,13 +52,18 @@ final case class TlsConfiguration(
         GrpcSslContexts
           .forServer(
             keyCertChainFileOrFail,
-            keyFileOrFail
+            keyFileOrFail,
           )
           .trustManager(trustCertCollectionFile.orNull)
-          .clientAuth(ClientAuth.REQUIRE)
+          .clientAuth(clientAuth)
           .build
       )
     else None
+
+  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
+  def setJvmTlsProperties(): Unit =
+    if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
+
 }
 
 object TlsConfiguration {

@@ -18,19 +18,19 @@ Templates
        - Type
        - Description
      * - issuer
-       - Party
+       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
        - 
      * - owner
-       - Party
+       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
        - 
      * - currency
-       - `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+       - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-57703>`_
        - only 3\-letter symbols are allowed
      * - amount
-       - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
+       - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-54602>`_
        - must be positive
      * - regulators
-       - \[Party\]
+       - \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_\]
        - ``regulators`` may observe any use of the ``Iou``
   
   + **Choice Archive**
@@ -51,7 +51,7 @@ Templates
          - Type
          - Description
        * - otherCid
-         - ContractId `Iou <type-iou12-iou-45923_>`_
+         - `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Iou <type-iou12-iou-45923_>`_
          - Must have same owner, issuer, and currency\. The regulators may differ, and are taken from the original ``Iou``\.
   
   + **Choice Split**
@@ -67,7 +67,7 @@ Templates
          - Type
          - Description
        * - splitAmount
-         - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
+         - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-54602>`_
          - must be between zero and original amount
   
   + **Choice Transfer**
@@ -82,7 +82,7 @@ Templates
          - Type
          - Description
        * - newOwner
-         - Party
+         - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
          - 
 
 Functions
@@ -91,7 +91,7 @@ Functions
 .. _function-iou12-main-35518:
 
 `main <function-iou12-main-35518_>`_
-  \: Scenario ()
+  \: `Scenario <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-scenario-45418>`_ ()
   
   A single test scenario covering all functionality that ``Iou`` implements\.
   This description contains a link(http://example.com), some bogus \<inline html\>,

@@ -1,26 +1,32 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.{DataOutputStream, FileOutputStream}
+import java.io.DataOutputStream
+import java.nio.file.{Files, Paths}
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{Envelope => _, _}
+import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Utilities for debugging kvutils. */
 object Debug {
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   /** The ledger dump stream is a gzip-compressed stream of `LedgerDumpEntry` messages prefixed
     * by their size.
     */
-  private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
-    Option(System.getenv("KVUTILS_LEDGER_DUMP"))
-      .map { filename =>
-        new DataOutputStream((new FileOutputStream(filename)))
+  private lazy val optLedgerDumpStream: Option[DataOutputStream] =
+    sys.env
+      .get("KVUTILS_LEDGER_DUMP")
+      .map { filePath =>
+        val path = Paths.get(filePath)
+        logger.info(s"Enabled writing ledger entries to $path.")
+        new DataOutputStream(Files.newOutputStream(path))
       }
-  }
 
   /** Dump ledger entry to disk if dumping is enabled.
     * Ledger dumps are mostly used to test for backwards compatibility of new releases.
@@ -33,20 +39,20 @@ object Debug {
       participantId: String,
       entryId: DamlLogEntryId,
       logEntry: DamlLogEntry,
-      outputState: Map[DamlStateKey, DamlStateValue]): Unit =
+      outputState: Map[DamlStateKey, DamlStateValue],
+  ): Unit =
     optLedgerDumpStream.foreach { outs =>
       val dumpEntry = DamlKvutils.LedgerDumpEntry.newBuilder
-        .setSubmission(Envelope.enclose(submission))
+        .setSubmission(Envelope.enclose(submission).bytes)
         .setEntryId(entryId)
         .setParticipantId(participantId)
-        .setLogEntry(Envelope.enclose(logEntry))
+        .setLogEntry(Envelope.enclose(logEntry).bytes)
         .addAllOutputState(
-          outputState.map {
-            case (k, v) =>
-              DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
-                .setStateKey(k)
-                .setStateValue(Envelope.enclose(v))
-                .build
+          outputState.map { case (k, v) =>
+            DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
+              .setStateKey(k)
+              .setStateValue(Envelope.enclose(v).bytes)
+              .build
           }.asJava
         )
         .build

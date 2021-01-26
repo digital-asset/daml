@@ -1,28 +1,26 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.codegen.dependencygraph._
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.daml.codegen.dependencygraph._
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import dependencygraph.Graph._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class GraphSpec extends FlatSpec with Matchers {
+class GraphSpec extends AnyFlatSpec with Matchers {
 
-  private[this] def intQualifiedName(i: Int): QualifiedName = {
-    val si = i.toString.replace('-', '_')
-    QualifiedName.assertFromString(s"M$si:E$si")
-  }
-
-  def intNode(contentAndId: Int, deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
+  private[this] def intNode(
+      contentAndId: Int,
+      deps: List[Int] = List.empty[Int],
+  ): (Int, BaseNode[Int, Int]) =
     contentAndId -> Node(contentAndId, deps, true)
 
   private[this] def orderedDependencies[K, A](
-      nodes: Iterable[(K, BaseNode[K, A])]): OrderedDependencies[K, A] =
-    cyclicDependencies(Traversable.empty, nodes)
+      nodes: Iterable[(K, BaseNode[K, A])]
+  ): OrderedDependencies[K, A] =
+    cyclicDependencies(Iterable.empty, nodes)
 
   behavior of "Graph.cyclicDependencies"
 
@@ -51,7 +49,8 @@ class GraphSpec extends FlatSpec with Matchers {
     val node2 = intNode(2)
     orderedDependencies(Seq(node1, node2)).deps should contain theSameElementsInOrderAs Seq(
       node2,
-      node1)
+      node1,
+    )
   }
 
   it should "return the two elements connected ordered and the third one in any position" in {
@@ -59,7 +58,7 @@ class GraphSpec extends FlatSpec with Matchers {
     val node2 = intNode(2)
     val node3 = intNode(3, List(1))
     val result = orderedDependencies(Seq(node1, node2, node3)).deps
-    result should contain inOrder (node1, node3)
+    result should contain.inOrder(node1, node3)
     result should contain(node2)
   }
 
@@ -76,11 +75,11 @@ class GraphSpec extends FlatSpec with Matchers {
     val node5 = intNode(5)
     val result = orderedDependencies(Seq(node1, node2, node3, node4, node5)).deps
     result should contain(node5)
-    result should contain inOrder (node3, node2)
-    result should contain inOrder (node4, node2)
-    result should contain inOrder (node4, node3)
-    result should contain inOrder (node1, node3)
-    result should contain inOrder (node5, node4)
+    result should contain.inOrder(node3, node2)
+    result should contain.inOrder(node4, node2)
+    result should contain.inOrder(node4, node3)
+    result should contain.inOrder(node1, node3)
+    result should contain.inOrder(node5, node4)
   }
 
   it should "return error for each unknown dependency" in {

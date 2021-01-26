@@ -1,20 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.Scalaz._
 
 class BasicPrimitiveTypesSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
@@ -78,8 +80,8 @@ class BasicPrimitiveTypesSpec
           "date_field" : "0001-01-01",
           "time_field" : "0001-01-01T00:00:00Z"
         }
-      """
-    ).traverseU(parse)
+      """,
+    ).traverse(parse)
 
     expected should be('right) // That should only fail if this JSON^^ is ill-formatted
 

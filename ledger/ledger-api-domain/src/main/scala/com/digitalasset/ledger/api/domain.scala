@@ -1,37 +1,38 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api
+package com.daml.ledger.api
 
 import java.time.Instant
 
 import brave.propagation.TraceContext
+import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.value.{Value => Lf}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
-import scala.collection.{breakOut, immutable}
-import scala.concurrent.duration.FiniteDuration
+import scala.collection.immutable
 
 object domain {
 
-  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
+  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
+    def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
+      filtersByParty.get(party).fold(false)(_.apply(template))
+  }
 
   object TransactionFilter {
 
     /** These parties subscribe for all templates */
     def allForParties(parties: Set[Ref.Party]) =
-      TransactionFilter(parties.map(_ -> Filters.noFilter)(breakOut))
+      TransactionFilter(parties.view.map(_ -> Filters.noFilter).toMap)
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Ref.Identifier): Boolean =
+    def apply(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 
@@ -78,13 +79,13 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: ValueRecord[AbsoluteContractId],
+        createArguments: Lf.ValueRecord[ContractId],
         witnessParties: immutable.Set[Ref.Party],
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
         agreementText: String,
-        contractKey: Option[Value])
-        extends Event
+        contractKey: Option[Value],
+    ) extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
 
@@ -92,8 +93,8 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        witnessParties: immutable.Set[Ref.Party])
-        extends Event
+        witnessParties: immutable.Set[Ref.Party],
+    ) extends Event
         with CreateOrArchiveEvent
 
     final case class ExercisedEvent(
@@ -106,8 +107,8 @@ object domain {
         consuming: Boolean,
         override val children: List[EventId],
         witnessParties: immutable.Set[Ref.Party],
-        exerciseResult: Option[Value])
-        extends Event
+        exerciseResult: Option[Value],
+    ) extends Event
         with CreateOrExerciseEvent
 
   }
@@ -135,8 +136,8 @@ object domain {
       offset: LedgerOffset.Absolute,
       eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
       rootEventIds: immutable.Seq[EventId],
-      traceContext: Option[TraceContext])
-      extends TransactionBase
+      traceContext: Option[TraceContext],
+  ) extends TransactionBase
 
   final case class Transaction(
       transactionId: TransactionId,
@@ -145,8 +146,8 @@ object domain {
       effectiveAt: Instant,
       events: immutable.Seq[CreateOrArchiveEvent],
       offset: LedgerOffset.Absolute,
-      traceContext: Option[TraceContext])
-      extends TransactionBase
+      traceContext: Option[TraceContext],
+  ) extends TransactionBase
 
   sealed trait CompletionEvent extends Product with Serializable {
     def offset: LedgerOffset.Absolute
@@ -162,15 +163,15 @@ object domain {
         offset: LedgerOffset.Absolute,
         recordTime: Instant,
         commandId: CommandId,
-        transactionId: TransactionId)
-        extends CompletionEvent
+        transactionId: TransactionId,
+    ) extends CompletionEvent
 
     final case class CommandRejected(
         offset: LedgerOffset.Absolute,
         recordTime: Instant,
         commandId: CommandId,
-        reason: RejectionReason)
-        extends CompletionEvent
+        reason: RejectionReason,
+    ) extends CompletionEvent
   }
 
   sealed trait RejectionReason {
@@ -189,13 +190,6 @@ object domain {
       */
     final case class OutOfQuota(description: String) extends RejectionReason
 
-    /** The transaction submission timed out.
-      *
-      * This means the 'maximumRecordTime' was smaller than the recordTime seen
-      * in an event in the Participant node.
-      */
-    final case class TimedOut(description: String) extends RejectionReason
-
     /** The transaction submission was disputed.
       *
       * This means that the underlying ledger and its validation logic
@@ -208,9 +202,12 @@ object domain {
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
 
+    /** The ledger time of the submission violated some constraint on the ledger time.
+      */
+    final case class InvalidLedgerTime(description: String) extends RejectionReason
   }
 
-  type Value = Lf[Lf.AbsoluteContractId]
+  type Value = Lf[Lf.ContractId]
 
   final case class RecordField(label: Option[Label], value: Value)
 
@@ -265,21 +262,19 @@ object domain {
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
-  sealed trait AbsoluteNodeIdTag
-
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
-      submitter: Ref.Party,
-      ledgerEffectiveTime: Instant,
-      maximumRecordTime: Instant,
-      ttl: Option[FiniteDuration],
-      commands: LfCommands)
+      actAs: Set[Ref.Party],
+      readAs: Set[Ref.Party],
+      submittedAt: Instant,
+      deduplicateUntil: Instant,
+      commands: LfCommands,
+  )
 
-  /**
-    * @param party The stable unique identifier of a DAML party.
+  /** @param party The stable unique identifier of a DAML party.
     * @param displayName Human readable name associated with the party. Might not be unique.
     * @param isLocal True if party is hosted by the backing participant.
     */
@@ -290,14 +285,12 @@ object domain {
   object PartyEntry {
     final case class AllocationAccepted(
         submissionId: Option[String],
-        participantId: ParticipantId,
-        partyDetails: PartyDetails
+        partyDetails: PartyDetails,
     ) extends PartyEntry
 
     final case class AllocationRejected(
         submissionId: String,
-        participantId: ParticipantId,
-        reason: String
+        reason: String,
     ) extends PartyEntry
   }
 
@@ -307,15 +300,13 @@ object domain {
 
     final case class Accepted(
         submissionId: String,
-        participantId: ParticipantId,
         configuration: Configuration,
     ) extends ConfigurationEntry
 
     final case class Rejected(
         submissionId: String,
-        participantId: ParticipantId,
         rejectionReason: String,
-        proposedConfiguration: Configuration
+        proposedConfiguration: Configuration,
     ) extends ConfigurationEntry
   }
 
@@ -325,13 +316,13 @@ object domain {
 
     final case class PackageUploadAccepted(
         submissionId: String,
-        recordTime: Instant
+        recordTime: Instant,
     ) extends PackageEntry
 
     final case class PackageUploadRejected(
         submissionId: String,
         recordTime: Instant,
-        reason: String
+        reason: String,
     ) extends PackageEntry
   }
 

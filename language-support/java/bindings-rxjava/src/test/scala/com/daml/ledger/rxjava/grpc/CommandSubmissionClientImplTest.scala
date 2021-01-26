@@ -1,27 +1,34 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 class CommandSubmissionClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues
     with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices("command-submission-service-ledger")
+
+  implicit class JavaOptionalAsScalaOption[A](opt: Optional[A]) {
+    def asScala: Option[A] = if (opt.isPresent) Some(opt.get()) else None
+  }
 
   behavior of "[3.1] CommandSubmissionClientImpl.submit"
 
@@ -35,9 +42,10 @@ class CommandSubmissionClientImplTest
             commands.getApplicationId,
             commands.getCommandId,
             commands.getParty,
-            commands.getLedgerEffectiveTime,
-            commands.getMaximumRecordTime,
-            commands.getCommands
+            commands.getMinLedgerTimeAbsolute,
+            commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
+            commands.getCommands,
           )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingGet()
@@ -46,10 +54,22 @@ class CommandSubmissionClientImplTest
         receivedCommands.applicationId shouldBe commands.getApplicationId
         receivedCommands.workflowId shouldBe commands.getWorkflowId
         receivedCommands.commandId shouldBe commands.getCommandId
-        receivedCommands.getLedgerEffectiveTime.seconds shouldBe commands.getLedgerEffectiveTime.getEpochSecond
-        receivedCommands.getLedgerEffectiveTime.nanos shouldBe commands.getLedgerEffectiveTime.getNano
-        receivedCommands.getMaximumRecordTime.seconds shouldBe commands.getMaximumRecordTime.getEpochSecond
-        receivedCommands.getMaximumRecordTime.nanos shouldBe commands.getMaximumRecordTime.getNano
+        receivedCommands.minLedgerTimeAbs.map(
+          _.seconds
+        ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+          .map(_.getEpochSecond)
+        receivedCommands.minLedgerTimeAbs.map(
+          _.nanos
+        ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+          .map(_.getNano)
+        receivedCommands.minLedgerTimeRel.map(
+          _.seconds
+        ) shouldBe commands.getMinLedgerTimeRelative.asScala
+          .map(_.getSeconds)
+        receivedCommands.minLedgerTimeRel.map(
+          _.nanos
+        ) shouldBe commands.getMinLedgerTimeRelative.asScala
+          .map(_.getNano)
         receivedCommands.party shouldBe commands.getParty
         receivedCommands.commands.size shouldBe commands.getCommands.size()
     }
@@ -58,7 +78,8 @@ class CommandSubmissionClientImplTest
   def toAuthenticatedServer(fn: CommandSubmissionClient => Any): Any =
     ledgerServices.withCommandSubmissionClient(
       Future.successful(Empty.defaultInstance),
-      mockedAuthService) { (client, _) =>
+      mockedAuthService,
+    ) { (client, _) =>
       fn(client)
     }
 
@@ -75,21 +96,25 @@ class CommandSubmissionClientImplTest
             commands.getApplicationId,
             commands.getCommandId,
             commands.getParty,
-            commands.getLedgerEffectiveTime,
-            commands.getMaximumRecordTime,
-            commands.getCommands
-          ))(
+            commands.getMinLedgerTimeAbsolute,
+            commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
+            commands.getCommands,
+          )
+      )(
         client
           .submit(
             commands.getWorkflowId,
             commands.getApplicationId,
             commands.getCommandId,
             commands.getParty,
-            commands.getLedgerEffectiveTime,
-            commands.getMaximumRecordTime,
+            commands.getMinLedgerTimeAbsolute,
+            commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands,
-            _
-          ))
+            _,
+          )
+      )
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       .blockingGet()
   }

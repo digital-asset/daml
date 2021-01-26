@@ -1,12 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import pureconfig.error.ConfigReaderFailures
 
-/**
-  * This object collects the possible errors that can happen during command
+/** This object collects the possible errors that can happen during command
   * submission or event listening
   */
 object LedgerClientConfigurationError {

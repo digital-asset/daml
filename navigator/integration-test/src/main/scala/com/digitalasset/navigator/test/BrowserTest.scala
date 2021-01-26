@@ -1,27 +1,29 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test
+package com.daml.navigator.test
 
 import java.net.URL
 import java.util.UUID
 
-import com.digitalasset.navigator.test.config.Arguments
+import com.daml.navigator.test.config.Arguments
 import com.typesafe.scalalogging.LazyLogging
 import org.openqa.selenium.{JavascriptExecutor, WebDriver}
 import org.openqa.selenium.remote.DesiredCapabilities
 import org.openqa.selenium.remote.RemoteWebDriver
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.concurrent.Eventually
-import org.scalatest.selenium.WebBrowser
 import org.scalatest.time.{Millis, Span}
+import org.scalatestplus.selenium.WebBrowser
 
 import scala.sys.process._
 import scala.util.{Failure, Success, Try}
 
 @WrapWith(classOf[ConfigMapWrapperSuite])
 class BrowserTest(args: Arguments)
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with WebBrowser
     with BeforeAndAfterAll
@@ -58,7 +60,8 @@ class BrowserTest(args: Arguments)
       "--key",
       args.browserStackKey,
       "--local-identifier",
-      browserStackTestId)
+      browserStackTestId,
+    )
 
     // Don't log the actual command, it contains credentials
     logger.info("Running BrowserStackLocal...")
@@ -103,10 +106,12 @@ class BrowserTest(args: Arguments)
   // TODO use id's instead of xpath/classname to make it more robust (change Navigator code first)
   private val signOutButton = cssSelector("nav > div > div > button")
   private val choiceButton = cssSelector(
-    "div.ReactVirtualized__Grid.ReactVirtualized__Table__Grid button > i")
+    "div.ReactVirtualized__Grid.ReactVirtualized__Table__Grid button > i"
+  )
   private val contractRow = cssSelector("div.ReactVirtualized__Table__row.ContractTable__row")
   private val contractsTable = cssSelector(
-    "div.ReactVirtualized__Grid.ReactVirtualized__Table__Grid")
+    "div.ReactVirtualized__Grid.ReactVirtualized__Table__Grid"
+  )
   private val archiveChoice = xpath("//li[span='Archive']")
   private val accept = xpath("//li[span='Accept']")
   private val contractDetails = xpath("//p[strong='Contract details']")
@@ -117,15 +122,16 @@ class BrowserTest(args: Arguments)
   private val setTimeButton = xpath("//button[span='Set']")
   private val specificDate = xpath("//tbody/tr[2]/td[2]")
   private val specificDateLabel = xpath("//button/span[contains(text(), '1970-01-05')]")
-  private val rightOfUse = xpath("//div/div/div[starts-with(span,'Main:RightOfUse')]")
   private val rightOfUseAgreement = xpath(
-    "//div/div/div[starts-with(span,'Main:RightOfUseAgreement')]")
+    "//div/div/div[starts-with(span,'Main:RightOfUseAgreement')]"
+  )
   private val rightOfUseOffer = xpath("//div/div/div[starts-with(span,'Main:RightOfUseOffer')]")
   private val landlordInput = cssSelector("form > div > label:nth-child(1) > input")
   private val tenantInput = cssSelector("form > div > label:nth-child(2) > input")
   private val addressInput = cssSelector("form > div > label:nth-child(3) > input")
   private val expirationdateInput = cssSelector(
-    "form > div > label:nth-child(4) > div > div > input")
+    "form > div > label:nth-child(4) > div > div > input"
+  )
   private val expirationdate = cssSelector("table > tbody > tr:nth-child(4) > td:nth-child(2)")
   private val submitContract = cssSelector("form > button")
 
@@ -173,19 +179,6 @@ class BrowserTest(args: Arguments)
 
   private def doClick(query: Query): Unit = {
     click on query
-    ()
-  }
-
-  private def scrollToBottom(js: JavascriptExecutor, css: String): Unit = {
-    js.executeScript(s"""
-      var element = document.querySelector("$css");
-      if (element) {
-        console.log("ScrollToBottom: scrolling '$css' to " + element.scrollHeight)
-        element.scrollTop = element.scrollHeight;
-      } else {
-        console.error("ScrollToBottom: could not find element '$css'")
-      }
-    """)
     ()
   }
 

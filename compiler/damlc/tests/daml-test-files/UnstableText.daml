@@ -1,0 +1,59 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.dev
+module UnstableText where
+
+import DA.Text as T
+import DA.Assert
+
+testUnstableDrop : Scenario ()
+testUnstableDrop = do
+  T.unstableDrop 0 "abc" === "abc"
+  T.unstableDrop 1 "abc" === "bc"
+  T.unstableDrop 2 "abc" === "c"
+  T.unstableDrop 3 "abc" === ""
+  T.unstableDrop 4 "abc" === ""
+
+testUnstableTake : Scenario ()
+testUnstableTake = do
+  T.unstableTake 0 "abc" === ""
+  T.unstableTake 1 "abc" === "a"
+  T.unstableTake 2 "abc" === "ab"
+  T.unstableTake 3 "abc" === "abc"
+  T.unstableTake 4 "abc" === "abc"
+
+testBreakOn : Scenario ()
+testBreakOn = do
+  T.unstableBreakOn "|" "|"     === ("", "|")
+  T.unstableBreakOn "|" "|b"    === ("", "|b")
+  T.unstableBreakOn "|" "a|"    === ("a", "|")
+  T.unstableBreakOn "|" "a|b"   === ("a", "|b")
+  T.unstableBreakOn "|" "a|b|c" === ("a", "|b|c")
+  T.unstableBreakOn "|" "ab"    === ("ab", "")
+
+testUnstableStripInfix : Scenario ()
+testUnstableStripInfix = do
+  T.unstableStripInfix "|" "|"     === Some ("", "")
+  T.unstableStripInfix "|" "|b"    === Some ("", "b")
+  T.unstableStripInfix "|" "a|"    === Some ("a", "")
+  T.unstableStripInfix "|" "a|b"   === Some ("a", "b")
+  T.unstableStripInfix "|" "a|b|c" === Some ("a", "b|c")
+  T.unstableStripInfix "|" "ab"    === None
+
+testUnstableSplitOn = scenario do
+  T.unstableSplitOn "" ""                 === [ "" ]
+  T.unstableSplitOn "" " "                === [ " " ]
+  T.unstableSplitOn " " ""                === [ "" ]
+  T.unstableSplitOn " " " "               === [ "", "" ]
+  T.unstableSplitOn " " "foo bar baz"     === [ "foo", "bar", "baz" ]
+  T.unstableSplitOn " " "  foo bar baz  " === [ "", "", "foo", "bar", "baz", "", "" ]
+  T.unstableSplitOn " " "foo  bar" === [ "foo", "", "bar" ]
+  T.unstableSplitOn "." "4"               === [ "4" ]
+  T.unstableSplitOn "." "4."              === [ "4", "" ]
+  T.unstableSplitOn "." "4.0"             === [ "4", "0" ]
+  T.unstableSplitOn "." "4.3.2.1."        === [ "4", "3", "2", "1", "" ]
+  T.unstableSplitOn "\\." "4"             === [ "4" ]
+  T.unstableSplitOn "\\." "4."            === [ "4." ]
+  T.unstableSplitOn "\\." "4.0"           === [ "4.0" ]
+  T.unstableSplitOn "\\." "4.3.2.1."      === [ "4.3.2.1." ]

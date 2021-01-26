@@ -1,11 +1,11 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PatternSynonyms #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
 import Control.Monad
+import Data.List
 import Data.Maybe
 import qualified Data.Text as T
 import           Control.Lens
@@ -159,7 +159,7 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep :: Type
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TGeneralError, TArithmeticError, TContractError :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
@@ -173,6 +173,10 @@ pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
 pattern TAny        = TBuiltin BTAny
 pattern TTypeRep    = TBuiltin BTTypeRep
+pattern TAnyException = TBuiltin BTAnyException
+pattern TGeneralError = TBuiltin BTGeneralError
+pattern TArithmeticError = TBuiltin BTArithmeticError
+pattern TContractError = TBuiltin BTContractError
 
 pattern TList, TOptional, TTextMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
@@ -192,7 +196,11 @@ pattern TTextMapEntry a = TStruct [(FieldName "key", TText), (FieldName "value",
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
 pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))
   where
-    TConApp tcon targs = foldl TApp (TCon tcon) targs
+    TConApp tcon targs = foldl' TApp (TCon tcon) targs
+
+pattern TForalls :: [(TypeVarName, Kind)] -> Type -> Type
+pattern TForalls binders ty <- (view _TForalls -> (binders, ty))
+  where TForalls binders ty = mkTForalls binders ty
 
 _TList :: Prism' Type Type
 _TList = prism' TList $ \case
@@ -239,6 +247,9 @@ mkTFuns ts t = foldr (:->) t ts
 mkTApps :: Type -> [Type] -> Type
 mkTApps = curry (review _TApps)
 
+splitTApps :: Type -> (Type, [Type])
+splitTApps = view _TApps
+
 
 typeConAppToType :: TypeConApp -> Type
 typeConAppToType (TypeConApp tcon targs) = TConApp tcon targs
@@ -250,20 +261,22 @@ data Definition
   | DDataType DefDataType
   | DValue DefValue
   | DTemplate Template
+  | DException DefException
 
 moduleFromDefinitions :: ModuleName -> Maybe FilePath -> FeatureFlags -> [Definition] -> Module
 moduleFromDefinitions name path flags defs = do
-  let (syns, dats, vals, tpls) = partitionDefinitions defs
-  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls)
+  let (syns, dats, vals, tpls, exps) = partitionDefinitions defs
+  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls) (NM.fromList exps)
 
-partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template])
-partitionDefinitions = foldr f ([], [], [], [])
+partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template], [DefException])
+partitionDefinitions = foldr f ([], [], [], [], [])
   where
     f = \case
       DTypeSyn s  -> over _1 (s:)
       DDataType d -> over _2 (d:)
       DValue v    -> over _3 (v:)
       DTemplate t -> over _4 (t:)
+      DException e -> over _5 (e:)
 
 -- | This is the analogue of GHC’s moduleNameString for the LF
 -- `ModuleName` type.

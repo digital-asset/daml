@@ -1,23 +1,24 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.lang
 
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.TestSink
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.awaitility.Awaitility.await
 import org.awaitility.Duration
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-import org.scalatest.{FutureOutcome, Matchers, fixture}
+import org.scalatest.FutureOutcome
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.FixtureAsyncWordSpec
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SignalDispatcherTest
-    extends fixture.AsyncWordSpec
+    extends FixtureAsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with ScaledTimeSpans
@@ -45,7 +46,7 @@ class SignalDispatcherTest
     "output multiple signals when they arrive" in { sut =>
       val count = 10
       val result = sut.subscribe(false).take(count.toLong).runWith(Sink.seq).map(_ => succeed)
-      1.to(count).foreach(_ => sut.signal)
+      1.to(count).foreach(_ => sut.signal())
       result
     }
 
@@ -57,7 +58,7 @@ class SignalDispatcherTest
       s.cancel()
       await("Cancellation handling")
         .atMost(Duration.TEN_SECONDS)
-        .until(() => new lang.Boolean(sut.getRunningState.isEmpty))
+        .until(() => lang.Boolean.valueOf(sut.getRunningState.isEmpty))
       sut.getRunningState shouldBe empty
     }
 

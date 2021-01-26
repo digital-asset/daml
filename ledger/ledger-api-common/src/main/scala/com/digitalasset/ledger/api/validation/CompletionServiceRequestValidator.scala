@@ -1,28 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId}
-import com.digitalasset.ledger.api.messages.command.completion
-import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamRequest
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
+import com.daml.ledger.api.messages.command.completion
+import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
-  CompletionStreamRequest => GrpcCompletionStreamRequest
+  CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
-import com.digitalasset.platform.server.api.validation.FieldValidations
-import com.digitalasset.platform.server.util.context.TraceContextConversions.toBrave
+import com.daml.platform.server.api.validation.FieldValidations
+import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories._
 
 class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker)
     extends FieldValidations {
 
   private val partyValidator = new PartyValidator(partyNameChecker)
 
-  def validateCompletionStreamRequest(request: GrpcCompletionStreamRequest)
-    : Either[StatusRuntimeException, CompletionStreamRequest] =
+  def validateCompletionStreamRequest(
+      request: GrpcCompletionStreamRequest,
+      ledgerEnd: LedgerOffset.Absolute,
+      offsetOrdering: Ordering[LedgerOffset.Absolute],
+  ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       nonEmptyAppId <- requireNonEmptyString(request.applicationId, "application_id")
@@ -33,16 +36,22 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
       nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
       convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")
-    } yield
-      CompletionStreamRequest(
-        ledgerId,
-        ApplicationId(appId),
-        knownParties,
-        convertedOffset
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "Begin",
+        convertedOffset,
+        ledgerEnd,
+        offsetOrdering,
       )
+    } yield CompletionStreamRequest(
+      ledgerId,
+      ApplicationId(appId),
+      knownParties,
+      convertedOffset,
+    )
 
   def validateCompletionEndRequest(
-      req: CompletionEndRequest): Either[StatusRuntimeException, completion.CompletionEndRequest] =
+      req: CompletionEndRequest
+  ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
     } yield completion.CompletionEndRequest(ledgerId, req.traceContext.map(toBrave))

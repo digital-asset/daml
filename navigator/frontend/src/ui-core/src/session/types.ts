@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 export type UserId = string;
@@ -29,8 +29,7 @@ export type State
   }
   | { type: 'authenticated', user: User }
 
-export type AuthMethod = AuthMethodPassword | AuthMethodSelect
-export type AuthMethodPassword = { type: 'password' }
+export type AuthMethod = AuthMethodSelect
 export type AuthMethodSelect = { type: 'select', users: UserId[] }
 export type AuthFailure = 'invalid-credentials';
 

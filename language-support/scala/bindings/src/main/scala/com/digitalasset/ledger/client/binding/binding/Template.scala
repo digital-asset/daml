@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.Choice
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.refinements.ApiTypes.Choice
+import com.daml.ledger.api.v1.{value => rpcvalue}
 
 abstract class Template[+T] extends ValueRef { self: T =>
   final def create(implicit d: DummyImplicit): Primitive.Update[Primitive.ContractId[T]] =
@@ -30,8 +30,9 @@ abstract class Template[+T] extends ValueRef { self: T =>
 
   // arguments and templateId are provided in lieu of making templateCompanion
   // public, though the latter might be more "powerful"
-  protected[this] def templateCompanion(
-      implicit d: DummyImplicit): TemplateCompanion[_ >: self.type <: T]
+  protected[this] def templateCompanion(implicit
+      d: DummyImplicit
+  ): TemplateCompanion[_ >: self.type <: T]
 }
 
 object Template {
@@ -43,4 +44,12 @@ object Template {
     * }}}
     */
   final case class CreateForExercise[+T](value: T with Template[T])
+
+  /** Part of an `ExerciseByKey` command.
+    *
+    * {{{
+    *   Iou key foo exerciseTransfer (controller, ...)
+    * }}}
+    */
+  final case class Key[+T](encodedKey: rpcvalue.Value)
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,7 +26,7 @@ da_java_library(
     srcs = glob(["src/main/java/**/*.java"]),
     tags = [
         "javadoc_root_packages=com.daml.ledger.rxjava",
-        "maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__",
+        "maven_coordinates=com.daml:bindings-rxjava:__VERSION__",
     ],
     visibility = [
         "//visibility:public",
@@ -63,7 +63,7 @@ da_scala_library(
         ":bindings-rxjava",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
@@ -97,7 +97,7 @@ da_scala_test_suite(
         ":bindings-java-tests-lib",
         ":bindings-rxjava",
         "//language-support/java/bindings:bindings-java",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//libs-scala/grpc-utils",
@@ -111,13 +111,14 @@ da_scala_test_suite(
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 daml_compile(
     name = "bindings-integration-tests-model-latest",
-    main_src = "src/main/daml/TemplateUtils.daml",
+    srcs = ["src/main/daml/TemplateUtils.daml"],
     target = lf_stable_version,
 )
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,38 +11,42 @@ load("//bazel_tools:java.bzl", "da_java_library")
 
 proto_gen(
     name = "ledger-api-java",
-    srcs = ["//ledger-api/grpc-definitions:protos"],
+    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
     plugin_name = "java",
     visibility = [
         "//visibility:public",
     ],
+)
+
+# this is only needed for the uber-javadoc in //language-support/java:javadoc
+java_library(
+    name = "ledger-api-java-lib-for-javadocs",
+    srcs = [
+        ":ledger-api-java",
+        ":ledger-api-java-grpc",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
 
 proto_gen(
     name = "ledger-api-java-grpc",
-    srcs = ["//ledger-api/grpc-definitions:protos"],
+    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
     visibility = [
         "//visibility:public",
-    ],
-    deps = [
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -54,7 +58,7 @@ da_java_library(
     ],
     tags = [
         "javadoc_root_packages=com.daml.ledger.javaapi.data",
-        "maven_coordinates=com.daml.ledger:bindings-java:__VERSION__",
+        "maven_coordinates=com.daml:bindings-java:__VERSION__",
     ],
     visibility = [
         "//visibility:public",
@@ -104,6 +108,7 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 

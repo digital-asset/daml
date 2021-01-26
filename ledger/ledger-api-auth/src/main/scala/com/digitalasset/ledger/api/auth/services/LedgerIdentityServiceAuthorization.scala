@@ -1,34 +1,35 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth.services
+package com.daml.ledger.api.auth.services
 
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.ProxyCloseable
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerIdentityServiceAuthorization(
+private[daml] final class LedgerIdentityServiceAuthorization(
     protected val service: LedgerIdentityServiceGrpc.LedgerIdentityService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends LedgerIdentityServiceGrpc.LedgerIdentityService
     with ProxyCloseable
     with GrpcApiService {
 
   override def getLedgerIdentity(
-      request: GetLedgerIdentityRequest): Future[GetLedgerIdentityResponse] =
+      request: GetLedgerIdentityRequest
+  ): Future[GetLedgerIdentityResponse] =
     authorizer.requirePublicClaims(service.getLedgerIdentity)(request)
 
   override def bindService(): ServerServiceDefinition =
-    LedgerIdentityServiceGrpc.bindService(this, DirectExecutionContext)
+    LedgerIdentityServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

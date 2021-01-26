@@ -1,13 +1,16 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
 
 module ScriptTest where
 
-import Prelude hiding (getParty, submit, submitMustFail)
+import DA.Action
+import DA.Assert
+import DA.Date
+import DA.Foldable hiding (length)
+import DA.List
 import DA.Time
-
 import Daml.Script
 
 template T
@@ -66,6 +69,16 @@ template WithKey
     nonconsuming choice GetCid : ContractId WithKey
       controller p
       do pure self
+
+template TTupleKey
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    key (p1, p2) : (Party, Party)
+    maintainer key._1
 
 test0 : Script (Party, Party, [T], [TProposal], [C])
 test0 = do
@@ -141,8 +154,15 @@ failingTest = do
   submit alice $ exerciseCmd cid ShouldFail
   pure ()
 
-time : Script (Time, Time)
-time = do
+-- | This used to produce a stackoverflow
+testStack : Script ()
+testStack = do
+  p <- allocateParty "p"
+  results <- submit p $ replicateA 1000 (createCmd (C p 42))
+  assert (length results == 1000)
+
+testGetTime : Script (Time, Time)
+testGetTime = do
   t1 <- getTime
   t2 <- getTime
   assert (t1 <= t2)
@@ -163,8 +183,203 @@ partyIdHintTest = do
   dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
   pure (carol, dan)
 
+listKnownPartiesTest : Script ([PartyDetails], Party)
+listKnownPartiesTest = do
+  before <- listKnownParties
+  p <- allocateParty "myparty"
+  after <- listKnownParties
+  let new = after \\ before
+  new === [PartyDetails p (Some "myparty") True]
+  pure (new, p)
+
 auth : (Party, Party) -> Script ()
 auth (alice, bob) = do
   proposal <- submit alice $ createCmd (TProposal alice bob)
   _ <- submit bob $ exerciseCmd proposal Accept
   pure ()
+
+traceOrder : Script ()
+traceOrder = do
+  let y: Script () = abort "foobar"
+  forA_ [0,1] $ \i -> do
+    debug "abc"
+    x <- getTime
+    debug "def"
+
+jsonBasic : Party -> Script Int
+jsonBasic p = do
+  cid <- submit p $ createCmd (TProposal p p)
+  (cid, r) <- submit p $ exerciseCmd cid Accept
+  results <- query @T p
+  results === [(cid, T p p)]
+  pure r
+
+jsonCreateAndExercise : Party -> Script Int
+jsonCreateAndExercise p =
+  fmap snd $ submit p $ createAndExerciseCmd (TProposal p p) Accept
+
+jsonExerciseByKey : Party -> Script (ContractId WithKey, ContractId WithKey)
+jsonExerciseByKey p = do
+  cid1 <- submit p $ createCmd (WithKey p)
+  cid2 <- submit p $ exerciseByKeyCmd @WithKey p GetCid
+  pure (cid1, cid2)
+
+jsonCreate : Party -> Script (ContractId TProposal)
+jsonCreate p = submit p $ createCmd (TProposal p p)
+
+jsonQuery : Party -> Script [(ContractId TProposal, TProposal)]
+jsonQuery p = query @TProposal p
+
+jsonFailingCreateAndExercise : Party -> Script ()
+jsonFailingCreateAndExercise p = submit p $ createAndExerciseCmd (C p 0) ShouldFail
+
+jsonExpectedFailureCreateAndExercise : Party -> Script ()
+jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd (C p 0) ShouldFail
+
+jsonAllocateParty : Text -> Script Party
+jsonAllocateParty p = do
+  pre <- listKnownParties
+  r <- allocatePartyWithHint p (PartyIdHint p)
+  post <- listKnownParties
+  sort (PartyDetails r (Some p) True :: pre) === sort post
+  pure r
+
+jsonMultiParty : (Party, Party) -> Script ()
+jsonMultiParty (alice, bob) = do
+  assert (alice /= bob)
+  c <- submit alice $ createCmd (TProposal alice bob)
+  submit bob (exerciseCmd c Accept)
+  pure ()
+
+jsonMissingTemplateId : Party -> Script Int
+jsonMissingTemplateId p = do
+  cid <- submit p (createCmd $ TProposal p p)
+  snd <$> submit p (exerciseCmd cid Accept)
+
+-- maxInboundMessageSize
+
+template MessageSize
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice CreateN : ()
+      with
+        n : Int
+      controller p
+      do
+        res <- forA [1..n] (\_ -> do
+              create this
+          )
+        return()
+
+testMaxInboundMessageSize : Script () = do
+  p <- allocateParty "p"
+  b <- submit p do createCmd (MessageSize p)
+  submit p do exerciseCmd b CreateN with n = 50000
+  return ()
+
+testSetTime : Script (Time, Time) = do
+  t0 <- getTime
+  setTime (time (date 2000 Feb 2) 0 1 2)
+  t1 <- getTime
+  pure (t0, t1)
+
+testMultiPartyQueries : Script () = do
+  p0 <- allocateParty "p0"
+  p1 <- allocateParty "p1"
+  cids <- multiPartyQueryCreate (p0, p1)
+  multiPartyQueryQuery ((p0, p1), cids)
+
+multiPartyQueryCreate (p0, p1) = do
+  cid0 <- submit p0 $ createCmd (C p0 42)
+  cid1 <- submit p1 $ createCmd (C p1 23)
+  cidKey0 <- submit p0 $ createCmd (WithKey p0)
+  cidKey1 <- submit p1 $ createCmd (WithKey p1)
+  pure (cid0, cid1, cidKey0, cidKey1)
+
+multiPartyQueryQuery ((p0, p1), (cid0, cid1, cidKey0, cidKey1)) = do
+  r <- query @C [p0, p1]
+  sortOn (\(_, c) -> c.v) r === [(cid1, C p1 23), (cid0, C p0 42)]
+  Some r <- queryContractId @C [p0, p1] cid0
+  r === C p0 42
+  Some r <- queryContractId @C [p0, p1] cid1
+  r === C p1 23
+  Some (r, _) <- queryContractKey @WithKey [p0, p1] p0
+  r === cidKey0
+  Some (r, _) <- queryContractKey @WithKey [p0, p1] p1
+  r === cidKey1
+
+testQueryContractId : Script () = do
+  p <- allocateParty "p"
+  jsonQueryContractId p
+
+jsonQueryContractId p = do
+  cid <- submit p do createCmd (C p 42)
+  optR <- queryContractId p cid
+  optR === Some (C p 42)
+  submit p do archiveCmd cid
+  optR <- queryContractId p cid
+  optR === None
+
+testQueryContractKey : Script () = do
+  p <- allocateParty "p"
+  jsonQueryContractKey p
+
+jsonQueryContractKey p = do
+  cid <- submit p do createCmd (WithKey p)
+  optR <- queryContractKey @WithKey p p
+  optR === Some (cid, WithKey p)
+  submit p do archiveCmd cid
+  optR <- queryContractKey @WithKey p p
+  optR === None
+
+template MultiPartyContract
+  with
+    parties: [Party]
+  where
+    signatory parties
+
+    nonconsuming choice MPFetchOther : ()
+      with
+        cid: ContractId MultiPartyContract
+        actor: Party
+      controller actor
+      do
+        actualContract <- fetch cid
+        return ()
+
+multiPartySubmission : Script ()
+multiPartySubmission = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  submitMultiMustFail [p1] [] (createCmd (MultiPartyContract [p1, p2]))
+  shared <- submitMulti [p1, p2] [] (createCmd (MultiPartyContract [p1, p2]))
+  single <- submitMulti [p1] [] (createCmd (MultiPartyContract [p1]))
+  submitMultiMustFail [p2] [] (exerciseCmd shared (MPFetchOther single p2))
+  submitMulti [p2] [p1] (exerciseCmd shared (MPFetchOther single p2))
+  pure ()
+
+tupleKey : Script ()
+tupleKey = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  cid <- submit p1 (createCmd (TTupleKey p1 p2))
+  r <- queryContractKey @TTupleKey p1 (p1, p2)
+  r === Some (cid, TTupleKey p1 p2)
+  pure ()
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionCreateSingle : Party -> Script (ContractId MultiPartyContract)
+jsonMultiPartySubmissionCreateSingle p = do
+  submit p (createCmd (MultiPartyContract [p]))
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionCreate : (Party, Party) -> Script (ContractId MultiPartyContract)
+jsonMultiPartySubmissionCreate (p1, p2) = do
+  submitMulti [p1, p2] [] (createCmd (MultiPartyContract [p1, p2]))
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionExercise : (Party, Party, ContractId MultiPartyContract, ContractId MultiPartyContract) -> Script ()
+jsonMultiPartySubmissionExercise (p1, p2, cid, cidFetch) = do
+  submitMulti [p2] [p1] (exerciseCmd cid (MPFetchOther cidFetch p2))

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import scalaz.{Show, \/}
 import scalaz.syntax.show._
@@ -18,13 +18,12 @@ object JwtDecoder {
   def decode(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     \/.fromTryCatchNonFatal(com.auth0.jwt.JWT.decode(jwt.value))
       .bimap(
-        e => Error('decode, e.getMessage),
-        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload)
+        e => Error(Symbol("decode"), e.getMessage),
+        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload),
       )
       .flatMap(base64Decode)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
-    jwt.traverse(Base64.decode).leftMap(e => Error('base64Decode, e.shows))
+    jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
 }

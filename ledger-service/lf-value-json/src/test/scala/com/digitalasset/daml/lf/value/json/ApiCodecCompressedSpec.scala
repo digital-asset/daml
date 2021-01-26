@@ -1,32 +1,35 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value.json
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles._
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
+import value.test.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
-import com.digitalasset.ledger.service.MetadataReader
+import com.daml.ledger.service.MetadataReader
 import org.scalactic.source
-import org.scalatest.{Inside, Matchers, WordSpec}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.{Arbitrary, Gen}
 import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
+import scalaz.Order
+import scalaz.std.string._
 import scalaz.syntax.show._
 
 import scala.util.{Success, Try}
+import scala.util.Random.shuffle
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ApiCodecCompressedSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks
+    with ScalaCheckPropertyChecks
     with Inside {
 
   import C.typeLookup
@@ -45,7 +48,8 @@ class ApiCodecCompressedSpec
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
       value: model.ApiValue,
-      typ: model.DamlLfType): Try[model.ApiValue] = {
+      typ: model.DamlLfType,
+  ): Try[model.ApiValue] = {
     import ApiCodecCompressed.JsonImplicits._
 
     for {
@@ -65,7 +69,8 @@ class ApiCodecCompressedSpec
     def defRef(name: String) =
       Ref.Identifier(
         packageId0,
-        Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name))
+        Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name),
+      )
     val emptyRecordId = defRef("EmptyRecord")
     val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
     val simpleRecordId = defRef("SimpleRecord")
@@ -100,7 +105,7 @@ class ApiCodecCompressedSpec
           :: 'fMap ->> VA.map(VA.int64)
           :: 'fVariant ->> simpleVariantT
           :: 'fRecord ->> simpleRecordT
-          :: RNil
+          :: RNil,
       )
     val complexRecordV: complexRecordT.Inj[Cid] =
       HRecord(
@@ -120,7 +125,7 @@ class ApiCodecCompressedSpec
         fOptOptText = Some(Some("foo")),
         fMap = SortedLookupList(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
         fVariant = simpleVariantV,
-        fRecord = simpleRecordV
+        fRecord = simpleRecordV,
       )
 
     val colorId = defRef("Color")
@@ -133,7 +138,8 @@ class ApiCodecCompressedSpec
         simpleRecordId -> simpleRecordDDT,
         simpleVariantId -> simpleVariantDDT,
         complexRecordId -> complexRecordDDT,
-        colorId -> colorGD).lift
+        colorId -> colorGD,
+      ).lift
   }
 
   type Cid = String
@@ -145,14 +151,14 @@ class ApiCodecCompressedSpec
 
       "work for arbitrary reference-free types" in forAll(
         genTypeAndValue(genCid),
-        minSuccessful(100)) {
-        case (typ, value) =>
-          serializeAndParse(value, typ) shouldBe Success(value)
+        minSuccessful(100),
+      ) { case (typ, value) =>
+        serializeAndParse(value, typ) shouldBe Success(value)
       }
 
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
         }
@@ -174,9 +180,41 @@ class ApiCodecCompressedSpec
       "handle lists of optionals" in {
         val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
+        }
+      }
+
+      "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
+        val mapVa = VA.genMap(kva, VA.int64)
+        import mapVa.{injarb, injshrink}
+        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
+        forAll(minSuccessful(50)) { map: mapVa.Inj[Cid] =>
+          val canonical = mapVa.inj(map)
+          val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
+            elements
+          }
+          jsValueToApiValue(JsArray(shuffle(jsEnc)), mapVa.t, typeLookup) should ===(canonical)
+        }
+      }
+
+      "fail on map duplicate keys" in forAll(genAddend, minSuccessful(20)) { kva =>
+        val mapVa = VA.genMap(kva, VA.int64)
+        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
+        import kva.{injarb, injshrink}, mapVa.{injarb => maparb, injshrink => mapshrink}
+        forAll(minSuccessful(50)) { (k: kva.Inj[Cid], v: VA.int64.Inj[Cid], map: mapVa.Inj[Cid]) =>
+          val canonical = mapVa.inj(map updated (k, v))
+          val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
+            elements
+          }
+          val broken = JsArray(
+            shuffle(jsEnc :+ JsArray(Seq(kva.inj(k), VA.int64.inj(v)) map apiValueToJsValue: _*))
+          )
+          val err = the[DeserializationException] thrownBy {
+            jsValueToApiValue(broken, mapVa.t, typeLookup)
+          }
+          err.msg should startWith("duplicate key: ")
         }
       }
 
@@ -192,7 +230,8 @@ class ApiCodecCompressedSpec
       )
       "work for records and variants" in forAll(roundtrips) { (typ, origValue, damlValue) =>
         typ.prj(jsValueToApiValue(apiValueToJsValue(damlValue), typ.t, typeLookup)) should ===(
-          Some(origValue))
+          Some(origValue)
+        )
       }
       /*
       "work for Tree" in {
@@ -201,16 +240,18 @@ class ApiCodecCompressedSpec
       "work for Enum" in {
         serializeAndParse(C.redV, C.redTC) shouldBe Success(C.redV)
       }
-     */
+       */
     }
 
     def cn(canonical: String, numerically: String, typ: VA)(
         expected: typ.Inj[Cid],
-        alternates: String*)(implicit pos: source.Position) =
+        alternates: String*
+    )(implicit pos: source.Position) =
       (pos.lineNumber, canonical, numerically, typ, expected, alternates)
 
-    def c(canonical: String, typ: VA)(expected: typ.Inj[Cid], alternates: String*)(
-        implicit pos: source.Position) =
+    def c(canonical: String, typ: VA)(expected: typ.Inj[Cid], alternates: String*)(implicit
+        pos: source.Position
+    ) =
       cn(canonical, canonical, typ)(expected, alternates: _*)(pos)
 
     object VAs {
@@ -228,36 +269,42 @@ class ApiCodecCompressedSpec
         "\"42\"",
         "42",
         "42.0",
-        "\"+42\""),
+        "\"+42\"",
+      ),
       cn("\"2000.0\"", "2000", VA.numeric(Decimal.scale))(
         Decimal assertFromString "2000",
         "\"2000\"",
         "2000",
-        "2e3"),
+        "2e3",
+      ),
       cn("\"0.3\"", "0.3", VA.numeric(Decimal.scale))(
         Decimal assertFromString "0.3",
         "\"0.30000000000000004\"",
-        "0.30000000000000004"),
+        "0.30000000000000004",
+      ),
       cn(
         "\"9999999999999999999999999999.9999999999\"",
         "9999999999999999999999999999.9999999999",
-        VA.numeric(Decimal.scale))(
-        Decimal assertFromString "9999999999999999999999999999.9999999999"),
+        VA.numeric(Decimal.scale),
+      )(Decimal assertFromString "9999999999999999999999999999.9999999999"),
       cn("\"0.1234512346\"", "0.1234512346", VA.numeric(Decimal.scale))(
         Decimal assertFromString "0.1234512346",
         "0.12345123455",
         "0.12345123465",
         "\"0.12345123455\"",
-        "\"0.12345123465\""),
+        "\"0.12345123465\"",
+      ),
       cn("\"0.1234512345\"", "0.1234512345", VA.numeric(Decimal.scale))(
         Decimal assertFromString "0.1234512345",
         "0.123451234549",
         "0.12345123445001",
         "\"0.123451234549\"",
-        "\"0.12345123445001\""),
+        "\"0.12345123445001\"",
+      ),
       c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
         Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
-        "\"1990-11-09T04:30:23.1234569Z\""),
+        "\"1990-11-09T04:30:23.1234569Z\"",
+      ),
       c("\"1970-01-01T00:00:00Z\"", VA.timestamp)(Time.Timestamp assertFromLong 0),
       cn("\"42\"", "42", VA.int64)(42, "\"+42\""),
       cn("\"0\"", "0", VA.int64)(0, "-0", "\"+0\"", "\"-0\""),
@@ -268,6 +315,7 @@ class ApiCodecCompressedSpec
       c("true", VA.bool)(true),
       cn("""["1", "2", "3"]""", "[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
       c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
+      c("""[["a", "b"], ["c", "d"]]""", VA.genMap(VA.text, VA.text))(Map("a" -> "b", "c" -> "d")),
       cn("\"42\"", "42", VA.optional(VA.int64))(Some(42)),
       c("null", VA.optional(VA.int64))(None),
       c("null", VAs.ooi)(None),
@@ -278,23 +326,28 @@ class ApiCodecCompressedSpec
       c("[[]]", VAs.oooi)(Some(Some(None)), "[[null]]"),
       cn("""[["42"]]""", "[[42]]", VAs.oooi)(Some(Some(Some(42)))),
       cn("""{"fA": "foo", "fB": "100"}""", """{"fA": "foo", "fB": 100}""", C.simpleRecordT)(
-        C.simpleRecordV),
+        C.simpleRecordV
+      ),
       c("""{"tag": "fA", "value": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
       c("\"Green\"", C.colorGT)(
-        C.colorGT get Ref.Name.assertFromString("Green") getOrElse sys.error("impossible")),
+        C.colorGT get Ref.Name.assertFromString("Green") getOrElse sys.error("impossible")
+      ),
     )
 
     val failures = Table(
-      ("JSON", "type"),
-      ("42.3", VA.int64),
-      ("\"42.3\"", VA.int64),
-      ("9223372036854775808", VA.int64),
-      ("-9223372036854775809", VA.int64),
-      ("\"garbage\"", VA.int64),
-      ("\"   42 \"", VA.int64),
-      ("\"1970-01-01T00:00:00\"", VA.timestamp),
-      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp),
-      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp),
+      ("JSON", "type", "errorSubstring"),
+      ("42.3", VA.int64, ""),
+      ("\"42.3\"", VA.int64, ""),
+      ("9223372036854775808", VA.int64, ""),
+      ("-9223372036854775809", VA.int64, ""),
+      ("\"garbage\"", VA.int64, ""),
+      ("\"   42 \"", VA.int64, ""),
+      ("\"1970-01-01T00:00:00\"", VA.timestamp, ""),
+      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, ""),
+      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp, ""),
+      ("""{"a": "b", "c": "d"}""", VA.genMap(VA.text, VA.text), ""),
+      ("\"\"", VA.party, "DAML LF Party is empty"),
+      (List.fill(256)('a').mkString("\"", "", "\""), VA.party, "DAML LF Party is too long"),
     )
 
     "dealing with particular formats" should {
@@ -314,36 +367,39 @@ class ApiCodecCompressedSpec
           }
       }
 
-      "fail in cases" in forEvery(failures) { (serialized, typ) =>
+      "fail in cases" in forEvery(failures) { (serialized, typ, errorSubstring) =>
         val json = serialized.parseJson // we don't test *the JSON decoder*
-        a[DeserializationException] shouldBe thrownBy {
+        val exception = the[DeserializationException] thrownBy {
           jsValueToApiValue(json, typ.t, typeLookup)
         }
+        exception.getMessage should include(errorSubstring)
       }
     }
 
-    import com.digitalasset.daml.lf.value.{Value => LfValue}
+    import com.daml.lf.value.{Value => LfValue}
     import ApiCodecCompressed.JsonImplicits._
 
     val packageId: Ref.PackageId = mustBeOne(
       MetadataReader.typeByName(darMetadata)(
-        Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo")))._1
+        Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo")
+      )
+    )._1
 
     val bazRecord = LfValue.ValueRecord[String](
       None,
-      ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
+      ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc")),
     )
 
     val bazVariant = LfValue.ValueVariant[String](
       None,
       Ref.Name.assertFromString("Baz"),
-      bazRecord
+      bazRecord,
     )
 
     val quxVariant = LfValue.ValueVariant[String](
       None,
       Ref.Name.assertFromString("Qux"),
-      LfValue.ValueUnit
+      LfValue.ValueUnit,
     )
 
     val fooId =
@@ -352,17 +408,51 @@ class ApiCodecCompressedSpec
     val bazRecordId =
       Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:BazRecord"))
 
+    "dealing with LF Record" should {
+      val lfType = (n: String) =>
+        Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:" + n))
+      val decode = (typeId: Ref.Identifier, json: String) =>
+        jsValueToApiValue(json.parseJson, typeId, darTypeLookup)
+      val person = (name: String, age: Long, address: String) => {
+        val attr = (n: String) => Some(Ref.Name.assertFromString(n))
+        LfValue.ValueRecord(
+          Some(lfType("Person")),
+          ImmArray(
+            (attr("name"), LfValue.ValueText(name)),
+            (attr("age"), LfValue.ValueInt64(age)),
+            (attr("address"), LfValue.ValueText(address)),
+          ),
+        )
+      }
+      "decode a JSON array of the right length" in {
+        decode(lfType("Person"), """["Joe Smith", 20, "1st Street"]""")
+          .shouldBe(person("Joe Smith", 20, "1st Street"))
+      }
+      "fail to decode if missing fields" in {
+        the[DeserializationException].thrownBy {
+          decode(lfType("Person"), """["Joe Smith", 21]""")
+        }.getMessage should include("expected 3, found 2")
+      }
+      "fail to decode if extra fields" in {
+        the[DeserializationException].thrownBy {
+          decode(lfType("Person"), """["Joe Smith", 21, "1st Street", "Arizona"]""")
+        }.getMessage should include("expected 3, found 4")
+      }
+    }
+
     "dealing with LF Variant" should {
       "encode Foo/Baz to JSON" in {
         val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
-        (writer.write(bazVariant): JsValue) shouldBe ("""{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson: JsValue)
+        (writer.write(
+          bazVariant
+        ): JsValue) shouldBe ("""{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson: JsValue)
       }
 
       "decode Foo/Baz from JSON" in {
         val actualValue: LfValue[String] = jsValueToApiValue(
           """{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson,
           fooId,
-          darTypeLookup
+          darTypeLookup,
         )
 
         val expectedValueWithIds: LfValue.ValueVariant[String] =
@@ -373,15 +463,17 @@ class ApiCodecCompressedSpec
 
       "encode Foo/Qux to JSON" in {
         val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
-        (writer.write(quxVariant): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
+        (writer.write(
+          quxVariant
+        ): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
       }
 
-      "fail decoding Foo/Qux from JSON if 'value' filed is missing" in {
+      "fail decoding Foo/Qux from JSON if 'value' field is missing" in {
         assertThrows[spray.json.DeserializationException] {
           jsValueToApiValue(
             """{"tag":"Qux"}""".parseJson,
             fooId,
-            darTypeLookup
+            darTypeLookup,
           )
         }
       }
@@ -390,7 +482,7 @@ class ApiCodecCompressedSpec
         val actualValue: LfValue[String] = jsValueToApiValue(
           """{"tag":"Qux", "value":{}}""".parseJson,
           fooId,
-          darTypeLookup
+          darTypeLookup,
         )
 
         val expectedValueWithIds: LfValue.ValueVariant[String] =
@@ -405,7 +497,9 @@ class ApiCodecCompressedSpec
       "decode type Key = Party from JSON" in {
         val templateDef: iface.InterfaceType.Template = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
-            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")))._2
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")
+          )
+        )._2
 
         val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
         val expectedValue: LfValue[String] = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
@@ -416,7 +510,9 @@ class ApiCodecCompressedSpec
       "decode type Key = (Party, Int) from JSON" in {
         val templateDef: iface.InterfaceType.Template = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
-            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")))._2
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")
+          )
+        )._2
 
         val tuple2Name = Ref.QualifiedName.assertFromString("DA.Types:Tuple2")
         val daTypesPackageId: Ref.PackageId =
@@ -428,37 +524,42 @@ class ApiCodecCompressedSpec
           Some(Ref.Identifier(daTypesPackageId, tuple2Name)),
           ImmArray(
             Some(Ref.Name.assertFromString("_1")) -> LfValue.ValueParty(
-              Ref.Party.assertFromString("Alice")),
-            Some(Ref.Name.assertFromString("_2")) -> LfValue.ValueInt64(123)
-          )
+              Ref.Party.assertFromString("Alice")
+            ),
+            Some(Ref.Name.assertFromString("_2")) -> LfValue.ValueInt64(123),
+          ),
         )
 
-        jsValueToApiValue("""["Alice", 123]""".parseJson, keyType, darTypeLookup) shouldBe expectedValue
+        jsValueToApiValue(
+          """["Alice", 123]""".parseJson,
+          keyType,
+          darTypeLookup,
+        ) shouldBe expectedValue
       }
 
       "decode type Key = (Party, (Int, Foo, BazRecord)) from JSON" in {
         val templateDef: iface.InterfaceType.Template = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
-            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")))._2
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")
+          )
+        )._2
 
         val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
 
         val actual: LfValue[String] = jsValueToApiValue(
           """["Alice", [11, {"tag": "Bar", "value": 123}, {"baz": "baz text"}]]""".parseJson,
           keyType,
-          darTypeLookup
+          darTypeLookup,
         )
 
-        inside(actual) {
-          case LfValue.ValueRecord(Some(id2), ImmArray((_, party), (_, record2))) =>
-            id2.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple2")
-            party shouldBe LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
+        inside(actual) { case LfValue.ValueRecord(Some(id2), ImmArray((_, party), (_, record2))) =>
+          id2.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple2")
+          party shouldBe LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
 
-            inside(record2) {
-              case LfValue.ValueRecord(Some(id3), ImmArray((_, age), _, _)) =>
-                id3.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple3")
-                age shouldBe LfValue.ValueInt64(11)
-            }
+          inside(record2) { case LfValue.ValueRecord(Some(id3), ImmArray((_, age), _, _)) =>
+            id3.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple3")
+            age shouldBe LfValue.ValueInt64(11)
+          }
         }
       }
     }

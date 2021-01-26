@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.auth.services.PackageServiceAuthorization
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.digitalasset.ledger.api.v1.package_service._
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.auth.services.PackageServiceAuthorization
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
+import com.daml.ledger.api.v1.package_service._
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -14,8 +14,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final class PackageServiceImpl(
     listPackagesResponse: Future[ListPackagesResponse],
     getPackageResponse: Future[GetPackageResponse],
-    getPackageStatusResponse: Future[GetPackageStatusResponse])
-    extends PackageService
+    getPackageStatusResponse: Future[GetPackageStatusResponse],
+) extends PackageService
     with FakeAutoCloseable {
 
   private var lastListPackageRequest: Option[ListPackagesRequest] = None
@@ -33,7 +33,8 @@ final class PackageServiceImpl(
   }
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] = {
+      request: GetPackageStatusRequest
+  ): Future[GetPackageStatusResponse] = {
     this.lastGetPackageStatusRequest = Some(request)
     getPackageStatusResponse
   }
@@ -50,8 +51,8 @@ object PackageServiceImpl {
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
-      authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
+      authorizer: Authorizer,
+  )(implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
     val impl =
       new PackageServiceImpl(listPackagesResponse, getPackageResponse, getPackageStatusResponse)
     val authImpl = new PackageServiceAuthorization(impl, authorizer)

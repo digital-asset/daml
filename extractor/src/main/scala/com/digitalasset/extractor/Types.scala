@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.{Enum, TypeConName}
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
+import com.daml.lf.iface
+import com.daml.lf.iface.{Enum, TypeConName}
+import com.daml.ledger.service.LedgerReader.PackageStore
 import doobie.util.fragment.Fragment
 
 import scala.util.control.NoStackTrace
@@ -13,8 +13,7 @@ import scalaz._
 
 object Types {
 
-  /**
-    * Like `iface.Type`, without `TypeVar`s
+  /** Like `iface.Type`, without `TypeVar`s
     */
   sealed abstract class FullyAppliedType extends Product with Serializable
 
@@ -25,8 +24,8 @@ object Types {
     final case class TypeCon(
         typ: iface.TypeConName,
         typArgs: List[FullyAppliedType],
-        isEnum: Boolean)
-        extends FullyAppliedType
+        isEnum: Boolean,
+    ) extends FullyAppliedType
 
     object ops {
       final implicit class GenTypeOps(val genType: iface.Type) extends AnyVal {
@@ -48,7 +47,8 @@ object Types {
             TypeCon(
               tyConName,
               typArgs.toList.map(_.fat(packageStore)),
-              isEnum(tyConName, packageStore))
+              isEnum(tyConName, packageStore),
+            )
           case iface.TypeNumeric(scale) =>
             TypeNumeric(scale)
           case iface.TypeVar(_) =>

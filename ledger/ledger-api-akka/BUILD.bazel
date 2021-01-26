@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
@@ -7,35 +7,28 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 proto_gen(
     name = "ledger-api-akka-srcs",
     srcs = [
-        "//ledger-api/grpc-definitions:protos",
+        "//ledger-api/grpc-definitions:ledger_api_proto",
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
     ],
     plugin_exec = "//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka",
     plugin_name = "scala-akka",
-    deps = [
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
-    ],
 )
 
 da_scala_library(
     name = "ledger-api-akka",
     srcs = [":ledger-api-akka-srcs"],
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:ledger-api-akka:__VERSION__"],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:ledger-api-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_stub",
     ],
 )

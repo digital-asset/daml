@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.data.DatabaseActions
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.data.DatabaseActions
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case class Ledger(
     private val forParty: ApiTypes.Party,
     private val lastTransaction: Option[Transaction],
@@ -21,13 +20,13 @@ case class Ledger(
     private val activeContractById: Map[ApiTypes.ContractId, Contract] = Map.empty,
     private val createEventByContractId: Map[ApiTypes.ContractId, ContractCreated] = Map.empty,
     private val archiveEventByContractId: Map[ApiTypes.ContractId, ChoiceExercised] = Map.empty,
-    private val choiceExercisedEventByContractById: Map[
-      ApiTypes.ContractId,
-      List[ChoiceExercised]] = Map.empty,
+    private val choiceExercisedEventByContractById: Map[ApiTypes.ContractId, List[
+      ChoiceExercised
+    ]] = Map.empty,
     private val contractsByTemplateId: Map[DamlLfIdentifier, Set[Contract]] = Map.empty,
     private val commandById: Map[ApiTypes.CommandId, Command] = Map.empty,
     private val statusByCommandId: Map[ApiTypes.CommandId, CommandStatus] = Map.empty,
-    private val db: DatabaseActions = new DatabaseActions
+    private val db: DatabaseActions = new DatabaseActions,
 ) extends LazyLogging {
 
   private def logErrorAndDefaultTo[A](result: Try[A], default: A): A = {
@@ -66,7 +65,7 @@ case class Ledger(
     } else {
       copy(
         commandById = commandById + (command.id -> command),
-        statusByCommandId = statusByCommandId + (command.id -> CommandStatusWaiting())
+        statusByCommandId = statusByCommandId + (command.id -> CommandStatusWaiting()),
       )
     }
   }
@@ -77,7 +76,7 @@ case class Ledger(
       .withTransactionResult(tx)
 
     tx.events.foldLeft(ledger0) { (ledger, event) =>
-      ledger.withEvent(event, tx, packageRegistry)
+      ledger.withEvent(event, packageRegistry)
     }
   }
 
@@ -88,7 +87,7 @@ case class Ledger(
     } else {
       copy(
         lastTransaction = Some(tx),
-        transactionById = transactionById + (tx.id -> tx)
+        transactionById = transactionById + (tx.id -> tx),
       )
     }
   }
@@ -107,7 +106,7 @@ case class Ledger(
     }
   }
 
-  private def withEvent(event: Event, tx: Transaction, packageRegistry: PackageRegistry): Ledger =
+  private def withEvent(event: Event, packageRegistry: PackageRegistry): Ledger =
     event match {
       case event: ContractCreated =>
         packageRegistry.template(event.templateId).fold(this) { template =>
@@ -118,7 +117,8 @@ case class Ledger(
             event.agreementText,
             event.signatories,
             event.observers,
-            event.key)
+            event.key,
+          )
           withContractCreatedInEvent(contract, event)
         }
 
@@ -127,8 +127,8 @@ case class Ledger(
     }
 
   private def withContractCreatedInEvent(contract: Contract, event: ContractCreated): Ledger = {
-    val isStakeHolder = contract.signatories.contains(forParty) || contract.observers.contains(
-      forParty)
+    val isStakeHolder =
+      contract.signatories.contains(forParty) || contract.observers.contains(forParty)
     if (useDatabase) {
       if (isStakeHolder) db.insertContract(contract)
       db.insertEvent(event)
@@ -150,13 +150,15 @@ case class Ledger(
 
   private def contractsByTemplateIdWith(contract: Contract) = {
     val templateId = contract.template.id
-    val entryWithContract = templateId -> (contractsByTemplateId.getOrElse(templateId, Set.empty) + contract)
+    val entryWithContract =
+      templateId -> (contractsByTemplateId.getOrElse(templateId, Set.empty) + contract)
     contractsByTemplateId + entryWithContract
   }
 
   private def withChoiceExercisedInEvent(
       contractId: ApiTypes.ContractId,
-      event: ChoiceExercised): Ledger = {
+      event: ChoiceExercised,
+  ): Ledger = {
     if (useDatabase) {
       if (event.consuming) {
         db.archiveContract(contractId, event.transactionId)
@@ -172,18 +174,11 @@ case class Ledger(
           else archiveEventByContractId,
         activeContractById =
           if (event.consuming) activeContractById - contractId else activeContractById,
-        choiceExercisedEventByContractById = choiceExercisedEventByContractById + (contractId -> (event :: prevExercises)),
-        eventById = eventById + (event.id -> event)
+        choiceExercisedEventByContractById =
+          choiceExercisedEventByContractById + (contractId -> (event :: prevExercises)),
+        eventById = eventById + (event.id -> event),
       )
     }
-  }
-
-  private def contractsByTemplateIdWithout(contractId: ApiTypes.ContractId) = {
-    val entryWithoutContract = for {
-      contract <- contractById.get(contractId)
-      templateContracts <- contractsByTemplateId.get(contract.template.id)
-    } yield contract.template.id -> (templateContracts - contract)
-    contractsByTemplateId ++ entryWithoutContract.toMap
   }
 
   def allContractsCount: Int = {
@@ -297,16 +292,23 @@ case class Ledger(
 
   def activeTemplateContractsOf(template: Template, types: PackageRegistry): Stream[Contract] = {
     if (useDatabase) {
-      logErrorAndDefaultTo(db.activeContractsForTemplate(template.id, types), List.empty[Contract]).toStream
+      logErrorAndDefaultTo(
+        db.activeContractsForTemplate(template.id, types),
+        List.empty[Contract],
+      ).toStream
     } else {
       templateContractsOf(template, types).filter(contract =>
-        activeContractById.contains(contract.id))
+        activeContractById.contains(contract.id)
+      )
     }
   }
 
   def templateContractsOf(template: Template, types: PackageRegistry): Stream[Contract] = {
     if (useDatabase) {
-      logErrorAndDefaultTo(db.contractsForTemplate(template.id, types), List.empty[Contract]).toStream
+      logErrorAndDefaultTo(
+        db.contractsForTemplate(template.id, types),
+        List.empty[Contract],
+      ).toStream
     } else {
       contractsByTemplateId.getOrElse(template.id, Set.empty).toStream
     }
@@ -347,11 +349,11 @@ case class Ledger(
     for {
       status <- statusOf(commandId, types)
       result <- status match {
-        case cmd: CommandStatusWaiting => None
+        case _: CommandStatusWaiting => None
         case cmd: CommandStatusSuccess => Some(Result(commandId, Right(cmd.tx)))
         case cmd: CommandStatusError =>
           Some(Result(commandId, Left(new Error(cmd.code, cmd.details, ""))))
-        case cmd: CommandStatusUnknown =>
+        case _: CommandStatusUnknown =>
           Some(Result(commandId, Left(new Error("INTERNAL", "Command status unknown", ""))))
       }
     } yield result

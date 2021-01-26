@@ -1,15 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
-import com.digitalasset.navigator.model.PartyState
-import org.scalatest.{FlatSpec, Matchers}
+import com.daml.navigator.model.PartyState
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import SessionJsonProtocol.userWriter
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.config.UserConfig
 import spray.json.{JsBoolean, JsObject, JsString}
 
-class SessionJsonProtocolTest extends FlatSpec with Matchers {
+class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
 
   val userClassName = User.getClass.getSimpleName
   val party = ApiTypes.Party("party")
@@ -17,25 +19,29 @@ class SessionJsonProtocolTest extends FlatSpec with Matchers {
   behavior of s"JsonCodec[$userClassName]"
 
   it should s"encode $userClassName without role" in {
-    val user = User(id = "id", party = new PartyState(party, false), canAdvanceTime = true)
+    val user =
+      User(id = "id", party = new PartyState(UserConfig(party, None, false)), canAdvanceTime = true)
     val userJson = JsObject(
       "id" -> JsString("id"),
       "party" -> JsString("party"),
-      "canAdvanceTime" -> JsBoolean(true))
+      "canAdvanceTime" -> JsBoolean(true),
+    )
     userWriter.write(user) shouldEqual userJson
   }
 
   it should s"encode $userClassName with role" in {
     val user = User(
       id = "id",
-      party = new PartyState(party, false),
+      party = new PartyState(UserConfig(party, Some("role"), false)),
       role = Some("role"),
-      canAdvanceTime = false)
+      canAdvanceTime = false,
+    )
     val userJson = JsObject(
       "id" -> JsString("id"),
       "role" -> JsString("role"),
       "party" -> JsString("party"),
-      "canAdvanceTime" -> JsBoolean(false))
+      "canAdvanceTime" -> JsBoolean(false),
+    )
     userWriter.write(user) shouldEqual userJson
   }
 }

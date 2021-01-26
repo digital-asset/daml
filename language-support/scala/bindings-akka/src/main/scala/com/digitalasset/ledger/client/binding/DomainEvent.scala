@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import com.digitalasset.ledger.api.refinements.ApiTypes._
+import com.daml.ledger.api.refinements.ApiTypes._
 
 import scala.collection.immutable
 
@@ -28,12 +28,12 @@ final case class DomainCreatedEvent(
     templateId: TemplateId,
     witnessParties: immutable.Seq[Party],
     createArguments: CreateArguments,
-    contractData: Contract.OfAny)
-    extends DomainEvent
+    contractData: Contract.OfAny,
+) extends DomainEvent
 
 final case class DomainArchivedEvent(
     eventId: EventId,
     contractId: ContractId,
     templateId: TemplateId,
-    witnessParties: immutable.Seq[Party])
-    extends DomainEvent
+    witnessParties: immutable.Seq[Party],
+) extends DomainEvent

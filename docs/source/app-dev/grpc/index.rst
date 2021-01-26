@@ -1,14 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-The Ledger API using gRPC
-#########################
+.. _grpc:
 
-.. toctree::
-   :hidden:
-
-   proto-docs
-   daml-to-ledger-api
+gRPC
+####
 
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
@@ -17,7 +13,7 @@ If you're not familiar with gRPC and protobuf, we strongly recommend following t
 Getting started
 ***************
 
-You can either get the protobufs `from Bintray here <https://bintray.com/digitalassetsdk/DigitalAssetSDK/sdk-components#files/com%2Fdigitalasset%2Fledger-api-protos>`__, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
+You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************
@@ -30,20 +26,20 @@ Example project
 We have an example project demonstrating the use of the Ledger API with gRPC. To get the example project, ``PingPongGrpc``:
 
 #. Configure your machine to use the example by following the instructions at :ref:`bindings-java-setup-maven`.
-#. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
+#. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__.
 #. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 
 About the example project
 =========================
 
-The example shows very simply how two parties can interact via a ledger, using two DAML contract templates, ``Ping`` and ``Pong``.
+The example shows very simply how two parties can interact via a ledger, using two Daml contract templates, ``Ping`` and ``Pong``.
 
 The logic of the application goes like this:
 
 #. The application injects a contract of type ``Ping`` for ``Alice``.
 #. ``Alice`` sees this contract and exercises the consuming choice ``RespondPong`` to create a contract of type ``Pong`` for ``Bob``.
 #. ``Bob`` sees this contract and exercises the consuming choice ``RespondPing``  to create a contract of type ``Ping`` for ``Alice``.
-#. Points 2 and 3 are repeated until the maximum number of contracts defined in the DAML is reached.
+#. Points 2 and 3 are repeated until the maximum number of contracts defined in the Daml is reached.
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongGrpcMain.java``. Look at it to see how connect to and interact with a ledger using gRPC.
 
@@ -62,10 +58,10 @@ The first line shows:
 
 This example subscribes to transactions for a single party, as different parties typically live on different participant nodes. However, if you have multiple parties registered on the same node, or are running an application against the Sandbox, you can subscribe to transactions for multiple parties in a single subscription by putting multiple entries into the ``filters_by_party`` field of the ``TransactionFilter`` message. Subscribing to transactions for an unknown party will result in an error.
 
-DAML types and protobuf
+Daml types and protobuf
 ***********************
 
-For information on how DAML types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
+For information on how Daml types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
 
 Error handling
 **************
@@ -75,9 +71,9 @@ Tor the standard error codes that the server or the client might return, see the
 For submitted commands, there are these response codes:
 
 ABORTED
-   The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission with updated Ledger Effective Time (LET) and Maximum Record Time (MRT) values.
+   The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :ref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
 INVALID_ARGUMENT
-   The submission failed because of a client error. The platform will definitely reject resubmissions of the same command even with updated LET and MRT values.
+   The submission failed because of a client error. The platform will definitely reject resubmissions of the same command.
 OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
    Assume that the command was accepted, and wait for the resulting completion or a timeout from the Command Completion Service.
 OK (when returned by the Command Service)

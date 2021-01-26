@@ -1,15 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test.runner
+package com.daml.navigator.test.runner
 
 import java.io.File
 
-import com.digitalasset.navigator.test.runner.Runner.LazyProcessLogger
+import com.daml.navigator.test.runner.Runner.LazyProcessLogger
 import com.typesafe.scalalogging.LazyLogging
 
-/**
-  * Run a packaged version of the Sandbox.
+/** Run a packaged version of the Sandbox.
   * Update the project dependencies to change the sandbox version.
   */
 object PackagedSandbox {
@@ -19,8 +18,8 @@ object PackagedSandbox {
       val port: Int,
       val dars: List[File],
       logbackConfig: File,
-      scenario: String)
-      extends LazyLogging {
+      scenario: String,
+  ) extends LazyLogging {
 
     import sys.process._
 
@@ -30,15 +29,18 @@ object PackagedSandbox {
     private var sandboxProcess: Option[Process] = None
 
     private def locateSandboxJar(): File = {
-      val jarKey = "com.digitalasset.sandbox.jar"
+      val jarKey = "com.daml.sandbox.jar"
       Option(System.getProperty(jarKey))
         .map { path =>
           val sandboxJar = new File(path).getAbsoluteFile
           require(sandboxJar.exists, s"Sandbox JAR does not exist: $sandboxJar")
           sandboxJar
         }
-        .getOrElse(throw new IllegalStateException(
-          s"Cannot start Sandbox, '$jarKey' system property is not set"))
+        .getOrElse(
+          throw new IllegalStateException(
+            s"Cannot start Sandbox, '$jarKey' system property is not set"
+          )
+        )
     }
 
     def start(): Unit = {
@@ -50,7 +52,7 @@ object PackagedSandbox {
         "--port",
         s"$port",
         "--scenario",
-        scenario
+        scenario,
       ) ++ dars.map(_.toString)
 
       sandboxProcess = Some(Runner.executeAsync(command, Some(new LazyProcessLogger("[sandbox] "))))
@@ -71,7 +73,8 @@ object PackagedSandbox {
         port: Int,
         dars: List[File],
         sbtConfig: String = "it",
-        scenario: String): SandboxContext =
+        scenario: String,
+    ): SandboxContext =
       new SandboxContext("127.0.0.1", port, dars, logbackConfig(sbtConfig), scenario)
 
     def logbackConfig(sbtConfig: String) = new File(s"src/$sbtConfig/resources/logback-sandbox.xml")
@@ -83,8 +86,7 @@ object PackagedSandbox {
     context.start()
 
     sys addShutdownHook context.shutdown()
-    _ =>
-      context.shutdown()
+    _ => context.shutdown()
   }
 
 }

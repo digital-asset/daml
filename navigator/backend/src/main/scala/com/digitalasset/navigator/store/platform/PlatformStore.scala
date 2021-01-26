@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store.platform
+package com.daml.navigator.store.platform
 
 import java.net.URLEncoder
 import java.time.{Duration, Instant}
@@ -9,34 +9,35 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
-import akka.pattern.ask
+import akka.pattern.{ask, pipe}
 import akka.stream.Materializer
 import akka.util.Timeout
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.{ApiTypes, IdGenerator}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.navigator.ApplicationInfo
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time._
-import com.digitalasset.navigator.util.RetryHelper
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.lf.data.Ref
+import com.daml.navigator.ApplicationInfo
+import com.daml.navigator.config.UserConfig
+import com.daml.navigator.model._
+import com.daml.navigator.store.Store._
+import com.daml.navigator.time._
+import com.daml.navigator.util.RetryHelper
 import io.grpc.Channel
-import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
+import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Random, Success, Try}
 
@@ -48,7 +49,7 @@ object PlatformStore {
       accessToken: Option[String],
       timeProviderType: TimeProviderType,
       applicationInfo: ApplicationInfo,
-      ledgerMaxInbound: Int
+      ledgerMaxInbound: Int,
   ): Props =
     Props(
       classOf[PlatformStore],
@@ -58,23 +59,25 @@ object PlatformStore {
       accessToken,
       timeProviderType,
       applicationInfo,
-      ledgerMaxInbound)
+      ledgerMaxInbound,
+    )
 
   type PlatformTime = Instant
 
   case class ConnectionResult(
       ledgerClient: LedgerClient,
       staticTime: Option[StaticTime],
-      time: TimeProviderWithType)
+      time: TimeProviderWithType,
+  )
   case class Connected(ledgerClient: Try[ConnectionResult])
 
   case class StateConnected(
       ledgerClient: LedgerClient,
-      parties: List[PartyState],
+      parties: Map[String, PartyState],
       staticTime: Option[StaticTime],
-      time: TimeProviderWithType
+      time: TimeProviderWithType,
   )
-  case class StateInitial(parties: List[PartyState])
+  case class StateInitial(parties: Map[String, PartyState])
   case class StateFailed(error: Throwable)
 }
 
@@ -87,7 +90,7 @@ class PlatformStore(
     token: Option[String],
     timeProviderType: TimeProviderType,
     applicationInfo: ApplicationInfo,
-    ledgerMaxInbound: Int
+    ledgerMaxInbound: Int,
 ) extends Actor
     with ActorLogging
     with Stash {
@@ -98,7 +101,7 @@ class PlatformStore(
   private val system = context.system
 
   implicit val s: Scheduler = system.scheduler
-  import scala.concurrent.ExecutionContext.Implicits.global
+  implicit val ec: ExecutionContext = system.dispatcher
   implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
@@ -126,20 +129,20 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Messages
   // ----------------------------------------------------------------------------------------------
-  override def receive: Receive = connecting(StateInitial(List.empty[PartyState]))
+  override def receive: Receive = connecting(StateInitial(Map.empty[String, PartyState]))
 
   def connecting(state: StateInitial): Receive = {
     case Connected(Success(value)) =>
       context.become(
-        connected(StateConnected(value.ledgerClient, state.parties, value.staticTime, value.time)))
+        connected(StateConnected(value.ledgerClient, state.parties, value.staticTime, value.time))
+      )
       unstashAll
-
-      state.parties.foreach(party => startPartyActor(value.ledgerClient, party))
 
     case Connected(Failure(e)) =>
       // Connection failed even after several retries - not sure how to recover from this
-      val message = s"Permanently failed to connect to the ledger at $platformHost:$platformPort. " +
-        "Please fix any issues and restart this application."
+      val message =
+        s"Permanently failed to connect to the ledger at $platformHost:$platformPort. " +
+          "Please fix any issues and restart this application."
       userFacingLogger.error(message)
       context.become(failed(StateFailed(e)))
 
@@ -148,35 +151,51 @@ class PlatformStore(
         platformHost,
         platformPort,
         tlsConfig.exists(_.enabled),
-        applicationId)
+        applicationId,
+      )
 
     case _ =>
       stash
   }
 
   def connected(state: StateConnected): Receive = {
-    case Subscribe(party) =>
-      startPartyActor(state.ledgerClient, party)
-      context.become(connected(state.copy(parties = party :: state.parties)))
+    case UpdateParties =>
+      state.ledgerClient.partyManagementClient
+        .listKnownParties()
+        .map(UpdatedParties(_))
+        .pipeTo(self)
+      ()
+    case UpdatedParties(details) =>
+      details.foreach { partyDetails =>
+        if (partyDetails.isLocal) {
+          val displayName = partyDetails.displayName match {
+            case Some(value) => value
+            case None => partyDetails.party
+          }
+          self ! Subscribe(
+            displayName,
+            UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false),
+          )
+        } else {
+          log.debug(s"Ignoring non-local party ${partyDetails.party}")
+        }
+      }
+
+    case Subscribe(displayName, config) =>
+      if (!state.parties.contains(displayName)) {
+        log.info(s"Starting actor for $displayName")
+        val partyState = new PartyState(config)
+        startPartyActor(state.ledgerClient, partyState)
+        context.become(connected(state.copy(parties = state.parties + (displayName -> partyState))))
+      } else {
+        log.debug(s"Actor for $displayName is already running")
+      }
 
     case CreateContract(party, templateId, value) =>
-      createContract(
-        state.ledgerClient,
-        state.time.time.getCurrentTime,
-        party,
-        templateId,
-        value,
-        sender)
+      createContract(state.time.time.getCurrentTime, party, templateId, value, sender)
 
     case ExerciseChoice(party, contractId, choiceId, value) =>
-      exerciseChoice(
-        state.ledgerClient,
-        state.time.time.getCurrentTime,
-        party,
-        contractId,
-        choiceId,
-        value,
-        sender)
+      exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender)
 
     case ReportCurrentTime =>
       sender ! Success(state.time)
@@ -198,17 +217,22 @@ class PlatformStore(
       val snd = sender
 
       Future
-        .traverse(state.parties)(ps => {
-          val result = for {
-            ref <- context.child(childName(ps))
-            pi <- Try(
-              (ref ? GetPartyActorInfo)
-                .mapTo[PartyActorInfo]
-                .recover { case _ => PartyActorUnresponsive(ps.name) }
-            ).toOption
-          } yield pi
-          result.getOrElse(Future.successful(PartyActorUnresponsive(ps.name)))
-        })
+        .traverse(state.parties.toList) {
+          case (p, ps) => {
+            val result = for {
+              ref <- context.child(childName(ps.name))
+              pi <- Try(
+                (ref ? GetPartyActorInfo)
+                  .mapTo[PartyActorInfo]
+                  .map(PartyActorRunning(_): PartyActorResponse)
+                  .recover { case _ => PartyActorUnresponsive }
+              ).toOption
+            } yield pi
+            result
+              .getOrElse(Future.successful(PartyActorUnresponsive))
+              .map(actorInfo => (p, actorInfo))
+          }
+        }
         .andThen {
           case Success(actorStatus) =>
             snd ! ApplicationStateConnected(
@@ -218,7 +242,7 @@ class PlatformStore(
               applicationId,
               state.ledgerClient.ledgerId.unwrap,
               state.time,
-              actorStatus
+              actorStatus.toMap,
             )
           case Failure(error) =>
             log.error(error.getMessage)
@@ -229,7 +253,7 @@ class PlatformStore(
               applicationId,
               state.ledgerClient.ledgerId.unwrap,
               state.time,
-              List.empty
+              Map.empty,
             )
         }
       ()
@@ -243,7 +267,8 @@ class PlatformStore(
         platformPort,
         tlsConfig.exists(_.enabled),
         applicationId,
-        state.error)
+        state.error,
+      )
 
     case _ => ()
   }
@@ -251,13 +276,14 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------------------------------------
-  private def childName(party: PartyState): String =
-    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party.name), "UTF-8")
+  private def childName(party: ApiTypes.Party): String =
+    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party), "UTF-8")
 
-  private def startPartyActor(ledgerClient: LedgerClient, party: PartyState): ActorRef = {
+  private def startPartyActor(ledgerClient: LedgerClient, state: PartyState): ActorRef = {
     context.actorOf(
-      PlatformSubscriber.props(ledgerClient, party, applicationId, token),
-      childName(party))
+      PlatformSubscriber.props(ledgerClient, state, applicationId, token),
+      childName(state.name),
+    )
   }
 
   private def sslContext: Option[SslContext] =
@@ -281,14 +307,14 @@ class PlatformStore(
 
     val configuration = LedgerClientConfiguration(
       applicationId,
-      LedgerIdRequirement("_", enabled = false),
+      LedgerIdRequirement.none,
       CommandClientConfiguration(
         maxCommandsInFlight,
         maxParallelSubmissions,
-        overrideTtl = false,
-        Duration.ofSeconds(30)),
+        Duration.ofSeconds(30),
+      ),
       sslContext,
-      token
+      token,
     )
 
     val result =
@@ -302,7 +328,8 @@ class PlatformStore(
           "Failed to connect to platform at '{}:{}': {}",
           platformHost,
           platformPort,
-          error.getMessage)
+          error.getMessage,
+        )
         self ! PlatformStore.Connected(Failure(error))
       case Success(connection) =>
         log.info("Connected to platform at '{}:{}'", platformHost, platformPort)
@@ -319,11 +346,11 @@ class PlatformStore(
     }
 
     for {
-      ledgerClient <- LedgerClient.fromBuilder(
-        NettyChannelBuilder
-          .forAddress(platformHost, platformPort)
-          .maxInboundMessageSize(ledgerMaxInbound),
-        configuration)
+      ledgerClient <- LedgerClient.singleHost(
+        platformHost,
+        platformPort,
+        configuration.copy(maxInboundMessageSize = ledgerMaxInbound),
+      )
       staticTime <- getStaticTime(ledgerClient.channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
@@ -371,12 +398,11 @@ class PlatformStore(
   }
 
   private def createContract(
-      ledgerClient: LedgerClient,
       platformTime: Instant,
       party: PartyState,
       templateId: TemplateStringId,
       value: ApiRecord,
-      sender: ActorRef
+      sender: ActorRef,
   ): Unit = {
     val commandId = commandIdGenerator.generateRandom
     val workflowId = workflowIdGenerator.generateRandom
@@ -388,19 +414,18 @@ class PlatformStore(
       sender ! Failure(StoreException(msg))
     })(id => {
       val command = CreateCommand(commandId, index, workflowId, platformTime, id, value)
-      submitCommand(ledgerClient, party, command, sender)
+      submitCommand(party, command, sender)
     })
 
   }
 
   private def exerciseChoice(
-      ledgerClient: LedgerClient,
       platformTime: Instant,
       party: PartyState,
       contractId: ApiTypes.ContractId,
       choice: ApiTypes.Choice,
       value: ApiValue,
-      sender: ActorRef
+      sender: ActorRef,
   ): Unit = {
     val commandId = commandIdGenerator.generateRandom
     val workflowId = workflowIdGenerator.generateRandom
@@ -423,30 +448,32 @@ class PlatformStore(
             contractId,
             contract.template.id,
             choice,
-            value)
+            value,
+          )
 
-        submitCommand(ledgerClient, party, command, sender)
+        submitCommand(party, command, sender)
       })
   }
 
   private def submitCommand(
-      ledgerClient: LedgerClient,
       party: PartyState,
       command: Command,
-      sender: ActorRef
+      sender: ActorRef,
   ): Unit = {
     // Each party has its own command completion stream.
     // Forward the request to the party actor, so that it can be tracked.
     context
-      .child(childName(party))
+      .child(childName(party.name))
       .foreach(child => child ! PlatformSubscriber.SubmitCommand(command, sender))
   }
 
   private val idGeneratorSeed = System.currentTimeMillis()
   private val workflowIdGenerator: IdGenerator[ApiTypes.WorkflowIdTag] = new IdGenerator(
-    idGeneratorSeed)
+    idGeneratorSeed
+  )
   private val commandIdGenerator: IdGenerator[ApiTypes.CommandIdTag] = new IdGenerator(
-    idGeneratorSeed + 1)
+    idGeneratorSeed + 1
+  )
   private val commandIndex = new AtomicLong(0)
 
   private def returnToSender[T](sender: ActorRef): PartialFunction[Try[T], Unit] = {
@@ -458,10 +485,9 @@ class PlatformStore(
       sender ! Failure(f)
   }
 
-  private def apiFailure[T]: PartialFunction[Throwable, Future[T]] = {
-    case exception: Exception =>
-      log.error("Unable to perform API operation: {}", exception.getMessage)
-      Future.failed(StoreException(exception.getMessage))
+  private def apiFailure[T]: PartialFunction[Throwable, Future[T]] = { case exception: Exception =>
+    log.error("Unable to perform API operation: {}", exception.getMessage)
+    Future.failed(StoreException(exception.getMessage))
   }
 
 }

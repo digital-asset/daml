@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model.{Event, Transaction}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.{Event, Transaction}
 
 import scalaz.syntax.tag._
 
@@ -15,7 +15,7 @@ final case class TransactionRow(
     id: String,
     commandId: Option[String],
     effectiveAt: String,
-    offset: String
+    offset: String,
 ) {
 
   def toTransaction(events: List[Event]): Transaction = {
@@ -24,7 +24,7 @@ final case class TransactionRow(
       commandId.map(ApiTypes.CommandId(_)),
       Instant.parse(effectiveAt),
       offset,
-      events
+      events,
     )
   }
 }
@@ -37,7 +37,7 @@ object TransactionRow {
       tx.id.unwrap,
       tx.commandId.map(_.unwrap),
       tx.effectiveAt.toString,
-      tx.offset
+      tx.offset,
     )
   }
 }

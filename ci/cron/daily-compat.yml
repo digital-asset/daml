@@ -1,0 +1,293 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Do not run on PRs
+pr: none
+
+# Do not run on merge to main
+trigger: none
+
+# Do run on a schedule (daily)
+#
+# Note: machines are killed every day at 4AM UTC, so we need to either:
+# - run sufficiently before that that this doesn't get killed, or
+# - run sufficiently after that that machines are initialized.
+#
+# Targeting 6AM UTC seems to fit that.
+schedules:
+- cron: "0 6 * * *"
+  displayName: daily checks and reporting
+  branches:
+    include:
+    - main
+  always: true
+
+jobs:
+  - job: compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../clean-up.yml
+      - template: ../compatibility_ts_libs.yml
+      - template: ../daily_tell_slack.yml
+
+  - job: compatibility
+    dependsOn: compatibility_ts_libs
+    timeoutInMinutes: 720
+    strategy:
+      matrix:
+        linux:
+          pool: linux-pool
+        macos:
+          pool: macOS-pool
+    pool:
+      name: $(pool)
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - ${{ if eq(variables['pool'], 'macos-pool') }}:
+        - template: ../clear-shared-segments-macos.yml
+      - template: ../clean-up.yml
+      - template: ../compatibility.yml
+      - template: ../daily_tell_slack.yml
+
+  - job: compatibility_windows
+    dependsOn: compatibility_ts_libs
+    timeoutInMinutes: 720
+    pool:
+      name: windows-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../compatibility-windows.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
+      - template: ../daily_tell_slack.yml
+
+  - job: perf_speedy
+    timeoutInMinutes: 120
+    pool:
+      name: "linux-pool"
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel for root workspace'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          source $(bash_lib)
+
+          BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
+          TEST_SHA=$(cat ci/cron/perf/test_sha)
+          OUT="$(Build.StagingDirectory)/perf-results.json"
+
+          START=$(date -u +%Y%m%d_%H%M%SZ)
+
+          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
+              # no changes, all good
+              ci/cron/perf/compare.sh $BASELINE > "$OUT"
+              cat "$OUT"
+          else
+              # the tests have changed, we need to figure out what to do with
+              # the baseline.
+              echo "Baseline no longer valid, needs manual correction." > "$OUT"
+          fi
+
+          gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
+
+        displayName: measure perf
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../daily_tell_slack.yml
+        parameters:
+          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
+
+  - job: perf_http_json
+    timeoutInMinutes: 120
+    pool:
+      name: "linux-pool"
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel for root workspace'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          source $(bash_lib)
+
+          SCENARIOS="\
+           com.daml.http.perf.scenario.CreateCommand \
+           com.daml.http.perf.scenario.ExerciseCommand \
+           com.daml.http.perf.scenario.CreateAndExerciseCommand \
+           com.daml.http.perf.scenario.AsyncQueryConstantAcs \
+           com.daml.http.perf.scenario.SyncQueryConstantAcs \
+           com.daml.http.perf.scenario.SyncQueryNewAcs \
+           com.daml.http.perf.scenario.SyncQueryVariableAcs \
+          "
+
+          bazel build //docs:quickstart-model
+          DAR="${PWD}/bazel-bin/docs/quickstart-model.dar"
+
+          JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
+
+          START=$(git log -n1 --format=%cd --date=format:%Y%m%d).$(git rev-list --count HEAD).$(Build.BuildId).$(git log -n1 --format=%h --abbrev=8)
+          REPORT_ID="http_json_perf_results_${START}"
+          OUT="$(Build.StagingDirectory)/${REPORT_ID}"
+
+          for scenario in $SCENARIOS; do
+            bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
+            --scenario=${scenario} \
+            --dars=${DAR} \
+            --reports-dir=${OUT} \
+            --jwt=${JWT}
+          done
+
+          GZIP=-9 tar -zcvf ${OUT}.tgz ${OUT}
+
+          gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json/${REPORT_ID}.tgz"
+
+        displayName: measure http-json performance
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - job: check_releases
+    timeoutInMinutes: 240
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+
+          bazel build //ci/cron:cron
+          bazel-bin/ci/cron/cron check --bash-lib $(bash_lib) --gcp-creds "$GCRED"
+        displayName: check releases
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../daily_tell_slack.yml
+
+  - job: blackduck_scan
+    timeoutInMinutes: 1200
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+        persistCredentials: true
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          export LC_ALL=en_US.UTF-8
+
+          bazel build //...
+          # Make sure that Bazel query works
+          bazel query 'deps(//...)' >/dev/null
+        displayName: 'Build'
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+
+          #needs to be specified since blackduck can not scan all bazel dependency types in one go, haskell has to be scanned separatey and code location name uniquely identified to avoid stomping
+          BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
+
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          --logging.level.com.synopsys.integration=DEBUG \
+          --detect.tools=BAZEL \
+          --detect.bazel.target=//... \
+          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+          --detect.notices.report=true \
+          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+          --detect.report.timeout=1500
+        displayName: 'Blackduck Haskell Scan'
+        env:
+          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+
+          #avoid stomping any previous bazel haskell scans for this repository by qualifying as a maven_install (aka jvm) bazel blackduck scan
+          BAZEL_DEPENDENCY_TYPE="maven_install"
+
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          --logging.level.com.synopsys.integration=DEBUG \
+          --detect.npm.include.dev.dependencies=false \
+          --detect.excluded.detector.types=NUGET \
+          --detect.excluded.detector.types=GO_MOD \
+          --detect.yarn.prod.only=true \
+          --detect.python.python3=true \
+          --detect.tools=DETECTOR,BAZEL,DOCKER \
+          --detect.bazel.target=//... \
+          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.detector.search.exclusion.paths=.bazel-cache,language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
+          --detect.cleanup=false \
+          --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+          --detect.notices.report=true \
+          --detect.cleanup.bdio.files=true \
+          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+          --detect.report.timeout=4500
+        displayName: 'Blackduck Scan'
+        env:
+          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          source $(bash_lib)
+
+          tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
+          if git diff --exit-code -- NOTICES; then
+              echo "NOTICES file already up-to-date."
+          else
+              git add NOTICES
+              open_pr "notices-update-$(Build.BuildId)" "update NOTICES file"
+          fi
+        displayName: open PR
+        condition: and(succeeded(),
+                       eq(variables['Build.SourceBranchName'], 'main'))
+      - template: ../daily_tell_slack.yml

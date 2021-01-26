@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.ledger.api.DomainMocks
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code.INVALID_ARGUMENT
-import org.scalatest.AsyncWordSpec
-import com.digitalasset.platform.server.api.validation.FieldValidations._
+import org.scalatest.wordspec.AsyncWordSpec
+import com.daml.platform.server.api.validation.FieldValidations._
 
 class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
 
@@ -24,7 +24,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         validateIdentifier(api.identifier.withPackageId("")),
         INVALID_ARGUMENT,
-        """Missing field: package_id"""
+        """Missing field: package_id""",
       )
     }
 
@@ -32,7 +32,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
         INVALID_ARGUMENT,
-        "Invalid field module_name: Expected a non-empty string"
+        "Invalid field module_name: Expected a non-empty string",
       )
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 export { Guide, Section } from './Guide';
@@ -17,14 +17,12 @@ export { default as ChoicesButton } from './ChoicesButton';
 export { default as NavBar } from './NavBar';
 export { default as Frame } from './Frame';
 export { default as Truncate } from './Truncate';
-export { default as withExercise } from './withExercise';
 export { default as withLedgerTime } from './withLedgerTime';
 export {
   default as styled,
   defaultTheme,
   ThemeProvider,
   ThemeInterface,
-  withProps as styledWithProps,
 } from './theme';
 export {
   default as ContractTable,
@@ -43,9 +41,7 @@ export {
 } from './DataTable';
 export { ApolloDataProvider } from './ContractTable/ApolloDataProvider';
 export {
-  ThunkAction,
   Dispatch,
-  WithRedux,
   WithGraphQL,
 } from './types';
 export {

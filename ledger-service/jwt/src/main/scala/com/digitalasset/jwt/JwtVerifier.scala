@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.io.File
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
@@ -9,7 +9,7 @@ import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{RSAKeyProvider}
-import com.digitalasset.jwt.JwtVerifier.Error
+import com.daml.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
 import scalaz.syntax.show._
@@ -26,15 +26,14 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVer
     // but we still need to do manual expiration checks in ongoing streams
     \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
       .bimap(
-        e => Error('verify, e.getMessage),
-        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload)
+        e => Error(Symbol("verify"), e.getMessage),
+        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload),
       )
       .flatMap(base64Decode)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
-    jwt.traverse(Base64.decode).leftMap(e => Error('base64Decode, e.shows))
+    jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
 
 }
 
@@ -52,12 +51,13 @@ object HMAC256Verifier extends StrictLogging {
   def apply(secret: String): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
       logger.warn(
-        "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!")
+        "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!"
+      )
 
       val algorithm = Algorithm.HMAC256(secret)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('HMAC256, e.getMessage))
+    }.leftMap(e => Error(Symbol("HMAC256"), e.getMessage))
 }
 
 // ECDSA validator factory
@@ -70,13 +70,15 @@ object ECDSAVerifier extends StrictLogging {
 
   def fromCrtFile(
       path: String,
-      algorithmPublicKey: ECPublicKey => Algorithm): Error \/ JwtVerifier = {
+      algorithmPublicKey: ECPublicKey => Algorithm,
+  ): Error \/ JwtVerifier = {
     for {
       key <- \/.fromEither(
         KeyUtils
           .readECPublicKeyFromCrt(new File(path))
-          .toEither)
-        .leftMap(e => Error('fromCrtFile, e.getMessage))
+          .toEither
+      )
+        .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verifier <- ECDSAVerifier(algorithmPublicKey(key))
     } yield verifier
   }
@@ -90,7 +92,7 @@ object RSA256Verifier extends StrictLogging {
       val algorithm = Algorithm.RSA256(publicKey, null)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('RSA256, e.getMessage))
+    }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
 
   def apply(keyProvider: RSAKeyProvider): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
@@ -98,10 +100,9 @@ object RSA256Verifier extends StrictLogging {
       val algorithm = Algorithm.RSA256(keyProvider)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('RSA256, e.getMessage))
+    }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
 
-  /**
-    * Create a RSA256 validator with the key loaded from the given file.
+  /** Create a RSA256 validator with the key loaded from the given file.
     * The file is assumed to be a X509 encoded certificate.
     * These typically have the .crt file extension.
     */
@@ -110,8 +111,9 @@ object RSA256Verifier extends StrictLogging {
       rsaKey <- \/.fromEither(
         KeyUtils
           .readRSAPublicKeyFromCrt(new File(path))
-          .toEither)
-        .leftMap(e => Error('fromCrtFile, e.getMessage))
+          .toEither
+      )
+        .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verfier <- RSA256Verifier.apply(rsaKey)
     } yield verfier
   }

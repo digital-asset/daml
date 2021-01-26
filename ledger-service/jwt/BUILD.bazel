@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,18 +6,19 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
-
-hj_scalacopts = [
-    "-Ypartial-unification",
-    "-Xsource:2.13",
-]
 
 da_scala_library(
     name = "jwt",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = hj_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset.ledger-service:jwt:__VERSION__"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -26,10 +27,7 @@ da_scala_library(
         "//daml-lf/data",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -37,8 +35,8 @@ da_scala_library(
 da_scala_binary(
     name = "jwt-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.jwt.Main",
-    scalacopts = hj_scalacopts,
+    main_class = "com.daml.jwt.Main",
+    scalacopts = lf_scalacopts,
     runtime_deps = [
         ":jwt",
         "@maven//:ch_qos_logback_logback_classic",
@@ -60,7 +58,7 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
-    scalacopts = hj_scalacopts,
+    scalacopts = lf_scalacopts,
     deps = [
         ":jwt",
         "@maven//:com_auth0_java_jwt",

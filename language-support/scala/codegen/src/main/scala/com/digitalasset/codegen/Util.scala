@@ -1,27 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
-import com.digitalasset.daml.lf.iface.{Type => IType, _}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
+import com.daml.lf.iface.{Type => IType, _}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
 
+import scala.collection.compat._
 import scala.reflect.runtime.universe._
-import scala.collection.generic.CanBuildFrom
-import scala.collection.TraversableLike
 import scalaz.{Tree => _, _}
 import scalaz.std.list._
+import scalaz.syntax.std.option._
 
-/**
-  *  In order to avoid endlessly passing around "packageName" and "iface" to
+/**  In order to avoid endlessly passing around "packageName" and "iface" to
   *  utility functions we initialise a class with these values and allow all the
   *  methods to have access to them.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class Util(val packageName: String, val outputDir: File) { self =>
 
   import Util._
@@ -36,13 +34,13 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
 
   val packageNameElems: Array[String] = packageName.split('.')
 
-  private[codegen] def orderedDependencies(library: Interface)
-    : OrderedDependencies[Ref.Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
+  private[codegen] def orderedDependencies(
+      library: Interface
+  ): OrderedDependencies[Ref.Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
 
-  def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): TraversableOnce[FilePlan]
+  def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): IterableOnce[FilePlan]
 
-  /**
-    * Convert the metadataAlias into a [[DamlScalaName]] based on the `codeGenDeclKind`.
+  /** Convert the metadataAlias into a [[DamlScalaName]] based on the `codeGenDeclKind`.
     *
     * {{{
     *   > mkDamlScalaName(Contract, QualifiedName.assertFromString("foo.bar:Test"))
@@ -51,10 +49,10 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
     */
   def mkDamlScalaName(
       codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: Ref.QualifiedName): DamlScalaName
+      metadataAlias: Ref.QualifiedName,
+  ): DamlScalaName
 
-  /**
-    * A Scala class/object package suffix and name.
+  /** A Scala class/object package suffix and name.
     *
     * @param packageSuffixParts the package suffix of the class. This will be appended to
     *                           the [[packageNameElems]] to create the package for this
@@ -99,16 +97,15 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
 
     override def equals(ojb: Any): Boolean = ojb match {
       case that: DamlScalaName =>
-        that.packageSuffixParts.deep == this.packageSuffixParts.deep && that.name == this.name
+        that.packageSuffixParts.sameElements(this.packageSuffixParts) && that.name == this.name
       case _ =>
         false
     }
 
-    override def hashCode(): Int = (this.packageSuffixParts.deep, this.name).hashCode()
+    override def hashCode(): Int = (this.packageSuffixParts.toIndexedSeq, this.name).hashCode()
   }
 
-  /**
-    *  This method is responsible for generating Scala reflection API "tree"s.
+  /**  This method is responsible for generating Scala reflection API "tree"s.
     *  It maps from Core package interface types to:
     *  a) the wrapper types defined in the typed-ledger-api project
     *  b) the classes that will be generated for the user defined types defined in
@@ -116,8 +113,7 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
     */
   def genTypeToScalaType(genType: IType): Tree
 
-  /**
-    * Generate the function that converts an `ArgumentValue` into the given `Type`
+  /** Generate the function that converts an `ArgumentValue` into the given `Type`
     *
     * @param genType the output type of the generated function
     * @return the function that converts an `ArgumentValue` into the given `Type`
@@ -136,7 +132,8 @@ object Util {
 
   final case class WriteParams[+TmplI](
       templateIds: Map[Ref.Identifier, TmplI],
-      definitions: List[lf.ScopedDataType.FWT])
+      definitions: List[lf.ScopedDataType.FWT],
+  )
 
   val reservedNames: Set[String] =
     Set("id", "template", "namedArguments", "archive")
@@ -188,6 +185,12 @@ object Util {
       case _: PrimType => Nil
     }
 
+  private[codegen] def packageNameTailToRefTree(packageName: String) =
+    packageName
+      .split('.')
+      .lastOption
+      .cata(TermName(_), sys error s"invalid package name $packageName")
+
   def packageNameToRefTree(packageName: String): RefTree = {
     val ss = packageName.split('.')
     qualifiedNameToRefTree(ss)
@@ -205,11 +208,4 @@ object Util {
       case _ => None
     }
   }
-
-  /** cf. scalaz.MonadPlus#separate */
-  private[codegen] def partitionEithers[A, B, Coll, AS, BS](
-      abs: TraversableLike[Either[A, B], Coll])(
-      implicit AS: CanBuildFrom[Coll, A, AS],
-      BS: CanBuildFrom[Coll, B, BS]): (AS, BS) =
-    (abs collect { case Left(a) => a }, abs collect { case Right(a) => a })
 }

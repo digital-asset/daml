@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package iface
 package reader
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
+import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.InvalidProtocolBufferException
 import scalaz.\/
 
@@ -24,7 +24,8 @@ object DamlLfArchiveReader {
   ): String \/ (Ref.PackageId, Ast.Package) = {
     val (pkgId, lf) = pkgIdAndPayLoad
     \/.fromTryCatchNonFatal(
-      new archive.Decode(onlySerializableDataDefs = true).readArchivePayload(pkgId, lf))
+      new archive.Decode(onlySerializableDataDefs = true).readArchivePayload(pkgId, lf)
+    )
       .leftMap(errorMessage)
   }
 

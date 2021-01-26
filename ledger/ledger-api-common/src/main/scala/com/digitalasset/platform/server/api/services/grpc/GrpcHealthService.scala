@@ -1,22 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.DropRepeated
-import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService._
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.health.HealthChecks
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.DropRepeated
+import com.daml.platform.server.api.services.grpc.GrpcHealthService._
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
   HealthCheckRequest,
   HealthCheckResponse,
-  HealthGrpc
+  HealthGrpc,
 }
 import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
@@ -27,14 +26,14 @@ import scala.util.{Failure, Success, Try}
 class GrpcHealthService(
     healthChecks: HealthChecks,
     maximumWatchFrequency: FiniteDuration = 1.second,
-)(
-    implicit protected val esf: ExecutionSequencerFactory,
+)(implicit
+    protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
 ) extends HealthAkkaGrpc
     with GrpcApiService {
   override def bindService(): ServerServiceDefinition =
-    HealthGrpc.bindService(this, DirectExecutionContext)
+    HealthGrpc.bindService(this, executionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
     Future.fromTry(matchResponse(serviceFrom(request)))

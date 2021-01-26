@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -33,14 +33,6 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
 import GHC.Types (primitive)
 
 import DA.Internal.Down
-
-infixr 0 $
--- | Take a function from `a` to `b` and a value of type `a`, and apply the
--- function to the value of type `a`, returning a value of type `b`.
--- This function has a very low precedence, which is why you might want to use
--- it instead of regular function application.
-($) : (a -> b) -> a -> b
-f $ x =  f x
 
 -- | Turn a function that takes a pair into a function that takes two arguments.
 curry : ((a, b) -> c) -> a -> b -> c
@@ -87,7 +79,7 @@ class Functor f => Applicative f where
 -- in imperative languages.
 (>>) : Action m => m a -> m b -> m b
 -- NOTE(MH): We need an `Action` constraint here rather than an `Applicative`
--- constrait since the conversion to DAML-LF rewrites `A >> B` into
+-- constrait since the conversion to Daml-LF rewrites `A >> B` into
 -- `A >>= \_ -> B`. This is to make `(>>)` lazy in its second argument and
 -- hence give `do A; B` the desired semantics where `B` is not evaluated if
 -- `A` short-circuits the monad computation..
@@ -124,7 +116,7 @@ identity x = x
 
 instance Functor ((,) a) where
   fmap f (x, y) = (x, f y)
-  v <$ (x, y) = (x, v)
+  v <$ (x, _) = (x, v)
 
 instance Functor [] where
     fmap = map
@@ -172,7 +164,7 @@ foldl = primitive @"BEFoldl"
 -- predicate `p` is true. There might not be such an element, which
 -- is why this function returns an `Optional a`.
 find : (a -> Bool) -> [a] -> Optional a
-find p [] = None
+find _ [] = None
 find p (x::xs) = if p x then Some x else find p xs
 
 -- | Gives the length of the list.
@@ -294,17 +286,17 @@ optional _ f (Some x) = f x
 
 
 instance Functor (Either e) where
-  fmap f (Left e) = Left e
+  fmap _ (Left e) = Left e
   fmap f (Right a) = Right (f a)
 
 instance Applicative (Either e) where
   pure = Right
 
-  Left e <*> a = Left e
+  Left e <*> _ = Left e
   Right f <*> a = fmap f a
 
 instance Action (Either e) where
-  Left e >>= f = Left e
+  Left e >>= _ = Left e
   Right a >>= f = f a
 
 instance ActionFail (Either Text) where
@@ -329,8 +321,8 @@ instance ActionFail (Either Text) where
 -- ```
 --
 either : (a -> c) -> (b -> c) -> Either a b -> c
-either f g (Left x) = f x
-either f g (Right x) = g x
+either f _ (Left x) = f x
+either _ g (Right x) = g x
 
 infixr 6 <>
 -- | The class of semigroups (types with an associative binary operation).
@@ -530,8 +522,14 @@ traceId : Show b => b -> b
 traceId x = trace x x
 
 -- | `debug x` prints `x` for debugging purposes, depending on your loglevel.
-debug : (Show b, Applicative m) => b -> m ()
-debug x = trace x (pure ())
+debug : (Show b, Action m) => b -> m ()
+debug x =
+  -- NOTE (MK): We introduce an explicit indirection via >>=
+  -- to make sure that evaluating something like
+  -- `debug x >> pure ()` does not print the debug statement.
+  -- Instead it will only be printed when you execute the monadic
+  -- action.
+  pure () >>= \_ -> pure (trace x ())
 
 -- | Return the first element of a tuple.
 fst : (a, b) -> a
@@ -620,7 +618,7 @@ null : [a] -> Bool
 null [] = True
 null _ = False
 
--- | Filter the list using the function: keep only the elements where the predicate holds.
+-- | Filters the list using the function: keep only the elements where the predicate holds.
 filter : (a -> Bool) -> [a] -> [a]
 filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 
@@ -649,3 +647,8 @@ sum = foldl (+) aunit
 -- | Multiply all the elements in the list together.
 product : Multiplicative a => [a] -> a
 product = foldl (*) munit
+
+-- | A convenience function that can be used to mark something not implemented.
+-- Always throws an error with "Not implemented."
+undefined : a
+undefined = error "Not implemented."

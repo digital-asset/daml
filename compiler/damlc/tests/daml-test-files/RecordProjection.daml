@@ -1,0 +1,33 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- The tests here check that we compile all syntactic variants of Daml record
+-- projection into the Daml-LF builtin for record projection as soon as we know
+-- the record type and the field name.
+module RecordProjection where
+
+import DA.Record (getField)
+
+data Foo = Foo with quux: Int
+
+data Bar = Bar with quux: Int
+
+foo: Foo
+foo = Foo with quux = 1
+
+
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["dotSyntax"]) | .expr.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+dotSyntax: Int
+dotSyntax = foo.quux
+
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["dotSection"]) | .expr.abs.body.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+dotSection: Foo -> Int
+dotSection = (.quux)
+
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["getFieldFull"]) | .expr.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+getFieldFull: Int
+getFieldFull = getField @"quux" foo
+
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["getFieldPartial"]) | .expr.abs.body.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+getFieldPartial: Foo -> Int
+getFieldPartial = getField @"quux"

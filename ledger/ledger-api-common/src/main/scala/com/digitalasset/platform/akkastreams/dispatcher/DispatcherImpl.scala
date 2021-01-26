@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -12,19 +12,18 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class DispatcherImpl[Index: Ordering](
     name: String,
     zeroIndex: Index,
-    headAtInitialization: Index)
-    extends Dispatcher[Index] {
+    headAtInitialization: Index,
+) extends Dispatcher[Index] {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
   require(
     !indexIsBeforeZero(headAtInitialization),
     s"head supplied at Dispatcher initialization $headAtInitialization is before zero index $zeroIndex. " +
-      s"This would imply that the ledger end is before the ledger begin, which makes this invalid configuration."
+      s"This would imply that the ledger end is before the ledger begin, which makes this invalid configuration.",
   )
 
   private sealed abstract class State extends Product with Serializable {
@@ -35,7 +34,7 @@ final class DispatcherImpl[Index: Ordering](
 
   // the following silent are due to
   // <https://github.com/scala/bug/issues/4440>
-  @silent
+  @silent("The outer reference in this type test cannot be checked at run time")
   private final case class Running(lastIndex: Index, signalDispatcher: SignalDispatcher)
       extends State {
     override def getLastIndex: Index = lastIndex
@@ -43,7 +42,7 @@ final class DispatcherImpl[Index: Ordering](
     override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
   }
 
-  @silent
+  @silent("The outer reference in this type test cannot be checked at run time")
   private final case class Closed(lastIndex: Index) extends State {
     override def getLastIndex: Index = lastIndex
 
@@ -61,8 +60,7 @@ final class DispatcherImpl[Index: Ordering](
   /** returns the head index where this Dispatcher is at */
   override def getHead(): Index = state.get.getLastIndex
 
-  /**
-    * Signal to this Dispatcher that there's a new head `Index`.
+  /** Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
     */
   override def signalNewHead(head: Index): Unit =
@@ -74,54 +72,62 @@ final class DispatcherImpl[Index: Ordering](
       } match {
       case Running(prev, disp) =>
         if (Ordering[Index].gt(head, prev)) disp.signal()
-      case c: Closed =>
+      case _: Closed =>
         logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
   override def startingAt[T](
-      start: Index,
+      startExclusive: Index,
       subsource: SubSource[Index, T],
-      requestedEnd: Option[Index] = None): Source[(Index, T), NotUsed] =
-    if (indexIsBeforeZero(start))
+      endInclusive: Option[Index] = None,
+  ): Source[(Index, T), NotUsed] =
+    if (indexIsBeforeZero(startExclusive))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid start index: '$start' before zero index '$zeroIndex'"))
-    else if (requestedEnd.exists(Ordering[Index].gt(start, _)))
+          s"$name: Invalid start index: '$startExclusive' before zero index '$zeroIndex'"
+        )
+      )
+    else if (endInclusive.exists(Ordering[Index].gt(startExclusive, _)))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid index section: start '$start' is after end '$requestedEnd'"))
+          s"$name: Invalid index section: start '$startExclusive' is after end '$endInclusive'"
+        )
+      )
     else {
       val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
         // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
-          .map(_ => getHead()))
+          .map(_ => getHead())
+      )
 
       val withOptionalEnd =
-        requestedEnd.fold(subscription)(
-          maxLedgerEnd =>
-            // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
-            // we can complete the stream from the upstream direction and are not dependent on doing the filtering
-            // on actual ledger entries (which might not even exist, e.g. due to duplicate submissions or
-            // the ledger end having moved after a package upload or party allocation)
-            subscription
+        endInclusive.fold(subscription)(maxLedgerEnd =>
+          // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
+          // we can complete the stream from the upstream direction and are not dependent on doing the filtering
+          // on actual ledger entries (which might not even exist, e.g. due to duplicate submissions or
+          // the ledger end having moved after a package upload or party allocation)
+          subscription
             // accept ledger end signals until the signal exceeds the requested max ledger end.
             // the last offset that we should emit here is maxLedgerEnd-1, but we cannot do this
             // because here we only know that the Index type is order-able.
-              .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true))
+            .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true)
+            .map(Ordering[Index].min(_, maxLedgerEnd))
+        )
 
       withOptionalEnd
-        .statefulMapConcat(() => new ContinuousRangeEmitter(start))
-        .flatMapConcat {
-          case (previousHead, head) => subsource(previousHead, head)
+        .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
+        .flatMapConcat { case (previousHead, head) =>
+          subsource(previousHead, head)
         }
     }
 
-  private class ContinuousRangeEmitter(private var max: Index) // var doesn't need to be synchronized, it is accessed in a GraphStage.
+  private class ContinuousRangeEmitter(
+      private var max: Index
+  ) // var doesn't need to be synchronized, it is accessed in a GraphStage.
       extends (Index => immutable.Iterable[(Index, Index)]) {
 
-    /**
-      * @return if param  > [[max]] : a list with a single pair representing a ([max, param[) range, and also stores param in [[max]].
+    /** @return if param  > [[max]] : a list with a single pair representing a ([max, param[) range, and also stores param in [[max]].
       *         Nil otherwise.
       */
     override def apply(newHead: Index): immutable.Iterable[(Index, Index)] =
@@ -140,10 +146,10 @@ final class DispatcherImpl[Index: Ordering](
       case Running(idx, _) => Closed(idx)
       case c: Closed => c
     } match {
-      case Running(idx, disp) =>
+      case Running(_, disp) =>
         disp.signal()
         disp.close()
-      case c: Closed => ()
+      case _: Closed => ()
     }
 
   private def closedError: IllegalStateException =

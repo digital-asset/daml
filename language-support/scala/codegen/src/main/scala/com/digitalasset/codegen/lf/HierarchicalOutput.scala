@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
-import com.digitalasset.{codegen => parent}
+import com.daml.{codegen => parent}
 import parent.Util
 import parent.types.Namespace
 import parent.exception.UnsupportedDamlTypeException
@@ -11,7 +11,7 @@ import parent.exception.UnsupportedDamlTypeException
 import java.io._
 import scala.reflect.runtime.universe._
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.Identifier
 import scalaz.{Tree => _, _}
 import scalaz.std.tuple._
 import scalaz.std.vector._
@@ -38,31 +38,35 @@ private[codegen] object HierarchicalOutput {
 
   /** Pull up each `Rec` into the companion implied, or not, by the keys. */
   private[this] def liftSubtrees[S, F](
-      subtrees: String ==>> (Boolean => (Vector[S], SingleOr[(F, Set[Tree], Iterable[Tree])])))(
-      inCompanion: Boolean): (Vector[S], Vector[(F, Set[Tree], Iterable[Tree])]) =
-    subtrees.map(_(inCompanion)).foldMapWithKey {
-      case (k, (errs, file)) =>
-        (errs, file match {
+      subtrees: String ==>> (Boolean => (Vector[S], SingleOr[(F, Set[Tree], Iterable[Tree])]))
+  )(inCompanion: Boolean): (Vector[S], Vector[(F, Set[Tree], Iterable[Tree])]) =
+    subtrees.map(_(inCompanion)).foldMapWithKey { case (k, (errs, file)) =>
+      (
+        errs,
+        file match {
           case -\/(single) => Vector(single)
           case \/-(multiple @ Vector((firstFile, _, _), _*)) =>
             if (inCompanion)
               Vector(
                 (
                   firstFile,
-                  (Set.empty[Tree] /: multiple.map(_._2))(_ | _),
+                  (multiple.map(_._2) foldLeft Set.empty[Tree])(_ | _),
                   Iterable(q"""object ${TermName(k)} {
                                 ..${multiple flatMap (_._3)}
-                              }""")))
+                              }"""),
+                )
+              )
             else multiple map (_ map (contents => Iterable(q"""package ${TermName(k)} {
                                                                  ..$contents
                                                                }""")))
           case \/-(_) => Vector()
-        })
+        },
+      )
     }
 
   def discoverFiles(
       treeified: Namespace[String, Option[TemplateOrDatatype]],
-      util: LFUtil
+      util: LFUtil,
   ): ErrorsAndFiles[String, File] =
     treeified
       .foldTreeStrict[Rec] {
@@ -70,10 +74,9 @@ private[codegen] object HierarchicalOutput {
           (liftSubtrees(subtrees) _).andThen(_.map(\/-(_)))
         case (Some(codeGenElt), subtrees) =>
           val (subErrs, subFiles) = liftSubtrees(subtrees)(true)
-          val imports = subFiles flatMap (_._2)
           val companionMembers = subFiles flatMap (_._3)
 
-          val (generate, log, errorMsg) = codeGenElt match {
+          val (generate, log @ _, errorMsg) = codeGenElt match {
             case (templateId, -\/(templateInterface)) =>
               (
                 () =>
@@ -81,32 +84,37 @@ private[codegen] object HierarchicalOutput {
                     util,
                     templateId,
                     templateInterface,
-                    companionMembers),
+                    companionMembers,
+                  ),
                 s"Writing template for $templateId",
-                s"Cannot generate Scala code for template $templateId")
+                s"Cannot generate Scala code for template $templateId",
+              )
 
             case (name, \/-(ntd)) =>
               (
                 () => DamlDataTypeGen.generate(util, ntd, companionMembers),
                 s"Writing type declaration for $name",
-                s"Cannot generate Scala code for type declaration with name $name")
+                s"Cannot generate Scala code for type declaration with name $name",
+              )
           }
 
-          val errorsImportsAndFile = try { (subErrs, -\/(generate())) } catch {
-            case e: UnsupportedDamlTypeException =>
-              (subErrs :+ s"$errorMsg because: ${e.getLocalizedMessage}", \/-(subFiles))
-          }
+          val errorsImportsAndFile =
+            try { (subErrs, -\/(generate())) }
+            catch {
+              case e: UnsupportedDamlTypeException =>
+                (subErrs :+ s"$errorMsg because: ${e.getLocalizedMessage}", \/-(subFiles))
+            }
 
-          _ =>
-            errorsImportsAndFile
+          _ => errorsImportsAndFile
       }
       .apply(false)
-      .rightMap(_.valueOr(Vector(_)).map {
-        case (err, imports, subTrees) => err -> standardTopFileBehavior(util)(imports, subTrees)
+      .rightMap(_.valueOr(Vector(_)).map { case (err, imports, subTrees) =>
+        err -> standardTopFileBehavior(util)(imports, subTrees)
       })
 
   private[this] def standardTopFileBehavior(
-      util: LFUtil)(imports: Set[Tree], trees: Iterable[Tree]): Iterable[Tree] =
+      util: LFUtil
+  )(imports: Set[Tree], trees: Iterable[Tree]): Iterable[Tree] =
     imports.toSeq :+ q"""
       package ${Util.packageNameToRefTree(util.packageName)} {
         ..$trees

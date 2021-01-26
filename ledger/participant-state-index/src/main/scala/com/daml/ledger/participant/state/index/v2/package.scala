@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index
@@ -7,32 +7,33 @@ import java.time.{Duration, Instant}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.ledger.api.domain._
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value
+import com.daml.ledger.api.domain._
 
-package object v2 {
+package v2 {
 
   object AcsUpdateEvent {
 
     final case class Create(
         transactionId: TransactionId,
         eventId: EventId,
-        contractId: Value.AbsoluteContractId,
+        contractId: Value.ContractId,
         templateId: Ref.Identifier,
-        argument: Value.VersionedValue[Value.AbsoluteContractId],
+        argument: Value.VersionedValue[Value.ContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]],
+        contractKey: Option[Value.VersionedValue[Value.ContractId]],
         signatories: Set[Ref.Party],
         observers: Set[Ref.Party],
-        agreementText: String
+        agreementText: String,
     )
   }
 
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
-      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
+      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed],
+  )
 
   /** Information provided by the submitter of changes submitted to the ledger.
     *
@@ -48,12 +49,11 @@ package object v2 {
     * @param commandId: a submitter provided identifier that he can use to
     *   correlate the stream of changes to the participant state with the
     *   changes he submitted.
-    *
     */
   final case class SubmitterInfo(
       submitter: Ref.Party,
       applicationId: ApplicationId,
-      commandId: CommandId
+      commandId: CommandId,
   )
 
   /** Meta-data of a transaction visible to all parties that can see a part of
@@ -65,7 +65,7 @@ package object v2 {
     *   Implementors are free to make it equal to the 'offset' of this event.
     *
     * @param offset: The offset of this event, which uniquely identifies it.
-
+    *
     * @param ledgerEffectiveTime: the submitter-provided time at which the
     *   transaction should be interpreted. This is the time returned by the
     *   DAML interpreter on a `getTime :: Update Time` call.
@@ -74,7 +74,6 @@ package object v2 {
     *   The time at which this event was recorded. Depending on the
     *   implementation this time can be local to a Participant node or global
     *   to the whole ledger.
-    *
     *
     * @param workflowId: a submitter-provided identifier used for monitoring
     *   and to traffic-shape the work handled by DAML applications
@@ -86,9 +85,10 @@ package object v2 {
       offset: LedgerOffset.Absolute,
       ledgerEffectiveTime: Instant,
       recordTime: Instant,
-      workflowId: WorkflowId)
+      workflowId: WorkflowId,
+  )
 
-  final case class LedgerConfiguration(minTTL: Duration, maxTTL: Duration)
+  final case class LedgerConfiguration(maxDeduplicationTime: Duration)
 
   /** Meta-data of a DAML-LF package
     *
@@ -99,31 +99,19 @@ package object v2 {
     *
     * @param sourceDescription : Optional description provided by the backing
     *   participant describing where it got the package from.
-    *
     */
   final case class PackageDetails(
       size: Long,
       knownSince: Instant,
-      sourceDescription: Option[String])
-
-  /** The result of a command submission, as reported to client applications.
-    * Isomorphic to a [[io.grpc.Status]].
-    *
-    * @param code    The gRPC status code of the original command submission
-    * @param message The detailed error message of the original command submission
-    */
-  final case class CommandSubmissionResult(code: Int, message: Option[String])
+      sourceDescription: Option[String],
+  )
 
   sealed abstract class CommandDeduplicationResult extends Product with Serializable
 
   /** This is the first time the command was submitted. */
   case object CommandDeduplicationNew extends CommandDeduplicationResult
 
-  /** This command was submitted before, but the result of the submission not known (yet). */
-  final case class CommandDeduplicationDuplicate(firstSubmittedAt: Instant)
-      extends CommandDeduplicationResult
-
-  /** This command was submitted before, and the result of the submission is known */
-  final case class CommandDeduplicationDuplicateWithResult(result: CommandSubmissionResult)
+  /** This command was submitted before. */
+  final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
       extends CommandDeduplicationResult
 }

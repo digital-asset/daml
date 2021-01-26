@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module provides functions to perform the DAML-LF constraint checks on
@@ -101,7 +101,11 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTArrow -> Left URFunction
         BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
         BTAny -> Left URAny
+        BTAnyException -> Left URAnyException
         BTTypeRep -> Left URTypeRep
+        BTGeneralError -> noConditions
+        BTArithmeticError -> noConditions
+        BTContractError -> noConditions
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
 
@@ -159,6 +163,12 @@ checkTemplate mod0 tpl = do
   for_ (tplKey tpl) $ \key -> withContext (ContextTemplate mod0 tpl TPKey) $ do
     checkType SRKey (tplKeyType key)
 
+-- | Check whether exception is serializable.
+checkException :: MonadGamma m => Module -> DefException -> m ()
+checkException mod0 exn = do
+    let tcon = Qualified PRSelf (moduleName mod0) (exnName exn)
+    checkType SRExceptionArg (TCon tcon)
+
 -- | Check whether a module satisfies all serializability constraints.
 checkModule :: MonadGamma m => Module -> m ()
 checkModule mod0 = do
@@ -168,3 +178,6 @@ checkModule mod0 = do
   for_ (moduleTemplates mod0) $ \tpl ->
     withContext (ContextTemplate mod0 tpl TPWhole) $
       checkTemplate mod0 tpl
+  for_ (moduleExceptions mod0) $ \exn ->
+    withContext (ContextDefException mod0 exn) $
+      checkException mod0 exn

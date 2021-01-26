@@ -1,33 +1,37 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth.services
+package com.daml.ledger.api.auth.services
 
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
-import com.digitalasset.ledger.api.v1.ledger_configuration_service._
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.ProxyCloseable
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
+import com.daml.ledger.api.v1.ledger_configuration_service._
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
-final class LedgerConfigurationServiceAuthorization(
+import scala.concurrent.ExecutionContext
+
+private[daml] final class LedgerConfigurationServiceAuthorization(
     protected val service: LedgerConfigurationService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends LedgerConfigurationService
     with ProxyCloseable
     with GrpcApiService {
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
-      responseObserver: StreamObserver[GetLedgerConfigurationResponse]): Unit =
+      responseObserver: StreamObserver[GetLedgerConfigurationResponse],
+  ): Unit =
     authorizer.requirePublicClaimsOnStream(service.getLedgerConfiguration)(
       request,
-      responseObserver)
+      responseObserver,
+    )
 
   override def bindService(): ServerServiceDefinition =
-    LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
+    LedgerConfigurationServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

@@ -1,16 +1,29 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "ledger-api-client",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-client:__VERSION__"],
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
+    tags = ["maven_coordinates=com.daml:ledger-api-client:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -20,31 +33,56 @@ da_scala_library(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth-client",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//libs-scala/direct-execution-context",
+        "//ledger/ledger-resources",
+        "//libs-scala/concurrent",
         "//libs-scala/grpc-utils",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
+da_scala_library(
+    name = "ledger-api-client-tests-lib",
+    srcs = glob(["src/test/{}/**/*.scala".format(scala_major_version)]),
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalactic_scalactic",
+        ],
+    },
+    deps = [
+    ],
+)
+
 da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import Compat._",
+    ],
+    silent_annotations = True,
     deps = [
         ":ledger-api-client",
+        ":ledger-api-client-tests-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//libs-scala/direct-execution-context",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+        "//ledger/caching",
+        "//libs-scala/concurrent",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -52,26 +90,39 @@ da_scala_test_suite(
     name = "ledger-api-client-integration-tests",
     srcs = glob(["src/it/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
     ],
     resources = [
         "src/it/resources/logback-test.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
     ],
     deps = [
         ":ledger-api-client",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
+        "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_netty_netty_handler",
     ],
 )

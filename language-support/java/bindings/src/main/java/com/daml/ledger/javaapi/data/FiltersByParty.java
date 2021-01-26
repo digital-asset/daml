@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.TransactionFilterOuterClass;
+import com.daml.ledger.api.v1.TransactionFilterOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.HashMap;
@@ -27,8 +27,8 @@ public class FiltersByParty extends TransactionFilter {
     @Override
     TransactionFilterOuterClass.TransactionFilter toProto() {
         HashMap<String, TransactionFilterOuterClass.Filters> partyToFilters = new HashMap<>(this.partyToFilters.size());
-        for (String party : this.partyToFilters.keySet()) {
-            partyToFilters.put(party, this.partyToFilters.get(party).toProto());
+        for (Map.Entry<String, Filter> entry : this.partyToFilters.entrySet()) {
+            partyToFilters.put(entry.getKey(), entry.getValue().toProto());
         }
         return TransactionFilterOuterClass.TransactionFilter.newBuilder()
                 .putAllFiltersByParty(partyToFilters)
@@ -38,8 +38,8 @@ public class FiltersByParty extends TransactionFilter {
     public static FiltersByParty fromProto(TransactionFilterOuterClass.TransactionFilter transactionFilter) {
         Map<String, TransactionFilterOuterClass.Filters> partyToFilters = transactionFilter.getFiltersByPartyMap();
         HashMap<String, Filter> converted = new HashMap<>(partyToFilters.size());
-        for (String party : partyToFilters.keySet()) {
-            converted.put(party, Filter.fromProto(partyToFilters.get(party)));
+        for (Map.Entry<String, TransactionFilterOuterClass.Filters> entry  : partyToFilters.entrySet()) {
+            converted.put(entry.getKey(), Filter.fromProto(entry.getValue()));
         }
         return new FiltersByParty(converted);
     }

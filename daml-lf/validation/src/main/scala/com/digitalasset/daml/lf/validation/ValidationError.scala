@@ -1,11 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
+
+import scala.Ordering.Implicits.infixOrderingOps
 
 sealed abstract class LookupError extends Product with Serializable {
   def pretty: String
@@ -22,6 +25,12 @@ final case class LETypeSyn(syn: TypeSynName) extends LookupError {
 final case class LEDataType(conName: TypeConName) extends LookupError {
   def pretty: String = s"unknown data type: ${conName.qualifiedName}"
 }
+final case class LEDataVariant(conName: TypeConName) extends LookupError {
+  def pretty: String = s"unknown variant: ${conName.qualifiedName}"
+}
+final case class LEDataEnum(conName: TypeConName) extends LookupError {
+  def pretty: String = s"unknown enumeration: ${conName.qualifiedName}"
+}
 final case class LEValue(valName: ValueRef) extends LookupError {
   def pretty: String = s"unknown value: ${valName.qualifiedName}"
 }
@@ -30,6 +39,9 @@ final case class LETemplate(conName: TypeConName) extends LookupError {
 }
 final case class LEChoice(conName: TypeConName, choiceName: ChoiceName) extends LookupError {
   def pretty: String = s"unknown choice: ${conName.qualifiedName}:$choiceName"
+}
+final case class LEException(conName: TypeConName) extends LookupError {
+  def pretty: String = s"unknown exception: ${conName.qualifiedName}"
 }
 
 sealed abstract class Context extends Product with Serializable {
@@ -43,10 +55,17 @@ final case class ContextDefDataType(tycon: TypeConName) extends Context {
   def pretty: String = s"data type ${tycon.qualifiedName}"
 }
 final case class ContextTemplate(tycon: TypeConName) extends Context {
-  def pretty: String = s"data type ${tycon.qualifiedName}"
+  def pretty: String = s"template definition ${tycon.qualifiedName}"
+}
+final case class ContextDefException(tycon: TypeConName) extends Context {
+  def pretty: String = s"exception definition ${tycon.qualifiedName}"
 }
 final case class ContextDefValue(ref: ValueRef) extends Context {
-  def pretty: String = s"value type ${ref.qualifiedName}"
+  def pretty: String = s"value definition ${ref.qualifiedName}"
+}
+final case class ContextLocation(loc: Location) extends Context {
+  def pretty: String =
+    s"definition ${loc.packageId}:${loc.module}:${loc.definition} (start: ${loc.start}, end: ${loc.end})"
 }
 
 object ContextDefDataType {
@@ -81,6 +100,9 @@ case object SRTemplateArg extends SerializabilityRequirement {
 }
 case object SRChoiceArg extends SerializabilityRequirement {
   def pretty: String = "choice argument"
+}
+case object SRExceptionArg extends SerializabilityRequirement {
+  def pretty: String = "exception argument"
 }
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
@@ -158,9 +180,12 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   def context: Context
   override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
   def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
+  override def getMessage: String = pretty
   protected def prettyInternal: String
 }
-
+final case class ENatKindRightOfArrow(context: Context, kind: Kind) extends ValidationError {
+  protected def prettyInternal: String = s"invalid kind ${kind.pretty}"
+}
 final case class EUnknownTypeVar(context: Context, varName: TypeVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown type variable: $varName"
 }
@@ -179,8 +204,8 @@ final case class ETypeSynAppWrongArity(
     context: Context,
     expectedArity: Int,
     syn: TypeSynName,
-    args: ImmArray[Type])
-    extends ValidationError {
+    args: ImmArray[Type],
+) extends ValidationError {
   protected def prettyInternal: String =
     s"wrong arity in type synonym application: ${syn.qualifiedName} ${args.toSeq.map(_.pretty).mkString(" ")}"
 }
@@ -211,8 +236,8 @@ final case class EExpectedRecordType(context: Context, conApp: TypeConApp) exten
 final case class EFieldMismatch(
     context: Context,
     conApp: TypeConApp,
-    fields: ImmArray[(FieldName, Expr)])
-    extends ValidationError {
+    fields: ImmArray[(FieldName, Expr)],
+) extends ValidationError {
   protected def prettyInternal: String =
     s"field mismatch: * expected: $conApp * record expression: $fields"
 }
@@ -247,16 +272,40 @@ final case class ETypeMismatch(
     context: Context,
     foundType: Type,
     expectedType: Type,
-    expr: Option[Expr])
-    extends ValidationError {
+    expr: Option[Expr],
+) extends ValidationError {
   protected def prettyInternal: String =
     s"""type mismatch:
        | * expected type: ${expectedType.pretty}
        | * found type: ${foundType.pretty}""".stripMargin
 }
+final case class EPatternTypeMismatch(
+    context: Context,
+    pattern: CasePat,
+    scrutineeType: Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""pattern type mismatch:
+       | * pattern: $pattern
+       | * scrutinee type: ${scrutineeType.pretty}""".stripMargin
+}
+final case class ENonExhaustivePatterns(
+    context: Context,
+    missingPatterns: List[CasePat],
+    scrutineeType: Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""non-exhaustive pattern match:
+       | * missing patterns: ${missingPatterns.mkString(", ")}
+       | * scrutinee type: ${scrutineeType.pretty}""".stripMargin
+}
 final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
     s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
+}
+final case class EExpectedExceptionType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected an exception type, but found: ${typ.pretty}"
 }
 final case class EExpectedHigherKind(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"expected higher kinded type, but found: ${kind.pretty}"
@@ -277,8 +326,8 @@ final case class EExpectedSerializableType(
     context: Context,
     requirement: SerializabilityRequirement,
     typ: Type,
-    reason: UnserializabilityReason)
-    extends ValidationError {
+    reason: UnserializabilityReason,
+) extends ValidationError {
   protected def prettyInternal: String =
     s"""expected serializable type:
        | * reason: ${reason.pretty}
@@ -289,8 +338,8 @@ final case class EExpectedSerializableType(
 final case class ETypeConMismatch(
     context: Context,
     foundConName: TypeConName,
-    expectedConName: TypeConName)
-    extends ValidationError {
+    expectedConName: TypeConName,
+) extends ValidationError {
   protected def prettyInternal: String =
     s"""type constructor mismatch:
        | * expected: ${expectedConName.qualifiedName}
@@ -308,11 +357,19 @@ final case class EExpectedOptionType(context: Context, typ: Type) extends Valida
 final case class EEmptyCase(context: Context) extends ValidationError {
   protected def prettyInternal: String = "empty case"
 }
+final case class EClashingPatternVariables(context: Context, varName: ExprVarName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"$varName is used more than one in pattern"
+}
 final case class EExpectedTemplatableType(context: Context, conName: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
-
+}
+final case class EExpectedExceptionableType(context: Context, conName: TypeConName)
+    extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
@@ -352,7 +409,7 @@ final case class EForbiddenPartyLiterals(context: Context, ref: PartyLiteralRef)
 final case class ECollision(
     pkgId: PackageId,
     entity1: NamedEntity,
-    entity2: NamedEntity
+    entity2: NamedEntity,
 ) extends ValidationError {
 
   assert(entity1.fullyResolvedName == entity2.fullyResolvedName)
@@ -363,4 +420,20 @@ final case class ECollision(
 
   override protected def prettyInternal: String =
     s"collision between ${entity1.pretty} and ${entity2.pretty}"
+}
+
+final case class EModuleVersionDependencies(
+    pkgId: PackageId,
+    pkgLangVersion: LanguageVersion,
+    depPkgId: PackageId,
+    dependencyLangVersion: LanguageVersion,
+) extends ValidationError {
+
+  assert(pkgId != depPkgId)
+  assert(pkgLangVersion < dependencyLangVersion)
+
+  override protected def prettyInternal: String =
+    s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
+
+  override def context: Context = NoContext
 }

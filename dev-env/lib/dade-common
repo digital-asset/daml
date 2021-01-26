@@ -85,12 +85,20 @@ dadeGetOutput() {
 #     relalized into. This is necessary, since Nix's --add-root produces a
 #     unpredictable symlink name.
 #   force: if set to 1, forces re-initialization of the tool.
+#   target: the output location (defaults to "$DADE_GC_ROOTS/$attribute").
 buildTool() {
-  local attr=$1
+  local attribute=$1
   local outputName=$2
   local force=$3
   shift 3
-  local target="$DADE_GC_ROOTS/$attr"
+  if [[ $# -gt 0 ]]; then
+      local target=$1
+      local customTarget=1
+      shift 1
+  else
+      local target="$DADE_GC_ROOTS/$attribute"
+      local customTarget=0
+  fi
   local hashfile="${target}.hash"
   local hash="nope"
   local currentHash="$(dadeBaseHash)"
@@ -105,30 +113,41 @@ buildTool() {
   if [[ ! -e "$DADE_BUILD_RESULT" || "$force" -eq 1 || "$hash" != "$currentHash" ]]; then
     set -e
     test "$force" -eq 1 && forced=" (forced)"
-    errcho "Building tools.${attr}${forced}..."
+    errcho "Building tools.${attribute}${forced}..."
     # Allow to fail, so we can capture outpath and to capture the exit code too.
     set +e
-    outpath=$(nix-build "${DADE_BASE_ROOT}/nix/default.nix" -A tools.$attr -Q -o "${target}")
+    outpath=$(nix-build "${DADE_BASE_ROOT}/nix/default.nix" -A "tools.${attribute}" -Q -o "${target}")
     local dade_build_exit_code=$?
     set -e
     if [[ "$dade_build_exit_code" != "0" ]]; then
-      errcho "Build of tools.$attr has failed!"
+      errcho "Build of tools.$attribute has failed!"
       exit 1
     fi
-    errcho "Built tools.$attr in $outpath and linked to $DADE_BUILD_RESULT"
-    printf "$currentHash" >| "$hashfile"
+    errcho "Built tools.$attribute in $outpath and linked to $DADE_BUILD_RESULT"
+    if [[ $customTarget -eq 0 ]]; then
+        printf "$currentHash" >| "$hashfile"
+    fi
     set +e
   fi
 }
 
 # execTool <attribute> <outputName> <binary>
 execTool() {
-  local attr=$1
+  local attribute=$1
   local outputName=$2
   local binary=$3
   shift 3
   [[ $PATH =~ (^|.*:)$DADE_DEVENV_DIR/bin($|:.*) ]] || \
     eval "$(${DADE_DEVENV_DIR}/bin/dade assist)"
-  buildTool $attr $outputName 0
+  buildTool $attribute $outputName 0
   exec "$(readlink "$DADE_BUILD_RESULT")/bin/$binary" "$@"
+}
+
+# linkTool <attribute> <outputName> <target>
+linkTool() {
+  local attribute=$1
+  local outputName=$2
+  local target=$3
+  shift 3
+  buildTool $attribute $outputName 1 $target
 }

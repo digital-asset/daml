@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -8,5 +8,5 @@ module DA.Time.Types
   ) where
 
 -- | The `RelTime` type describes a time offset, i.e. relative time.
-newtype RelTime =
+newtype RelTime = -- | HIDE
   RelTime with microseconds : Int

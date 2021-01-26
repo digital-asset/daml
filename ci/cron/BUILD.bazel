@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
@@ -8,7 +8,9 @@ da_haskell_binary(
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
+        "async",
         "base",
+        "bytestring",
         "case-insensitive",
         "containers",
         "directory",
@@ -17,12 +19,19 @@ da_haskell_binary(
         "http-client",
         "http-client-tls",
         "http-types",
+        "monad-loops",
+        "network-uri",
+        "optparse-applicative",
         "process",
         "regex-tdfa",
+        "safe",
+        "safe-exceptions",
+        "semver",
         "split",
         "text",
         "unordered-containers",
         "utf8-string",
+        "vector",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

@@ -1,0 +1,20 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+version: 0.1.0
+source: daml
+parties:
+- Alice
+- Bob
+- Charlie
+dependencies:
+- daml-prim
+- daml-stdlib
+- daml-trigger
+sandbox-options:
+- --wall-clock-time
+- --ledgerid=__PROJECT_NAME__-sandbox
+start-navigator: false
+codegen:
+  js:
+    output-directory: ui/daml.js
+    npm-scope: daml.js

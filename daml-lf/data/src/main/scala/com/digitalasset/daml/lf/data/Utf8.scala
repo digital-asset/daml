@@ -1,13 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf
+package data
 
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
+import com.google.common.io.BaseEncoding
+import com.google.protobuf.ByteString
+import scalaz.Order
+
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
 // The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
@@ -30,13 +35,13 @@ object Utf8 {
     arr.result()
   }
 
-  def getBytes(s: String): Array[Byte] =
-    s.getBytes(StandardCharsets.UTF_8)
+  def getBytes(s: String): Bytes =
+    Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
   def sha256(s: String): String = {
     val digest = MessageDigest.getInstance("SHA-256")
-    val array = digest.digest(getBytes(s))
-    array.map("%02x" format _).mkString
+    digest.update(getBytes(s).toByteBuffer)
+    BaseEncoding.base16().lowerCase().encode(digest.digest())
   }
 
   def implode(ts: ImmArray[String]): String =
@@ -61,15 +66,21 @@ object Utf8 {
     lp(0)
   }
 
+  object ImplicitOrder {
+    implicit val `String Utf8 Order`: Order[String] = scalaz.Order fromScalaOrdering Ordering
+  }
+
   def unpack(s: String): ImmArray[Long] =
-    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).toIterable)
+    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).iterator.to(Iterable))
 
   @throws[IllegalArgumentException]
   def pack(codePoints: ImmArray[Long]): String = {
     val builder = new StringBuilder()
     for (cp <- codePoints) {
-      if (Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
-        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE) {
+      if (
+        Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
+        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE
+      ) {
         // cp is a legal code point from the Basic Multilingual Plan,
         // then it needs only one UTF16 Char to be encoded.
         builder += cp.toChar

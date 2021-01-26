@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import scala.concurrent.Future
 
 object FailingResourceOwner {
-  def apply[T](): ResourceOwner[T] =
+  def apply[T](): AbstractResourceOwner[TestContext, T] =
     new TestResourceOwner[T](
       Future.failed(new FailingResourceFailedToOpen),
       _ => Future.failed(new TriedToReleaseAFailedResource),

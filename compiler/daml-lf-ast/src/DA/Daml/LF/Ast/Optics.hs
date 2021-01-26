@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -57,9 +57,10 @@ _PRSelfModule modName = prism (Qualified PRSelf modName) $ \case
   q -> Left q
 
 templateChoiceExpr :: Traversal' TemplateChoice Expr
-templateChoiceExpr f (TemplateChoice loc name consuming actor selfBinder argBinder typ update) =
+templateChoiceExpr f (TemplateChoice loc name consuming controllers observers selfBinder argBinder typ update) =
   TemplateChoice loc name consuming
-  <$> f actor
+  <$> f controllers
+  <*> traverse f observers
   <*> pure selfBinder
   <*> pure argBinder
   <*> pure typ
@@ -76,16 +77,17 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (traverse . templateKeyExpr) f key
 
 templateKeyExpr :: Traversal' TemplateKey Expr
-templateKeyExpr f (TemplateKey typ body maintainers) = TemplateKey
-  <$> pure typ
-  <*> f body
+templateKeyExpr f (TemplateKey typ body maintainers) =
+  TemplateKey typ
+  <$> f body
   <*> f maintainers
 
 moduleExpr :: Traversal' Module Expr
-moduleExpr f (Module name path flags synonyms dataTypes values templates) =
+moduleExpr f (Module name path flags synonyms dataTypes values templates exceptions) =
   Module name path flags synonyms dataTypes
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
+  <*> pure exceptions
 
 dataConsType :: Traversal' DataCons Type
 dataConsType f = \case
@@ -166,6 +168,7 @@ instance MonoTraversable ModuleRef IsSerializable
 instance MonoTraversable ModuleRef DataCons
 instance MonoTraversable ModuleRef DefDataType
 instance MonoTraversable ModuleRef DefTypeSyn
+instance MonoTraversable ModuleRef DefException
 
 instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest

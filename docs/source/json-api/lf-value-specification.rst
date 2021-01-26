@@ -1,11 +1,11 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML-LF JSON Encoding
+Daml-LF JSON Encoding
 #####################
 
-We describe how to decode and encode DAML-LF values as JSON. For each
-DAML-LF type we explain what JSON inputs we accept (decoding), and what
+We describe how to decode and encode Daml-LF values as JSON. For each
+Daml-LF type we explain what JSON inputs we accept (decoding), and what
 JSON output we produce (encoding).
 
 The output format is parameterized by two flags::
@@ -13,15 +13,15 @@ The output format is parameterized by two flags::
     encodeDecimalAsString: boolean
     encodeInt64AsString: boolean
 
-The suggested defaults for both of these flags is false.  If the
-intended recipient is written in JavaScript, however, note that the
-JavaScript data model will decode these as numbers, discarding data in
-some cases; encode-as-String avoids this, as mentioned with respect to
-``JSON.parse`` below.
+The suggested defaults for both of these flags is false. If the intended
+recipient is written in JavaScript, however, note that the JavaScript data
+model will decode these as numbers, discarding data in some cases;
+encode-as-String avoids this, as mentioned with respect to ``JSON.parse``
+below. For that reason, the HTTP JSON API Service uses ``true`` for both flags.
 
 Note that throughout the document the decoding is type-directed. In
-other words, the same JSON value can correspond to many DAML-LF values,
-and the expected DAML-LF type is needed to decide which one.
+other words, the same JSON value can correspond to many Daml-LF values,
+and the expected Daml-LF type is needed to decide which one.
 
 ContractId
 **********
@@ -47,7 +47,7 @@ treated them as the equivalent JSON number::
 Note that JSON numbers would be enough to represent all
 Decimals. However, we also accept strings because in many languages
 (most notably JavaScript) use IEEE Doubles to express JSON numbers, and
-IEEE Doubles cannot express DAML-LF Decimals correctly. Therefore, we
+IEEE Doubles cannot express Daml-LF Decimals correctly. Therefore, we
 also accept strings so that JavaScript users can use them to specify
 Decimals that do not fit in IEEE Doubles.
 
@@ -84,7 +84,7 @@ If encodeDecimalAsString is set, decimals are encoded as strings, using
 the format ``-?[0-9]{1,28}(\.[0-9]{1,10})?``. If encodeDecimalAsString
 is not set, they are encoded as JSON numbers, also using the format
 ``-?[0-9]{1,28}(\.[0-9]{1,10})?``.
- 
+
 Note that the flag encodeDecimalAsString is useful because it lets
 JavaScript consumers consume Decimals safely with the standard
 JSON.parse.
@@ -128,7 +128,7 @@ Output
 If encodeInt64AsString is set, Int64s are encoded as strings, using the
 format ``-?[0-9]+``. If encodeInt64AsString is not set, they are encoded as
 JSON numbers, also using the format ``-?[0-9]+``.
- 
+
 Note that the flag encodeInt64AsString is useful because it lets
 JavaScript consumers consume Int64s safely with the standard
 ``JSON.parse``.
@@ -140,7 +140,17 @@ Input
 =====
 
 Timestamps are represented as ISO 8601 strings, rendered using the
-format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
+format ``yyyy-mm-ddThh:mm:ss.ssssssZ``::
+
+    1990-11-09T04:30:23.123456Z
+    9999-12-31T23:59:59.999999Z
+
+Parsing is a little bit more flexible and uses the format
+``yyyy-mm-ddThh:mm:ss(\.s+)?Z``, i.e. it's OK to omit the microsecond part
+partially or entirely, or have more than 6 decimals. Sub-second data beyond
+microseconds will be dropped. The UTC timezone designator must be included. The
+rationale behind the inclusion of the timezone designator is minimizing the
+risk that users pass in local times. Valid examples::
 
     1990-11-09T04:30:23.1234569Z
     1990-11-09T04:30:23Z
@@ -148,12 +158,7 @@ format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
     0001-01-01T00:00:00Z
     9999-12-31T23:59:59.999999Z
 
-It's OK to omit the microsecond part partially or entirely. Sub-second
-data beyond microseconds will be dropped. The UTC timezone designator
-must be included. The rationale behind the inclusion of the timezone
-designator is minimizing the risk that users pass in local times.
-
-The timestamp must be between the bounds specified by DAML-LF and ISO
+The timestamp must be between the bounds specified by Daml-LF and ISO
 8601, [0001-01-01T00:00:00Z, 9999-12-31T23:59:59.999999Z].
 
 JavaScript
@@ -234,7 +239,7 @@ Represented as an ISO 8601 date rendered using the format
     9999-12-31
     0001-01-01
 
-The dates must be between the bounds specified by DAML-LF and ISO 8601,
+The dates must be between the bounds specified by Daml-LF and ISO 8601,
 [0001-01-01, 9999-99-99].
 
 Text
@@ -261,7 +266,7 @@ And as arrays::
 
     [ v₁, ..., vₙ ]
 
-Note that DAML-LF record fields are ordered. So if we have
+Note that Daml-LF record fields are ordered. So if we have
 
 ::
 
@@ -273,8 +278,8 @@ fields in order::
     [42, true]
 
 The motivation for the array format for records is to allow specifying
-tuple types closer to what it looks like in DAML. Note that a DAML
-tuple, i.e. (42, True), will be compiled to a DAML-LF record ``Tuple2 {
+tuple types closer to what it looks like in Daml. Note that a Daml
+tuple, i.e. (42, True), will be compiled to a Daml-LF record ``Tuple2 {
 _1 = 42, _2 = True }``.
 
 Output
@@ -291,14 +296,24 @@ Lists are represented as
 
     [v₁, ..., vₙ]
 
-Map
-***
+TextMap
+*******
 
-Maps are represented as objects:
+TextMaps are represented as objects:
 
 ::
 
     { k₁: v₁, ..., kₙ: vₙ }
+
+GenMap
+******
+
+GenMaps are represented as lists of pairs::
+
+    [ [k₁, v₁], [kₙ, vₙ] ]
+
+Order does not matter.  However, any duplicate keys will cause the map
+to be treated as invalid.
 
 Optional
 ********
@@ -317,9 +332,9 @@ A few examples, using the form
 
 ::
 
-    JSON  -->  DAML-LF  :  Expected DAML-LF type
+    JSON  -->  Daml-LF  :  Expected Daml-LF type
 
-to make clear what the target DAML-LF type is::
+to make clear what the target Daml-LF type is::
 
     null    -->  None                  : Optional Int64
     null    -->  None                  : Optional (Optional Int64)
@@ -331,7 +346,7 @@ to make clear what the target DAML-LF type is::
     ...
 
 Finally, if Optional values appear in records, they can be omitted to
-represent None. Given DAML-LF types
+represent None. Given Daml-LF types
 
 ::
 
@@ -356,7 +371,7 @@ of key to determine what keys are present in the Map to begin with.  Nor
 does it apply to the ``[f₁, ..., fₙ]`` record form; ``Depth1 None`` in
 the array notation must be written as ``[null]``.
 
-Type variables may appear in the DAML-LF language, but are always
+Type variables may appear in the Daml-LF language, but are always
 resolved before deciding on a JSON encoding.  So, for example, even
 though ``Oa`` doesn't appear to contain a nested ``Optional``, it may
 contain a nested ``Optional`` by virtue of substituting the type
@@ -400,14 +415,14 @@ These are all valid JSON encodings for values of type Foo::
     {"tag": "Quux", "value": null}
     {"tag": "Quux", "value": 42}
 
-Note that DAML data types with named fields are compiled by factoring
+Note that Daml data types with named fields are compiled by factoring
 out the record. So for example if we have
 
 ::
 
     data Foo = Bar {f1: Int64, f2: Bool} | Baz
 
-We'll get in DAML-LF
+We'll get in Daml-LF
 
 ::
 

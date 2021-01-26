@@ -1,8 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.value.Value._
+package com.daml.lf
+package engine
+
+import com.daml.lf.value.Value._
 
 //TODO: Errors
 sealed trait Error {
@@ -39,15 +41,27 @@ object Error {
 
 final case class ContractNotFound(ci: ContractId) extends Error {
   override def msg = s"Contract could not be found with id $ci"
-  override def detailMsg = msg
+  override def detailMsg: String = msg
 }
 
 final case class ValidationError(override val msg: String)
     extends RuntimeException(s"ValidationError: $msg", null, true, false)
     with Error {
-  override def detailMsg = msg
+  override def detailMsg: String = msg
+}
+
+final case class ReplayMismatch(
+    mismatch: transaction.ReplayMismatch[transaction.NodeId, ContractId]
+) extends RuntimeException(s"ValidationError: ${mismatch.msg}", null, true, false)
+    with Error {
+  override def msg: String = mismatch.msg
+  override def detailMsg: String = mismatch.msg
 }
 
 final case class AuthorizationError(override val msg: String) extends Error {
-  override def detailMsg = msg
+  override def detailMsg: String = msg
+}
+
+final case class SerializationError(override val msg: String) extends Error {
+  override def detailMsg: String = s"Cannot serialize the transaction: $msg"
 }

@@ -1,20 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.refinements
+package com.daml.ledger.api.refinements
 
-import java.time.{Duration, Instant}
+import com.daml.ledger.api.refinements.ApiTypes._
+import com.daml.ledger.api.v1.commands.Command.Command.Create
+import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v1.value.Identifier
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.refinements.ApiTypes._
-import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.google.protobuf.timestamp.Timestamp
-import org.scalatest.{Matchers, WordSpec}
-
-class CompositeCommandAdapterUT extends WordSpec with Matchers {
+class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
 
   CompositeCommandAdapter.getClass.getSimpleName should {
 
@@ -22,7 +19,9 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
       val commands =
         Seq(
           Command(
-            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))))
+            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))
+          )
+        )
 
       val submittedTraceContext = Some(TraceContext(1, 2, 3, Some(4L), true))
       val compositeCommand = CompositeCommand(
@@ -30,28 +29,17 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
         Party("party"),
         CommandId("commandId"),
         WorkflowId("workflowId"),
-        submittedTraceContext
+        submittedTraceContext,
       )
-
-      val timeProvider = TimeProvider.Constant(Instant.ofEpochSecond(60))
 
       val submitRequest = CompositeCommandAdapter(
         LedgerId("ledgerId"),
         ApplicationId("applicationId"),
-        Duration.ofMinutes(1),
-        timeProvider
       ).transform(compositeCommand)
 
       submitRequest.commands shouldBe Some(
-        Commands(
-          "ledgerId",
-          "workflowId",
-          "applicationId",
-          "commandId",
-          "party",
-          Some(Timestamp(60, 0)),
-          Some(Timestamp(120, 0)),
-          commands))
+        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands)
+      )
 
       submitRequest.traceContext shouldBe submittedTraceContext
     }

@@ -41,7 +41,7 @@ repo=$(jq -er '.repo' < "$source")
 branch=$(jq -er '.branch // ""' < "$source")
 
 if [[ -n $branch ]]; then
-  rev=$(curl -sfL "https://api.github.com/repos/$owner/$repo/git/refs/heads/$branch" | jq -r .object.sha)
+  rev=$(curl -sSfL "https://api.github.com/repos/$owner/$repo/git/refs/heads/$branch" | jq -r .object.sha)
 else
   rev=$(jq -er '.rev' < "$source")
 fi

@@ -1,20 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
 import java.math.BigDecimal
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Time}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.testing.parser.Implicits._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.language.implicitConversions
 
-class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matchers {
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -33,7 +35,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       )
 
       forEvery(testCases)((stringToParse, expectedKind) =>
-        parseKind(stringToParse) shouldBe Right(expectedKind))
+        parseKind(stringToParse) shouldBe Right(expectedKind)
+      )
     }
 
     "does not parse keywords alone" in {
@@ -63,10 +66,15 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "Arrow" -> BTArrow,
         "Option" -> BTOptional,
         "TextMap" -> BTTextMap,
+        "AnyException" -> BTAnyException,
+        "GeneralError" -> BTGeneralError,
+        "ArithmeticError" -> BTArithmeticError,
+        "ContractError" -> BTContractError,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
-        parseType(stringToParse) shouldBe Right(TBuiltin(expectedBuiltinType)))
+        parseType(stringToParse) shouldBe Right(TBuiltin(expectedBuiltinType))
+      )
     }
 
     "parses properly type constructor" in {
@@ -78,11 +86,14 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           defaultPackageId,
           QualifiedName(
             DottedName.assertFromSegments(ImmArray("A", "B").toSeq),
-            DottedName.assertFromSegments(ImmArray("C", "D").toSeq)))
+            DottedName.assertFromSegments(ImmArray("C", "D").toSeq),
+          ),
+        ),
       )
 
       forEvery(testCases)((stringToParse, expectedTypeConstructor) =>
-        parseType(stringToParse) shouldBe Right(TTyCon(expectedTypeConstructor)))
+        parseType(stringToParse) shouldBe Right(TTyCon(expectedTypeConstructor))
+      )
     }
 
     "parses properly types" in {
@@ -96,12 +107,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "a -> b" -> TApp(TApp(TBuiltin(BTArrow), α), β),
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
-        "<f1: a, f2: Bool, f3:Mod:T>" -> TStruct(
-          ImmArray[(FieldName, Type)](n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
+        "<f1: a, f2: Bool, f3:Mod:T>" ->
+          TStruct(Struct.assertFromSeq(List(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))),
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>
-        parseType(stringToParse) shouldBe Right(expectedType))
+        parseType(stringToParse) shouldBe Right(expectedType)
+      )
     }
 
     "does not parse keywords alone" in {
@@ -116,11 +128,12 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" -> "expected primitive constructor",
         "()" -> PCUnit,
         "False" -> PCFalse,
-        "True" -> PCTrue
+        "True" -> PCTrue,
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimCon(expectedCons)))
+        parseExpr(stringToParse) shouldBe Right(EPrimCon(expectedCons))
+      )
     }
 
     "parses properly literal" in {
@@ -143,7 +156,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimLit(expectedCons)))
+        parseExpr(stringToParse) shouldBe Right(EPrimLit(expectedCons))
+      )
     }
 
     "reject literal that do not map a valid value" in {
@@ -161,7 +175,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "1970-01-01T00:61:00.000000Z",
         """ "\a" """,
         """ '\a' """,
-        """ 'français' """
+        """ 'français' """,
       )
 
       forEvery(testCases)(
@@ -204,35 +218,30 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "TO_TEXT_PARTY" -> BToTextParty,
         "TO_TEXT_DATE" -> BToTextDate,
         "ERROR" -> BError,
-        "LESS_INT64" -> BLessInt64,
         "LESS_NUMERIC" -> BLessNumeric,
-        "LESS_TEXT" -> BLessText,
-        "LESS_TIMESTAMP" -> BLessTimestamp,
-        "LESS_DATE" -> BLessDate,
-        "LESS_EQ_INT64" -> BLessEqInt64,
         "LESS_EQ_NUMERIC" -> BLessEqNumeric,
-        "LESS_EQ_TEXT" -> BLessEqText,
-        "LESS_EQ_TIMESTAMP" -> BLessEqTimestamp,
-        "LESS_EQ_DATE" -> BLessEqDate,
-        "GREATER_INT64" -> BGreaterInt64,
         "GREATER_NUMERIC" -> BGreaterNumeric,
-        "GREATER_TEXT" -> BGreaterText,
-        "GREATER_TIMESTAMP" -> BGreaterTimestamp,
-        "GREATER_DATE" -> BGreaterDate,
-        "GREATER_EQ_INT64" -> BGreaterEqInt64,
         "GREATER_EQ_NUMERIC" -> BGreaterEqNumeric,
-        "GREATER_EQ_TEXT" -> BGreaterEqText,
-        "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
-        "GREATER_EQ_DATE" -> BGreaterEqDate,
         "EQUAL_NUMERIC" -> BEqualNumeric,
         "EQUAL_LIST" -> BEqualList,
         "EQUAL_CONTRACT_ID" -> BEqualContractId,
         "EQUAL" -> BEqual,
+        "LESS" -> BLess,
+        "LESS_EQ" -> BLessEq,
+        "GREATER" -> BGreater,
+        "GREATER_EQ" -> BGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
+        "MAKE_GENERAL_ERROR" -> BMakeGeneralError,
+        "MAKE_ARITHMETIC_ERROR" -> BMakeArithmeticError,
+        "MAKE_CONTRACT_ERROR" -> BMakeContractError,
+        "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
+        "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
+        "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
-        parseExpr(stringToParse) shouldBe Right(EBuiltin(expectedBuiltin)))
+        parseExpr(stringToParse) shouldBe Right(EBuiltin(expectedBuiltin))
+      )
     }
 
     "parses properly expressions " in {
@@ -274,7 +283,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         """\ (x:Int64) (y:Bool) -> <f1=x, f2=y>""" -> EAbs(
           (x.value, t"Int64"),
           e"""\ (y:Bool) -> <f1=x, f2=y>""",
-          None),
+          None,
+        ),
         """/\ (a:*). x @a""" ->
           ETyAbs(n"a" -> KStar, e"x @a"),
         "Nil @a" ->
@@ -306,11 +316,19 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "case e of True -> False | False -> True" ->
           ECase(
             e"e",
-            ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True"))),
+            ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True")),
+          ),
+        "to_any_exception @Mod:E exception" ->
+          EToAnyException(E, e"exception"),
+        "from_any_exception @Mod:E anyException" ->
+          EFromAnyException(E, e"anyException"),
+        "throw @Unit @Mod:E exception" ->
+          EThrow(TUnit, E, e"exception"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
-        parseExpr(stringToParse) shouldBe Right(expectedExp))
+        parseExpr(stringToParse) shouldBe Right(expectedExp)
+      )
     }
 
     "parses properly scenarios" in {
@@ -324,7 +342,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "sbind x: tau <- e1 ; y: sigma <- e2 in f x y" ->
           ScenarioBlock(
             ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
-            e"f x y"),
+            e"f x y",
+          ),
         "commit @tau party body" ->
           ScenarioCommit(e"party", e"body", t"tau"),
         "must_fail_at @tau party update" ->
@@ -335,11 +354,12 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           ScenarioGetTime,
         "sget_party party" ->
           ScenarioGetParty(e"party"),
-        "sembed_expr @tau e" -> ScenarioEmbedExpr(t"tau", e"e")
+        "sembed_expr @tau e" -> ScenarioEmbedExpr(t"tau", e"e"),
       )
 
       forEvery(testCases)((stringToParse, expectedScenario) =>
-        parseExpr(stringToParse) shouldBe Right(EScenario(expectedScenario)))
+        parseExpr(stringToParse) shouldBe Right(EScenario(expectedScenario))
+      )
     }
 
     "parses update properly" in {
@@ -353,15 +373,16 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "ubind x: tau <- e1; y: sigma <- e2 in f x y" ->
           UpdateBlock(
             ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
-            e"f x y"),
+            e"f x y",
+          ),
         "create @Mod:T e" ->
           UpdateCreate(T.tycon, e"e"),
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
-          UpdateExercise(T.tycon, n"Choice", e"cid", None, e"arg"),
-        "exercise_with_actors @Mod:T Choice cid actor arg" ->
-          UpdateExercise(T.tycon, n"Choice", e"cid", Some(e"actor"), e"arg"),
+          UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
+        "exercise_by_key @Mod:T Choice key arg" ->
+          UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->
           UpdateFetchByKey(RetrieveByKey(T.tycon, e"e")),
         "lookup_by_key @Mod:T e" ->
@@ -370,10 +391,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           UpdateGetTime,
         "uembed_expr @tau e" ->
           UpdateEmbedExpr(t"tau", e"e"),
+        "try @tau body catch err -> handler err" ->
+          UpdateTryCatch(t"tau", e"body", n"err", e"handler err"),
       )
 
       forEvery(testCases)((stringToParse, expectedUpdate) =>
-        parseExpr(stringToParse) shouldBe Right(EUpdate(expectedUpdate)))
+        parseExpr(stringToParse) shouldBe Right(EUpdate(expectedUpdate))
+      )
     }
 
     "does not parse keywords alone" in {
@@ -401,33 +425,34 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val varDef = DDataType(
         false,
         ImmArray(n"a" -> KStar),
-        DataVariant(ImmArray(n"Leaf" -> t"Unit", n"Node" -> t"Mod:Tree.Node a"))
+        DataVariant(ImmArray(n"Leaf" -> t"Unit", n"Node" -> t"Mod:Tree.Node a")),
       )
       val recDef = DDataType(
         false,
         ImmArray(n"a" -> KStar),
-        DataRecord(
-          ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a"),
-          None)
+        DataRecord(ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a")),
       )
       val enumDef = DDataType(
         false,
         ImmArray.empty,
-        DataEnum(ImmArray(n"Red", n"Green", n"Blue"))
+        DataEnum(ImmArray(n"Red", n"Green", n"Blue")),
       )
 
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(
-            DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
-            DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef,
-            DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
-          ),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(
+              DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
+              DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef,
+              DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef,
+            ),
+            templates = List.empty,
+            exceptions = List.empty,
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
 
@@ -446,13 +471,16 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DValue(t"Int64 -> Int64", true, e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
 
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("fact") -> valDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("fact") -> valDef),
+            templates = List.empty,
+            exceptions = List.empty,
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
 
@@ -462,7 +490,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         """
         module Mod {
 
-          record Person = { person: Party, name: Text } ;
+          record @serializable Person = { person: Party, name: Text } ;
 
           template (this : Person) =  {
             precondition True,
@@ -470,8 +498,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Sleep : Unit by Cons @Party [person] (Nil @Party) to upure @Unit (),
-              choice @nonConsuming Nap (i : Int64) : Int64 by Cons @Party [person] (Nil @Party) to upure @Int64 i
+              choice Sleep (self) (u:Unit) : ContractId Mod:Person
+                , controllers Cons @Party [person] (Nil @Party)
+                to upure @(ContractId Mod:Person) self,
+              choice @nonConsuming Nap (self) (i : Int64): Int64
+                , controllers Cons @Party [person] (Nil @Party)
+                , observers Nil @Party
+                to upure @Int64 i,
+              choice @nonConsuming PowerNap (self) (i : Int64): Int64
+                , controllers Cons @Party [person] (Nil @Party)
+                , observers Cons @Party [person] (Nil @Party)
+                to upure @Int64 i
             },
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
           } ;
@@ -489,38 +526,54 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               name = n"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = n"this",
-              argBinder = None -> TBuiltin(BTUnit),
-              returnType = t"Unit",
-              update = e"upure @Unit ()"
+              choiceObservers = None,
+              selfBinder = n"self",
+              argBinder = n"u" -> TUnit,
+              returnType = t"ContractId Mod:Person",
+              update = e"upure @(ContractId Mod:Person) self",
             ),
             n"Nap" -> TemplateChoice(
               name = n"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = n"this",
-              argBinder = Some(n"i") -> TBuiltin(BTInt64),
+              choiceObservers = Some(e"Nil @Party"),
+              selfBinder = n"self",
+              argBinder = n"i" -> TInt64,
               returnType = t"Int64",
-              update = e"upure @Int64 i"
-            )
+              update = e"upure @Int64 i",
+            ),
+            n"PowerNap" -> TemplateChoice(
+              name = n"PowerNap",
+              consuming = false,
+              controllers = e"Cons @Party [person] (Nil @Party)",
+              choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
+              selfBinder = n"self",
+              argBinder = n"i" -> TInt64,
+              returnType = t"Int64",
+              update = e"upure @Int64 i",
+            ),
           ),
           observers = e"Cons @Party ['Alice'] (Nil @Party)",
-          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p"""))
+          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
-        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"), Some(template))
+        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text")),
       )
+      val name = DottedName.assertFromString("Person")
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("Person") -> recDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(name -> recDef),
+            templates = List(name -> template),
+            exceptions = List.empty,
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
 
@@ -530,7 +583,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         """
           module Mod {
 
-            record R = { } ;
+            record @serializable R = { } ;
 
             template (this : R) =  {
               precondition True,
@@ -550,40 +603,103 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           agreementText = e""" "Agreement" """,
           choices = Map.empty,
           observers = e"Nil @Unit",
-          key = None
+          key = None,
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
-        DataRecord(ImmArray.empty, Some(template))
+        DataRecord(ImmArray.empty),
       )
+      val name = DottedName.assertFromString("R")
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("R") -> recDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(name -> recDef),
+            templates = List(name -> template),
+            exceptions = List.empty,
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
   }
 
+  "parses exception definition" in {
+
+    val p =
+      """
+          module Mod {
+
+            record @serializable Exception = { message: Text } ;
+
+            exception Exception = {
+              message \(e: Mod:Exception) -> Mod:Exception {message} e
+            } ;
+          }
+      """
+
+    val recDef = DDataType(
+      true,
+      ImmArray.empty,
+      DataRecord(ImmArray(n"message" -> TText)),
+    )
+    val name = DottedName.assertFromString("Exception")
+    val exception = DefException(e"""\(e: Mod:Exception) -> Mod:Exception {message} e""")
+    parseModules(p) shouldBe Right(
+      List(
+        Module(
+          name = modName,
+          definitions = List(name -> recDef),
+          templates = List.empty,
+          exceptions = List(name -> exception),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    )
+
+  }
+
+  "parses location annotations" in {
+    e"loc(Mod, def, 0, 1, 2, 3) f" shouldEqual
+      ELocation(
+        Location(
+          defaultPackageId,
+          ModuleName.assertFromString("Mod"),
+          "def",
+          (0, 1),
+          (2, 3),
+        ),
+        EVar(n"f"),
+      )
+  }
+
+  "rejects bad location annotations" in {
+    a[ParsingError] should be thrownBy e"loc(Mod, def, 0, 1, 2, 3) f g"
+  }
+
   private val keywords = Table(
+    "Cons",
+    "Nil",
+    "Some",
+    "None",
     "forall",
     "let",
     "in",
     "with",
     "case",
     "of",
-    "sbind",
-    "ubind",
-    "create",
-    "fetch",
-    "exercise",
-    "by",
     "to",
+    "to_any",
+    "from_any",
+    "type_rep",
+    "loc",
+    "to_any_exception",
+    "from_any_exception",
+    "throw",
+    "catch",
   )
 
   private val modName = DottedName.assertFromString("Mod")
@@ -593,6 +709,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))
+  private val E: TTyCon = TTyCon(qualify("E"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
   private val α: TVar = TVar(n"a")
   private val β: TVar = TVar(n"b")

@@ -1,18 +1,45 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
-import com.digitalasset.daml.lf.validation.SpecUtil._
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
+import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
+
+  "Checker.checkKind" should {
+    "reject invalid kinds" in {
+
+      val negativeTestCases = Table(
+        "kinds",
+        k"*",
+        k"* -> *",
+        k"* -> * -> *",
+        k"(* -> *) -> *",
+        k"(nat -> *)",
+        k"nat -> * -> *",
+        k"* -> nat -> *",
+      )
+
+      val positiveTestCases = Table(
+        "kinds",
+        k"* -> nat",
+        k"* -> * -> nat",
+        k"(* -> nat) -> *",
+      )
+
+      forEvery(negativeTestCases)(env.checkKind)
+      forEvery(positiveTestCases)(k => an[ENatKindRightOfArrow] shouldBe thrownBy(env.checkKind(k)))
+    }
+  }
 
   "Checker.kindOf" should {
 
@@ -35,6 +62,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
         BTAny -> k"*",
+        BTAnyException -> k"*",
+        BTGeneralError -> k"*",
+        BTArithmeticError -> k"*",
+        BTContractError -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -42,7 +73,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers the proper kind for complex type" in {
+    "infers the proper kind for complex types" in {
 
       val testCases = Table(
         "type" -> "expected kind",
@@ -62,6 +93,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       forEvery(testCases) { (typ: Type, expectedKind: Kind) =>
         env.kindOf(typ) shouldBe expectedKind
       }
+    }
+
+    "reject ill-formed types" in {
+      an[ENatKindRightOfArrow] shouldBe thrownBy(env.kindOf(T"""∀ (τ: ⋆ → nat). Unit """))
     }
   }
 
@@ -196,6 +231,36 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
+        // ExpThrow
+        E"Λ (σ : ⋆). λ (e : ArithmeticError) →  (( throw @σ @ArithmeticError e ))" ->
+          T"∀ (σ : ⋆). ArithmeticError → (( σ ))",
+        E"Λ (σ : ⋆). λ (e : ContractError) →  (( throw @σ @ContractError e ))" ->
+          T"∀ (σ : ⋆). ContractError → (( σ ))",
+        E"Λ (σ : ⋆). λ (e : GeneralError) →  (( throw @σ @GeneralError e ))" ->
+          T"∀ (σ : ⋆). GeneralError → (( σ ))",
+        E"Λ (σ : ⋆). λ (e : Mod:E) →  (( throw @σ @Mod:E e ))" ->
+          T"∀ (σ : ⋆). Mod:E → (( σ ))",
+        // ExpToAnyException
+        E"λ (e : ArithmeticError ) → (( to_any_exception @ArithmeticError e ))" ->
+          T"ArithmeticError → (( AnyException ))",
+        E"λ (e : ContractError ) → (( to_any_exception @ContractError e ))" ->
+          T"ContractError → (( AnyException ))",
+        E"λ (e : GeneralError ) → (( to_any_exception @GeneralError e ))" ->
+          T"GeneralError → (( AnyException ))",
+        E"λ (e : Mod:E) → (( to_any_exception @Mod:E e ))" ->
+          T"Mod:E → (( AnyException ))",
+        // ExpFromAnyException
+        E"λ (e : AnyException) → (( from_any_exception @ArithmeticError e ))" ->
+          T"AnyException → (( Option ArithmeticError ))",
+        E"λ (e : AnyException) → (( from_any_exception @ContractError e ))" ->
+          T"AnyException → (( Option ContractError ))",
+        E"λ (e : AnyException) → (( from_any_exception @GeneralError e ))" ->
+          T"AnyException → (( Option GeneralError ))",
+        E"λ (e : AnyException) → (( from_any_exception @Mod:E e ))" ->
+          T"AnyException → (( Option Mod:E ))",
+        // UpdTryCatch
+        E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
+          T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -203,7 +268,45 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers proper type for Scenarios" in {
+    "not reject exhaustive patterns" in {
+
+      val testCases = Table(
+        "expression",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | Mod:Tree:Leaf x -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | Mod:Tree:Leaf x -> () |  Mod:Tree:Leaf x -> () | Mod:Tree:Node x → () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of _ -> () | Mod:Tree:Node x → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → () | Mod:Color:Green → () | Mod:Color:Blue → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Blue → () | Mod:Color:Green → () | Mod:Color:Red → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → () | Mod:Color:Blue → () | _ -> () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Green → () | _ -> () | Mod:Color:Red → () ))",
+        E"λ (e : Mod:Color) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Cons x y → () | Nil -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Nil -> () | Cons x y → () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Nil → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Cons x y → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of None → () | Some x -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of Some x -> () | None → () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of None -> () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of Some x → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of _ -> () ))",
+        E"λ (e : Bool) → (( case e of True → () | False → () ))",
+        E"λ (e : Bool) → (( case e of False → () | True → () ))",
+        E"λ (e : Bool) → (( case e of True → () | _ → () ))",
+        E"λ (e : Bool) → (( case e of False  → () | _ → () ))",
+        E"λ (e : Bool) → (( case e of _ → () ))",
+        E"(( case () of () → () ))",
+        E"(( case () of _ → () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:R τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → (( case e of _ -> () ))",
+      )
+
+      forEvery(testCases)(env.typeOf)
+    }
+
+    "infer proper type for Scenarios" in {
       val testCases = Table(
         "expression" ->
           "expected type",
@@ -243,18 +346,18 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"Mod:T → (( Update (ContractId Mod:T) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
           T"ContractId Mod:T → Int64 → (( Update Decimal ))",
-        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → (( exercise_with_actors @Mod:T Ch e₁ e₂ e₃ ))" ->
-          T"ContractId Mod:T → List Party → Int64 → (( Update Decimal ))",
+        E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
+          T"Party → Int64 → (( Update Decimal ))",
         E"λ (e: ContractId Mod:T) → (( fetch @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",
-        E"fetch_by_key @Mod:T 'Bob'" ->
-          T"Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩)",
-        E"lookup_by_key @Mod:T 'Bob'" ->
-          T"Update (Option (ContractId Mod:T))",
+        E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
+          T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
+        E"λ (e: Party) →  (( lookup_by_key @Mod:T 'Bob' ))" ->
+          T"Party → (( Update (Option (ContractId Mod:T)) ))",
         E"(( uget_time ))" ->
           T"(( Update Timestamp ))",
         E"Λ (τ : ⋆). λ (e: Update τ) →(( uembed_expr @τ e ))" ->
-          T"∀ (τ : ⋆). Update τ -> (( Update τ ))"
+          T"∀ (τ : ⋆). Update τ -> (( Update τ ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -262,7 +365,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "shadow variables properly" in {
+    "handle variable scope properly" in {
 
       val testCases = Table(
         "expression" ->
@@ -275,9 +378,11 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). σ → (( τ → τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( let x : τ = e₁ in let x : σ = e₂ in x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x ))" ->
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( let x : τ = f x in x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( τ ))",
+        E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x | Nil -> ERROR @σ "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ → σ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x ))" ->
+        E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x | _ -> ERROR @(τ  → τ) "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ  → τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Scenario σ) → (( sbind x: σ ← e in spure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( Scenario (τ  → τ) ))",
@@ -285,12 +390,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( τ → Scenario σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Scenario τ) (e₂: Scenario σ)  → (( sbind x: τ ← e₁ ; x: σ ← e₂ in spure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Scenario τ → Scenario σ → (( Scenario σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( sbind x : τ ← spure @τ (f x) in spure @τ x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Scenario τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( ubind x: σ ← e in upure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( Update (τ  → τ) ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( λ (x : τ) → ubind x: σ ← e in upure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( τ → Update σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Update τ) (e₂: Update σ)  → (( ubind x: τ ← e₁ ; x: σ ← e₂ in upure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update τ → Update σ → (( Update σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( ubind x : τ ← upure @τ (f x) in upure @τ x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Update τ ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -299,155 +408,343 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "reject ill formed terms" in {
-      val testCases = Table(
-        "non-well formed expression",
+
+      // In the following test cases we use the variable `nothing` when we
+      // cannot built an expression of the expected type. In those cases we
+      // expect the type checker to fail with the error we are testing before
+      // it tries to type check the variable `nothing`.
+      // Expressions of type τ, where τ has kind ⋆ → ⋆, are examples of
+      // such expressions that cannot be constructed.
+
+      val testCases = Table[Expr, PartialFunction[ValidationError, _]](
+        "non-well formed expression" -> "error",
         // ExpDefVar
-        E"x",
+        E"⸨ x ⸩" -> //
+          { case _: EUnknownExprVar => },
         // ExpApp
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) → (( e₁ e₂ ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : τ₂ → τ₃) (e₂ : τ₁) → (( e₁ e₂ ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : (τ₁ → τ₂) → τ₃) (e₂ : τ₁) → (( e₁ e₂ ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : Bool) (e₂ : τ₃) → (( e₁ e₂ ))",
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: EExpectedFunctionType => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : τ₂ → τ₃) (e₂ : τ₁) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : (τ₁ → τ₂) → τ₃) (e₂ : τ₁) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : Bool) (e₂ : τ₃) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: EExpectedFunctionType => },
+        // ExpTyAbs
+        E"Λ (τ : ⋆) . λ (e: τ) → ⸨ Λ (σ: ⋆ → nat) . e ⸩" -> //
+          { case _: ENatKindRightOfArrow => },
         // ExpTyApp
-        E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))",
-        E"Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆ → ⋆). σ α) → (( e @τ ))",
+        E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → ⸨ e @τ ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ: ⋆). λ (e : σ) → ⸨ e @τ ⸩" -> //
+          { case _: EExpectedUniversalType => },
         // ExpAbs
-        E"Λ  (τ : ⋆ → ⋆) (σ: ⋆) . λ (e: τ → σ) → λ (x : τ) → (( e x ))",
+        E"⸨ λ (x : List) → () ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpLet
-        E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → (( let x : τ₂ = e₁ in e₂ ))",
-        E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ (e₁ : τ) (e₂ : τ → σ) → (( let x : τ = e₁ in e₂ x ))",
-        // ExpLitDecimal
-        E"λ (f: Numeric 0 → Unit) → f (( 3.1415926536 ))",
+        E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → ⸨ let x : τ₂ = e₁ in e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ(e : σ) → ⸨ let x : τ = nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpListNil
-        E"Λ (τ : ⋆ → ⋆). (( Nil @τ ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ Nil @τ ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpListCons
-        E"Λ (τ : ⋆ → ⋆). λ (e₁ : τ) (e₂ : τ) (e : List τ) → (( Cons @τ [e₁, e₂] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) (e : List τ₁) → (( Cons @τ₁ [e₁, e₂] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → (( Cons @τ₁ [e₁] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → (( Cons @τ₁ [e₁] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₂) → (( Cons @τ₁ [e₁] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₁) → (( Cons @τ₂ [e₁] e ))",
-        E"Λ (τ : ⋆). λ (e : List τ) → (( Cons @τ [] e ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ Cons @τ [nothing] nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) (e : List τ₁) → ⸨ Cons @τ₁ [e₁, e₂] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₂) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂: ⋆). λ (e₁: τ₁) (e: τ₂) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₁) → ⸨ Cons @τ₂ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ Cons @τ [] e ⸩" -> //
+          { case _: EEmptyConsFront => },
         //ExpVal
-        E"(( Mod:g ))",
+        E"⸨ Mod:g ⸩" -> //
+          { case EUnknownDefinition(_, LEDataType(_)) => },
+        E"⸨ Mod:R ⸩" -> //
+          { case EUnknownDefinition(_, LEValue(_)) => },
         //ExpRecCon
-        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f2 =e₂ } ))",
-        E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f2 =e₂ } ))",
-        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f3 =e₂ } ))",
-        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁ } ))",
-        E"Λ (σ : ⋆) (τ: ⋆). λ (e₁ : Int64) (e₂ : List σ) (e₃:τ) → (( Mod:R @σ { f1 = e₁, f2 = e₂, f3 = e₃} ))",
+        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) → ⸨ Mod:R @σ { f1 = e₁, f2 = nothing } ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f3 = e₂ } ⸩" -> //
+          { case _: EFieldMismatch => },
+        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁ } ⸩" -> //
+          { case _: EFieldMismatch => },
+        E"Λ (σ : ⋆) (τ: ⋆). λ (e₁ : Int64) (e₂ : List σ) (e₃:τ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂, f3 = e₃} ⸩" -> //
+          { case _: EFieldMismatch => },
         // ExpRecProj
-        E"Λ (σ : ⋆ → ⋆). λ (e : Mod:R σ) → (( Mod:R @σ (e).f2 ))",
-        E"Λ (σ : ⋆). λ (e : Mod:R σ) → (( Mod:R @σ (e).f3 ))",
+        E"Λ (σ : ⋆ → ⋆). ⸨ Mod:R @σ {f2} nothing⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e : Mod:R σ) → ⸨ Mod:R @σ {f3} e ⸩" -> //
+          { case _: EUnknownField => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: Mod:R τ) → ⸨ Mod:R @σ {f1} e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: τ) → ⸨ Mod:R @σ {f1} e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpRecUpdate
-        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : List σ) → (( Mod:R @σ { e  with f3 = e₂ } ))",
-        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : Bool) → (( Mod:R @σ { e  with f2 = e₂ } ))",
+        E"Λ (σ: ⋆ → ⋆). λ (e: Int64) → ⸨ Mod:R @σ { nothing with f1 = e₁ } ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : List σ) → ⸨ Mod:R @σ { e  with f3 = e₂ } ⸩" -> //
+          { case _: EUnknownField => },
+        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : Bool) → ⸨ Mod:R @σ { e  with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: Mod:R τ) (e₂: List σ) → ⸨ Mod:R @τ { e  with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: Mod:R τ) (e₂: List σ) → ⸨ Mod:R @σ { e  with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ: ⋆). λ  (e: List σ) (e₂: List σ) → ⸨ Mod:R @σ { e with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpVarCon
-        E"Λ (σ : ⋆ → ⋆). λ (e : σ) → (( Mod:Tree:Leaf @σ e ))",
-        E"Λ (σ : ⋆). λ (e : σ) → (( Mod:Tree @σ Cons @σ [e] (Nil @σ) ))",
+        E"Λ (σ : ⋆ → ⋆). ⸨ Mod:Tree:Leaf @σ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ Mod:Tree:Leaf @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpStructCon
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁)  → (( ⟨ f₁ = e₁, f₁ = e₁ ⟩ ))",
+        E"Λ (τ₁: ⋆) (τ₂: ⋆). λ (e₁: τ₁) (e₂: τ₂) → ⸨ ⟨ f₁ = e₁, f₁ = e₂ ⟩ ⸩" -> //
+          { case _: EDuplicateField => },
         // ExpStructProj
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → (( (e).f3 ))",
+        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → ⸨ (e).f3 ⸩" -> //
+          { case _: EUnknownField => },
         // ExpStructUpdate
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → (( ⟨ e with f₃ = e₂ ⟩ ))",
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → (( ⟨ e with f₂ = e₃ ⟩ ))",
+        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → ⸨ ⟨ e with f₃ = e₂ ⟩ ⸩" -> //
+          { case _: EUnknownField => },
+        E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → ⸨ ⟨ e with f₂ = e₃ ⟩ ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpCaseVariant
-        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → ((  case e of Cons h t -> () ))",
-        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Mod:Tree:Node x -> () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Tree:Node x -> () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → ⸨ case e of Mod:Tree:Node x -> () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
+        // ExpCaseEnum
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Color:Red -> () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"λ (e : Mod:Color) → ⸨ case e of Mod:Color:Red -> () | Mod:Color:Green -> () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseNil
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of Nil → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Nil → () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ case e of Nil → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseCons
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of Cons x y → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Cons x y → () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e: List τ) → ⸨ case e of Cons x x → () | _ -> () ⸩" -> //
+          { case _: EClashingPatternVariables => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ case e of Cons x y → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseFalse & ExpCaseTrue
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of True → () ))",
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of False → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of True → () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of False → () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"λ (e : Bool) → ⸨ case e of True → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
+        E"λ (e : Bool) → ⸨ case e of False → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseUnit
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of () → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of () → () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
         // ExpCaseOr
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of ⸩" -> //
+          { case _: EEmptyCase => },
         // ExpToAny
-        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @Mod:R r ))",
-        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @(Mod:R τ) r ))",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @Mod:Tree t ))",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @(Mod:Tree τ) t ))",
-        E"Λ (τ : *). λ (t: ∀ (α : ⋆). Int64) → (( to_any @(∀ (α : ⋆). Int64) t ))",
-        E"Λ (τ : *). λ (t: List (Optional (∀ (α : ⋆). Int64))) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
+        E"⸨ to_any @Mod:R nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ :⋆). λ (r: Mod:R τ) → ⸨ to_any @(Mod:R τ) r ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: Mod:Tree τ) → ⸨ to_any @(Mod:Tree τ) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any @(∀ (α : ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: List (Option (∀ (α: ⋆). Int64))) → ⸨ to_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"λ (e: |Mod:S|) → ⸨ to_any @|Mod:S| e ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"⸨ to_any @Int64 (Nil @Int64) ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpFromAny
-        E"λ (t: Any) → (( from_any @Mod:R t ))",
-        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:R τ) t ))",
-        E"λ (t: Any) → (( from_any @Mod:Tree t ))",
-        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:Tree τ) t ))",
-        E"λ (t: Mod:T) → (( from_any @Mod:T t ))",
-        E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
-        E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
+        E"λ (t: Any) → ⸨ from_any @Mod:R t ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(Mod:R τ) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(Mod:Tree τ) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"λ (t: Mod:T) → ⸨ from_any @Mod:T t ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"λ (t: Any) → ⸨ from_any @(∀ (α: ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"λ (e: Any) → ⸨ from_any @|Mod:S| e ⸩" -> //
+          { case _: EExpectedAnyType => },
         // ExpTypeRep
-        E"(( type_rep @Mod:NoSuchType ))",
-        E"Λ (τ : *). (( type_rep @τ ))",
-        E"(( type_rep @(∀(τ : *) . Int64) ))",
+        E"⸨ type_rep @Mod:R ⸩" -> //
+          { case _: EKindMismatch => },
+        E"⸨ type_rep @Mod:NoSuchType ⸩" -> //
+          { case _: EUnknownDefinition => },
+        E"Λ (τ : ⋆). ⸨ type_rep @τ ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"⸨ type_rep @(∀(τ :⋆) . Int64) ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"⸨ type_rep @|Mod:S| ⸩" -> //
+          { case _: EExpectedAnyType => },
+        // ExpToAnyException
+        E"λ (r: Mod:T) → ⸨ to_any_exception @(Mod:T) r ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"λ (t: Bool) → ⸨ to_any_exception @Bool t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (e: |Mod:S|) → ⸨ to_any_exception  @|Mod:S| e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (e: ArithmeticError) → ⸨ to_any_exception @GeneralError e ⸩" -> //
+          { case _: ETypeMismatch => },
+        // ExpFromAnyException
+        E"λ (t: AnyException) → ⸨ from_any_exception @Mod:T t ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"λ (t: Any) → ⸨ from_any_exception @Bool t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (t: ∀ (α : ⋆). Int64) → ⸨ from_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (e: Any) → ⸨ from_any_exception  @|Mod:S| e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        // ExpThrow
+        E"⸨ throw @Mod:R @Mod:E nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"Λ (τ :⋆). λ (e : Bool) →  ⸨ throw @τ @Bool e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ :⋆). λ (e: ∀ (α : ⋆). Int64) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ :⋆). λ (e: |Mod:S|) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: σ) →  ⸨ throw @τ @Mod:E e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnPure
-        E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ spure @τ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ spure @σ e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnBlock
-        E"Λ (τ : ⋆ → ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂:τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (f: τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ))",
+        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂:τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (f: τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f ⸩" -> //
+          { case _: EExpectedScenarioType => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnCommit
-        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( commit @σ e₁ e₂ ))",
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ commit @τ e₁ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnMustFail
-        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @σ e₁ e₂ ))",
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ must_fail_at @τ e₁ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnPass
-        E"Λ (σ : ⋆). λ (e: σ) → (( pass e ))",
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ pass e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnGetParty
-        E"Λ (σ : ⋆). λ (e: σ) → (( sget_party e ))",
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ sget_party e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnEmbedExpr
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : Scenario σ) → (( sembed_expr @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( sembed_expr @τ e ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ sembed_expr @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
         //  UpdPure
-        E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( upure @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( upure @σ e ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ upure @τ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ upure @σ e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdBlock
-        E"Λ (τ : ⋆ → ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂:τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (f: τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ))",
+        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂:τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (f: τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f ⸩" -> //
+          { case _: EExpectedUpdateType => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdCreate
-        E"λ (e: Mod:R) → (( create @Mod:R e))",
+        E"λ (e: Mod:U) → ⸨ create @Mod:U nothing ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdExercise
-        E"λ (e₁: ContractId Mod:R) (e₂: List Party) (e₃: Int64) → (( exercise @Mod:R Ch e₁ e₂ e₃ ))",
-        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → (( exercise @Mod:T Not e₁ e₂ e₃ ))",
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))",
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))",
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) (e₃: Int64) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))",
+        E"λ (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:U Ch nothing e₂ e₃ ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Not e₁ e₂ e₃ ⸩" -> //
+          { case EUnknownDefinition(_, LEChoice(_, _)) => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
         // FecthByKey & lookupByKey
-        E"""((fetch_by_key @Mod:T "Bob"))""",
-        E"""((lookup_by_key @Mod:T "Bob"))""",
+        E"""⸨ fetch_by_key @Mod:U "Bob" ⸩""" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"""⸨ fetch_by_key @Mod:T "Bob" ⸩""" -> //
+          { case _: ETypeMismatch => },
+        E"""⸨ lookup_by_key @Mod:T "Bob" ⸩""" -> //
+          { case _: ETypeMismatch => },
         // UpdFetch
-        E"Λ (σ : ⋆). λ (e: σ) → (( fetch @Mod:T e ))",
+        E"Λ (σ: ⋆). λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScenarioEmbedExpr
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : Udpate σ) → (( uembed_expr @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( uembed_expr @τ e ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
       )
 
-      forEvery(testCases) { exp =>
-        a[ValidationError] should be thrownBy env.typeOf(exp)
+      val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
+      val expectedContext = ContextLocation(expectedLocation)
+
+      forEvery(testCases) { (exp, checkError) =>
+        import scala.util.{Failure, Try}
+
+        val x = Try(env.typeOf(exp))
+        x should matchPattern {
+          case Failure(exception: ValidationError)
+              if exception.context == expectedContext // check the error happened between ⸨ ⸩
+                && checkError.isDefinedAt(exception) =>
+        }
       }
     }
 
@@ -471,7 +768,17 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch1 (self) (i : Unit) : Unit
+                    , controllers Cons @Party ['Alice'] (Nil @Party)
+                    to upure @Unit (),
+                choice Ch2 (self) (i : Unit) : Unit
+                    , controllers Cons @Party ['Alice'] (Nil @Party)
+                    , observers Nil @Party
+                    to upure @Unit (),
+                choice Ch3 (self) (i : Unit) : Unit
+                    , controllers Cons @Party ['Alice'] (Nil @Party)
+                    , observers Cons @Party ['Alice'] (Nil @Party)
+                    to upure @Unit ()
               },
               key @NegativeTestCase:TBis
                   (NegativeTestCase:TBis { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
@@ -488,7 +795,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -502,7 +809,40 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers (),                                  // should be of type (List Party)
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+              }
+            } ;
+          }
+
+          module PositiveTestCase_ControllersMustBeListParty {
+            record @serializable T = {};
+
+            template (this : T) =  {
+              precondition True,
+              signatories Cons @Party ['Bob'] (Nil @Party),
+              observers Cons @Party ['Bob'] (Nil @Party),
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Unit) : Unit
+                  , controllers ()                                  // should be of type (List Party)
+                  to upure @Unit ()
+              }
+            } ;
+          }
+
+          module PositiveTestCase_ChoiceObserversMustBeListParty {
+            record @serializable T = {};
+
+            template (this : T) =  {
+              precondition True,
+              signatories Cons @Party ['Bob'] (Nil @Party),
+              observers Cons @Party ['Bob'] (Nil @Party),
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , observers ()                                  // should be of type (List Party)
+                  to upure @Unit ()
               }
             } ;
           }
@@ -516,7 +856,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement (),                                 // should be of type Text
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -530,8 +870,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
-                  by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
+                 , controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -545,8 +885,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
-                   by Cons @Party ['Alice'] (Nil @Party) to upure @(List) (/\ (tau : *). Nil @tau)
+                choice Ch (self) (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
+                  , controllers Cons @Party ['Alice'] (Nil @Party) to upure @(List) (/\ (tau : *). Nil @tau)
               }
             } ;
           }
@@ -561,12 +901,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase6:TBis
-              // In the next line, should use only record construction and projection, and variable. Here use string literal.
-              (PositiveTestCase6:TBis { person = "Alice", party = (PositiveTestCase6:T {person} this) })
-              (\ (key: PositiveTestCase6:TBis) -> Cons @Party [(PositiveTestCase6:TBis {party} key), 'Alice'] (Nil @Party)  )
+          // In the next line, the declared type do not match body
+          (NegativeTestCase:TBis { person = (PositiveTestCase6:T {name} this), party = (PositiveTestCase6:T {person} this) })
+          (\ (key: PositiveTestCase6:TBis) -> Cons @Party [(PositiveTestCase6:TBis {party} key), 'Alice'] (Nil @Party)  )
         } ;
       }
 
@@ -581,15 +921,14 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase7:TBis
-          // In the next line, the declared type do not match body
-          (NegativeTestCase:TBis { person = (PositiveTestCase7:T {name} this), party = (PositiveTestCase7:T {person} this) })
-          (\ (key: PositiveTestCase7:TBis) -> Cons @Party [(PositiveTestCase7:TBis {party} key), 'Alice'] (Nil @Party)  )
+          (PositiveTestCase7:TBis { person = (PositiveTestCase7:T {name} this), party = (PositiveTestCase7:T {person} this) })
+          // in the next line, expect PositiveTestCase7:TBis -> List Party
+          (\ (key: NegativeTestCase:TBis) -> Cons @Party [(PositiveTestCase7:TBis {party} key), 'Alice'] (Nil @Party)  )
         } ;
       }
-
 
       module PositiveTestCase8 {
         record @serializable T = {person: Party, name: Text};
@@ -601,35 +940,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase8:TBis
           (PositiveTestCase8:TBis { person = (PositiveTestCase8:T {name} this), party = (PositiveTestCase8:T {person} this) })
-          // in the next line, expect PositiveTestCase8:TBis -> List Party
-          (\ (key: NegativeTestCase:TBis) -> Cons @Party [(PositiveTestCase8:TBis {party} key), 'Alice'] (Nil @Party)  )
+          // In the next line, cannot use `this`
+          (\ (key: PositiveTestCase8:TBis) -> Cons @Party [(PositiveTestCase8:T {person} this), 'Alice'] (Nil @Party)  )
         } ;
       }
 
       module PositiveTestCase9 {
-        record @serializable T = {person: Party, name: Text};
-        record @serializable TBis = {person: Text, party: Party};
-
-        template (this : T) =  {
-          precondition True,
-          signatories Cons @Party ['Bob'] (Nil @Party),
-          observers Cons @Party ['Alice'] (Nil @Party),
-          agreement "Agreement",
-          choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
-          },
-          key @PositiveTestCase9:TBis
-          (PositiveTestCase9:TBis { person = (PositiveTestCase9:T {name} this), party = (PositiveTestCase9:T {person} this) })
-          // In the next line, cannot use `this`
-          (\ (key: PositiveTestCase9:TBis) -> Cons @Party [(PositiveTestCase9:T {person} this), 'Alice'] (Nil @Party)  )
-        } ;
-      }
-
-      module PositiveTestCase10 {
         record @serializable T (a: *) = {x: a};
 
         // in the next line, T must have kind *.
@@ -641,17 +961,27 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           choices { }
         } ;
       }
+      
+      module PositiveTestCase10{
+         // template without data type
+         template (this : T) =  {
+          precondition True,
+          signatories Cons @Party ['Bob'] (Nil @Party),
+          observers Cons @Party ['Alice'] (Nil @Party),
+          agreement "Agreement",
+          choices { }
+        } ;
+      }
       """
-
-      val world = new World(Map(defaultPackageId -> pkg))
-
       val typeMismatchCases = Table(
         "moduleName",
         "PositiveTestCase1",
         "PositiveTestCase2",
+        "PositiveTestCase_ControllersMustBeListParty",
+        "PositiveTestCase_ChoiceObserversMustBeListParty",
         "PositiveTestCase3",
+        "PositiveTestCase6",
         "PositiveTestCase7",
-        "PositiveTestCase8"
       )
 
       val kindMismatchCases = Table(
@@ -661,111 +991,86 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        world,
+        new World(Map(defaultPackageId -> pkg)),
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString(modName))
+        pkg.modules(DottedName.assertFromString(modName)),
       )
 
-      val version1_3 = LV(LVM.V1, "3")
       checkModule(pkg, "NegativeTestCase")
       forAll(typeMismatchCases)(module =>
-        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
+        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
+      ) // and
       forAll(kindMismatchCases)(module =>
-        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
-      an[EIllegalKeyExpression] shouldBe thrownBy(
-        checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
-      checkModule(pkg, "PositiveTestCase6")
-      an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
-      an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
+        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module))
+      )
+      an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase8"))
+      an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
+      an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
     }
 
   }
 
-  "rejects choice controller expressions that use choice argument if DAML-LF < 1.2 " in {
+  "reject ill formed exception definitions" in {
 
-    val testCases = Table[LV, Boolean](
-      "LF version" -> "reject",
-      LV.defaultV0 -> true,
-      LV(LVM.V1, "0") -> true,
-      LV(LVM.V1, "1") -> true,
-      LV(LVM.V1, "2") -> false,
+    val pkg =
+      p"""
+
+          module Mod {
+            record @serializable Exception = { message: Text };
+          }
+
+          module NegativeTestCase {
+            record @serializable Exception = { message: Text } ;
+
+            exception Exception = {
+              message \(e: NegativeTestCase:Exception) -> NegativeTestCase:Exception {message} e
+            } ;
+          }
+
+          module PositiveTestCase1 {
+            record @serializable Exception (a: *) = { message: Text } ; // should not have parameter
+            
+            exception Exception = {
+              message \(e: PositiveTestCase1:Exception) -> PositiveTestCase1:Exception {message} e
+            } ;
+          }
+
+         module PositiveTestCase2 {
+            variant @serializable Exception = Message : Text  ; // should be a record
+            
+            exception Exception = {
+              message \(e: PositiveTestCase2:Exception) -> PositiveTestCase2:Exception {message} e
+            } ;
+          }
+          
+         module PositiveTestCase3 {    
+           exception Exception = {         // should match a existing record in the same module
+             message \(e: Mod:Exception) -> PositiveTestCase3:Exception {message} e
+           } ;
+         }
+         
+         module PositiveTestCase4 {    
+           record @serializable Exception = { message: Text } ;
+                   
+           exception Exception = {         
+             message "some error message"   // should be of type PositiveTestCase4:Exception -> Text
+           } ;
+         }
+
+
+      """
+
+    def checkModule(pkg: Package, modName: String) = Typing.checkModule(
+      new World(Map(defaultPackageId -> pkg)),
+      defaultPackageId,
+      pkg.modules(DottedName.assertFromString(modName)),
     )
 
-    val pkg0 =
-      p"""
-           module Mod {
-             record @serializable T = { party: Party };
-             template (this : T) =  {
-               precondition True,
-               signatories Cons @Party ['Bob'] (Nil @Party),
-               observers Cons @Party ['Alice'] (Nil @Party),
-               agreement "Agreement",
-               choices {
-                 choice Ch (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
-               }
-             } ;
-           }
-            """
-
-    val modName = DottedName.assertFromString("Mod")
-
-    forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.updateVersion(version)
-      val mod = pkg.modules(modName)
-      val world = new World(Map(defaultPackageId -> pkg))
-
-      if (rejected)
-        an[EUnknownExprVar] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-
-      ()
-    }
-
-  }
-
-  "rejects choice that use same variable for template and choice params if DAML-LF < 1.2 " in {
-
-    val testCases = Table[LV, Boolean](
-      "LF version" -> "reject",
-      LV.defaultV0 -> true,
-      LV(LVM.V1, "0") -> true,
-      LV(LVM.V1, "1") -> true,
-      LV(LVM.V1, "2") -> false,
-    )
-
-    val pkg0 =
-      p"""
-           module Mod {
-             record @serializable T = { party: Party };
-             template (record : T) =  {
-               precondition True,
-               signatories Cons @Party ['Bob'] (Nil @Party),
-               observers Cons @Party ['Alice'] (Nil @Party),
-               agreement "Agreement",
-               choices {
-                 choice Ch (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
-               }
-             } ;
-           }
-            """
-
-    val modName = DottedName.assertFromString("Mod")
-
-    forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.updateVersion(version)
-      val mod = pkg.modules(modName)
-      val world = new World(Map(defaultPackageId -> pkg))
-
-      if (rejected)
-        an[EIllegalShadowingExprVar] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-      ()
-    }
-
+    checkModule(pkg, "NegativeTestCase")
+    an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase1"))
+    an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase2"))
+    an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase3"))
+    an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase4"))
   }
 
   "accepts regression test #3777" in {
@@ -846,41 +1151,89 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
   }
 
-  "reject ill formed type synonym definitions" in {
-    val testCases = Table(
-      "module"
-        -> "reject",
-      //Good
-      m"""module Mod { synonym S = Int64 ; }""" -> false,
-      m"""module Mod { synonym S a = a ; }""" -> false,
-      m"""module Mod { synonym S a b = a ; }""" -> false,
-      m"""module Mod { synonym S (f: *) = f ; }""" -> false,
-      m"""module Mod { synonym S (f: * -> *) = f Int64; }""" -> false,
-      //Bad
-      m"""module Mod { synonym S = a ; }""" -> true,
-      m"""module Mod { synonym S a = b ; }""" -> true,
-      m"""module Mod { synonym S a a = a ; }""" -> true,
-      m"""module Mod { synonym S = List ; }""" -> true,
-      m"""module Mod { synonym S (f: * -> *) = f ; }""" -> true,
-      m"""module Mod { synonym S (f: *) = f Int64; }""" -> true,
+  "reject ill formed type record definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { record R (a: * -> *) (b: * -> *) = { }; }""",
     )
 
-    forEvery(testCases) { (mod: Module, rejected: Boolean) =>
-      val world = new World(Map())
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { record R (a: * -> nat) (b: * -> *) = { }; }""",
+      m"""module Mod { record R (a: * -> *) (b: * -> nat) = { }; }""",
+    )
 
-      if (rejected)
-        a[ValidationError] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-      ()
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+  }
+
+  "reject ill formed type variant definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
     }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { variant V (a: * -> *) (b: * -> *) = ; }""",
+    )
+
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { variant V (a: * -> nat) (b: * -> *) = ; }""",
+      m"""module Mod { variant V (a: * -> *) (b: * -> nat) = ; }""",
+    )
+
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+  }
+
+  "reject ill formed type synonym definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { synonym S = Int64 ; }""",
+      m"""module Mod { synonym S a = a ; }""",
+      m"""module Mod { synonym S a b = a ; }""",
+      m"""module Mod { synonym S (f: *) = f ; }""",
+      m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
+      m"""module Mod { synonym S (f: * -> *) = Unit ; }""",
+    )
+
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { synonym S = a ; }""",
+      m"""module Mod { synonym S a = b ; }""",
+      m"""module Mod { synonym S a a = a ; }""",
+      m"""module Mod { synonym S = List ; }""",
+      m"""module Mod { synonym S (f: * -> *) = f ; }""",
+      m"""module Mod { synonym S (f: *) = f Int64; }""",
+      m"""module Mod { synonym S (f: * -> nat) = Unit ; }""",
+    )
+
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
   }
 
   private val pkg =
     p"""
        module Mod {
-         record R (a: *) = {f1: Int64, f2: List a } ;
+         record R (a: *) = { f1: Int64, f2: List a } ;
 
          variant Tree (a: *) =  Node : < left: Mod:Tree a, right: Mod:Tree a > | Leaf : a ;
 
@@ -895,20 +1248,28 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          synonym SynPair (a: *) (b: *) = <one: a, two: b>;
          synonym SynHigh (f: * -> *) = f Int64 ;
          synonym SynHigh2 (f: * -> * -> *) (a: *) = f a a ;
-
-         record T = {person: Party, name: Text };
+           
+         synonym S = Mod:U;
+         
+         record @serializable T = { person: Party, name: Text };
          template (this : T) =  {
            precondition True,
            signatories Cons @Party ['Bob'] Nil @Party,
            observers Cons @Party ['Alice'] (Nil @Party),
            agreement "Agreement",
            choices {
-             choice Ch (x: Int64) : Decimal by 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x)
+             choice Ch (self) (x: Int64) : Decimal, controllers 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x)
            },
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party ['Alice', p] (Nil @Party))
          } ;
 
-          val f : Int64 -> Bool = ERROR @(Bool -> Int64) "not implemented";
+         record @serializable U = { person: Party, name: Text };
+
+         val f : Int64 -> Bool = ERROR @(Bool -> Int64) "not implemented";
+         
+         record @serializable E = { message: Text };
+         exception E = { message \(e: Mod:E) -> Mod:E {message} e };
+           
        }
      """
 

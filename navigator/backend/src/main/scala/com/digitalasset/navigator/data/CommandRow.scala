@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.json.ApiCodecVerbose
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.json.ApiCodecVerbose
+import com.daml.lf.value.json.ApiCodecCompressed
 import ApiCodecCompressed.JsonImplicits._
-import com.digitalasset.navigator.model._
+import com.daml.navigator.model._
 
 import scala.util.{Failure, Try}
 import scalaz.syntax.tag._
@@ -25,7 +25,7 @@ final case class CommandRow(
     recordArgument: Option[String],
     contractId: Option[String],
     choice: Option[String],
-    argumentValue: Option[String]
+    argumentValue: Option[String],
 ) {
 
   def toCommand(types: PackageRegistry): Try[Command] = {
@@ -37,7 +37,8 @@ final case class CommandRow(
           recArgJson <- Try(recordArgument.get)
           anyArg <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue(recArgJson.parseJson, tid, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tid, types.damlLfDefDataType _)
+          )
           recArg <- Try(anyArg.asInstanceOf[ApiRecord])
         } yield {
           CreateCommand(
@@ -46,13 +47,12 @@ final case class CommandRow(
             ApiTypes.WorkflowId(workflowId),
             Instant.parse(platformTime),
             tid,
-            recArg
+            recArg,
           )
-        }).recoverWith {
-          case e: Throwable =>
-            Failure(
-              DeserializationFailed(
-                s"Failed to deserialize CreateCommand from row: $this. Error: $e"))
+        }).recoverWith { case e: Throwable =>
+          Failure(
+            DeserializationFailed(s"Failed to deserialize CreateCommand from row: $this. Error: $e")
+          )
         }
       case "ExerciseCommand" =>
         (for {
@@ -61,7 +61,7 @@ final case class CommandRow(
           t <- Try(types.template(tid).get)
           cId <- Try(contractId.get)
           ch <- Try(choice.get)
-          c <- Try(t.choices.find(_.name.unwrap == ch).get)
+          _ <- Try(t.choices.find(_.name.unwrap == ch).get)
           argJson <- Try(argumentValue.get)
           arg <- Try(ApiCodecVerbose.jsValueToApiValue(argJson.parseJson))
         } yield {
@@ -73,13 +73,14 @@ final case class CommandRow(
             ApiTypes.ContractId(cId),
             tid,
             ApiTypes.Choice(ch),
-            arg
+            arg,
           )
-        }).recoverWith {
-          case e: Throwable =>
-            Failure(
-              DeserializationFailed(
-                s"Failed to deserialize ExerciseCommand from row: $this. Error: $e"))
+        }).recoverWith { case e: Throwable =>
+          Failure(
+            DeserializationFailed(
+              s"Failed to deserialize ExerciseCommand from row: $this. Error: $e"
+            )
+          )
         }
       case _ => Failure(DeserializationFailed(s"unknown subclass type for Command: $subclassType"))
     }
@@ -101,7 +102,7 @@ object CommandRow {
           Some(c.argument.toJson.compactPrint),
           None,
           None,
-          None
+          None,
         )
       case e: ExerciseCommand =>
         CommandRow(
@@ -114,7 +115,7 @@ object CommandRow {
           None,
           Some(e.contract.unwrap),
           Some(e.choice.unwrap),
-          Some(ApiCodecVerbose.apiValueToJsValue(e.argument).compactPrint)
+          Some(ApiCodecVerbose.apiValueToJsValue(e.argument).compactPrint),
         )
     }
   }

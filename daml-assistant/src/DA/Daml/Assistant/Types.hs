@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -50,6 +50,7 @@ assistantErrorDetails msg details =
 
 data Env = Env
     { envDamlPath      :: DamlPath
+    , envCachePath :: CachePath
     , envDamlAssistantPath :: DamlAssistantPath
     , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
     , envProjectPath   :: Maybe ProjectPath
@@ -65,6 +66,9 @@ data BuiltinCommand
     | Uninstall SdkVersion
     deriving (Eq, Show)
 
+newtype LookForProjectPath = LookForProjectPath
+    { unLookForProjectPath :: Bool }
+
 data Command
     = Builtin BuiltinCommand
     | Dispatch SdkCommandInfo UserCommandArgs
@@ -76,13 +80,15 @@ newtype UserCommandArgs = UserCommandArgs
 
 -- | Command-line options for daml version command.
 data VersionOptions = VersionOptions
-    { vAll :: Bool -- ^ list all available versions
+    { vAll :: Bool -- ^ show all versions (stable + snapshot)
+    , vSnapshots :: Bool -- ^ show all snapshot versions
     , vAssistant :: Bool -- ^ show assistant version
     } deriving (Eq, Show)
 
 -- | Command-line options for daml install command.
 data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget -- ^ version to install
+    , iSnapshots :: Bool -- ^ include snapshots for latest target
     , iAssistant :: InstallAssistant -- ^ install the assistant
     , iActivate :: ActivateInstall -- ^ install the assistant if true (deprecated, delete with 0.14.x)
     , iForce :: ForceInstall -- ^ force reinstall if already installed
@@ -102,7 +108,7 @@ newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)
 newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)
 newtype ActivateInstall = ActivateInstall { unActivateInstall :: Bool } deriving (Eq, Show)
-newtype SetPath = SetPath Bool deriving (Eq, Show)
+newtype SetPath = SetPath {unwrapSetPath :: YesNoAuto} deriving (Eq, Show)
 newtype InstallAssistant = InstallAssistant { unwrapInstallAssistant :: YesNoAuto } deriving (Eq, Show)
 newtype BashCompletions = BashCompletions { unwrapBashCompletions :: YesNoAuto } deriving (Eq, Show)
 newtype ZshCompletions = ZshCompletions { unwrapZshCompletions :: YesNoAuto } deriving (Eq, Show)

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.perf.util.reporter
+package com.daml.ledger.api.perf.util.reporter
 
 import java.io.File
 
@@ -13,8 +13,7 @@ import org.scalameter.api.{Persistor, Reporter, _}
 import org.scalameter.utils.Tree
 import org.w3c.dom.Document
 
-/**
-  * Produces a file which's contents mimic JMeter's XML output
+/** Produces a file which's contents mimic JMeter's XML output
   * http://jmeter.apache.org/usermanual/listeners.html#xmlformat2.1
   */
 class JMeterReporter[T: Numeric](clazz: Class[_]) extends Reporter[T] {
@@ -27,7 +26,6 @@ class JMeterReporter[T: Numeric](clazz: Class[_]) extends Reporter[T] {
     transformer.transform(source, console)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def report(results: Tree[CurveData[T]], persistor: Persistor): Boolean = {
 
     // resultDir is global setting

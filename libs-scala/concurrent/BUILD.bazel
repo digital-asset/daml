@@ -1,0 +1,47 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+
+scalacopts = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
+da_scala_library(
+    name = "concurrent",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = scalacopts,
+    tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = scalacopts,
+    silent_annotations = True,
+    deps = [
+        ":concurrent",
+    ],
+)

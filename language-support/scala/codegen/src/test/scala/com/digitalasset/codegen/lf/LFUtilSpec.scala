@@ -1,19 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen
+package lf
 
-import com.digitalasset.daml.lf.data.Ref
-import org.scalatest.{Inside, Matchers, WordSpec}
-import org.scalatest.prop.PropertyChecks
+import com.daml.lf.data.Ref
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 import org.scalacheck.Arbitrary.arbitrary
 import scalaz._
 import scalaz.std.anyVal._
 import scalaz.syntax.foldable1._
 import scalaz.syntax.monad._
+import scalaz.syntax.std.map._
 
-class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks {
+class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPropertyChecks {
   import LFUtilSpec._
 
   "escapeReservedName" should {
@@ -21,28 +25,28 @@ class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks 
       Gen
         .oneOf(
           Gen.oneOf("_root_", "asInstanceOf", "notifyAll", "wait", "toString"),
-          Gen.lzy(reservedNames).map(n => s"${n}_"))
+          Gen.lzy(reservedNames).map(n => s"${n}_"),
+        )
         .map(Ref.Name.assertFromString)
 
     "reserve names injectively" in forAll(reservedNames, Gen.chooseNum(1, 100)) { (name, n) =>
-      1.to(n).foldLeft((Set(name), name)) {
-        case ((names, name), _) =>
-          inside(LFUtil.escapeReservedName(name)) {
-            case -\/(newName) => // escaping never un-reserves the name
-              names should not contain newName
-              (names + newName, newName)
-          }
+      1.to(n).foldLeft((Set(name), name)) { case ((names, name), _) =>
+        inside(LFUtil.escapeReservedName(name)) {
+          case -\/(newName) => // escaping never un-reserves the name
+            names should not contain newName
+            (names + newName, newName)
+        }
       }
     }
 
     // right-hand behavior is guaranteed by FP and the return type
   }
 
-  private[this] val tupleNestingSamples = PropertyChecks.Table(
+  private[this] val tupleNestingSamples = Table(
     ("root", "subtrees", "flat", "nested"),
     (5, 5, NonEmptyList(1, 2, 3, 4, 5, 6, 7), "(1, 2, 3, 4, (5, 6, 7))"),
     (4, 3, NonEmptyList(1, 2, 3, 4, 5, 6, 7), "(1, 2, (3, 4), (5, 6, 7))"),
-    (2, 2, NonEmptyList(1, 2, 3, 4, 5, 6, 7), "((1, (2, 3)), ((4, 5), (6, 7)))")
+    (2, 2, NonEmptyList(1, 2, 3, 4, 5, 6, 7), "((1, (2, 3)), ((4, 5), (6, 7)))"),
   )
 
   "tupleNesting" when {
@@ -74,9 +78,8 @@ class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks 
         f <- nelOf(choose(1, r))
       } yield TupleNestingCall(r, s, f)
 
-      "never nest" in forAll(rsf) {
-        case TupleNestingCall(r, s, f) =>
-          tupleNesting(f, r, s) shouldBe TupleNesting[Int](f map \/.left)
+      "never nest" in forAll(rsf) { case TupleNestingCall(r, s, f) =>
+        tupleNesting(f, r, s) shouldBe TupleNesting[Int](f map \/.left)
       }
     }
 
@@ -87,27 +90,35 @@ class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks 
         f <- nelOf(choose(1, reasonableMax * 8))
       } yield TupleNestingCall(r, s, f)
 
-      "preserve all values, in order" in forAll(rsf) {
-        case TupleNestingCall(r, s, f) =>
-          tupleNesting(f, r, s).fold(NonEmptyList(_))(_.join) shouldBe f
+      "preserve all values, in order" in forAll(rsf) { case TupleNestingCall(r, s, f) =>
+        tupleNesting(f, r, s).fold(NonEmptyList(_))(_.join) shouldBe f
       }
 
-      "produce levels <= max sizes" in forAll(rsf) {
-        case TupleNestingCall(r, s, f) =>
-          def visit(nesting: TupleNesting[Int], max: Int): Unit = {
-            nesting.run.size should be <= max
-            nesting.run.foreach(_ fold (_ => (), visit(_, s)))
-          }
-          visit(tupleNesting(f, r, s), r)
+      "produce levels <= max sizes" in forAll(rsf) { case TupleNestingCall(r, s, f) =>
+        def visit(nesting: TupleNesting[Int], max: Int): Unit = {
+          nesting.run.size should be <= max
+          nesting.run.foreach(_.fold(_ => (), visit(_, s)))
+        }
+        visit(tupleNesting(f, r, s), r)
       }
 
-      "preserve minimum tree height" in forAll(rsf) {
-        case TupleNestingCall(r, s, f) =>
-          val height = tupleNesting(f, r, s).fold(_ => 0)(_.maximum1 + 1)
-          val capacityFloor =
-            if (height == 1) 0 else r * math.pow(s.toDouble, (height - 2).toDouble).toInt
-          capacityFloor should be < f.size
+      "preserve minimum tree height" in forAll(rsf) { case TupleNestingCall(r, s, f) =>
+        val height = tupleNesting(f, r, s).fold(_ => 0)(_.maximum1 + 1)
+        val capacityFloor =
+          if (height == 1) 0 else r * math.pow(s.toDouble, (height - 2).toDouble).toInt
+        capacityFloor should be < f.size
       }
+    }
+  }
+
+  "orderedDependencies" should {
+    "include contract keys" in {
+      val ei = CodeGen.filterTemplatesBy(Seq("HasKey".r))(envInterfaceWithKey)
+      LFUtil("a", ei, new java.io.File("."))
+        .orderedDependencies(ei)
+        .deps map (_._1) should ===(
+        Vector("a:b:It", "a:b:HasKey") map Ref.Identifier.assertFromString
+      )
     }
   }
 }
@@ -126,4 +137,22 @@ object LFUtilSpec {
     Shrink { nela =>
       Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) => NonEmptyList(h, t: _*) }
     }
+
+  import com.daml.lf.iface._
+  import com.daml.lf.data.ImmArray.ImmArraySeq
+
+  private[this] val fooRec = Record(ImmArraySeq.empty)
+  val envInterfaceWithKey = EnvironmentInterface(
+    Map(
+      "a:b:HasKey" -> InterfaceType.Template(
+        fooRec,
+        DefTemplate(
+          Map.empty,
+          Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
+        ),
+      ),
+      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, None)),
+      "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
+    ) mapKeys Ref.Identifier.assertFromString
+  )
 }

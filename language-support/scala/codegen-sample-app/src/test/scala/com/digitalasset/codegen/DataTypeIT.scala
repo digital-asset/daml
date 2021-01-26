@@ -1,13 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.ledger.client.binding.{Value, Primitive => P}
-import com.digitalasset.sample._
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.ledger.client.binding.{Value, Primitive => P}
+import com.daml.sample._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class DataTypeIT extends WordSpec with Matchers {
+class DataTypeIT extends AnyWordSpec with Matchers {
 
   "Value.decode follows by Value.encode" should {
 
@@ -60,7 +61,7 @@ class DataTypeIT extends WordSpec with Matchers {
       P.GenMap(
         pair1 -> VariantMod.Either.Left(1L),
         pair2 -> VariantMod.Either.Right(BigDecimal("-2.222")),
-        pair3 -> VariantMod.Either.Left(3L)
+        pair3 -> VariantMod.Either.Left(3L),
       )
 
     "idempotent on genMap" in {

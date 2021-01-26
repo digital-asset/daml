@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,23 +6,23 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
 
-hj_scalacopts = [
+hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-    "-Ypartial-unification",
-    "-Xsource:2.13",
 ]
 
 da_scala_library(
     name = "http-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = hj_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset.ledger-service:http-json:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -33,6 +33,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger-service/db-backend",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
@@ -40,6 +41,8 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/ports",
+        "//libs-scala/scala-utils",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
@@ -47,6 +50,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
         "@maven//:org_tpolecat_doobie_free_2_12",
@@ -60,10 +64,11 @@ da_scala_library(
 
 da_scala_binary(
     name = "http-json-binary",
-    main_class = "com.digitalasset.http.Main",
+    main_class = "com.daml.http.Main",
+    resources = [":src/main/resources/logback.xml"],
     scalacopts = hj_scalacopts,
     tags = [
-        "maven_coordinates=com.digitalasset.ledger-service:http-json-deploy:__VERSION__",
+        "maven_coordinates=com.daml:http-json-deploy:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],
@@ -81,6 +86,8 @@ da_scala_binary(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/ports",
+        "//libs-scala/scala-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -91,6 +98,7 @@ da_scala_binary(
         "@maven//:com_typesafe_akka_akka_slf4j_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
         "@maven//:org_tpolecat_doobie_free_2_12",
@@ -104,45 +112,82 @@ da_scala_binary(
 
 daml_compile(
     name = "Account",
-    main_src = "src/test/daml/Account.daml",
+    srcs = ["src/it/daml/Account.daml"],
 )
 
 da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_2_12_12",
+    ],
+    scalacopts = hj_scalacopts,
+    deps = [
+        ":http-json",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/scala/bindings-akka",
+        "//ledger-service/db-backend",
+        "//ledger-service/lf-value-json",
+        "//ledger/ledger-api-common",
+        "//libs-scala/scala-utils",
+        "//libs-scala/scalatest-utils",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_lihaoyi_sourcecode_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
+        "@maven//:org_tpolecat_doobie_core_2_12",
+        "@maven//:org_tpolecat_doobie_free_2_12",
+        "@maven//:org_typelevel_cats_core_2_12",
+        "@maven//:org_typelevel_cats_effect_2_12",
+        "@maven//:org_typelevel_cats_free_2_12",
+        "@maven//:org_typelevel_cats_kernel_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "integration-tests",
+    size = "large",
+    srcs = glob(["src/it/scala/**/*.scala"]),
     data = [
         ":Account.dar",
         "//docs:quickstart-model.dar",
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
-    resources = glob(["src/test/resources/**/*"]),
+    resources = glob(["src/it/resources/**/*"]),
     scalacopts = hj_scalacopts,
+    silent_annotations = True,
     deps = [
         ":http-json",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
-        "//daml-lf/data-scalacheck",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
-        "//language-support/java/bindings:bindings-java-tests-lib",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/db-backend",
+        "//ledger-service/http-json-testing",
         "//ledger-service/jwt",
-        "//ledger-service/lf-value-json",
         "//ledger-service/utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/participant-state",
-        "//ledger/sandbox",
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
-        "@maven//:ch_qos_logback_logback_classic",
+        "//libs-scala/scala-utils",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
@@ -151,14 +196,60 @@ da_scala_test(
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
         "@maven//:org_tpolecat_doobie_free_2_12",
-        "@maven//:org_tpolecat_doobie_postgres_2_12",
         "@maven//:org_typelevel_cats_core_2_12",
         "@maven//:org_typelevel_cats_effect_2_12",
         "@maven//:org_typelevel_cats_free_2_12",
     ],
 )
 
-exports_files(["release/json-api-logback.xml"])
+da_scala_test(
+    name = "failure-tests",
+    srcs = glob(["src/failure/scala/**/*.scala"]),
+    data = [
+        ":Account.dar",
+        "//docs:quickstart-model.dar",
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+        "@toxiproxy_dev_env//:bin/toxiproxy-cmd" if not is_windows else "@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe",
+    ],
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_2_12_12",
+    ],
+    resources = glob(["src/failure/resources/**/*"]),
+    scalacopts = hj_scalacopts,
+    silent_annotations = False,
+    deps = [
+        ":http-json",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+exports_files(["src/main/resources/logback.xml"])

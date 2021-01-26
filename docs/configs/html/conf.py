@@ -1,9 +1,9 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
 #
-# DAML SDK documentation build configuration file, created by
+# Daml SDK documentation build configuration file, created by
 # sphinx-quickstart on Wed Jul  5 17:39:28 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -34,6 +34,8 @@ sys.path.insert(0, os.path.abspath('../static'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.extlinks',
+    'sphinx_copybutton'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -49,8 +51,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'DAML SDK'
-copyright = u'© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
+project = u'Daml SDK'
+copyright = u'© Copyright 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -92,7 +94,9 @@ html_theme_path = ['../../theme']
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-  'collapse_navigation': False
+  'collapse_navigation': False,
+  'index_page_boxes': True,
+  'pdf_download': True
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -103,8 +107,13 @@ html_static_path = []
 # Don't show "powered by sphinx"
 html_show_sphinx = False
 
+html_show_copyright = True
+
 # Don't display the link to the sources
 html_show_sourcelink = False
+
+# Don't display the link for scaled images
+html_scaled_image_link = False
 
 # -- Options for HTMLHelp output ------------------------------------------
 
@@ -136,7 +145,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'DigitalAssetSDK.tex', u'DAML SDK Documentation',
+    (master_doc, 'DigitalAssetSDK.tex', u'Daml SDK Documentation',
      u'Digital Asset', 'manual'),
 ]
 
@@ -146,7 +155,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'digitalassetsdk', u'DAML SDK Documentation',
+    (master_doc, 'digitalassetsdk', u'Daml SDK Documentation',
      [author], 1)
 ]
 
@@ -157,13 +166,21 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'DigitalAssetSDK', u'DAML SDK Documentation',
+    (master_doc, 'DigitalAssetSDK', u'Daml SDK Documentation',
      author, 'DigitalAssetSDK', 'One line description of project.',
      'Miscellaneous'),
 ]
 
+rst_prolog = """
+.. _installer: https://github.com/digital-asset/daml/releases/download/v{release}/daml-sdk-{release}-windows.exe
+.. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
+.. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
+.. _http-json: https://github.com/digital-asset/daml/releases/download/v{release}/http-json-{release}.jar
+""".format(release = release)
 
-# Import the DAML lexer
+# Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())
+    from typescript import TypeScriptLexer
+    sphinx.add_lexer("tsx", TypeScriptLexer())

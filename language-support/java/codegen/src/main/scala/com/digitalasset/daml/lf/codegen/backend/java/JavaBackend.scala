@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java
+package com.daml.lf.codegen.backend.java
 
-import com.digitalasset.daml.lf.codegen.backend.Backend
-import com.digitalasset.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
-import com.digitalasset.daml.lf.codegen.conf.Conf
-import com.digitalasset.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.Interface
+import com.daml.lf.codegen.backend.Backend
+import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
+import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface.Interface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.MDC
@@ -20,15 +20,15 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
   override def preprocess(
       interfaces: Seq[Interface],
       conf: Conf,
-      packagePrefixes: Map[PackageId, String])(
-      implicit ec: ExecutionContext): Future[InterfaceTrees] = {
+      packagePrefixes: Map[PackageId, String],
+  )(implicit ec: ExecutionContext): Future[InterfaceTrees] = {
     val tree = InterfaceTrees.fromInterfaces(interfaces)
     for ((decoderPkg, decoderClassName) <- conf.decoderPkgAndClass) {
       val templateNames = extractTemplateNames(tree, packagePrefixes)
       val decoderFile = JavaFile
         .builder(
           decoderPkg,
-          DecoderClass.generateCode(decoderClassName, templateNames)
+          DecoderClass.generateCode(decoderClassName, templateNames),
         )
         .build()
       decoderFile.writeTo(conf.outputDirectory)
@@ -38,8 +38,8 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
 
   private def extractTemplateNames(
       tree: InterfaceTrees,
-      packagePrefixes: Map[PackageId, String]) = {
-    val prefixes = packagePrefixes.mapValues(_.stripSuffix("."))
+      packagePrefixes: Map[PackageId, String],
+  ) = {
     tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
       case (res, module: ModuleWithContext) =>
         val templateNames = module.typesLineages
@@ -55,29 +55,33 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
   def process(
       nodeWithContext: NodeWithContext,
       conf: Conf,
-      packagePrefixes: Map[PackageId, String])(implicit ec: ExecutionContext): Future[Unit] = {
+      packagePrefixes: Map[PackageId, String],
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     val prefixes = packagePrefixes.mapValues(_.stripSuffix("."))
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext if moduleWithContext.module.types.nonEmpty =>
         // this is a DAML module that contains type declarations => the codegen will create one file
         Future {
           logger.info(
-            s"Generating code for module ${moduleWithContext.lineage.map(_._1).toSeq.mkString(".")}")
+            s"Generating code for module ${moduleWithContext.lineage.map(_._1).toSeq.mkString(".")}"
+          )
           for (javaFile <- createTypeDefinitionClasses(moduleWithContext, prefixes)) {
             logger.info(
-              s"Writing ${javaFile.packageName}.${javaFile.typeSpec.name} to directory ${conf.outputDirectory}")
+              s"Writing ${javaFile.packageName}.${javaFile.typeSpec.name} to directory ${conf.outputDirectory}"
+            )
             javaFile.writeTo(conf.outputDirectory)
 
           }
         }
       case _ =>
-        Future.successful(())
+        Future.unit
     }
   }
 
   private def createTypeDefinitionClasses(
       moduleWithContext: ModuleWithContext,
-      packagePrefixes: Map[PackageId, String]): Iterable[JavaFile] = {
+      packagePrefixes: Map[PackageId, String],
+  ): Iterable[JavaFile] = {
     MDC.put("packageId", moduleWithContext.packageId)
     MDC.put("packageIdShort", moduleWithContext.packageId.take(7))
     MDC.put("moduleName", moduleWithContext.name)

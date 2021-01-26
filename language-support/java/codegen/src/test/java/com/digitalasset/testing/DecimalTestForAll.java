@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing;
+package com.daml.testing;
 
 
 import com.daml.ledger.javaapi.data.Numeric;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @RunWith(JUnitPlatform.class)
 public class DecimalTestForAll {
 
-    private String[] goodValues = {
+    private final String[] goodValues = {
             "-9999999999999999999999999999.9999999999",
             "-1.0",
             "0.0",
@@ -31,8 +31,8 @@ public class DecimalTestForAll {
 
     @Test
     void decimal2Value2Decimal() {
-        for(String s : goodValues) {
-            Box b = new Box(new BigDecimal(s), "alice");;
+        for (String s : goodValues) {
+            Box b = new Box(new BigDecimal(s), "alice");
             assertEquals(Box.fromValue(b.toValue()), b);
         }
     }
@@ -40,7 +40,7 @@ public class DecimalTestForAll {
     @Test
     void value2Decimal2value() {
         Record.Field partyField = new Record.Field("party", new Party("alice"));
-        for(String s : goodValues) {
+        for (String s : goodValues) {
             Record record = new Record(
                     new Record.Field("x", new Numeric(new BigDecimal(s))),
                     partyField

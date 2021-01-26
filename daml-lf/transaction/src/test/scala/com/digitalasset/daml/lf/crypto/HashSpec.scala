@@ -1,62 +1,62 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package crypto
 
-import com.digitalasset.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
-import com.digitalasset.daml.lf.value.TypedValueGenerators.{RNil, ValueAddend => VA}
-import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.Value
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
+import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.Value._
+import com.daml.lf.value.Value
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 import shapeless.{Coproduct => HSum}
 
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class HashSpec extends WordSpec with Matchers {
+class HashSpec extends AnyWordSpec with Matchers {
+
+  @com.github.ghik.silencer.silent("dead code following this construct")
+  private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   private val complexRecordT =
     VA.record(
-        defRef(name = "ComplexRecord"),
-        'fInt0 ->> VA.int64
-          :: 'fInt1 ->> VA.int64
-          :: 'fInt2 ->> VA.int64
-          :: 'fNumeric0 ->> VA.numeric(Decimal.scale)
-          :: 'fNumeric1 ->> VA.numeric(Decimal.scale)
-          :: 'fBool0 ->> VA.bool
-          :: 'fBool1 ->> VA.bool
-          :: 'fDate0 ->> VA.date
-          :: 'fDate1 ->> VA.date
-          :: 'fTime0 ->> VA.timestamp
-          :: 'fTime1 ->> VA.timestamp
-          :: 'fText0 ->> VA.text
-          :: 'fTest1 ->> VA.text
-          :: 'fPArty ->> VA.party
-          :: 'fUnit ->> VA.unit
-          :: 'fOpt0 ->> VA.optional(VA.text)
-          :: 'fOpt1 ->> VA.optional(VA.text)
-          :: 'fList ->> VA.list(VA.text)
-          :: 'fVariant ->>
-          VA.variant(
-              defRef(name = "Variant"),
-              'Variant ->> VA.int64 :: RNil,
-            )
-            ._2
-          :: 'fRecord ->>
-          VA.record(
-              defRef(name = "Record"),
-              'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil,
-            )
-            ._2
-          :: 'fTextMap ->> VA.map(VA.text)
-          :: RNil,
-      )
-      ._2
+      defRef(name = "ComplexRecord"),
+      Symbol("fInt0") ->> VA.int64
+        :: Symbol("fInt1") ->> VA.int64
+        :: Symbol("fInt2") ->> VA.int64
+        :: Symbol("fNumeric0") ->> VA.numeric(Decimal.scale)
+        :: Symbol("fNumeric1") ->> VA.numeric(Decimal.scale)
+        :: Symbol("fBool0") ->> VA.bool
+        :: Symbol("fBool1") ->> VA.bool
+        :: Symbol("fDate0") ->> VA.date
+        :: Symbol("fDate1") ->> VA.date
+        :: Symbol("fTime0") ->> VA.timestamp
+        :: Symbol("fTime1") ->> VA.timestamp
+        :: Symbol("fText0") ->> VA.text
+        :: Symbol("fTest1") ->> VA.text
+        :: Symbol("fPArty") ->> VA.party
+        :: Symbol("fUnit") ->> VA.unit
+        :: Symbol("fOpt0") ->> VA.optional(VA.text)
+        :: Symbol("fOpt1") ->> VA.optional(VA.text)
+        :: Symbol("fList") ->> VA.list(VA.text)
+        :: Symbol("fVariant") ->>
+        VA.variant(
+          defRef(name = "Variant"),
+          Symbol("Variant") ->> VA.int64 :: RNil,
+        )._2
+        :: Symbol("fRecord") ->>
+        VA.record(
+          defRef(name = "Record"),
+          Symbol("field1") ->> VA.text :: Symbol("field2") ->> VA.text :: RNil,
+        )._2
+        :: Symbol("fTextMap") ->> VA.map(VA.text)
+        :: RNil,
+    )._2
 
   private val complexRecordV: complexRecordT.Inj[Nothing] =
     HRecord(
@@ -78,7 +78,7 @@ class HashSpec extends WordSpec with Matchers {
       fOpt0 = None,
       fOpt1 = Some("Some"),
       fList = Vector("A", "B", "C"),
-      fVariant = HSum('Variant ->> 0L),
+      fVariant = HSum(Symbol("Variant") ->> 0L),
       fRecord = HRecord(field1 = "field1", field2 = "field2"),
       fTextMap = SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB")),
     )
@@ -89,7 +89,7 @@ class HashSpec extends WordSpec with Matchers {
       val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      Hash.hashContractKey(name, value).toHexaString shouldBe hash
+      Hash.assertHashContractKey(name, value).toHexString shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -97,8 +97,7 @@ class HashSpec extends WordSpec with Matchers {
       // Note: intentionally does not reuse value instances
       val hashes = Vector
         .fill(1000)(defRef("module", "name") -> complexRecordT.inj(complexRecordV))
-        .par
-        .map(Function.tupled(Hash.hashContractKey))
+        .map(Function.tupled(Hash.assertHashContractKey))
 
       hashes.toSet.size shouldBe 1
     }
@@ -107,8 +106,8 @@ class HashSpec extends WordSpec with Matchers {
       // Same value but different template ID should produce a different hash
       val value = VA.text.inj("A")
 
-      val hash1 = Hash.hashContractKey(defRef("AA", "A"), value)
-      val hash2 = Hash.hashContractKey(defRef("A", "AA"), value)
+      val hash1 = Hash.assertHashContractKey(defRef("AA", "A"), value)
+      val hash2 = Hash.assertHashContractKey(defRef("A", "AA"), value)
 
       hash1 should !==(hash2)
     }
@@ -121,8 +120,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -136,8 +135,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -150,40 +149,43 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
 
     "not produce collision in Variant constructor" in {
       val variantT =
-        VA.variant(defRef(name = "Variant"), 'A ->> VA.unit :: 'B ->> VA.unit :: RNil)._2
-      val value1 = variantT.inj(HSum[variantT.Inj[Nothing]]('A ->> (())))
-      val value2 = variantT.inj(HSum[variantT.Inj[Nothing]]('B ->> (())))
+        VA.variant(
+          defRef(name = "Variant"),
+          Symbol("A") ->> VA.unit :: Symbol("B") ->> VA.unit :: RNil,
+        )._2
+      val value1 = variantT.inj(HSum[variantT.Inj[Nothing]](Symbol("A") ->> (())))
+      val value2 = variantT.inj(HSum[variantT.Inj[Nothing]](Symbol("B") ->> (())))
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
 
     "not produce collision in Variant value" in {
-      val variantT = VA.variant(defRef(name = "Variant"), 'A ->> VA.int64 :: RNil)._2
-      val value1 = variantT.inj(HSum('A ->> 0L))
-      val value2 = variantT.inj(HSum('A ->> 1L))
+      val variantT = VA.variant(defRef(name = "Variant"), Symbol("A") ->> VA.int64 :: RNil)._2
+      val value1 = variantT.inj(HSum(Symbol("A") ->> 0L))
+      val value2 = variantT.inj(HSum(Symbol("A") ->> 1L))
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
 
-    "not produce collision in Map keys" in {
+    "not produce collision in TextMap keys" in {
       def textMap(elements: (String, Long)*) =
         VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
       val value1 = textMap("A" -> 0, "B" -> 0)
@@ -191,22 +193,50 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
 
-    "not produce collision in Map values" in {
+    "not produce collision in TextMap values" in {
       def textMap(elements: (String, Long)*) =
-        VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
+        VA.map(VA.int64).inj(SortedLookupList(elements.toMap[String, Long]))
       val value1 = textMap("A" -> 0, "B" -> 0)
       val value2 = textMap("A" -> 0, "B" -> 1)
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
+
+      hash1 should !==(hash2)
+    }
+
+    "not produce collision in GenMap keys" in {
+      def genMap(elements: (String, Long)*) =
+        VA.genMap(VA.text, VA.int64).inj(elements.toMap[String, Long])
+      val value1 = genMap("A" -> 0, "B" -> 0)
+      val value2 = genMap("A" -> 0, "C" -> 0)
+
+      val tid = defRef("module", "name")
+
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
+
+      hash1 should !==(hash2)
+    }
+
+    "not produce collision in GenMap values" in {
+      def genMap(elements: (String, Long)*) =
+        VA.genMap(VA.text, VA.int64).inj(elements.toMap[String, Long])
+      val value1 = genMap("A" -> 0, "B" -> 0)
+      val value2 = genMap("A" -> 0, "B" -> 1)
+
+      val tid = defRef("module", "name")
+
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -217,8 +247,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -229,8 +259,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -241,8 +271,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -253,8 +283,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -265,8 +295,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -277,32 +307,35 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
 
     "not produce collision in Record" in {
       val recordT =
-        VA.record(defRef(name = "Tuple2"), '_1 ->> VA.text :: '_2 ->> VA.text :: RNil)._2
+        VA.record(
+          defRef(name = "Tuple2"),
+          Symbol("_1") ->> VA.text :: Symbol("_2") ->> VA.text :: RNil,
+        )._2
       val value1 = recordT.inj(HRecord(_1 = "A", _2 = "B"))
       val value2 = recordT.inj(HRecord(_1 = "A", _2 = "C"))
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
   }
 
-  "KeyHasher.putValue" should {
+  "KeyHasher.addValue" should {
 
     "stable " in {
 
-      type V = Value[AbsoluteContractId]
+      type V = Value[ContractId]
 
       val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -313,38 +346,39 @@ class HashSpec extends WordSpec with Matchers {
         Ref.Name.assertFromString(s)
 
       val units = List(ValueUnit)
-      val bools = List(true, false).map(VA.bool.inj)
-      val ints = List(-1L, 0L, 1L).map(VA.int64.inj)
+      val bools = List(true, false).map(VA.bool.inj(_))
+      val ints = List(-1L, 0L, 1L).map(VA.int64.inj(_))
       val decimals = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
         .map(Numeric.assertFromString)
-        .map(VA.numeric(Decimal.scale).inj)
+        .map(VA.numeric(Decimal.scale).inj(_))
       val numeric0s = List("-10000.", "0.", "10000.")
         .map(Numeric.assertFromString)
-        .map(VA.numeric(Numeric.Scale.MinValue).inj)
-      val texts = List("", "someText", "a¶‱😂").map(VA.text.inj)
+        .map(VA.numeric(Numeric.Scale.MinValue).inj(_))
+      val texts = List("", "someText", "a¶‱😂").map(VA.text.inj(_))
       val dates =
         List(
           Time.Date.assertFromDaysSinceEpoch(0),
           Time.Date.assertFromString("1969-07-21"),
           Time.Date.assertFromString("2019-12-16"),
-        ).map(VA.date.inj)
+        ).map(VA.date.inj(_))
       val timestamps =
         List(
           Time.Timestamp.assertFromLong(0),
           Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z"),
           Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z"),
-        ).map(VA.timestamp.inj)
+        ).map(VA.timestamp.inj(_))
       val parties =
         List(
           Ref.Party.assertFromString("alice"),
           Ref.Party.assertFromString("bob"),
-        ).map(VA.party.inj)
+        ).map(VA.party.inj(_))
       val contractIds =
         List(
-          "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
-          "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
-        ).map(x => AbsoluteContractId(Ref.ContractIdString.assertFromString(x)))
-          .map(VA.contractId.inj)
+          "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
+          "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
+        ).map { str =>
+          VA.contractId.inj(ContractId.V1 assertFromString str)
+        }
 
       val enumT1 = VA.enum("Color", List("Red", "Green"))._2
       val enumT2 = VA.enum("ColorBis", List("Red", "Green"))._2
@@ -364,8 +398,10 @@ class HashSpec extends WordSpec with Matchers {
           record0T2.inj(HRecord()),
         )
 
-      val record2T1 = VA.record("Tuple", '_1 ->> VA.bool :: '_2 ->> VA.bool :: RNil)._2
-      val record2T2 = VA.record("TupleBis", '_1 ->> VA.bool :: '_2 ->> VA.bool :: RNil)._2
+      val record2T1 =
+        VA.record("Tuple", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
+      val record2T2 =
+        VA.record("TupleBis", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
 
       val records2 =
         List(
@@ -375,14 +411,17 @@ class HashSpec extends WordSpec with Matchers {
           record2T2.inj(HRecord(_1 = false, _2 = false)),
         )
 
-      val variantT1 = VA.variant("Either", 'Left ->> VA.bool :: 'Right ->> VA.bool :: RNil)._2
-      val variantT2 = VA.variant("EitherBis", 'Left ->> VA.bool :: 'Right ->> VA.bool :: RNil)._2
+      val variantT1 =
+        VA.variant("Either", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)._2
+      val variantT2 = VA
+        .variant("EitherBis", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)
+        ._2
 
       val variants = List(
-        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Left ->> false)),
-        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Left ->> true)),
-        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Right ->> false)),
-        variantT2.inj(HSum[variantT1.Inj[Nothing]]('Left ->> false)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> false)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> true)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Right") ->> false)),
+        variantT2.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> false)),
       )
 
       def list(elements: Boolean*) = VA.list(VA.bool).inj(elements.toVector)
@@ -402,7 +441,7 @@ class HashSpec extends WordSpec with Matchers {
       val textMaps = List[V](
         textMap(),
         textMap("a" -> false),
-        textMap("a" -> false),
+        textMap("a" -> true),
         textMap("b" -> false),
         textMap("a" -> false, "b" -> false),
         textMap("a" -> true, "b" -> false),
@@ -410,12 +449,26 @@ class HashSpec extends WordSpec with Matchers {
         textMap("a" -> false, "c" -> false),
       )
 
+      def genMap(entries: (String, Boolean)*) =
+        VA.genMap(VA.text, VA.bool).inj(entries.toMap[String, Boolean])
+
+      val genMaps = List[V](
+        genMap(),
+        genMap("a" -> false),
+        genMap("a" -> true),
+        genMap("b" -> false),
+        genMap("a" -> false, "b" -> false),
+        genMap("a" -> true, "b" -> false),
+        genMap("a" -> false, "b" -> true),
+        genMap("a" -> false, "c" -> false),
+      )
+
       val optionals =
-        List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj) ++
-          List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj)
+        List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj(_)) ++
+          List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
       val testCases: List[V] =
-        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ enums ++ records0 ++ records2 ++ variants
+        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
 
       val expectedOut =
         """ValueUnit
@@ -464,10 +517,10 @@ class HashSpec extends WordSpec with Matchers {
           | 274830656c6f7de1daf729d11c57c40ef271a101a831d89e45f034ce7bd71d9d
           |ValueParty(bob)
           | dc1f0fc026d3200a1781f0989dd1801022e028e8afe5d953a033e6d35e8ea50b
-          |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | 399c8d4fb942204c9384a8bda062676d75a3a52080c798f98560b2914af61ad8
-          |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | f05d36c187b003a1c1ca669579bdcf0cfce85ce634029cc533d23d24fd8382a1
+          |ValueContractId(ContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
+          | 0649b1e1e7f34be457c44146e449299109167b9199101349873142ed05878b96
+          |ValueContractId(ContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
+          | 0b8c0cc8ebbd56e275b60cf73133387322a42448986dc3858b31eef23098e8e8
           |ValueOptional(None)
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueOptional(Some(ValueBool(false)))
@@ -494,8 +547,8 @@ class HashSpec extends WordSpec with Matchers {
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
           | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
-          |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
+          |ValueTextMap(SortedLookupList((a,ValueBool(true))))
+          | 23c43da46c9b2cdc82d54385808ae5b3ffe3606ae516231d2869fea82067c204
           |ValueTextMap(SortedLookupList((b,ValueBool(false))))
           | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
@@ -506,31 +559,47 @@ class HashSpec extends WordSpec with Matchers {
           | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
           | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
+          |ValueGenMap()
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          |ValueGenMap((ValueText(a),ValueBool(false)))
+          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
+          |ValueGenMap((ValueText(a),ValueBool(true)))
+          | 23c43da46c9b2cdc82d54385808ae5b3ffe3606ae516231d2869fea82067c204
+          |ValueGenMap((ValueText(b),ValueBool(false)))
+          | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
+          |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(false)))
+          | 132fba96cd6130c57d63f8eb2b9a245deaa8a618c4cb9793af32f1190624e6bd
+          |ValueGenMap((ValueText(a),ValueBool(true)),(ValueText(b),ValueBool(false)))
+          | 954d9283d02236a4f1cd6d1cdf8f8c8a0ced4fc18f14a8380574c4d09485ec60
+          |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(true)))
+          | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
+          |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(c),ValueBool(false)))
+          | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
+          |ValueEnum(Some(pkgId:Mod:Color),Red)
           | 048b20422b487b8eeba059a219589ad477e5f11eb769c7fea658b63f1bb1d405
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
+          |ValueEnum(Some(pkgId:Mod:Color),Green)
           | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
-          |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
+          |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
           | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
-          |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
+          |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
-          |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
+          |ValueRecord(Some(pkgId:Mod:UnitBis),ImmArray())
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
           | 768c5b90ed7ae5b727381e331fac83d7defd397d040f46ba067c80ec2af3eb33
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
           | 4f6de867c24682cee05db95d48e1ea47cf5f8b6e74fe07582d3cd8cecaea84b7
-          |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
           | 31d69356947365e8a3dd9706774182e86774af1aa6550055efc56a22bb594745
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
           | bd89c47c2379a69e8e0d46ff634c533449e8e7e532e84def4e2b2e168bc786e7
-          |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
           |""".stripMargin
 
@@ -538,10 +607,10 @@ class HashSpec extends WordSpec with Matchers {
       val actualOutput = testCases
         .map { value =>
           val hash = Hash
-            .builder(Hash.Purpose.Testing)
+            .builder(Hash.Purpose.Testing, Hash.aCid2Bytes)
             .addTypedValue(value)
             .build
-            .toHexaString
+            .toHexString
           s"${value.toString}$sep $hash"
         }
         .mkString("", sep, sep)
@@ -553,7 +622,35 @@ class HashSpec extends WordSpec with Matchers {
   "Hash.fromString" should {
     "convert properly string" in {
       val s = "01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086"
-      Hash.assertFromString(s).toHexaString shouldBe s
+      Hash.assertFromString(s).toHexString shouldBe s
+    }
+  }
+
+  "Hash.derive" should {
+
+    val k1 =
+      Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
+    val k2 =
+      Hash.assertFromString("5a97286594af94c406d9354d35bf515a12e9d46b61f6dd6d4679e85395fde5f6")
+    val p1 = Ref.Party.assertFromString("alice")
+    val p2 = Ref.Party.assertFromString("bob")
+
+    "not produce collisions" in {
+      val set = for {
+        k <- Set(k1, k2)
+        p <- Set(p1, p2)
+      } yield Hash.deriveMaintainerContractKeyUUID(k, p)
+
+      set.size shouldBe 4
+    }
+
+    "be stable" in {
+      Hash.deriveMaintainerContractKeyUUID(k1, p1) shouldBe Hash.assertFromString(
+        "6ac76f1cb2b75305a6c910641ae39463321e09104d49d9aa32638d1d3286430c"
+      )
+      Hash.deriveMaintainerContractKeyUUID(k2, p2) shouldBe Hash.assertFromString(
+        "6874798ccf6ec1577955d61a6b6d96247f823515ef3afe8b1e086b3533a4fd56"
+      )
     }
   }
 

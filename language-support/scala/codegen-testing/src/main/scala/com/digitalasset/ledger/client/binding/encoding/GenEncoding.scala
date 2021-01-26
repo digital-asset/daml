@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.api.refinements.ApiTypes
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 import scalaz.{OneAnd, Plus}
@@ -17,7 +17,6 @@ import scalaz.std.vector._
 import scalaz.syntax.foldable._
 import scalaz.syntax.plus._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class GenEncoding extends LfTypeEncoding {
   import GenEncoding.{VariantCasesImpl, primitiveImpl}
 
@@ -52,7 +51,8 @@ abstract class GenEncoding extends LfTypeEncoding {
     }
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A] =
+      select: A PartialFunction B
+  ): VariantCases[A] =
     OneAnd(o map inject, Vector.empty)
 
   override val primitive: ValuePrimitiveEncoding[Gen] = new primitiveImpl
@@ -64,7 +64,6 @@ abstract class GenEncoding extends LfTypeEncoding {
 
 object GenEncoding extends GenEncoding {
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
       a <+> b

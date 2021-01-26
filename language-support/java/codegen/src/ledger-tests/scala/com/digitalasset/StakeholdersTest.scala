@@ -1,13 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset
+package com.daml
 
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import com.daml.ledger.resources.TestResourceContext
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class StakeholdersTest extends AsyncFlatSpec with Matchers {
+class StakeholdersTest extends AsyncFlatSpec with Matchers with TestResourceContext {
 
   import TestUtil._
 

@@ -1,21 +1,36 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
 
 import java.io.File
+import java.nio.file.{Path, Paths}
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import scopt.Read
-import scopt.Read.{intRead, stringRead}
+import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import com.daml.ledger.api.testtool.tests.Tests
+import com.daml.ledger.api.tls.TlsConfiguration
+import scopt.{OptionParser, Read}
+
+import scala.concurrent.duration.{Duration, DurationInt}
+import scala.util.Try
 
 object Cli {
 
+  private def reportUsageOfDeprecatedOption[B](
+      option: String
+  ) = { (_: Any, config: B) =>
+    System.err.println(
+      s"WARNING: $option has been deprecated and will be removed in a future version"
+    )
+    config
+  }
+
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
-    val reads = { (s: String) =>
+    val reads: String => (String, Int) = { s: String =>
       splitAddress(s) match {
-        case (k, v) => stringRead.reads(k) -> intRead.reads(v)
+        case (k, v) => Read.stringRead.reads(k) -> Read.intRead.reads(v)
       }
     }
   }
@@ -27,28 +42,35 @@ object Cli {
       case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
     }
 
+  private val Name = "ledger-api-test-tool"
+
   private val pemConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)),
-      )(c => Some(c.copy(keyFile = Some(new File(path))))),
-  )
+        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None))
+      )(c => Some(c.copy(keyFile = Some(new File(path)))))
+    )
 
   private val crtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)),
-      )(c => Some(c.copy(keyCertChainFile = Some(new File(path))))),
-  )
+        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None))
+      )(c => Some(c.copy(keyCertChainFile = Some(new File(path)))))
+    )
 
   private val cacrtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))),
-      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path))))),
-  )
+        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path))))
+      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
+    )
 
-  private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
+  private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
+
+  private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
+    private def invalidPerformanceTestName[A](name: String): Either[String, Unit] =
+      failure(s"$name is not a valid performance test name. Use `--list` to see valid names.")
+
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on DAML and Ledger API.""".stripMargin)
 
@@ -62,6 +84,8 @@ object Cli {
     opt[String]("target-port")
       .optional()
       .text("DEPRECATED: this option is no longer used and has no effect")
+      .action(reportUsageOfDeprecatedOption("--target-port"))
+      .hidden()
 
     opt[String]("pem")
       .optional()
@@ -71,24 +95,14 @@ object Cli {
     opt[String]("crt")
       .optional()
       .text(
-        "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints.",
+        "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints."
       )
       .action(crtConfig)
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA. Applied to all endpoints.")
+      .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
       .action(cacrtConfig)
-
-    opt[Double](name = "command-submission-ttl-scale-factor")
-      .optional()
-      .action((v, c) => c.copy(commandSubmissionTtlScaleFactor = v))
-      .text("""Scale factor for time-to-live of commands sent for ledger processing
-              |(captured as Maximum Record Time in submitted transactions) for
-              |all test suites. Regardless the output of multiplying by this factor
-              |the TTL will always be clipped by the minimum and maximum value as defined
-              |by the LedgerConfigurationService, with the maximum being the default
-              |(which means that any value above 1.0 won't have any effect.""".stripMargin)
 
     opt[Double](name = "timeout-scale-factor")
       .optional()
@@ -98,24 +112,21 @@ object Cli {
               |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
               |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
-    opt[Double](name = "load-scale-factor")
+    opt[String](name = "load-scale-factor")
       .optional()
-      .action((v, c) => c.copy(loadScaleFactor = v))
-      .text("""Scale factor for the load used in scale test suites. Useful to adapt the load
-              |depending on the environment and the Ledger implementation under test.
-              |Defaults to 1.0. Use numbers higher than 1.0 to increase the load,
-              |use numbers lower than 1.0 to decrease the load.""".stripMargin)
+      .text("DEPRECATED: this option is no longer used and has no effect")
+      .action(reportUsageOfDeprecatedOption("--load-scale-factor"))
+      .hidden()
 
     opt[Int](name = "concurrent-test-runs")
       .optional()
       .action((v, c) => c.copy(concurrentTestRuns = v))
-      .text("""Number of tests to run concurrently. Defaults to the number of available
-              |processors.""".stripMargin)
+      .text("Number of tests to run concurrently. Defaults to the number of available processors")
 
     opt[Unit]("verbose")
       .abbr("v")
       .action((_, c) => c.copy(verbose = true))
-      .text("Prints full stacktraces on failures.")
+      .text("Prints full stack traces on failures.")
 
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
@@ -128,28 +139,39 @@ object Cli {
       .action((_, c) => c.copy(extract = true))
       .text(
         """Extract a DAR necessary to test a DAML ledger and exit without running tests.
-              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin,
+              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin
       )
 
     opt[Seq[String]]("exclude")
       .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
       .unbounded()
       .text(
-        """A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""",
+        """A comma-separated list of exclusion prefixes. Tests whose name start with any of the given prefixes will be skipped. Can be specified multiple times, i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`."""
       )
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))
       .unbounded()
-      .text("""A comma-separated list of tests that should be run.""")
+      .text(
+        """A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`."""
+      )
+
+    opt[Seq[String]]("perf-tests")
+      .validate(_.find(!Tests.PerformanceTestsKeys(_)).fold(success)(invalidPerformanceTestName))
+      .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
+      .unbounded()
+      .text("""A comma-separated list of performance tests that should be run.""")
+
+    opt[Path]("perf-tests-report")
+      .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
+      .optional()
+      .text(
+        "The path of the benchmark report file produced by performance tests (default: stdout)."
+      )
 
     opt[Unit]("all-tests")
-      .action((_, c) => c.copy(allTests = true))
-      .text("""Run all default and optional tests. Respects the --exclude flag.""")
-
-    opt[Unit]("no-wait-for-parties")
-      .action((_, c) => c.copy(waitForParties = false))
-      .text("""Do not wait for parties to be allocated on all participants.""")
+      .text("DEPRECATED: All tests are always run by default.")
+      .action(reportUsageOfDeprecatedOption("--all-tests"))
       .hidden()
 
     opt[Unit]("shuffle-participants")
@@ -157,9 +179,47 @@ object Cli {
       .text("""Shuffle the list of participants used in a test.
           |By default participants are used in the order they're given.""".stripMargin)
 
+    opt[Unit]("no-wait-for-parties")
+      .action((_, c) => c.copy(partyAllocation = PartyAllocationConfiguration.ClosedWorld))
+      .text("""Do not wait for parties to be allocated on all participants.""")
+      .hidden()
+
+    opt[Unit]("open-world")
+      .action((_, c) => c.copy(partyAllocation = PartyAllocationConfiguration.OpenWorld))
+      .text("""|Do not allocate parties explicitly.
+           |Instead, expect the ledger to allocate parties dynamically.
+           |Party names must be their hints.""".stripMargin)
+
     opt[Unit]("list")
+      .action((_, c) => c.copy(listTestSuites = true))
+      .text(
+        """Lists all available test suites that can be used in the include and exclude options. Test names always start with their suite name, so using the suite name as a prefix matches all tests in a given suite."""
+      )
+
+    opt[Unit]("list-all")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")
+
+    opt[Unit]("version")
+      .optional()
+      .action((_, _) => {
+        println(BuildInfo.Version); sys.exit(0)
+      })
+      .text("Prints the version on stdout and exit.")
+
+    opt[Duration]("ledger-clock-granularity")(
+      oneOfRead(Read.durationRead, Read.intRead.map(_.millis))
+    )
+      .optional()
+      .action((x, c) => c.copy(ledgerClockGranularity = x))
+      .text(
+        "Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"1s\" (1 second)."
+      )
+
+    opt[Unit]("skip-dar-upload")
+      .optional()
+      .action((_, c) => c.copy(uploadDars = false))
+      .text("Skip DARs upload into ledger before running tests")
 
     help("help").text("Prints this usage text")
 
@@ -167,4 +227,13 @@ object Cli {
 
   def parse(args: Array[String]): Option[Config] =
     argParser.parse(args, Config.default)
+
+  private def oneOfRead[T](readersHead: Read[T], readersTail: Read[T]*): Read[T] = Read.reads {
+    str =>
+      val results = (readersHead #:: Stream(readersTail: _*)).map(reader => Try(reader.reads(str)))
+      results.find(_.isSuccess) match {
+        case Some(value) => value.get
+        case None => results.head.get // throw the first failure
+      }
+  }
 }

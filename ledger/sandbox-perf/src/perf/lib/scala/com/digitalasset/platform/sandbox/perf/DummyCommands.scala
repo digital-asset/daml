@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.platform.sandbox.services.TestCommands
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.platform.sandbox.services.TestCommands
 
 trait DummyCommands extends TestCommands {
 
@@ -18,13 +18,13 @@ trait DummyCommands extends TestCommands {
         val next = i + 1
         Some((next, next))
       }
-      .map(
-        i =>
-          buildRequest(
-            ledgerId = ledgerId,
-            commandId = s"command-id-create-$i",
-            commands = Seq(createWithOperator(templates.dummy)),
-            appId = "app1"
-          ).toSync)
+      .map(i =>
+        buildRequest(
+          ledgerId = ledgerId,
+          commandId = s"command-id-create-$i",
+          commands = Seq(createWithOperator(templates.dummy)),
+          applicationId = "app1",
+        ).toSync
+      )
   }
 }

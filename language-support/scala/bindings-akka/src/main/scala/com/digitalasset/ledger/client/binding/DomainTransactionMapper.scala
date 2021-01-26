@@ -1,22 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.digitalasset.ledger.api.refinements.ApiTypes._
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
-import com.digitalasset.ledger.api.v1.event._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.client.binding.DomainTransactionMapper.DecoderType
+import com.daml.ledger.api.refinements.ApiTypes._
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.typesafe.scalalogging.LazyLogging
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
+import scala.collection.compat._
 import scala.collection.immutable
 
 object DomainTransactionMapper {
@@ -41,7 +42,8 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
       domainTransaction(transaction) match {
         case Left(error) =>
           logger.warn(
-            s"Input validation error when converting to domain transaction: $error. Transaction is discarded.")
+            s"Input validation error when converting to domain transaction: $error. Transaction is discarded."
+          )
           List.empty
         case Right(t) =>
           List(t)
@@ -56,19 +58,20 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
       workflowId = WorkflowId(t.workflowId)
       offset = LedgerOffset(Absolute(t.offset))
       commandId = CommandId(t.commandId)
-    } yield
-      DomainTransaction(
-        transactionId,
-        workflowId,
-        offset,
-        commandId,
-        effectiveAt,
-        events,
-        t.traceContext)
+    } yield DomainTransaction(
+      transactionId,
+      workflowId,
+      offset,
+      commandId,
+      effectiveAt,
+      events,
+      t.traceContext,
+    )
 
   private def checkExists[T](
       fieldName: String,
-      maybeElement: Option[T]): Either[InputValidationError, T] =
+      maybeElement: Option[T],
+  ): Either[InputValidationError, T] =
     maybeElement match {
       case Some(element) => Right(element)
       case None => Left(RequiredFieldDoesNotExistError(fieldName))
@@ -76,7 +79,7 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
 
   private def domainEvents(events: Seq[Event]): Either[InputValidationError, Seq[DomainEvent]] =
     events.toList
-      .traverseU { event =>
+      .traverse { event =>
         for {
           domainEvent <- mapEvent(event)
         } yield domainEvent.toList
@@ -94,8 +97,9 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
         Left(EmptyEvent)
     }
 
-  private def logAndDiscard(event: CreatedEvent)(
-      err: EventDecoderError): Either[InputValidationError, Option[DomainEvent]] = {
+  private def logAndDiscard(
+      event: CreatedEvent
+  )(err: EventDecoderError): Either[InputValidationError, Option[DomainEvent]] = {
     // TODO: improve error handling (make discarding error log message configurable)
     logger.warn(s"Unhandled create event ${event.toString}. Error: ${err.toString}")
     Right(None)
@@ -103,33 +107,43 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
 
   private def mapCreatedEvent(
       createdEvent: CreatedEvent,
-      contract: Contract.OfAny): Either[InputValidationError, DomainCreatedEvent] =
+      contract: Contract.OfAny,
+  ): Either[InputValidationError, DomainCreatedEvent] =
     for {
       tid <- checkExists("events.witnessedEvents.event.created.templateId", createdEvent.templateId)
 
       arguments <- checkExists(
         "events.witnessedEvents.event.created.createArguments",
-        createdEvent.createArguments)
+        createdEvent.createArguments,
+      )
 
       eventId = EventId(createdEvent.eventId)
       contractId = ContractId(createdEvent.contractId)
       templateId = TemplateId(tid)
-      witnessParties = createdEvent.witnessParties.map(Party.apply).to[immutable.Seq]
+      witnessParties = createdEvent.witnessParties.map(Party.apply).to(immutable.Seq)
       createArguments = CreateArguments(arguments)
-    } yield
-      DomainCreatedEvent(eventId, contractId, templateId, witnessParties, createArguments, contract)
+    } yield DomainCreatedEvent(
+      eventId,
+      contractId,
+      templateId,
+      witnessParties,
+      createArguments,
+      contract,
+    )
 
   private def mapArchivedEvent(
-      archivedEvent: ArchivedEvent): Either[InputValidationError, DomainArchivedEvent] =
+      archivedEvent: ArchivedEvent
+  ): Either[InputValidationError, DomainArchivedEvent] =
     for {
       tid <- checkExists(
         "events.witnessedEvents.event.archived.templateId",
-        archivedEvent.templateId)
+        archivedEvent.templateId,
+      )
 
       eventId = EventId(archivedEvent.eventId)
       contractId = ContractId(archivedEvent.contractId)
       templateId = TemplateId(tid)
-      witnessParties = archivedEvent.witnessParties.map(Party.apply).to[immutable.Seq]
+      witnessParties = archivedEvent.witnessParties.map(Party.apply).to(immutable.Seq)
     } yield DomainArchivedEvent(eventId, contractId, templateId, witnessParties)
 
 }

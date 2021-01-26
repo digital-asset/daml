@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ModelSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+class ModelSpec extends AnyWordSpec with Matchers {
+  import com.daml.navigator.{DamlConstants => C}
 
   val templateId = C.ref0
 

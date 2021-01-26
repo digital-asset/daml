@@ -1,20 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
-import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
+import org.scalatest.{Inside, Suite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.Scalaz._
 
 class EnumSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
@@ -23,7 +25,7 @@ class EnumSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.7.dar"))
+  override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.11.dar"))
 
   override def scenario: Option[String] = Some("EnumMod:createContracts")
 
@@ -47,8 +49,8 @@ class EnumSpec
       """{
       "x" : "Blue",
       "party" : "Bob"
-      }"""
-    ).traverseU(parse)
+      }""",
+    ).traverse(parse)
 
     expected should be('right) // That should only fail if this JSON^^ is ill-formatted
 

@@ -1,59 +1,41 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
-load("//bazel_tools:java.bzl", "da_java_proto_library")
 
 #
 # Transaction and value protocol buffers
 #
 
-proto_library(
+proto_jars(
     name = "value_proto",
-    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/value.proto"],
+    srcs = ["src/main/protobuf/com/daml/lf/value.proto"],
+    maven_artifact_prefix = "daml-lf-value",
+    maven_group = "com.daml",
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
-    deps = ["@com_google_protobuf//:empty_proto"],
+    deps = [
+        "@com_google_protobuf//:empty_proto",
+    ],
 )
 
-da_java_proto_library(
-    name = "value_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-value-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [":value_proto"],
-)
-
-proto_library(
+proto_jars(
     name = "transaction_proto",
-    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/transaction.proto"],
+    srcs = ["src/main/protobuf/com/daml/lf/transaction.proto"],
+    maven_artifact_prefix = "daml-lf-transaction",
+    maven_group = "com.daml",
+    proto_deps = [
+        ":value_proto",
+    ],
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
-    deps = [":value_proto"],
-)
-
-da_java_proto_library(
-    name = "transaction_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [":transaction_proto"],
-)
-
-proto_library(
-    name = "blindinginfo_proto",
-    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/blindinginfo.proto"],
-    strip_import_prefix = "src/main/protobuf/",
-)
-
-da_java_proto_library(
-    name = "blindinginfo_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-blindinginfo-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [":blindinginfo_proto"],
 )
 
 #
@@ -64,18 +46,22 @@ da_java_proto_library(
 da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
-    scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction:__VERSION__"],
+    plugins = [silencer_plugin],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":blindinginfo_java_proto",
-        ":transaction_java_proto",
-        ":value_java_proto",
+        ":transaction_proto_java",
+        ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -83,21 +69,27 @@ da_scala_test(
     name = "transaction-test",
     size = "medium",
     srcs = glob(["src/test/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
+    silent_annotations = True,
     deps = [
-        ":blindinginfo_java_proto",
         ":transaction",
-        ":transaction_java_proto",
-        ":value_java_proto",
+        ":transaction_proto_java",
+        ":value_proto_java",
         "//daml-lf/data",
-        "//daml-lf/data-scalacheck",
         "//daml-lf/interface",
         "//daml-lf/language",
-        "//daml-lf/transaction-scalacheck",
-        "@maven//:com_chuusai_shapeless_2_12",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

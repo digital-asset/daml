@@ -1,31 +1,30 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
 import java.io.File
 import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
-import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.conf.Conf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Cord
-
-import scala.collection.breakOut
 
 object Main extends StrictLogging {
 
   private val codegenId = "Scala Codegen"
 
-  @deprecated("Use codegen font-end: com.digitalasset.codegen.CodegenMain.main", "0.13.23")
+  @deprecated("Use codegen font-end: com.daml.codegen.CodegenMain.main", "0.13.23")
   def main(args: Array[String]): Unit =
     Conf.parse(args) match {
       case Some(conf) =>
         generateCode(conf)
       case None =>
         throw new IllegalArgumentException(
-          s"Invalid ${codegenId: String} command line arguments: ${args.mkString(" "): String}")
+          s"Invalid ${codegenId: String} command line arguments: ${args.mkString(" "): String}"
+        )
     }
 
   def generateCode(conf: Conf): Unit = conf match {
@@ -47,22 +46,23 @@ object Main extends StrictLogging {
   }
 
   private def logUnsupportedEventDecoderOverride(mapping: Option[(String, String)]): Unit =
-    mapping.foreach {
-      case (a, b) =>
-        logger.warn(
-          s"${codegenId: String} does not allow overriding Event Decoder, skipping: ${a: String} -> ${b: String}")
+    mapping.foreach { case (a, b) =>
+      logger.warn(
+        s"${codegenId: String} does not allow overriding Event Decoder, skipping: ${a: String} -> ${b: String}"
+      )
     }
 
   private def darsAndOnePackageName(darMap: Map[Path, Option[String]]): (List[File], String) = {
-    val dars: List[File] = darMap.keys.map(_.toFile)(breakOut)
-    val uniquePackageNames: Set[String] = darMap.values.collect { case Some(x) => x }(breakOut)
+    val dars: List[File] = darMap.keys.view.map(_.toFile).toList
+    val uniquePackageNames: Set[String] = darMap.values.view.collect { case Some(x) => x }.toSet
     uniquePackageNames.toSeq match {
       case Seq(packageName) =>
         (dars, packageName)
       case _ =>
         throw new IllegalStateException(
           s"${codegenId: String} expects all dars mapped to the same package name, " +
-            s"requested: ${format(darMap): String}")
+            s"requested: ${format(darMap): String}"
+        )
     }
   }
 

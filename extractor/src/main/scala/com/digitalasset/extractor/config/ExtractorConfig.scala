@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
 import java.nio.file.Path
 import java.util.UUID
@@ -11,9 +11,10 @@ import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.std.list._
 import scalaz.std.string._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ports.Port
 
 sealed abstract class SnapshotEndSetting
 object SnapshotEndSetting {
@@ -24,7 +25,7 @@ object SnapshotEndSetting {
 
 final case class ExtractorConfig(
     ledgerHost: String,
-    ledgerPort: Int,
+    ledgerPort: Port,
     ledgerInboundMessageSizeMax: Int,
     from: LedgerOffset,
     to: SnapshotEndSetting,
@@ -32,9 +33,8 @@ final case class ExtractorConfig(
     templateConfigs: Set[TemplateConfig],
     tlsConfig: TlsConfiguration,
     accessTokenFile: Option[Path],
-    appId: String = s"Extractor-${UUID.randomUUID().toString}"
+    appId: String = s"Extractor-${UUID.randomUUID().toString}",
 ) {
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // huh?
   def partySpec: String = parties.widen[String] intercalate ","
 }
 
