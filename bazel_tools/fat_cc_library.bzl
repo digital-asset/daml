@@ -1,6 +1,8 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 
 def _fat_cc_library_impl(ctx):
@@ -27,17 +29,23 @@ def _fat_cc_library_impl(ctx):
     dyn_lib = ctx.outputs.dynamic_library
     static_lib = ctx.outputs.static_library
 
-    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-    feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain = toolchain)
+    toolchain = find_cpp_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
 
-    if is_windows:
-        compiler = toolchain.compiler + ".exe"
-    else:
-        compiler = toolchain.compiler
+    compiler = cc_common.get_tool_for_action(
+        feature_configuration = feature_configuration,
+        action_name = ACTION_NAMES.c_compile,
+    )
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
         outputs = [dyn_lib],
         executable = compiler,
+        tools = toolchain.all_files.to_list(),
         arguments =
             ["-o", dyn_lib.path, "-shared"] +
             ctx.attr.whole_archive_flag +

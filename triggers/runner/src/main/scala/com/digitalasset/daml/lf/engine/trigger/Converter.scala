@@ -69,10 +69,13 @@ case class TriggerIds(val triggerPackageId: PackageId) {
     )
 }
 
-case class AnyContractId(templateId: Identifier, contractId: ContractId)
-
 object Converter {
   import com.daml.script.converter.Converter._, Implicits._
+
+  private case class AnyContractId(templateId: Identifier, contractId: ContractId)
+  private case class AnyTemplate(ty: Identifier, arg: SValue)
+  private case class AnyChoice(name: ChoiceName, arg: SValue)
+  private case class AnyContractKey(key: SValue)
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
     lfValueToApiRecord(true, v.toValue)
@@ -144,14 +147,14 @@ object Converter {
     )
   }
 
-  private def fromCreatedEvent(
+  private[this] def fromCreatedEvent(
       valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       created: CreatedEvent,
   ): Either[String, SValue] = {
     val createdTy = triggerIds.damlTriggerLowLevel("Created")
     val anyTemplateTyCon = daInternalAny("AnyTemplate")
-    val templateTy = Identifier(
+    val tmplId = Identifier(
       PackageId.assertFromString(created.getTemplateId.packageId),
       QualifiedName(
         DottedName.assertFromString(created.getTemplateId.moduleName),
@@ -163,19 +166,15 @@ object Converter {
         .validateRecord(created.getCreateArguments)
         .left
         .map(_.getMessage)
-      anyTemplate <- valueTranslator.translateValue(TTyCon(templateTy), createArguments) match {
-        case Right(r @ SRecord(tyCon, _, _)) =>
-          Right(record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
-        case Right(v) =>
-          Left(s"Expected record but got $v")
-        case Left(res) =>
-          Left(s"Failure to translate value in create: $res")
-      }
+      tmplPayload <- valueTranslator
+        .translateValue(TTyCon(tmplId), createArguments)
+        .left
+        .map(res => s"Failure to translate value in create: $res")
     } yield record(
       createdTy,
       ("eventId", fromEventId(triggerIds, created.eventId)),
       ("contractId", fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
-      ("argument", anyTemplate),
+      ("argument", record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tmplId), tmplPayload)))),
     )
   }
 
@@ -320,11 +319,6 @@ object Converter {
       id
     })
 
-  private def extractTemplateId(v: SValue): Either[String, Identifier] =
-    v expect ("contract value", { case SRecord(templateId, _, _) =>
-      templateId
-    })
-
   private def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
     v expectE ("TemplateTypeRep", { case SRecord(_, _, JavaList(id)) =>
       toIdentifier(id)
@@ -348,90 +342,79 @@ object Converter {
       } yield AnyContractId(templateId, contractId)
     })
 
-  private def toAnyTemplate(v: SValue): Either[String, SValue] = {
+  private[this] def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 1 =>
-        vals.get(0) match {
-          case SAny(_, v) => Right(v)
-          case v => Left(s"Expected Any but got $v")
-        }
+      case SRecord(_, _, JavaList(SAny(TTyCon(tmplId), value))) =>
+        Right(AnyTemplate(tmplId, value))
       case _ => Left(s"Expected AnyTemplate but got $v")
     }
   }
 
-  // toAnyChoice and toAnyContractKey are identical right now
-  // but there is no resaon why they have to be, so we
-  // use two different methods.
-  private def toAnyChoice(v: SValue): Either[String, SValue] =
-    v expect ("AnyChoice", { case SRecord(_, _, JavaList(SAny(_, v), _)) =>
-      v
-    })
+  private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
+    v match {
+      case SRecord(_, _, JavaList(SAny(TTyCon(tycon), value), _)) =>
+        // This exploits the fact that in DAML, choice argument type names
+        // and choice names match up.
+        ChoiceName.fromString(tycon.qualifiedName.name.toString).map(AnyChoice(_, value))
+      case _ =>
+        Left(s"Expected AnyChoice but got $v")
+    }
 
-  private def toAnyContractKey(v: SValue): Either[String, SValue] =
+  private def toAnyContractKey(v: SValue): Either[String, AnyContractKey] =
     v expect ("AnyContractKey", { case SRecord(_, _, JavaList(SAny(_, v), _)) =>
-      v
+      AnyContractKey(v)
     })
 
-  private def extractChoiceName(v: SValue): Either[String, String] =
-    v expect ("choice value", { case SRecord(ty, _, _) =>
-      ty.qualifiedName.name.toString
-    })
-
-  private def toCreate(v: SValue): Either[String, CreateCommand] =
+  private[this] def toCreate(v: SValue): Either[String, CreateCommand] =
     v expectE ("CreateCommand", { case SRecord(_, _, JavaList(sTpl)) =>
       for {
-        tpl <- toAnyTemplate(sTpl)
-        templateId <- extractTemplateId(tpl)
-        templateArg <- toLedgerRecord(tpl)
-      } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
+        anyTmpl <- toAnyTemplate(sTpl)
+        templateArg <- toLedgerRecord(anyTmpl.arg)
+      } yield CreateCommand(Some(toApiIdentifier(anyTmpl.ty)), Some(templateArg))
     })
 
-  private def toExercise(v: SValue): Either[String, ExerciseCommand] =
+  private[this] def toExercise(v: SValue): Either[String, ExerciseCommand] =
     v expectE ("ExerciseCommand", { case SRecord(_, _, JavaList(sAnyContractId, sChoiceVal)) =>
       for {
         anyContractId <- toAnyContractId(sAnyContractId)
-        choiceVal <- toAnyChoice(sChoiceVal)
-        choiceName <- extractChoiceName(choiceVal)
-        choiceArg <- toLedgerValue(choiceVal)
+        anyChoice <- toAnyChoice(sChoiceVal)
+        choiceArg <- toLedgerValue(anyChoice.arg)
       } yield ExerciseCommand(
         Some(toApiIdentifier(anyContractId.templateId)),
         anyContractId.contractId.coid,
-        choiceName,
+        anyChoice.name,
         Some(choiceArg),
       )
     })
 
-  private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
+  private[this] def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
     v expectE ("ExerciseByKeyCommand", {
-      case SRecord(_, _, JavaList(stplId, skeyVal, schoiceVal)) =>
+      case SRecord(_, _, JavaList(stplId, skeyVal, sChoiceVal)) =>
         for {
           tplId <- toTemplateTypeRep(stplId)
           keyVal <- toAnyContractKey(skeyVal)
-          keyArg <- toLedgerValue(keyVal)
-          choiceVal <- toAnyChoice(schoiceVal)
-          choiceName <- extractChoiceName(choiceVal)
-          choiceArg <- toLedgerValue(choiceVal)
+          keyArg <- toLedgerValue(keyVal.key)
+          anyChoice <- toAnyChoice(sChoiceVal)
+          choiceArg <- toLedgerValue(anyChoice.arg)
         } yield ExerciseByKeyCommand(
           Some(toApiIdentifier(tplId)),
           Some(keyArg),
-          choiceName,
+          anyChoice.name,
           Some(choiceArg),
         )
     })
 
-  private def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
-    v expectE ("CreateAndExerciseCommand", { case SRecord(_, _, JavaList(stpl, schoiceVal)) =>
+  private[this] def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
+    v expectE ("CreateAndExerciseCommand", { case SRecord(_, _, JavaList(sTpl, sChoiceVal)) =>
       for {
-        tpl <- toAnyTemplate(stpl)
-        templateId <- extractTemplateId(tpl)
-        templateArg <- toLedgerRecord(tpl)
-        choiceVal <- toAnyChoice(schoiceVal)
-        choiceName <- extractChoiceName(choiceVal)
-        choiceArg <- toLedgerValue(choiceVal)
+        anyTmpl <- toAnyTemplate(sTpl)
+        templateArg <- toLedgerRecord(anyTmpl.arg)
+        anyChoice <- toAnyChoice(sChoiceVal)
+        choiceArg <- toLedgerValue(anyChoice.arg)
       } yield CreateAndExerciseCommand(
-        Some(toApiIdentifier(templateId)),
+        Some(toApiIdentifier(anyTmpl.ty)),
         Some(templateArg),
-        choiceName,
+        anyChoice.name,
         Some(choiceArg),
       )
     })

@@ -16,10 +16,14 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/grpc-server-reflection-client",
+        "//libs-scala/resources",
+        "//libs-scala/resources-grpc",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
     ],
 )
 
@@ -32,10 +36,15 @@ da_scala_test_suite(
     deps = [
         ":grpc-reverse-proxy",
         "//libs-scala/grpc-test-utils",
+        "//libs-scala/grpc-utils",
+        "//libs-scala/resources",
+        "//libs-scala/resources-grpc",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
     ],
 )

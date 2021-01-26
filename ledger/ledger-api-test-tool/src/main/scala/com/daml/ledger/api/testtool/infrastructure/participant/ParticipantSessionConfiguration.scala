@@ -4,13 +4,11 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
-import com.daml.ledger.api.tls.TlsConfiguration
+import io.grpc.ManagedChannelBuilder
+
+import scala.language.existentials
 
 private[testtool] final case class ParticipantSessionConfiguration(
-    host: String,
-    port: Int,
-    ssl: Option[TlsConfiguration],
+    participant: ManagedChannelBuilder[_],
     partyAllocation: PartyAllocationConfiguration,
-) {
-  val address: String = s"$host:$port"
-}
+)

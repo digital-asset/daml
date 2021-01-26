@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell, MultiWayIf #-}
 module Main (main) where
 
+
 import Control.Lens (view)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -33,8 +34,8 @@ import qualified SdkVersion
 
 main :: IO ()
 main = do
-  opts@Options{..} <- parseOptions
-  runLog opts $ do
+  Options{..} <- parseOptions
+  runLog $ do
       releaseDir <- parseAbsDir =<< liftIO (Dir.makeAbsolute optsReleaseDir)
       liftIO $ createDirIfMissing True releaseDir
       mvnArtifacts :: [Artifact (Maybe ArtifactLocation)] <- decodeFileThrow "release/artifacts.yaml"
@@ -157,7 +158,7 @@ main = do
           | otherwise ->
               $logInfo "Dry run selected: not uploading, not installing"
   where
-    runLog Options{..} m0 = do
+    runLog m0 = do
         let m = filterLogger (\_ ll -> ll >= LevelDebug) m0
         runFastLoggingT m
 

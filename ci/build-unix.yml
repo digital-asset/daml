@@ -89,6 +89,18 @@ steps:
       cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $(Build.StagingDirectory)/$TRIGGER
       echo "##vso[task.setvariable variable=trigger-runner;isOutput=true]$TRIGGER"
 
+      TRIGGER_SERVICE=trigger-service-${{parameters.release_tag}}.jar
+      ## Not built by default
+      bazel build //triggers/service:trigger-service-binary_deploy.jar
+      cp bazel-bin/triggers/service/trigger-service-binary_deploy.jar $(Build.StagingDirectory)/$TRIGGER_SERVICE
+      echo "##vso[task.setvariable variable=trigger-service;isOutput=true]$TRIGGER_SERVICE"
+
+      OAUTH2_MIDDLEWARE=oauth2-middleware-${{parameters.release_tag}}.jar
+      ## Not built by default
+      bazel build //triggers/service/auth:oauth2-middleware-binary_deploy.jar
+      cp bazel-bin/triggers/service/auth/oauth2-middleware-binary_deploy.jar $(Build.StagingDirectory)/$OAUTH2_MIDDLEWARE
+      echo "##vso[task.setvariable variable=oauth2-middleware;isOutput=true]$OAUTH2_MIDDLEWARE"
+
       SCRIPT=daml-script-${{parameters.release_tag}}.jar
       bazel build //daml-script/runner:script-runner_deploy.jar
       cp bazel-bin/daml-script/runner/script-runner_deploy.jar $(Build.StagingDirectory)/$SCRIPT
@@ -134,6 +146,22 @@ steps:
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.trigger-runner)
       artifactName: $(publish.trigger-runner)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'main'),
+                   eq('${{parameters.name}}', 'linux'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.trigger-service)
+      artifactName: $(publish.trigger-service)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'main'),
+                   eq('${{parameters.name}}', 'linux'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.oauth2-middleware)
+      artifactName: $(publish.oauth2-middleware)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'),

@@ -67,6 +67,7 @@ genrule(
 da_haskell_library(
     name = "scenario_service_haskell_proto",
     srcs = [":scenario_service_haskell_proto_src"],
+    compiler_flags = ["-Wno-deriving-defaults"],
     hackage_deps = [
         "base",
         "bytestring",

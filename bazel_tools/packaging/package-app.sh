@@ -152,6 +152,9 @@ if [ "$(uname -s)" == "Linux" ]; then
 #!/usr/bin/env sh
 SOURCE_DIR="\$(cd \$(dirname \$(readlink -f "\$0")); pwd)"
 LIB_DIR="\$SOURCE_DIR/lib"
+if [ -z "\${LOCALE_ARCHIVE}" -a -f "/usr/lib/locale/locale-archive" ]; then
+  export LOCALE_ARCHIVE="/usr/lib/locale/locale-archive"
+fi
 # Execute the wrapped application through the provided dynamic linker
 exec \$LIB_DIR/ld-linux-x86-64.so.2 --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF

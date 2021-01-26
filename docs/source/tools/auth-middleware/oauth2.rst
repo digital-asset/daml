@@ -193,5 +193,3 @@ You would invoke the OAuth 2.0 auth middleware with the following flags:
 
 Some browsers reject ``Secure`` cookies on unencrypted connections even on localhost.
 You can pass the command-line flag ``--cookie-secure no`` for testing and development on localhost to avoid this.
-
-.. TODO[AH]: Add an example Auth0 configuration as described in triggers/service/auth/src/main/scala/com/daml/auth/middleware/oauth2/README.md .

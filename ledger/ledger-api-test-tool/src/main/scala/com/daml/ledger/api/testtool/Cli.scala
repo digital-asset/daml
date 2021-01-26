@@ -8,6 +8,7 @@ import java.nio.file.{Path, Paths}
 
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.{OptionParser, Read}
 

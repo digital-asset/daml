@@ -96,16 +96,10 @@ object Converter {
 
   def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
-        vals.get(0) match {
-          case SAny(_, choiceVal @ SRecord(_, _, _)) =>
-            for { // This exploits the fact that in DAML, choice argument type names
-              // and choice names match up.
-              name <- ChoiceName.fromString(choiceVal.id.qualifiedName.name.toString)
-            } yield AnyChoice(name, choiceVal)
-          case _ => Left(s"Expected SAny but got $v")
-        }
-      }
+      case SRecord(_, _, JavaList(SAny(TTyCon(tyCon), choiceVal), _)) =>
+        // This exploits the fact that in DAML, choice argument type names
+        // and choice names match up.
+        ChoiceName.fromString(tyCon.qualifiedName.name.toString).map(AnyChoice(_, choiceVal))
       case _ => Left(s"Expected AnyChoice but got $v")
     }
   }

@@ -25,8 +25,7 @@ let
 in rec {
   inherit pkgs;
 
-  # GHC with static linking patches.
-  ghcStatic = bazel_dependencies.ghcStatic;
+  ghc = bazel_dependencies.ghc;
 
   # Tools used in the dev-env. These are invoked through wrappers
   # in dev-env/bin. See the development guide for more information:
@@ -41,10 +40,10 @@ in rec {
     protoc          = bazel_dependencies.protobuf3_8;
 
     # Haskell development
-    ghcStatic       = bazel_dependencies.ghcStatic;
+    ghc             = bazel_dependencies.ghc;
     ghcid           = pkgs.haskellPackages.ghcid;
-    hlint           = bazel_dependencies.ghcStaticPkgs.hlint;
-    ghci            = bazel_dependencies.ghcStatic;
+    hlint           = bazel_dependencies.ghcPkgs.hlint;
+    ghci            = bazel_dependencies.ghc;
 
     # Hazel’s configure step currently searches for the C compiler in
     # PATH instead of taking it from our cc toolchain so we have to add
