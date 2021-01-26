@@ -9,7 +9,6 @@ import com.daml.nonrepudiation.Headers;
 import io.grpc.*;
 
 import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 
 /**
@@ -66,7 +65,6 @@ public final class SigningInterceptor implements ClientInterceptor {
                     delegate().start(responseListener, headers);
                     started = true;
                 }
-                // I have no idea if the order of `request` and `sendMessage` matters.
                 delegate().request(requested);
                 delegate().sendMessage(request);
             }
