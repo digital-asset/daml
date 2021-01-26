@@ -3,6 +3,8 @@
 
 package com.daml.nonrepudiation.client;
 
+import com.daml.nonrepudiation.Base64Signature;
+import com.daml.nonrepudiation.Headers;
 import com.google.common.io.BaseEncoding;
 import io.grpc.*;
 
@@ -21,15 +23,6 @@ public final class SigningInterceptor implements ClientInterceptor {
     private final PrivateKey key;
     private final String fingerprint;
     private final String algorithm;
-
-    private static final Metadata.Key<String> signatureKey =
-            Metadata.Key.of("signature", Metadata.ASCII_STRING_MARSHALLER);
-
-    private static final Metadata.Key<String> algorithmKey =
-            Metadata.Key.of("algorithm", Metadata.ASCII_STRING_MARSHALLER);
-
-    private static final Metadata.Key<String> fingerprintKey =
-            Metadata.Key.of("fingerprint", Metadata.ASCII_STRING_MARSHALLER);
 
     public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) throws NoSuchAlgorithmException {
         super();
@@ -69,9 +62,9 @@ public final class SigningInterceptor implements ClientInterceptor {
             public void sendMessage(ReqT request) {
                 byte[] requestBytes = ByteMarshaller.INSTANCE.parse(method.getRequestMarshaller().stream(request));
                 String signature = Base64Signature.sign(algorithm, key, requestBytes);
-                headers.put(signatureKey, signature);
-                headers.put(algorithmKey, algorithm);
-                headers.put(fingerprintKey, fingerprint);
+                headers.put(Headers.SIGNATURE, signature);
+                headers.put(Headers.ALGORITHM, algorithm);
+                headers.put(Headers.FINGERPRINT, fingerprint);
                 if (!started) {
                     delegate().start(responseListener, headers);
                     started = true;

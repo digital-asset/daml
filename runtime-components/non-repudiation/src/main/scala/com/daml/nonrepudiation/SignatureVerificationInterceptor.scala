@@ -29,9 +29,9 @@ final class SignatureVerificationInterceptor(
 
     val requestMetadata =
       for {
-        signature <- getHeader(metadata, signature)
-        algorithm <- getHeader(metadata, algorithm)
-        fingerprint <- getHeader(metadata, fingerprint)
+        signature <- getHeader(metadata, Headers.SIGNATURE)
+        algorithm <- getHeader(metadata, Headers.ALGORITHM)
+        fingerprint <- getHeader(metadata, Headers.FINGERPRINT)
         key <- getKey(keyRepository, fingerprint)
       } yield (signature, algorithm, key)
 
@@ -99,15 +99,6 @@ object SignatureVerificationInterceptor {
     logger.trace("Retrieving key for fingerprint '{}'", fingerprint)
     keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint))
   }
-
-  private val signature: Key[String] =
-    Key.of("signature", Metadata.ASCII_STRING_MARSHALLER)
-
-  private val algorithm: Key[String] =
-    Key.of("algorithm", Metadata.ASCII_STRING_MARSHALLER)
-
-  private val fingerprint: Key[String] =
-    Key.of("fingerprint", Metadata.ASCII_STRING_MARSHALLER)
 
   private def getHeader[A](metadata: Metadata, key: Key[A]): Either[Rejection, A] = {
     logger.trace("Reading header '{}' from request", key.name)

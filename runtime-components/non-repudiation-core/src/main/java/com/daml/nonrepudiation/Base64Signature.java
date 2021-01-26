@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.nonrepudiation.client;
+package com.daml.nonrepudiation;
 
 import com.google.common.io.BaseEncoding;
 

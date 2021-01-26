@@ -6,7 +6,7 @@ package com.daml.nonrepudiation
 import java.security.KeyPairGenerator
 
 import com.daml.grpc.test.GrpcServer
-import com.daml.nonrepudiation.client.{Base64Signature, SigningInterceptor}
+import com.daml.nonrepudiation.client.SigningInterceptor
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.{Channel, StatusRuntimeException}
 import org.scalatest.Inside
