@@ -4,6 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.NotUsed
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.Timer
 import com.daml.daml_lf_dev.DamlLf
@@ -372,7 +373,8 @@ class PipelinedExecuteUpdate(
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
-      .mapAsync(1)(prepareUpdate)
+      .mapAsync(2)(prepareUpdate)
+      .buffer(16, OverflowStrategy.backpressure)
       .map(PipelinedUpdateWithTimer(_, metrics.daml.index.db.storeTransaction.time()))
       .mapAsync(1)(insertTransactionState)
       .mapAsync(1)(insertTransactionEvents)

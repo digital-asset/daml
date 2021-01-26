@@ -465,6 +465,29 @@ final class Metrics(val registry: MetricRegistry) {
           private val Prefix: MetricName = db.Prefix :+ "translation"
           val cache = new CacheMetrics(registry, Prefix :+ "cache")
         }
+
+        object compression {
+          private val Prefix: MetricName = db.Prefix :+ "compression"
+
+          val createArgumentCompressed: Histogram =
+            registry.histogram(Prefix :+ "create_argument_compressed")
+          val createArgumentUncompressed: Histogram =
+            registry.histogram(Prefix :+ "create_argument_uncompressed")
+          val createKeyValueCompressed: Histogram =
+            registry.histogram(Prefix :+ "create_key_value_compressed")
+          val createKeyValueUncompressed: Histogram =
+            registry.histogram(Prefix :+ "create_key_value_uncompressed")
+          val exerciseArgumentCompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_argument_compressed")
+          val exerciseArgumentUncompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_argument_uncompressed")
+          val exerciseResultCompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_result_compressed")
+          val exerciseResultUncompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_result_uncompressed")
+
+        }
+
       }
     }
 

@@ -35,7 +35,7 @@ private[events] abstract class EventsTable {
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      compressed: TransactionIndexing.Serialized,
+      compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches
 
 }
@@ -60,25 +60,31 @@ private[events] object EventsTable {
       array[String]("event_witnesses")
 
   type CreatedEventRow =
-    SharedRow ~ InputStream ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[InputStream]
+    SharedRow ~ InputStream ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
+      Option[InputStream] ~ Option[Int]
 
   val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
       binaryStream("create_argument") ~
+      int("create_argument_compression").? ~
       array[String]("create_signatories") ~
       array[String]("create_observers") ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").?
+      binaryStream("create_key_value").? ~
+      int("create_key_value_compression").?
 
   type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
+      Array[String] ~ Array[String]
 
   val exercisedEventRow: RowParser[ExercisedEventRow] =
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
       binaryStream("exercise_argument") ~
+      int("exercise_argument_compression").? ~
       binaryStream("exercise_result").? ~
+      int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
 
