@@ -73,7 +73,7 @@ Formally, an **action** is one of the following:
 
 #. a **Rollback** action, which records an abandoned subtransaction for the purposes of validation.
 
-#. an **Abandon** action, which represents the point at which a subtransaction was abandoned (as part of a *Rollback** subtransaction)
+#. an **Abandon** action, which represents the point at which a subtransaction was abandoned (as part of a **Rollback** subtransaction)
 
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
