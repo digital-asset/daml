@@ -95,7 +95,7 @@ message ListKnownPartiesRequest {
 
 message ListKnownPartiesResponse {
 
-  // The details of all Daml parties hosted by the participant.
+  // The details of all Daml parties known by the participant.
   // Required
   repeated PartyDetails party_details = 1;
 }
