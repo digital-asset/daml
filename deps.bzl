@@ -148,11 +148,12 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "60d2012e3922e429294d3a4ac31f336016514a91e5a63fd33f35743ccfe1bd7d",
-            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
-            strip_prefix = "protobuf-3.11.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
+            sha256 = "bf0e5070b4b99240183b29df78155eee335885e53a8af8683964579c214ad301",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
+            strip_prefix = "protobuf-3.14.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.14.0.zip"],
             patches = [
+                "@com_github_digital_asset_daml//bazel_tools:protobuf-win32.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -210,12 +211,9 @@ def daml_deps():
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.21.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
-            sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-java-plugin-visibility.patch",
-            ],
+            strip_prefix = "grpc-java-1.35.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.35.0.tar.gz"],
+            sha256 = "537d01bdc5ae2bdb267853a75578d671db3075b33e3a00a93f5a572191d3a7b3",
             patch_args = ["-p1"],
         )
 
