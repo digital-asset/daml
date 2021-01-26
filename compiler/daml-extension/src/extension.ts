@@ -33,6 +33,8 @@ var damlLanguageClient: LanguageClient;
 // and then `Toggle Developer Tools` in VSCode. This will show
 // output in the Console tab once the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
+    // Turn symbol breadcrumbs off because they point to internals.
+    vscode.workspace.getConfiguration('breadcrumbs').update('symbolpath', 'off')
     // Start the language clients
     let config = vscode.workspace.getConfiguration('daml')
     // Get telemetry consent
