@@ -93,7 +93,7 @@ underlying type of parties.
                   | 'Exercise' party* contract Kind Transaction
                   | 'Fetch' party* contract
                   | 'NoSuchKey' key
-                  | 'Rollback' AbandonedTransaction
+                  | 'Rollback' Transaction
                   | 'Abandon'
    Transaction  ::= Action*
    Kind         ::= 'Consuming' | 'NonConsuming'
