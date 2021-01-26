@@ -8,7 +8,7 @@ import java.io.File
 import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 
-import scala.collection.JavaConverters.asJavaIterableConverter
+import scala.jdk.CollectionConverters._
 
 final case class TlsConfiguration(
     enabled: Boolean,
