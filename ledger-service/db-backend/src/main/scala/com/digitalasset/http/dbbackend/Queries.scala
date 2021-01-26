@@ -184,20 +184,19 @@ sealed abstract class Queries {
     } yield { inserted + updated }
   }
 
-  @silent(" pas .* never used")
-  def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
+  protected[this] type DBContractKey
+  protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
+
+  final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
-    Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
-      """
-        INSERT INTO contract
-        VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
-        ON CONFLICT (contract_id) DO NOTHING
-      """,
-      logHandler0 = log,
-    ).updateMany(dbcs.map(_.mapKeyPayloadParties(_.toJson, _.toJson, _.toArray)))
+    primInsertContracts(dbcs.map(_.mapKeyPayloadParties(toDBContractKey(_), _.toJson, _.toArray)))
 
-  def deleteContracts[F[_]: Foldable](
+  protected[this] def primInsertContracts[F[_]: cats.Foldable: Functor](
+      dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int]
+
+  final def deleteContracts[F[_]: Foldable](
       cids: F[String]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     cids.toVector match {
@@ -209,7 +208,6 @@ sealed abstract class Queries {
     }
   }
 
-  @silent(" gvs .* never used")
   private[http] def selectContracts(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
@@ -218,25 +216,7 @@ sealed abstract class Queries {
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
-    val partyVector = parties.toVector
-    val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
-                  FROM contract
-                  WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                   AND tpid = $tpid AND (""" ++ predicate ++ sql")"
-    q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
-      case (cid, key, payload, signatories, observers, agreement) =>
-        DBContract(
-          contractId = cid,
-          templateId = (),
-          key = key,
-          payload = payload,
-          signatories = signatories,
-          observers = observers,
-          agreementText = agreement,
-        )
-    }
-  }
+  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]]
 
   /** Make the smallest number of queries from `queries` that still indicates
     * which query or queries produced each contract.
@@ -410,6 +390,9 @@ object Queries {
 }
 
 private object PostgresQueries extends Queries {
+  import Queries.{DBContract, SurrogateTpId}
+  import Implicits._
+
   protected[this] override def bigIntType = sql"BIGINT"
   protected[this] override def bigSerialType = sql"BIGSERIAL"
   protected[this] override def textType = sql"TEXT"
@@ -420,9 +403,56 @@ private object PostgresQueries extends Queries {
     ,signatories TEXT ARRAY NOT NULL
     ,observers TEXT ARRAY NOT NULL
   """
+
+  protected[this] type DBContractKey = JsValue
+
+  protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) = x.toJson
+
+  protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
+      dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
+    Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
+      """
+        INSERT INTO contract
+        VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
+        ON CONFLICT (contract_id) DO NOTHING
+      """,
+      logHandler0 = log,
+    ).updateMany(dbcs)
+
+  private[http] override def selectContracts(
+      parties: OneAnd[Set, String],
+      tpid: SurrogateTpId,
+      predicate: Fragment,
+  )(implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+    val partyVector = parties.toVector
+    val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
+                  FROM contract
+                  WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                   AND tpid = $tpid AND (""" ++ predicate ++ sql")"
+    q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
+      case (cid, key, payload, signatories, observers, agreement) =>
+        DBContract(
+          contractId = cid,
+          templateId = (),
+          key = key,
+          payload = payload,
+          signatories = signatories,
+          observers = observers,
+          agreementText = agreement,
+        )
+    }
+  }
 }
 
 private object OracleQueries extends Queries {
+  import Queries.{DBContract, SurrogateTpId}
+  import Implicits._
+
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
     bigIntType ++ sql" GENERATED by default on null as IDENTITY"
@@ -453,4 +483,75 @@ private object OracleQueries extends Queries {
 
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(createSignatoriesTable, createObserversTable)
+
+  protected[this] type DBContractKey = JsValue
+
+  protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) =
+    JsObject(Map("key" -> x.toJson))
+
+  protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
+      dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
+    println("insert contracts")
+    println(dbcs)
+    val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
+      """
+        INSERT INTO contract(contract_id, tpid, key, payload, agreement_text)
+        VALUES (?, ?, ?, ?, ?)
+      """,
+      logHandler0 = log,
+    ).updateMany(
+      dbcs
+        .map { c =>
+//          println(c)
+          (c.contractId, c.templateId, c.key, c.payload, c.agreementText)
+        }
+    )
+    println("inserted")
+    import cats.syntax.foldable._, cats.instances.vector._
+    val r2 = Update[(String, String)](
+      """
+        INSERT INTO signatories(contract_id, party)
+        VALUES (?, ?)
+      """,
+      logHandler0 = log,
+    ).updateMany(dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s)).toVector))
+    val r3 = Update[(String, String)](
+      """
+        INSERT INTO observers(contract_id, party)
+        VALUES (?, ?)
+      """,
+      logHandler0 = log,
+    ).updateMany(dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s)).toVector))
+    r *> r2 *> r3
+  }
+
+  private[http] override def selectContracts(
+      parties: OneAnd[Set, String],
+      tpid: SurrogateTpId,
+      predicate: Fragment,
+  )(implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+    val _ = (parties, predicate)
+    // val partyVector = parties.toVector
+    println("selecting")
+    val q = sql"""SELECT contract_id, key, payload, agreement_text
+                  FROM contract
+                  WHERE tpid = $tpid"""
+    q.query[(String, JsValue, JsValue, Option[String])].map { case (cid, key, payload, agreement) =>
+      DBContract(
+        contractId = cid,
+        templateId = (),
+        key = key,
+        payload = payload,
+        signatories = Vector(),
+        observers = Vector(),
+        agreementText = agreement getOrElse "",
+      )
+    }
+  }
+
 }
