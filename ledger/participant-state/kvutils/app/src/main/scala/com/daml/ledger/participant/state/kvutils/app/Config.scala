@@ -44,7 +44,8 @@ final case class Config[Extra](
 
 object Config {
   val DefaultPort: Port = Port(6865)
-  val DefaultTrackerRetentionPeriod: FiniteDuration = CommandConfiguration.DefaultTrackerRetentionPeriod
+  val DefaultTrackerRetentionPeriod: FiniteDuration =
+    CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
   def createDefault[Extra](extra: Extra): Config[Extra] =
