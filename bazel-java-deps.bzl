@@ -18,6 +18,9 @@ version_specific = {
     ],
 }
 
+netty_version = "4.1.58.Final"
+grpc_version = "1.35.0"
+
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
@@ -86,17 +89,17 @@ def install_java_deps():
             # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
             # need to be updated with careful consideration.
             # grpc
-            "io.grpc:grpc-api:1.35.0",
-            "io.grpc:grpc-core:1.35.0",
-            "io.grpc:grpc-netty:1.35.0",
-            "io.grpc:grpc-protobuf:1.35.0",
-            "io.grpc:grpc-services:1.35.0",
-            "io.grpc:grpc-stub:1.35.0",
+            "io.grpc:grpc-api:{}".format(grpc_version),
+            "io.grpc:grpc-core:{}".format(grpc_version),
+            "io.grpc:grpc-netty:{}".format(grpc_version),
+            "io.grpc:grpc-protobuf:{}".format(grpc_version),
+            "io.grpc:grpc-services:{}".format(grpc_version),
+            "io.grpc:grpc-stub:{}".format(grpc_version),
             # netty
-            "io.netty:netty-codec-http2:4.1.58.Final",
-            "io.netty:netty-handler:4.1.58.Final",
-            "io.netty:netty-handler-proxy:4.1.58.Final",
-            "io.netty:netty-resolver:4.1.58.Final",
+            "io.netty:netty-codec-http2:{}".format(netty_version),
+            "io.netty:netty-handler:{}".format(netty_version),
+            "io.netty:netty-handler-proxy:{}".format(netty_version),
+            "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:2.0.36.Final",
             # protobuf
             "com.google.protobuf:protobuf-java:3.14.0",
