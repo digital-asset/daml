@@ -547,7 +547,8 @@ checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, ma
     inconsistentLfDeps =
         [ ((LF.dalfPackageId decodedDalfPkg, decodedUnitId), ver)
         | DecodedDalf {..} <- dalfsFromDependencies
-        , decodedUnitId `elem` mainUnitIds
+        , let mainUnitIdsSet = Set.fromList mainUnitIds
+        , decodedUnitId `Set.member` mainUnitIdsSet
         , let ver = LF.packageLfVersion $ LF.extPackagePkg $ LF.dalfPackagePkg decodedDalfPkg
         , ver /= lfTarget
         ]
