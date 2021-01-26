@@ -9,16 +9,18 @@ import java.security.*;
 
 public final class Base64Signature {
 
-    private Base64Signature() {}
+    private Base64Signature() {
+    }
 
     public static String sign(String algorithm, PrivateKey key, byte[] payload) {
         try {
             Signature signature = Signature.getInstance(algorithm);
             signature.initSign(key);
             signature.update(payload);
-            return BaseEncoding.base64().encode(signature.sign());
+            byte[] signatureBytes = signature.sign();
+            return BaseEncoding.base64().encode(signatureBytes);
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
-            throw new RuntimeException(e);
+            throw new SecurityException("The payload could not be signed", e);
         }
     }
 
