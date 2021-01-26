@@ -51,14 +51,14 @@ object TransactionContractKeysValidation {
           m._1.getContractKey -> m._2)
 
       for {
-        stateAfterMonotonicityCheck <- checkTransactionContractKeysCausalMonotonicity(
+        stateAfterMonotonicityCheck <- checkContractKeysCausalMonotonicity(
           transactionCommitter,
           commitContext.recordTime,
           contractKeyDamlStateKeys,
           damlState,
           transactionEntry,
         )
-        finalState <- performTransactionTraversalContractKeysChecks(
+        finalState <- performTraversalContractKeysChecks(
           transactionCommitter,
           commitContext.recordTime,
           contractKeyDamlStateKeys,
@@ -74,7 +74,7 @@ object TransactionContractKeysValidation {
     * This could be reduced to only validate this for keys referred to by
     * NodeLookupByKey.
     */
-  private def checkTransactionContractKeysCausalMonotonicity(
+  private def checkContractKeysCausalMonotonicity(
       transactionCommitter: TransactionCommitter,
       recordTime: Option[Timestamp],
       keys: Set[DamlStateKey],
@@ -101,7 +101,7 @@ object TransactionContractKeysValidation {
       )
   }
 
-  private def performTransactionTraversalContractKeysChecks(
+  private def performTraversalContractKeysChecks(
       transactionCommitter: TransactionCommitter,
       recordTime: Option[Timestamp],
       contractKeyDamlStateKeys: Set[DamlStateKey],
