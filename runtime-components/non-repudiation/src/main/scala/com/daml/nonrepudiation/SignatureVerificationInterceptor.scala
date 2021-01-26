@@ -7,6 +7,7 @@ import java.io.ByteArrayInputStream
 import java.security.{PublicKey, Signature}
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
+import com.daml.nonrepudiation.KeyRepository.Fingerprint
 import com.google.common.io.BaseEncoding
 import io.grpc.Metadata.Key
 import io.grpc._
@@ -92,12 +93,18 @@ object SignatureVerificationInterceptor {
   val SignatureVerificationFailed: Status =
     Status.UNAUTHENTICATED.withDescription("Signature verification failed")
 
+  private def assertFingerprint(rawFingerprint: String): Either[Rejection, Fingerprint] =
+    Fingerprint.fromString(rawFingerprint).toEither.left.map(Rejection.fromException)
+
   private def getKey(
       keys: KeyRepository.Read,
-      fingerprint: String,
+      rawFingerprint: String,
   ): Either[Rejection, PublicKey] = {
-    logger.trace("Retrieving key for fingerprint '{}'", fingerprint)
-    keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint))
+    logger.trace("Retrieving key for fingerprint '{}'", rawFingerprint)
+    for {
+      fingerprint <- assertFingerprint(rawFingerprint)
+      key <- keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint))
+    } yield key
   }
 
   private def getHeader[A](metadata: Metadata, key: Key[A]): Either[Rejection, A] = {
