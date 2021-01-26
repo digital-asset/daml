@@ -10,15 +10,18 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.committer.Committer.Step
+import com.daml.ledger.participant.state.kvutils.committer.transaction.KeyValidation.{
+  Duplicate,
+  Inconsistent,
+  KeyValidationState,
+  KeyValidationStatus,
+}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.{
   DamlTransactionEntrySummary,
   damlContractKey,
   globalKey,
 }
-import com.daml.ledger.participant.state.kvutils.committer.{
-  StepContinue,
-  StepResult
-}
+import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.data.Time.Timestamp
@@ -33,22 +36,18 @@ object TransactionContractKeysValidation {
   ): Step[DamlTransactionEntrySummary] =
     (commitContext, transactionEntry) => {
       val damlState = commitContext
-        .collectInputs[(DamlStateKey, DamlStateValue),
-                       Map[DamlStateKey, DamlStateValue]] {
+        .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
           case (key, Some(value)) if key.hasContractKey => key -> value
         }
-      val contractKeyDamlStateKeysToContractIds
-        : Map[DamlStateKey, RawContractId] =
+      val contractKeyDamlStateKeysToContractIds: Map[DamlStateKey, RawContractId] =
         damlState.collect {
-          case (k, v)
-              if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty =>
+          case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty =>
             k -> v.getContractKeyState.getContractId
         }
       val contractKeyDamlStateKeys: Set[DamlStateKey] =
         contractKeyDamlStateKeysToContractIds.keySet
       val contractKeysToContractIds: Map[DamlContractKey, RawContractId] =
-        contractKeyDamlStateKeysToContractIds.map(m =>
-          m._1.getContractKey -> m._2)
+        contractKeyDamlStateKeysToContractIds.map(m => m._1.getContractKey -> m._2)
 
       for {
         stateAfterMonotonicityCheck <- checkContractKeysCausalMonotonicity(
@@ -110,19 +109,16 @@ object TransactionContractKeysValidation {
   ): StepResult[DamlTransactionEntrySummary] = {
     val keysValidationOutcome = transactionEntry.transaction
       .foldInExecutionOrder[KeyValidationStatus](
-        Right(
-          KeyValidationState(activeDamlStateKeys = contractKeyDamlStateKeys))
+        Right(KeyValidationState(activeDamlStateKeys = contractKeyDamlStateKeys))
       )(
         (keyValidationStatus, _, exerciseBeginNode) =>
           checkNodeContractKey(
             exerciseBeginNode,
             contractKeysToContractIds,
             keyValidationStatus,
-        ),
+          ),
         (keyValidationStatus, _, leafNode) =>
-          checkNodeContractKey(leafNode,
-                               contractKeysToContractIds,
-                               keyValidationStatus),
+          checkNodeContractKey(leafNode, contractKeysToContractIds, keyValidationStatus),
         (accum, _, _) => accum,
       )
 
@@ -177,8 +173,7 @@ object TransactionContractKeysValidation {
               globalKey(exercise.templateId, exercise.key.get.key)
             )
             Right(
-              keyValidationState.copy(
-                activeDamlStateKeys = activeDamlStateKeys - stateKey)
+              keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys - stateKey)
             )
 
           case create: Node.NodeCreate[ContractId] if create.key.isDefined =>
@@ -190,9 +185,7 @@ object TransactionContractKeysValidation {
             if (activeDamlStateKeys.contains(stateKey))
               Left(Duplicate)
             else
-              Right(
-                keyValidationState.copy(
-                  activeDamlStateKeys = activeDamlStateKeys + stateKey))
+              Right(keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys + stateKey))
 
           case _ => Right(keyValidationState)
         }
@@ -248,20 +241,19 @@ object TransactionContractKeysValidation {
       templateId: TypeConName,
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
-    key.fold(Right(keyValidationState): KeyValidationStatus) {
-      submittedKeyWithMaintainers =>
-        val submittedDamlContractKey =
-          damlContractKey(templateId, submittedKeyWithMaintainers.key)
-        val newKeyValidationState =
-          keyValidationState.addSubmittedDamlContractKeyToContractIdIfEmpty(
-            submittedDamlContractKey,
-            targetContractId,
-          )
-        checkKeyConsistency(
-          contractKeysToContractIds,
+    key.fold(Right(keyValidationState): KeyValidationStatus) { submittedKeyWithMaintainers =>
+      val submittedDamlContractKey =
+        damlContractKey(templateId, submittedKeyWithMaintainers.key)
+      val newKeyValidationState =
+        keyValidationState.addSubmittedDamlContractKeyToContractIdIfEmpty(
           submittedDamlContractKey,
-          newKeyValidationState,
+          targetContractId,
         )
+      checkKeyConsistency(
+        contractKeysToContractIds,
+        submittedDamlContractKey,
+        newKeyValidationState,
+      )
     }
 
   private def checkKeyConsistency(
@@ -269,45 +261,17 @@ object TransactionContractKeysValidation {
       submittedDamlContractKey: DamlContractKey,
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
-    if (keyValidationState.submittedDamlContractKeysToContractIds
-          .get(
-            submittedDamlContractKey
-          )
-          .flatten != contractKeysToContractIds.get(submittedDamlContractKey))
+    if (
+      keyValidationState.submittedDamlContractKeysToContractIds
+        .get(
+          submittedDamlContractKey
+        )
+        .flatten != contractKeysToContractIds.get(submittedDamlContractKey)
+    )
       Left(Inconsistent)
     else
       Right(keyValidationState)
 
   private type RawContractId = String
 
-  private sealed trait KeyValidationError
-  private case object Duplicate extends KeyValidationError
-  private case object Inconsistent extends KeyValidationError
-
-  private case class KeyValidationState(
-      activeDamlStateKeys: Set[DamlStateKey],
-      submittedDamlContractKeysToContractIds: Map[DamlContractKey,
-                                                  Option[RawContractId]] =
-        Map.empty,
-  ) {
-    def addSubmittedDamlContractKeyToContractIdIfEmpty(
-        submittedDamlContractKey: DamlContractKey,
-        contractId: Option[ContractId],
-    ): KeyValidationState =
-      copy(
-        submittedDamlContractKeysToContractIds =
-          if (!submittedDamlContractKeysToContractIds.contains(
-                submittedDamlContractKey)) {
-            submittedDamlContractKeysToContractIds + (submittedDamlContractKey -> contractId
-              .map(
-                _.coid
-              ))
-          } else {
-            submittedDamlContractKeysToContractIds
-          }
-      )
-  }
-
-  private type KeyValidationStatus =
-    Either[KeyValidationError, KeyValidationState]
 }
