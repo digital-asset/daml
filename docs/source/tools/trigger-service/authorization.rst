@@ -9,6 +9,7 @@ See :doc:`Ledger Authorization </app-dev/authorization>` for a description of au
 How to obtain an access token is defined by the ledger operator.
 The trigger service interfaces with an :doc:`Auth Middleware </tools/auth-middleware/index>`
 to obtain an access token in order to decouple it from the specific authentication and authorization mechanism used for a given ledger.
+The documentation includes an :doc:`Example Configuration using Auth0 <auth0_example>`.
 
 Enable Authorization
 ~~~~~~~~~~~~~~~~~~~~
