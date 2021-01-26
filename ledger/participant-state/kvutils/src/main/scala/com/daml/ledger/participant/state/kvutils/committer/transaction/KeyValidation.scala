@@ -4,34 +4,46 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlContractKey, DamlStateKey}
-import com.daml.lf.value.Value.ContractId
 
 private[transaction] object KeyValidation {
+
   sealed trait KeyValidationError
   case object Duplicate extends KeyValidationError
   case object Inconsistent extends KeyValidationError
 
-  case class KeyValidationState(
-      activeDamlStateKeys: Set[DamlStateKey],
-      submittedDamlContractKeysToContractIds: Map[DamlContractKey, Option[RawContractId]] =
-        Map.empty,
+  final case class KeyValidationState private[KeyValidation] (
+      activeStateKeys: Set[DamlStateKey],
+      submittedContractKeysToContractIds: Map[DamlContractKey, Option[
+        RawContractId
+      ]],
   ) {
-    def addSubmittedDamlContractKeyToContractIdIfEmpty(
-        submittedDamlContractKey: DamlContractKey,
-        contractId: Option[ContractId],
-    ): KeyValidationState =
-      copy(
-        submittedDamlContractKeysToContractIds =
-          if (!submittedDamlContractKeysToContractIds.contains(submittedDamlContractKey)) {
-            submittedDamlContractKeysToContractIds + (submittedDamlContractKey -> contractId
-              .map(
-                _.coid
-              ))
-          } else {
-            submittedDamlContractKeysToContractIds
-          }
+    def +(state: KeyValidationState): KeyValidationState = {
+      val newContractKeyMappings =
+        state.submittedContractKeysToContractIds -- submittedContractKeysToContractIds.keySet
+      new KeyValidationState(
+        activeStateKeys = state.activeStateKeys,
+        submittedContractKeysToContractIds =
+          submittedContractKeysToContractIds ++ newContractKeyMappings,
       )
+    }
   }
+
+  val EmptyKeyValidationState = KeyValidationState(Set.empty, Map.empty)
+
+  def UniquenessKeyValidationState(activeStateKeys: Set[DamlStateKey]) =
+    KeyValidationState(activeStateKeys, Map.empty)
+
+  object UniquenessKeyValidationState {
+    def unapply(state: KeyValidationState): Option[Set[DamlStateKey]] =
+      Some(state.activeStateKeys)
+  }
+
+  def ConsistencyKeyValidationState(
+      submittedContractKeysToContractIds: Map[DamlContractKey, Option[
+        RawContractId
+      ]]
+  ) =
+    KeyValidationState(Set.empty, submittedContractKeysToContractIds)
 
   type KeyValidationStatus =
     Either[KeyValidationError, KeyValidationState]

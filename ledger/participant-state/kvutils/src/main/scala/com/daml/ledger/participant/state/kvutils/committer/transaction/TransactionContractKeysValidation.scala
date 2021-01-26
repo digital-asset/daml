@@ -15,6 +15,8 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.KeyValida
   Inconsistent,
   KeyValidationState,
   KeyValidationStatus,
+  UniquenessKeyValidationState,
+  ConsistencyKeyValidationState,
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.{
   DamlTransactionEntrySummary,
@@ -109,7 +111,9 @@ object TransactionContractKeysValidation {
   ): StepResult[DamlTransactionEntrySummary] = {
     val keysValidationOutcome = transactionEntry.transaction
       .foldInExecutionOrder[KeyValidationStatus](
-        Right(KeyValidationState(activeDamlStateKeys = contractKeyDamlStateKeys))
+        Right(
+          UniquenessKeyValidationState(activeStateKeys = contractKeyDamlStateKeys)
+        )
       )(
         (keyValidationStatus, _, exerciseBeginNode) =>
           checkNodeContractKey(
@@ -165,7 +169,7 @@ object TransactionContractKeysValidation {
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
     keyValidationState match {
-      case KeyValidationState(activeDamlStateKeys, _) =>
+      case UniquenessKeyValidationState(activeStateKeys) =>
         node match {
           case exercise: Node.NodeExercises[NodeId, ContractId]
               if exercise.key.isDefined && exercise.consuming =>
@@ -173,7 +177,9 @@ object TransactionContractKeysValidation {
               globalKey(exercise.templateId, exercise.key.get.key)
             )
             Right(
-              keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys - stateKey)
+              keyValidationState + UniquenessKeyValidationState(
+                activeStateKeys = activeStateKeys - stateKey
+              )
             )
 
           case create: Node.NodeCreate[ContractId] if create.key.isDefined =>
@@ -182,10 +188,13 @@ object TransactionContractKeysValidation {
                 globalKey(create.coinst.template, create.key.get.key)
               )
 
-            if (activeDamlStateKeys.contains(stateKey))
+            if (activeStateKeys.contains(stateKey))
               Left(Duplicate)
             else
-              Right(keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys + stateKey))
+              Right(
+                keyValidationState +
+                  UniquenessKeyValidationState(activeStateKeys = activeStateKeys + stateKey)
+              )
 
           case _ => Right(keyValidationState)
         }
@@ -245,9 +254,11 @@ object TransactionContractKeysValidation {
       val submittedDamlContractKey =
         damlContractKey(templateId, submittedKeyWithMaintainers.key)
       val newKeyValidationState =
-        keyValidationState.addSubmittedDamlContractKeyToContractIdIfEmpty(
-          submittedDamlContractKey,
-          targetContractId,
+        keyValidationState + ConsistencyKeyValidationState(
+          submittedContractKeysToContractIds = Map(
+            submittedDamlContractKey ->
+              targetContractId.map(_.coid)
+          )
         )
       checkKeyConsistency(
         contractKeysToContractIds,
@@ -262,7 +273,7 @@ object TransactionContractKeysValidation {
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
     if (
-      keyValidationState.submittedDamlContractKeysToContractIds
+      keyValidationState.submittedContractKeysToContractIds
         .get(
           submittedDamlContractKey
         )
@@ -273,5 +284,4 @@ object TransactionContractKeysValidation {
       Right(keyValidationState)
 
   private type RawContractId = String
-
 }
