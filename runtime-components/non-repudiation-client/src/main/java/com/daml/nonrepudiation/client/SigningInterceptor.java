@@ -3,13 +3,12 @@
 
 package com.daml.nonrepudiation.client;
 
+import com.daml.nonrepudiation.Base64Fingerprint;
 import com.daml.nonrepudiation.Base64Signature;
 import com.daml.nonrepudiation.Headers;
-import com.google.common.io.BaseEncoding;
 import io.grpc.*;
 
 import java.security.KeyPair;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 
@@ -24,13 +23,11 @@ public final class SigningInterceptor implements ClientInterceptor {
     private final String fingerprint;
     private final String algorithm;
 
-    public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) throws NoSuchAlgorithmException {
+    public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) {
         super();
         this.key = keyPair.getPrivate();
         this.algorithm = signingAlgorithm;
-        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-        byte[] publicKeyFingerPrint = sha256.digest(keyPair.getPublic().getEncoded());
-        this.fingerprint = BaseEncoding.base64().encode(publicKeyFingerPrint);
+        this.fingerprint = Base64Fingerprint.compute(keyPair.getPublic());
     }
 
     @Override

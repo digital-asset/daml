@@ -19,8 +19,12 @@ public final class Base64Signature {
             signature.update(payload);
             byte[] signatureBytes = signature.sign();
             return BaseEncoding.base64().encode(signatureBytes);
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
-            throw new SecurityException("The payload could not be signed", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalArgumentException(String.format("Provider for algorithm '%s' not found", algorithm), e);
+        } catch (InvalidKeyException e) {
+            throw new IllegalArgumentException("The signing key is invalid", e);
+        } catch (SignatureException e) {
+            throw new IllegalArgumentException("The payload could not be signed", e);
         }
     }
 
