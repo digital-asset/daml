@@ -71,6 +71,10 @@ Formally, an **action** is one of the following:
 
 #. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is **not** assigned to any unconsumed contract on the ledger.
 
+#. a **Rollback** action, which records an abandoned subtransaction for the purposes of validation.
+
+#. an **Abandon** action, which represents the point at which a subtransaction was abandoned (as part of a *Rollback** subtransaction)
+
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
 
@@ -89,6 +93,8 @@ underlying type of parties.
                   | 'Exercise' party* contract Kind Transaction
                   | 'Fetch' party* contract
                   | 'NoSuchKey' key
+                  | 'Rollback' AbandonedTransaction
+                  | 'Abandon'
    Transaction  ::= Action*
    Kind         ::= 'Consuming' | 'NonConsuming'
 
@@ -148,7 +154,7 @@ Iou obligor owner
 
 In practice, multiple IOU contracts can exist between the same `obligor` and
 `owner`, in which case each contract should have a unique identifier. However,
-in this section, each contract only appears once, allowing us to drop the notion 
+in this section, each contract only appears once, allowing us to drop the notion
 of identifiers for simplicity reasons.
 
 A **transaction** is a list of actions. Thus, the consequences of
@@ -278,7 +284,7 @@ following ledgers are not.
 
    Painter trying to create two different paint offers with the same reference number.
 
-   
+
 The next section discusses the criteria that rule out the above examples as
 invalid ledgers.
 

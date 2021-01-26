@@ -117,6 +117,8 @@ transaction `tx = act`\ :sub:`1`\ `, …, act`\ :sub:`n` for a party `p` is the
 subtransaction obtained by doing the following for each action `act`\ :sub:`i`:
 
 #. If `p` is an informee of `act`\ :sub:`i`, keep `act`\ :sub:`i` as-is.
+#. Else, if `act`\ :sub:`i` is a `Rollback` action, keep the `Rollback` node but replace its children by their projection (for `p`).
+   If there are no children after projection, drop the `Rollback` node.
 #. Else, if `act`\ :sub:`i` has consequences, replace `act`\ :sub:`i` by the projection (for `p`) of its consequences,
    which might be empty.
 #. Else, drop `act`\ :sub:`i`.
