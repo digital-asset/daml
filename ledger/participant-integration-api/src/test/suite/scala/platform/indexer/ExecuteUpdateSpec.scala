@@ -22,14 +22,10 @@ import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
-import com.daml.platform.indexer.OffsetUpdate.{
-  MetadataUpdateStep,
-  OffsetStepUpdatePair,
-  PreparedTransactionInsert,
-}
+import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
 import com.daml.platform.store.DbType
-import com.daml.platform.store.dao.{LedgerDao, PersistenceResponse}
 import com.daml.platform.store.dao.events.TransactionsWriter
+import com.daml.platform.store.dao.{LedgerDao, PersistenceResponse}
 import com.daml.platform.store.entries.PackageLedgerEntry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.OneInstancePerTest
@@ -79,13 +75,13 @@ final class ExecuteUpdateSpec
   )
 
   private val currentOffset = CurrentOffset(offset = offset)
-  private val transactionAcceptedOffsetPair = OffsetStepUpdatePair(currentOffset, txAccepted)
+  private val transactionAcceptedOffsetPair = OffsetUpdate(currentOffset, txAccepted)
   private val packageUploadRejected = PublicPackageUploadRejected(
     submissionId = submissionId,
     recordTime = Time.Timestamp(ledgerEffectiveTime.toEpochMilli),
     rejectionReason = packageUploadRejectionReason,
   )
-  private val metadataUpdateOffsetPair = OffsetStepUpdatePair(currentOffset, packageUploadRejected)
+  private val metadataUpdateOffsetPair = OffsetUpdate(currentOffset, packageUploadRejected)
 
   private val ledgerDaoMock = {
     val dao = mock[LedgerDao]
@@ -204,11 +200,11 @@ final class ExecuteUpdateSpec
 
     "receives a MetadataUpdate" should {
       "return a MetadataUpdateStep" in {
-        val someMetadataUpdate = mock[MetadataUpdate]
-        val offsetStepUpdatePair = OffsetStepUpdatePair(currentOffset, someMetadataUpdate)
+        val someMetadataUpdate = mock[Update]
+        val offsetStepUpdatePair = OffsetUpdate(currentOffset, someMetadataUpdate)
         executeUpdate
           .prepareUpdate(offsetStepUpdatePair)
-          .map(_ shouldBe MetadataUpdateStep(currentOffset, someMetadataUpdate))
+          .map(_ shouldBe OffsetUpdate(currentOffset, someMetadataUpdate))
       }
     }
   }

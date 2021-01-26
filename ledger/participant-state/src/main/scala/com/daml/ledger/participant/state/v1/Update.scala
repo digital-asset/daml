@@ -25,12 +25,6 @@ sealed trait Update extends Product with Serializable {
   def recordTime: Timestamp
 }
 
-/** An update describing metadata changes.
-  *
-  * Metadata changes regard parties, packages, ledger configurations and command rejections.
-  */
-sealed trait MetadataUpdate extends Update
-
 object Update {
 
   /** Signal that the current [[Configuration]] has changed. */
@@ -39,7 +33,7 @@ object Update {
       submissionId: SubmissionId,
       participantId: ParticipantId,
       newConfiguration: Configuration,
-  ) extends MetadataUpdate {
+  ) extends Update {
     override def description: String =
       s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
   }
@@ -52,7 +46,7 @@ object Update {
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String,
-  ) extends MetadataUpdate {
+  ) extends Update {
     override def description: String = {
       s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
     }
@@ -81,7 +75,7 @@ object Update {
       participantId: ParticipantId,
       recordTime: Timestamp,
       submissionId: Option[SubmissionId],
-  ) extends MetadataUpdate {
+  ) extends Update {
     override def description: String =
       s"Add party '$party' to participant"
   }
@@ -113,7 +107,7 @@ object Update {
       participantId: ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
-  ) extends MetadataUpdate {
+  ) extends Update {
     override val description: String =
       s"Request to add party to participant with submissionId '$submissionId' failed"
   }
@@ -134,7 +128,7 @@ object Update {
       sourceDescription: Option[String],
       recordTime: Timestamp,
       submissionId: Option[SubmissionId],
-  ) extends MetadataUpdate {
+  ) extends Update {
     override def description: String =
       s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
   }
@@ -152,7 +146,7 @@ object Update {
       submissionId: SubmissionId,
       recordTime: Timestamp,
       rejectionReason: String,
-  ) extends MetadataUpdate {
+  ) extends Update {
     override def description: String =
       s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
   }
@@ -210,7 +204,7 @@ object Update {
       recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: RejectionReason,
-  ) extends MetadataUpdate {
+  ) extends Update {
     override def description: String = {
       s"Reject command ${submitterInfo.commandId}: $reason"
     }

@@ -19,7 +19,6 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.OffsetUpdate.OffsetStepUpdatePair
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations}
@@ -198,7 +197,7 @@ private[daml] class JdbcIndexer private[indexer] (
               .map(IncrementalOffsetStep(_, nextOffset))
               .getOrElse(CurrentOffset(nextOffset))
 
-          OffsetStepUpdatePair(offsetStep, update) :: Nil
+          OffsetUpdate(offsetStep, update) :: Nil
         }
       }
 

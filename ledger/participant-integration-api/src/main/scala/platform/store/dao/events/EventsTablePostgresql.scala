@@ -176,7 +176,15 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseChildEventIds = "exerciseChildEventIds"
   }
 
-  private val conflictActionClause = if (idempotentEventInsertions) "on conflict do nothing" else ""
+  /** Conflict detection relies on the `event_id` primary key only.
+    *
+    * This clause enables `ignore-if-already-there` behavior needed for automatic recovery of partially-persisted
+    * transactions (i.e. derived from a pipelined insertion).
+    *
+    * For more details on pipelined transaction insertions, see [[com.daml.platform.indexer.PipelinedExecuteUpdate]].
+    */
+  private val conflictActionClause =
+    if (idempotentEventInsertions) "on conflict(event_id) do nothing" else ""
 
   private[events] val insertStmt = {
     import Params._

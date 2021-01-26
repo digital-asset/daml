@@ -27,7 +27,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
-import com.daml.platform.indexer.OffsetUpdate.OffsetStepUpdatePair
 import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -141,9 +140,9 @@ final class JdbcIndexerSpec
       (1 to 3).map(idx => Offset(Bytes.fromByteArray(Array(idx.toByte))))
 
     val expected = Seq(
-      OffsetStepUpdatePair(OffsetStep(None, offset1), update1),
-      OffsetStepUpdatePair(OffsetStep(Some(offset1), offset2), update2),
-      OffsetStepUpdatePair(OffsetStep(Some(offset2), offset3), update3),
+      OffsetUpdate(OffsetStep(None, offset1), update1),
+      OffsetUpdate(OffsetStep(Some(offset1), offset2), update2),
+      OffsetUpdate(OffsetStep(Some(offset2), offset3), update3),
     )
 
     initializeIndexer(participantId, flow)

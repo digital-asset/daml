@@ -10,17 +10,13 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1.{MetadataUpdate, Offset, Party, Update}
+import com.daml.ledger.participant.state.v1.{Offset, Party, Update}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.indexer.OffsetUpdate.{
-  MetadataUpdateStep,
-  PreparedTransactionInsert,
-  PreparedUpdate,
-}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
+import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.{LedgerDao, PersistenceResponse}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
@@ -68,6 +64,8 @@ object ExecuteUpdate {
 }
 
 trait ExecuteUpdate {
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   private[indexer] implicit val loggingContext: LoggingContext
   private[indexer] implicit val executionContext: ExecutionContext
 
@@ -78,10 +76,8 @@ trait ExecuteUpdate {
 
   private[indexer] def prepareUpdate(
       offsetStepPair: OffsetUpdate
-  ): Future[PreparedUpdate] =
+  ): Future[OffsetUpdate] =
     offsetStepPair.update match {
-      case metadataUpdate: MetadataUpdate =>
-        Future.successful(MetadataUpdateStep(offsetStepPair.offsetStep, metadataUpdate))
       case tx: TransactionAccepted =>
         Timed.future(
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
@@ -103,12 +99,14 @@ trait ExecuteUpdate {
             )
           },
         )
+      case metadataUpdate =>
+        Future.successful(OffsetUpdate(offsetStepPair.offsetStep, metadataUpdate))
     }
 
   private[indexer] def updateMetadata(
-      metadataUpdateStep: MetadataUpdateStep
+      metadataUpdateStep: OffsetUpdate
   ): Future[PersistenceResponse] = {
-    val MetadataUpdateStep(offsetStep, update) = metadataUpdateStep
+    val OffsetUpdate(offsetStep, update) = metadataUpdateStep
     update match {
       case PartyAddedToParticipant(
             party,
@@ -180,6 +178,31 @@ trait ExecuteUpdate {
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
         ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
+      case update: TransactionAccepted =>
+        import update._
+        logger.warn(
+          """For performance considerations, TransactionAccepted should be handled in the prepare insert stage.
+            |Recomputing PreparedInsert..""".stripMargin
+        )
+        ledgerDao.storeTransaction(
+          preparedInsert = ledgerDao.prepareTransactionInsert(
+            submitterInfo = optSubmitterInfo,
+            workflowId = transactionMeta.workflowId,
+            transactionId = transactionId,
+            ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+            offset = offsetStep.offset,
+            transaction = transaction,
+            divulgedContracts = divulgedContracts,
+            blindingInfo = blindingInfo,
+          ),
+          submitterInfo = optSubmitterInfo,
+          transactionId = transactionId,
+          recordTime = recordTime.toInstant,
+          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+          offsetStep = offsetStep,
+          transaction = transaction,
+          divulged = divulgedContracts,
+        )
     }
   }
 
@@ -274,7 +297,7 @@ class PipelinedExecuteUpdate(
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
 
-  private val insertTransactionState: PreparedUpdate => Future[PreparedUpdate] = {
+  private val insertTransactionState: OffsetUpdate => Future[OffsetUpdate] = {
     case offsetUpdate @ PreparedTransactionInsert(_, _, preparedInsert) =>
       Timed.future(
         metrics.daml.index.db.storeTransactionState,
@@ -283,7 +306,7 @@ class PipelinedExecuteUpdate(
     case offsetUpdate => Future.successful(offsetUpdate)
   }
 
-  private val insertTransactionEvents: PreparedUpdate => Future[PreparedUpdate] = {
+  private val insertTransactionEvents: OffsetUpdate => Future[OffsetUpdate] = {
     case offsetUpdate @ PreparedTransactionInsert(_, _, preparedInsert) =>
       Timed.future(
         metrics.daml.index.db.storeTransactionEvents,
@@ -294,24 +317,27 @@ class PipelinedExecuteUpdate(
     case offsetUpdate => Future.successful(offsetUpdate)
   }
 
+  private val completeInsertion: OffsetUpdate => Future[PersistenceResponse] = {
+    case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
+      withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
+        implicit loggingContext =>
+          Timed.future(
+            metrics.daml.indexer.stateUpdateProcessing,
+            executeUpdate(offsetUpdate),
+          )
+      }
+  }
+
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
       .mapAsync(1)(prepareUpdate)
       .mapAsync(1)(insertTransactionState)
       .mapAsync(1)(insertTransactionEvents)
-      .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-        withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
-          implicit loggingContext =>
-            Timed.future(
-              metrics.daml.indexer.stateUpdateProcessing,
-              executeUpdate(offsetUpdate),
-            )
-        }
-      }
+      .mapAsync(1)(completeInsertion)
       .map(_ => ())
 
   private def executeUpdate(
-      preparedUpdate: PreparedUpdate
+      preparedUpdate: OffsetUpdate
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     preparedUpdate match {
       case OffsetUpdate.PreparedTransactionInsert(offsetStep, tx, _) =>
@@ -324,7 +350,7 @@ class PipelinedExecuteUpdate(
             offsetStep = offsetStep,
           ),
         )
-      case metadataUpdate: OffsetUpdate.MetadataUpdateStep => updateMetadata(metadataUpdate)
+      case metadataUpdate => updateMetadata(metadataUpdate)
     }
 }
 
@@ -368,7 +394,7 @@ class AtomicExecuteUpdate(
       .map(_ => ())
 
   private def executeUpdate(
-      preparedUpdate: PreparedUpdate
+      preparedUpdate: OffsetUpdate
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     preparedUpdate match {
       case PreparedTransactionInsert(
@@ -398,7 +424,7 @@ class AtomicExecuteUpdate(
           ),
         )
 
-      case metadataUpdate: OffsetUpdate.MetadataUpdateStep => updateMetadata(metadataUpdate)
+      case metadataUpdate => updateMetadata(metadataUpdate)
     }
 }
 
