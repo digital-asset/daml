@@ -11,7 +11,7 @@ It uses the sandbox as the Daml ledger.
 Configure Auth0
 ~~~~~~~~~~~~~~~
 
-Sign up for an account on Auth0 to follow this guid.
+Sign up for an account on Auth0 to follow this guide.
 
 Create an API
 *************
