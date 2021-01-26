@@ -87,7 +87,8 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                 recordedVariant == replayedVariant &&
                 loop((recordedValue, replayedValue) +: rest)
             case (ValueList(recordedValues), ValueList(replayedValues)) =>
-              loop((recordedValues.iterator zip replayedValues.iterator) ++: rest)
+              recordedValues.length == replayedValues.length &&
+                loop((recordedValues.iterator zip replayedValues.iterator) ++: rest)
             case (ValueOptional(recordedValue), ValueOptional(replayedValue)) =>
               (recordedValue, replayedValue) match {
                 case (Some(recorded), Some(replayed)) => loop((recorded, replayed) +: rest)
