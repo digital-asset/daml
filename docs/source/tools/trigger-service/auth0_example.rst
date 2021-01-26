@@ -238,6 +238,8 @@ This guide uses `Nginx <nginx_>`_ as a reverse proxy and web server.
       </body>
       <script>
         async function listTriggers() {
+          // The rule defined above accepts all claims for all users.
+          // So, we can always access claims to the party Alice.
           const resp = await fetch("http://localhost:5000/trigger/v1/triggers?party=Alice");
           if (resp.status === 401) {
             const challenge = await resp.json();
