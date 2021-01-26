@@ -36,7 +36,6 @@ public final class SigningInterceptor implements ClientInterceptor {
         return new ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(call) {
             private Listener<RespT> responseListener = null;
             private Metadata headers = null;
-            private boolean started = false;
             private int requested = 0;
 
             @Override
@@ -61,10 +60,7 @@ public final class SigningInterceptor implements ClientInterceptor {
                 headers.put(Headers.SIGNATURE, signature);
                 headers.put(Headers.ALGORITHM, algorithm);
                 headers.put(Headers.FINGERPRINT, fingerprint);
-                if (!started) {
-                    delegate().start(responseListener, headers);
-                    started = true;
-                }
+                delegate().start(responseListener, headers);
                 delegate().request(requested);
                 delegate().sendMessage(request);
             }
