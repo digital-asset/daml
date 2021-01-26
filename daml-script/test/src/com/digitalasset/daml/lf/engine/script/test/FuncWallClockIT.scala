@@ -16,7 +16,7 @@ final class FuncWallClockIT extends AbstractFuncIT {
     "sleep for specified duration" in {
       for {
         clients <- participantClients()
-        SRecord(_, _, vals) <- run(
+        SRecord(vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:sleepTest"),
           dar = stableDar,

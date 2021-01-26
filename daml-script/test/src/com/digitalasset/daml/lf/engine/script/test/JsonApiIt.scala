@@ -277,7 +277,7 @@ final class JsonApiIt
           result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonExerciseByKey"))
         } yield {
           result match {
-            case SRecord(_, _, vals) if vals.size == 2 =>
+            case SRecord(vals) if vals.size == 2 =>
               assert(vals.get(0) == vals.get(1))
             case _ => fail(s"Expected Tuple2 but got $result")
           }

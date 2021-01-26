@@ -73,20 +73,19 @@ class ContractDiscriminatorFreshnessCheckSpec
     Value.ContractId.V1.assertBuild(discriminator, suffix)
 
   private def keyRecord(party: Ref.Party, idx: Int) =
-    Value.ValueRecord(
-      Some(keyId),
-      ImmArray(
-        Some[Ref.Name]("party") -> Value.ValueParty(party),
-        Some[Ref.Name]("idx") -> Value.ValueInt64(idx.toLong),
-      ),
+    Value.ValueRecord10(
+      keyId,
+      ImmArray("party", "idx"),
+      ImmArray(Value.ValueParty(party), Value.ValueInt64(idx.toLong)),
     )
 
   private def contractRecord(party: Ref.Party, idx: Int, cids: List[ContractId]) =
-    Value.ValueRecord(
-      Some(tmplId),
+    Value.ValueRecord10(
+      tmplId,
+      ImmArray("key", "cids"),
       ImmArray(
-        Some[Ref.Name]("key") -> keyRecord(party, idx),
-        Some[Ref.Name]("cids") -> Value.ValueList(FrontStack(cids.map(Value.ValueContractId(_)))),
+        keyRecord(party, idx),
+        Value.ValueList(FrontStack(cids.map(Value.ValueContractId(_)))),
       ),
     )
 

@@ -16,7 +16,6 @@ import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SBuiltin._
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -84,13 +83,7 @@ object SExpr {
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExprAtomic {
     def lookupValue(machine: Machine): SValue = {
-      /* special case for nullary record constructors */
-      b match {
-        case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, new util.ArrayList())
-        case _ =>
-          SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
-      }
+      SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
     }
   }
 

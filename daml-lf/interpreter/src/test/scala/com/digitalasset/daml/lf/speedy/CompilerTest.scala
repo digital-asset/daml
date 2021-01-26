@@ -4,8 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.matchers.should.Matchers
@@ -44,7 +42,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
         .fill(10 * 1000)(
           Command.Create(
             recordCon,
-            SValue.SRecord(recordCon, ImmArray.empty, new util.ArrayList()),
+            SValue.SRecord12.Empty,
           )
         )
         .toImmArray

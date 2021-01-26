@@ -34,15 +34,14 @@ sealed trait SValue {
       case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
 
-      case SRecord(id, fields, svalues) =>
-        V.ValueRecord(
-          Some(id),
-          ImmArray(
-            fields.toSeq
-              .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), sv.toValue) })
-          ),
+      case SRecord10(id, fields, svalues) =>
+        V.ValueRecord10(
+          id,
+          fields,
+          svalues.iterator().asScala.map(_.toValue).to(ImmArray),
         )
+      case SRecord12(svalues) =>
+        V.ValueRecord12(svalues.iterator().asScala.map(_.toValue).to(ImmArray))
       case SVariant(id, variant, _, sv) =>
         V.ValueVariant(Some(id), variant, sv.toValue)
       case SEnum(id, constructor, _) =>
@@ -86,8 +85,8 @@ sealed trait SValue {
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
         SPAP(prim2, args2, arity)
-      case SRecord(tycon, fields, values) =>
-        SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
+      case record: SRecord =>
+        record.update(mapArrayList(record.values, v => v.mapContractId(f)))
       case SStruct(fields, values) =>
         SStruct(fields, mapArrayList(values, v => v.mapContractId(f)))
       case SVariant(tycon, variant, rank, value) =>
@@ -137,9 +136,28 @@ object SValue {
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
   }
 
+  sealed abstract class SRecord extends SValue {
+    val values: util.ArrayList[SValue]
+    def update(values: util.ArrayList[SValue]): SRecord
+  }
+
+  object SRecord {
+    def unapply(record: SRecord): Some[util.ArrayList[SValue]] = Some(record.values)
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue])
-      extends SValue
+  final case class SRecord10(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue])
+      extends SRecord {
+    override def update(values: util.ArrayList[SValue]): SRecord10 = copy(values = values)
+  }
+
+  final case class SRecord12(values: util.ArrayList[SValue]) extends SRecord {
+    override def update(values: util.ArrayList[SValue]): SRecord12 = SRecord12(values)
+  }
+
+  object SRecord12 {
+    val Empty = SRecord12(new util.ArrayList(0))
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   // values must be ordered according fieldNames

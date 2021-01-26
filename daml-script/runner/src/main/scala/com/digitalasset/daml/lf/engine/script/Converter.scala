@@ -84,7 +84,7 @@ object Converter {
 
   def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 1 => {
+      case SRecord(vals) if vals.size == 1 => {
         vals.get(0) match {
           case SAny(TTyCon(ty), templateVal) => Right(AnyTemplate(ty, templateVal))
           case v => Left(s"Expected SAny but got $v")
@@ -96,7 +96,7 @@ object Converter {
 
   def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
     v match {
-      case SRecord(_, _, JavaList(SAny(TTyCon(tyCon), choiceVal), _)) =>
+      case SRecord(JavaList(SAny(TTyCon(tyCon), choiceVal), _)) =>
         // This exploits the fact that in DAML, choice argument type names
         // and choice names match up.
         ChoiceName.fromString(tyCon.qualifiedName.name.toString).map(AnyChoice(_, choiceVal))
@@ -106,7 +106,7 @@ object Converter {
 
   def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
+      case SRecord(vals) if vals.size == 2 => {
         vals.get(0) match {
           case SAny(_, key) => Right(AnyContractKey(key))
           case _ => Left(s"Expected SAny but got $v")
@@ -118,8 +118,8 @@ object Converter {
 
   def typeRepToIdentifier(v: SValue): Either[String, Identifier] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 1 => {
-        vals.get(0) match {
+      case record: SRecord if record.values.size == 1 => {
+        record.values.get(0) match {
           case STypeRep(TTyCon(ty)) => Right(ty)
           case x => Left(s"Expected STypeRep but got $x")
         }
@@ -131,7 +131,7 @@ object Converter {
   def toCreateCommand(v: SValue): Either[String, command.Command] =
     v match {
       // template argument, continuation
-      case SRecord(_, _, vals) if vals.size == 2 => {
+      case SRecord(vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
         } yield command.CreateCommand(
@@ -145,7 +145,7 @@ object Converter {
   def toExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 => {
+      case SRecord(vals) if vals.size == 4 => {
         for {
           tplId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
@@ -163,7 +163,7 @@ object Converter {
   def toExerciseByKeyCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 => {
+      case SRecord(vals) if vals.size == 4 => {
         for {
           tplId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
@@ -180,7 +180,7 @@ object Converter {
 
   def toCreateAndExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 3 => {
+      case SRecord(vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
           anyChoice <- toAnyChoice(vals.get(1))
@@ -405,14 +405,14 @@ object Converter {
           case None => Right(None)
           case Some((pair, _)) =>
             pair match {
-              case SRecord(_, _, vals) if vals.size == 2 =>
+              case SRecord(vals) if vals.size == 2 =>
                 for {
                   // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
                   //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
                   //   The definition is not used when pretty printing locations. So, we can ignore this.
                   definition <- toText(vals.get(0))
                   loc <- vals.get(1) match {
-                    case SRecord(_, _, vals) if vals.size == 7 =>
+                    case SRecord(vals) if vals.size == 7 =>
                       for {
                         packageId <- toText(vals.get(0)).flatMap {
                           // GHC uses unit-id "main" for the current package,

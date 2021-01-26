@@ -99,7 +99,7 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
       (
         Ast.TTyCon(recordCon),
         ValueRecord(None, ImmArray(Some[Ref.Name]("field") -> ValueInt64(33))),
-        SRecord(recordCon, ImmArray("field"), ArrayList(SInt64(33))),
+        SRecord10(recordCon, ImmArray("field"), ArrayList(SInt64(33))),
       ),
       (
         Ast.TTyCon(variantCon),
@@ -110,7 +110,7 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
       (
         Ast.TApp(Ast.TTyCon(tricky), Ast.TBuiltin(Ast.BTList)),
         ValueRecord(None, ImmArray(None -> ValueNil)),
-        SRecord(tricky, ImmArray("x"), ArrayList(SValue.EmptyList)),
+        SRecord10(tricky, ImmArray("x"), ArrayList(SValue.EmptyList)),
       ),
     )
 

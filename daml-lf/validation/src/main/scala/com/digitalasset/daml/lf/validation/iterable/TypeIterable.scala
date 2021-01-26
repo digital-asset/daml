@@ -29,9 +29,8 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(expr0: Expr): Iterator[Type] = {
     expr0 match {
-      case ERecCon(tycon, fields @ _) =>
-        Iterator(toType(tycon)) ++
-          fields.values.flatMap(iterator(_))
+      case ERecCon(tycon, _, values) =>
+        Iterator(toType(tycon)) ++ values.iterator.flatMap(iterator(_))
       case ERecProj(tycon, field @ _, record) =>
         Iterator(toType(tycon)) ++
           iterator(record)

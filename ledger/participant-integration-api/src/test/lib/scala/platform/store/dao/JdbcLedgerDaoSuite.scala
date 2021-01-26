@@ -27,7 +27,7 @@ import com.daml.lf.transaction.{
   TransactionVersion,
 }
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord10, ValueText, ValueUnit}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry
@@ -81,9 +81,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     ),
   )
   protected final val someValueText = ValueText("some text")
-  protected final val someValueRecord = ValueRecord(
-    Some(someRecordId),
-    ImmArray(Some(Ref.Name.assertFromString("field")) -> someValueText),
+  protected final val someValueRecord = ValueRecord10(
+    someRecordId,
+    ImmArray(Ref.Name.assertFromString("field")),
+    ImmArray(someValueText),
   )
   protected final val someContractKey = someValueText
   protected final val someContractInstance = ContractInst(

@@ -389,7 +389,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         internedStringCase: Case,
         internedString: => Int,
         description: => String,
-    ) = {
+    ): Name = {
       val str = if (versionIsOlderThan(LV.Features.internedStrings)) {
         if (actualCase != stringCase)
           throw ParseError(s"${description}_str is required by DAML-LF 1.$minor")
@@ -515,18 +515,23 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       expr.getSumCase match {
         case PLF.KeyExpr.SumCase.RECORD =>
           val recCon = expr.getRecord
+          val fieldNames = ImmArray.newBuilder[FieldName]
+          val fieldValues = ImmArray.newBuilder[Expr]
+          recCon.getFieldsList.iterator().asScala.foreach { field =>
+            fieldNames += handleInternedName(
+              field.getFieldCase,
+              PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
+              field.getFieldStr,
+              PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
+              field.getFieldInternedStr,
+              "KeyExpr.field",
+            )
+            fieldValues += decodeKeyExpr(field.getExpr, tplVar)
+          }
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
-            fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
-              handleInternedName(
-                field.getFieldCase,
-                PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
-                field.getFieldStr,
-                PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
-                field.getFieldInternedStr,
-                "KeyExpr.field",
-              ) -> decodeKeyExpr(field.getExpr, tplVar)
-            ),
+            fieldNames.result(),
+            fieldValues.result(),
           )
 
         case PLF.KeyExpr.SumCase.PROJECTIONS =>
@@ -835,9 +840,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon
+          val (fieldNames, fieldValues) =
+            recCon.getFieldsList.asScala.map(decodeFieldWithExpr(_, definition)).unzip
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
-            fields = ImmArray(recCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition)),
+            fieldNames.to(ImmArray),
+            fieldValues.to(ImmArray),
           )
 
         case PLF.Expr.SumCase.REC_PROJ =>

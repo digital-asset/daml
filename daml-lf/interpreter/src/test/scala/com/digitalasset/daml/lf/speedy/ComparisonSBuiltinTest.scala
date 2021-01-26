@@ -432,7 +432,8 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       def tupleR(fstT: Type, sndT: Type)(fst: Expr, snd: Expr) =
         ERecCon(
           TypeConApp(tupleTyCon, ImmArray(fstT, sndT)),
-          ImmArray(fstName -> fst, sndName -> snd),
+          ImmArray(fstName, sndName),
+          ImmArray(fst, snd),
         )
 
       def list(t: Type)(es: Expr*) =

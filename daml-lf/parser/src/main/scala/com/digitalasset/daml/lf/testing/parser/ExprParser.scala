@@ -112,7 +112,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eRecCon: Parser[Expr] =
     typeConApp ~ (`{` ~> fieldInits <~ `}`) ^^ { case tConApp ~ fields =>
-      ERecCon(tConApp, fields)
+      ERecCon(tConApp, fields.map(_._1), fields.map(_._2))
     }
 
   private lazy val eRecProj: Parser[Expr] =

@@ -265,26 +265,31 @@ object ValueCoder {
                 )
             ValueEnum(id, identifier(enum.getValue))
 
-          case proto.Value.SumCase.RECORD =>
-            val record = protoValue.getRecord
+          case proto.Value.SumCase.RECORD10 =>
+            val record = protoValue.getRecord10
             val id =
-              if (record.getRecordId == ValueOuterClass.Identifier.getDefaultInstance) None
-              else
-                decodeIdentifier(record.getRecordId).fold(
-                  { err =>
-                    throw Err(err.errorMessage)
-                  },
-                  { id =>
-                    Some(id)
-                  },
-                )
-            ValueRecord(
-              id,
-              ImmArray(protoValue.getRecord.getFieldsList.asScala.map(fld => {
-                val lbl = if (fld.getLabel.isEmpty) None else Option(identifier(fld.getLabel))
-                (lbl, go(newNesting, fld.getValue))
-              })),
-            )
+              decodeIdentifier(record.getRecordId)
+                .fold((err => throw Err(err.errorMessage)), identity)
+            val fieldsName = ImmArray.newBuilder[Name]
+            val fieldsValues = ImmArray.newBuilder[Value[Cid]]
+            record.getFieldsList.iterator().asScala.foreach { fld =>
+              fieldsName += identifier(fld.getLabel)
+              fieldsValues += go(newNesting, fld.getValue)
+            }
+            ValueRecord10(id, fieldsName.result(), fieldsValues.result())
+
+          case proto.Value.SumCase.RECORD12 =>
+            assertSince(TransactionVersion.minTypeErasure, "ValueRecord12")
+            val record = protoValue.getRecord12
+            val fieldsValues = ImmArray.newBuilder[Value[Cid]]
+            record
+              .getFieldValuesList()
+              .iterator()
+              .asScala
+              .foreach(
+                fieldsValues += go(newNesting, _)
+              )
+            ValueRecord12(fieldsValues.result())
 
           case proto.Value.SumCase.OPTIONAL =>
             val option = protoValue.getOptional
@@ -407,24 +412,31 @@ object ValueCoder {
               ()
             })
             builder.setList(listBuilder).build()
+          case record: ValueRecord[Cid] =>
+            record match {
+              case ValueRecord10(id, fieldNames, fieldValues) =>
+                val recordBuilder = proto.Record10.newBuilder().setRecordId(encodeIdentifier(id))
+                (fieldNames zip fieldValues).foreach { case (name, value) =>
+                  recordBuilder.addFields(
+                    proto.RecordField.newBuilder().setLabel(name).setValue(go(newNesting, value))
+                  )
+                  ()
+                }
+                builder
+                  .setRecord10(recordBuilder)
+                  .build()
 
-          case ValueRecord(id, fields) =>
-            val protoFields = fields
-              .map(f => {
-                val b = proto.RecordField
-                  .newBuilder()
-                  .setValue(go(newNesting, f._2))
-                f._1.map(b.setLabel)
-                b.build()
-              })
-              .toSeq
-              .asJava
-            val recordBuilder = proto.Record.newBuilder().addAllFields(protoFields)
-            id.foreach(i => recordBuilder.setRecordId(encodeIdentifier(i)))
-            builder
-              .setRecord(recordBuilder)
-              .build()
-
+              case ValueRecord12(fields) =>
+                assertSince(TransactionVersion.minTypeErasure, "ValueRecord12")
+                val recordBuilder = proto.Record12.newBuilder()
+                fields.foreach { x =>
+                  recordBuilder.addFieldValues(go(newNesting, x))
+                  ()
+                }
+                builder.setRecord12(recordBuilder).build()
+              case _: ValueRecord0[Cid] =>
+                throw Err("cannot encode not normalized record")
+            }
           case ValueVariant(id, con, arg) =>
             val protoVar = proto.Variant
               .newBuilder()

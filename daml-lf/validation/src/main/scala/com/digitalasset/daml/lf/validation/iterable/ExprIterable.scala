@@ -18,8 +18,8 @@ private[validation] object ExprIterable {
         Iterator.empty
       case ELocation(_, expr) =>
         Iterator(expr)
-      case ERecCon(tycon @ _, fields) =>
-        fields.values
+      case ERecCon(_, _, values) =>
+        values.iterator
       case ERecProj(tycon @ _, field @ _, record) =>
         Iterator(record)
       case ERecUpd(tycon @ _, field @ _, record, update) =>

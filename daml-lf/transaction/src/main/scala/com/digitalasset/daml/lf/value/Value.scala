@@ -151,13 +151,18 @@ object Value extends CidContainer1[Value] {
       // TODO (FM) make this tail recursive
       v0 match {
         case ValueContractId(coid) => ValueContractId(f(coid))
-        case ValueRecord(id, fs) =>
-          ValueRecord(
-            id,
-            fs.map({ case (lbl, value) =>
-              (lbl, go(value))
-            }),
-          )
+        case record: ValueRecord[Cid] =>
+          record match {
+            case ValueRecord10(tyCon, fieldNames, fieldValues) =>
+              ValueRecord10(tyCon, fieldNames, fieldValues.map(go))
+            case ValueRecord12(fieldValues) =>
+              ValueRecord12(fieldValues.map(go))
+            case ValueRecord0(mbTyCon, fields) =>
+              ValueRecord0(
+                mbTyCon,
+                fields.map { case (lbl, value) => (lbl, go(value)) },
+              )
+          }
         case ValueVariant(id, variant, value) =>
           ValueVariant(id, variant, go(value))
         case x: ValueCidlessLeaf => x
@@ -245,10 +250,59 @@ object Value extends CidContainer1[Value] {
     */
   sealed abstract class ValueCidlessLeaf extends Value[Nothing]
 
-  final case class ValueRecord[+Cid](
-      tycon: Option[Identifier],
+  sealed abstract class ValueRecord[+Cid] extends Value[Cid] {
+    def mbTyCon: Option[Identifier]
+    def fields: ImmArray[(Option[Name], Value[Cid])]
+    def fieldValues: ImmArray[Value[Cid]]
+    def update[Cid2 >: Cid](values: ImmArray[Value[Cid2]]): ValueRecord[Cid2]
+  }
+
+  final case class ValueRecord0[+Cid](
+      mbTyCon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value[Cid])],
-  ) extends Value[Cid]
+  ) extends ValueRecord[Cid] {
+    override def fieldValues: ImmArray[Value[Cid]] = fields.map(_._2)
+
+    override def update[Cid2 >: Cid](values: ImmArray[Value[Cid2]]): ValueRecord0[Cid2] =
+      copy(fields = (fields.toSeq.view.map(_._1) zip values.toSeq).to(ImmArray))
+  }
+
+  final case class ValueRecord10[+Cid](
+      tyCon: Identifier,
+      fieldNames: ImmArray[Name],
+      fieldValues: ImmArray[Value[Cid]],
+  ) extends ValueRecord[Cid] {
+    def mbTyCon: Some[Identifier] = Some(tyCon)
+    def fields: ImmArray[(Some[Name], Value[Cid])] =
+      (fieldNames.toSeq.view.map(Some(_)) zip fieldValues.toSeq).to(ImmArray)
+    override def update[Cid2 >: Cid](values: ImmArray[Value[Cid2]]): ValueRecord[Cid2] =
+      copy(fieldValues = values)
+  }
+
+  final case class ValueRecord12[+Cid](
+      fieldValues: ImmArray[Value[Cid]]
+  ) extends ValueRecord[Cid] {
+    def mbTyCon: None.type = None
+    def fields: ImmArray[(None.type, Value[Cid])] = fieldValues.map(None -> _)
+
+    override def update[Cid2 >: Cid](values: ImmArray[Value[Cid2]]): ValueRecord[Cid2] =
+      copy(fieldValues = values)
+  }
+
+  object ValueRecord {
+    def apply[Cid](
+        tycon: Option[Identifier],
+        fields: ImmArray[(Option[Name], Value[Cid])],
+    ): ValueRecord0[Cid] =
+      ValueRecord0(tycon, fields)
+
+    def unapply[Cid](
+        arg: ValueRecord[Cid]
+    ): Some[(Option[Identifier], ImmArray[(Option[Name], Value[Cid])])] = {
+      Some(arg.mbTyCon -> arg.fields)
+    }
+  }
+
   final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
   final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf
@@ -554,7 +608,7 @@ private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]]
           _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
       case r: ValueRecord[Cid] => { case ValueRecord(tycon2, fields2) =>
         import r._
-        tycon == tycon2 && fields === fields2
+        mbTyCon == tycon2 && fields === fields2
       }
       case v: ValueVariant[Cid] => { case ValueVariant(tycon2, variant2, value2) =>
         import v._

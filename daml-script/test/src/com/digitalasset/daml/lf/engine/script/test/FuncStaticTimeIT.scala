@@ -15,7 +15,7 @@ final class FuncStaticTimeIT extends AbstractFuncIT {
     "change time and reflect the change in getTime" in {
       for {
         clients <- participantClients()
-        SRecord(_, _, vals) <- run(
+        SRecord(vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:testSetTime"),
           dar = stableDar,

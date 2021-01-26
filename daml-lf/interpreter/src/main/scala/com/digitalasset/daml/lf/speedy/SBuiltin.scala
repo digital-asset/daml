@@ -717,25 +717,29 @@ private[lf] object SBuiltin {
   }
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
-  final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
+  final case class SBRecCon10(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length)
       with SomeArrayEquals {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      SRecord(id, fields, args)
+      SRecord10(id, fields, args)
+    }
+  }
+
+  /** $rcon[R, fields] :: a -> b -> ... -> R */
+  final case class SBRecCon12(length: Int) extends SBuiltinPure(length) with SomeArrayEquals {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      SRecord12(args)
     }
   }
 
   /** $rupd[R, field] :: R -> a -> R */
-  final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
+  final case class SBRecUpd(field: Int) extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SRecord(id2, fields, values) =>
-          if (id != id2) {
-            crash(s"type mismatch on record update: expected $id, got record of type $id2")
-          }
-          val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
+        case record: SRecord =>
+          val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
           values2.set(field, args.get(1))
-          SRecord(id2, fields, values2)
+          record.update(values2)
         case v =>
           crash(s"RecUpd on non-record: $v")
       }
@@ -743,22 +747,19 @@ private[lf] object SBuiltin {
   }
 
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
-  final case class SBRecUpdMulti(id: Identifier, updateFields: Array[Int])
+  final case class SBRecUpdMulti(updateFields: Array[Int])
       extends SBuiltinPure(1 + updateFields.length)
       with SomeArrayEquals {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SRecord(id2, fields, values) =>
-          if (id != id2) {
-            crash(s"type mismatch on record update: expected $id, got record of type $id2")
-          }
-          val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
+        case record: SRecord =>
+          val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
           var i = 0
           while (i < updateFields.length) {
             values2.set(updateFields(i), args.get(i + 1))
             i += 1
           }
-          SRecord(id2, fields, values2)
+          record.update(values2)
         case v =>
           crash(s"RecUpd on non-record: $v")
       }
@@ -766,10 +767,10 @@ private[lf] object SBuiltin {
   }
 
   /** $rproj[R, field] :: R -> a */
-  final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
+  final case class SBRecProj(field: Int) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SRecord(id @ _, _, values) => values.get(field)
+        case record: SRecord => record.values.get(field)
         case v =>
           crash(s"RecProj on non-record: $v")
       }

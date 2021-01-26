@@ -69,16 +69,16 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
               recordedValue === replayedValue &&
                 loop(rest)
             case (
-                  ValueRecord(recordedTyCon, recordedFields),
-                  ValueRecord(replayedTyCon, replayedFields),
+                  ValueRecord10(recordedTyCon, recordedFieldName, recordedFields),
+                  ValueRecord10(replayedTyCon, replayedFieldName, replayedFields),
                 ) =>
               recordedTyCon == replayedTyCon &&
+                recordedFieldName == replayedFieldName &&
                 recordedFields.length == replayedFields.length &&
-                (keys(recordedFields) zip keys(replayedFields)).forall {
-                  case (None, _) => true
-                  case (recorded, replayed) => recorded == replayed
-                } &&
-                loop((values(recordedFields) zip values(recordedFields)) ++: rest)
+                loop((recordedFields.iterator zip recordedFields.iterator) ++: rest)
+            case (ValueRecord12(recordedFields), ValueRecord12(replayedFields)) =>
+              recordedFields.length == replayedFields.length &&
+                loop((recordedFields.iterator zip recordedFields.iterator) ++: rest)
             case (
                   ValueVariant(recordedTyCon, recordedVariant, recordedValue),
                   ValueVariant(replayedTyCon, replayedVariant, replayedValue),

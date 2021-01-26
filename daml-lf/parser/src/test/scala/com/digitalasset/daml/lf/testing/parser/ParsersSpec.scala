@@ -253,9 +253,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "Mod:v" ->
           v,
         "Mod:R {}" ->
-          ERecCon(TypeConApp(R.tycon, ImmArray.empty), ImmArray.empty),
+          ERecCon(TypeConApp(R.tycon, ImmArray.empty), ImmArray.empty, ImmArray.empty),
         "Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
-          ERecCon(RIntBool, ImmArray(n"f1" -> e"1", n"f2" -> e"False")),
+          ERecCon(RIntBool, ImmArray(n"f1", n"f2"), ImmArray(e"1", e"False")),
         "Mod:R @Int64 @Bool {f1} x" ->
           ERecProj(RIntBool, n"f1", e"x"),
         "Mod:R @Int64 @Bool {x with f1 = 1}" ->

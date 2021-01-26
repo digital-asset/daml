@@ -15,7 +15,7 @@ import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
-import com.daml.lf.speedy.SValue.SRecord
+import com.daml.lf.speedy.SValue.SRecord10
 import org.scalatest.Suite
 import scalaz.\/-
 import scalaz.syntax.traverse._
@@ -51,7 +51,7 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
     val vals = new util.ArrayList[SValue](2);
     vals.add(a)
     vals.add(b)
-    SRecord(
+    SRecord10(
       id = Identifier(
         PackageId.assertFromString(
           "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"

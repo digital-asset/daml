@@ -66,13 +66,8 @@ private[daml] class AstRewriter(
           EVal(apply(ref))
         case ELocation(loc, expr) =>
           ELocation(loc, apply(expr))
-        case ERecCon(tycon, fields) =>
-          ERecCon(
-            apply(tycon),
-            fields.transform { (_, x) =>
-              apply(x)
-            },
-          )
+        case ERecCon(tycon, fieldNames, fieldValues) =>
+          ERecCon(apply(tycon), fieldNames, fieldValues.map(apply))
         case ERecProj(tycon, field, record) =>
           ERecProj(apply(tycon), field, apply(record))
         case ERecUpd(tycon, field, record, update) =>

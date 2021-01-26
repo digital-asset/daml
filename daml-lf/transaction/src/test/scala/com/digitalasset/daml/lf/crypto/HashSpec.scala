@@ -581,17 +581,17 @@ class HashSpec extends AnyWordSpec with Matchers {
           | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
           |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
           | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
-          |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
+          |ValueRecord10(pkgId:Mod:Unit,ImmArray(),ImmArray())
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
-          |ValueRecord(Some(pkgId:Mod:UnitBis),ImmArray())
+          |ValueRecord10(pkgId:Mod:UnitBis,ImmArray(),ImmArray())
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
-          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord10(pkgId:Mod:Tuple,ImmArray(_1,_2),ImmArray(ValueBool(false),ValueBool(false)))
           | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
-          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
+          |ValueRecord10(pkgId:Mod:Tuple,ImmArray(_1,_2),ImmArray(ValueBool(true),ValueBool(false)))
           | 768c5b90ed7ae5b727381e331fac83d7defd397d040f46ba067c80ec2af3eb33
-          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
+          |ValueRecord10(pkgId:Mod:Tuple,ImmArray(_1,_2),ImmArray(ValueBool(false),ValueBool(true)))
           | 4f6de867c24682cee05db95d48e1ea47cf5f8b6e74fe07582d3cd8cecaea84b7
-          |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord10(pkgId:Mod:TupleBis,ImmArray(_1,_2),ImmArray(ValueBool(false),ValueBool(false)))
           | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
           |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097

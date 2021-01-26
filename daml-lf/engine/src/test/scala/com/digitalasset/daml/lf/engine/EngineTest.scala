@@ -94,12 +94,10 @@ class EngineTest
     ContractInst(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       assertAsVersionedValue(
-        ValueRecord(
-          Some(BasicTests_WithKey),
-          ImmArray(
-            (Some[Ref.Name]("p"), ValueParty(alice)),
-            (Some[Ref.Name]("k"), ValueInt64(42)),
-          ),
+        ValueRecord10(
+          BasicTests_WithKey,
+          ImmArray("p", "k"),
+          ImmArray(ValueParty(alice), ValueInt64(42)),
         )
       ),
       "",
@@ -111,9 +109,10 @@ class EngineTest
         ContractInst(
           TypeConName(basicTestsPkgId, "BasicTests:Simple"),
           assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
-              ImmArray((Some[Name]("p"), ValueParty(party))),
+            ValueRecord10(
+              Identifier(basicTestsPkgId, "BasicTests:Simple"),
+              ImmArray("p"),
+              ImmArray(ValueParty(party)),
             )
           ),
           "",
@@ -122,12 +121,10 @@ class EngineTest
         ContractInst(
           TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
           assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray(
-                (Some[Ref.Name]("giver"), ValueParty(alice)),
-                (Some[Ref.Name]("receiver"), ValueParty(bob)),
-              ),
+            ValueRecord10(
+              Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
+              ImmArray("giver", "receiver"),
+              ImmArray(ValueParty(alice), ValueParty(bob)),
             )
           ),
           "",
@@ -136,7 +133,8 @@ class EngineTest
         withKeyContractInst,
     )
 
-  val lookupContract = defaultContracts.get(_)
+  def lookupContract(cid: ContractId): Option[ContractInst[VersionedValue[ContractId]]] =
+    defaultContracts.get(cid)
 
   def lookupPackage(pkgId: PackageId): Option[Package] = {
     allPackages.get(pkgId)
@@ -146,7 +144,7 @@ class EngineTest
     (key.globalKey.templateId, key.globalKey.key) match {
       case (
             BasicTests_WithKey,
-            ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+            ValueRecord10(_, _, ImmArray(ValueParty(`alice`), ValueInt64(42))),
           ) =>
         Some(toContractId("#BasicTests:WithKey:1"))
       case _ =>
@@ -434,12 +432,12 @@ class EngineTest
       translator
         .translateValue(typ, someValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
-        Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(Some(SText("foo"))))))
+        Right(SRecord10(id, ImmArray("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
-        Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(None))))
+        Right(SRecord10(id, ImmArray("recField"), ArrayList(SOptional(None))))
 
     }
 
@@ -894,7 +892,7 @@ class EngineTest
       val cmds = ImmArray(
         speedy.Command.FetchByKey(
           templateId = templateId,
-          key = SRecord(
+          key = SRecord10(
             BasicTests_WithKey,
             ImmArray("p", "k"),
             ArrayList(SParty(alice), SInt64(43)),
@@ -916,7 +914,7 @@ class EngineTest
 
       inside(result) { case Left(err) =>
         err.msg should include(
-          s"couldn't find key GlobalKey($basicTestsPkgId:BasicTests:WithKey, ValueRecord(Some($basicTestsPkgId:BasicTests:WithKey),ImmArray((Some(p),ValueParty(Alice)),(Some(k),ValueInt64(43)))))"
+          s"couldn't find key GlobalKey(a1e54648589094edb8aca93361eb94e8b8b362aff2a8fbd4ce43295362b1013e:BasicTests:WithKey, ValueRecord10(a1e54648589094edb8aca93361eb94e8b8b362aff2a8fbd4ce43295362b1013e:BasicTests:WithKey,ImmArray(p,k),ImmArray(ValueParty(Alice),ValueInt64(43))))"
         )
       }
     }
@@ -1309,9 +1307,10 @@ class EngineTest
           contractId = originalCoid,
           templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           choice = "Transfer",
-          choiceArgument = ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:Transfer")),
-            ImmArray((Some[Name]("newReceiver"), ValueParty(clara))),
+          choiceArgument = ValueRecord10(
+            Identifier(basicTestsPkgId, "BasicTests:Transfer"),
+            ImmArray("newReceiver"),
+            ImmArray(ValueParty(clara)),
           ),
           actingParties = Set(bob),
           isConsuming = true,
@@ -1327,12 +1326,10 @@ class EngineTest
           cid,
           Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           None,
-          ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-            ImmArray(
-              (Some[Name]("giver"), ValueParty(alice)),
-              (Some[Name]("receiver"), ValueParty(clara)),
-            ),
+          ValueRecord10(
+            Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
+            ImmArray("giver", "receiver"),
+            ImmArray(ValueParty(alice), ValueParty(clara)),
           ),
           "",
           signatories = Set(alice),
@@ -1379,7 +1376,9 @@ class EngineTest
     ) =
       ContractInst(
         TypeConName(basicTestsPkgId, tid),
-        assertAsVersionedValue(ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs)),
+        assertAsVersionedValue(
+          ValueRecord10(Identifier(basicTestsPkgId, tid), targs.map(_._1.get), targs.map(_._2))
+        ),
         "",
       )
 
@@ -1486,13 +1485,10 @@ class EngineTest
     val fetchedContract = ContractInst(
       TypeConName(basicTestsPkgId, fetchedStrTid),
       assertAsVersionedValue(
-        ValueRecord(
-          Some(Identifier(basicTestsPkgId, fetchedStrTid)),
-          ImmArray(
-            (Some[Name]("sig1"), ValueParty(alice)),
-            (Some[Name]("sig2"), ValueParty(bob)),
-            (Some[Name]("obs"), ValueParty(clara)),
-          ),
+        ValueRecord10(
+          Identifier(basicTestsPkgId, fetchedStrTid),
+          ImmArray("sig1", "sig2", "obs"),
+          ImmArray(ValueParty(alice), ValueParty(bob), ValueParty(clara)),
         )
       ),
       "",
@@ -1543,7 +1539,7 @@ class EngineTest
     val lookerUpInst = ContractInst(
       TypeConName(basicTestsPkgId, lookerUpTemplate),
       assertAsVersionedValue(
-        ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))
+        ValueRecord10(lookerUpTemplateId, ImmArray("p"), ImmArray(ValueParty(alice)))
       ),
       "",
     )
@@ -1552,7 +1548,7 @@ class EngineTest
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
               BasicTests_WithKey,
-              ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+              ValueRecord10(_, _, ImmArray(ValueParty(`alice`), ValueInt64(42))),
             ) =>
           Some(lookedUpCid)
         case _ =>
@@ -1748,7 +1744,7 @@ class EngineTest
       val fetcherInst = ContractInst(
         TypeConName(basicTestsPkgId, fetcherTemplate),
         assertAsVersionedValue(
-          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))
+          ValueRecord10(fetcherTemplateId, ImmArray("p"), ImmArray(ValueParty(alice)))
         ),
         "",
       )

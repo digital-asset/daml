@@ -40,7 +40,9 @@ private[lf] object Equality {
           success = x == y
         case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
           success = xRank == yRank
-        case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
+        case (SRecord12(xs), SRecord12(ys)) =>
+          push(xs.iterator().asScala, ys.iterator().asScala)
+        case (SRecord10(_, _, xs), SRecord10(_, _, ys)) =>
           push(xs.iterator().asScala, ys.iterator().asScala)
         case (SVariant(_, _, xRank, x), SVariant(_, _, yRank, y)) =>
           push(Iterator.single(x), Iterator.single(y))

@@ -661,21 +661,23 @@ private[lf] object Speedy {
           case V.ValueBool(b) => SBool(b)
           case V.ValueDate(x) => SDate(x)
           case V.ValueUnit => SUnit
-          case V.ValueRecord(Some(id), fs) =>
-            val values = new util.ArrayList[SValue](fs.length)
-            val names = fs.map {
-              case (Some(f), v) =>
-                values.add(go(v))
-                f
-              case (None, _) => crash("SValue.fromValue: record missing field name")
+          case record: V.ValueRecord[V.ContractId] =>
+            record match {
+              case V.ValueRecord12(fieldValues) =>
+                val values = new util.ArrayList[SValue](fieldValues.length)
+                fieldValues.foreach { v => values.add(go(v)); () }
+                SRecord12(values)
+              case V.ValueRecord10(tyCon, fieldNames, fieldValues) =>
+                val values = new util.ArrayList[SValue](fieldValues.length)
+                fieldValues.foreach { v => values.add(go(v)); () }
+                SRecord10(tyCon, fieldNames, values)
+              case _: V.ValueRecord0[V.ContractId] =>
+                crash("SValue.importValue: cannot import ValueRecord0")
             }
-            SRecord(id, names, values)
-          case V.ValueRecord(None, _) =>
-            crash("SValue.fromValue: record missing identifier")
           case V.ValueVariant(None, _variant @ _, _value @ _) =>
-            crash("SValue.fromValue: variant without identifier")
+            crash("SValue.importValue: variant without identifier")
           case V.ValueEnum(None, constructor @ _) =>
-            crash("SValue.fromValue: enum without identifier")
+            crash("SValue.importValue: enum without identifier")
           case V.ValueOptional(mbV) =>
             SOptional(mbV.map(go))
           case V.ValueTextMap(entries) =>
@@ -1048,7 +1050,8 @@ private[lf] object Speedy {
         }
       case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
             _
-          ) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) | STNat(
+          ) | SStruct(_, _) | SGenMap(_, _) | SRecord10(_, _, _) | SRecord12(_) | SAny(_, _) |
+          STypeRep(_) | STNat(
             _
           ) | _: SPAP | SToken =>
         crash("Match on non-matchable value")

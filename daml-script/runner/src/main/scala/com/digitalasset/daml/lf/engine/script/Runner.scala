@@ -332,23 +332,21 @@ object Runner {
 
   private def submitPayload: SValue PartialFunction SubmitPayload = {
     // no location
-    case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue)) =>
+    case SRecord(JavaList(sParty, SRecord(JavaList(freeAp)), continue)) =>
       SubmitPayload(OneAnd(sParty, List()), List(), freeAp, continue, None)
     // location
-    case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue, loc)) =>
+    case SRecord(JavaList(sParty, SRecord(JavaList(freeAp)), continue, loc)) =>
       SubmitPayload(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
 
     // multi-party actAs/readAs + location
     case SRecord(
-          _,
-          _,
           JavaList(
-            SRecord(_, _, JavaList(hdAct, SList(tlAct))),
+            SRecord(JavaList(hdAct, SList(tlAct))),
             SList(read),
-            SRecord(_, _, JavaList(freeAp)),
+            SRecord(JavaList(freeAp)),
             continue,
             loc,
-          ),
+          )
         ) =>
       SubmitPayload(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
 
@@ -590,45 +588,42 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                   }
                 }
               case "Query" =>
-                m2c("record with 3 fields") {
-                  case SRecord(_, _, JavaList(sParties, sTplId, continue)) =>
-                    for {
-                      parties <- Converter.toFuture(
-                        Converter
-                          .toParties(sParties)
-                      )
-                      tplId <- Converter.toFuture(
-                        Converter
-                          .typeRepToIdentifier(sTplId)
-                      )
-                      client <- Converter.toFuture(
-                        clients
-                          .getPartiesParticipant(parties)
-                      )
-                      acs <- client.query(parties, tplId)
-                      res <- Converter.toFuture(
-                        FrontStack(acs)
-                          .traverse(
-                            Converter
-                              .fromCreated(valueTranslator, _)
-                          )
-                      )
-                      v <- {
-                        run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
-                      }
-                    } yield v
+                m2c("record with 3 fields") { case SRecord(JavaList(sParties, sTplId, continue)) =>
+                  for {
+                    parties <- Converter.toFuture(
+                      Converter
+                        .toParties(sParties)
+                    )
+                    tplId <- Converter.toFuture(
+                      Converter
+                        .typeRepToIdentifier(sTplId)
+                    )
+                    client <- Converter.toFuture(
+                      clients
+                        .getPartiesParticipant(parties)
+                    )
+                    acs <- client.query(parties, tplId)
+                    res <- Converter.toFuture(
+                      FrontStack(acs)
+                        .traverse(
+                          Converter
+                            .fromCreated(valueTranslator, _)
+                        )
+                    )
+                    v <- {
+                      run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
+                    }
+                  } yield v
                 }
               case "AllocParty" =>
                 m2c("record with 4 fields") {
                   case SRecord(
-                        _,
-                        _,
                         JavaList(
                           SText(displayName),
                           SText(partyIdHint),
                           SOptional(sParticipantName),
                           continue,
-                        ),
+                        )
                       ) =>
                     for {
                       participantName <- sParticipantName match {
@@ -662,7 +657,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 }
               case "ListKnownParties" =>
                 m2c("record with 2 fields") {
-                  case SRecord(_, _, JavaList(SOptional(sParticipantName), continue)) => {
+                  case SRecord(JavaList(SOptional(sParticipantName), continue)) => {
                     for {
                       participantName <- sParticipantName match {
                         case Some(SText(t)) => Future.successful(Some(Participant(t)))
@@ -714,7 +709,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
 
                 }
               case "SetTime" =>
-                m2c("SetTimePayload") { case SRecord(_, _, JavaList(sT, continue)) =>
+                m2c("SetTimePayload") { case SRecord(JavaList(sT, continue)) =>
                   timeMode match {
                     case ScriptTimeMode.Static =>
                       for {
@@ -736,9 +731,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
               case "Sleep" =>
                 m2c("record with 2 fields") {
                   case SRecord(
-                        _,
-                        _,
-                        JavaList(SRecord(_, _, JavaList(SInt64(sleepMicros))), continue),
+                        JavaList(SRecord(JavaList(SInt64(sleepMicros))), continue)
                       ) =>
                     val sleepMillis = sleepMicros / 1000
                     val sleepNanos = (sleepMicros % 1000) * 1000
@@ -747,7 +740,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 }
               case "QueryContractId" =>
                 m2c("record with 4 fields") {
-                  case SRecord(_, _, JavaList(sParty, sTplId, sCid, continue)) =>
+                  case SRecord(JavaList(sParty, sTplId, sCid, continue)) =>
                     for {
                       parties <- Converter.toFuture(Converter.toParties(sParty))
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
@@ -762,7 +755,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 }
               case "QueryContractKey" =>
                 m2c("record with 4 fields") {
-                  case SRecord(_, _, JavaList(sParties, sTplId, sKey, continue)) =>
+                  case SRecord(JavaList(sParties, sTplId, sKey, continue)) =>
                     for {
                       parties <- Converter.toFuture(Converter.toParties(sParties))
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
@@ -779,7 +772,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
             }
           case Left(v) =>
             v match {
-              case SRecord(_, _, JavaList(newState, _)) => {
+              case SRecord(JavaList(newState, _)) => {
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Future { newState }
               }
@@ -794,7 +787,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       expr <- result match {
         // Unwrap Script type and apply to ()
         // For backwards-compatibility we support the 1 and the 2-field versions.
-        case SRecord(_, _, vals) if vals.size == 1 || vals.size == 2 => {
+        case SRecord(vals) if vals.size == 1 || vals.size == 2 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
               Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))

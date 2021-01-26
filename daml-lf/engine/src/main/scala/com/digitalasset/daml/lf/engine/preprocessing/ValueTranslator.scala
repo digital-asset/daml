@@ -7,6 +7,7 @@ package preprocessing
 import com.daml.lf.CompiledPackages
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
@@ -14,6 +15,8 @@ import com.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) {
+
+  import scala.Ordering.Implicits.infixOrderingOps
 
   import Preprocessor._
 
@@ -213,7 +216,6 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       go(replacedTyp, val0, newNesting),
                     )
                 }
-              // records
               case ValueRecord(mbId, flds) =>
                 mbId.foreach(id =>
                   if (id != tyCon)
@@ -254,11 +256,19 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                         }
                     }
                 }
-                SValue.SRecord(
-                  tyCon,
-                  fields.map(_._1),
-                  ArrayList(fields.map(_._2).toSeq: _*),
-                )
+                def fieldNames = fields.map(_._1)
+                val fieldValues = ArrayList(fields.map(_._2).toSeq: _*)
+                if (
+                  compiledPackages.packageLanguageVersion(tyCon.packageId) < LanguageVersion.v1_dev
+                ) {
+                  SValue.SRecord10(
+                    tyCon,
+                    fieldNames,
+                    fieldValues,
+                  )
+                } else {
+                  SValue.SRecord12(fieldValues)
+                }
 
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
                 mbId.foreach(id =>

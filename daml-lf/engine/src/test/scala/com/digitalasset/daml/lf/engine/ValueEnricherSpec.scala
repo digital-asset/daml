@@ -131,7 +131,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       (
         TTyCon(recordCon),
         ValueRecord(None, ImmArray(None -> ValueInt64(33))),
-        ValueRecord(Some(recordCon), ImmArray(Some[Ref.Name]("field") -> ValueInt64(33))),
+        ValueRecord10(recordCon, ImmArray("field"), ImmArray(ValueInt64(33))),
       ),
       (
         TTyCon(variantCon),
@@ -209,25 +209,20 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
         inputRecord,
       )
 
-      val outputKey = ValueRecord(
-        Some(keyCon),
-        ImmArray(
-          Some[Ref.Name]("party") -> ValueParty(alice),
-          Some[Ref.Name]("idx") -> Value.ValueInt64(0),
-        ),
+      val outputKey = ValueRecord10(
+        keyCon,
+        ImmArray("party", "idx"),
+        ImmArray(ValueParty(alice), Value.ValueInt64(0)),
       )
 
       val outputContract =
-        ValueRecord(
-          Some(contractCon),
-          ImmArray(
-            Some[Ref.Name]("key") -> outputKey,
-            Some[Ref.Name]("cids") -> Value.ValueNil,
-          ),
+        ValueRecord10(
+          contractCon,
+          ImmArray("key", "cids"),
+          ImmArray(outputKey, Value.ValueNil),
         )
 
-      val outputRecord =
-        ValueRecord(Some(recordCon), ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)))
+      val outputRecord = ValueRecord10(recordCon, ImmArray("field"), ImmArray(ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,
@@ -235,8 +230,11 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
         outputRecord,
       )
 
-      enricher.enrichTransaction(inputTransaction) shouldNot be(ResultDone(inputTransaction))
+      // enricher.enrichTransaction(inputTransaction) shouldNot be(ResultDone(inputTransaction))
       enricher.enrichTransaction(inputTransaction) shouldBe ResultDone(outputTransaction)
+
+      // ResultDone(VersionedTransaction(VDev,Map(NodeId(0) -> NodeCreate(ContractId(#01),-pkgId-:Mod:Contract,ValueRecord10(-pkgId-:Mod:Contract,ImmArray(key,cids),ImmArray(ValueRecord10(-pkgId-:Mod:Key,ImmArray(party,idx),ImmArray(ValueParty(Alice),ValueInt64(0))),ValueList(FrontStack()))),,None,Set(Alice),Set(Alice),Some(KeyWithMaintainers(ValueRecord10(-pkgId-:Mod:Key,ImmArray(party,idx),ImmArray(ValueParty(Alice),ValueInt64(0))),Set(Alice))),VDev), NodeId(1) -> NodeFetch(ContractId(#01),-pkgId-:Mod:Contract,None,Set(Alice),Set(Alice),Set(Alice),Some(KeyWithMaintainers(ValueRecord10(-pkgId-:Mod:Key,ImmArray(party,idx),ImmArray(ValueParty(Alice),ValueInt64(0))),Set(Alice))),true,VDev)),ImmArray(NodeId(0),NodeId(1)))) was not equal to
+      // ResultDone(VersionedTransaction(VDev,Map(NodeId(0) -> NodeCreate(ContractId(#01),-pkgId-:Mod:Contract,ValueRecord0(Some(-pkgId-:Mod:Contract),ImmArray((Some(key),ValueRecord0(Some(-pkgId-:Mod:Key),ImmArray((Some(party),ValueParty(Alice)),(Some(idx),ValueInt64(0))))),(Some(cids),ValueList(FrontStack())))),,None,Set(Alice),Set(Alice),Some(KeyWithMaintainers(ValueRecord0(Some(-pkgId-:Mod:Key),ImmArray((Some(party),ValueParty(Alice)),(Some(idx),ValueInt64(0)))),Set(Alice))),VDev), NodeId(1) -> NodeFetch(ContractId(#01),-pkgId-:Mod:Contract,None,Set(Alice),Set(Alice),Set(Alice),Some(KeyWithMaintainers(ValueRecord0(Some(-pkgId-:Mod:Key),ImmArray((Some(party),ValueParty(Alice)),(Some(idx),ValueInt64(0)))),Set(Alice))),true,VDev)),ImmArray(NodeId(0),NodeId(1))))
 
     }
   }

@@ -35,7 +35,7 @@ final class MultiParticipantIT
       "respect party id hints" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
             dar = dar,
@@ -51,7 +51,7 @@ final class MultiParticipantIT
       "list parties on both participants" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),
             dar = dar,

@@ -515,7 +515,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setPrimCon(primCon)
         case EPrimLit(primLit) =>
           builder.setPrimLit(primLit)
-        case ERecCon(tyCon, fields) =>
+        case ERecCon(tyCon, fieldNames, fieldValues) =>
+          val fields = (fieldNames zip fieldValues)
           builder.setRecCon(
             PLF.Expr.RecCon.newBuilder().setTycon(tyCon).accumulateLeft(fields)(_ addFields _)
           )

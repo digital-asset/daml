@@ -508,7 +508,7 @@ abstract class AbstractFuncTests
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
         } yield {
           finalState match {
-            case SRecord(_, _, values) if values.size == 2 =>
+            case SRecord(values) if values.size == 2 =>
               values.get(1) match {
                 case SList(items) if items.length == 2 =>
                   val t0 = items.slowApply(0).asInstanceOf[STimestamp].value

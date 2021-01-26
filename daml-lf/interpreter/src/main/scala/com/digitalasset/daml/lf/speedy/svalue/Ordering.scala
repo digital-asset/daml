@@ -60,7 +60,7 @@ object Ordering extends scala.math.Ordering[SValue] {
           diff = compareCid(x, y)
         case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
           diff = xRank compareTo yRank
-        case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
+        case (SRecord(xs), SRecord(ys)) =>
           push(xs.iterator().asScala, ys.iterator().asScala)
         case (SVariant(_, _, xRank, x), SVariant(_, _, yRank, y)) =>
           diff = xRank compareTo yRank

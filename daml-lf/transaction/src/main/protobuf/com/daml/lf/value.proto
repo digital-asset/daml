@@ -24,7 +24,8 @@ message VersionedValue {
 // architecture-handbook-entry-begin: Value
 message Value {
     oneof sum {
-        Record record = 1;
+        Record10 record10 = 1;
+        Record12 record12 = 19;
 
         Variant variant = 2;
 
@@ -79,9 +80,13 @@ message Value {
 }
 // architecture-handbook-entry-end: Value
 
-message Record {
+message Record10 {
     Identifier record_id = 1; // optional
     repeated RecordField fields = 2;
+}
+
+message Record12 {
+    repeated Value fieldValues = 2;
 }
 
 message RecordField {

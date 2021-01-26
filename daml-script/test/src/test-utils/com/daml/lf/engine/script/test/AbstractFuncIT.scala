@@ -33,7 +33,7 @@ abstract class AbstractFuncIT
       "create two accepted proposals" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),
             dar = stableDar,
@@ -52,7 +52,7 @@ abstract class AbstractFuncIT
           assert(alice != bob)
           vals.get(2) match {
             case SList(
-                  FrontStackCons(SRecord(_, _, t1), FrontStackCons(SRecord(_, _, t2), FrontStack()))
+                  FrontStackCons(SRecord(t1), FrontStackCons(SRecord(t2), FrontStack()))
                 ) =>
               t1 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
               t2 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
@@ -60,7 +60,7 @@ abstract class AbstractFuncIT
           }
           assert(vals.get(3) == SList(FrontStack.empty))
           vals.get(4) match {
-            case SList(FrontStackCons(SRecord(_, _, vals), FrontStack())) =>
+            case SList(FrontStackCons(SRecord(vals), FrontStack())) =>
               vals should contain theSameElementsInOrderAs (Seq[SValue](SParty(alice), SInt64(42)))
             case v => fail(s"Expected a single SRecord but got $v")
           }
@@ -106,7 +106,7 @@ abstract class AbstractFuncIT
       "return new contract in query" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test4"),
             dar = stableDar,
@@ -121,7 +121,7 @@ abstract class AbstractFuncIT
       "support exerciseByKeyCmd" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testKey"),
             dar = stableDar,
@@ -150,7 +150,7 @@ abstract class AbstractFuncIT
       "not go backwards in time" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testGetTime"),
             dar = stableDar,
@@ -170,7 +170,7 @@ abstract class AbstractFuncIT
       "allocate a party with the given hint" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:partyIdHintTest"),
             dar = stableDar,
@@ -186,7 +186,7 @@ abstract class AbstractFuncIT
       "list newly allocated parties" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"),
             dar = stableDar,
@@ -194,7 +194,7 @@ abstract class AbstractFuncIT
         } yield {
           assert(vals.size == 2)
           vals.get(0) match {
-            case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
+            case SList(FrontStackCons(SRecord(details), FrontStack())) =>
               details should contain theSameElementsInOrderAs (Seq(
                 vals.get(1),
                 SOptional(Some(SText("myparty"))),
@@ -290,7 +290,7 @@ abstract class AbstractFuncIT
       "convert ContractId to Text" in {
         for {
           clients <- participantClients()
-          SRecord(_, _, vals) <- run(
+          SRecord(vals) <- run(
             clients,
             QualifiedName.assertFromString("TestContractId:testContractId"),
             dar = devDar,

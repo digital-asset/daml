@@ -363,12 +363,10 @@ private[lf] final class Compiler(
         }
       case EApp(_, _) | ETyApp(_, _) =>
         compileApps(expr0)
-      case ERecCon(tApp, fields) =>
-        compileERecCon(tApp, fields)
+      case ERecCon(tApp, fieldNames, fieldValues) =>
+        compileERecCon(tApp, fieldNames, fieldValues)
       case ERecProj(tapp, field, record) =>
-        SBRecProj(tapp.tycon, lookupRecordIndex(tapp, field))(
-          compile(record)
-        )
+        SBRecProj(lookupRecordIndex(tapp, field))(compile(record))
       case erecupd: ERecUpd =>
         compileERecUpd(erecupd)
       case EStructCon(fields) =>
@@ -593,27 +591,45 @@ private[lf] final class Compiler(
   private def noArgs = new util.ArrayList[SValue](0)
 
   @inline
-  private[this] def compileERecCon(tApp: TypeConApp, fields: ImmArray[(FieldName, Expr)]): SExpr =
-    if (fields.isEmpty)
-      SEValue(SRecord(tApp.tycon, ImmArray.empty, noArgs))
-    else {
-      SEApp(
-        SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
-        fields.iterator.map(f => compile(f._2)).toArray,
-      )
+  private[this] def compileERecCon(
+      tApp: TypeConApp,
+      fieldNames: ImmArray[FieldName],
+      fieldValues: ImmArray[Expr],
+  ): SExpr = {
+    import scala.Ordering.Implicits.infixOrderingOps
+    if (lookupPackage(tApp.tycon.packageId).languageVersion < LanguageVersion.v1_dev) {
+      if (fieldNames.isEmpty)
+        SEValue(SRecord10(tApp.tycon, ImmArray.empty, noArgs))
+      else {
+        SEApp(
+          SEBuiltin(SBRecCon10(tApp.tycon, fieldNames)),
+          fieldValues.iterator.map(compile).toArray,
+        )
+      }
+    } else {
+      if (fieldNames.isEmpty) {
+        SEValue(SRecord12.Empty)
+      } else {
+        SEApp(
+          SEBuiltin(SBRecCon12(fieldNames.length)),
+          fieldValues.iterator.map(compile).toArray,
+        )
+      }
     }
+
+  }
 
   @inline
   private[this] def compileERecUpd(erecupd: ERecUpd): SExpr = {
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
-      SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, fields.head))(
+      SBRecUpd(lookupRecordIndex(tapp, fields.head))(
         compile(record),
         compile(updates.head),
       )
     } else {
-      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
+      SBRecUpdMulti(fields.map(lookupRecordIndex(tapp, _)).toArray)(
         (record :: updates).map(compile): _*
       )
     }
@@ -1248,7 +1264,8 @@ private[lf] final class Compiler(
             goV(k)
             goV(v)
           }
-        case SRecord(_, _, args) => args.forEach(goV)
+        case SRecord12(args) => args.forEach(goV)
+        case SRecord10(_, _, args) => args.forEach(goV)
         case SVariant(_, _, _, value) => goV(value)
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)

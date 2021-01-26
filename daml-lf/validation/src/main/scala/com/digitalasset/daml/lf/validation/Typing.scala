@@ -505,13 +505,17 @@ private[validation] object Typing {
       TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, replacementTyp)
     }
 
-    private def checkRecCon(typ: TypeConApp, recordExpr: ImmArray[(FieldName, Expr)]): Unit =
+    private def checkRecCon(
+        typ: TypeConApp,
+        fieldNames: ImmArray[FieldName],
+        fieldValues: ImmArray[Expr],
+    ): Unit =
       checkTypConApp(typ) match {
         case DataRecord(recordType) =>
-          val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
-          if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
-          (fieldExprs zip fieldTypes).map((checkExpr _).tupled)
+          if (fieldNames != typeFieldNames)
+            throw EFieldMismatch(ctx, typ, fieldNames zip fieldValues)
+          (fieldValues zip fieldTypes).map((checkExpr _).tupled)
           ()
         case _ =>
           throw EExpectedRecordType(ctx, typ)
@@ -980,8 +984,8 @@ private[validation] object Typing {
         typeOfPRimCon(con)
       case EPrimLit(lit) =>
         typeOfPrimLit(lit)
-      case ERecCon(tycon, fields) =>
-        checkRecCon(tycon, fields)
+      case ERecCon(tycon, fieldNames, fieldValues) =>
+        checkRecCon(tycon, fieldNames, fieldValues)
         typeConAppToType(tycon)
       case ERecProj(tycon, field, record) =>
         typeOfRecProj(tycon, field, record)

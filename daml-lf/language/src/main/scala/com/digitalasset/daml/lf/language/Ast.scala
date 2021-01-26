@@ -66,7 +66,11 @@ object Ast {
   final case class EPrimLit(value: PrimLit) extends Expr
 
   /** Record construction. */
-  final case class ERecCon(tycon: TypeConApp, fields: ImmArray[(FieldName, Expr)]) extends Expr
+  final case class ERecCon(
+      tycon: TypeConApp,
+      fieldNames: ImmArray[FieldName],
+      fieldValues: ImmArray[Expr],
+  ) extends Expr
 
   /** Record projection. */
   final case class ERecProj(tycon: TypeConApp, field: FieldName, record: Expr) extends Expr

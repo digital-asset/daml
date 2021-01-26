@@ -186,7 +186,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         Right(
           SAny(
             Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
-            SRecord(
+            SRecord10(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
@@ -202,7 +202,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T3"))),
               TBuiltin(BTInt64),
             ),
-            SRecord(
+            SRecord10(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
@@ -216,7 +216,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T3"))),
               TBuiltin(BTText),
             ),
-            SRecord(
+            SRecord10(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
@@ -240,7 +240,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         Right(
           SOptional(
             Some(
-              SRecord(
+              SRecord10(
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
                 ImmArray(Name.assertFromString("party")),
                 ArrayList(SParty(Party.assertFromString("Alice"))),
@@ -265,7 +265,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       ) shouldEqual Right(
         SOptional(
           Some(
-            SRecord(
+            SRecord10(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
@@ -323,7 +323,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpd(qualify("M:Point"), 0),
+                SBRecUpd(0),
                 Array(SELocS(1), SEValue(SInt64(1))),
               ),
             )
@@ -335,7 +335,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     "produce expected output for single update" in {
       eval(e"M:p_1_0", recUpdPkgs) shouldEqual
         Right(
-          SRecord(
+          SRecord10(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
             ArrayList(SInt64(1), SInt64(0)),
@@ -351,7 +351,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                SBRecUpdMulti(Array(0, 1)),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
@@ -366,7 +366,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     "produce expected output for multi update" in {
       eval(e"M:p_1_2", recUpdPkgs) shouldEqual
         Right(
-          SRecord(
+          SRecord10(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
             ArrayList(SInt64(1), SInt64(2)),
@@ -392,7 +392,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               SELocation(
                 mkLocation(0),
                 SEAppAtomicSaturatedBuiltin(
-                  SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                  SBRecUpdMulti(Array(0, 1)),
                   Array(
                     SELocS(1),
                     SEValue(SInt64(3)),
@@ -408,7 +408,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     "produce expected output for multi update with location annotations" in {
       eval(e"M:p_3_4_loc", recUpdPkgs) shouldEqual
         Right(
-          SRecord(
+          SRecord10(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
             ArrayList(SInt64(3), SInt64(4)),
@@ -431,7 +431,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
                     SELet1General(
                       SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
                       SEAppAtomicSaturatedBuiltin(
-                        SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                        SBRecUpdMulti(Array(0, 1)),
                         Array(
                           SELocS(5),
                           SELocS(3),
@@ -450,7 +450,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     "produce expected output for non-atomic multi update" in {
       eval(e"M:p_6_8", recUpdPkgs) shouldEqual
         Right(
-          SRecord(
+          SRecord10(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
             ArrayList(SInt64(6), SInt64(8)),
@@ -465,7 +465,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1, 0)),
+                SBRecUpdMulti(Array(0, 1, 0)),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
@@ -481,7 +481,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     "produce expected output for overwriting multi update" in {
       eval(e"M:p_3_2", recUpdPkgs) shouldEqual
         Right(
-          SRecord(
+          SRecord10(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
             ArrayList(SInt64(3), SInt64(2)),

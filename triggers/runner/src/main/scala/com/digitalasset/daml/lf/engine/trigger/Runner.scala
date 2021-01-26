@@ -403,9 +403,7 @@ class Runner(
       .stepToValue(machine)
       .expect(
         "TriggerSetup",
-        { case DamlAnyModuleRecord("TriggerSetup", fts) =>
-          fts
-        },
+        { case DamlAnyModuleRecord(fts) => fts },
       )
       .orConverterException
     machine.setExpressionToEvaluate(update)
@@ -456,9 +454,7 @@ class Runner(
         .stepToValue(machine)
         .expect(
           "TriggerRule",
-          { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
-            fun
-          },
+          { case DamlAnyModuleRecord(DamlAnyModuleRecord(fun)) => fun },
         )
         .orConverterException
       machine.setExpressionToEvaluate(makeAppD(stateFun, state))

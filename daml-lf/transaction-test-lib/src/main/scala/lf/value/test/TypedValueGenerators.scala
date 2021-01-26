@@ -235,16 +235,15 @@ object TypedValueGenerators {
       (
         DefDataType(ImmArraySeq.empty, Record(spec.t.to(ImmArraySeq))),
         new ValueAddend {
-          private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
+          private[this] val fieldNames = spec.t.map(_._1).to(ImmArray)
           type Inj[Cid] = spec.HRec[Cid]
           override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
           override def inj[Cid: IntroCtx](hl: Inj[Cid]) =
-            ValueRecord(
-              Some(name),
-              implicitly[
-                Factory[(Some[Ref.Name], Value[Cid]), ImmArray[(Some[Ref.Name], Value[Cid])]]
-              ]
-                .fromSpecific(lfvFieldNames zip spec.injRec(hl)),
+            ValueRecord10(
+              name,
+              fieldNames,
+              implicitly[Factory[Value[Cid], ImmArray[Value[Cid]]]]
+                .fromSpecific(spec.injRec(hl)),
             )
           override def prj[Cid] = {
             case ValueRecord(_, fields) if fields.length == spec.t.length =>

@@ -474,7 +474,7 @@ private[lf] object Pretty {
           x match {
             case SBConsMany(n) => text(s"$$consMany[$n]")
             case SBCons => text(s"$$cons")
-            case SBRecCon(id, fields) =>
+            case SBRecCon10(id, fields) =>
               text("$record") + char('[') + text(id.qualifiedName.toString) + char('^') + str(
                 fields.length
               ) + char(']')
@@ -482,10 +482,8 @@ private[lf] object Pretty {
               text("$update")
             case _: SBRecUpdMulti =>
               text("$updateMulti")
-            case SBRecProj(id, field) =>
-              text("$project") + char('[') + text(id.qualifiedName.toString) + char(':') + str(
-                field
-              ) + char(']')
+            case SBRecProj(field) =>
+              text("$project") + char('[') + str(field) + char(']')
             case SBVariantCon(id, v, _) =>
               text("$variant") + char('[') + text(id.qualifiedName.toString) + char(':') + text(
                 v
