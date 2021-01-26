@@ -513,15 +513,21 @@ unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a::as,b::bs,c::cs))
 traceRaw : Text -> a -> a
 traceRaw = primitive @"BETrace"
 
--- | `trace b a` prints `b` and returns `a`, for debugging purposes, depending on your loglevel.
+-- | `trace b a` prints `b` and returns `a`, for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 trace : Show b => b -> a -> a
 trace = traceRaw . show
 
--- | `traceId a` prints `a` and returns `a`, for debugging purposes, depending on your loglevel.
+-- | `traceId a` prints `a` and returns `a`, for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 traceId : Show b => b -> b
 traceId x = trace x x
 
--- | `debug x` prints `x` for debugging purposes, depending on your loglevel.
+-- | `debug x` prints `x` for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 debug : (Show b, Action m) => b -> m ()
 debug x =
   -- NOTE (MK): We introduce an explicit indirection via >>=
