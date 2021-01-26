@@ -147,18 +147,25 @@ object TransactionContractKeysValidation {
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       keyValidationStatus: KeyValidationStatus,
   ): KeyValidationStatus =
-    validateNodeKeyConsistency(
-      contractKeysToContractIds,
-      node,
-      validateNodeKeyUniqueness(node, keyValidationStatus),
-    )
+    for {
+      initialKeyValidationState <- keyValidationStatus
+      keyValidationStateAfterUniquenessCheck <- validateNodeKeyUniqueness(
+        node,
+        initialKeyValidationState,
+      )
+      keyValidationStateAfterConsistencyCheck <- validateNodeKeyConsistency(
+        contractKeysToContractIds,
+        node,
+        keyValidationStateAfterUniquenessCheck,
+      )
+    } yield keyValidationStateAfterConsistencyCheck
 
   private def validateNodeKeyUniqueness(
       node: Node.GenNode[NodeId, ContractId],
-      keyValidationStatus: KeyValidationStatus,
+      keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
-    keyValidationStatus match {
-      case Right(keyValidationState @ KeyValidationState(activeDamlStateKeys, _)) =>
+    keyValidationState match {
+      case KeyValidationState(activeDamlStateKeys, _) =>
         node match {
           case exercise: Node.NodeExercises[NodeId, ContractId]
               if exercise.key.isDefined && exercise.consuming =>
@@ -180,58 +187,51 @@ object TransactionContractKeysValidation {
             else
               Right(keyValidationState.copy(activeDamlStateKeys = activeDamlStateKeys + stateKey))
 
-          case _ => keyValidationStatus
+          case _ => Right(keyValidationState)
         }
-
-      case _ => keyValidationStatus
     }
 
   private def validateNodeKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       node: Node.GenNode[NodeId, ContractId],
-      keyValidationStatus: KeyValidationStatus,
+      keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
-    keyValidationStatus match {
-      case Right(keyValidationState) =>
-        node match {
-          case exercise: Node.NodeExercises[NodeId, ContractId] =>
-            validateKeyConsistency(
-              contractKeysToContractIds,
-              exercise.key,
-              Some(exercise.targetCoid),
-              exercise.templateId,
-              keyValidationState,
-            )
+    node match {
+      case exercise: Node.NodeExercises[NodeId, ContractId] =>
+        validateKeyConsistency(
+          contractKeysToContractIds,
+          exercise.key,
+          Some(exercise.targetCoid),
+          exercise.templateId,
+          keyValidationState,
+        )
 
-          case create: Node.NodeCreate[ContractId] =>
-            validateKeyConsistency(
-              contractKeysToContractIds,
-              create.key,
-              None,
-              create.templateId,
-              keyValidationState,
-            )
+      case create: Node.NodeCreate[ContractId] =>
+        validateKeyConsistency(
+          contractKeysToContractIds,
+          create.key,
+          None,
+          create.templateId,
+          keyValidationState,
+        )
 
-          case fetch: Node.NodeFetch[ContractId] =>
-            validateKeyConsistency(
-              contractKeysToContractIds,
-              fetch.key,
-              Some(fetch.coid),
-              fetch.templateId,
-              keyValidationState,
-            )
+      case fetch: Node.NodeFetch[ContractId] =>
+        validateKeyConsistency(
+          contractKeysToContractIds,
+          fetch.key,
+          Some(fetch.coid),
+          fetch.templateId,
+          keyValidationState,
+        )
 
-          case lookupByKey: Node.NodeLookupByKey[ContractId] =>
-            validateKeyConsistency(
-              contractKeysToContractIds,
-              Some(lookupByKey.key),
-              lookupByKey.result,
-              lookupByKey.templateId,
-              keyValidationState,
-            )
-        }
-
-      case _ => keyValidationStatus
+      case lookupByKey: Node.NodeLookupByKey[ContractId] =>
+        validateKeyConsistency(
+          contractKeysToContractIds,
+          Some(lookupByKey.key),
+          lookupByKey.result,
+          lookupByKey.templateId,
+          keyValidationState,
+        )
     }
 
   private def validateKeyConsistency(
