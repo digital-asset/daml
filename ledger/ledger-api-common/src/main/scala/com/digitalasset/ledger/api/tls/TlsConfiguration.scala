@@ -8,6 +8,8 @@ import java.io.File
 import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 
+import scala.collection.JavaConverters.asJavaIterableConverter
+
 final case class TlsConfiguration(
     enabled: Boolean,
     keyCertChainFile: Option[File], // mutual auth is disabled if null
@@ -16,6 +18,7 @@ final case class TlsConfiguration(
     clientAuth: ClientAuth =
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
     enableCertRevocationChecking: Boolean = false,
+    protocols: Seq[String] = Seq.empty,
 ) {
 
   def keyFileOrFail: File =
@@ -40,6 +43,7 @@ final case class TlsConfiguration(
           .forClient()
           .keyManager(keyCertChainFile.orNull, keyFile.orNull)
           .trustManager(trustCertCollectionFile.orNull)
+          .protocols(if (protocols.nonEmpty) protocols.asJava else null)
           .build()
       )
     else None
@@ -56,6 +60,7 @@ final case class TlsConfiguration(
           )
           .trustManager(trustCertCollectionFile.orNull)
           .clientAuth(clientAuth)
+          .protocols(if (protocols.nonEmpty) protocols.asJava else null)
           .build
       )
     else None
