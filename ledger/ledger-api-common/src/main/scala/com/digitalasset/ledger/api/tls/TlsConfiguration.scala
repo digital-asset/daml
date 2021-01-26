@@ -72,7 +72,7 @@ final case class TlsConfiguration(
 }
 
 object TlsConfiguration {
-  val Empty = TlsConfiguration(
+  val Empty: TlsConfiguration = TlsConfiguration(
     enabled = true,
     keyCertChainFile = None,
     keyFile = None,
