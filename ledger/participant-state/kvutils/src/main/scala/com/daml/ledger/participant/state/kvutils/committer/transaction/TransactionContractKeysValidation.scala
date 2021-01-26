@@ -114,15 +114,15 @@ object TransactionContractKeysValidation {
           KeyValidationState(activeDamlStateKeys = contractKeyDamlStateKeys))
       )(
         (keyValidationStatus, _, exerciseBeginNode) =>
-          validateNodeContractKey(
+          checkNodeContractKey(
             exerciseBeginNode,
             contractKeysToContractIds,
             keyValidationStatus,
         ),
         (keyValidationStatus, _, leafNode) =>
-          validateNodeContractKey(leafNode,
-                                  contractKeysToContractIds,
-                                  keyValidationStatus),
+          checkNodeContractKey(leafNode,
+                               contractKeysToContractIds,
+                               keyValidationStatus),
         (accum, _, _) => accum,
       )
 
@@ -146,25 +146,25 @@ object TransactionContractKeysValidation {
     }
   }
 
-  private def validateNodeContractKey(
+  private def checkNodeContractKey(
       node: Node.GenNode[NodeId, ContractId],
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       keyValidationStatus: KeyValidationStatus,
   ): KeyValidationStatus =
     for {
       initialState <- keyValidationStatus
-      stateAfterUniquenessCheck <- validateNodeKeyUniqueness(
+      stateAfterUniquenessCheck <- checkNodeKeyUniqueness(
         node,
         initialState,
       )
-      finalState <- validateNodeKeyConsistency(
+      finalState <- checkNodeKeyConsistency(
         contractKeysToContractIds,
         node,
         stateAfterUniquenessCheck,
       )
     } yield finalState
 
-  private def validateNodeKeyUniqueness(
+  private def checkNodeKeyUniqueness(
       node: Node.GenNode[NodeId, ContractId],
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
@@ -198,14 +198,14 @@ object TransactionContractKeysValidation {
         }
     }
 
-  private def validateNodeKeyConsistency(
+  private def checkNodeKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       node: Node.GenNode[NodeId, ContractId],
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
     node match {
       case exercise: Node.NodeExercises[NodeId, ContractId] =>
-        validateKeyConsistency(
+        checkKeyConsistency(
           contractKeysToContractIds,
           exercise.key,
           Some(exercise.targetCoid),
@@ -214,7 +214,7 @@ object TransactionContractKeysValidation {
         )
 
       case create: Node.NodeCreate[ContractId] =>
-        validateKeyConsistency(
+        checkKeyConsistency(
           contractKeysToContractIds,
           create.key,
           None,
@@ -223,7 +223,7 @@ object TransactionContractKeysValidation {
         )
 
       case fetch: Node.NodeFetch[ContractId] =>
-        validateKeyConsistency(
+        checkKeyConsistency(
           contractKeysToContractIds,
           fetch.key,
           Some(fetch.coid),
@@ -232,7 +232,7 @@ object TransactionContractKeysValidation {
         )
 
       case lookupByKey: Node.NodeLookupByKey[ContractId] =>
-        validateKeyConsistency(
+        checkKeyConsistency(
           contractKeysToContractIds,
           Some(lookupByKey.key),
           lookupByKey.result,
@@ -241,7 +241,7 @@ object TransactionContractKeysValidation {
         )
     }
 
-  private def validateKeyConsistency(
+  private def checkKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       key: Option[Node.KeyWithMaintainers[Value[ContractId]]],
       targetContractId: Option[ContractId],
@@ -257,14 +257,14 @@ object TransactionContractKeysValidation {
             submittedDamlContractKey,
             targetContractId,
           )
-        validateKeyConsistency(
+        checkKeyConsistency(
           contractKeysToContractIds,
           submittedDamlContractKey,
           newKeyValidationState,
         )
     }
 
-  private def validateKeyConsistency(
+  private def checkKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       submittedDamlContractKey: DamlContractKey,
       keyValidationState: KeyValidationState,
