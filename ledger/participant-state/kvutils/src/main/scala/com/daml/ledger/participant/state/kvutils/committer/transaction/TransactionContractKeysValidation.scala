@@ -51,21 +51,21 @@ object TransactionContractKeysValidation {
           m._1.getContractKey -> m._2)
 
       for {
-        stateAfterMonotonicityCheck <- validateTransactionContractKeysCausalMonotonicity(
+        stateAfterMonotonicityCheck <- checkTransactionContractKeysCausalMonotonicity(
           transactionCommitter,
           commitContext.recordTime,
           contractKeyDamlStateKeys,
           damlState,
           transactionEntry,
         )
-        stateAfterTraversalChecks <- performTransactionTraversalContractKeysChecks(
+        finalState <- performTransactionTraversalContractKeysChecks(
           transactionCommitter,
           commitContext.recordTime,
           contractKeyDamlStateKeys,
           contractKeysToContractIds,
           stateAfterMonotonicityCheck,
         )
-      } yield stateAfterTraversalChecks
+      } yield finalState
     }
 
   /** LookupByKey nodes themselves don't actually fetch the contract.
@@ -74,7 +74,7 @@ object TransactionContractKeysValidation {
     * This could be reduced to only validate this for keys referred to by
     * NodeLookupByKey.
     */
-  private def validateTransactionContractKeysCausalMonotonicity(
+  private def checkTransactionContractKeysCausalMonotonicity(
       transactionCommitter: TransactionCommitter,
       recordTime: Option[Timestamp],
       keys: Set[DamlStateKey],
@@ -157,12 +157,12 @@ object TransactionContractKeysValidation {
         node,
         initialState,
       )
-      stateAfterConsistencyCheck <- validateNodeKeyConsistency(
+      finalState <- validateNodeKeyConsistency(
         contractKeysToContractIds,
         node,
         stateAfterUniquenessCheck,
       )
-    } yield stateAfterConsistencyCheck
+    } yield finalState
 
   private def validateNodeKeyUniqueness(
       node: Node.GenNode[NodeId, ContractId],
