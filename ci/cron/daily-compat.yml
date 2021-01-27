@@ -201,6 +201,7 @@ jobs:
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
+    condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
       name: linux-pool
       demands: assignment -equals default
