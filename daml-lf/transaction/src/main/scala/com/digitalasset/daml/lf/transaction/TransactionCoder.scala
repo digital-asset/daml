@@ -247,7 +247,7 @@ object TransactionCoder {
       node: GenNode[Nid, Cid],
   ): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeVersion = node.version
-    if (enclosingVersion < node.version)
+    if (enclosingVersion < nodeVersion)
       Left(
         EncodeError(
           s"A transaction of version $enclosingVersion cannot contain nodes of newer version (${node.version})"
