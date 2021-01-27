@@ -12,8 +12,6 @@ import com.daml.lf.value.Value
 import scalaz.Equal
 
 import scala.annotation.tailrec
-import scala.collection.compat._
-import scala.collection.compat.immutable._
 import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (

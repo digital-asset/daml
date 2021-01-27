@@ -7,6 +7,7 @@ package preprocessing
 import com.daml.lf.CompiledPackages
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
@@ -16,43 +17,6 @@ import scala.annotation.tailrec
 private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) {
 
   import Preprocessor._
-
-  // note: all the types in params must be closed.
-  //
-  // this is not tail recursive, but it doesn't really matter, since types are bounded
-  // by what's in the source, which should be short enough...
-  @throws[PreprocessorException]
-  private[this] def replaceParameters(params: Iterable[(TypeVarName, Type)], typ0: Type): Type =
-    if (params.isEmpty) { // optimization
-      typ0
-    } else {
-      val paramsMap: Map[TypeVarName, Type] = params.toMap
-
-      def go(typ: Type): Type =
-        typ match {
-          case TVar(v) =>
-            paramsMap.getOrElse(
-              v,
-              fail(s"Got out of bounds type variable $v when replacing parameters"),
-            )
-          case TTyCon(_) | TBuiltin(_) | TNat(_) => typ
-          case TApp(tyfun, arg) => TApp(go(tyfun), go(arg))
-          case forall: TForall =>
-            fail(
-              s"Unexpected forall when replacing parameters in command translation -- all types should be serializable, and foralls are not: $forall"
-            )
-          case struct: TStruct =>
-            fail(
-              s"Unexpected struct when replacing parameters in command translation -- all types should be serializable, and structs are not: $struct"
-            )
-          case syn: TSynApp =>
-            fail(
-              s"Unexpected type synonym application when replacing parameters in command translation -- all types should be serializable, and synonyms are not: $syn"
-            )
-        }
-
-      go(typ0)
-    }
 
   @throws[PreprocessorException]
   private def labeledRecordToMap(
@@ -78,13 +42,6 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
   private def unsafeGetPackage(pkgId: Ref.PackageId) =
     compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
 
-  @tailrec
-  private[this] def destructApp(typ: Type, tyArgs: List[Type] = List.empty): (Type, List[Type]) =
-    typ match {
-      case TApp(tyFun, tyArg) => destructApp(tyFun, tyArg :: tyArgs)
-      case otherwise => (otherwise, tyArgs)
-    }
-
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
   @throws[PreprocessorException]
@@ -101,7 +58,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
       } else {
         val newNesting = nesting + 1
         def typeMismatch = fail(s"mismatching type: $ty and value: $value")
-        val (ty1, tyArgs) = destructApp(ty0)
+        val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>
             tyArgs match {
@@ -205,7 +162,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                   case Some(rank) =>
                     val (_, argTyp) = variantDef.variants(rank)
                     val replacedTyp =
-                      replaceParameters(dataTypParams.toSeq.view.map(_._1).zip(tyArgs), argTyp)
+                      AstUtil.substitute(argTyp, dataTypParams.toSeq.view.map(_._1).zip(tyArgs))
                     SValue.SVariant(
                       tyCon,
                       constructorName,
@@ -233,7 +190,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
                   )
                 }
-                val params = dataTypParams.toSeq.view.map(_._1).zip(tyArgs)
+                val subst = dataTypParams.toSeq.view.map(_._1).zip(tyArgs).toMap
                 val fields = labeledRecordToMap(flds) match {
                   case None =>
                     (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
@@ -241,7 +198,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                         if (lbl_ != lbl)
                           fail(s"Mismatching record label $lbl_ (expecting $lbl) for record $tyCon")
                       )
-                      val replacedTyp = replaceParameters(params, typ)
+                      val replacedTyp = AstUtil.substitute(typ, subst)
                       lbl -> go(replacedTyp, v, newNesting)
                     }
                   case Some(labeledRecords) =>
@@ -249,7 +206,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       labeledRecords
                         .get(lbl)
                         .fold(fail(s"Missing record label $lbl for record $tyCon")) { v =>
-                          val replacedTyp = replaceParameters(params, typ)
+                          val replacedTyp = AstUtil.substitute(typ, subst)
                           lbl -> go(replacedTyp, v, newNesting)
                         }
                     }

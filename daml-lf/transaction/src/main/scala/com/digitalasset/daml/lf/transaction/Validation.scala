@@ -5,6 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{Name, TypeConName}
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value
 import scalaz.Equal
@@ -18,6 +19,25 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
   import scalaz.std.option._
   import scalaz.syntax.equal._
 
+  private[this] def tyConIsReplayedBy(
+      recordedTyCon: Option[TypeConName],
+      replayedTyCon: Option[TypeConName],
+  ): Boolean =
+    recordedTyCon.isEmpty || recordedTyCon == replayedTyCon
+
+  private[this] def nameIsReplayedBy(tuple: (Option[Name], Option[Name])): Boolean =
+    tuple match {
+      case (None, _) => true
+      case (recordedName, replayedName) => recordedName == replayedName
+    }
+
+  private[this] def keyIsReplayedBy(
+      recorded: KeyWithMaintainers[Value[Cid]],
+      replayed: KeyWithMaintainers[Value[Cid]],
+  ): Boolean = {
+    valueIsReplayedBy(recorded.key, replayed.key) && recorded.maintainers == replayed.maintainers
+  }
+
   private[this] def keyIsReplayedBy(
       recorded: Option[KeyWithMaintainers[Value[Cid]]],
       replayed: Option[KeyWithMaintainers[Value[Cid]]],
@@ -28,13 +48,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
         keyIsReplayedBy(recordedValue, replayedValue)
       case _ => false
     }
-  }
-
-  private[this] def keyIsReplayedBy(
-      recorded: KeyWithMaintainers[Value[Cid]],
-      replayed: KeyWithMaintainers[Value[Cid]],
-  ): Boolean = {
-    valueIsReplayedBy(recorded.key, replayed.key) && recorded.maintainers == replayed.maintainers
   }
 
   private[this] def keys[K](entries: ImmArray[(K, _)]): Iterator[K] =
@@ -55,11 +68,8 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
       tuples match {
         case LazyList.cons(tuple, rest) =>
           tuple match {
-            case (
-                  ValueEnum(recordedTyCon, recordedName),
-                  ValueEnum(replayedTyCon, replayedName),
-                ) =>
-              recordedTyCon == replayedTyCon &&
+            case (ValueEnum(recordedTyCon, recordedName), ValueEnum(replayedTyCon, replayedName)) =>
+              tyConIsReplayedBy(recordedTyCon, replayedTyCon) &&
                 recordedName == replayedName &&
                 loop(rest)
             case (recordedLeaf: ValueCidlessLeaf, replayedLeaf: ValueCidlessLeaf) =>
@@ -72,18 +82,15 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   ValueRecord(recordedTyCon, recordedFields),
                   ValueRecord(replayedTyCon, replayedFields),
                 ) =>
-              recordedTyCon == replayedTyCon &&
+              tyConIsReplayedBy(recordedTyCon, replayedTyCon) &&
                 recordedFields.length == replayedFields.length &&
-                (keys(recordedFields) zip keys(replayedFields)).forall {
-                  case (None, _) => true
-                  case (recorded, replayed) => recorded == replayed
-                } &&
+                (keys(recordedFields) zip keys(replayedFields)).forall(nameIsReplayedBy) &&
                 loop((values(recordedFields) zip values(recordedFields)) ++: rest)
             case (
                   ValueVariant(recordedTyCon, recordedVariant, recordedValue),
                   ValueVariant(replayedTyCon, replayedVariant, replayedValue),
                 ) =>
-              recordedTyCon == replayedTyCon &&
+              tyConIsReplayedBy(recordedTyCon, replayedTyCon) &&
                 recordedVariant == replayedVariant &&
                 loop((recordedValue, replayedValue) +: rest)
             case (ValueList(recordedValues), ValueList(replayedValues)) =>
@@ -118,7 +125,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
     loop(LazyList((recorded, replayed)))
   }
 
-  /** Whether `other` is the result of reinterpreting this transaction.
+  /** Whether `replayed` is the result of reinterpreting this transaction.
     *
     * @param recorded : the transaction to be validated.
     * @param replayed : the transaction resulting from the reinterpretation of

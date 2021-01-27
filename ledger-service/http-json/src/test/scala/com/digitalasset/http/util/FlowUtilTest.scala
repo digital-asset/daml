@@ -15,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 class FlowUtilTest
     extends AnyFlatSpec
@@ -41,7 +42,7 @@ class FlowUtilTest
         .via(allowOnlyFirstInput[String, Int](error))
         .runFold(Vector.empty[String \/ Int])(_ :+ _)
 
-    whenReady(actualF) { actual =>
+    whenReady(actualF, timeout(5.seconds), interval(100.milliseconds)) { actual =>
       actual shouldBe expected
     }
   }

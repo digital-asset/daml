@@ -31,7 +31,7 @@ jobs:
   - job: docs
     timeoutInMinutes: 120
     pool:
-      name: 'linux-pool'
+      name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -51,7 +51,7 @@ jobs:
   - job: docker_image
     timeoutInMinutes: 60
     pool:
-      name: 'linux-pool'
+      name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -106,7 +106,7 @@ jobs:
   - job: vscode_marketplace
     timeoutInMinutes: 10
     pool:
-      name: 'linux-pool'
+      name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -173,7 +173,7 @@ jobs:
   - job: download_stats
     timeoutInMinutes: 10
     pool:
-      name: "linux-pool"
+      name: "ubuntu_20_04"
       demands: assignment -equals default
     steps:
       - checkout: self

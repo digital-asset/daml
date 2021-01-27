@@ -6,20 +6,17 @@ package com.daml.platform.store.dao
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-// Aggregate all specs in a single run to not start a new database fixture for each one
-final class JdbcLedgerDaoH2DatabaseSpec
+final class JdbcLedgerDaoPipelinedPostgresqlSpec
     extends AsyncFlatSpec
     with Matchers
     with JdbcLedgerDaoSuite
-    with JdbcLedgerDaoBackendH2Database
+    with JdbcLedgerDaoBackendPostgresql
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
-    with JdbcLedgerDaoConfigurationSpec
     with JdbcLedgerDaoContractsSpec
     with JdbcLedgerDaoDivulgenceSpec
-    with JdbcLedgerDaoPackagesSpec
-    with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcAtomicTransactionInsertion
+    with JdbcPipelinedInsertionsSpec
+    with JdbcPipelinedTransactionInsertion

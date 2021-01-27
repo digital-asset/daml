@@ -69,7 +69,8 @@ trait ConfigProvider[ExtraConfig] {
 
     CommandConfiguration.default.copy(
       maxCommandsInFlight =
-        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight)
+        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
+      retentionPeriod = config.trackerRetentionPeriod,
     )
   }
 

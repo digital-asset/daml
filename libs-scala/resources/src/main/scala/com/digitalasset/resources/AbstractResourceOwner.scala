@@ -4,9 +4,9 @@
 package com.daml.resources
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
-/** A ResourceOwner of type [[A]] is can acquire a [[Resource]] of the same type and its operations
+/** A ResourceOwner of type `A` is can acquire a [[Resource]] of the same type and its operations
   * are applied to the [[Resource]] after it has been acquired.
   *
   * @tparam A The [[Resource]] value type.
@@ -26,22 +26,34 @@ abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
     */
   def acquire()(implicit context: Context): Resource[Context, A]
 
-  /** @see [[Resource#map()]] */
+  /** @see [[Resource.map]] */
   def map[B](f: A => B): R[B] = new R[B] {
     override def acquire()(implicit context: Context): Resource[Context, B] =
       self.acquire().map(f)
   }
 
-  /** @see [[Resource#flatMap()]] */
+  /** @see [[Resource.flatMap]] */
   def flatMap[B](f: A => R[B]): R[B] = new R[B] {
     override def acquire()(implicit context: Context): Resource[Context, B] =
       self.acquire().flatMap(value => f(value).acquire())
   }
 
-  /** @see [[Resource#withFilter()]] */
+  /** @see [[Resource.withFilter]] */
   def withFilter(p: A => Boolean): R[A] = new R[A] {
     override def acquire()(implicit context: Context): Resource[Context, A] =
       self.acquire().withFilter(p)
+  }
+
+  /** @see [[Resource.transform]] */
+  def transform[B](f: Try[A] => Try[B]): R[B] = new R[B] {
+    override def acquire()(implicit context: Context): Resource[Context, B] =
+      self.acquire().transform(f)
+  }
+
+  /** @see [[Resource.transformWith]] */
+  def transformWith[B](f: Try[A] => R[B]): R[B] = new R[B] {
+    override def acquire()(implicit context: Context): Resource[Context, B] =
+      self.acquire().transformWith(result => f(result).acquire())
   }
 
   /** Acquire the [[Resource]]'s value, use it asynchronously, and release it afterwards.

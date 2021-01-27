@@ -3,11 +3,15 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.util.concurrent.TimeUnit
+
 import com.daml.ledger.participant.state.v1.ParticipantId
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scopt.OptionParser
+
+import scala.concurrent.duration.FiniteDuration
 
 final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
 
@@ -21,6 +25,7 @@ final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
   private val jdbcEnvVar = "JDBC_ENV_VAR"
 
   private val certRevocationChecking = "--cert-revocation-checking"
+  private val trackerRetentionPeriod = "--tracker-retention-period"
 
   object TestJdbcValues {
     val jdbcFromCli = "command-line-jdbc"
@@ -91,6 +96,21 @@ final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
         .getOrElse(parsingFailure())
 
     config.tlsConfig.value.enableCertRevocationChecking should be(true)
+  }
+
+  it should "get the tracker retention period when provided" in {
+    val periodStringRepresentation = "P0DT1H2M3S"
+    val expectedPeriod =
+      FiniteDuration(1, TimeUnit.HOURS) +
+        FiniteDuration(2, TimeUnit.MINUTES) +
+        FiniteDuration(3, TimeUnit.SECONDS)
+    val config =
+      configParser(parameters =
+        minimalValidOptions ++ List(trackerRetentionPeriod, periodStringRepresentation)
+      )
+        .getOrElse(parsingFailure())
+
+    config.trackerRetentionPeriod should be(expectedPeriod)
   }
 
   private def parsingFailure(): Nothing = fail("Config parsing failed.")

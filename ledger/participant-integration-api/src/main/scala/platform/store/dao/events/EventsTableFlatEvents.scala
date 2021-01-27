@@ -117,7 +117,9 @@ private[events] object EventsTableFlatEvents {
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
                  case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
-          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
+          join parameters on
+              (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+              and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by event_sequential_id"""
   }
@@ -133,7 +135,9 @@ private[events] object EventsTableFlatEvents {
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
-          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
+          join parameters on
+              (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+              and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
           group by (#$groupByColumns)
           order by event_sequential_id"""
