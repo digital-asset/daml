@@ -305,8 +305,8 @@ class TransactionCoderSpec
             var cases = List(
               encodedCreate.toBuilder
                 .setContractInstance(
-                  encodedCreate.getContractInstance.toBuilder.setValue(
-                    changeVersion(encodedCreate.getContractInstance.getValue, encodeVersion)
+                  encodedCreate.getContractInstance.toBuilder.setArgVersioned(
+                    changeVersion(encodedCreate.getContractInstance.getArgVersioned, encodeVersion)
                   )
                 )
                 .build()

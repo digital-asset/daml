@@ -28,7 +28,7 @@ message Transaction {
 // architecture-handbook-entry-begin: Contract
 message ContractInstance {
     com.daml.lf.value.Identifier template_id = 1;
-    com.daml.lf.value.VersionedValue value = 2;
+    com.daml.lf.value.VersionedValue arg_versioned = 2;
     string agreement = 3;
 }
 // architecture-handbook-entry-end: Contract
