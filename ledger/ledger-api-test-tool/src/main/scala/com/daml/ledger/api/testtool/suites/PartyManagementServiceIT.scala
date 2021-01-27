@@ -110,6 +110,24 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "PMRejectInvalidPartyHints",
+    "A party identifier that contains invalid characters should be rejected with the proper error",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      error <- ledger
+        .allocateParty(
+          // Assumption: emojis will never be acceptable in a party identifier
+          partyIdHint = Some("\uD83D\uDE00"),
+          displayName = None,
+        )
+        .failed
+    } yield {
+      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, "non expected character")
+    }
+  })
+
+  test(
     "PMAllocateOneHundred",
     "It should create unique party names when allocating many parties",
     allocate(NoParties),
