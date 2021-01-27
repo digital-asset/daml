@@ -81,7 +81,21 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "treat releases idempotently, only releasing once regardless of the number of calls" in {
+    "treat single releases idempotently, only releasing once regardless of the number of calls" in {
+      val owner = TestResourceOwner(7)
+      val resource = owner.acquire()
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+        // if `TestResourceOwner`'s release function is called twice, it'll fail
+        _ <- resource.release()
+      } yield {
+        owner.hasBeenAcquired should be(false)
+      }
+    }
+
+    "treat nested releases idempotently, only releasing once regardless of the number of calls" in {
       val ownerA = TestResourceOwner(7)
       val ownerB = TestResourceOwner("eight")
 

@@ -3,83 +3,40 @@
 
 package com.daml.resources
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.daml.resources.HasExecutionContext.executionContext
 
 import scala.collection.compat._
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.Future
 
 final class ResourceFactories[Context: HasExecutionContext] {
 
   private type R[+T] = Resource[Context, T]
-
-  /** Nests release operation for a [[Resource]]'s future.
-    */
-  private[resources] def nest[T](future: Future[T])(
-      releaseResource: T => Future[Unit],
-      releaseSubResources: () => Future[Unit],
-  )(implicit context: Context): R[T] = new R[T] {
-    final lazy val asFuture: Future[T] = future.transformWith {
-      case Success(value) => Future.successful(value)
-      case Failure(throwable) =>
-        release().flatMap(_ => Future.failed(throwable)) // Release everything on failure
-    }
-
-    private val released: AtomicBoolean = new AtomicBoolean(false) // Short-circuits to a promise
-    private val releasePromise: Promise[Unit] = Promise() // Will be the release return handle
-
-    def release(): Future[Unit] =
-      if (released.compareAndSet(false, true))
-        // If `release` is called twice, we wait for `releasePromise` to complete instead
-        // `released` is set atomically to ensure we don't end up with two concurrent releases
-        future
-          .transformWith {
-            case Success(value) =>
-              releaseResource(value).flatMap(_ => releaseSubResources()) // Release all
-            case Failure(_) =>
-              releaseSubResources() // Only sub-release as the future will take care of itself
-          }
-          .transform( // Finally, complete `releasePromise` to allow other releases to complete
-            value => {
-              releasePromise.success(())
-              value
-            },
-            exception => {
-              releasePromise.success(())
-              exception
-            },
-          )
-      else // A release is already in progress or completed; we wait for that instead
-        releasePromise.future
-  }
 
   /** Builds a [[Resource]] from a [[Future]] and some release logic.
     */
   def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(implicit
       context: Context
   ): R[T] =
-    nest(future)(releaseResource, () => Future.unit)
+    new NestedResource(future)(releaseResource, () => Future.unit)
 
   /** Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
-  def fromFuture[T](future: Future[T])(implicit context: Context): R[T] =
-    apply(future)(_ => Future.unit)
+  def fromFuture[T](future: Future[T]): R[T] =
+    new PureResource(future)
 
   /** Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
     */
-  def unit(implicit context: Context): R[Unit] =
+  def unit: R[Unit] =
     fromFuture(Future.unit)
 
   /** Produces a [[Resource]] that has already succeeded with a given value.
     */
-  def successful[T](value: T)(implicit context: Context): R[T] =
+  def successful[T](value: T): R[T] =
     fromFuture(Future.successful(value))
 
   /** Produces a [[Resource]] that has already failed with a given exception.
     */
-  def failed[T](exception: Throwable)(implicit context: Context): R[T] =
+  def failed[T](exception: Throwable): R[T] =
     fromFuture(Future.failed(exception))
 
   /** Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
