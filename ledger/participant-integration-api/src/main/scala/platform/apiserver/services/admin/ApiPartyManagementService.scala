@@ -81,30 +81,41 @@ private[apiserver] final class ApiPartyManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
-    // TODO: This should do proper validation.
-    def randomSubmissionId(prefix: String): Ref.IdString.LedgerString =
-      v1.SubmissionId.assertFromString(s"${prefix}_${UUID.randomUUID().toString}")
 
-    val party =
-      if (request.partyIdHint.isEmpty) None
-      else Some(Ref.Party.assertFromString(request.partyIdHint))
-    val submissionId = randomSubmissionId(prefix = party.getOrElse(""))
-
-    val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-
-    synchronousResponse
-      .submitAndWait(submissionId, (party, displayName))
-      .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
-        AllocatePartyResponse(
-          Some(
-            PartyDetails(
-              partyDetails.party,
-              partyDetails.displayName.getOrElse(""),
-              partyDetails.isLocal,
-            )
+    val validatedPartyIdentifier =
+      if (request.partyIdHint.isEmpty) {
+        Future.successful(None)
+      } else {
+        Ref.Party
+          .fromString(request.partyIdHint)
+          .fold(
+            error => Future.failed(ErrorFactories.invalidArgument(error)),
+            party => Future(Some(party)),
           )
-        )
       }
+
+    // Submission identifiers are restricted to 255 characters just like party identifiers
+    // so they cannot include the party name to prevent long strings to cause errors
+    lazy val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+
+    lazy val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+
+    validatedPartyIdentifier
+      .flatMap(party =>
+        synchronousResponse
+          .submitAndWait(submissionId, (party, displayName))
+          .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+            AllocatePartyResponse(
+              Some(
+                PartyDetails(
+                  partyDetails.party,
+                  partyDetails.displayName.getOrElse(""),
+                  partyDetails.isLocal,
+                )
+              )
+            )
+          }
+      )
       .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
 
