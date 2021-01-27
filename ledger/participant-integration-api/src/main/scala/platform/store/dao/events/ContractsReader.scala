@@ -41,9 +41,6 @@ private[dao] sealed class ContractsReader(
   private val contractWithoutValueRowParser: RowParser[String] =
     str("template_id")
 
-  private val translation: LfValueTranslation =
-    new LfValueTranslation(lfValueTranslationCache)
-
   /** Lookup of a contract in the case the contract value is not already known */
   private def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
@@ -92,7 +89,7 @@ private[dao] sealed class ContractsReader(
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     // Depending on whether the contract argument is cached or not, submit a different query to the database
-    translation.cache.contracts
+    lfValueTranslationCache.contracts
       .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
       case Some(createArgument) =>
         lookupActiveContractWithCachedArgument(readers, contractId, createArgument.argument)
