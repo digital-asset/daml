@@ -38,16 +38,8 @@ private[resources] final class NestedResource[Context: HasExecutionContext, T] p
           case Failure(_) =>
             releaseSubResources() // Only sub-release as the future will take care of itself
         }
-        .transform( // Finally, complete `releasePromise` to allow other releases to complete
-          value => {
-            releasePromise.success(())
-            value
-          },
-          exception => {
-            releasePromise.success(())
-            exception
-          },
-        )
+        // Finally, complete `releasePromise` to allow other releases to complete
+        .andThen { case _ => releasePromise.success(()) }
     else // A release is already in progress or completed; we wait for that instead
       releasePromise.future
 }
