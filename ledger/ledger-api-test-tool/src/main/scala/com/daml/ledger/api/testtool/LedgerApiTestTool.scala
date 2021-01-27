@@ -11,16 +11,19 @@ import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStream
 import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.resources.{AbstractResourceOwner, Resource}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object LedgerApiTestTool {
+
+  private type ResourceOwner[T] = com.daml.resources.AbstractResourceOwner[ExecutionContext, T]
+  private type Resource[T] = com.daml.resources.Resource[ExecutionContext, T]
+  private val Resource = new com.daml.resources.ResourceFactories[ExecutionContext]
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
 
@@ -212,7 +215,7 @@ object LedgerApiTestTool {
       host: String,
       port: Int,
       tlsConfig: Option[TlsConfiguration],
-  ): AbstractResourceOwner[ExecutionContext, Channel] = {
+  ): ResourceOwner[Channel] = {
     logger.info(s"Setting up managed channel to participant at $host:$port...")
     val channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext()
     for (ssl <- tlsConfig; sslContext <- ssl.client) {
@@ -229,7 +232,7 @@ object LedgerApiTestTool {
   private def initializeParticipantChannels(
       participants: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
-  )(implicit executionContext: ExecutionContext): Resource[ExecutionContext, Vector[Channel]] = {
+  )(implicit executionContext: ExecutionContext): Resource[Vector[Channel]] = {
     val participantChannelOwners =
       for ((host, port) <- participants) yield {
         initializeParticipantChannel(host, port, tlsConfig)

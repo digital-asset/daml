@@ -3,7 +3,7 @@
 
 package com.daml.resources.grpc
 
-import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
 import io.grpc.{Server, ServerBuilder}
 
 import scala.concurrent.Future
@@ -14,7 +14,7 @@ class ServerResourceOwner[Context: HasExecutionContext](
     shutdownTimeout: FiniteDuration,
 ) extends AbstractResourceOwner[Context, Server] {
   override def acquire()(implicit context: Context): Resource[Context, Server] =
-    Resource[Context].apply(Future(builder.build().start())) { server =>
+    ReleasableResource(Future(builder.build().start())) { server =>
       Future {
         // Ask to shutdown gracefully, but wait for termination for the specified timeout.
         val done = server.shutdown().awaitTermination(shutdownTimeout.length, shutdownTimeout.unit)
