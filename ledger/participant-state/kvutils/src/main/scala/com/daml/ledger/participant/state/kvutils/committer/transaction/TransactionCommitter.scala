@@ -10,8 +10,8 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionContractKeysValidation.validate
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
+import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.validateKeys
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
@@ -72,7 +72,7 @@ private[kvutils] class TransactionCommitter(
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> validateLedgerTime,
-    "validate_contract_keys" -> validate(transactionCommitter = this),
+    "validate_contract_keys" -> validateKeys(transactionCommitter = this),
     "validate_model_conformance" -> validateModelConformance,
     "blind" -> blind,
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
@@ -89,29 +89,30 @@ private[kvutils] class TransactionCommitter(
 
   /** Reject duplicate commands
     */
-  private[committer] def deduplicateCommand: Step = (commitContext, transactionEntry) => {
-    commitContext.recordTime
-      .map { recordTime =>
-        val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
-        val dedupEntry = commitContext.get(dedupKey)
-        val submissionTime =
-          if (inStaticTimeMode) Instant.now() else recordTime.toInstant
-        if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
-          StepContinue(transactionEntry)
-        } else {
-          logger.trace(
-            s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}"
-          )
-          reject(
-            commitContext.recordTime,
-            DamlTransactionRejectionEntry.newBuilder
-              .setSubmitterInfo(transactionEntry.submitterInfo)
-              .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
-          )
+  private[committer] def deduplicateCommand: Step =
+    (commitContext, transactionEntry) => {
+      commitContext.recordTime
+        .map { recordTime =>
+          val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
+          val dedupEntry = commitContext.get(dedupKey)
+          val submissionTime =
+            if (inStaticTimeMode) Instant.now() else recordTime.toInstant
+          if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
+            StepContinue(transactionEntry)
+          } else {
+            logger.trace(
+              s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}"
+            )
+            reject(
+              commitContext.recordTime,
+              DamlTransactionRejectionEntry.newBuilder
+                .setSubmitterInfo(transactionEntry.submitterInfo)
+                .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
+            )
+          }
         }
-      }
-      .getOrElse(StepContinue(transactionEntry))
-  }
+        .getOrElse(StepContinue(transactionEntry))
+    }
 
   // Checks that the submission time of the command is after the
   // deduplicationTime represented by stateValue
@@ -131,55 +132,57 @@ private[kvutils] class TransactionCommitter(
   /** Authorize the submission by looking up the party allocation and verifying
     * that all of the submitting parties are indeed hosted by the submitting participant.
     */
-  private[committer] def authorizeSubmitters: Step = (commitContext, transactionEntry) => {
-    def rejection(reason: RejectionReason) =
-      reject[DamlTransactionEntrySummary](
-        commitContext.recordTime,
-        buildRejectionLogEntry(transactionEntry, reason),
-      )
+  private[committer] def authorizeSubmitters: Step =
+    (commitContext, transactionEntry) => {
+      def rejection(reason: RejectionReason) =
+        reject[DamlTransactionEntrySummary](
+          commitContext.recordTime,
+          buildRejectionLogEntry(transactionEntry, reason),
+        )
 
-    @scala.annotation.tailrec
-    def authorizeAll(submitters: List[Party]): StepResult[DamlTransactionEntrySummary] =
-      submitters match {
-        case Nil =>
-          StepContinue(transactionEntry)
-        case submitter :: others =>
-          authorize(submitter) match {
-            case Some(rejection) =>
-              rejection
-            case None =>
-              authorizeAll(others)
-          }
-      }
+      @scala.annotation.tailrec
+      def authorizeAll(submitters: List[Party]): StepResult[DamlTransactionEntrySummary] =
+        submitters match {
+          case Nil =>
+            StepContinue(transactionEntry)
+          case submitter :: others =>
+            authorize(submitter) match {
+              case Some(rejection) =>
+                rejection
+              case None =>
+                authorizeAll(others)
+            }
+        }
 
-    def authorize(submitter: Party): Option[StepResult[DamlTransactionEntrySummary]] =
-      commitContext.get(partyStateKey(submitter)) match {
-        case Some(partyAllocation)
-            if partyAllocation.getParty.getParticipantId == commitContext.participantId =>
-          None
-        case Some(_) =>
-          Some(
-            rejection(
-              RejectionReason.SubmitterCannotActViaParticipant(
-                s"Party '$submitter' not hosted by participant ${commitContext.participantId}"
+      def authorize(submitter: Party): Option[StepResult[DamlTransactionEntrySummary]] =
+        commitContext.get(partyStateKey(submitter)) match {
+          case Some(partyAllocation)
+              if partyAllocation.getParty.getParticipantId == commitContext.participantId =>
+            None
+          case Some(_) =>
+            Some(
+              rejection(
+                RejectionReason.SubmitterCannotActViaParticipant(
+                  s"Party '$submitter' not hosted by participant ${commitContext.participantId}"
+                )
               )
             )
-          )
-        case None =>
-          Some(
-            rejection(
-              RejectionReason.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
+          case None =>
+            Some(
+              rejection(
+                RejectionReason.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
+              )
             )
-          )
-      }
+        }
 
-    authorizeAll(transactionEntry.submitters)
-  }
+      authorizeAll(transactionEntry.submitters)
+    }
 
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
     (commitContext, transactionEntry) => {
-      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext, logger)
+      val (_, config) =
+        getCurrentConfiguration(defaultConfig, commitContext, logger)
       val timeModel = config.timeModel
 
       commitContext.recordTime match {
@@ -243,7 +246,8 @@ private[kvutils] class TransactionCommitter(
             case (key, Some(value))
                 if value.getContractState.hasContractKey
                   && contractIsActive(transactionEntry, value.getContractState) =>
-              value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
+              value.getContractState.getContractKey -> Conversions
+                .stateKeyToContractId(key)
           }
 
         try {
@@ -282,7 +286,8 @@ private[kvutils] class TransactionCommitter(
   private[committer] def rejectionReasonForValidationError(
       validationError: com.daml.lf.engine.Error
   ): RejectionReason = {
-    def disputed: RejectionReason = RejectionReason.Disputed(validationError.msg)
+    def disputed: RejectionReason =
+      RejectionReason.Disputed(validationError.msg)
 
     def resultIsCreatedInTx(
         tx: VersionedTransaction[NodeId, ContractId],
@@ -359,7 +364,8 @@ private[kvutils] class TransactionCommitter(
     def stripUnnecessaryNodes(node: TransactionOuterClass.Node) =
       if (node.hasExercise) {
         val exerciseNode = node.getExercise
-        val keptChildren = exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+        val keptChildren =
+          exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
         val newExerciseNode = exerciseNode.toBuilder
           .clearChildren()
           .addAllChildren(keptChildren.asJavaCollection)
@@ -402,32 +408,32 @@ private[kvutils] class TransactionCommitter(
     * This could be reduced to only validate this for keys referred to by
     * NodeLookupByKey.
     */
-
   /** Check that all informee parties mentioned of a transaction are allocated. */
-  private def checkInformeePartiesAllocation: Step = (commitContext, transactionEntry) => {
-    def foldInformeeParties(tx: Tx.Transaction, init: Boolean)(
-        f: (Boolean, String) => Boolean
-    ): Boolean =
-      tx.fold(init) { case (accum, (_, node)) =>
-        node.informeesOfNode.foldLeft(accum)(f)
-      }
+  private def checkInformeePartiesAllocation: Step =
+    (commitContext, transactionEntry) => {
+      def foldInformeeParties(tx: Tx.Transaction, init: Boolean)(
+          f: (Boolean, String) => Boolean
+      ): Boolean =
+        tx.fold(init) { case (accum, (_, node)) =>
+          node.informeesOfNode.foldLeft(accum)(f)
+        }
 
-    val allExist = foldInformeeParties(transactionEntry.transaction, init = true) {
-      (accum, party) =>
-        commitContext.get(partyStateKey(party)).fold(false)(_ => accum)
+      val allExist =
+        foldInformeeParties(transactionEntry.transaction, init = true) { (accum, party) =>
+          commitContext.get(partyStateKey(party)).fold(false)(_ => accum)
+        }
+
+      if (allExist)
+        StepContinue(transactionEntry)
+      else
+        reject(
+          commitContext.recordTime,
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.PartyNotKnownOnLedger("Not all parties known"),
+          ),
+        )
     }
-
-    if (allExist)
-      StepContinue(transactionEntry)
-    else
-      reject(
-        commitContext.recordTime,
-        buildRejectionLogEntry(
-          transactionEntry,
-          RejectionReason.PartyNotKnownOnLedger("Not all parties known"),
-        ),
-      )
-  }
 
   /** Produce the log entry and contract state updates. */
   private def setDedupEntryAndUpdateContractState(
@@ -696,7 +702,10 @@ private[kvutils] class TransactionCommitter(
   private object Metrics {
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values
-        .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
+        .map(v =>
+          v.getNumber -> metrics.daml.kvutils.committer.transaction
+            .rejection(v.name())
+        )
         .toMap
   }
 }
@@ -709,8 +718,10 @@ private[kvutils] object TransactionCommitter {
     val submitters: List[Party] =
       submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
     lazy val transaction: Tx.Transaction = tx
-    val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
-    val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
+    val submissionTime: Timestamp =
+      Conversions.parseTimestamp(submission.getSubmissionTime)
+    val submissionSeed: crypto.Hash =
+      Conversions.parseHash(submission.getSubmissionSeed)
 
     // On copy, avoid decoding the transaction again if not needed
     def copyPreservingDecodedTransaction(
@@ -736,7 +747,10 @@ private[kvutils] object TransactionCommitter {
   // we mark some contracts as archived and may later change their disclosure and do not
   // want to "unarchive" them.
   def getContractState(commitContext: CommitContext, key: DamlStateKey): DamlContractState =
-    commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
+    commitContext
+      .get(key)
+      .getOrElse(throw Err.MissingInputState(key))
+      .getContractState
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   private def transactionMinRecordTime(
@@ -779,5 +793,7 @@ private[kvutils] object TransactionCommitter {
     encodeGlobalKey(globalKey(templateId, keyValue))
 
   private[transaction] def globalKey(tmplId: Identifier, key: Value[ContractId]) =
-    GlobalKey.build(tmplId, key).fold(msg => throw Err.InternalError(msg), identity)
+    GlobalKey
+      .build(tmplId, key)
+      .fold(msg => throw Err.InternalError(msg), identity)
 }

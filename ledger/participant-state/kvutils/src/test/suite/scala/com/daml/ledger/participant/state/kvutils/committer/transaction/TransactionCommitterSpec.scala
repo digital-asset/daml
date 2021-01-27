@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Transacti
   DamlTransactionEntrySummary,
   damlContractKey,
 }
+import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation
 import com.daml.ledger.participant.state.kvutils.committer.{
   CommitContext,
   StepContinue,
@@ -50,7 +51,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   private val aRecordTime = Timestamp(100)
   private val aDedupKey = Conversions
     .commandDedupKey(aTransactionEntrySummary.submitterInfo)
-  private val emptyConfigurationStateValue = defaultConfigurationStateValueBuilder().build
+  private val emptyConfigurationStateValue =
+    defaultConfigurationStateValueBuilder().build
   private val inputWithTimeModelAndEmptyCommandDeduplication =
     Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue), aDedupKey -> None)
   private val aSubmissionTime = createProtobufTimestamp(seconds = 1)
@@ -117,11 +119,13 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   private def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
 
-  private def exerciseNodeBuilder = TransactionOuterClass.NodeExercise.newBuilder()
+  private def exerciseNodeBuilder =
+    TransactionOuterClass.NodeExercise.newBuilder()
 
   private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
 
-  private def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+  private def lookupByKeyNodeBuilder =
+    TransactionOuterClass.NodeLookupByKey.newBuilder()
 
   "trimUnnecessaryNodes" should {
     "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
@@ -158,7 +162,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "continue if record time is not available" in {
       val context = createCommitContext(recordTime = None)
 
-      val actual = transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
+      val actual =
+        transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(_) => succeed
@@ -171,7 +176,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val context =
         createCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
 
-      val actual = transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
+      val actual =
+        transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(_) => succeed
@@ -185,7 +191,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val context =
         createCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
 
-      val actual = transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
+      val actual =
+        transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(_) => succeed
@@ -205,7 +212,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         val context =
           createCommitContext(recordTime = Some(recordTime), inputs = inputs)
 
-        val actual = transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
+        val actual =
+          transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
         actual match {
           case StepContinue(_) => fail()
@@ -271,7 +279,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val recordTime = Timestamp.now()
       val recordTimeInstant = recordTime.toInstant
       val lowerBound =
-        recordTimeInstant.minus(theDefaultConfig.timeModel.minSkew).minusMillis(1)
+        recordTimeInstant
+          .minus(theDefaultConfig.timeModel.minSkew)
+          .minusMillis(1)
       val upperBound =
         recordTimeInstant.plus(theDefaultConfig.timeModel.maxSkew).plusMillis(1)
       val inputWithDeclaredConfig =
@@ -289,7 +299,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
             )
             .build
         )
-        val actual = transactionCommitter.validateLedgerTime(context, transactionEntrySummary)
+        val actual =
+          transactionCommitter.validateLedgerTime(context, transactionEntrySummary)
 
         actual match {
           case StepContinue(_) => fail()
@@ -313,7 +324,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "set record time in log entry when it is available" in {
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      val actual = transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
+      val actual =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       actual.hasRecordTime shouldBe true
       actual.getRecordTime shouldBe buildTimestamp(theRecordTime)
@@ -324,7 +336,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "skip setting record time in log entry when it is not available" in {
       val context = createCommitContext(recordTime = None)
 
-      val actual = transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
+      val actual =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       actual.hasRecordTime shouldBe false
       actual.hasTransactionEntry shouldBe true
@@ -334,7 +347,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = createCommitContext(recordTime = None)
 
-      val _ = transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
+      val _ =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
@@ -348,7 +362,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val context = createCommitContext(recordTime = Some(aRecordTime))
 
-      val _ = transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
+      val _ =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
@@ -551,7 +566,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       )
       val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
 
-      transactionCommitter.authorizeSubmitters.apply(context, tx) shouldBe a[StepContinue[_]]
+      transactionCommitter.authorizeSubmitters
+        .apply(context, tx) shouldBe a[StepContinue[_]]
     }
 
     lazy val Alice = "alice"
@@ -566,16 +582,18 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         .setDisplayName(party)
         .build()
 
-    def hostedParty(party: String): DamlPartyAllocation = partyAllocation(party, ParticipantId)
+    def hostedParty(party: String): DamlPartyAllocation =
+      partyAllocation(party, ParticipantId)
     def notHostedParty(party: String): DamlPartyAllocation =
       partyAllocation(party, OtherParticipantId)
     def createInputs(
         inputs: (String, Option[DamlPartyAllocation])*
     ): Map[DamlStateKey, Option[DamlStateValue]] =
       inputs.map { case (party, partyAllocation) =>
-        DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(
-          DamlStateValue.newBuilder().setParty(_).build()
-        )
+        DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation
+          .map(
+            DamlStateValue.newBuilder().setParty(_).build()
+          )
       }.toMap
   }
 
@@ -589,7 +607,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           txBuilder.lookupByKey(createNode(contractId = s"#$freshContractId"), found)
         )
 
-      val lookupByKeyNotFound = newLookupByKeySubmittedTransaction(found = false)
+      val lookupByKeyNotFound =
+        newLookupByKeySubmittedTransaction(found = false)
       val lookupByKeyFound1 = newLookupByKeySubmittedTransaction(found = true)
       val lookupByKeyFound2 = newLookupByKeySubmittedTransaction(found = true)
 
@@ -609,14 +628,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           key -> contractIdAtCommitter
         )
         val result =
-          TransactionContractKeysValidation
-            .validate(transactionCommitter)
+          ContractKeysValidation
+            .validateKeys(transactionCommitter)
             .apply(
               context,
               DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
             )
         result shouldBe a[StepStop]
-        val rejectionReason = getTransactionRejectionReason(result).getInconsistent.getDetails
+        val rejectionReason =
+          getTransactionRejectionReason(result).getInconsistent.getDetails
         rejectionReason should startWith("InconsistentKeys")
       }
     }
@@ -627,7 +647,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         .setContractId(contractId)
         .build()
 
-    def freshContractId: String = s"testContractId-${UUID.randomUUID().toString.take(10)}"
+    def freshContractId: String =
+      s"testContractId-${UUID.randomUUID().toString.take(10)}"
 
     def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
       DamlStateKey
@@ -706,7 +727,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       .build
 
   private def tuple(values: String*): TransactionBuilder.Value =
-    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) => s"_$i" -> v }: _*)
+    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
+      s"_$i" -> v
+    }: _*)
 
   private def create(
       contractId: String,
