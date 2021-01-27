@@ -7,7 +7,6 @@ import com.daml.resources.HasExecutionContext.executionContext
 
 import scala.collection.compat._
 import scala.concurrent.Future
-import scala.language.higherKinds
 
 final class ResourceFactories[Context: HasExecutionContext] {
 
