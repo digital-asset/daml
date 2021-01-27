@@ -14,10 +14,10 @@ final class ResourceFactories[Context: HasExecutionContext] {
 
   /** Builds a [[Resource]] from a [[Future]] and some release logic.
     */
-  def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(implicit
-      context: Context
-  ): R[T] =
-    NestedResource(future)(releaseResource, () => Future.unit)
+  def apply[T](
+      future: Future[T]
+  )(releaseResource: T => Future[Unit])(implicit context: Context): R[T] =
+    ReleasableResource(future)(releaseResource)
 
   /** Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
@@ -27,17 +27,17 @@ final class ResourceFactories[Context: HasExecutionContext] {
   /** Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
     */
   def unit: R[Unit] =
-    fromFuture(Future.unit)
+    PureResource(Future.unit)
 
   /** Produces a [[Resource]] that has already succeeded with a given value.
     */
   def successful[T](value: T): R[T] =
-    fromFuture(Future.successful(value))
+    PureResource(Future.successful(value))
 
   /** Produces a [[Resource]] that has already failed with a given exception.
     */
   def failed[T](exception: Throwable): R[T] =
-    fromFuture(Future.failed(exception))
+    PureResource(Future.failed(exception))
 
   /** Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
     *
