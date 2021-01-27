@@ -394,7 +394,6 @@ private final class SqlLedger(
               CurrentOffset(offset),
               transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts,
-              blindingInfo,
             )
           },
         )
