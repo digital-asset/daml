@@ -28,10 +28,10 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
         "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11"
 
       engineEarlyAccess.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11"
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12"
 
       engineInfoDev.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.dev"
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.dev"
     }
 
     "toString returns the same value as show" in {

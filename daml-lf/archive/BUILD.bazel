@@ -51,6 +51,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         ),
     ]
     for version in LF_VERSIONS
+    if version != "1.12"
 ]
 
 # FIXME(JM): Clean this up

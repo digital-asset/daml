@@ -34,9 +34,9 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, VDev}
+  import TransactionVersion.{V10, V11, V12, VDev}
 
-  private[this] val transactionVersions = Table("transaction version", V10, V11, VDev)
+  private[this] val transactionVersions = Table("transaction version", V10, V11, V12, VDev)
 
   "encode-decode" should {
 
@@ -342,44 +342,48 @@ class TransactionCoderSpec
       value.toBuilder.setVersion(version).build()
 
     "fail if try to encode a create node containing value with version different from node" in {
-      forAll(malformedCreateNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
-        whenever(node.version != version) {
-          val nodeVersion = node.version
-          val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            minimalistNode(nodeVersion)(node),
-          )
-          val encodedCreate = encodedNode.getCreate
-          var cases = List(
-            encodedCreate.toBuilder
-              .setContractInstance(
-                encodedCreate.getContractInstance.toBuilder.setValue(
-                  changeVersion(encodedCreate.getContractInstance.getValue, encodeVersion)
-                )
-              )
-              .build()
-          )
-          if (encodedCreate.hasKeyWithMaintainers)
-            cases = encodedCreate.toBuilder
-              .setKeyWithMaintainers(
-                encodedCreate.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                  changeVersion(encodedCreate.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-                )
-              )
-              .build() :: cases
-          cases.foreach(node =>
-            TransactionCoder.decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
+      forAll(malformedCreateNodeGen, transactionVersionGen(maxVersion = V12), minSuccessful(5)) {
+        (node, version) =>
+          whenever(node.version <= V11 && node.version != version) {
+            val nodeVersion = node.version
+            val encodeVersion = ValueCoder.encodeValueVersion(version)
+            val Right(encodedNode) = TransactionCoder.encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
               nodeVersion,
-              encodedNode.toBuilder.setCreate(node).build(),
-            ) shouldBe a[Left[_, _]]
-          )
-        }
+              NodeId(0),
+              minimalistNode(nodeVersion)(node),
+            )
+            val encodedCreate = encodedNode.getCreate
+            var cases = List(
+              encodedCreate.toBuilder
+                .setContractInstance(
+                  encodedCreate.getContractInstance.toBuilder.setValue(
+                    changeVersion(encodedCreate.getContractInstance.getValue, encodeVersion)
+                  )
+                )
+                .build()
+            )
+            if (encodedCreate.hasKeyWithMaintainers)
+              cases = encodedCreate.toBuilder
+                .setKeyWithMaintainers(
+                  encodedCreate.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                    changeVersion(
+                      encodedCreate.getKeyWithMaintainers.getKeyVersioned,
+                      encodeVersion,
+                    )
+                  )
+                )
+                .build() :: cases
+            cases.foreach(node =>
+              TransactionCoder.decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                nodeVersion,
+                encodedNode.toBuilder.setCreate(node).build(),
+              ) shouldBe a[Left[_, _]]
+            )
+          }
       }
     }
 

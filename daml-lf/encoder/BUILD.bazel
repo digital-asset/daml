@@ -21,6 +21,7 @@ lf_targets = [
     "1.7",
     "1.8",
     "1.11",
+    "1.12",
     "1.dev",
 ]
 
@@ -126,7 +127,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                "--dev" if (target == "1.dev") else "",
+                "--dev" if (target == "1.dev" or [target] == lf_preview_version) else "",
             ],
             data = [
                 "//daml-lf/repl",
