@@ -9,5 +9,5 @@ class FutureCloseableResourceOwner[Context: HasExecutionContext, T <: AutoClosea
     acquireFutureCloseable: () => Future[T]
 ) extends AbstractResourceOwner[Context, T] {
   override def acquire()(implicit context: Context): Resource[Context, T] =
-    Resource.apply(acquireFutureCloseable())(closeable => Future(closeable.close()))
+    ReleasableResource(acquireFutureCloseable())(closeable => Future(closeable.close()))
 }

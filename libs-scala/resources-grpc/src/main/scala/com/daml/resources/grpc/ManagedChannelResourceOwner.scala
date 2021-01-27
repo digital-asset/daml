@@ -3,7 +3,7 @@
 
 package com.daml.resources.grpc
 
-import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 
 import scala.concurrent.Future
@@ -14,7 +14,7 @@ private[grpc] final class ManagedChannelResourceOwner[Context: HasExecutionConte
     shutdownTimeout: FiniteDuration,
 ) extends AbstractResourceOwner[Context, ManagedChannel] {
   override def acquire()(implicit context: Context): Resource[Context, ManagedChannel] =
-    Resource[Context].apply(Future(builder.build())) { channel =>
+    ReleasableResource(Future(builder.build())) { channel =>
       Future {
         channel.shutdown()
         channel.awaitTermination(shutdownTimeout.length, shutdownTimeout.unit)

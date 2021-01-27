@@ -19,7 +19,7 @@ final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
     if (!acquired.compareAndSet(false, true)) {
       throw new TriedToAcquireTwice
     }
-    Resource[TestContext].apply(acquire)(value =>
+    ReleasableResource(acquire)(value =>
       if (acquired.compareAndSet(true, false))
         release(value)
       else
