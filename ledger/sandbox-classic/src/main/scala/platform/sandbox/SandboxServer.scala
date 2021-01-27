@@ -315,6 +315,7 @@ final class SandboxServer(
             servicesExecutionContext = servicesExecutionContext,
             metrics = metrics,
             lfValueTranslationCache = lfValueTranslationCache,
+            engine = engine,
             validatePartyAllocation = !config.implicitPartyAllocation,
           )
         case None =>

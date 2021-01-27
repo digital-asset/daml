@@ -27,6 +27,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -86,6 +87,7 @@ private class JdbcLedgerDao(
     lfValueTranslationCache: LfValueTranslation.Cache,
     validatePartyAllocation: Boolean,
     idempotentEntryInserts: Boolean,
+    enricher: Option[ValueEnricher],
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -932,7 +934,12 @@ private class JdbcLedgerDao(
     }
 
   private val translation: LfValueTranslation =
-    new LfValueTranslation(lfValueTranslationCache)
+    new LfValueTranslation(
+      cache = lfValueTranslationCache,
+      metrics = metrics,
+      enricherO = enricher,
+      loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
+    )
 
   private val compressionStrategy: CompressionStrategy =
     CompressionStrategy.AllGZIP
@@ -988,6 +995,7 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
     owner(
@@ -1001,6 +1009,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       jdbcAsyncCommits = false,
       idempotentEventInserts = false,
+      enricher = enricher,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -1012,6 +1021,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       jdbcAsyncCommits: Boolean,
+      enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
@@ -1027,6 +1037,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       jdbcAsyncCommits = jdbcAsyncCommits && dbType.supportsAsynchronousCommits,
       idempotentEventInserts = dbType == DbType.Postgres,
+      enricher = enricher,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1038,6 +1049,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       validatePartyAllocation: Boolean = false,
+      enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
@@ -1054,6 +1066,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       jdbcAsyncCommits = false,
       idempotentEventInserts = false,
+      enricher = enricher,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1093,6 +1106,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       jdbcAsyncCommits: Boolean,
       idempotentEventInserts: Boolean,
+      enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
@@ -1114,6 +1128,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       idempotentEventInserts,
+      enricher,
     )
 
   sealed trait Queries {

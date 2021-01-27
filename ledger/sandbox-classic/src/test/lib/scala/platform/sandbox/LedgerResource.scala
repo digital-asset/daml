@@ -13,6 +13,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -88,6 +89,7 @@ private[sandbox] object LedgerResource {
           servicesExecutionContext = servicesExecutionContext,
           metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslation.Cache.none,
+          engine = new Engine(),
         )
       } yield ledger
     )

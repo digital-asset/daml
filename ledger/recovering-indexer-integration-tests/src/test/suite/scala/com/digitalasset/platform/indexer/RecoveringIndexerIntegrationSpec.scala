@@ -229,6 +229,7 @@ class RecoveringIndexerIntegrationSpec
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
       jdbcAsyncCommits = true,
+      enricher = None,
     )
   }
 }

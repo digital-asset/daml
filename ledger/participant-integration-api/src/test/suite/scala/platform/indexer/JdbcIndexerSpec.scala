@@ -179,6 +179,7 @@ final class JdbcIndexerSpec
       metrics,
       LfValueTranslation.Cache.none,
       jdbcAsyncCommits = true,
+      enricher = None,
     )
     new indexer.JdbcIndexer.Factory(
       config = config,

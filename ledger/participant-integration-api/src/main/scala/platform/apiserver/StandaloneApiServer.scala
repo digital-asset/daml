@@ -16,7 +16,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
@@ -65,6 +65,8 @@ final class StandaloneApiServer(
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
+    val valueEnricher = new ValueEnricher(engine)
+
     val owner = for {
       indexService <- JdbcIndex
         .owner(
@@ -76,6 +78,7 @@ final class StandaloneApiServer(
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
+          enricher = valueEnricher,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
