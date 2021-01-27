@@ -11,7 +11,9 @@ import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 /** Nests release operation for a [[Resource]]'s future. */
-private[resources] final class NestedResource[Context: HasExecutionContext, T](future: Future[T])(
+private[resources] final class NestedResource[Context: HasExecutionContext, T] private (
+    future: Future[T]
+)(
     releaseResource: T => Future[Unit],
     releaseSubResources: () => Future[Unit],
 )(implicit context: Context)
@@ -48,4 +50,12 @@ private[resources] final class NestedResource[Context: HasExecutionContext, T](f
         )
     else // A release is already in progress or completed; we wait for that instead
       releasePromise.future
+}
+
+object NestedResource {
+  def apply[Context: HasExecutionContext, T](future: Future[T])(
+      releaseResource: T => Future[Unit],
+      releaseSubResources: () => Future[Unit],
+  )(implicit context: Context): Resource[Context, T] =
+    new NestedResource(future)(releaseResource, releaseSubResources)
 }

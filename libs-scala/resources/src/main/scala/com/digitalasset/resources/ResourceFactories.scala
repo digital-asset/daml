@@ -17,12 +17,12 @@ final class ResourceFactories[Context: HasExecutionContext] {
   def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(implicit
       context: Context
   ): R[T] =
-    new NestedResource(future)(releaseResource, () => Future.unit)
+    NestedResource(future)(releaseResource, () => Future.unit)
 
   /** Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
   def fromFuture[T](future: Future[T]): R[T] =
-    new PureResource(future)
+    PureResource(future)
 
   /** Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
     */

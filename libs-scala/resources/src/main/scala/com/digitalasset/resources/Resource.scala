@@ -30,7 +30,7 @@ abstract class Resource[Context: HasExecutionContext, +A] {
     */
   def map[B](f: A => B)(implicit context: Context): R[B] =
     // A mapped Resource is a mapped future plus a nesting of an empty release operation and the actual one
-    new NestedResource(asFuture.map(f))(_ => Future.unit, release _)
+    NestedResource(asFuture.map(f))(_ => Future.unit, release _)
 
   /** Just like [[Future]]s, [[Resource]]s can be chained. Both component [[Resource]]s will be released correctly
     * upon failure and explicit release.
@@ -48,7 +48,7 @@ abstract class Resource[Context: HasExecutionContext, +A] {
         case Failure(_) => Future.unit // Already released by future failure
       }
     val future = nextFuture.flatMap(_.asFuture)
-    new NestedResource(future)(
+    NestedResource(future)(
       nextRelease,
       release _,
     ) // Nest next resource release and this resource release
@@ -63,7 +63,7 @@ abstract class Resource[Context: HasExecutionContext, +A] {
       else
         Future.failed(new ResourceAcquisitionFilterException())
     )
-    new NestedResource(future)(_ => Future.unit, release _)
+    NestedResource(future)(_ => Future.unit, release _)
   }
 
   /** A nested resource can be flattened.
@@ -74,7 +74,7 @@ abstract class Resource[Context: HasExecutionContext, +A] {
   /** Just like [[Future]]s, an attempted [[Resource]] computation can be transformed.
     */
   def transformWith[B](f: Try[A] => R[B])(implicit context: Context): R[B] =
-    new NestedResource(asFuture.transformWith(f.andThen(Future.successful)))(
+    NestedResource(asFuture.transformWith(f.andThen(Future.successful)))(
       nested => nested.release(),
       release _,
     ).flatten
