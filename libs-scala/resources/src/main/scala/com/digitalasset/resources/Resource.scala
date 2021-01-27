@@ -71,7 +71,16 @@ abstract class Resource[Context: HasExecutionContext, +A] {
   def flatten[B](implicit nestedEvidence: A <:< R[B], context: Context): R[B] =
     flatMap(identity[A])
 
-  /** Just like [[Future]]s, an attempted [[Resource]] computation can be transformed.
+  /** Creates a new Resource by applying the specified function to the result of this Resource. If
+    * there is any non-fatal exception thrown when 'f' is applied then that exception will be
+    * propagated to the resulting future.
+    */
+  def transform[B](f: Try[A] => Try[B])(implicit context: Context): R[B] =
+    transformWith(result => PureResource(Future.fromTry(f(result))))
+
+  /** Creates a new Resource by applying the specified function, which produces a Resource, to the
+    * result of this Resource. If there is any non-fatal exception thrown when 'f' is applied then
+    * that exception will be propagated to the resulting future.
     */
   def transformWith[B](f: Try[A] => R[B])(implicit context: Context): R[B] =
     NestedResource(asFuture.transformWith(f.andThen(Future.successful)))(

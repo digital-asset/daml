@@ -7,6 +7,7 @@ import com.daml.resources.HasExecutionContext.executionContext
 
 import scala.collection.compat._
 import scala.concurrent.Future
+import scala.util.Try
 
 final class ResourceFactories[Context: HasExecutionContext] {
 
@@ -23,6 +24,11 @@ final class ResourceFactories[Context: HasExecutionContext] {
     */
   def fromFuture[T](future: Future[T]): R[T] =
     PureResource(future)
+
+  /** Wraps a simple [[Try]] in a [[Resource]] that doesn't need to be released.
+    */
+  def fromTry[T](result: Try[T]): R[T] =
+    PureResource(Future.fromTry(result))
 
   /** Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
     */
