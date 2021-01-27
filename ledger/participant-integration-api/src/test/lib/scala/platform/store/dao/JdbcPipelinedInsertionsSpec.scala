@@ -77,6 +77,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
     val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
+      _ <- ledgerDao.storeTransactionState(preparedInsert)
       transactionTreeResponse <- ledgerDao.transactionsReader.lookupTransactionTreeById(
         transactionId = tx.transactionId,
         tx.actAs.toSet,

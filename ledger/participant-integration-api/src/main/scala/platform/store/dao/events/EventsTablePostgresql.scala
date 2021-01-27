@@ -176,15 +176,17 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseChildEventIds = "exerciseChildEventIds"
   }
 
-  /** Conflict detection relies on the `event_id` primary key only.
+  /** Allows idempotent event insertions (i.e. discards new rows on `event_id` conflicts).
     *
-    * This clause enables `ignore-if-already-there` behavior needed for automatic recovery of partially-persisted
-    * transactions (i.e. derived from a pipelined insertion).
+    * Idempotent insertions are necessary for seamless restarts of the [[com.daml.platform.indexer.JdbcIndexer]]
+    * after partially persisted transactions.
+    * (e.g. a transaction's events are persisted but the corresponding ledger end not).
     *
-    * For more details on pipelined transaction insertions, see [[com.daml.platform.indexer.PipelinedExecuteUpdate]].
+    * Partially-persisted ledger entries are possible when performing transaction updates in a pipelined fashion.
+    * For more details on pipelined transaction updates, see [[com.daml.platform.indexer.PipelinedExecuteUpdate]].
     */
   private val conflictActionClause =
-    if (idempotentEventInsertions) "on conflict(event_id) do nothing" else ""
+    if (idempotentEventInsertions) "on conflict do nothing" else ""
 
   private[events] val insertStmt = {
     import Params._
