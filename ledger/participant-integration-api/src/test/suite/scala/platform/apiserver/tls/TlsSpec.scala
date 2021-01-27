@@ -24,6 +24,8 @@ class TlsSpec
   val caCrt = resource("ca.crt")
   val clientCrt = resource("client.crt")
   val clientKey = resource("client.pem")
+  val invalidClientCrt = resource("ca_alternative.crt")
+  val invalidClientKey = resource("ca_alternative.pem")
 
   def tlsEnabledFixture(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
     TlsFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey, clientAuth)
@@ -41,6 +43,12 @@ class TlsSpec
           .makeARequest()
           .map(_ => succeed)
       }
+
+      "allow TLS connections with invalid certificates" in {
+        tlsEnabledFixture(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.NONE)
+          .makeARequest()
+          .map(_ => succeed)
+      }
     }
 
     "client authorization is set to optional" should {
@@ -55,6 +63,18 @@ class TlsSpec
           .makeARequest()
           .map(_ => succeed)
       }
+
+      "block TLS connections with invalid certificates" in {
+        tlsEnabledFixture(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.OPTIONAL)
+          .makeARequest()
+          .failed
+          .collect {
+            case com.daml.grpc.GrpcException.UNAVAILABLE() =>
+              succeed
+            case ex =>
+              fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
+          }
+      }
     }
 
     "client authorization is set to require" should {
@@ -66,6 +86,18 @@ class TlsSpec
 
       "block TLS connections without certificates" in {
         tlsEnabledFixture(None, None, ClientAuth.REQUIRE)
+          .makeARequest()
+          .failed
+          .collect {
+            case com.daml.grpc.GrpcException.UNAVAILABLE() =>
+              succeed
+            case ex =>
+              fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
+          }
+      }
+
+      "block TLS connections with invalid certificates" in {
+        tlsEnabledFixture(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.REQUIRE)
           .makeARequest()
           .failed
           .collect {
