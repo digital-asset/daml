@@ -4,7 +4,7 @@
 jobs:
 - job: git_sha
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
     - bash: |
@@ -35,7 +35,7 @@ jobs:
     is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
   timeoutInMinutes: 360
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
     - template: report-start.yml
@@ -144,7 +144,7 @@ jobs:
     - da_ghc_lib
   timeoutInMinutes: 360
   pool:
-    name: 'linux-pool'
+    name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
     - template: report-start.yml
@@ -205,7 +205,7 @@ jobs:
     - check_for_release
   timeoutInMinutes: 360
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
     demands: assignment -equals default
   steps:
     - template: report-start.yml
@@ -222,7 +222,7 @@ jobs:
     - compatibility_ts_libs
   timeoutInMinutes: 360
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
     demands: assignment -equals default
   steps:
     - template: report-start.yml
@@ -285,7 +285,7 @@ jobs:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
   pool:
-    name: "linux-pool"
+    name: "ubuntu_20_04"
     demands: assignment -equals default
   steps:
     - bash: |
@@ -342,7 +342,7 @@ jobs:
     - compatibility_windows
     - Linux_scala_2_13
   pool:
-    name: "linux-pool"
+    name: "ubuntu_20_04"
     demands: assignment -equals default
   variables:
     Linux.start: $[ dependencies.Linux.outputs['start.time'] ]

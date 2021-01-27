@@ -8,7 +8,7 @@ jobs:
 
 - job: patch_bazel_pre_check
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
   steps:
   - checkout: self
   - bash: |
@@ -63,8 +63,10 @@ jobs:
     condition: eq(variables.should_run, 'true')
   - bash: |
       set -euo pipefail
+      BAZEL=$(mktemp)
+      curl -sL https://github.com/bazelbuild/bazel/releases/download/$(bazel_base_version)/bazel-$(bazel_base_version)-windows-x86_64.exe > $BAZEL
       cd bazel
-      bazel build src/main/cpp:client src:package-zip_jdk_minimal -c opt --stamp --embed_label $(bazel_base_version)-patched-$(cache_key)
+      $BAZEL build src/main/cpp:client src:package-zip_jdk_minimal -c opt --stamp --embed_label $(bazel_base_version)-patched-$(cache_key)
       # Note (MK) For some reason, the `zip` from chocolatey seems to result in
       # a “zip file structure invalid” error. I’ve tried adding msys to PATH so the Bazel
       # rules pick up `zip` from msys but that broke other things. So for now
@@ -92,7 +94,7 @@ jobs:
     target_url: $[ dependencies.patch_bazel_pre_check.outputs['out.target_url'] ]
     should_run: $[ dependencies.patch_bazel_pre_check.outputs['out.should_run'] ]
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
   steps:
   - task: DownloadPipelineArtifact@2
     inputs:
