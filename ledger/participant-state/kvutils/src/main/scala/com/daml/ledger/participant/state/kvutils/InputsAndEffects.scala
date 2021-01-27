@@ -20,19 +20,19 @@ private[kvutils] object InputsAndEffects {
     * were consumed and created, and what contract keys were updated.
     */
   /** @param consumedContracts
-    * The contracts consumed by this transaction.
-    * When committing the transaction these contracts must be marked consumed.
-    * A contract should be marked consumed when the transaction is committed,
-    * regardless of the ledger effective time of the transaction (e.g. a transaction
-    * with an earlier ledger effective time that gets committed later would find the
-    * contract inactive).
+    *     The contracts consumed by this transaction.
+    *     When committing the transaction these contracts must be marked consumed.
+    *     A contract should be marked consumed when the transaction is committed,
+    *     regardless of the ledger effective time of the transaction (e.g. a transaction
+    *     with an earlier ledger effective time that gets committed later would find the
+    *     contract inactive).
     * @param createdContracts
-    * The contracts created by this transaction.
-    * When the transaction is committed, keys marking the activeness of these
-    * contracts should be created. The key should be a combination of the transaction
-    * id and the relative contract id (that is, the node index).
+    *     The contracts created by this transaction.
+    *     When the transaction is committed, keys marking the activeness of these
+    *     contracts should be created. The key should be a combination of the transaction
+    *     id and the relative contract id (that is, the node index).
     * @param updatedContractKeys
-    * The contract keys created or updated as part of the transaction.
+    *     The contract keys created or updated as part of the transaction.
     */
   final case class Effects(
       consumedContracts: List[DamlStateKey],
@@ -134,9 +134,9 @@ private[kvutils] object InputsAndEffects {
             effects.copy(
               consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
               updatedContractKeys = exe.key
-                .fold(effects.updatedContractKeys)(keyWithMaintainers =>
+                .fold(effects.updatedContractKeys)(key =>
                   effects.updatedContractKeys.updated(
-                    contractKeyToStateKey(exe.templateId, keyWithMaintainers.key),
+                    contractKeyToStateKey(exe.templateId, key.key),
                     None,
                   )
                 ),
@@ -150,10 +150,7 @@ private[kvutils] object InputsAndEffects {
     }
   }
 
-  private[this] def contractKeyToStateKey(
-      tmplId: Identifier,
-      key: Value[ContractId],
-  ): DamlStateKey =
+  private[this] def contractKeyToStateKey(tmplId: Identifier, key: Value[ContractId]) =
     globalKeyToStateKey(
       GlobalKey
         .build(tmplId, key)
