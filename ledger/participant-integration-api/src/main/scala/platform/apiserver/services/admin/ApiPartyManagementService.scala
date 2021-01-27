@@ -141,7 +141,7 @@ private[apiserver] object ApiPartyManagementService {
     // Suffix is `-` followed by a random UUID as a string
     private val SuffixLength: Int = 1 + UUID.randomUUID().toString.length
     private val MaxLength: Int = 255
-    val PrefixMaxLength: Int = MaxLength - SuffixLength
+    private val PrefixMaxLength: Int = MaxLength - SuffixLength
     def withPrefix(maybeParty: Option[Ref.Party]): v1.SubmissionId = {
       val uuid = UUID.randomUUID().toString
       val raw = maybeParty.fold(uuid)(party => s"${party.take(PrefixMaxLength)}-$uuid")
