@@ -90,7 +90,7 @@ private[apiserver] final class ApiPartyManagementService private (
           .fromString(request.partyIdHint)
           .fold(
             error => Future.failed(ErrorFactories.invalidArgument(error)),
-            party => Future(Some(party)),
+            party => Future.successful(Some(party)),
           )
       }
 
