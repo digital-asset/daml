@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.tls
 
 import java.io.File
+
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.platform.apiserver.LedgerApiServer
@@ -27,88 +28,66 @@ class TlsSpec
   val invalidClientCrt = resource("ca_alternative.crt")
   val invalidClientKey = resource("ca_alternative.pem")
 
-  def tlsEnabledFixture(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
-    TlsFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey, clientAuth)
-
   classOf[LedgerApiServer].getSimpleName when {
     "client authorization is set to none" should {
       "allow TLS connections with valid certificates" in {
-        tlsEnabledFixture(Some(clientCrt), Some(clientKey), ClientAuth.NONE)
-          .makeARequest()
-          .map(_ => succeed)
+        assertResponseSuccess(Some(clientCrt), Some(clientKey), ClientAuth.NONE)
       }
 
       "allow TLS connections without certificates" in {
-        tlsEnabledFixture(None, None, ClientAuth.NONE)
-          .makeARequest()
-          .map(_ => succeed)
+        assertResponseSuccess(None, None, ClientAuth.NONE)
       }
 
       "allow TLS connections with invalid certificates" in {
-        tlsEnabledFixture(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.NONE)
-          .makeARequest()
-          .map(_ => succeed)
+        assertResponseSuccess(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.NONE)
       }
     }
 
     "client authorization is set to optional" should {
       "allow TLS connections with valid certificates" in {
-        tlsEnabledFixture(Some(clientCrt), Some(clientKey), ClientAuth.OPTIONAL)
-          .makeARequest()
-          .map(_ => succeed)
+        assertResponseSuccess(Some(clientCrt), Some(clientKey), ClientAuth.OPTIONAL)
       }
 
       "allow TLS connections without certificates" in {
-        tlsEnabledFixture(None, None, ClientAuth.OPTIONAL)
-          .makeARequest()
-          .map(_ => succeed)
+        assertResponseSuccess(None, None, ClientAuth.OPTIONAL)
       }
 
       "block TLS connections with invalid certificates" in {
-        tlsEnabledFixture(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.OPTIONAL)
-          .makeARequest()
-          .failed
-          .collect {
-            case com.daml.grpc.GrpcException.UNAVAILABLE() =>
-              succeed
-            case ex =>
-              fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
-          }
+        assertResponseUnavailable(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.OPTIONAL)
       }
     }
 
     "client authorization is set to require" should {
       "allow TLS connections with valid certificates" in {
-        tlsEnabledFixture(Some(clientCrt), Some(clientKey), ClientAuth.REQUIRE)
-          .makeARequest()
-          .map(_ => succeed)
+        assertResponseSuccess(Some(clientCrt), Some(clientKey), ClientAuth.REQUIRE)
       }
 
       "block TLS connections without certificates" in {
-        tlsEnabledFixture(None, None, ClientAuth.REQUIRE)
-          .makeARequest()
-          .failed
-          .collect {
-            case com.daml.grpc.GrpcException.UNAVAILABLE() =>
-              succeed
-            case ex =>
-              fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
-          }
+        assertResponseUnavailable(None, None, ClientAuth.REQUIRE)
       }
 
       "block TLS connections with invalid certificates" in {
-        tlsEnabledFixture(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.REQUIRE)
-          .makeARequest()
-          .failed
-          .collect {
-            case com.daml.grpc.GrpcException.UNAVAILABLE() =>
-              succeed
-            case ex =>
-              fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
-          }
+        assertResponseUnavailable(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.REQUIRE)
       }
     }
   }
+
+  private def makeARequest(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
+    TlsFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey, clientAuth).makeARequest()
+
+  private def assertResponseSuccess(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
+    makeARequest(clientCrt, clientKey, clientAuth).map(_ => succeed)
+
+  private def assertResponseUnavailable(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
+    makeARequest(clientCrt, clientKey, clientAuth)
+      .failed
+      .collect {
+        case com.daml.grpc.GrpcException.UNAVAILABLE() =>
+          succeed
+        case ex =>
+          fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
+      }
+
 }
 
 object TlsSpec {
