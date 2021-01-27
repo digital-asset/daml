@@ -361,7 +361,7 @@ private[kvutils] class TransactionCommitter(
 
     val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
 
-    def stripUnnecessaryNodes(node: TransactionOuterClass.Node) =
+    def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
       if (node.hasExercise) {
         val exerciseNode = node.getExercise
         val keptChildren =
@@ -402,12 +402,6 @@ private[kvutils] class TransactionCommitter(
   private def buildFinalLogEntry: Step =
     (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
-  /** LookupByKey nodes themselves don't actually fetch the contract.
-    * Therefore we need to do an additional check on all contract keys
-    * to ensure the referred contract satisfies the causal monotonicity invariant.
-    * This could be reduced to only validate this for keys referred to by
-    * NodeLookupByKey.
-    */
   /** Check that all informee parties mentioned of a transaction are allocated. */
   private def checkInformeePartiesAllocation: Step =
     (commitContext, transactionEntry) => {
