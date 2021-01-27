@@ -67,21 +67,23 @@ private[keys] object KeyConsistencyValidation {
       templateId: TypeConName,
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
-    key.fold(Right(keyValidationState): KeyValidationStatus) { submittedKeyWithMaintainers =>
-      val submittedDamlContractKey =
-        damlContractKey(templateId, submittedKeyWithMaintainers.key)
-      val newKeyValidationState =
-        keyValidationState + ConsistencyKeyValidationState(
-          submittedContractKeysToContractIds = Map(
-            submittedDamlContractKey ->
-              targetContractId.map(_.coid)
+    key match {
+      case None => Right(keyValidationState)
+      case Some(submittedKeyWithMaintainers) =>
+        val submittedDamlContractKey =
+          damlContractKey(templateId, submittedKeyWithMaintainers.key)
+        val newKeyValidationState =
+          keyValidationState + ConsistencyKeyValidationState(
+            submittedContractKeysToContractIds = Map(
+              submittedDamlContractKey ->
+                targetContractId.map(_.coid)
+            )
           )
+        checkKeyConsistency(
+          contractKeysToContractIds,
+          submittedDamlContractKey,
+          newKeyValidationState,
         )
-      checkKeyConsistency(
-        contractKeysToContractIds,
-        submittedDamlContractKey,
-        newKeyValidationState,
-      )
     }
 
   private def checkKeyConsistency(
