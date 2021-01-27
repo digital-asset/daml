@@ -186,7 +186,7 @@ object Config {
       opt[ClientAuth]("client-auth")
         .optional()
         .text(
-          "TLS: The client authentication mode. Must be one of none, optional or require. Defaults to require."
+          "TLS: The client authentication mode. Must be one of none, optional or require. If TLS is enabled it defaults to require."
         )
         .action((clientAuth, config) => config.withTlsConfig(c => c.copy(clientAuth = clientAuth)))
 
