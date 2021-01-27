@@ -22,22 +22,22 @@ final class ResourceFactories[Context: HasExecutionContext] {
 
   /** Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
-  def fromFuture[T](future: Future[T])(implicit context: Context): R[T] =
-    apply(future)(_ => Future.unit)
+  def fromFuture[T](future: Future[T]): R[T] =
+    new PureResource(future)
 
   /** Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
     */
-  def unit(implicit context: Context): R[Unit] =
+  def unit: R[Unit] =
     fromFuture(Future.unit)
 
   /** Produces a [[Resource]] that has already succeeded with a given value.
     */
-  def successful[T](value: T)(implicit context: Context): R[T] =
+  def successful[T](value: T): R[T] =
     fromFuture(Future.successful(value))
 
   /** Produces a [[Resource]] that has already failed with a given exception.
     */
-  def failed[T](exception: Throwable)(implicit context: Context): R[T] =
+  def failed[T](exception: Throwable): R[T] =
     fromFuture(Future.failed(exception))
 
   /** Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
