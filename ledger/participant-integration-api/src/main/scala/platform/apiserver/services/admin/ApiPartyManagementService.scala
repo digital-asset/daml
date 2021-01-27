@@ -40,6 +40,8 @@ private[apiserver] final class ApiPartyManagementService private (
 ) extends PartyManagementService
     with GrpcApiService {
 
+  import ApiPartyManagementService.CreateSubmissionId
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val synchronousResponse = new SynchronousResponse(
@@ -94,16 +96,11 @@ private[apiserver] final class ApiPartyManagementService private (
           )
       }
 
-    // Submission identifiers are restricted to 255 characters just like party identifiers
-    // so they cannot include the party name to prevent long strings to cause errors
-    lazy val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
-
-    lazy val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-
     validatedPartyIdentifier
-      .flatMap(party =>
+      .flatMap(party => {
+        val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
         synchronousResponse
-          .submitAndWait(submissionId, (party, displayName))
+          .submitAndWait(CreateSubmissionId.withPrefix(party), (party, displayName))
           .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
             AllocatePartyResponse(
               Some(
@@ -115,7 +112,7 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             )
           }
-      )
+      })
       .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
 
@@ -139,6 +136,18 @@ private[apiserver] object ApiPartyManagementService {
       writeBackend,
       managementServiceTimeout,
     )
+
+  private object CreateSubmissionId {
+    // Suffix is `-` followed by a random UUID as a string
+    private val SuffixLength: Int = 1 + UUID.randomUUID().toString.length
+    private val MaxLength: Int = 255
+    val PrefixMaxLength: Int = MaxLength - SuffixLength
+    def withPrefix(maybeParty: Option[Ref.Party]): v1.SubmissionId = {
+      val uuid = UUID.randomUUID().toString
+      val raw = maybeParty.fold(uuid)(party => s"${party.take(PrefixMaxLength)}-$uuid")
+      v1.SubmissionId.assertFromString(raw)
+    }
+  }
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,
