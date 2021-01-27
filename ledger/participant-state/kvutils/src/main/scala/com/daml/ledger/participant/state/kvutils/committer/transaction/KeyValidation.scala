@@ -20,7 +20,7 @@ private[transaction] object KeyValidation {
     def +(state: KeyValidationState): KeyValidationState = {
       val newContractKeyMappings =
         state.submittedContractKeysToContractIds -- submittedContractKeysToContractIds.keySet
-      new KeyValidationState(
+      KeyValidationState(
         activeStateKeys = state.activeStateKeys,
         submittedContractKeysToContractIds =
           submittedContractKeysToContractIds ++ newContractKeyMappings,
@@ -28,9 +28,7 @@ private[transaction] object KeyValidation {
     }
   }
 
-  val EmptyKeyValidationState = KeyValidationState(Set.empty, Map.empty)
-
-  def UniquenessKeyValidationState(activeStateKeys: Set[DamlStateKey]) =
+  def UniquenessKeyValidationState(activeStateKeys: Set[DamlStateKey]): KeyValidationState =
     KeyValidationState(activeStateKeys, Map.empty)
 
   object UniquenessKeyValidationState {
@@ -42,7 +40,7 @@ private[transaction] object KeyValidation {
       submittedContractKeysToContractIds: Map[DamlContractKey, Option[
         RawContractId
       ]]
-  ) =
+  ): KeyValidationState =
     KeyValidationState(Set.empty, submittedContractKeysToContractIds)
 
   type KeyValidationStatus =
