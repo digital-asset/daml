@@ -22,7 +22,7 @@ abstract class Resource[Context: HasExecutionContext, +A] {
   def asFuture: Future[A]
 
   /** Every [[Resource]] can be (asynchronously) released. Releasing a resource will also release
-    * all earlier resources constructed via [[flatMap()]] or a `for` comprehension.
+    * all earlier resources constructed via [[flatMap]] or a `for` comprehension.
     */
   def release(): Future[Unit]
 
