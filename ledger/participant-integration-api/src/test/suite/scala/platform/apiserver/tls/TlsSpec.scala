@@ -53,7 +53,11 @@ class TlsSpec
       }
 
       "block TLS connections with invalid certificates" in {
-        assertResponseUnavailable(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.OPTIONAL)
+        assertResponseUnavailable(
+          Some(invalidClientCrt),
+          Some(invalidClientKey),
+          ClientAuth.OPTIONAL,
+        )
       }
     }
 
@@ -67,20 +71,36 @@ class TlsSpec
       }
 
       "block TLS connections with invalid certificates" in {
-        assertResponseUnavailable(Some(invalidClientCrt), Some(invalidClientKey), ClientAuth.REQUIRE)
+        assertResponseUnavailable(
+          Some(invalidClientCrt),
+          Some(invalidClientKey),
+          ClientAuth.REQUIRE,
+        )
       }
     }
   }
 
-  private def makeARequest(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
-    TlsFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey, clientAuth).makeARequest()
+  private def makeARequest(
+      clientCrt: Option[File],
+      clientKey: Option[File],
+      clientAuth: ClientAuth,
+  ) =
+    TlsFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey, clientAuth)
+      .makeARequest()
 
-  private def assertResponseSuccess(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
+  private def assertResponseSuccess(
+      clientCrt: Option[File],
+      clientKey: Option[File],
+      clientAuth: ClientAuth,
+  ) =
     makeARequest(clientCrt, clientKey, clientAuth).map(_ => succeed)
 
-  private def assertResponseUnavailable(clientCrt: Option[File], clientKey: Option[File], clientAuth: ClientAuth) =
-    makeARequest(clientCrt, clientKey, clientAuth)
-      .failed
+  private def assertResponseUnavailable(
+      clientCrt: Option[File],
+      clientKey: Option[File],
+      clientAuth: ClientAuth,
+  ) =
+    makeARequest(clientCrt, clientKey, clientAuth).failed
       .collect {
         case com.daml.grpc.GrpcException.UNAVAILABLE() =>
           succeed
