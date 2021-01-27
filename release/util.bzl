@@ -143,6 +143,8 @@ protos_zip = rule(
             default = [
                 Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
                 for version in LF_VERSIONS
+                # we skip LF 1.12 as it is exactly as LF 1.11 for archive point of view
+                if version != "1.12"
             ],
         ),
         "ledger_api_tarball": attr.label(
