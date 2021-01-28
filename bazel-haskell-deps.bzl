@@ -555,6 +555,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "split",
             "stache",
             "stm",
+            "stm-conduit",
+            "stm-chans",
             "swagger2",
             "syb",
             "system-filepath",

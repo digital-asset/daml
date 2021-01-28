@@ -19,6 +19,11 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 daml_deps()
 
 load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "bazel_remote_apis_imports",
+)
 
 rules_haskell_dependencies()
 
