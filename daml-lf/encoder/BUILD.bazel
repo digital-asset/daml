@@ -10,14 +10,12 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_VERSIONS",
+    "ENCODER_LF_VERSIONS",
     "lf_dev_version",
     "lf_latest_version",
     "lf_preview_version",
     "lf_stable_version",
 )
-
-lf_targets = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
 
 da_scala_library(
     name = "encoder",
@@ -46,7 +44,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":testing-dar-%s" % target for target in lf_targets],
+    data = [":testing-dar-%s" % target for target in ENCODER_LF_VERSIONS],
     scala_deps = [
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
@@ -98,7 +96,7 @@ da_scala_binary(
             "src/test/lf/*_%s_*.lf" % target,
         ]),
     )
-    for target in lf_targets
+    for target in ENCODER_LF_VERSIONS
 ]
 
 [
@@ -132,7 +130,7 @@ da_scala_binary(
             ],
         ),
     ]
-    for target in lf_targets
+    for target in ENCODER_LF_VERSIONS
 ]
 
 [
