@@ -942,3 +942,9 @@ final class WebsocketServiceIntegrationTest extends AbstractWebsocketServiceInte
 final class WebsocketServiceWithPostgresIntTest
     extends AbstractWebsocketServiceIntegrationTest
     with HttpServicePostgresInt
+
+/* TODO SC
+final class WebsocketServiceWithOracleIntTest
+  extends AbstractWebsocketServiceIntegrationTest
+    with HttpServiceOracleInt
+ */
