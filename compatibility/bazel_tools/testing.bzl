@@ -466,6 +466,7 @@ def sdk_platform_test(sdk_version, platform_version):
 
     client_server_test(
         name = name + "-classic-postgresql",
+        size = "large",
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
