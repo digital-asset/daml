@@ -17,14 +17,14 @@ import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
+import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.sandbox.cli.CommonCli._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scalaz.syntax.tag._
-import scopt.{OptionParser, Read}
+import scopt.OptionParser
 
 import scala.util.Try
 
@@ -32,14 +32,6 @@ import scala.util.Try
 // leave this class. Due to the limitations of scopt, we either use nulls or use the mutable builder
 // instead.
 class CommonCli(name: LedgerName) {
-
-  private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
-    case "none" => ClientAuth.NONE
-    case "optional" => ClientAuth.OPTIONAL
-    case "require" => ClientAuth.REQUIRE
-    case _ =>
-      throw new InvalidConfigException(s"""Must be one of "none", "optional", or "require".""")
-  }
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 

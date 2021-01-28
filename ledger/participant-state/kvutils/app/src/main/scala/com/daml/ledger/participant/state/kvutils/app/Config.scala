@@ -17,6 +17,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
+import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
 import scala.concurrent.duration.FiniteDuration
@@ -182,6 +183,12 @@ object Config {
         .action((checksEnabled, config) =>
           config.withTlsConfig(c => c.copy(enableCertRevocationChecking = checksEnabled))
         )
+      opt[ClientAuth]("client-auth")
+        .optional()
+        .text(
+          "TLS: The client authentication mode. Must be one of none, optional or require. If TLS is enabled it defaults to require."
+        )
+        .action((clientAuth, config) => config.withTlsConfig(c => c.copy(clientAuth = clientAuth)))
 
       opt[Duration]("tracker-retention-period")
         .optional()
