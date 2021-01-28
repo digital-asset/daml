@@ -144,4 +144,8 @@ instance Ord k => Semigroup (Set k) where
 instance Ord k => Monoid (Set k) where
   mempty = empty
 
+instance DA.Internal.Record.HasField "map" (Set k) (Map k ()) where
+  getField (Set m) = m
+  setField m _ = Set m
+
 #endif
