@@ -38,6 +38,7 @@ genrule(
         "daml-stdlib/DA-NonEmpty-Types.dalf",
         "daml-stdlib/DA-Date-Types.dalf",
         "daml-stdlib/DA-Semigroup-Types.dalf",
+        "daml-stdlib/DA-Set-Types.dalf",
         "daml-stdlib/DA-Monoid-Types.dalf",
         "daml-stdlib/DA-Logic-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
@@ -54,6 +55,7 @@ genrule(
       $(location :generate-stable-package) --module DA.NonEmpty.Types -o $(location daml-stdlib/DA-NonEmpty-Types.dalf)
       $(location :generate-stable-package) --module DA.Date.Types -o $(location daml-stdlib/DA-Date-Types.dalf)
       $(location :generate-stable-package) --module DA.Semigroup.Types -o $(location daml-stdlib/DA-Semigroup-Types.dalf)
+      $(location :generate-stable-package) --module DA.Set.Types -o $(location daml-stdlib/DA-Set-Types.dalf)
       $(location :generate-stable-package) --module DA.Monoid.Types -o $(location daml-stdlib/DA-Monoid-Types.dalf)
       $(location :generate-stable-package) --module DA.Logic.Types -o $(location daml-stdlib/DA-Logic-Types.dalf)
       $(location :generate-stable-package) --module DA.Validation.Types -o $(location daml-stdlib/DA-Validation-Types.dalf)
@@ -84,6 +86,7 @@ filegroup(
         "daml-stdlib/DA-Monoid-Types.dalf",
         "daml-stdlib/DA-NonEmpty-Types.dalf",
         "daml-stdlib/DA-Semigroup-Types.dalf",
+        "daml-stdlib/DA-Set-Types.dalf",
         "daml-stdlib/DA-Time-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
     ],
