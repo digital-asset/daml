@@ -57,17 +57,26 @@ jobs:
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
 
           bazel build //ci/cron:cron
-          # 90 minutes should provide enough overlap for an hourly
+
+          key=$(mktemp)
+          cleanup="rm -rf $key ~/.config/gcloud"
+          trap "$cleanup" EXIT
+          echo "$GCRED" > $key
+          gcloud auth activate-service-account --key-file=$key
+          export BOTO_CONFIG=/dev/null
+            # 90 minutes should provide enough overlap for an hourly
           # cronjob.
           ./bazel-bin/ci/cron/cron bazel-cache --age 90 --delete
         env:
-          AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-          AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
 
   - job: docker_image
