@@ -3,8 +3,8 @@
 
 package com.daml.nonrepudiation.client;
 
-import com.daml.nonrepudiation.Base64Fingerprint;
-import com.daml.nonrepudiation.Base64Signature;
+import com.daml.nonrepudiation.Fingerprints;
+import com.daml.nonrepudiation.Signatures;
 import com.daml.nonrepudiation.Headers;
 import io.grpc.*;
 
@@ -19,14 +19,14 @@ import java.security.PrivateKey;
 public final class SigningInterceptor implements ClientInterceptor {
 
     private final PrivateKey key;
-    private final String fingerprint;
+    private final byte[] fingerprint;
     private final String algorithm;
 
     public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) {
         super();
         this.key = keyPair.getPrivate();
         this.algorithm = signingAlgorithm;
-        this.fingerprint = Base64Fingerprint.compute(keyPair.getPublic());
+        this.fingerprint = Fingerprints.compute(keyPair.getPublic());
     }
 
     @Override
@@ -56,7 +56,7 @@ public final class SigningInterceptor implements ClientInterceptor {
             @Override
             public void sendMessage(ReqT request) {
                 byte[] requestBytes = ByteMarshaller.INSTANCE.parse(method.getRequestMarshaller().stream(request));
-                String signature = Base64Signature.sign(algorithm, key, requestBytes);
+                byte[] signature = Signatures.sign(algorithm, key, requestBytes);
                 headers.put(Headers.SIGNATURE, signature);
                 headers.put(Headers.ALGORITHM, algorithm);
                 headers.put(Headers.FINGERPRINT, fingerprint);

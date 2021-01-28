@@ -3,24 +3,22 @@
 
 package com.daml.nonrepudiation;
 
-import com.google.common.io.BaseEncoding;
-
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 
-public class Base64Fingerprint {
+public final class Fingerprints {
 
-    private Base64Fingerprint() {
+    private Fingerprints() {
     }
 
     private static final String ALGORITHM = "SHA-256";
 
-    public static String compute(PublicKey key) {
+    public static byte[] compute(PublicKey key) {
         try {
             MessageDigest md = MessageDigest.getInstance(ALGORITHM);
-            byte[] fingerprint = md.digest(key.getEncoded());
-            return BaseEncoding.base64().encode(fingerprint);
+            byte[] encodedKey = key.getEncoded();
+            return md.digest(encodedKey);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalArgumentException(String.format("Provider for algorithm '%s' not found", ALGORITHM), e);
         }

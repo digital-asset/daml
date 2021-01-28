@@ -5,24 +5,20 @@ package com.daml.nonrepudiation
 
 import java.security.PublicKey
 
+import com.google.common.io.BaseEncoding
+
 import scala.collection.concurrent.TrieMap
-import scala.util.Try
 
 object KeyRepository {
 
-  type Fingerprint <: String
-
   object Fingerprint {
+    def wrap(bytes: Array[Byte]): Fingerprint = new Fingerprint(bytes)
+    def wrap(key: PublicKey): Fingerprint = wrap(Fingerprints.compute(key))
+  }
 
-    def assertFromString(string: String): Fingerprint =
-      string.asInstanceOf[Fingerprint]
-
-    def fromString(string: String): Try[Fingerprint] =
-      Try(assertFromString(string))
-
-    def compute(key: PublicKey): Fingerprint =
-      assertFromString(Base64Fingerprint.compute(key))
-
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  final class Fingerprint(val bytes: Array[Byte]) extends AnyVal {
+    def base64: String = BaseEncoding.base64().encode(bytes)
   }
 
   trait Read {
@@ -35,15 +31,16 @@ object KeyRepository {
 
   final class InMemory(keys: PublicKey*) extends KeyRepository {
 
-    private val map: TrieMap[Fingerprint, PublicKey] = TrieMap(
-      keys.map(key => Fingerprint.compute(key) -> key): _*
+    private val map: TrieMap[String, PublicKey] = TrieMap(
+      keys.map(key => BaseEncoding.base64().encode(Fingerprints.compute(key)) -> key): _*
     )
 
-    override def get(fingerprint: Fingerprint): Option[PublicKey] = map.get(fingerprint)
+    override def get(fingerprint: Fingerprint): Option[PublicKey] =
+      map.get(fingerprint.base64)
 
     override def put(key: PublicKey): Fingerprint = {
-      val fingerprint = Fingerprint.compute(key)
-      map.put(fingerprint, key)
+      val fingerprint = Fingerprint.wrap(key)
+      map.put(fingerprint.base64, key)
       fingerprint
     }
   }

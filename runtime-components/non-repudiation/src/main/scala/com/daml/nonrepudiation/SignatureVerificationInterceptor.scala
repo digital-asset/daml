@@ -8,7 +8,6 @@ import java.security.{PublicKey, Signature}
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import com.daml.nonrepudiation.KeyRepository.Fingerprint
-import com.google.common.io.BaseEncoding
 import io.grpc.Metadata.Key
 import io.grpc._
 import org.slf4j.{Logger, LoggerFactory}
@@ -33,7 +32,7 @@ final class SignatureVerificationInterceptor(
         signature <- getHeader(metadata, Headers.SIGNATURE)
         algorithm <- getHeader(metadata, Headers.ALGORITHM)
         fingerprint <- getHeader(metadata, Headers.FINGERPRINT)
-        key <- getKey(keyRepository, fingerprint)
+        key <- getKey(keyRepository, Fingerprint.wrap(fingerprint))
       } yield (signature, algorithm, key)
 
     requestMetadata match {
@@ -93,18 +92,12 @@ object SignatureVerificationInterceptor {
   val SignatureVerificationFailed: Status =
     Status.UNAUTHENTICATED.withDescription("Signature verification failed")
 
-  private def assertFingerprint(rawFingerprint: String): Either[Rejection, Fingerprint] =
-    Fingerprint.fromString(rawFingerprint).toEither.left.map(Rejection.fromException)
-
   private def getKey(
       keys: KeyRepository.Read,
-      rawFingerprint: String,
+      fingerprint: KeyRepository.Fingerprint,
   ): Either[Rejection, PublicKey] = {
-    logger.trace("Retrieving key for fingerprint '{}'", rawFingerprint)
-    for {
-      fingerprint <- assertFingerprint(rawFingerprint)
-      key <- keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint))
-    } yield key
+    logger.trace("Retrieving key for fingerprint '{}'", fingerprint.base64)
+    keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint.base64))
   }
 
   private def getHeader[A](metadata: Metadata, key: Key[A]): Either[Rejection, A] = {
@@ -118,7 +111,7 @@ object SignatureVerificationInterceptor {
       call: ServerCall[ReqT, RespT],
       metadata: Metadata,
       next: ServerCallHandler[ReqT, RespT],
-      signature: String,
+      signature: Array[Byte],
       signatureAlgorithm: String,
       signaturePublicKey: PublicKey,
       signatures: SignedCommandRepository.Write,
@@ -132,20 +125,19 @@ object SignatureVerificationInterceptor {
     private def verifySignature(payload: Array[Byte]): Either[Rejection, Boolean] =
       Try {
         logger.trace("Decoding signature bytes from Base64-encoded signature")
-        val signatureBytes = BaseEncoding.base64().decode(signature)
         logger.trace("Initializing signature verifier")
         val verifier = Signature.getInstance(signatureAlgorithm)
         verifier.initVerify(signaturePublicKey)
         verifier.update(payload)
         logger.trace("Verifying signature '{}'", signature)
-        verifier.verify(signatureBytes)
+        verifier.verify(signature)
       }.toEither.left
         .map(Rejection.fromException)
         .filterOrElse(identity, Rejection.KeyVerificationFailed)
 
     private def addSignedCommand(
         payload: Array[Byte],
-        signature: String,
+        signature: Array[Byte],
     ): Either[Rejection, Unit] = {
       logger.trace("Adding signed payload")
       Try(signatures.put(payload, signature)).toEither.left.map(Rejection.fromException)
