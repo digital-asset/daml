@@ -102,9 +102,9 @@ object Database {
       case url if url.startsWith("jdbc:sqlite:") =>
         SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl, metrics)
       case _ =>
-        throw new InvalidDatabaseException(s"Unknown database: $jdbcUrl")
+        throw new InvalidDatabaseException(s"Unknown database")
     }).map { database =>
-      logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
+      logger.info(s"Connected to the ledger over JDBC.")
       database
     }
 
