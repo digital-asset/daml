@@ -9,7 +9,7 @@ import io.grpc.{Server, ServerBuilder}
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-class ServerResourceOwner[Context: HasExecutionContext](
+private[grpc] final class ServerResourceOwner[Context: HasExecutionContext](
     builder: ServerBuilder[_],
     shutdownTimeout: FiniteDuration,
 ) extends AbstractResourceOwner[Context, Server] {
