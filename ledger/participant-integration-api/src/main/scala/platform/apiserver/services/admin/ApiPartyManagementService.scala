@@ -20,6 +20,8 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.services.logging
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -57,6 +59,7 @@ private[apiserver] final class ApiPartyManagementService private (
   override def getParticipantId(
       request: GetParticipantIdRequest
   ): Future[GetParticipantIdResponse] = {
+    logger.info("Getting Participant ID")
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))
@@ -69,52 +72,59 @@ private[apiserver] final class ApiPartyManagementService private (
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    partyManagementService
-      .getParties(request.parties.map(Ref.Party.assertFromString))
-      .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))
-      .andThen(logger.logErrorsOnCall[GetPartiesResponse])
+    withEnrichedLoggingContext(logging.parties(request.parties)) { implicit loggingContext =>
+      logger.info("Getting parties")
+      partyManagementService
+        .getParties(request.parties.map(Ref.Party.assertFromString))
+        .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))
+        .andThen(logger.logErrorsOnCall[GetPartiesResponse])
+    }
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
-  ): Future[ListKnownPartiesResponse] =
+  ): Future[ListKnownPartiesResponse] = {
+    logger.info("Listing known parties")
     partyManagementService
       .listKnownParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
+  }
 
-  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
+  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
+    withEnrichedLoggingContext(logging.party(request.displayName)) { implicit loggingContext =>
+      logger.info("Allocating party")
+      logger.info(s"Party ID hint: '${request.partyIdHint}'")
+      val validatedPartyIdentifier =
+        if (request.partyIdHint.isEmpty) {
+          Future.successful(None)
+        } else {
+          Ref.Party
+            .fromString(request.partyIdHint)
+            .fold(
+              error => Future.failed(ErrorFactories.invalidArgument(error)),
+              party => Future.successful(Some(party)),
+            )
+        }
 
-    val validatedPartyIdentifier =
-      if (request.partyIdHint.isEmpty) {
-        Future.successful(None)
-      } else {
-        Ref.Party
-          .fromString(request.partyIdHint)
-          .fold(
-            error => Future.failed(ErrorFactories.invalidArgument(error)),
-            party => Future.successful(Some(party)),
-          )
-      }
-
-    validatedPartyIdentifier
-      .flatMap(party => {
-        val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-        synchronousResponse
-          .submitAndWait(CreateSubmissionId.withPrefix(party), (party, displayName))
-          .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
-            AllocatePartyResponse(
-              Some(
-                PartyDetails(
-                  partyDetails.party,
-                  partyDetails.displayName.getOrElse(""),
-                  partyDetails.isLocal,
+      validatedPartyIdentifier
+        .flatMap(party => {
+          val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+          synchronousResponse
+            .submitAndWait(CreateSubmissionId.withPrefix(party), (party, displayName))
+            .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+              AllocatePartyResponse(
+                Some(
+                  PartyDetails(
+                    partyDetails.party,
+                    partyDetails.displayName.getOrElse(""),
+                    partyDetails.isLocal,
+                  )
                 )
               )
-            )
-          }
-      })
-      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
-  }
+            }
+        })
+        .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+    }
 
 }
 
