@@ -105,7 +105,7 @@ object GrpcServerSpec {
   private def resources(): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
-      server <- new GrpcServer.Owner(
+      server <- GrpcServer.owner(
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
