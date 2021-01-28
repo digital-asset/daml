@@ -520,7 +520,7 @@ $(document).ready(function () {
     });
     if (searchEngine === 'custom') {
         var queryParam = new URLSearchParams(window.location.search).get('query');
-        if (queryParam !== undefined) {
+        if (queryParam !== undefined && queryParam !== null) {
             $('#rtd-search-inline-form [name=q]').val(unescape(queryParam));
             searchState.latestQuery = queryParam;
             var results = $('#search-results');
