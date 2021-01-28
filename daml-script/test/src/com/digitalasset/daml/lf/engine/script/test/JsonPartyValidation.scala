@@ -11,9 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.engine.script.JsonLedgerClient
 import scalaz.OneAnd
 
-final class JsonPartyValidation
-    extends AnyWordSpec
-    with Matchers {
+final class JsonPartyValidation extends AnyWordSpec with Matchers {
 
   import JsonLedgerClient._
 
@@ -25,7 +23,8 @@ final class JsonPartyValidation
       exp = None,
       admin = false,
       actAs = actAs,
-      readAs = readAs)
+      readAs = readAs,
+    )
 
   private val alice = Ref.Party.assertFromString("Alice")
   private val bob = Ref.Party.assertFromString("Bob")
@@ -33,37 +32,77 @@ final class JsonPartyValidation
   "validateSubmitParties" should {
 
     "handle a single actAs party" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set.empty, token(List(alice), List())) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set.empty,
+        token(List(alice), List()),
+      ) shouldBe Right(())
     }
     "fail for no actAs party" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set.empty, token(List(), List())) shouldBe a[Left[_, _]]
+      validateSubmitParties(OneAnd(alice, Set.empty), Set.empty, token(List(), List())) shouldBe a[
+        Left[_, _]
+      ]
     }
     "handle duplicate actAs in token" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set.empty, token(List(alice, alice), List())) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set.empty,
+        token(List(alice, alice), List()),
+      ) shouldBe Right(())
     }
     "handle duplicate actAs in submit" in {
-      validateSubmitParties(OneAnd(alice, Set(alice)), Set.empty, token(List(alice), List())) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set(alice)),
+        Set.empty,
+        token(List(alice), List()),
+      ) shouldBe Right(())
     }
     "fail for missing readAs party" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(bob), token(List(alice), List())) shouldBe a[Left[_, _]]
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set(bob),
+        token(List(alice), List()),
+      ) shouldBe a[Left[_, _]]
     }
     "handle single readAs party" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(bob), token(List(alice), List(bob))) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set(bob),
+        token(List(alice), List(bob)),
+      ) shouldBe Right(())
     }
     "ignore party that is in readAs and actAs in token" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(), token(List(alice), List(alice))) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set(),
+        token(List(alice), List(alice)),
+      ) shouldBe Right(())
     }
     "ignore party that is in readAs and actAs in submit" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(alice), token(List(alice), List())) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set(alice),
+        token(List(alice), List()),
+      ) shouldBe Right(())
     }
     "fail if party is in actAs in submit but only in readAs in token" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(), token(List(), List(alice))) shouldBe a[Left[_, _]]
+      validateSubmitParties(OneAnd(alice, Set.empty), Set(), token(List(), List(alice))) shouldBe a[
+        Left[_, _]
+      ]
     }
     "handle duplicate readAs in token" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(bob), token(List(alice), List(bob, bob))) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set(bob),
+        token(List(alice), List(bob, bob)),
+      ) shouldBe Right(())
     }
     "handle duplicate readAs in submit" in {
-      validateSubmitParties(OneAnd(alice, Set.empty), Set(bob, bob), token(List(alice), List(bob))) shouldBe Right(())
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set(bob, bob),
+        token(List(alice), List(bob)),
+      ) shouldBe Right(())
     }
   }
 }

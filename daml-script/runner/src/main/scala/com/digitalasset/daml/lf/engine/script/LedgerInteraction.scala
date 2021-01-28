@@ -986,9 +986,9 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
   ): Future[Unit] = {
-    JsonLedgerClient.validateSubmitParties(actAs, readAs, tokenPayload).fold(
-      s => Future.failed(new RuntimeException(s)),
-      Future.successful(_))
+    JsonLedgerClient
+      .validateSubmitParties(actAs, readAs, tokenPayload)
+      .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
   }
 
   private def create(
@@ -1127,12 +1127,11 @@ class JsonLedgerClient(
 
 object JsonLedgerClient {
 
-
   def validateSubmitParties(
-                                     actAs: OneAnd[Set, Ref.Party],
-                                     readAs: Set[Ref.Party],
-                                     tokenPayload: AuthServiceJWTPayload
-                                   ): Either[String, Unit] = {
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      tokenPayload: AuthServiceJWTPayload,
+  ): Either[String, Unit] = {
     val tokenActAs = tokenPayload.actAs.toSet
     // Relax once the JSON API supports multi-party read/write
     import scalaz.std.string._
@@ -1140,16 +1139,18 @@ object JsonLedgerClient {
     val tokenOnlyReadAs = tokenPayload.readAs.toSet.diff(tokenActAs)
     if (tokenPayload.actAs.isEmpty) {
       Left(
-          s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
-        )
+        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
+      )
 
     } else if (actAs.toList.toSet[String] /== tokenActAs) {
-      Left(s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
-            .mkString(" ")}]"
-        )
+      Left(
+        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
+          .mkString(" ")}]"
+      )
     } else if (onlyReadAs.toSet[String] /== tokenOnlyReadAs) {
-      Left(s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
-            .mkString(" ")}]"
+      Left(
+        s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
+          .mkString(" ")}]"
       )
     } else {
       Right(())
