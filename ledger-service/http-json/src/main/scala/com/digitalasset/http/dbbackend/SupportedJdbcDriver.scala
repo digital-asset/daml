@@ -37,4 +37,13 @@ object SupportedJdbcDriver {
         Set(postgres_class23.UNIQUE_VIOLATION.value, ContractDao.StaleOffsetException.SqlState),
     )
   }
+
+  val Oracle: SupportedJdbcDriver = {
+    import doobie.postgres.implicits.unliftedStringArrayType // TODO s11 just a thought
+    new SupportedJdbcDriver(
+      label = "Oracle",
+      queries = Queries.Oracle,
+      retrySqlStates = Set( /*s11 TODO, */ ContractDao.StaleOffsetException.SqlState),
+    )
+  }
 }
