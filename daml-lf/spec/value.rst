@@ -325,7 +325,6 @@ As of version 1, these fields are included:
 
 ``record_id`` is required.
 
-
 .. note: *this section is non-normative*
 
    The fully-qualified `message Identifier`_ of the Daml-LF record
@@ -359,16 +358,16 @@ As of version 10, these fields are included:
 * ``string`` label
 * `message Value`_ value
 
-All fields are required and must be non-empty.
+``label`` may be an empty string and Value is required.
 
 .. note: *this section is non-normative*
 
-   ``label`` must match the name of the field in this position in the
-   Daml-LF record type under consideration.  For example, if the
-   second field of an LF record type is named ``bar``, then label of
-   the second element of `field fields`_ may be ``"bar"``, or an empty
-   string in circumstances mentioned above.  Any other label produces
-   an invalid LF value.
+   If ``label`` is non-empty it must match the name of the field in
+   this position in the Daml-LF record type under consideration.  For
+   example, if the second field of an LF record type is named ``bar``,
+   then label of the second element of `field fields`_ may be
+   ``"bar"``, or an empty string in circumstances mentioned above.
+   Any other label produces an invalid LF value.
 
    The ``value`` field must conform to the type of this field of the
    containing record, as declared by the LF record type.  It must be
@@ -428,6 +427,14 @@ All the fields are required.
    ``value`` must conform to the LF type selected by the `field
    constructor`_.
 
+field variant_id
+~~~~~~~~~~~~~~~~
+
+(*since version 10*)
+
+The fully-qualified `message Identifier`_ of the Daml-LF variant type.
+It may be omitted.
+
 field constructor
 ~~~~~~~~~~~~~~~~~
 
@@ -448,7 +455,7 @@ message ContractId
 
 A reference to a contract, either absolute or relative.
 
-As of version 10, these fields are included:
+As of version 10, this field is included:
 
 * ``string`` contract_id
 
@@ -532,6 +539,11 @@ In this version, these fields are included:
 * ``string`` value
 
 All fields are required.  
+
+.. note: *this section is non-normative*
+
+   ``value`` must to be one of the values of the enum type to which
+   this ``message Enum`` conforms.
 
 message GenMap.Entry
 ^^^^^^^^^^^^^^^^^
