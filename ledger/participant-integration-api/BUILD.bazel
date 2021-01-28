@@ -257,6 +257,7 @@ openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@o
 
 da_scala_test_suite(
     name = "participant-integration-api-tests",
+    size = "large",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],

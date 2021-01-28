@@ -47,12 +47,6 @@ if [[ -n ${RUNFILES_MANIFEST_FILE:-} ]]; then
 fi
 
 case "$(uname -s)" in
-  Linux)
-    locale_archive=$(abspath $(rlocation glibc_locales/lib/locale/locale-archive))
-    ;;
-esac
-
-case "$(uname -s)" in
   Darwin|Linux)
     tar=$(abspath $(rlocation tar_dev_env/tar))
     gzip=$(abspath $(rlocation gzip_dev_env/gzip))
@@ -135,9 +129,6 @@ if [ "$(uname -s)" == "Linux" ]; then
   # Copy the binary's dynamic library dependencies.
   copy_deps "$binary" "$WORKDIR/$NAME/lib"
 
-  # Copy nix's locale-archive
-  cp $locale_archive "$WORKDIR/$NAME/lib/locale-archive"
-
   # Workaround for dynamically loaded name service switch libraries
   (shopt -s nullglob
    for rpath in $rpaths_binary; do
@@ -161,7 +152,9 @@ if [ "$(uname -s)" == "Linux" ]; then
 #!/usr/bin/env sh
 SOURCE_DIR="\$(cd \$(dirname \$(readlink -f "\$0")); pwd)"
 LIB_DIR="\$SOURCE_DIR/lib"
-export LOCALE_ARCHIVE="\$SOURCE_DIR/lib/locale-archive"
+if [ -z "\${LOCALE_ARCHIVE}" -a -f "/usr/lib/locale/locale-archive" ]; then
+  export LOCALE_ARCHIVE="/usr/lib/locale/locale-archive"
+fi
 # Execute the wrapped application through the provided dynamic linker
 exec \$LIB_DIR/ld-linux-x86-64.so.2 --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF

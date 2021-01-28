@@ -12,6 +12,7 @@ import java.util
 
 import com.daml.lf.language.Ast._
 import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
@@ -367,9 +368,9 @@ object SExpr {
     }
   }
 
-  final case class SEImportValue(value: V[V.ContractId]) extends SExpr {
+  final case class SEImportValue(typ: Ast.Type, value: V[V.ContractId]) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.importValue(value)
+      machine.importValue(typ, value)
     }
   }
 

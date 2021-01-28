@@ -11,19 +11,19 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 
-object EventsTablePostgresql extends EventsTable {
+case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends EventsTable {
 
   /** Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
     * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
     * faster than using JDBC batches.
     */
   final class Batches(
-      insertEvents: SimpleSql[Row],
-      updateArchives: Option[BatchSql],
+      eventsInsertion: SimpleSql[Row],
+      archivesUpdate: Option[BatchSql],
   ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
-      insertEvents.execute()
-      updateArchives.foreach(_.execute())
+      eventsInsertion.execute()
+      archivesUpdate.foreach(_.execute())
     }
   }
 
@@ -143,8 +143,8 @@ object EventsTablePostgresql extends EventsTable {
       info.archives.iterator.map(archive(tx.offset)).toList
 
     new Batches(
-      insertEvents = inserts,
-      updateArchives = batch(updateArchived, archivals),
+      eventsInsertion = inserts,
+      archivesUpdate = batch(updateArchived, archivals),
     )
   }
 
@@ -176,9 +176,21 @@ object EventsTablePostgresql extends EventsTable {
     val exerciseChildEventIds = "exerciseChildEventIds"
   }
 
-  private val insertStmt = {
+  /** Allows idempotent event insertions (i.e. discards new rows on `event_id` conflicts).
+    *
+    * Idempotent insertions are necessary for seamless restarts of the [[com.daml.platform.indexer.JdbcIndexer]]
+    * after partially persisted transactions.
+    * (e.g. a transaction's events are persisted but the corresponding ledger end not).
+    *
+    * Partially-persisted ledger entries are possible when performing transaction updates in a pipelined fashion.
+    * For more details on pipelined transaction updates, see [[com.daml.platform.indexer.PipelinedExecuteUpdate]].
+    */
+  private val conflictActionClause =
+    if (idempotentEventInsertions) "on conflict do nothing" else ""
+
+  private[events] val insertStmt = {
     import Params._
-    anorm.SQL(s"""insert into participant_events(
+    s"""insert into participant_events(
            event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
            create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
@@ -199,7 +211,8 @@ object EventsTablePostgresql extends EventsTable {
                  create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
                  exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
                )
-       """)
+         $conflictActionClause
+       """
   }
 
   private def insertEvents(
@@ -230,32 +243,34 @@ object EventsTablePostgresql extends EventsTable {
       exerciseChildEventIds: Array[String],
   ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions._
-    insertStmt.on(
-      Params.eventIds -> eventIds,
-      Params.eventOffsets -> eventOffsets,
-      Params.contractIds -> contractIds,
-      Params.transactionIds -> transactionIds,
-      Params.workflowIds -> workflowIds,
-      Params.ledgerEffectiveTimes -> ledgerEffectiveTimes,
-      Params.templateIds -> templateIds,
-      Params.nodeIndexes -> nodeIndexes,
-      Params.commandIds -> commandIds,
-      Params.applicationIds -> applicationIds,
-      Params.submitters -> submitters,
-      Params.flatEventWitnesses -> flatEventWitnesses,
-      Params.treeEventWitnesses -> treeEventWitnesses,
-      Params.createArguments -> createArguments,
-      Params.createSignatories -> createSignatories,
-      Params.createObservers -> createObservers,
-      Params.createAgreementTexts -> createAgreementTexts,
-      Params.createConsumedAt -> createConsumedAt,
-      Params.createKeyValues -> createKeyValues,
-      Params.exerciseConsuming -> exerciseConsuming,
-      Params.exerciseChoices -> exerciseChoices,
-      Params.exerciseArguments -> exerciseArguments,
-      Params.exerciseResults -> exerciseResults,
-      Params.exerciseActors -> exerciseActors,
-      Params.exerciseChildEventIds -> exerciseChildEventIds,
-    )
+    anorm
+      .SQL(insertStmt)
+      .on(
+        Params.eventIds -> eventIds,
+        Params.eventOffsets -> eventOffsets,
+        Params.contractIds -> contractIds,
+        Params.transactionIds -> transactionIds,
+        Params.workflowIds -> workflowIds,
+        Params.ledgerEffectiveTimes -> ledgerEffectiveTimes,
+        Params.templateIds -> templateIds,
+        Params.nodeIndexes -> nodeIndexes,
+        Params.commandIds -> commandIds,
+        Params.applicationIds -> applicationIds,
+        Params.submitters -> submitters,
+        Params.flatEventWitnesses -> flatEventWitnesses,
+        Params.treeEventWitnesses -> treeEventWitnesses,
+        Params.createArguments -> createArguments,
+        Params.createSignatories -> createSignatories,
+        Params.createObservers -> createObservers,
+        Params.createAgreementTexts -> createAgreementTexts,
+        Params.createConsumedAt -> createConsumedAt,
+        Params.createKeyValues -> createKeyValues,
+        Params.exerciseConsuming -> exerciseConsuming,
+        Params.exerciseChoices -> exerciseChoices,
+        Params.exerciseArguments -> exerciseArguments,
+        Params.exerciseResults -> exerciseResults,
+        Params.exerciseActors -> exerciseActors,
+        Params.exerciseChildEventIds -> exerciseChildEventIds,
+      )
   }
 }

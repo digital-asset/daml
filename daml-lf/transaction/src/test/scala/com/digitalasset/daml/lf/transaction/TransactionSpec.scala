@@ -142,7 +142,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     def isReplayedBy(
         n1: GenNode[NodeId, ContractId],
         n2: GenNode[NodeId, ContractId],
-    ) = Transaction.isReplayedBy(genTrans(n1), genTrans(n2))
+    ) = Validation.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
     val genEmptyNode: Gen[GenNode[Nothing, V.ContractId]] =

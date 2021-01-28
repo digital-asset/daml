@@ -4,11 +4,13 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
+import io.grpc.Status
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
@@ -87,6 +89,41 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
       assert(Tag.unwrap(p1).nonEmpty, "The first allocated party identifier is an empty string")
       assert(Tag.unwrap(p2).nonEmpty, "The second allocated party identifier is an empty string")
       assert(p1 != p2, "The two parties have the same party identifier")
+    }
+  })
+
+  test(
+    "PMRejectLongPartyHints",
+    "A party identifier which is too long should be rejected with the proper error",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      error <- ledger
+        .allocateParty(
+          partyIdHint = Some(Random.alphanumeric.take(256).mkString),
+          displayName = None,
+        )
+        .failed
+    } yield {
+      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, "Party is too long")
+    }
+  })
+
+  test(
+    "PMRejectInvalidPartyHints",
+    "A party identifier that contains invalid characters should be rejected with the proper error",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      error <- ledger
+        .allocateParty(
+          // Assumption: emojis will never be acceptable in a party identifier
+          partyIdHint = Some("\uD83D\uDE00"),
+          displayName = None,
+        )
+        .failed
+    } yield {
+      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, "non expected character")
     }
   })
 

@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -14,9 +15,11 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
 import scopt.OptionParser
+
+import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
     mode: Mode,
@@ -32,6 +35,7 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
+    trackerRetentionPeriod: FiniteDuration,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -40,6 +44,8 @@ final case class Config[Extra](
 
 object Config {
   val DefaultPort: Port = Port(6865)
+  val DefaultTrackerRetentionPeriod: FiniteDuration =
+    CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
   def createDefault[Extra](extra: Extra): Config[Extra] =
@@ -57,6 +63,7 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
+      trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       extra = extra,
     )
 
@@ -174,6 +181,15 @@ object Config {
         )
         .action((checksEnabled, config) =>
           config.withTlsConfig(c => c.copy(enableCertRevocationChecking = checksEnabled))
+        )
+
+      opt[Duration]("tracker-retention-period")
+        .optional()
+        .action((value, config) =>
+          config.copy(trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
+        )
+        .text(
+          s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is $DefaultTrackerRetentionPeriod."
         )
 
       arg[File]("<archive>...")

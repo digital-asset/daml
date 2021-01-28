@@ -155,6 +155,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "0.0.0",  # TODO This should become the latest available snapshot when it becomes available
+        "platform_ranges": [
+            {
+                "end": "1.10.0-snapshot.20210120.6106.0.58ef725a",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/8642
+                    "PartyManagementServiceIT:PMRejectLongPartyHints",
+                    "PartyManagementServiceIT:PMRejectInvalidPartyHints",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

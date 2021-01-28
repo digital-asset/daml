@@ -90,9 +90,9 @@ private[events] object EventsTable {
     def execute()(implicit connection: Connection): Unit
   }
 
-  def apply(dbType: DbType): EventsTable =
+  def apply(dbType: DbType, idempotentInserts: Boolean): EventsTable =
     dbType match {
-      case DbType.Postgres => EventsTablePostgresql
+      case DbType.Postgres => EventsTablePostgresql(idempotentInserts)
       case DbType.H2Database => EventsTableH2Database
     }
 

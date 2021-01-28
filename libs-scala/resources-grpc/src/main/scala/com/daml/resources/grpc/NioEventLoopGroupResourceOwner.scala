@@ -6,7 +6,7 @@ package com.daml.resources.grpc
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
-import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
 import io.netty.channel.nio.NioEventLoopGroup
 
 import scala.concurrent.{Future, Promise}
@@ -17,7 +17,7 @@ private[grpc] final class NioEventLoopGroupResourceOwner[Context: HasExecutionCo
     threadFactory: ThreadFactory,
 ) extends AbstractResourceOwner[Context, NioEventLoopGroup] {
   override def acquire()(implicit context: Context): Resource[Context, NioEventLoopGroup] =
-    Resource[Context].apply(Future(new NioEventLoopGroup(threadCount, threadFactory))) {
+    ReleasableResource(Future(new NioEventLoopGroup(threadCount, threadFactory))) {
       eventLoopGroup =>
         val promise = Promise[Unit]()
         val future = eventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS)

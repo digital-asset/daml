@@ -19,6 +19,8 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
   def isEmpty: Boolean = entries.isEmpty
 
+  def length: Int = entries.length
+
   def mapValue[Y](f: X => Y) = new SortedLookupList(entries.map { case (k, v) => k -> f(v) })
 
   def toImmArray: ImmArray[(String, X)] = entries

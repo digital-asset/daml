@@ -21,7 +21,7 @@ jobs:
 
 - job: check_perf_test
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
     demands: assignment -equals default
   steps:
   - bash: |
@@ -244,7 +244,7 @@ jobs:
   - release
   - check_for_release
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
     demands: assignment -equals default
   variables:
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
