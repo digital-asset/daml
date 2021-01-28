@@ -10,20 +10,14 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_VERSIONS",
     "lf_dev_version",
     "lf_latest_version",
     "lf_preview_version",
     "lf_stable_version",
 )
 
-lf_targets = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.11",
-    "1.12",
-    "1.dev",
-]
+lf_targets = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
 
 da_scala_library(
     name = "encoder",

@@ -8,7 +8,7 @@ import java.util.zip.ZipFile
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8}
-import com.daml.{daml_lf_1_11, daml_lf_dev}
+import com.daml.{daml_lf_1_12, daml_lf_dev}
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.Assertion
@@ -192,19 +192,6 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     }
   }
 
-  "daml_lf_1_11.DamlLf" should {
-    "read dalf" in {
-      decodeTestWrapper(
-        darFile,
-        { cis =>
-          val archive = daml_lf_1_11.DamlLf.Archive.parseFrom(cis)
-          val payload = daml_lf_1_11.DamlLf.ArchivePayload.parseFrom(archive.getPayload)
-          payload.hasDamlLf1 shouldBe true
-        },
-      )
-    }
-  }
-
   "daml_lf_1_11 files" should {
 
     // Do not change this test.
@@ -227,6 +214,53 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
         (
           "daml_lf.proto",
           "05eb95f6bb15042624d2ca89d366e3bcd8618934471c6093efeecc09bb9d7df4",
+          "be0a1530cfe0727f2078c0db6bd27d15004549d3778beac235ad976d07b507f4",
+        ),
+      )
+
+      forEvery(files) { case (fileName, linuxHash, windowsHash) =>
+        List(linuxHash, windowsHash) should contain(hashFile(resolve(fileName)))
+      }
+    }
+  }
+
+  // We do not test daml_lf_1_11 as the proto definition is the same as daml_lf_1_12
+  // and we test for immutability.
+  "daml_lf_1_12.DamlLf" should {
+    "read dalf" in {
+      decodeTestWrapper(
+        darFile,
+        { cis =>
+          val archive = daml_lf_1_12.DamlLf.Archive.parseFrom(cis)
+          val payload = daml_lf_1_12.DamlLf.ArchivePayload.parseFrom(archive.getPayload)
+          payload.hasDamlLf1 shouldBe true
+        },
+      )
+    }
+  }
+
+  "daml_lf_1_12 files" should {
+
+    // Do not change this test.
+    // The test checks the snapshot of the proto definition are not modified.
+
+    val rootDir = "daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_12"
+
+    def resolve(file: String) =
+      resource(rlocation(s"$rootDir/$file"))
+
+    "not be modified" in {
+
+      val files = Table(
+        ("file", "Linux hash", "windows hash"),
+        (
+          "daml_lf_1.proto",
+          "83207610fc117b47ef1da586e36c791706504911ff41cbee8fc5d1da12128147",
+          "777d2e86086eeca236d80c6dc4e411690f6dc050ad27dc90f7b7de23f2ce1e93",
+        ),
+        (
+          "daml_lf.proto",
+          "bdb7d343274c47adad9b753ad12ace4feffab64981f3b8175245f6d7653430c4",
           "be0a1530cfe0727f2078c0db6bd27d15004549d3778beac235ad976d07b507f4",
         ),
       )
