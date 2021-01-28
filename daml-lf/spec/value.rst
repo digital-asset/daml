@@ -178,7 +178,7 @@ For backward compatibility reasons:
 - the version `10` is encoded as the string "6";
 - string "10" is reserved and will be never used to encoded any future version;
 - versions 11 or latter will be encoded as string, for instance
-  version 11 of this specification, ``version`` must be ``"1"``.
+  version 11 of this specification, ``version`` must be ``"11"``.
   
 Consumers can expect this field to be present and to have the
 semantics defined here without knowing the version of this value in
@@ -223,7 +223,7 @@ As of version 10, may be any one of these:
 
 ``Value`` is recursive by virtue of occurrences in some of the above
 cases, e.g. ``list`` contains any number of ``Value``. The maximum
-depth of nested ``Value``, including the outermost, is 100; any more
+depth of a nested ``Value``, including the outermost, is 100; any more
 yields an invalid value.
 
 (*since version 11*)
@@ -567,4 +567,3 @@ In this version, these fields are included:
    must conform to the same type. If two ore more entries have the
    same keys, the last one overrides the former entry.  Entries with
    different key may occur in arbitrary order.
-
