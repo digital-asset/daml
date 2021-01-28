@@ -59,7 +59,14 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
   "the port file" should {
     "list the HTTP port" in {
       val bindingPort = middlewareBinding.localAddress.getPort.toString
-      val filePort = Source.fromFile(middlewarePortFile).mkString.stripLineEnd
+      val filePort = {
+        val source = Source.fromFile(middlewarePortFile)
+        try {
+          source.mkString.stripLineEnd
+        } finally {
+          source.close()
+        }
+      }
       assert(bindingPort == filePort)
     }
   }
