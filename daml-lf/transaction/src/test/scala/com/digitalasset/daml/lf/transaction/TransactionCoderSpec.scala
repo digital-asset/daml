@@ -137,9 +137,7 @@ class TransactionCoderSpec
       forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
-          tx.nodes.transform((_, node) =>
-            minimalistNode(node.version)(node.updateVersion(node.version))
-          ),
+          tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
           tx.roots,
         )
         inside(
@@ -165,55 +163,6 @@ class TransactionCoderSpec
             decodedVersionedTx shouldBe tx2
         }
       }
-
-    "succeed with encoding under later version if succeeded under earlier version" ignore {
-      def overrideNodeVersions[Nid, Cid](tx: GenTransaction[Nid, Cid]) = {
-        tx.copy(nodes =
-          tx.nodes.transform((_, node) => node.updateVersion(TransactionVersion.minVersion))
-        )
-      }
-
-      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
-        forAll(transactionVersionGen(), transactionVersionGen(), minSuccessful(20)) {
-          (txVer1, txVer2) =>
-            import scalaz.std.tuple._
-            import scalaz.syntax.bifunctor._
-            whenever(txVer1 != txVer2) {
-              val orderedVers @ (txvMin, txvMax) =
-                if (txVer2 <= txVer1) (txVer2, txVer1) else (txVer1, txVer2)
-              inside(
-                orderedVers umap (txVer =>
-                  TransactionCoder
-                    .encodeTransactionWithCustomVersion(
-                      TransactionCoder.NidEncoder,
-                      ValueCoder.CidEncoder,
-                      VersionedTransaction(txVer, versionNodes(txVer, tx.nodes), tx.roots),
-                    ),
-                )
-              ) {
-                case (Left(EncodeError(minMsg)), maxEnc) =>
-                  // fuzzy sort of "failed because of the version override" test
-                  minMsg should include(txvMin.protoValue)
-                  maxEnc.left foreach (_.errorMessage should include(txvMax.protoValue))
-                case (Right(encWithMin), Right(encWithMax)) =>
-                  inside(
-                    (encWithMin, encWithMax) umap (TransactionCoder
-                      .decodeTransaction(
-                        TransactionCoder.NidDecoder,
-                        ValueCoder.CidDecoder,
-                        _,
-                      ))
-                  ) { case (Right(decWithMin), Right(decWithMax)) =>
-                    overrideNodeVersions(decWithMin.transaction) shouldBe
-                      overrideNodeVersions(minimalistTx(txvMin, tx))
-                    overrideNodeVersions(decWithMin.transaction) shouldBe
-                      overrideNodeVersions(minimalistTx(txvMin, decWithMax.transaction))
-                  }
-              }
-            }
-        }
-      }
-    }
 
     "transactions decoding should fail when unsupported transaction version received" in
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
@@ -292,12 +241,10 @@ class TransactionCoderSpec
   "encodeVersionedNode" should {
 
     "fail iff try to encode choice observers in version < 11" in {
-      val normalize = minimalistNode(V10)
-
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
         val shouldFail = node.choiceObservers.nonEmpty
 
-        val normalized = normalize(node) match {
+        val normalized = normalizeNode(node) match {
           case exe: NodeExercises[NodeId, ContractId] =>
             exe.copy(choiceObservers = node.choiceObservers)
           case otherwise => otherwise
@@ -322,7 +269,7 @@ class TransactionCoderSpec
 
       forAll(danglingRefGenNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
-          val normalizedNode = minimalistNode(nodeVersion)(node)
+          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
 
           TransactionCoder
             .encodeNode(
@@ -330,7 +277,7 @@ class TransactionCoderSpec
               ValueCoder.CidEncoder,
               txVersion,
               nodeId,
-              normalizedNode.updateVersion(nodeVersion),
+              normalizedNode,
             ) shouldBe Symbol("left")
       }
     }
@@ -352,7 +299,7 @@ class TransactionCoderSpec
               ValueCoder.CidEncoder,
               nodeVersion,
               NodeId(0),
-              minimalistNode(nodeVersion)(node),
+              normalizeNode(node),
             )
             val encodedCreate = encodedNode.getCreate
             var cases = List(
@@ -397,7 +344,7 @@ class TransactionCoderSpec
             ValueCoder.CidEncoder,
             nodeVersion,
             NodeId(0),
-            minimalistNode(nodeVersion)(node),
+            normalizeNode(node),
           )
           val encodedFetch = encodedNode.getFetch
 
@@ -429,7 +376,7 @@ class TransactionCoderSpec
             ValueCoder.CidEncoder,
             nodeVersion,
             NodeId(0),
-            minimalistNode(nodeVersion)(node),
+            normalizeNode(node),
           )
           val encodedLookup = encodedNode.getLookupByKey
 
@@ -466,7 +413,7 @@ class TransactionCoderSpec
             ValueCoder.CidEncoder,
             nodeVersion,
             NodeId(0),
-            minimalistNode(nodeVersion)(exeNode),
+            normalizeExe(exeNode),
           )
           val encodedExe = encodedNode.getExercise
           var cases = List(
@@ -502,10 +449,8 @@ class TransactionCoderSpec
   "decodeVersionedNode" should {
 
     """ignore field version if enclosing Transaction message is of version 10""" in {
-      val normalize = minimalistNode(V10)
-
       forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(10)) { case ((nodeId, node), str) =>
-        val normalizedNode = normalize(node.updateVersion(V10))
+        val normalizedNode = normalizeNode(node.updateVersion(V10))
 
         val Right(encoded) = for {
           encoded <- TransactionCoder
@@ -533,7 +478,7 @@ class TransactionCoderSpec
 
       forAll(danglingRefGenNode, versionInStrictIncreasingOrder(postV10versions)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
-          val normalizedNode = minimalistNode(nodeVersion)(node).updateVersion(nodeVersion)
+          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
 
           val Right(encoded) = TransactionCoder
             .encodeNode(
@@ -554,7 +499,6 @@ class TransactionCoderSpec
     }
 
     "ignore field observers in version < 11" in {
-      val normalize = minimalistNode(V10)
 
       forAll(
         Arbitrary.arbInt.arbitrary,
@@ -563,7 +507,7 @@ class TransactionCoderSpec
         minSuccessful(50),
       ) { (nodeIdx, node, strings) =>
         val nodeId = NodeId(nodeIdx)
-        val normalizedNode = normalize(node).updateVersion(V10)
+        val normalizedNode = normalizeExe(node.updateVersion(V10))
 
         val Right(encoded) =
           for {
@@ -634,63 +578,10 @@ class TransactionCoderSpec
       case _ => false
     }
 
-  def minimalistNode(
-      txvMin: TransactionVersion
-  ): Node.GenNode[NodeId, ContractId] => Node.GenNode[NodeId, ContractId] = {
-    def condApply(
-        before: TransactionVersion,
-        f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
-    ): GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId] = {
-      if (txvMin < before) f else identity
-    }
-
-    condApply(TransactionVersion.minChoiceObservers, withoutChoiceObservers)
-      .compose(withoutByKeyFlag[NodeId, ContractId])
-
-  }
-
-  def nodesWithout(
-      nodes: Map[NodeId, GenNode[NodeId, ContractId]],
-      f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
-  ) =
-    nodes.transform((_, gn) => f(gn))
-
-  def minimalistNodes(
-      txvMin: TransactionVersion,
-      nodes: Map[NodeId, GenNode[NodeId, ContractId]],
-  ): Map[NodeId, GenNode[NodeId, ContractId]] =
-    nodes.transform((_, gn) => minimalistNode(txvMin)(gn))
-
-  // TODO https://github.com/digital-asset/daml/issues/7709
-  // The following function should be usefull to test choice observers
-  def minimalistTx(
-      txvMin: TransactionVersion,
-      nodes: Map[NodeId, GenNode[NodeId, ContractId]],
-  ): Map[NodeId, GenNode[NodeId, ContractId]] = {
-
-    def condApply(
-        before: TransactionVersion,
-        f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
-    ): GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId] =
-      if (txvMin < before) f else identity
-
-    nodesWithout(
-      nodes,
-      condApply(TransactionVersion.minChoiceObservers, withoutChoiceObservers)
-        .compose(withoutByKeyFlag[NodeId, ContractId]),
-    )
-  }
-
-  def minimalistTx(
-      txvMin: TransactionVersion,
-      tx: GenTransaction[NodeId, ContractId],
-  ) =
-    tx.copy(nodes = minimalistNodes(txvMin, tx.nodes))
-
   private def absCid(s: String): ContractId =
     ContractId.assertFromString(s)
 
-  private def versionNodes[Nid, Cid](
+  def versionNodes[Nid, Cid](
       version: TransactionVersion,
       nodes: Map[Nid, GenNode[Nid, Cid]],
   ): Map[Nid, GenNode[Nid, Cid]] =
@@ -712,20 +603,30 @@ class TransactionCoderSpec
       v2 <- Gen.oneOf(versions.filter(_ > v1))
     } yield (v1, v2)
 
-  private def normalizeCreate(create: Node.NodeCreate[ContractId]): Node.NodeCreate[ContractId] = {
+  private[this] def normalizeNode[Nid](node: Node.GenNode[Nid, ContractId]) =
+    node match {
+      case exe: NodeExercises[Nid, ContractId] => normalizeExe(exe)
+      case fetch: NodeFetch[ContractId] => normalizeFetch(fetch)
+      case create: NodeCreate[ContractId] => normalizeCreate(create)
+      case lookup: NodeLookupByKey[ContractId] => lookup
+    }
+
+  private[this] def normalizeCreate(
+      create: Node.NodeCreate[ContractId]
+  ): Node.NodeCreate[ContractId] = {
     create.copy(
       arg = normalize(create.arg, create.version),
       key = create.key.map(normalizeKey(_, create.version)),
     )
   }
 
-  private def normalizeFetch(fetch: Node.NodeFetch[ContractId]) =
+  private[this] def normalizeFetch(fetch: Node.NodeFetch[ContractId]) =
     fetch.copy(
       key = fetch.key.map(normalizeKey(_, fetch.version)),
       byKey = false,
     )
 
-  private def normalizeExe[Nid](exe: Node.NodeExercises[Nid, ContractId]) =
+  private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid, ContractId]) =
     exe.copy(
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
@@ -735,23 +636,25 @@ class TransactionCoderSpec
       byKey = false,
     )
 
-  private def normalizeKey(
+  private[this] def normalizeKey(
       key: KeyWithMaintainers[Value[ContractId]],
       version: TransactionVersion,
   ) = {
     key.copy(key = normalize(key.key, version))
   }
 
-  private def normalizeContract(contract: ContractInst[Value.VersionedValue[Value.ContractId]]) = {
+  private[this] def normalizeContract(
+      contract: ContractInst[Value.VersionedValue[Value.ContractId]]
+  ) = {
     contract.copy(arg = normalizeValue(contract.arg))
   }
 
-  private def normalizeValue(versionedValue: Value.VersionedValue[Value.ContractId]) = {
+  private[this] def normalizeValue(versionedValue: Value.VersionedValue[Value.ContractId]) = {
     val Value.VersionedValue(version, value) = versionedValue
     Value.VersionedValue(version, normalize(value, version))
   }
 
-  private def normalize(
+  private[this] def normalize(
       value0: Value[ContractId],
       version: TransactionVersion,
   ): Value[ContractId] = lf.value.test.ValueNormalizer.normalize(value0, version)
