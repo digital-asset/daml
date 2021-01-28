@@ -593,6 +593,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-NonEmpty-Types.dalf"
                     , "DA-Time-Types.dalf"
                     , "DA-Semigroup-Types.dalf"
+                    , "DA-Set-Types.dalf"
                     , "DA-Monoid-Types.dalf"
                     , "DA-Validation-Types.dalf"
                     , "DA-Logic-Types.dalf"

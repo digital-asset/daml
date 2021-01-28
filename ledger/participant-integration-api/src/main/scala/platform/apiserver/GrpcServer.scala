@@ -8,18 +8,17 @@ import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
 
-import com.daml.ledger.resources.{Resource, ResourceContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
-import com.daml.resources.grpc.ServerResourceOwner
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.duration.DurationInt
+import scala.util.Failure
 import scala.util.control.NoStackTrace
-import scala.util.{Failure, Success}
 
 private[apiserver] object GrpcServer {
 
@@ -30,16 +29,16 @@ private[apiserver] object GrpcServer {
   // allow for extra information such as the exception stack trace.
   private val MaximumStatusDescriptionLength = 4 * 1024 // 4 KB
 
-  private def makeBuilder(
+  def owner(
       address: Option[String],
       desiredPort: Port,
       maxInboundMessageSize: Int,
-      sslContext: Option[SslContext],
-      interceptors: List[ServerInterceptor],
+      sslContext: Option[SslContext] = None,
+      interceptors: List[ServerInterceptor] = List.empty,
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
-  ): NettyServerBuilder = {
+  ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
     val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
     builder.sslContext(sslContext.orNull)
@@ -54,44 +53,12 @@ private[apiserver] object GrpcServer {
       builder.addService(service)
       toLegacyService(service).foreach(builder.addService)
     }
-    builder
-  }
-
-  private def causedByBindException(e: IOException): Boolean =
-    e.getCause != null && e.getCause.isInstanceOf[BindException]
-
-  final class Owner(
-      address: Option[String],
-      desiredPort: Port,
-      maxInboundMessageSize: Int,
-      sslContext: Option[SslContext] = None,
-      interceptors: List[ServerInterceptor] = List.empty,
-      metrics: Metrics,
-      servicesExecutor: Executor,
-      services: Iterable[BindableService],
-  ) extends ServerResourceOwner[ResourceContext](
-        builder = makeBuilder(
-          address,
-          desiredPort,
-          maxInboundMessageSize,
-          sslContext,
-          interceptors,
-          metrics,
-          servicesExecutor,
-          services,
-        ),
-        shutdownTimeout = 1.second,
-      ) {
-    override def acquire()(implicit context: ResourceContext): Resource[Server] = {
-      super.acquire().transformWith {
-        case Success(server) =>
-          Resource.successful(server)
-        case Failure(e: IOException) if causedByBindException(e) =>
-          Resource.failed(new UnableToBind(desiredPort, e.getCause))
-        case Failure(exception) =>
-          Resource.failed(exception)
-      }
-    }
+    ResourceOwner
+      .forServer(builder, shutdownTimeout = 1.second)
+      .transform(_.recoverWith {
+        case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
+          Failure(new UnableToBind(desiredPort, e.getCause))
+      })
   }
 
   final class UnableToBind(port: Port, cause: Throwable)

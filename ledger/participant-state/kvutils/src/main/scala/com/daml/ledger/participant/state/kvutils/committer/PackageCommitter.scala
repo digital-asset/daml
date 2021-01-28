@@ -25,14 +25,18 @@ import com.google.protobuf.ByteString
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-object PackageCommitter {}
+object PackageCommitter {
+  private type Result = (DamlPackageUploadEntry.Builder, Map[Ref.PackageId, Ast.Package])
+  private type Step = Committer.Step[Result]
+}
 
 final private[kvutils] class PackageCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
     validationMode: PackageValidationMode = PackageValidationMode.Lenient,
     preloadingMode: PackagePreloadingMode = PackagePreloadingMode.Asynchronous,
-) extends Committer[(DamlPackageUploadEntry.Builder, Map[Ref.PackageId, Ast.Package])] {
+) extends Committer[PackageCommitter.Result] {
+  import PackageCommitter._
 
   /** The initial internal state passed to first step. */
   override protected def init(

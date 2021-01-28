@@ -32,7 +32,7 @@ dependencies: [daml-prim, daml-stdlib]
 EOF
 mkdir -p $DIR/src
 
-$DAMLC build --project-root $DIR -o $DIR/out.dar
+$DAMLC build --target=1.dev --project-root $DIR -o $DIR/out.dar
 # The last line is the main dalf which we don’t need. We don’t need to worry about excluding daml-prim
 # and daml-stdlib since they are only pulled in when necessary and they are clearly not required for
 # an empty package
@@ -52,6 +52,7 @@ daml-stdlib-DA-Logic-Types-c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1
 daml-stdlib-DA-Monoid-Types-6c2c0667393c5f92f1885163068cd31800d2264eb088eb6fc740e11241b2bf06 "6c2c0667393c5f92f1885163068cd31800d2264eb088eb6fc740e11241b2bf06"
 daml-stdlib-DA-NonEmpty-Types-e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c "e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c"
 daml-stdlib-DA-Semigroup-Types-8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb "8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb"
+daml-stdlib-DA-Set-Types-97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657 "97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657"
 daml-stdlib-DA-Time-Types-733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a "733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a"
 daml-stdlib-DA-Validation-Types-99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235 "99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235"
 EOF

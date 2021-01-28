@@ -49,7 +49,7 @@ object ValueCoder {
 
   object CidEncoder extends EncodeCid[ContractId] {
     private[lf] def encode(cid: ContractId): proto.ContractId =
-      proto.ContractId.newBuilder.setRelative(false).setContractId(cid.coid).build
+      proto.ContractId.newBuilder.setContractId(cid.coid).build
   }
 
   abstract class DecodeCid[Cid] private[lf] {
@@ -242,20 +242,15 @@ object ValueCoder {
           case proto.Value.SumCase.VARIANT =>
             val variant = protoValue.getVariant
             val id =
-              if (variant.getVariantId == ValueOuterClass.Identifier.getDefaultInstance) None
-              else {
+              if (variant.getVariantId == ValueOuterClass.Identifier.getDefaultInstance) {
+                None
+              } else {
                 assertUntil(
                   TransactionVersion.minTypeErasure,
                   "variant_id field in message Variant",
                 )
-                decodeIdentifier(variant.getVariantId).fold(
-                  { err =>
-                    throw Err(err.errorMessage)
-                  },
-                  { id =>
-                    Some(id)
-                  },
-                )
+                decodeIdentifier(variant.getVariantId)
+                  .fold((err => throw Err(err.errorMessage)), Some(_))
               }
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
@@ -282,14 +277,8 @@ object ValueCoder {
               if (record.getRecordId == ValueOuterClass.Identifier.getDefaultInstance) None
               else {
                 assertUntil(TransactionVersion.minTypeErasure, "record_id field in message Record")
-                decodeIdentifier(record.getRecordId).fold(
-                  { err =>
-                    throw Err(err.errorMessage)
-                  },
-                  { id =>
-                    Some(id)
-                  },
-                )
+                decodeIdentifier(record.getRecordId)
+                  .fold((err => throw Err(err.errorMessage)), Some(_))
               }
             ValueRecord(
               id,
@@ -431,29 +420,22 @@ object ValueCoder {
             builder.setList(listBuilder).build()
 
           case ValueRecord(id, fields) =>
-            val protoFields = fields
-              .map(f => {
-                val b = proto.RecordField
-                  .newBuilder()
-                  .setValue(go(newNesting, f._2))
-                if (valueVersion < TransactionVersion.minTypeErasure)
-                  f._1.map(b.setLabel)
-                b.build()
-              })
-              .toSeq
-              .asJava
-            val recordBuilder = proto.Record.newBuilder().addAllFields(protoFields)
+            val recordBuilder = proto.Record.newBuilder()
+            fields.foreach { case (fieldName, field) =>
+              val b = proto.RecordField.newBuilder()
+              if (valueVersion < TransactionVersion.minTypeErasure) fieldName.map(b.setLabel)
+              b.setValue(go(newNesting, field))
+              recordBuilder.addFields(b)
+              ()
+            }
             if (valueVersion < TransactionVersion.minTypeErasure)
               id.foreach(i => recordBuilder.setRecordId(encodeIdentifier(i)))
-            builder
-              .setRecord(recordBuilder)
-              .build()
+            builder.setRecord(recordBuilder).build()
 
           case ValueVariant(id, con, arg) =>
-            val protoVar = proto.Variant
-              .newBuilder()
-              .setConstructor(con)
-              .setValue(go(newNesting, arg))
+            val protoVar = proto.Variant.newBuilder()
+            protoVar.setConstructor(con)
+            protoVar.setValue(go(newNesting, arg))
             if (valueVersion < TransactionVersion.minTypeErasure)
               id.foreach(i => protoVar.setVariantId(encodeIdentifier(i)))
             builder.setVariant(protoVar).build()

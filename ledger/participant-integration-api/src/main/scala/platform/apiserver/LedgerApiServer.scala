@@ -36,16 +36,18 @@ private[daml] final class LedgerApiServer(
       apiServices <- apiServicesResource
       sslContext = tlsConfiguration.flatMap(_.server)
       _ = tlsConfiguration.map(_.setJvmTlsProperties())
-      server <- new GrpcServer.Owner(
-        address,
-        desiredPort,
-        maxInboundMessageSize,
-        sslContext,
-        interceptors,
-        metrics,
-        servicesExecutor,
-        apiServices.services,
-      ).acquire()
+      server <- GrpcServer
+        .owner(
+          address,
+          desiredPort,
+          maxInboundMessageSize,
+          sslContext,
+          interceptors,
+          metrics,
+          servicesExecutor,
+          apiServices.services,
+        )
+        .acquire()
       // Notify the caller that the services have been closed, so a reset request can complete
       // without blocking on the server terminating.
       _ <- Resource(Future.unit)(_ =>

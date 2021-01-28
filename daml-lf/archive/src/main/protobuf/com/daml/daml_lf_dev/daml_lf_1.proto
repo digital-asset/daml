@@ -46,6 +46,7 @@
 //         2019-10-13: Add ExerciseByKey Update
 //         2020-11-04: Add interning of types
 //         2020-11-20: Add choice-observers
+// * 12 -- 2021-01-27: No Archive changes
 // * dev (special staging area for the next version to be released)
 //        2020-11-27: Add exception handling & primitives
 

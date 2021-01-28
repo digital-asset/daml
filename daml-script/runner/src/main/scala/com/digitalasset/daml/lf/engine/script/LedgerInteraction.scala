@@ -986,31 +986,9 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
   ): Future[Unit] = {
-    // Relax once the JSON API supports multi-party read/write
-    import scalaz.std.string._
-    if (tokenPayload.actAs.isEmpty) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token contains no actAs parties."
-        )
-      )
-    } else if ((actAs.toList: List[String]) /== tokenPayload.actAs) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token provides claims for actAs = ${tokenPayload.actAs
-            .mkString(" ")}"
-        )
-      )
-    } else if ((readAs.toList: List[String]) /== tokenPayload.readAs) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command with readAs = ${readAs.mkString(", ")} but token provides claims for readAs = ${tokenPayload.readAs
-            .mkString(" ")}"
-        )
-      )
-    } else {
-      Future.unit
-    }
+    JsonLedgerClient
+      .validateSubmitParties(actAs, readAs, tokenPayload)
+      .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
   }
 
   private def create(
@@ -1148,6 +1126,37 @@ class JsonLedgerClient(
 }
 
 object JsonLedgerClient {
+
+  def validateSubmitParties(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      tokenPayload: AuthServiceJWTPayload,
+  ): Either[String, Unit] = {
+    val tokenActAs = tokenPayload.actAs.toSet
+    // Relax once the JSON API supports multi-party read/write
+    import scalaz.std.string._
+    val onlyReadAs = readAs.diff(actAs.toSet)
+    val tokenOnlyReadAs = tokenPayload.readAs.toSet.diff(tokenActAs)
+    if (tokenPayload.actAs.isEmpty) {
+      Left(
+        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
+      )
+
+    } else if (actAs.toList.toSet[String] /== tokenActAs) {
+      Left(
+        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
+          .mkString(" ")}]"
+      )
+    } else if (onlyReadAs.toSet[String] /== tokenOnlyReadAs) {
+      Left(
+        s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
+          .mkString(" ")}]"
+      )
+    } else {
+      Right(())
+    }
+  }
+
   sealed trait Response[A] {
     def status: StatusCode
   }

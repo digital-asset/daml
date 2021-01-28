@@ -175,7 +175,6 @@ echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 (
   git clone https://github.com/digital-asset/daml
   cd daml
-  git checkout upgrade-linux-nodes-to-20.04
   ./ci/dev-env-install.sh
   ./build.sh "_$(uname)"
 ) || true

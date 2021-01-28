@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "8e4f52892d88d23259547b03bb096b46f28c0afc"
-GHCIDE_SHA256 = "3fa3e23d760f1bdfb2a707d2593ea3eaedba748abfd649e8917c585780fa91db"
+GHCIDE_REV = "f76d0e11e576faeb0b9016d0bb09074e24a45d7e"
+GHCIDE_SHA256 = "8c2e2c52f87afa669eea40a2b8a48f6d4f628ae76ef5a0dc065065a0e9292aa9"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
@@ -555,6 +555,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "split",
             "stache",
             "stm",
+            "stm-conduit",
+            "stm-chans",
             "swagger2",
             "syb",
             "system-filepath",
