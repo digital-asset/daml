@@ -15,6 +15,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
 private[kvutils] object ConfigCommitter {
+  private type Step = Committer.Step[ConfigCommitter.Result]
+
   case class Result(
       submission: DamlConfigurationSubmission,
       currentConfig: (Option[DamlConfigurationEntry], Configuration),
@@ -26,6 +28,8 @@ private[kvutils] class ConfigCommitter(
     maximumRecordTime: Timestamp,
     override protected val metrics: Metrics,
 ) extends Committer[ConfigCommitter.Result] {
+
+  import ConfigCommitter._
 
   override protected val committerName = "config"
 

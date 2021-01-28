@@ -1,53 +1,60 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.committer
+package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
+import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.DamlTransactionEntrySummary
+import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.{
+  DamlTransactionEntrySummary,
+  damlContractKey,
+}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation
+import com.daml.ledger.participant.state.kvutils.committer.{
+  CommitContext,
+  StepContinue,
+  StepResult,
+  StepStop,
+}
+import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
 import com.daml.lf.transaction
-import com.daml.lf.transaction.{
-  NodeId,
-  RecordedNodeMissing,
-  ReplayNodeMismatch,
-  ReplayedNodeMissing,
-  Transaction,
-  TransactionOuterClass,
-}
+import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.test.TransactionBuilder.Create
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Inspectors.forEvery
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks._
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
-  private[this] val txBuilder = TransactionBuilder()
+  private val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
-  private val aDamlTransactionEntry = createTransactionEntry(List("aSubmitter"))
+  private val transactionCommitter =
+    createTransactionCommitter() // Stateless, can be shared between tests
+  private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aRecordTime = Timestamp(100)
-  private val instance = createTransactionCommitter() // Stateless, can be shared between tests
-  private val dedupKey = Conversions
+  private val aDedupKey = Conversions
     .commandDedupKey(aTransactionEntrySummary.submitterInfo)
-  private val configurationStateValue = defaultConfigurationStateValueBuilder().build
+  private val emptyConfigurationStateValue =
+    defaultConfigurationStateValueBuilder().build
   private val inputWithTimeModelAndEmptyCommandDeduplication =
-    Map(Conversions.configurationStateKey -> Some(configurationStateValue), dedupKey -> None)
+    Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue), aDedupKey -> None)
   private val aSubmissionTime = createProtobufTimestamp(seconds = 1)
   private val aLedgerEffectiveTime = createProtobufTimestamp(seconds = 2)
   private val aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes =
@@ -58,13 +65,13 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   private val aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes =
     DamlTransactionEntrySummary(aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes)
   private val aDeduplicateUntil = createProtobufTimestamp(seconds = 3)
-  private val dedupValue = DamlStateValue.newBuilder
+  private val aDedupValue = DamlStateValue.newBuilder
     .setCommandDedup(DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(aDeduplicateUntil))
     .build()
   private val inputWithTimeModelAndCommandDeduplication =
     Map(
-      Conversions.configurationStateKey -> Some(configurationStateValue),
-      dedupKey -> Some(dedupValue),
+      Conversions.configurationStateKey -> Some(emptyConfigurationStateValue),
+      aDedupKey -> Some(aDedupValue),
     )
   private val aRichTransactionTreeSummary = {
     val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
@@ -101,6 +108,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
     DamlTransactionEntrySummary(outTx)
   }
+  private val aDummyValue = TransactionBuilder.record("field" -> "value")
+  private val aKey = "key"
+  private val aKeyMaintainer = "maintainer"
 
   private def createNode(nodeId: String)(
       nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder
@@ -109,17 +119,19 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   private def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
 
-  private def exerciseNodeBuilder = TransactionOuterClass.NodeExercise.newBuilder()
+  private def exerciseNodeBuilder =
+    TransactionOuterClass.NodeExercise.newBuilder()
 
   private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
 
-  private def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+  private def lookupByKeyNodeBuilder =
+    TransactionOuterClass.NodeLookupByKey.newBuilder()
 
   "trimUnnecessaryNodes" should {
     "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
       val context = createCommitContext(recordTime = None)
 
-      instance.trimUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
+      transactionCommitter.trimUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
         case StepContinue(logEntry) =>
           val transaction = logEntry.submission.getTransaction
           transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
@@ -150,7 +162,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "continue if record time is not available" in {
       val context = createCommitContext(recordTime = None)
 
-      val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
+      val actual =
+        transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(_) => succeed
@@ -159,11 +172,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
 
     "continue if record time is available but no deduplication entry could be found" in {
-      val inputs = Map(dedupKey -> None)
+      val inputs = Map(aDedupKey -> None)
       val context =
         createCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
 
-      val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
+      val actual =
+        transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(_) => succeed
@@ -173,11 +187,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "continue if record time is after deduplication time in case a deduplication entry is found" in {
       val dedupValue = newDedupValue(aRecordTime)
-      val inputs = Map(dedupKey -> Some(dedupValue))
+      val inputs = Map(aDedupKey -> Some(dedupValue))
       val context =
         createCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
 
-      val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
+      val actual =
+        transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(_) => succeed
@@ -193,11 +208,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         )
       ) {
         val dedupValue = newDedupValue(deduplicationTime)
-        val inputs = Map(dedupKey -> Some(dedupValue))
+        val inputs = Map(aDedupKey -> Some(dedupValue))
         val context =
           createCommitContext(recordTime = Some(recordTime), inputs = inputs)
 
-        val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
+        val actual =
+          transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
 
         actual match {
           case StepContinue(_) => fail()
@@ -211,7 +227,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   "validateLedgerTime" can {
     "when the record time is not available" should {
       "continue" in {
-        val result = instance.validateLedgerTime(
+        val result = transactionCommitter.validateLedgerTime(
           contextWithTimeModelAndEmptyCommandDeduplication(),
           aTransactionEntrySummary,
         )
@@ -224,7 +240,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       "compute and correctly set the min/max ledger time and out-of-time-bounds log entry without deduplicateUntil" in {
         val context = contextWithTimeModelAndEmptyCommandDeduplication()
-        instance.validateLedgerTime(
+        transactionCommitter.validateLedgerTime(
           context,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes,
         )
@@ -240,7 +256,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       "compute and correctly set the min/max ledger time and out-of-time-bounds log entry with deduplicateUntil" in {
         val context = contextWithTimeModelAndCommandDeduplication()
-        instance.validateLedgerTime(
+        transactionCommitter.validateLedgerTime(
           context,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes,
         )
@@ -263,11 +279,13 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val recordTime = Timestamp.now()
       val recordTimeInstant = recordTime.toInstant
       val lowerBound =
-        recordTimeInstant.minus(theDefaultConfig.timeModel.minSkew).minusMillis(1)
+        recordTimeInstant
+          .minus(theDefaultConfig.timeModel.minSkew)
+          .minusMillis(1)
       val upperBound =
         recordTimeInstant.plus(theDefaultConfig.timeModel.maxSkew).plusMillis(1)
       val inputWithDeclaredConfig =
-        Map(Conversions.configurationStateKey -> Some(configurationStateValue))
+        Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue))
 
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
@@ -281,7 +299,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
             )
             .build
         )
-        val actual = instance.validateLedgerTime(context, transactionEntrySummary)
+        val actual =
+          transactionCommitter.validateLedgerTime(context, transactionEntrySummary)
 
         actual match {
           case StepContinue(_) => fail()
@@ -295,7 +314,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val commitContext =
         createCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
 
-      val _ = instance.validateLedgerTime(commitContext, aTransactionEntrySummary)
+      val _ = transactionCommitter.validateLedgerTime(commitContext, aTransactionEntrySummary)
 
       commitContext.getAccessedInputKeys should contain(configurationStateKey)
     }
@@ -305,7 +324,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "set record time in log entry when it is available" in {
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
+      val actual =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       actual.hasRecordTime shouldBe true
       actual.getRecordTime shouldBe buildTimestamp(theRecordTime)
@@ -316,7 +336,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "skip setting record time in log entry when it is not available" in {
       val context = createCommitContext(recordTime = None)
 
-      val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
+      val actual =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       actual.hasRecordTime shouldBe false
       actual.hasTransactionEntry shouldBe true
@@ -326,7 +347,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = createCommitContext(recordTime = None)
 
-      val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
+      val _ =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
@@ -340,7 +362,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val context = createCommitContext(recordTime = Some(aRecordTime))
 
-      val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
+      val _ =
+        transactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
@@ -351,7 +374,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "always set blindingInfo" in {
       val context = createCommitContext(recordTime = None)
 
-      val actual = instance.blind(context, aTransactionEntrySummary)
+      val actual = transactionCommitter.blind(context, aTransactionEntrySummary)
 
       actual match {
         case StepContinue(partialResult) =>
@@ -362,22 +385,6 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   }
 
   "rejectionReasonForValidationError" when {
-    val maintainer = "maintainer"
-    val dummyValue = TransactionBuilder.record("field" -> "value")
-
-    def tuple(values: String*) =
-      TransactionBuilder.record(values.zipWithIndex.map { case (v, i) => s"_$i" -> v }: _*)
-
-    def create(contractId: String, key: String = "key"): TransactionBuilder.Create =
-      txBuilder.create(
-        id = contractId,
-        template = "dummyPackage:DummyModule:DummyTemplate",
-        argument = dummyValue,
-        signatories = Seq(maintainer),
-        observers = Seq.empty,
-        key = Some(tuple(maintainer, key)),
-      )
-
     def mkMismatch(
         recorded: (Transaction.Transaction, NodeId),
         replayed: (Transaction.Transaction, NodeId),
@@ -398,7 +405,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         mkReason: String => RejectionReason
     )(mismatch: transaction.ReplayMismatch[NodeId, Value.ContractId]) = {
       val replayMismatch = ReplayMismatch(mismatch)
-      instance.rejectionReasonForValidationError(replayMismatch) shouldBe mkReason(
+      transactionCommitter.rejectionReasonForValidationError(replayMismatch) shouldBe mkReason(
         replayMismatch.msg
       )
     }
@@ -411,11 +418,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       contract = createInput,
       choice = "DummyChoice",
       consuming = false,
-      actingParties = Set(maintainer),
-      argument = dummyValue,
+      actingParties = Set(aKeyMaintainer),
+      argument = aDummyValue,
       byKey = false,
     )
-    val otherKeyCreate = create("#contractWithOtherKey", "otherKey")
+    val otherKeyCreate = create(
+      contractId = "#contractWithOtherKey",
+      signatories = Seq(aKeyMaintainer),
+      keyAndMaintainer = Some("otherKey" -> aKeyMaintainer),
+    )
 
     val lookupNodes @ Seq(lookup1, lookup2, lookupNone, lookupOther @ _) =
       Seq(create1 -> true, create2 -> true, create1 -> false, otherKeyCreate -> true) map {
@@ -500,9 +511,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
 
-      assertThrows[MissingInputState](instance.authorizeSubmitters.apply(context, tx))
+      assertThrows[MissingInputState](transactionCommitter.authorizeSubmitters.apply(context, tx))
     }
 
     "reject a submission when any of the submitters is not known" in {
@@ -514,16 +525,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob)))
 
-      val result = instance.authorizeSubmitters.apply(context, tx)
+      val result = transactionCommitter.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
-      val rejectionReason = result
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry
-        .getPartyNotKnownOnLedger
-        .getDetails
+      val rejectionReason =
+        getTransactionRejectionReason(result).getPartyNotKnownOnLedger.getDetails
       rejectionReason should fullyMatch regex """Submitting party .+ not known"""
     }
 
@@ -536,16 +543,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob)))
 
-      val result = instance.authorizeSubmitters.apply(context, tx)
+      val result = transactionCommitter.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
-      val rejectionReason = result
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry
-        .getSubmitterCannotActViaParticipant
-        .getDetails
+      val rejectionReason =
+        getTransactionRejectionReason(result).getSubmitterCannotActViaParticipant.getDetails
       rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(
         ParticipantId
       )}"""
@@ -561,9 +564,10 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
 
-      instance.authorizeSubmitters.apply(context, tx) shouldBe a[StepContinue[_]]
+      transactionCommitter.authorizeSubmitters
+        .apply(context, tx) shouldBe a[StepContinue[_]]
     }
 
     lazy val Alice = "alice"
@@ -578,21 +582,112 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         .setDisplayName(party)
         .build()
 
-    def hostedParty(party: String): DamlPartyAllocation = partyAllocation(party, ParticipantId)
+    def hostedParty(party: String): DamlPartyAllocation =
+      partyAllocation(party, ParticipantId)
     def notHostedParty(party: String): DamlPartyAllocation =
       partyAllocation(party, OtherParticipantId)
     def createInputs(
         inputs: (String, Option[DamlPartyAllocation])*
     ): Map[DamlStateKey, Option[DamlStateValue]] =
       inputs.map { case (party, partyAllocation) =>
-        DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(
-          DamlStateValue.newBuilder().setParty(_).build()
-        )
+        DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation
+          .map(
+            DamlStateValue.newBuilder().setParty(_).build()
+          )
       }.toMap
   }
 
-  private def createTransactionCommitter(): TransactionCommitter =
-    new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+  "validateContractKeys" should {
+    "return Inconsistent when a contract key resolves to a different contract ID than submitted by a participant" in {
+      def createNode(contractId: String): Create =
+        create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
+
+      def newLookupByKeySubmittedTransaction(found: Boolean): SubmittedTransaction =
+        TransactionBuilder.justSubmitted(
+          txBuilder.lookupByKey(createNode(contractId = s"#$freshContractId"), found)
+        )
+
+      val lookupByKeyNotFound =
+        newLookupByKeySubmittedTransaction(found = false)
+      val lookupByKeyFound1 = newLookupByKeySubmittedTransaction(found = true)
+      val lookupByKeyFound2 = newLookupByKeySubmittedTransaction(found = true)
+
+      val cases = Table(
+        "transaction" -> "contractIdAtCommitter",
+        lookupByKeyNotFound -> Some(s"#$freshContractId"),
+        lookupByKeyFound1 -> Some(s"#$freshContractId"),
+        lookupByKeyFound2 -> None,
+      )
+
+      val key = {
+        val aCreateNode = createNode("#dummy")
+        damlContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
+      }
+      forAll(cases) { (transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
+        val context = commitContextWithContractStateKeys(
+          key -> contractIdAtCommitter
+        )
+        val result =
+          ContractKeysValidation
+            .validateKeys(transactionCommitter)
+            .apply(
+              context,
+              DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
+            )
+        result shouldBe a[StepStop]
+        val rejectionReason =
+          getTransactionRejectionReason(result).getInconsistent.getDetails
+        rejectionReason should startWith("InconsistentKeys")
+      }
+    }
+
+    def contractKeyState(contractId: String): DamlContractKeyState =
+      DamlContractKeyState
+        .newBuilder()
+        .setContractId(contractId)
+        .build()
+
+    def freshContractId: String =
+      s"testContractId-${UUID.randomUUID().toString.take(10)}"
+
+    def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
+      DamlStateKey
+        .newBuilder()
+        .setContractKey(contractKey)
+        .build()
+
+    def contractKeyStateValue(contractId: String): DamlStateValue =
+      DamlStateValue
+        .newBuilder()
+        .setContractKeyState(contractKeyState(contractId))
+        .build()
+
+    def commitContextWithContractStateKeys(
+        contractKeyIdPairs: (DamlContractKey, Option[String])*
+    ): CommitContext =
+      createCommitContext(
+        recordTime = None,
+        inputs = contractKeyIdPairs.map { case (key, id) =>
+          contractStateKey(key) -> id.map(contractKeyStateValue)
+        }.toMap,
+      )
+  }
+
+  private def getTransactionRejectionReason(
+      result: StepResult[DamlTransactionEntrySummary]
+  ): DamlTransactionRejectionEntry =
+    result
+      .asInstanceOf[StepStop]
+      .logEntry
+      .getTransactionRejectionEntry
+
+  private def createTransactionCommitter(): committer.transaction.TransactionCommitter =
+    new committer.transaction.TransactionCommitter(
+      theDefaultConfig,
+      mock[Engine],
+      metrics,
+      inStaticTimeMode = false,
+    )
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
     createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
@@ -617,9 +712,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           .setConfiguration(Configuration.encode(theDefaultConfig))
       )
 
-  private def createTransactionEntry(submitters: List[String]): DamlTransactionEntry = {
+  private def createEmptyTransactionEntry(submitters: List[String]): DamlTransactionEntry =
+    createTransactionEntry(submitters, TransactionBuilder.EmptySubmitted)
+
+  private def createTransactionEntry(submitters: List[String], tx: SubmittedTransaction) =
     DamlTransactionEntry.newBuilder
-      .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
+      .setTransaction(Conversions.encodeTransaction(tx))
       .setSubmitterInfo(
         DamlSubmitterInfo.newBuilder
           .setCommandId("commandId")
@@ -627,5 +725,26 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       )
       .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
       .build
-  }
+
+  private def tuple(values: String*): TransactionBuilder.Value =
+    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
+      s"_$i" -> v
+    }: _*)
+
+  private def create(
+      contractId: String,
+      signatories: Seq[String] = Seq(aKeyMaintainer),
+      argument: TransactionBuilder.Value = aDummyValue,
+      keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
+  ): TransactionBuilder.Create =
+    txBuilder.create(
+      id = contractId,
+      template = "dummyPackage:DummyModule:DummyTemplate",
+      argument = argument,
+      signatories = signatories,
+      observers = Seq.empty,
+      key = keyAndMaintainer.map { case (key, maintainer) =>
+        tuple(maintainer, key)
+      },
+    )
 }
