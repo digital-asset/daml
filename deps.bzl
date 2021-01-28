@@ -225,13 +225,23 @@ def daml_deps():
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
         )
 
-        if "com_github_googleapis_googleapis" not in native.existing_rules():
-            http_archive(
-                name = "com_github_googleapis_googleapis",
-                strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
-                urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
-                sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
-            )
+    if "com_github_googleapis_googleapis" not in native.existing_rules():
+        http_archive(
+            name = "com_github_googleapis_googleapis",
+            strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
+            urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
+            sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+        )
+
+    if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_remote_apis",
+            strip_prefix = "remote-apis-2.0.0",
+            urls = ["https://github.com/bazelbuild/remote-apis/archive/v2.0.0.tar.gz"],
+            sha256 = "79204ed1fa385c03b5235f65b25ced6ac51cf4b00e45e1157beca6a28bdb8043",
+            patches = ["@com_github_digital_asset_daml//:bazel_tools/remote_apis_no_services.patch"],
+            patch_args = ["-p1"],
+        )
 
     # Buildifier.
     # It is written in Go and hence needs rules_go to be available.

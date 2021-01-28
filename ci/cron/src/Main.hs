@@ -3,6 +3,8 @@
 
 module Main (main) where
 
+import qualified BazelCache
+
 import Data.Function ((&))
 import System.FilePath.Posix ((</>))
 
@@ -425,11 +427,13 @@ data CliArgs = Docs
              | Check { bash_lib :: String,
                        gcp_credentials :: Maybe String,
                        max_releases :: Maybe Int }
+             | BazelCache BazelCache.Opts
 
 parser :: Opt.ParserInfo CliArgs
 parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
               (Opt.hsubparser (Opt.command "docs" docs
-                            <> Opt.command "check" check))
+                            <> Opt.command "check" check
+                            <> Opt.command "bazel-cache" bazelCache))
   where info t p = Opt.info (p Opt.<**> Opt.helper) (Opt.progDesc t)
         docs = info "Build & push latest docs, if needed."
                     (pure Docs)
@@ -445,6 +449,30 @@ parser = info "This program is meant to be run by CI cron. You probably don't ha
                                   Opt.option Opt.auto (Opt.long "max-releases"
                                          <> Opt.metavar "INT"
                                          <> Opt.help "Max number of releases to check.")))
+        bazelCache =
+            info "Bazel cache debugging and fixing." $
+            fmap BazelCache $ BazelCache.Opts
+              <$> fmap (\m -> fromInteger (m * 60)) (Opt.option Opt.auto
+                       (Opt.long "age" <>
+                        Opt.help "Maximum age of entries that will be considered in minutes")
+                    )
+              <*> Opt.optional
+                    (Opt.strOption
+                      (Opt.long "cache-suffix" <>
+                      Opt.help "Cache suffix as set by ci/configure-bazel.sh"))
+              <*> Opt.option Opt.auto
+                    (Opt.long "queue-size" <>
+                     Opt.value 128 <>
+                     Opt.help "Size of the queue used to distribute tasks among workers")
+              <*> Opt.option Opt.auto
+                    (Opt.long "concurrency" <>
+                     Opt.value 32 <>
+                     Opt.help "Number of concurrent workers that validate AC entries")
+              <*> fmap BazelCache.Delete
+                    (Opt.switch
+                       (Opt.long "delete" <>
+                        Opt.help "Whether invalid entries should be deleted or just displayed"))
+
 
 main :: IO ()
 main = do
@@ -456,3 +484,4 @@ main = do
           docs sdkDocOpts
           docs damlOnSqlDocOpts
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases
+      BazelCache opts -> BazelCache.run opts

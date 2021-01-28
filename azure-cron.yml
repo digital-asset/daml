@@ -48,6 +48,28 @@ jobs:
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
       - template: ci/tell-slack-failed.yml
 
+  - job: fix_bazel_cache
+    timeoutInMinutes: 120
+    pool:
+      name: 'ubuntu_20_04'
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+
+          bazel build //ci/cron:cron
+          # 90 minutes should provide enough overlap for an hourly
+          # cronjob.
+          ./bazel-bin/ci/cron/cron bazel-cache --age 90 --delete
+        env:
+          AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+          AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      - template: ci/tell-slack-failed.yml
+
   - job: docker_image
     timeoutInMinutes: 60
     pool:
