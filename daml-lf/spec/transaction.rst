@@ -5,7 +5,7 @@
 Daml-LF Transaction Specification
 =================================
 
-**version 11, 21 January 2019**
+**version 11, 21 January 2021**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for *Daml LF
