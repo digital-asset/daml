@@ -170,6 +170,9 @@ da_scala_test(
     resources = glob(["src/it/resources/**/*"]),
     scalacopts = hj_scalacopts,
     silent_annotations = True,
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
     deps = [
         ":http-json",
         "//bazel_tools/runfiles:scala_runfiles",

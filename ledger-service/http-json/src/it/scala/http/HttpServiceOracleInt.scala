@@ -16,7 +16,7 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns {
   // has to be lazy because postgresFixture is NOT initialized yet
   protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "oracle.jdbc.OracleDriver",
-    url = "oracle.jdbc.OracleDriver,url=jdbc:oracle:thin:@//localhost:1521/XEPDB1",
+    url = "jdbc:oracle:thin:@//localhost:1521/XEPDB1",
     user = "someuser",
     password = "verysecret",
     createSchema = true,
