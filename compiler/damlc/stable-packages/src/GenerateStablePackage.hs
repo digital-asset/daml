@@ -82,6 +82,8 @@ main = do
       writePackage daInternalErased optOutputPath
     ModuleName ["DA", "Internal", "PromotedText"] ->
       writePackage daInternalPromotedText optOutputPath
+    ModuleName ["DA", "Set", "Types"] ->
+      writePackage daSetTypes optOutputPath
     _ -> fail $ "Unknown module: " <> show optModule
 
 writePackage :: Package -> FilePath -> IO ()
@@ -509,6 +511,38 @@ daInternalDown = package version1_6 $ NM.singleton Module
       ]
     values = NM.fromList
       [ mkWorkerDef modName downTyCon tyVars [(unpackField, TVar tyVar)]
+      ]
+
+daSetTypes :: Package
+daSetTypes = Package
+    { packageLfVersion = version1_11
+    , packageModules = NM.singleton Module
+        { moduleName = modName
+        , moduleSource = Nothing
+        , moduleFeatureFlags = daml12FeatureFlags
+        , moduleSynonyms = NM.empty
+        , moduleDataTypes = types
+        , moduleValues = values
+        , moduleTemplates = NM.empty
+        , moduleExceptions = NM.empty
+        }
+    , packageMetadata = Just PackageMetadata
+        { packageName = PackageName "daml-stdlib-DA-Set-Types"
+        , packageVersion = PackageVersion "1.0.0"
+        }
+    }
+  where
+    modName = mkModName ["DA", "Set", "Types"]
+    tyCon = mkTypeCon ["Set"]
+    tyVar = mkTypeVar "k"
+    tyVars = [(tyVar, KStar)]
+    mapField = mkField "map"
+    mapType = TGenMap (TVar tyVar) TUnit
+    types = NM.fromList
+      [ DefDataType Nothing tyCon (IsSerializable True) tyVars $ DataRecord [(mapField, mapType)]
+      ]
+    values = NM.fromList
+      [ mkWorkerDef modName tyCon tyVars [(mapField, mapType)]
       ]
 
 daInternalErased :: Package

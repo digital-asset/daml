@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
-
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 #ifndef DAML_GENMAP
 
@@ -59,12 +59,10 @@ module DA.Set
   , difference
   ) where
 
+import DA.Set.Types
 import DA.Map (Map)
 import DA.Map qualified as M
-
--- | The type of a set. This is a wrapper over the `Map` type.
-data Set k = Set with map : Map k ()
-    deriving (Eq, Ord)
+import Prelude hiding (filter, null)
 
 -- | The empty set.
 empty : Set k
@@ -101,11 +99,11 @@ null (Set m) = M.null m
 -- | Insert an element in a set. If the set already contains the
 -- element, this returns the set unchanged.
 insert : Ord k => k -> Set k -> Set k
-insert k (Set m) = Set (M.insert (k, ()) m)
+insert k (Set m) = Set (M.insert k () m)
 
 -- | Filter all elements that satisfy the predicate.
 filter : Ord k => (k -> Bool) -> Set k -> Set k
-filter f (Set m) = Set (M.fromList [ (k, ()) | k <- M.toList m, f k ])
+filter f (Set m) = Set (M.fromList [ (k, ()) | (k, _) <- M.toList m, f k ])
 
 -- | Delete an element from a set.
 delete : Ord k => k -> Set k -> Set k
@@ -130,6 +128,9 @@ intersection s1 s2 = filter (`member` s2) s1
 -- fromList [2, 3]
 difference : Ord k => Set k -> Set k -> Set k
 difference s1 s2 = filter (\x -> not (x `member` s2)) s1
+
+deriving instance Ord k => Eq (Set k)
+deriving instance Ord k => Ord (Set k)
 
 instance (Ord k, Show k) => Show (Set k) where
   show s = "Set " <> show (toList s)

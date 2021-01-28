@@ -362,6 +362,7 @@ baseImports =
           , "DA.Internal.Down"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"
+          , "DA.Set.Types"
           , "DA.Monoid.Types"
           , "DA.Logic.Types"
           , "DA.Validation.Types"
