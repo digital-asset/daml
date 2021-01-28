@@ -8,10 +8,9 @@ import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
 
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
-import com.daml.resources.AbstractResourceOwner
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -39,7 +38,7 @@ private[apiserver] object GrpcServer {
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
-  ): AbstractResourceOwner[ResourceContext, Server] = {
+  ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
     val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
     builder.sslContext(sslContext.orNull)
