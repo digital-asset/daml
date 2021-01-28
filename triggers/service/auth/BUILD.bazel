@@ -57,6 +57,7 @@ da_scala_library(
         ":oauth2-api",
         "//daml-lf/data",
         "//language-support/scala/bindings",
+        "//ledger-service/cli-opts",
         "//ledger-service/jwt",
         "//ledger/cli-opts",
         "//ledger/ledger-api-auth",

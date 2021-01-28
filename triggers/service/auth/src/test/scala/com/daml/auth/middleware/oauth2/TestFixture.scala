@@ -86,7 +86,9 @@ trait TestFixture
           )
         middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
-            port = Port.Dynamic,
+            address = "localhost",
+            port = 0,
+            portFile = None,
             callbackUri = middlewareCallbackUri,
             maxLoginRequests = maxMiddlewareLogins,
             loginTimeout = Config.DefaultLoginTimeout,
