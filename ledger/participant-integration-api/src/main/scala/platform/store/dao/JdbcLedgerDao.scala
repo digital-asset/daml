@@ -218,62 +218,64 @@ private class JdbcLedgerDao(
       configuration: Configuration,
       rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    dbDispatcher.executeSql(
-      metrics.daml.index.db.storeConfigurationEntryDbMetrics
-    ) { implicit conn =>
-      val optCurrentConfig = ParametersTable.getLedgerEndAndConfiguration(conn)
-      val optExpectedGeneration: Option[Long] =
-        optCurrentConfig.map { case (_, c) => c.generation + 1 }
-      val finalRejectionReason: Option[String] =
-        optExpectedGeneration match {
-          case Some(expGeneration)
-              if rejectionReason.isEmpty && expGeneration != configuration.generation =>
-            // If we're not storing a rejection and the new generation is not succ of current configuration, then
-            // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-            // pattern as with transactions.
-            Some(
-              s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}"
+    withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
+      logger.info(s"Storing a configuration entry")
+      dbDispatcher.executeSql(
+        metrics.daml.index.db.storeConfigurationEntryDbMetrics
+      ) { implicit conn =>
+        val optCurrentConfig = ParametersTable.getLedgerEndAndConfiguration(conn)
+        val optExpectedGeneration: Option[Long] =
+          optCurrentConfig.map { case (_, c) => c.generation + 1 }
+        val finalRejectionReason: Option[String] =
+          optExpectedGeneration match {
+            case Some(expGeneration)
+                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+              // If we're not storing a rejection and the new generation is not succ of current configuration, then
+              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+              // pattern as with transactions.
+              Some(
+                s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}"
+              )
+
+            case _ =>
+              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
+              // generation.
+              rejectionReason
+          }
+
+        ParametersTable.updateLedgerEnd(offsetStep)
+        val savepoint = conn.setSavepoint()
+        val configurationBytes = Configuration.encode(configuration).toByteArray
+        val typ = if (finalRejectionReason.isEmpty) {
+          acceptType
+        } else {
+          rejectType
+        }
+
+        Try({
+          SQL_INSERT_CONFIGURATION_ENTRY
+            .on(
+              "ledger_offset" -> offsetStep.offset,
+              "recorded_at" -> recordedAt,
+              "submission_id" -> submissionId,
+              "typ" -> typ,
+              "rejection_reason" -> finalRejectionReason.orNull,
+              "configuration" -> configurationBytes,
             )
+            .execute()
 
-          case _ =>
-            // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
-            // generation.
-            rejectionReason
-        }
+          if (typ == acceptType) {
+            ParametersTable.updateConfiguration(configurationBytes)
+          }
 
-      ParametersTable.updateLedgerEnd(offsetStep)
-      val savepoint = conn.setSavepoint()
-      val configurationBytes = Configuration.encode(configuration).toByteArray
-      val typ = if (finalRejectionReason.isEmpty) {
-        acceptType
-      } else {
-        rejectType
+          PersistenceResponse.Ok
+        }).recover {
+          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+            logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
+            conn.rollback(savepoint)
+            PersistenceResponse.Duplicate
+        }.get
       }
-
-      Try({
-        SQL_INSERT_CONFIGURATION_ENTRY
-          .on(
-            "ledger_offset" -> offsetStep.offset,
-            "recorded_at" -> recordedAt,
-            "submission_id" -> submissionId,
-            "typ" -> typ,
-            "rejection_reason" -> finalRejectionReason.orNull,
-            "configuration" -> configurationBytes,
-          )
-          .execute()
-
-        if (typ == acceptType) {
-          ParametersTable.updateConfiguration(configurationBytes)
-        }
-
-        PersistenceResponse.Ok
-      }).recover {
-        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-          logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
-          conn.rollback(savepoint)
-          PersistenceResponse.Duplicate
-      }.get
-
     }
 
   private val SQL_INSERT_PARTY_ENTRY_ACCEPT =
@@ -294,6 +296,7 @@ private class JdbcLedgerDao(
       offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info(s"Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       ParametersTable.updateLedgerEnd(offsetStep)
       val savepoint = conn.setSavepoint()
@@ -452,21 +455,25 @@ private class JdbcLedgerDao(
 
   override def storeTransactionState(
       preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info("Storing transaction state")
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         preparedInsert.writeState(metrics)(_)
       )
       .map(_ => Ok)(servicesExecutionContext)
+  }
 
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info(s"Storing transaction events")
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         preparedInsert.writeEvents(metrics)(_)
       )
       .map(_ => Ok)(servicesExecutionContext)
+  }
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
@@ -491,20 +498,23 @@ private class JdbcLedgerDao(
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-        validate(ledgerEffectiveTime, transaction, divulged) match {
-          case None =>
-            preparedInsert.writeState(metrics)
-            preparedInsert.writeEvents(metrics)
-            insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
-          case Some(error) =>
-            submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
-        }
+    withEnrichedLoggingContext(Logging.transactionId(transactionId)) { implicit loggingContext =>
+      logger.info(s"Storing transaction")
+      dbDispatcher
+        .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
+          validate(ledgerEffectiveTime, transaction, divulged) match {
+            case None =>
+              preparedInsert.writeState(metrics)
+              preparedInsert.writeEvents(metrics)
+              insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
+            case Some(error) =>
+              submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
+          }
 
-        updateLedgerEnd(offsetStep)
-        Ok
-      }
+          updateLedgerEnd(offsetStep)
+          Ok
+        }
+    }
 
   private def validate(
       ledgerEffectiveTime: Instant,
@@ -544,7 +554,8 @@ private class JdbcLedgerDao(
       recordTime: Instant,
       offsetStep: OffsetStep,
       reason: RejectionReason,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info("Storing rejection")
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
       for (info <- submitterInfo) {
         handleError(offsetStep.offset, info, recordTime, reason)
@@ -552,11 +563,13 @@ private class JdbcLedgerDao(
       ParametersTable.updateLedgerEnd(offsetStep)
       Ok
     }
+  }
 
   override def storeInitialState(
       ledgerEntries: Vector[(Offset, LedgerEntry)],
       newLedgerEnd: Offset,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    logger.info("Storing initial state")
     dbDispatcher.executeSql(metrics.daml.index.db.storeInitialStateFromScenario) {
       implicit connection =>
         queries.enforceSynchronousCommit
@@ -594,6 +607,7 @@ private class JdbcLedgerDao(
         }
         ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
     }
+  }
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
     reason match {
@@ -721,7 +735,8 @@ private class JdbcLedgerDao(
       offsetStep: OffsetStep,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry],
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
         ParametersTable.updateLedgerEnd(offsetStep)
@@ -753,6 +768,7 @@ private class JdbcLedgerDao(
         }
         PersistenceResponse.Ok
     }
+  }
 
   private def uploadLfPackages(uploadId: String, packages: List[(Archive, PackageDetails)])(implicit
       conn: Connection
@@ -987,6 +1003,15 @@ private class JdbcLedgerDao(
 }
 
 private[platform] object JdbcLedgerDao {
+
+  object Logging {
+
+    def submissionId(id: String): (String, String) = "submissionId" -> id
+
+    def transactionId(id: TransactionId): (String, String) =
+      "transactionId" -> id
+
+  }
 
   def readOwner(
       serverRole: ServerRole,
