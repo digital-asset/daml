@@ -111,7 +111,7 @@ message Enum {
 
 message ContractId {
     string contract_id = 1;
-    bool relative = 2;
+    reserved 2; // was relative
 }
 
 message List {

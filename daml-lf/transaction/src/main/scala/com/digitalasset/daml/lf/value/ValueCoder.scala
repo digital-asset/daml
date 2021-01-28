@@ -49,7 +49,7 @@ object ValueCoder {
 
   object CidEncoder extends EncodeCid[ContractId] {
     private[lf] def encode(cid: ContractId): proto.ContractId =
-      proto.ContractId.newBuilder.setRelative(false).setContractId(cid.coid).build
+      proto.ContractId.newBuilder.setContractId(cid.coid).build
   }
 
   abstract class DecodeCid[Cid] private[lf] {

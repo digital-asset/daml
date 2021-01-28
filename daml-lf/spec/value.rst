@@ -451,7 +451,6 @@ A reference to a contract, either absolute or relative.
 As of version 10, these fields are included:
 
 * ``string`` contract_id
-* ``bool`` relative
 
 ``contract_id`` must conform to the regular expression::
 
