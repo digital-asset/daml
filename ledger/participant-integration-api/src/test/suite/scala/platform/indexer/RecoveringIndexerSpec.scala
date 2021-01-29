@@ -45,7 +45,8 @@ final class RecoveringIndexerSpec
 
   "RecoveringIndexer" should {
     "work when the stream completes" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis)
       )
@@ -72,7 +73,8 @@ final class RecoveringIndexerSpec
     }
 
     "work when the stream is stopped" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds)
@@ -103,7 +105,8 @@ final class RecoveringIndexerSpec
     }
 
     "wait until the subscription completes" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis)
       )
@@ -133,7 +136,8 @@ final class RecoveringIndexerSpec
     }
 
     "recover from failure" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 10.millis, 10.millis),
@@ -176,7 +180,8 @@ final class RecoveringIndexerSpec
 
     "respect restart delay" in {
       val restartDelay = 500.millis
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, restartDelay)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, restartDelay)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 0.millis, 0.millis),

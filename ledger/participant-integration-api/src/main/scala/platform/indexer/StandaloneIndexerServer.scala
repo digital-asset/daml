@@ -29,7 +29,11 @@ final class StandaloneIndexerServer(
       metrics,
       lfValueTranslationCache,
     )
-    val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
+    val indexer = new RecoveringIndexer(
+      materializer.system.scheduler,
+      materializer.executionContext,
+      config.restartDelay,
+    )
     config.startupMode match {
       case IndexerStartupMode.MigrateOnly =>
         Resource.unit
