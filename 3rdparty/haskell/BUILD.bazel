@@ -36,7 +36,6 @@ da_haskell_library(
         "//ledger-api/grpc-definitions:google-protobuf-haskellpb-sources",
         "//ledger-api/grpc-definitions:google-rpc-haskellpb-sources",
     ],
-    compiler_flags = ["-Wno-deriving-defaults"],
     hackage_deps = [
         "base",
         "bytestring",

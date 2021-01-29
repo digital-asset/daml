@@ -225,7 +225,6 @@ da_haskell_library(
     ],
     compiler_flags = [
         "-O0",
-        "-Wno-deriving-defaults",
     ],
     hackage_deps = [
         "base",
