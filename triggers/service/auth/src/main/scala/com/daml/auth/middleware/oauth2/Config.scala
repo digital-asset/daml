@@ -70,7 +70,7 @@ object Config {
     new scopt.OptionParser[Config]("oauth-middleware") {
       head("OAuth2 Middleware")
 
-      cliopts.Http.serverParse(this, serviceName = "Trigger")(
+      cliopts.Http.serverParse(this, serviceName = "OAuth2 Middleware")(
         address = (f, c) => c.copy(address = f(c.address)),
         httpPort = (f, c) => c.copy(port = f(c.port)),
         defaultHttpPort = Some(DefaultHttpPort),
