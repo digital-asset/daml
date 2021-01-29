@@ -22,11 +22,12 @@ LF_VERSIONS = [
     "dev",
 ]
 
+# The subset of LF versions accepted by //daml-lf/encoder
+ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
+
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
-# TODO https://github.com/digital-asset/daml/issues/8369
-#  add back 1.12 once the compiler can produce it.
-COMPILER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS if ver != "1.12"]
+COMPILER_LF_VERSIONS = ENCODER_LF_VERSIONS
 
 # We need Any in DAML Script so we require DAML-LF >= 1.7
 SCRIPT_LF_VERSIONS = [ver for ver in COMPILER_LF_VERSIONS if ver != "1.6"]
