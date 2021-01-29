@@ -158,6 +158,8 @@ later.
 +--------------------+-----------------+
 |                 11 |      2021-01-19 |
 +--------------------+-----------------+
+|       (preview) 12 |      2021-01-27 |
++--------------------+-----------------+
 |                dev |      2019-12-14 |
 +--------------------+-----------------+
 
@@ -318,7 +320,7 @@ message Record
 The core primitive for combining `message Value`_ of different type into
 a single value.
 
-As of version 1, these fields are included:
+As of version 10, these fields are included:
 
 * `message Identifier`_ record_id
 * repeated `message RecordField`_ fields
@@ -345,6 +347,10 @@ As of version 1, these fields are included:
    because enumerating it will likely output fields in the wrong
    order; if such a structure is used, you must use the LF record type
    information to output the fields in the correct order.
+
+(*since version 12*)
+
+As of version 12 the `field record_id`_ is not used anymore
 
 message RecordField
 ^^^^^^^^^^^^^^^^^^^
@@ -373,6 +379,10 @@ As of version 10, these fields are included:
    containing record, as declared by the LF record type.  It must be
    supplied in all cases.
 
+(*since version 12*)
+
+As of version 12, the field ``label`` is not used anymore.
+
 message Identifier
 ^^^^^^^^^^^^^^^^^^
 
@@ -380,14 +390,14 @@ message Identifier
 
 A reference to a Daml-LF record or variant type.
 
-As of version 1, these fields are included, all required to be
+As of version 10, these fields are included, all required to be
 non-empty:
 
 * ``string`` package_id
 * repeated ``string`` module_name
 * repeated ``string`` name
 
-  
+
 ``package_id`` is a Daml-LF package ID, indicating the LF package in
 which the type is defined. package ID are restricted to be a
 non-empty string of printable US-ASCII characters (characters ranging
@@ -423,9 +433,13 @@ As of version 10, these fields are included:
 All the fields are required.
 
 .. note: *this section is non-normative*
-  
+
    ``value`` must conform to the LF type selected by the `field
    constructor`_.
+
+(*since version 12*)
+
+As of version 12, the `field variant_id`_ is not used anymore.
 
 field variant_id
 ~~~~~~~~~~~~~~~~
@@ -538,7 +552,11 @@ In this version, these fields are included:
 * `message Identifier`_ enum_id
 * ``string`` value
 
-All fields are required.  
+All fields are required.
+
+(*since version 12*)
+
+As of version 12, the `field enum_id`_ is not used anymore.
 
 .. note: *this section is non-normative*
 

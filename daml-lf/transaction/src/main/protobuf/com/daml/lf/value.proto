@@ -5,8 +5,9 @@
 // which describes the semantics of Daml-LF values in more detail.
 //
 // [one-line] version summary
-// * 6: initial version
-// * 10: genmap
+// * 10: initial version
+// * 11: Generic Map
+// * 12: type erasure
 syntax = "proto3";
 
 package com.daml.lf.value;
@@ -27,8 +28,6 @@ message Value {
         Record record = 1;
 
         Variant variant = 2;
-
-        string contract_id = 3; // removed in v3
 
         List list = 4;
 
@@ -74,18 +73,19 @@ message Value {
 
         Enum enum = 17;
 
-        GenMap gen_map = 18; // *since v 11*
+        GenMap gen_map = 18; // *since version 11*
     }
+    reserved 3; // was `contract_id`
 }
 // architecture-handbook-entry-end: Value
 
 message Record {
-    Identifier record_id = 1; // optional
+    Identifier record_id = 1; // *until version 11*, optional
     repeated RecordField fields = 2;
 }
 
 message RecordField {
-    string label = 1; // optional
+    string label = 1; // *until version 11*, optional
     Value value = 2;
 }
 
@@ -99,19 +99,19 @@ message Identifier {
 }
 
 message Variant {
-    Identifier variant_id = 1; // optional
+    Identifier variant_id = 1; // *until version 11*, optional
     string constructor = 2;
     Value value = 3;
 }
 
 message Enum {
-    Identifier enum_id = 1; // optional
+    Identifier enum_id = 1; // *until version 11*, optional
     string value = 2;
 }
 
 message ContractId {
     string contract_id = 1;
-    reserved 2; // was relative
+    reserved 2; // was `relative`
 }
 
 message List {
@@ -131,7 +131,7 @@ message Map {
     repeated Entry entries = 1;
 }
 
-message GenMap {
+message GenMap { // *since version 11*
     message Entry {
         Value key = 1;
         Value value = 2;

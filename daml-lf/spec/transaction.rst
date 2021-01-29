@@ -179,6 +179,8 @@ later.
 +--------------------+-----------------+
 |                 11 |      2021-01-19 |
 +--------------------+-----------------+
+|       (preview) 12 |      2021-01-27 |
++--------------------+-----------------+
 |                dev |      2020-12-14 |
 +--------------------+-----------------+
 
@@ -225,10 +227,11 @@ to construct that instance.
 As of version 10, these fields are included:
 
 * `message Identifier`_ template_id
-* `message VersionedValue`_ value
+* `message VersionedValue`_ arg_versioned
 * ``string`` agreement
 
-``template_id`` and ``value`` are required; ``agreement`` is optional.
+``template_id`` and ``arg_versioned`` are required; ``agreement`` is
+optional.
 
 ``template_id``'s structure is defined by `the value specification`_.
 
@@ -315,13 +318,22 @@ A contract key paired with its induced maintainers.
 
 As of version 10, these fields are included:
 
-* `message VersionedValue`_ key
+* `message VersionedValue`_ key_versioned
 * repeated ``string`` maintainers
 
-``key`` is required.
+``key_versioned`` is required.
 
 ``maintainers`` must be non-empty, whose elements are party
 identifiers.
+
+(*since version 12*)
+
+As of version 12, this field is included:
+
+* `message Value`_ key_unversioned
+
+``key_unversioned`` is required while ``key_versioned`` is not used
+anymore.
 
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
@@ -358,6 +370,16 @@ identifier.
 
 ``key_with_maintainers`` is optional. 
 
+(*since version 12*)
+
+As of version 12, these fields are included:
+
+* `message Identifier`_ template_id
+* `message VersionedValue`_ arg_unversioned
+* ``string`` agreement
+
+``template_id`` and ``arg_unversioned`` is required while
+``contract_instance`` is not used anymore.
 
 message NodeFetch
 ^^^^^^^^^^^^^^^^^
@@ -401,7 +423,7 @@ message NodeExercise
 The exercise of a choice on a contract, selected from the available
 choices in the associated Daml-LF template definition.
 
-*since version 10*
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -409,12 +431,12 @@ As of version 10, these fields are included:
 * `message Identifier`_ template_id
 * repeated ``string`` actors
 * ``string`` choice
-* `message VersionedValue`_ chosen_value
+* `message VersionedValue`_ arg_versioned
 * ``bool`` consuming
 * repeated ``string`` children
 * repeated ``string`` stakeholders
 * repeated ``string`` signatories
-* `message VersionedValue`_ return_value
+* `message VersionedValue`_ result_versioned
 * `message KeyWithMaintainers`_ key_with_maintainers
 
 ``contract_id_struct`` is required. 
@@ -458,6 +480,16 @@ As version 11, this field is included:
 * repeated ``string`` observers
 
 Every element of ``observers`` is a party identifier.
+
+(* since version 12*)
+
+As version 12, these field are included:
+ 
+* `message VersionedValue`_ arg_unversioned
+* `message VersionedValue`_ result_unversioned
+
+``arg_unversioned`` and ``result_unversioned`` are required, while
+``arg_versioned`` and ``result_versioned`` are not used anymore.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
