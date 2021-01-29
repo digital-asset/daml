@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "f76d0e11e576faeb0b9016d0bb09074e24a45d7e"
-GHCIDE_SHA256 = "8c2e2c52f87afa669eea40a2b8a48f6d4f628ae76ef5a0dc065065a0e9292aa9"
+GHCIDE_REV = "7b5f999febee47a2443f2dd0e7a4b0d82bf1bd83"
+GHCIDE_SHA256 = "b95cd395c2fd32a9b5a7f68d29577e6441f0f49020553cf7ca103d462fe56767"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
@@ -121,7 +121,6 @@ haskell_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
-            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-bounds.patch",
         ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
