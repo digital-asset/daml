@@ -4,66 +4,65 @@
 package com.daml.nonrepudiation.client;
 
 import com.daml.nonrepudiation.Fingerprints;
-import com.daml.nonrepudiation.Signatures;
 import com.daml.nonrepudiation.Headers;
+import com.daml.nonrepudiation.Signatures;
 import io.grpc.*;
-
 import java.security.KeyPair;
 import java.security.PrivateKey;
 
 /**
- * A gRPC client-side interceptor that uses a key pair to sign a payload
- * and adds it as metadata to the call, alongside a fingerprint of the
- * public key and the algorithm used to sign.
+ * A gRPC client-side interceptor that uses a key pair to sign a payload and adds it as metadata to
+ * the call, alongside a fingerprint of the public key and the algorithm used to sign.
  */
 public final class SigningInterceptor implements ClientInterceptor {
 
-    private final PrivateKey key;
-    private final byte[] fingerprint;
-    private final String algorithm;
+  private final PrivateKey key;
+  private final byte[] fingerprint;
+  private final String algorithm;
 
-    public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) {
-        super();
-        this.key = keyPair.getPrivate();
-        this.algorithm = signingAlgorithm;
-        this.fingerprint = Fingerprints.compute(keyPair.getPublic());
-    }
+  public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) {
+    super();
+    this.key = keyPair.getPrivate();
+    this.algorithm = signingAlgorithm;
+    this.fingerprint = Fingerprints.compute(keyPair.getPublic());
+  }
 
-    @Override
-    public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
-                                                               CallOptions callOptions, Channel next) {
-        ClientCall<ReqT, RespT> call = next.newCall(method, callOptions);
-        return new ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(call) {
-            private Listener<RespT> responseListener = null;
-            private Metadata headers = null;
-            private int requested = 0;
+  @Override
+  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
+      MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
+    ClientCall<ReqT, RespT> call = next.newCall(method, callOptions);
+    return new ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(call) {
+      private Listener<RespT> responseListener = null;
+      private Metadata headers = null;
+      private int requested = 0;
 
-            @Override
-            public void start(Listener<RespT> responseListener, Metadata headers) {
-                // Delay start until we have the message body since
-                // the signature in the Metadata depends on the body.
-                this.responseListener = responseListener;
-                this.headers = headers;
-            }
+      @Override
+      public void start(Listener<RespT> responseListener, Metadata headers) {
+        // Delay start until we have the message body since
+        // the signature in the Metadata depends on the body.
+        this.responseListener = responseListener;
+        this.headers = headers;
+      }
 
-            @Override
-            public void request(int numMessages) {
-                // Delay until we have the message body since the
-                // signature in the Metadata depends on the body.
-                requested += numMessages;
-            }
+      @Override
+      public void request(int numMessages) {
+        // Delay until we have the message body since the
+        // signature in the Metadata depends on the body.
+        requested += numMessages;
+      }
 
-            @Override
-            public void sendMessage(ReqT request) {
-                byte[] requestBytes = ByteMarshaller.INSTANCE.parse(method.getRequestMarshaller().stream(request));
-                byte[] signature = Signatures.sign(algorithm, key, requestBytes);
-                headers.put(Headers.SIGNATURE, signature);
-                headers.put(Headers.ALGORITHM, algorithm);
-                headers.put(Headers.FINGERPRINT, fingerprint);
-                delegate().start(responseListener, headers);
-                delegate().request(requested);
-                delegate().sendMessage(request);
-            }
-        };
-    }
+      @Override
+      public void sendMessage(ReqT request) {
+        byte[] requestBytes =
+            ByteMarshaller.INSTANCE.parse(method.getRequestMarshaller().stream(request));
+        byte[] signature = Signatures.sign(algorithm, key, requestBytes);
+        headers.put(Headers.SIGNATURE, signature);
+        headers.put(Headers.ALGORITHM, algorithm);
+        headers.put(Headers.FINGERPRINT, fingerprint);
+        delegate().start(responseListener, headers);
+        delegate().request(requested);
+        delegate().sendMessage(request);
+      }
+    };
+  }
 }

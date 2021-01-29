@@ -14,12 +14,12 @@ import tests.serializable.serializability.Serializable;
 @RunWith(JUnitPlatform.class)
 public class SerializableTest {
 
-    @Test
-    void synthesizedRecordForVariantIsGenerated() {
-        // we only need to access the `Serializability.Serializable` record type
-        // if it's not being generated, it would be a compile error
-        Serializable fromConstructor = new Serializable(42L);
-        Record record = new Record(new Record.Field("field", new Int64(42L)));
-        Assertions.assertEquals(record, fromConstructor.toValue());
-    }
+  @Test
+  void synthesizedRecordForVariantIsGenerated() {
+    // we only need to access the `Serializability.Serializable` record type
+    // if it's not being generated, it would be a compile error
+    Serializable fromConstructor = new Serializable(42L);
+    Record record = new Record(new Record.Field("field", new Int64(42L)));
+    Assertions.assertEquals(record, fromConstructor.toValue());
+  }
 }

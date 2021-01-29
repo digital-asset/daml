@@ -9,19 +9,18 @@ import java.security.PublicKey;
 
 public final class Fingerprints {
 
-    private Fingerprints() {
+  private Fingerprints() {}
+
+  private static final String ALGORITHM = "SHA-256";
+
+  public static byte[] compute(PublicKey key) {
+    try {
+      MessageDigest md = MessageDigest.getInstance(ALGORITHM);
+      byte[] encodedKey = key.getEncoded();
+      return md.digest(encodedKey);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalArgumentException(
+          String.format("Provider for algorithm '%s' not found", ALGORITHM), e);
     }
-
-    private static final String ALGORITHM = "SHA-256";
-
-    public static byte[] compute(PublicKey key) {
-        try {
-            MessageDigest md = MessageDigest.getInstance(ALGORITHM);
-            byte[] encodedKey = key.getEncoded();
-            return md.digest(encodedKey);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalArgumentException(String.format("Provider for algorithm '%s' not found", ALGORITHM), e);
-        }
-    }
-
+  }
 }
