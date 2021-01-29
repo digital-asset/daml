@@ -1,6 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- | Keep in sync with compatibility/bazel_tools/daml_ledger/Sandbox.hs
 module DA.PortFile (readPortFile, maxRetries, retryDelayMillis) where
 
 import Control.Concurrent
