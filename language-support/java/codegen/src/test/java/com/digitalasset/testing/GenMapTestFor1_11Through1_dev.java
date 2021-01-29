@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
-public class GenMapTestFor1_11AndFor1_dev {
+public class GenMapTestFor1_11Through1_dev {
 
     private BigDecimal bg1() {
         return new BigDecimal("1.0000000000");
