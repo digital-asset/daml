@@ -198,7 +198,7 @@ final class RecoveringIndexerSpec
             EventStreamComplete("B"),
             EventStopCalled("B"),
           )
-          readLog() should contain theSameElementsInOrderAs Seq(
+          readLog() should (contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
             Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
             Level.INFO -> "Restarting Indexer Server",
@@ -206,7 +206,15 @@ final class RecoveringIndexerSpec
             Level.INFO -> "Successfully finished processing state updates",
             Level.INFO -> "Stopping Indexer Server",
             Level.INFO -> "Stopped Indexer Server",
-          )
+          ) or contain theSameElementsInOrderAs Seq(
+            Level.INFO -> "Starting Indexer Server",
+            Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Restarted Indexer Server",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
+          ))
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
     }
