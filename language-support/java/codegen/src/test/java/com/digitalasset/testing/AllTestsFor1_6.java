@@ -8,8 +8,7 @@ import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-        DecimalTestForAll.class,
-        EnumTestForForAll.class,
+  DecimalTestForAll.class,
+  EnumTestForForAll.class,
 })
-public class AllTestsFor1_6 {
-}
+public class AllTestsFor1_6 {}

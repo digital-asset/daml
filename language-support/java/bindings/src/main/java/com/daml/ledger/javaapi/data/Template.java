@@ -5,5 +5,5 @@ package com.daml.ledger.javaapi.data;
 
 public abstract class Template {
 
-    public abstract CreateCommand create();
+  public abstract CreateCommand create();
 }

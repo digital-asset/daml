@@ -7,13 +7,12 @@ import com.daml.ledger.api.v1.TransactionFilterOuterClass;
 
 public class NoFilter extends Filter {
 
-    public static final NoFilter instance = new NoFilter();
+  public static final NoFilter instance = new NoFilter();
 
-    private NoFilter() {
-    }
+  private NoFilter() {}
 
-    @Override
-    public TransactionFilterOuterClass.Filters toProto() {
-        return TransactionFilterOuterClass.Filters.getDefaultInstance();
-    }
+  @Override
+  public TransactionFilterOuterClass.Filters toProto() {
+    return TransactionFilterOuterClass.Filters.getDefaultInstance();
+  }
 }

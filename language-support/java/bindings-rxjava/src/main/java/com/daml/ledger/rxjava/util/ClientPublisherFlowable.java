@@ -7,14 +7,15 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.grpc.adapter.client.rs.ClientPublisher;
 import io.grpc.stub.StreamObserver;
 import io.reactivex.Flowable;
+import java.util.function.BiConsumer;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.function.BiConsumer;
-
 public class ClientPublisherFlowable {
-    public static <Req, Resp> Flowable<Resp> create(@NonNull Req request,
-                                                    @NonNull BiConsumer<Req, StreamObserver<Resp>> clientStub,
-                                                    @NonNull ExecutionSequencerFactory executionSequencerFactory) {
-        return Flowable.fromPublisher(new ClientPublisher<>(request, clientStub, executionSequencerFactory));
-    }
+  public static <Req, Resp> Flowable<Resp> create(
+      @NonNull Req request,
+      @NonNull BiConsumer<Req, StreamObserver<Resp>> clientStub,
+      @NonNull ExecutionSequencerFactory executionSequencerFactory) {
+    return Flowable.fromPublisher(
+        new ClientPublisher<>(request, clientStub, executionSequencerFactory));
+  }
 }

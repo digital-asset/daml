@@ -7,13 +7,13 @@ import com.daml.ledger.api.v1.TransactionFilterOuterClass;
 
 public abstract class Filter {
 
-    public static Filter fromProto(TransactionFilterOuterClass.Filters filters) {
-        if (filters.hasInclusive()) {
-            return InclusiveFilter.fromProto(filters.getInclusive());
-        } else {
-            return NoFilter.instance;
-        }
+  public static Filter fromProto(TransactionFilterOuterClass.Filters filters) {
+    if (filters.hasInclusive()) {
+      return InclusiveFilter.fromProto(filters.getInclusive());
+    } else {
+      return NoFilter.instance;
     }
+  }
 
-    public abstract TransactionFilterOuterClass.Filters toProto();
+  public abstract TransactionFilterOuterClass.Filters toProto();
 }
