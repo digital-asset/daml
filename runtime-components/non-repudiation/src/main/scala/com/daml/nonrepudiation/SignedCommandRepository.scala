@@ -10,21 +10,21 @@ import scala.collection.concurrent.TrieMap
 object SignedCommandRepository {
 
   trait Read {
-    def get(command: Array[Byte]): Option[String]
+    def get(command: Array[Byte]): Option[Array[Byte]]
   }
 
   trait Write {
-    def put(command: Array[Byte], signature: String): Unit
+    def put(command: Array[Byte], signature: Array[Byte]): Unit
   }
 
-  final class InMemory() extends SignedCommandRepository {
-    private val map: TrieMap[String, String] = TrieMap.empty
+  final class InMemory extends SignedCommandRepository {
+    private val map: TrieMap[String, Array[Byte]] = TrieMap.empty
 
-    override def put(command: Array[Byte], signature: String): Unit = {
+    override def put(command: Array[Byte], signature: Array[Byte]): Unit = {
       val _ = map.put(BaseEncoding.base64().encode(command), signature)
     }
 
-    override def get(command: Array[Byte]): Option[String] =
+    override def get(command: Array[Byte]): Option[Array[Byte]] =
       map.get(BaseEncoding.base64().encode(command))
   }
 

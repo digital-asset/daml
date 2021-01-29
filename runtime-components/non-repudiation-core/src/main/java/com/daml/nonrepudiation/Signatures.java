@@ -3,22 +3,19 @@
 
 package com.daml.nonrepudiation;
 
-import com.google.common.io.BaseEncoding;
-
 import java.security.*;
 
-public final class Base64Signature {
+public final class Signatures {
 
-    private Base64Signature() {
+    private Signatures() {
     }
 
-    public static String sign(String algorithm, PrivateKey key, byte[] payload) {
+    public static byte[] sign(String algorithm, PrivateKey key, byte[] payload) {
         try {
             Signature signature = Signature.getInstance(algorithm);
             signature.initSign(key);
             signature.update(payload);
-            byte[] signatureBytes = signature.sign();
-            return BaseEncoding.base64().encode(signatureBytes);
+            return signature.sign();
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalArgumentException(String.format("Provider for algorithm '%s' not found", algorithm), e);
         } catch (InvalidKeyException e) {

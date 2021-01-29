@@ -51,7 +51,7 @@ final class NonRepudiationProxySpec
         result shouldEqual Health.getHealthStatus(channel)
 
         inside(signatures.get(Health.Requests.Check.toByteArray)) { case Some(signature) =>
-          signature shouldEqual Base64Signature.sign(
+          signature shouldEqual Signatures.sign(
             SigningAlgorithm,
             keyPair.getPrivate,
             Health.Requests.Check.toByteArray,
