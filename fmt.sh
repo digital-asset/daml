@@ -14,6 +14,7 @@ eval "$(dev-env/bin/dade-assist)"
 ## Config ##
 is_test=
 scalafmt_args=()
+javafmt_args=(--set-exit-if-changed --replace)
 hlint_diff=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
@@ -55,6 +56,7 @@ USAGE
       shift
       is_test=1
       scalafmt_args+=(--test)
+      javafmt_args=(--set-exit-if-changed --dry-run)
       dade_copyright_arg=check
       buildifier_target=//:buildifier
       ;;
@@ -124,6 +126,10 @@ fi
 
 # check for scala code style
 run scalafmt "${scalafmt_args[@]:-}"
+
+# check for java code style
+java_files=$(find . -name "*.java")
+run javafmt "${javafmt_args[@]:-}" ${java_files[@]:-}
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
