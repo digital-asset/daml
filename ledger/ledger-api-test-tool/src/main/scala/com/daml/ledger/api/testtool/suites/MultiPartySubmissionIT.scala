@@ -69,7 +69,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           readAs = List.empty,
           template = MultiPartyContract(PList(alice, bob, charlie), ""),
         )
-        .failed
+        .mustFail("submitting a contract with a missing authorizers")
     } yield {
       assertGrpcError(
         failure,
@@ -116,7 +116,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           exercise =
             contract.exerciseMPAddSignatories(unusedActor, PList(alice, bob, charlie, david)),
         )
-        .failed
+        .mustFail("exercising a choice with a missing authorizers")
     } yield {
       assertGrpcError(
         failure,
@@ -167,7 +167,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           readAs = List(bob, alice),
           exercise = contractB.exerciseMPFetchOther(unusedActor, contractA, PList(charlie, david)),
         )
-        .failed
+        .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
       assertGrpcError(
         failure,
@@ -197,7 +197,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           readAs = List.empty,
           exercise = contractB.exerciseMPFetchOther(unusedActor, contractA, PList(charlie, david)),
         )
-        .failed
+        .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
       assertGrpcError(
         failure,
@@ -248,7 +248,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           readAs = List(bob, alice),
           exercise = contractB.exerciseMPFetchOtherByKey(unusedActor, keyA, PList(charlie, david)),
         )
-        .failed
+        .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
       assertGrpcError(
         failure,
@@ -278,7 +278,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           readAs = List.empty,
           exercise = contractB.exerciseMPFetchOtherByKey(unusedActor, keyA, PList(charlie, david)),
         )
-        .failed
+        .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
       assertGrpcError(
         failure,
@@ -331,7 +331,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           exercise = contractB
             .exerciseMPLookupOtherByKey(unusedActor, keyA, PList(charlie, david), Some(contractA)),
         )
-        .failed
+        .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
       assertGrpcError(
         failure,
@@ -362,7 +362,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           exercise = contractB
             .exerciseMPLookupOtherByKey(unusedActor, keyA, PList(charlie, david), Some(contractA)),
         )
-        .failed
+        .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
       assertGrpcError(
         failure,

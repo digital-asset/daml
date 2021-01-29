@@ -37,7 +37,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       .activeContractsRequest(parties)
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.activeContracts(invalidRequest).failed
+      failure <- ledger.activeContracts(invalidRequest).mustFail("retrieving active contracts")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "not found. Actual Ledger ID")
     }

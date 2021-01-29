@@ -9,7 +9,8 @@ import ai.x.diff.DiffShow
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import io.grpc.Status
 
-import scala.language.higherKinds
+import scala.concurrent.Future
+import scala.language.{higherKinds, implicitConversions}
 import scala.util.control.NonFatal
 
 object Assertions extends DiffExtensions {
@@ -67,4 +68,8 @@ object Assertions extends DiffExtensions {
       if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))),
     )
   }
+
+  /** Allows for assertions with more information in the error messages. */
+  implicit def futureAssertions[T](future: Future[T]): FutureAssertions[T] =
+    new FutureAssertions[T](future)
 }
