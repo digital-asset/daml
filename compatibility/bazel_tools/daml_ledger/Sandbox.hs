@@ -23,7 +23,7 @@ import Safe (readMay)
 import System.Environment (getEnvironment)
 import System.Exit (exitFailure)
 import System.FilePath ((</>))
-import System.IO.Error (isDoesNotExistError)
+import System.IO.Error (isDoesNotExistError, isPermissionError)
 import System.IO.Extra (Handle, IOMode (..), hClose, newTempDir, openBinaryFile, stderr)
 import System.Info.Extra (isWindows)
 import System.Process
