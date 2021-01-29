@@ -48,7 +48,9 @@ final class PackageServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
-      failure <- ledger.getPackage(unknownPackageId).failed
+      failure <- ledger
+        .getPackage(unknownPackageId)
+        .mustFail("getting the contents of an unknown package")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "")
     }

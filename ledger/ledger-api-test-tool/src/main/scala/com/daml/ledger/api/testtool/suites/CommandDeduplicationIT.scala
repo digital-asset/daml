@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, assertSingleton}
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.test.model.DA.Types.Tuple2
@@ -44,7 +44,9 @@ final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerT
       // only one submission is therefore sent to the ledger.
       ledgerEnd1 <- ledger.currentEnd()
       _ <- ledger.submit(requestA1)
-      failure1 <- ledger.submit(requestA1).failed
+      failure1 <- ledger
+        .submit(requestA1)
+        .mustFail("submitting the first request for the second time")
       completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
 
       // Wait until the end of first deduplication window
@@ -57,7 +59,9 @@ final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerT
       // The first submit() in this block should therefore lead to an accepted transaction.
       ledgerEnd2 <- ledger.currentEnd()
       _ <- ledger.submit(requestA2)
-      failure2 <- ledger.submit(requestA2).failed
+      failure2 <- ledger
+        .submit(requestA2)
+        .mustFail("submitting the second request for the second time")
       completions2 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd2)(party))
 
       // Inspect created contracts
@@ -100,10 +104,12 @@ final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerT
 
     for {
       // Submit an invalid command (should fail with INVALID_ARGUMENT)
-      failure1 <- ledger.submit(requestA).failed
+      failure1 <- ledger.submit(requestA).mustFail("submitting an invalid argument")
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
-      failure2 <- ledger.submit(requestA).failed
+      failure2 <- ledger
+        .submit(requestA)
+        .mustFail("submitting an invalid argument for the second time")
     } yield {
       assertGrpcError(failure1, Status.Code.INVALID_ARGUMENT, "")
       assertGrpcError(failure2, Status.Code.INVALID_ARGUMENT, "")
@@ -165,14 +171,18 @@ final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerT
     for {
       // Submit command A (first deduplication window)
       _ <- ledger.submitAndWait(requestA)
-      failure1 <- ledger.submitAndWait(requestA).failed
+      failure1 <- ledger
+        .submitAndWait(requestA)
+        .mustFail("submitting a request for the second time, in the first deduplication window")
 
       // Wait until the end of first deduplication window
       _ <- Delayed.by(deduplicationWindowWait)(())
 
       // Submit command A (second deduplication window)
       _ <- ledger.submitAndWait(requestA)
-      failure2 <- ledger.submitAndWait(requestA).failed
+      failure2 <- ledger
+        .submitAndWait(requestA)
+        .mustFail("submitting a request for the second time, in the second deduplication window")
 
       // Inspect created contracts
       activeContracts <- ledger.activeContracts(party)
@@ -200,11 +210,15 @@ final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerT
     for {
       // Submit a command as alice
       _ <- ledger.submit(aliceRequest)
-      failure1 <- ledger.submit(aliceRequest).failed
+      failure1 <- ledger
+        .submit(aliceRequest)
+        .mustFail("submitting a request as Alice for the second time")
 
       // Submit another command that uses same commandId, but is submitted by Bob
       _ <- ledger.submit(bobRequest)
-      failure2 <- ledger.submit(bobRequest).failed
+      failure2 <- ledger
+        .submit(bobRequest)
+        .mustFail("submitting the same request as Bob, for the second time")
 
       // Wait for command completions and inspect the ledger state
       _ <- ledger.firstCompletions(alice)
@@ -240,11 +254,15 @@ final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerT
     for {
       // Submit a command as alice
       _ <- ledger.submitAndWait(aliceRequest)
-      failure1 <- ledger.submitAndWait(aliceRequest).failed
+      failure1 <- ledger
+        .submitAndWait(aliceRequest)
+        .mustFail("submitting a request as Alice for the second time")
 
       // Submit another command that uses same commandId, but is submitted by Bob
       _ <- ledger.submitAndWait(bobRequest)
-      failure2 <- ledger.submitAndWait(bobRequest).failed
+      failure2 <- ledger
+        .submitAndWait(bobRequest)
+        .mustFail("submitting the same request as Bob, for the second time")
 
       // Inspect the ledger state
       aliceContracts <- ledger.activeContracts(alice)

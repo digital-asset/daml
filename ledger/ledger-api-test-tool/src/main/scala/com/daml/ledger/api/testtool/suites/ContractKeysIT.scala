@@ -47,14 +47,14 @@ final class ContractKeysIT extends LedgerTestSuite {
       // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee
       fetchFailure <- beta
         .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
-        .failed
+        .mustFail("fetching by key with a party that cannot see the contract")
 
       // lookup by key delegation is should fail during validation
       // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
       // but validation determined that this result is wrong as the contract is there.
       lookupByKeyFailure <- beta
         .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
-        .failed
+        .mustFail("looking up by key with a party that cannot see the contract")
     } yield {
       assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       assertGrpcError(
@@ -82,20 +82,20 @@ final class ContractKeysIT extends LedgerTestSuite {
       // Reason: contract not divulged to beta
       fetchFailure <- beta
         .exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
-        .failed
+        .mustFail("fetching a contract with a party that cannot see it")
 
       // fetch by key should fail
       // Reason: Only stakeholders see the result of fetchByKey, beta is only a divulgee
       fetchByKeyFailure <- beta
         .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
-        .failed
+        .mustFail("fetching a contract by key with a party that cannot see it")
 
       // lookup by key should fail
       // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
       // but validation determined that this result is wrong as the contract is there.
       lookupByKeyFailure <- beta
         .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
-        .failed
+        .mustFail("looking up a contract by key with a party that cannot see it")
     } yield {
       assertGrpcError(
         fetchFailure,
@@ -130,17 +130,19 @@ final class ContractKeysIT extends LedgerTestSuite {
       _ <- synchronize(alpha, beta)
 
       // creating a contract with a duplicate key should fail
-      duplicateKeyFailure <- alpha.create(alice, TextKey(alice, key1, List(bob))).failed
+      duplicateKeyFailure <- alpha
+        .create(alice, TextKey(alice, key1, List(bob)))
+        .mustFail("creating a contract with a duplicate key")
 
       // trying to lookup an unauthorized key should fail
       bobLooksUpTextKeyFailure <- beta
         .exercise(bob, bobTKO.exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1)))
-        .failed
+        .mustFail("looking up a contract with an unauthorized key")
 
       // trying to lookup an unauthorized non-existing key should fail
       bobLooksUpBogusTextKeyFailure <- beta
         .exercise(bob, bobTKO.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))
-        .failed
+        .mustFail("looking up a contract with an unauthorized, non-existing key")
 
       // successful, authorized lookup
       _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1)))
@@ -154,7 +156,7 @@ final class ContractKeysIT extends LedgerTestSuite {
       // failing fetch
       aliceFailedFetch <- alpha
         .exercise(alice, aliceTKO.exerciseTKOFetch(_, Tuple2(alice, unknownKey), tk1))
-        .failed
+        .mustFail("fetching a contract by an unknown key")
 
       // now we exercise the contract, thus archiving it, and then verify
       // that we cannot look it up anymore
@@ -170,7 +172,7 @@ final class ContractKeysIT extends LedgerTestSuite {
       // failing create when a maintainer is not a signatory
       maintainerNotSignatoryFailed <- alpha
         .create(alice, MaintainerNotSignatory(alice, bob))
-        .failed
+        .mustFail("creating a contract where a maintainer is not a signatory")
     } yield {
       assertGrpcError(
         duplicateKeyFailure,
@@ -238,7 +240,7 @@ final class ContractKeysIT extends LedgerTestSuite {
 
       failedFetch <- ledger
         .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2))
-        .failed
+        .mustFail("fetching a contract with an unknown key")
 
       // Create a transient contract with a key that is created and archived in same transaction.
       _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(_, key2))
@@ -298,7 +300,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           "TextKeyChoice",
           Value(Value.Sum.Record(Record())),
         )
-        .failed
+        .mustFail("exercising before creation")
       _ <- ledger.create(party, TextKey(party, keyString, List.empty))
       _ <- ledger.exerciseByKey(
         party,
@@ -315,7 +317,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           "TextKeyChoice",
           Value(Value.Sum.Record(Record())),
         )
-        .failed
+        .mustFail("exercising after consuming")
     } yield {
       assertGrpcError(
         failureBeforeCreation,

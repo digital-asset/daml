@@ -20,7 +20,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
         exerciseFailure <- ledger
           .exercise(party, fakeDummyWithParam.exerciseDummyChoice2(_, "txt"))
-          .failed
+          .mustFail("exercising on a wrong type")
       } yield {
         assertGrpcError(exerciseFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
       }
@@ -36,7 +36,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
 
         fetchFailure <- ledger
           .exercise(party, delegation.exerciseFetchDelegated(_, fakeDelegated))
-          .failed
+          .mustFail("fetching the wrong type")
       } yield {
         assertGrpcError(fetchFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
       }

@@ -34,7 +34,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
-      failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
+      failure <- ledger.uploadDarFile(ByteString.EMPTY).mustFail("uploading an empty package")
     } yield {
       assertGrpcError(
         failure,

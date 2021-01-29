@@ -45,9 +45,10 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       invalidRequest = ledger
         .completionStreamRequest()(party)
         .update(_.applicationId := "invalid-application-id")
-      failed <- WithTimeout(5.seconds)(ledger.firstCompletions(invalidRequest)).failed
+      failure <- WithTimeout(5.seconds)(ledger.firstCompletions(invalidRequest))
+        .mustFail("subscribing to completions with an invalid application ID")
     } yield {
-      assert(failed == TimeoutException, "Timeout expected")
+      assert(failure == TimeoutException, "Timeout expected")
     }
   })
 
@@ -63,7 +64,9 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       invalidRequest = ledger
         .completionStreamRequest()(party)
         .update(_.offset := futureOffset)
-      failure <- ledger.firstCompletions(invalidRequest).failed
+      failure <- ledger
+        .firstCompletions(invalidRequest)
+        .mustFail("subscribing to completions past the ledger end")
     } yield {
       assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
     }
@@ -77,9 +80,10 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     val request = ledger.submitRequest(party, Dummy(party).create.command)
     for {
       _ <- ledger.submit(request)
-      failed <- WithTimeout(5.seconds)(ledger.firstCompletions(notTheSubmittingParty)).failed
+      failure <- WithTimeout(5.seconds)(ledger.firstCompletions(notTheSubmittingParty))
+        .mustFail("subscribing to completions with the wrong party")
     } yield {
-      assert(failed == TimeoutException, "Timeout expected")
+      assert(failure == TimeoutException, "Timeout expected")
     }
   })
 
@@ -94,7 +98,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       exercise = dummy.exerciseDummyChoice1(party).command
       wrongExercise = exercise.update(_.exercise.choice := badChoice)
       wrongRequest = ledger.submitRequest(party, wrongExercise)
-      failure <- ledger.submit(wrongRequest).failed
+      failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
       assertGrpcError(
         failure,
@@ -114,7 +118,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       .submitRequest(party, Dummy(party).create.command)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.submit(request).failed
+      failure <- ledger.submit(request).mustFail("submitting with an invalid ledger ID")
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
@@ -129,7 +133,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val emptyRequest = ledger.submitRequest(party)
     for {
-      failure <- ledger.submit(emptyRequest).failed
+      failure <- ledger.submit(emptyRequest).mustFail("submitting an empty command")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
     }

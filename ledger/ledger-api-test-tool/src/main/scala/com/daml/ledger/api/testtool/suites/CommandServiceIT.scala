@@ -153,7 +153,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
       _ <- ledger.submitAndWait(request)
-      failure <- ledger.submitAndWait(request).failed
+      failure <- ledger.submitAndWait(request).mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
     }
@@ -167,7 +167,9 @@ final class CommandServiceIT extends LedgerTestSuite {
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
       _ <- ledger.submitAndWaitForTransactionId(request)
-      failure <- ledger.submitAndWaitForTransactionId(request).failed
+      failure <- ledger
+        .submitAndWaitForTransactionId(request)
+        .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
     }
@@ -181,7 +183,9 @@ final class CommandServiceIT extends LedgerTestSuite {
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
       _ <- ledger.submitAndWaitForTransaction(request)
-      failure <- ledger.submitAndWaitForTransaction(request).failed
+      failure <- ledger
+        .submitAndWaitForTransaction(request)
+        .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
     }
@@ -195,7 +199,9 @@ final class CommandServiceIT extends LedgerTestSuite {
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
       _ <- ledger.submitAndWaitForTransactionTree(request)
-      failure <- ledger.submitAndWaitForTransactionTree(request).failed
+      failure <- ledger
+        .submitAndWaitForTransactionTree(request)
+        .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
     }
@@ -203,7 +209,7 @@ final class CommandServiceIT extends LedgerTestSuite {
 
   test(
     "CSsubmitAndWaitForTransactionIdInvalidLedgerId",
-    "SubmitAndWaitForTransactionId should fail for invalid ledger ids",
+    "SubmitAndWaitForTransactionId should fail for invalid ledger IDs",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
@@ -211,7 +217,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .submitAndWaitRequest(party, Dummy(party).create.command)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.submitAndWaitForTransactionId(request).failed
+      failure <- ledger
+        .submitAndWaitForTransactionId(request)
+        .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
@@ -221,7 +229,7 @@ final class CommandServiceIT extends LedgerTestSuite {
 
   test(
     "CSsubmitAndWaitForTransactionInvalidLedgerId",
-    "SubmitAndWaitForTransaction should fail for invalid ledger ids",
+    "SubmitAndWaitForTransaction should fail for invalid ledger IDs",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
@@ -229,7 +237,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .submitAndWaitRequest(party, Dummy(party).create.command)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.submitAndWaitForTransaction(request).failed
+      failure <- ledger
+        .submitAndWaitForTransaction(request)
+        .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
@@ -247,7 +257,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .submitAndWaitRequest(party, Dummy(party).create.command)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.submitAndWaitForTransactionTree(request).failed
+      failure <- ledger
+        .submitAndWaitForTransactionTree(request)
+        .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
@@ -264,7 +276,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM"))
     val badRequest = ledger.submitAndWaitRequest(party, createWithBadArgument)
     for {
-      failure <- ledger.submitAndWait(badRequest).failed
+      failure <- ledger
+        .submitAndWait(badRequest)
+        .mustFail("submitting a request with a bad parameter label")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, s"Missing record label")
     }
@@ -277,7 +291,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      failure <- ledger.exercise(party, dummy.exerciseFailingClone).failed
+      failure <- ledger
+        .exercise(party, dummy.exerciseFailingClone)
+        .mustFail("submitting a request with an interpretation error")
     } yield {
       assertGrpcError(
         failure,
@@ -427,13 +443,13 @@ final class CommandServiceIT extends LedgerTestSuite {
       for {
         e1 <- ledger
           .submitAndWait(ledger.submitAndWaitRequest(party, rounding(wouldLosePrecision)))
-          .failed
+          .mustFail("submitting a request which would lose precision")
         e2 <- ledger
           .submitAndWait(ledger.submitAndWaitRequest(party, rounding(positiveOutOfBounds)))
-          .failed
+          .mustFail("submitting a request with a positive number out of bounds")
         e3 <- ledger
           .submitAndWait(ledger.submitAndWaitRequest(party, rounding(negativeOutOfBounds)))
-          .failed
+          .mustFail("submitting a request with a negative number out of bounds")
       } yield {
         assertGrpcError(e1, Status.Code.INVALID_ARGUMENT, "Cannot represent")
         assertGrpcError(e2, Status.Code.INVALID_ARGUMENT, "Out-of-bounds (Numeric 10)")
@@ -481,7 +497,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.createAndExercise.createArguments := Record())
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
     for {
-      failure <- ledger.submitAndWait(request).failed
+      failure <- ledger
+        .submitAndWait(request)
+        .mustFail("submitting a request with bad create arguments")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Expecting 1 field for record")
     }
@@ -498,7 +516,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.createAndExercise.choiceArgument := Value(Value.Sum.Bool(false)))
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
     for {
-      failure <- ledger.submitAndWait(request).failed
+      failure <- ledger
+        .submitAndWait(request)
+        .mustFail("submitting a request with bad choice arguments")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "mismatching type")
     }
@@ -516,7 +536,9 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.createAndExercise.choice := missingChoice)
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
     for {
-      failure <- ledger.submitAndWait(request).failed
+      failure <- ledger
+        .submitAndWait(request)
+        .mustFail("submitting a request with an invalid choice")
     } yield {
       assertGrpcError(
         failure,
