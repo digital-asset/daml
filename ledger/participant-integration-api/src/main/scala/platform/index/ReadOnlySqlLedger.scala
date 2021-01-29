@@ -38,13 +38,14 @@ private[platform] object ReadOnlySqlLedger {
       jdbcUrl: String,
       initialLedgerId: LedgerId,
       eventsPageSize: Int,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
       for {
-        ledgerDao <- ledgerDaoOwner().acquire()
+        ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
@@ -94,11 +95,14 @@ private[platform] object ReadOnlySqlLedger {
 
     }
 
-    private def ledgerDaoOwner(): ResourceOwner[LedgerReadDao] =
+    private def ledgerDaoOwner(
+        servicesExecutionContext: ExecutionContext
+    ): ResourceOwner[LedgerReadDao] =
       JdbcLedgerDao.readOwner(
         serverRole,
         jdbcUrl,
         eventsPageSize,
+        servicesExecutionContext,
         metrics,
         lfValueTranslationCache,
       )

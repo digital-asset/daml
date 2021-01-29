@@ -29,8 +29,8 @@ import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[sandbox] trait IndexAndWriteService {
   def indexService: IndexService
@@ -54,6 +54,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       validatePartyAllocation: Boolean = false,
@@ -74,9 +75,10 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter = transactionCommitter,
       startMode = startMode,
       eventsPageSize = eventsPageSize,
+      servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
-      lfValueTranslationCache,
-      validatePartyAllocation,
+      lfValueTranslationCache = lfValueTranslationCache,
+      validatePartyAllocation = validatePartyAllocation,
     ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
 
   def inMemory(

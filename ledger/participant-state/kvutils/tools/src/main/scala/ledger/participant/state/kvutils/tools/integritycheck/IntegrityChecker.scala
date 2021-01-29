@@ -145,16 +145,12 @@ class IntegrityChecker[LogResult](
     println(s"Starting to index ${readService.updateCount()} updates.".white)
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
-        indexerFactory <- ResourceOwner
-          .forFuture(() =>
-            migrateAndStartIndexer(
-              createIndexerConfig(config),
-              readService,
-              metrics,
-              LfValueTranslation.Cache.none,
-            )
-          )
-        indexer <- indexerFactory
+        indexer <- migrateAndStartIndexer(
+          createIndexerConfig(config),
+          readService,
+          metrics,
+          LfValueTranslation.Cache.none,
+        )
         feedHandle <- indexer.subscription(readService)
       } yield (feedHandle, System.nanoTime())
 
@@ -335,16 +331,24 @@ class IntegrityChecker[LogResult](
       resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): Future[ResourceOwner[JdbcIndexer]] = {
-    val indexerFactory = new JdbcIndexer.Factory(
-      ServerRole.Indexer,
-      config,
-      readService,
-      metrics,
-      lfValueTranslationCache,
-    )
-    indexerFactory.migrateSchema(allowExistingSchema = false)
-  }
+  ): ResourceOwner[JdbcIndexer] =
+    for {
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
+      indexerFactory = new JdbcIndexer.Factory(
+        ServerRole.Indexer,
+        config,
+        readService,
+        servicesExecutionContext,
+        metrics,
+        lfValueTranslationCache,
+      )
+      migrating <- ResourceOwner.forFuture(() =>
+        indexerFactory.migrateSchema(allowExistingSchema = false)
+      )
+      migrated <- migrating
+    } yield migrated
 }
 
 object IntegrityChecker {

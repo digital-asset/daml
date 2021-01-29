@@ -23,13 +23,14 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object JdbcIndexer {
   private[daml] final class Factory private[indexer] (
       config: IndexerConfig,
       readService: ReadService,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
       ledgerDaoOwner: ResourceOwner[LedgerDao],
@@ -40,18 +41,21 @@ object JdbcIndexer {
         serverRole: ServerRole,
         config: IndexerConfig,
         readService: ReadService,
+        servicesExecutionContext: ExecutionContext,
         metrics: Metrics,
         lfValueTranslationCache: LfValueTranslation.Cache,
     )(implicit materializer: Materializer, loggingContext: LoggingContext) =
       this(
         config,
         readService,
+        servicesExecutionContext,
         metrics,
         ExecuteUpdate.owner,
         JdbcLedgerDao.writeOwner(
           serverRole,
           config.jdbcUrl,
           config.eventsPageSize,
+          servicesExecutionContext,
           metrics,
           lfValueTranslationCache,
           jdbcAsyncCommits = true,

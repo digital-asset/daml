@@ -27,6 +27,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
         eventsPageSize = eventsPageSize,
+        servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       )
