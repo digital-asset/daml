@@ -5,7 +5,7 @@
 module Main (main) where
 
 import Control.Applicative.Combinators
-import Control.Lens hiding (List)
+import Control.Lens hiding (List, children)
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
@@ -52,7 +52,8 @@ main = do
             | isWindows = pure ()
             | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
-        [ diagnosticTests run runScenarios
+        [ symbolsTests run
+        , diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
         , scriptTests damlcPath scriptDarPath
@@ -706,6 +707,17 @@ regressionTests run _runScenarios = testGroup "regression"
         completions <- getCompletions foo (Position 2 6)
         liftIO $ completions @?= [mkModuleCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
   ]
+
+symbolsTests :: (Session () -> IO ()) -> TestTree
+symbolsTests run =
+    testGroup
+        "getDocumentSymbols"
+        [ testCase "no internal imports for empty module" $
+          run $ do
+              foo <- openDoc' "Foo.daml" damlId $ T.unlines ["module Foo where"]
+              syms <- getDocumentSymbols foo
+              liftIO $ preview (_Left . _head . children . _Just) syms @?= Just (List [])
+        ]
 
 completionTests
     :: (Session () -> IO ())
