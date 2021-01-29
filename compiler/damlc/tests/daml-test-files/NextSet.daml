@@ -2,6 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.3
+-- @UNTIL-LF 1.8
 
 module NextSet where
 
