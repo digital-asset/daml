@@ -16,7 +16,7 @@ module Sandbox
   ) where
 
 import Control.Concurrent (threadDelay)
-import Control.Exception.Safe (catchJust, mask, onException)
+import Control.Exception.Safe (IOException, catchJust, mask, onException)
 import Control.Monad
 import qualified Data.Text.IO as T
 import Safe (readMay)
