@@ -11,13 +11,14 @@ import scala.collection.concurrent.TrieMap
 
 object KeyRepository {
 
+  type Fingerprint <: Array[Byte]
+
   object Fingerprint {
-    def wrap(bytes: Array[Byte]): Fingerprint = new Fingerprint(bytes)
+    def wrap(bytes: Array[Byte]): Fingerprint = bytes.asInstanceOf[Fingerprint]
     def wrap(key: PublicKey): Fingerprint = wrap(Fingerprints.compute(key))
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final class Fingerprint(val bytes: Array[Byte]) extends AnyVal {
+  implicit final class FingerprintBase64(val bytes: Fingerprint) extends AnyVal {
     def base64: String = BaseEncoding.base64().encode(bytes)
   }
 
