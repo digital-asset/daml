@@ -26,7 +26,6 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_h2database_h2",
         "@maven//:org_postgresql_postgresql",
-        "@maven//:org_xerial_sqlite_jdbc",
     ],
     deps = [
         "//daml-lf/data",
