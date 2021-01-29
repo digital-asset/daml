@@ -203,23 +203,17 @@ final class RecoveringIndexerSpec
             EventStreamComplete("B"),
             EventStopCalled("B"),
           )
-          readLog() should (contain theSameElementsInOrderAs Seq(
-            Level.INFO -> "Starting Indexer Server",
-            Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
-            Level.INFO -> "Restarting Indexer Server",
-            Level.INFO -> "Restarted Indexer Server",
-            Level.INFO -> "Successfully finished processing state updates",
-            Level.INFO -> "Stopping Indexer Server",
-            Level.INFO -> "Stopped Indexer Server",
-          ) or contain theSameElementsInOrderAs Seq(
+          // All log items will be in order except this one, which could show up anywhere.
+          // It could finish restarting after stopping, for example.
+          val sequentialLog = readLog().filterNot(_ == Level.INFO -> "Restarted Indexer Server")
+          sequentialLog should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
             Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
             Level.INFO -> "Restarting Indexer Server",
             Level.INFO -> "Successfully finished processing state updates",
-            Level.INFO -> "Restarted Indexer Server",
             Level.INFO -> "Stopping Indexer Server",
             Level.INFO -> "Stopped Indexer Server",
-          ))
+          )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
     }
