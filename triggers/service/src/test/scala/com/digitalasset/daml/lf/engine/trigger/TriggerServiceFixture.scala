@@ -210,7 +210,9 @@ trait AuthMiddlewareFixture
             .withScheme("http")
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
           middlewareConfig = MiddlewareConfig(
-            port = Port.Dynamic,
+            address = "localhost",
+            port = 0,
+            portFile = None,
             callbackUri = None,
             maxLoginRequests = MiddlewareConfig.DefaultMaxLoginRequests,
             loginTimeout = MiddlewareConfig.DefaultLoginTimeout,

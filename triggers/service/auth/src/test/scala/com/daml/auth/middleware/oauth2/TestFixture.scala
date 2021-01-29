@@ -3,6 +3,7 @@
 
 package com.daml.auth.middleware.oauth2
 
+import java.io.File
 import java.time.{Instant, ZoneId}
 import java.util.Date
 
@@ -33,6 +34,7 @@ case class TestResources(
     clock: AdjustableClock,
     authServer: OAuthServer,
     authServerBinding: ServerBinding,
+    authMiddlewarePortFile: File,
     authMiddlewareBinding: ServerBinding,
     authMiddlewareClient: Client,
     authMiddlewareClientBinding: ServerBinding,
@@ -52,6 +54,7 @@ trait TestFixture
   lazy protected val clock: AdjustableClock = suiteResource.value.clock
   lazy protected val server: OAuthServer = suiteResource.value.authServer
   lazy protected val serverBinding: ServerBinding = suiteResource.value.authServerBinding
+  lazy protected val middlewarePortFile: File = suiteResource.value.authMiddlewarePortFile
   lazy protected val middlewareBinding: ServerBinding = suiteResource.value.authMiddlewareBinding
   lazy protected val middlewareClient: Client = suiteResource.value.authMiddlewareClient
   lazy protected val middlewareClientBinding: ServerBinding = {
@@ -84,9 +87,13 @@ trait TestFixture
             serverBinding.localAddress.getHostString,
             serverBinding.localAddress.getPort,
           )
+        tempDir <- Resources.temporaryDirectory()
+        middlewarePortFile = new File(tempDir, "port")
         middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
-            port = Port.Dynamic,
+            address = "localhost",
+            port = 0,
+            portFile = Some(middlewarePortFile.toPath),
             callbackUri = middlewareCallbackUri,
             maxLoginRequests = maxMiddlewareLogins,
             loginTimeout = Config.DefaultLoginTimeout,
@@ -133,6 +140,7 @@ trait TestFixture
         clock = clock,
         authServer = server,
         authServerBinding = serverBinding,
+        authMiddlewarePortFile = middlewarePortFile,
         authMiddlewareBinding = middlewareBinding,
         authMiddlewareClient = middlewareClient,
         authMiddlewareClientBinding = middlewareClientBinding,

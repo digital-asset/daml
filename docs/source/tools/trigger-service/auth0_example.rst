@@ -176,7 +176,8 @@ The ``--callback`` flag defines the middleware's callback URL as exposed through
   DAML_CLIENT_ID="Client_ID" \
   DAML_CLIENT_SECRET="Client_Secret" \
   daml oauth2-middleware \
-    --port 3000 \
+    --address localhost \
+    --http-port 3000 \
     --oauth-auth "OAuth_Authorization_URL" \
     --oauth-token "OAuth_Token_URL" \
     --auth-jwt-rs256-jwks "JSON_Web_Key_Set" \

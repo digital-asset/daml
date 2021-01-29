@@ -3,6 +3,8 @@
 
 package com.daml.auth.middleware.oauth2
 
+import java.io.File
+import java.nio.file.Files
 import java.time.{Clock, Duration, Instant, ZoneId}
 
 import akka.actor.ActorSystem
@@ -16,6 +18,7 @@ import com.daml.clock.AdjustableClock
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.auth.oauth2.test.server.{Server => OAuthServer}
 import com.daml.ports.{LockedFreePort, Port}
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.Future
 
@@ -27,6 +30,13 @@ object Resources {
           Future(())
         )
       }
+    }
+  def temporaryDirectory(): ResourceOwner[File] =
+    new ResourceOwner[File] {
+      override def acquire()(implicit context: ResourceContext): Resource[File] =
+        Resource(Future(Files.createTempDirectory("daml-oauth2-middleware").toFile))(dir =>
+          Future(discard { dir.delete() })
+        )
     }
   def authServerBinding(
       server: OAuthServer

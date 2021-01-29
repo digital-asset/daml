@@ -23,6 +23,8 @@ import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import com.daml.ports.{Port, PortFiles}
+import scalaz.{-\/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -310,7 +312,19 @@ class Server(config: Config) extends StrictLogging {
 
 object Server extends StrictLogging {
   def start(config: Config)(implicit sys: ActorSystem): Future[ServerBinding] = {
-    Http().newServerAt("localhost", config.port.value).bind(new Server(config).route)
+    implicit val ec: ExecutionContext = sys.getDispatcher
+    for {
+      binding <- Http().newServerAt(config.address, config.port).bind(new Server(config).route)
+      _ <- config.portFile match {
+        case Some(portFile) =>
+          PortFiles.write(portFile, Port(binding.localAddress.getPort)) match {
+            case -\/(err) =>
+              Future.failed(new RuntimeException(s"Failed to create port file: ${err.toString}"))
+            case \/-(()) => Future.successful(())
+          }
+        case None => Future.successful(())
+      }
+    } yield binding
   }
 
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
