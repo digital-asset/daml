@@ -111,7 +111,7 @@ private[apiserver] final class ApiSubmissionService private (
   override def submit(request: SubmitRequest): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
-      logger.info(s"Commands: ${request.commands.commands.commands}")
+      logger.trace(s"Commands: ${request.commands.commands.commands}")
       ledgerConfigProvider.latestConfiguration
         .map(deduplicateAndRecordOnLedger(seedService.nextSeed(), request.commands, _))
         .getOrElse(Future.failed(ErrorFactories.missingLedgerConfig()))
