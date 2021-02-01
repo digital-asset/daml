@@ -74,4 +74,12 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
         e
     }
 
+  def debugStream[Out](
+      toLoggable: Out => String
+  )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
+    Flow[Out].map { item =>
+      debug(toLoggable(item))
+      item
+    }
+
 }

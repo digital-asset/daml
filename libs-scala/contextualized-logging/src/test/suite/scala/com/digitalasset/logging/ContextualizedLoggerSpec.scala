@@ -3,12 +3,19 @@
 
 package com.daml.logging
 
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import org.mockito.ArgumentMatchersSugar
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.{EventConstants, Level}
 import org.slf4j.{Logger, Marker}
+import org.slf4j.event.Level
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 final class ContextualizedLoggerSpec
     extends AnyFlatSpec
@@ -25,14 +32,14 @@ final class ContextualizedLoggerSpec
     }
 
   it should "decorate the logs with the provided context" in
-    withContext("id" -> "foobar") { logger => implicit loggingContext =>
+    withContext("id" -> "foobar")() { logger => implicit loggingContext =>
       logger.info("a")
       val m = logger.withoutContext
       verify(m).info(eqTo("a (context: {})"), toStringEqTo[AnyRef]("{id=foobar}"))
     }
 
   it should "pass the context via the markers if a throwable is provided" in
-    withContext("id" -> "foo") { logger => implicit loggingContext =>
+    withContext("id" -> "foo")() { logger => implicit loggingContext =>
       logger.error("a", new IllegalArgumentException("quux"))
       verify(logger.withoutContext).error(
         toStringEqTo[Marker]("{id=foo}"),
@@ -50,7 +57,7 @@ final class ContextualizedLoggerSpec
     }
 
   it should "always pick the context in the most specific scope" in
-    withContext("i1" -> "x") { logger => implicit loggingContext =>
+    withContext("i1" -> "x")() { logger => implicit loggingContext =>
       logger.info("a")
       LoggingContext.withEnrichedLoggingContext("i2" -> "y") { implicit loggingContext =>
         logger.info("b")
@@ -63,7 +70,7 @@ final class ContextualizedLoggerSpec
     }
 
   it should "override with values provided in a more specific scope" in
-    withContext("id" -> "foobar") { logger => implicit loggingContext =>
+    withContext("id" -> "foobar")() { logger => implicit loggingContext =>
       logger.info("a")
       LoggingContext.withEnrichedLoggingContext("id" -> "quux") { implicit loggingContext =>
         logger.info("b")
@@ -76,7 +83,7 @@ final class ContextualizedLoggerSpec
     }
 
   it should "pick the expected context also when executing in a future" in
-    withContext("id" -> "future") { logger => implicit loggingContext =>
+    withContext("id" -> "future")() { logger => implicit loggingContext =>
       import scala.concurrent.ExecutionContext.Implicits.global
       import scala.concurrent.duration.DurationInt
       import scala.concurrent.{Await, Future}
@@ -92,7 +99,7 @@ final class ContextualizedLoggerSpec
     }
 
   it should "drop the context if new context is provided at a more specific scope" in
-    withContext("id" -> "foobar") { logger => implicit loggingContext =>
+    withContext("id" -> "foobar")() { logger => implicit loggingContext =>
       logger.info("a")
       LoggingContext.newLoggingContext { implicit loggingContext =>
         logger.info("b")
@@ -105,13 +112,13 @@ final class ContextualizedLoggerSpec
     }
 
   it should "allow the user to use the underlying logger, foregoing context" in
-    withContext("id" -> "foobar") { logger => _ =>
+    withContext("id" -> "foobar")() { logger => _ =>
       logger.withoutContext.info("foobar")
       verify(logger.withoutContext).info("foobar")
     }
 
   it should "allows users to pick and choose between the contextualized logger and the underlying one" in
-    withContext("id" -> "foobar") { logger => implicit loggingContext =>
+    withContext("id" -> "foobar")() { logger => implicit loggingContext =>
       logger.withoutContext.info("a")
       logger.info("b")
       val m = logger.withoutContext
@@ -119,11 +126,31 @@ final class ContextualizedLoggerSpec
       verify(m).info(eqTo("b (context: {})"), toStringEqTo[AnyRef]("{id=foobar}"))
     }
 
+  it should "debug foreach stream item" in
+    withContext("id" -> "foobar")(Level.DEBUG) { logger => implicit loggingContext =>
+      val items = List(1, 2, 3)
+      def transformation(x: Int): String = s"$x"
+      val system: ActorSystem = ActorSystem("loggerTest")
+      implicit val materializer: Materializer = Materializer(system)
+
+      Await.result(
+        Source(items).via(logger.debugStream(transformation)).runWith(Sink.seq),
+        2.seconds,
+      )
+
+      items.foreach { item =>
+        verify(logger.withoutContext)
+          .debug(eqTo(s"$item (context: {})"), toStringEqTo[AnyRef]("{id=foobar}"))
+      }
+    }
+
   def withEmptyContext(f: ContextualizedLogger => LoggingContext => Unit): Unit =
     LoggingContext.newLoggingContext(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
-  def withContext(kv: (String, String))(f: ContextualizedLogger => LoggingContext => Unit): Unit =
-    LoggingContext.newLoggingContext(kv)(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
+  def withContext(kv: (String, String))(level: Level = Level.INFO)(
+      f: ContextualizedLogger => LoggingContext => Unit
+  ): Unit =
+    LoggingContext.newLoggingContext(kv)(f(ContextualizedLogger.createFor(mockLogger(level))))
 
   def mockLogger(level: Level): Logger = {
     val mocked = mock[Logger]

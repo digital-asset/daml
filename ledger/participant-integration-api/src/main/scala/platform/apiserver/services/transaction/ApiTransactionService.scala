@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -72,18 +72,15 @@ private[apiserver] final class ApiTransactionService private (
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-        .via(logFlowingTransactions)
+        .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
     }
 
-  private def logFlowingTransactions(implicit
-      loggingContext: LoggingContext
-  ): Flow[GetTransactionsResponse, GetTransactionsResponse, NotUsed] =
-    Flow[GetTransactionsResponse].map { response =>
-      val transactionIds = response.transactions.map(_.transactionId)
-      logger.debug(s"Responding with transactions: ${transactionIds.mkString("[", ", ", "]")}")
-      response
-    }
+  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
+    s"Responding with transactions: ${transactions.transactions.map(_.transactionId).mkString("[", ",", "]")}"
+
+  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
+    s"Responding with transaction trees: ${trees.transactions.map(_.transactionId).mkString("[", ",", "]")}"
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
@@ -101,17 +98,8 @@ private[apiserver] final class ApiTransactionService private (
           TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
           request.verbose,
         )
-        .via(logFlowingTransactionTrees)
+        .via(logger.debugStream(transactionTreesLoggable))
         .via(logger.logErrorsOnStream)
-    }
-
-  private def logFlowingTransactionTrees(implicit
-      loggingContext: LoggingContext
-  ): Flow[GetTransactionTreesResponse, GetTransactionTreesResponse, NotUsed] =
-    Flow[GetTransactionTreesResponse].map { response =>
-      val transactionIds = response.transactions.map(_.transactionId)
-      logger.debug(s"Responding with transaction trees: ${transactionIds.mkString("[", ", ", "]")}")
-      response
     }
 
   override def getTransactionByEventId(
