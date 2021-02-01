@@ -9,16 +9,16 @@ import io.grpc.{Channel, Server, ServerBuilder}
 
 object NonRepudiationProxy {
 
-  def owner[Context: HasExecutionContext](
+  def owner[Context: HasExecutionContext, Key](
       participant: Channel,
       serverBuilder: ServerBuilder[_],
       keyRepository: KeyRepository.Read,
-      signedCommandRepository: SignedCommandRepository.Write,
+      signedPayloadRepository: SignedPayloadRepository[Key],
       serviceName: String,
       serviceNames: String*
   ): AbstractResourceOwner[Context, Server] = {
     val signatureVerification =
-      new SignatureVerificationInterceptor(keyRepository, signedCommandRepository)
+      new SignatureVerificationInterceptor(keyRepository, signedPayloadRepository)
     ReverseProxy.owner(
       backend = participant,
       serverBuilder = serverBuilder,

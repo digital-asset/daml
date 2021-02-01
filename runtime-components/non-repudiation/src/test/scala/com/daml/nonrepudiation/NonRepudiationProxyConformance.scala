@@ -36,7 +36,7 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
   it should "pass all conformance tests" in {
     implicit val context: ResourceContext = ResourceContext(executionContext)
     val config = SandboxConfig.defaultConfig.copy(port = Port.Dynamic)
-    val Setup(keys, signatures, proxyBuilder, proxyChannel) = Setup.newInstance
+    val Setup(keys, signedPayloads, proxyBuilder, proxyChannel) = Setup.newInstance[CommandIdString]
     val keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair()
     keys.put(keyPair.getPublic)
 
@@ -50,11 +50,11 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
           sandboxChannelBuilder,
           shutdownTimeout = 5.seconds,
         )
-        proxy <- NonRepudiationProxy.owner[ResourceContext](
+        proxy <- NonRepudiationProxy.owner[ResourceContext, CommandIdString](
           sandboxChannel,
           proxyBuilder,
           keys,
-          signatures,
+          signedPayloads,
           CommandService.scalaDescriptor.fullName,
           CommandSubmissionService.scalaDescriptor.fullName,
         )
@@ -65,7 +65,7 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
         testCases = ConformanceTestCases,
         participants = Vector(proxyChannel),
         commandInterceptors = Seq(
-          new SigningInterceptor(keyPair, SigningAlgorithm)
+          new SigningInterceptor(keyPair, AlgorithmString.SHA256withRSA)
         ),
       )
 

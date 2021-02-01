@@ -10,6 +10,9 @@ load(
 da_scala_library(
     name = "non-repudiation",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = [
+        "//:__subpackages__",
+    ],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/grpc-reverse-proxy",
@@ -53,6 +56,7 @@ da_scala_test(
         "//libs-scala/resources-grpc",
         "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-core",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
