@@ -206,6 +206,7 @@ final class JdbcIndexerSpec
         any[LedgerDao],
         eqTo(metrics),
         eqTo(participantId),
+        any[Int],
         any[ExecutionContext],
         any[LoggingContext],
       )

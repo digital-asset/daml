@@ -34,6 +34,7 @@ object ExecuteUpdate {
         LedgerDao,
         Metrics,
         v1.ParticipantId,
+        Int,
         ExecutionContext,
         LoggingContext,
     ) => ResourceOwner[ExecuteUpdate]
@@ -43,6 +44,7 @@ object ExecuteUpdate {
       ledgerDao: LedgerDao,
       metrics: Metrics,
       participantId: v1.ParticipantId,
+      updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[ExecuteUpdate] =
@@ -52,6 +54,7 @@ object ExecuteUpdate {
           ledgerDao,
           metrics,
           participantId,
+          updatePreparationParallelism,
           executionContext,
           loggingContext,
         )
@@ -60,6 +63,7 @@ object ExecuteUpdate {
           ledgerDao,
           metrics,
           participantId,
+          updatePreparationParallelism,
           executionContext,
           loggingContext,
         )
@@ -77,6 +81,8 @@ trait ExecuteUpdate {
   private[indexer] def ledgerDao: LedgerDao
 
   private[indexer] def metrics: Metrics
+
+  private[indexer] def updatePreparationParallelism: Int
 
   private[indexer] def flow: ExecuteUpdateFlow
 
@@ -300,6 +306,7 @@ class PipelinedExecuteUpdate(
     private[indexer] val ledgerDao: LedgerDao,
     private[indexer] val metrics: Metrics,
     private[indexer] val participantId: v1.ParticipantId,
+    private[indexer] val updatePreparationParallelism: Int,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
 
@@ -373,7 +380,7 @@ class PipelinedExecuteUpdate(
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
-      .mapAsync(2)(prepareUpdate)
+      .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .buffer(16, OverflowStrategy.backpressure)
       .map(PipelinedUpdateWithTimer(_, metrics.daml.index.db.storeTransaction.time()))
       .mapAsync(1)(insertTransactionState)
@@ -387,11 +394,12 @@ object PipelinedExecuteUpdate {
       ledgerDao: LedgerDao,
       metrics: Metrics,
       participantId: v1.ParticipantId,
+      updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[PipelinedExecuteUpdate] =
     ResourceOwner.forValue(() =>
-      new PipelinedExecuteUpdate(ledgerDao, metrics, participantId)(
+      new PipelinedExecuteUpdate(ledgerDao, metrics, participantId, updatePreparationParallelism)(
         executionContext,
         loggingContext,
       )
@@ -408,6 +416,7 @@ class AtomicExecuteUpdate(
     private[indexer] val ledgerDao: LedgerDao,
     private[indexer] val metrics: Metrics,
     private[indexer] val participantId: v1.ParticipantId,
+    private[indexer] val updatePreparationParallelism: Int,
 )(
     private[indexer] implicit val loggingContext: LoggingContext,
     private[indexer] val executionContext: ExecutionContext,
@@ -415,7 +424,7 @@ class AtomicExecuteUpdate(
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
-      .mapAsync(1)(prepareUpdate)
+      .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
         withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
           implicit loggingContext =>
@@ -467,10 +476,14 @@ object AtomicExecuteUpdate {
       ledgerDao: LedgerDao,
       metrics: Metrics,
       participantId: v1.ParticipantId,
+      updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[AtomicExecuteUpdate] =
     ResourceOwner.forValue(() =>
-      new AtomicExecuteUpdate(ledgerDao, metrics, participantId)(loggingContext, executionContext)
+      new AtomicExecuteUpdate(ledgerDao, metrics, participantId, updatePreparationParallelism)(
+        loggingContext,
+        executionContext,
+      )
     )
 }
