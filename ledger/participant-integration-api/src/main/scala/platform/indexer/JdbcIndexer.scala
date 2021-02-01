@@ -97,6 +97,7 @@ object JdbcIndexer {
           ledgerDao,
           metrics,
           config.participantId,
+          config.updatePreparationParallelism,
           materializer.executionContext,
           loggingContext,
         )

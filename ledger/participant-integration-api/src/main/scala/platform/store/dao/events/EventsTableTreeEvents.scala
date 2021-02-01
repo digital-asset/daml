@@ -13,7 +13,7 @@ private[events] object EventsTableTreeEvents {
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     EventsTable.createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
@@ -29,10 +29,12 @@ private[events] object EventsTableTreeEvents {
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
+            createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
             createObservers = ArraySeq.unsafeWrapArray(createObservers),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyValueCompression = createKeyValueCompression,
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
           ),
         )
@@ -40,7 +42,7 @@ private[events] object EventsTableTreeEvents {
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     EventsTable.exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
@@ -58,7 +60,9 @@ private[events] object EventsTableTreeEvents {
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
+            exerciseArgumentCompression = exerciseArgumentCompression,
             exerciseResult = exerciseResult,
+            exerciseResultCompression = exerciseResultCompression,
             exerciseActors = ArraySeq.unsafeWrapArray(exerciseActors),
             exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
@@ -80,14 +84,18 @@ private[events] object EventsTableTreeEvents {
     "template_id",
     "workflow_id",
     "create_argument",
+    "create_argument_compression",
     "create_signatories",
     "create_observers",
     "create_agreement_text",
     "create_key_value",
+    "create_key_value_compression",
     "exercise_consuming",
     "exercise_choice",
     "exercise_argument",
+    "exercise_argument_compression",
     "exercise_result",
+    "exercise_result_compression",
     "exercise_actors",
     "exercise_child_event_ids",
   ).mkString(", ")

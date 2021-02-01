@@ -934,8 +934,21 @@ private class JdbcLedgerDao(
   private val translation: LfValueTranslation =
     new LfValueTranslation(lfValueTranslationCache)
 
+  private val compressionStrategy: CompressionStrategy =
+    CompressionStrategy.AllGZIP
+
+  private val compressionMetrics: CompressionMetrics =
+    CompressionMetrics(metrics)
+
   private val transactionsWriter: TransactionsWriter =
-    new TransactionsWriter(dbType, metrics, translation, idempotentEntryInserts)
+    new TransactionsWriter(
+      dbType,
+      metrics,
+      translation,
+      compressionStrategy,
+      compressionMetrics,
+      idempotentEntryInserts,
+    )
 
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
