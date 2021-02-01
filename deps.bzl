@@ -196,13 +196,27 @@ def daml_deps():
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.23.1",
-            urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
-            sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
+            strip_prefix = "grpc-1.34.1",
+            urls = ["https://github.com/grpc/grpc/archive/v1.34.1.tar.gz"],
+            sha256 = "c260a1dcdd26a78a9596494a3f41f9594ab5ec3a4d65cba4658bdee2b55ac844",
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-apple.patch",
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
-                "@com_github_digital_asset_daml//bazel_tools:grpc-gettid.patch",
+                "@com_github_digital_asset_daml//bazel_tools:grpc-upbdefs.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
+    if "com_google_absl" not in native.existing_rules():
+        http_archive(
+            name = "com_google_absl",
+            sha256 = "3d74cdc98b42fd4257d91f652575206de195e2c824fcd8d6e6d227f85cb143ef",
+            strip_prefix = "abseil-cpp-0f3bb466b868b523cf1dc9b2aaaed65c77b28862",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
+                "https://github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
+            ],
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw.patch",
             ],
             patch_args = ["-p1"],
         )
