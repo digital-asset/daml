@@ -13,7 +13,7 @@ object NonRepudiationProxy {
       participant: Channel,
       serverBuilder: ServerBuilder[_],
       keyRepository: KeyRepository.Read,
-      signedPayloadRepository: SignedPayloadRepository[Key],
+      signedPayloadRepository: SignedPayloadRepository.Write,
       serviceName: String,
       serviceNames: String*
   ): AbstractResourceOwner[Context, Server] = {
