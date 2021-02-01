@@ -328,6 +328,8 @@ data BuiltinExpr
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
+  | BEEncodeBase64Text           -- :: Text -> Text
+  | BEDecodeBase64Text           -- :: Text -> Optional Text
   | BEPartyFromText              -- :: Text -> Optional Party
   | BEInt64FromText              -- :: Text -> Optional Int64
   | BEDecimalFromText            -- :: Text -> Optional Decimal

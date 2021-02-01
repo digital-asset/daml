@@ -285,6 +285,8 @@ instance Pretty BuiltinExpr where
     BEExplodeText -> "EXPLODE_TEXT"
     BEImplodeText -> "IMPLODE_TEXT"
     BESha256Text -> "SHA256_TEXT"
+    BEEncodeBase64Text -> "ENCODE_BASE64_TEXT"
+    BEDecodeBase64Text -> "DECODE_BASE64_TEXT"
     BETrace -> "TRACE"
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
     BEPartyFromText -> "FROM_TEXT_PARTY"

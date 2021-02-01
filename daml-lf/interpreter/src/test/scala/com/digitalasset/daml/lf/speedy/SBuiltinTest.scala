@@ -512,6 +512,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
+    val loremIpsum =
+      """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+        |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
+        |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+        |aliquip ex ea commodo consequat. Duis aute irure dolor in
+        |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+        |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+        |culpa qui officia deserunt mollit anim id est laborum..."""
+        .replaceAll("\r", "")
+        .stripMargin
+
     "SHA256_TEXT" - {
       "work as expected" in {
         val testCases = Table(
@@ -520,21 +531,67 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ->
             "cd372fb85148700fa88095e3492d3f9f5beb43e555e5ff26d95f5a6adc36f8e6",
-          """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-            |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
-            |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            |aliquip ex ea commodo consequat. Duis aute irure dolor in
-            |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-            |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            |culpa qui officia deserunt mollit anim id est laborum..."""
-            .replaceAll("\r", "")
-            .stripMargin ->
+          loremIpsum ->
             "c045064089460b634bb47e71d2457cd0e8dbc1327aaf9439c275c9796c073620",
           "a¶‱😂" ->
             "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e",
         )
         forEvery(testCases) { (input, output) =>
           eval(e"""SHA256_TEXT "$input"""") shouldBe Right(SText(output))
+        }
+
+      }
+    }
+    
+    val loremIpsumBase64 =
+      """TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2Npbmcg
+        |ZWxpdCwgc2VkIGRvCmVpdXNtb2QgdGVtcG9yIGluY2lkaWR1bnQgdXQgbGFib3JlIGV0
+        |IGRvbG9yZSBtYWduYSBhbGlxdWEuIFV0IGVuaW0gYWQKbWluaW0gdmVuaWFtLCBxdWlz
+        |IG5vc3RydWQgZXhlcmNpdGF0aW9uIHVsbGFtY28gbGFib3JpcyBuaXNpIHV0CmFsaXF1
+        |aXAgZXggZWEgY29tbW9kbyBjb25zZXF1YXQuIER1aXMgYXV0ZSBpcnVyZSBkb2xvciBp
+        |bgpyZXByZWhlbmRlcml0IGluIHZvbHVwdGF0ZSB2ZWxpdCBlc3NlIGNpbGx1bSBkb2xv
+        |cmUgZXUgZnVnaWF0IG51bGxhCnBhcmlhdHVyLiBFeGNlcHRldXIgc2ludCBvY2NhZWNh
+        |dCBjdXBpZGF0YXQgbm9uIHByb2lkZW50LCBzdW50IGluCmN1bHBhIHF1aSBvZmZpY2lh
+        |IGRlc2VydW50IG1vbGxpdCBhbmltIGlkIGVzdCBsYWJvcnVtLi4u"""
+        .replaceAll("\r", "")
+        .stripMargin
+        .replaceAll("\n", "")
+
+    "ENCODE_BASE64_TEXT" - {
+      "work as expected" in {
+        val testCases = Table(
+          "input" -> "output",
+          "" ->
+            "",
+          loremIpsum ->
+            loremIpsumBase64,
+          "a¶‱😂" ->
+            "YcK24oCx8J+Ygg==",
+        )
+        forEvery(testCases) { (input, output) =>
+          eval(e"""ENCODE_BASE64_TEXT "$input"""") shouldBe Right(SText(output))
+        }
+
+      }
+    }
+
+    "DECODE_BASE64_TEXT" - {
+      "work as expected" in {
+        def some(str:String) = SOptional(Some(SText(str)))
+        val none = SOptional(None)
+        val testCases = Table(
+          "input" -> "output",
+          "" ->
+            some(""),
+          loremIpsumBase64 ->
+            some(loremIpsum),
+          "YcK24oCx8J+Ygg==" ->
+            some("a¶‱😂"),
+          "abc!" ->
+            none,
+        )
+        forEvery(testCases) { (input, output) =>
+          eval(e"""DECODE_BASE64_TEXT "$input"""") shouldBe Right(output)
         }
 
       }

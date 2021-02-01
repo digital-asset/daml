@@ -515,6 +515,8 @@ encodeBuiltinExpr = \case
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
     BEImplodeText -> builtin P.BuiltinFunctionIMPLODE_TEXT
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
+    BEEncodeBase64Text -> builtin P.BuiltinFunctionENCODE_BASE64_TEXT
+    BEDecodeBase64Text -> builtin P.BuiltinFunctionDECODE_BASE64_TEXT
 
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE

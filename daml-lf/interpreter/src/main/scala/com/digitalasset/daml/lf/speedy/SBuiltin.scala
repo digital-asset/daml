@@ -439,6 +439,28 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBEncodeBase64Text extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SText(t) => SText(Utf8.encodeBase64(t))
+        case _ =>
+          throw SErrorCrash(s"type mismatch textEncodeBase64: $args")
+      }
+    }
+  }
+
+
+  final case object SBDecodeBase64Text extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SText(t) =>
+          SOptional(Utf8.decodeBase64(t).map(SText(_)))
+        case _ =>
+          throw SErrorCrash(s"type mismatch textDecodeBase64: $args")
+      }
+    }
+  }
+
   final case object SBFoldl extends SBuiltin(3) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],

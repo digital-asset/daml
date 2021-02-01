@@ -5,6 +5,7 @@ package com.daml.lf
 package data
 
 import java.security.MessageDigest
+import java.nio.charset.StandardCharsets
 
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -42,6 +43,19 @@ object Utf8 {
     val digest = MessageDigest.getInstance("SHA-256")
     digest.update(getBytes(s).toByteBuffer)
     BaseEncoding.base16().lowerCase().encode(digest.digest())
+  }
+
+  def encodeBase64(s: String): String = {
+    BaseEncoding.base64().encode(s.getBytes())
+  }
+
+  def decodeBase64(s: String): Option[String] = {
+    try {
+      val bytes = BaseEncoding.base64().decode(s)
+      Some(new String(bytes, StandardCharsets.UTF_8))
+    } catch {
+      case _: Throwable => None
+    }
   }
 
   def implode(ts: ImmArray[String]): String =

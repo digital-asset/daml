@@ -468,6 +468,8 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEXPLODE_TEXT -> BEExplodeText
   LF1.BuiltinFunctionIMPLODE_TEXT -> BEImplodeText
   LF1.BuiltinFunctionSHA256_TEXT  -> BESha256Text
+  LF1.BuiltinFunctionENCODE_BASE64_TEXT -> BEEncodeBase64Text
+  LF1.BuiltinFunctionDECODE_BASE64_TEXT -> BEDecodeBase64Text
 
   LF1.BuiltinFunctionDATE_TO_UNIX_DAYS -> BEDateToUnixDays
   LF1.BuiltinFunctionUNIX_DAYS_TO_DATE -> BEUnixDaysToDate

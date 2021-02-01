@@ -191,6 +191,8 @@ private[validation] object Typing {
       BToTextDate -> (TDate ->: TText),
       BToTextContractId -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
       BSHA256Text -> (TText ->: TText),
+      BEncodeBase64Text -> (TText ->: TText),
+      BDecodeBase64Text -> (TText ->: TOptional(TText)),
       BToQuotedTextParty -> (TParty ->: TText),
       BToTextCodePoints -> (TList(TInt64) ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),

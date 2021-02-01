@@ -501,6 +501,8 @@ private[lf] final class Compiler(
           case BFromTextCodePoints => SBFromTextCodePoints
 
           case BSHA256Text => SBSHA256Text
+          case BEncodeBase64Text => SBEncodeBase64Text
+          case BDecodeBase64Text => SBDecodeBase64Text
 
           // List functions
           case BFoldl => SBFoldl

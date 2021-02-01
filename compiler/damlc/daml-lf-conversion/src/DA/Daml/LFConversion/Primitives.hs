@@ -135,6 +135,10 @@ convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     EBuiltin BETrace `ETyApp` a1
 convertPrim _ "BESha256Text" (TText :-> TText) =
     EBuiltin BESha256Text
+convertPrim _ "BEEncodeBase64Text" (TText :-> TText) =
+    EBuiltin BEEncodeBase64Text
+convertPrim _ "BEDecodeBase64Text" (TText :-> TOptional TText) =
+    EBuiltin BEDecodeBase64Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
 convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =

@@ -422,6 +422,8 @@ object Ast {
   final case object BFromTextCodePoints extends BuiltinFunction(1) // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction(arity = 1) // : Text -> Text
+  final case object BEncodeBase64Text extends BuiltinFunction(arity = 1) // : Text -> Text
+  final case object BDecodeBase64Text extends BuiltinFunction(arity = 1) // : Text -> Optional Text
 
   // Errors
   final case object BError extends BuiltinFunction(1) // : ∀a. Text → a

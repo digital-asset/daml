@@ -328,6 +328,15 @@ parseDecimal = primitive @"BEDecimalFromText"
 sha256 : Text -> Text
 sha256 = primitive @"BESha256Text"
 
+-- | Computes the Base64 encoding of the `Text`.
+encodeBase64 : Text -> Text
+encodeBase64 = primitive @"BEEncodeBase64Text"
+
+-- | Decodes Base64 encoding to `Text`.
+--
+-- Returns `None` if input is not valid Base64.
+decodeBase64 : Text -> Optional Text
+decodeBase64 = primitive @"BEDecodeBase64Text"
 
 -- | Reverse some `Text`.
 -- ```

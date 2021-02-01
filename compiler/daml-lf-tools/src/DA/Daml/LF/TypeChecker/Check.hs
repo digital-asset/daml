@@ -273,6 +273,8 @@ typeOfBuiltin = \case
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
   BESha256Text       -> pure $ TText :-> TText
+  BEEncodeBase64Text -> pure $ TText :-> TText
+  BEDecodeBase64Text -> pure $ TText :-> TOptional TText
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $

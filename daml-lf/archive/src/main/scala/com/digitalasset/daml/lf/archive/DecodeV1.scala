@@ -1726,6 +1726,8 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(FROM_TEXT_NUMERIC, BFromTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BFromTextCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
+      BuiltinFunctionInfo(ENCODE_BASE64_TEXT, BEncodeBase64Text),
+      BuiltinFunctionInfo(DECODE_BASE64_TEXT, BDecodeBase64Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),

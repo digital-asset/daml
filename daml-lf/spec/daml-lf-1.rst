@@ -3700,6 +3700,15 @@ String functions
   hashing of the UTF-8 string and returns it encoded as a Hexadecimal
   string (lower-case).
 
+* ``ENCODE_BASE64_TEXT : 'Text' → 'Text'``
+
+  Performs Base64 encoding of the UTF-8 string.
+
+* ``DECODE_BASE64_TEXT : 'Text' → 'Optional' 'Text'``
+
+  Decodes a Base64 encoded UTF-8 string.
+  Returns ``'None'`` if the input is not in valid Base64 scheme.
+
 * ``LESS_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
   Returns ``'True'`` if the first string is lexicographically less
