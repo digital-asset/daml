@@ -717,6 +717,23 @@ symbolsTests run =
               foo <- openDoc' "Foo.daml" damlId $ T.unlines ["module Foo where"]
               syms <- getDocumentSymbols foo
               liftIO $ preview (_Left . _head . children . _Just) syms @?= Just (List [])
+        , testCase "no internal imports for module with one template" $
+          run $ do
+              foo <-
+                  openDoc' "Foo.daml" damlId $
+                  T.unlines
+                      [ "module Foo where"
+                      , "template T with p1 : Party where"
+                      , "  signatory p1"
+                      , "  choice A : ()"
+                      , "      with p : Party"
+                      , "    controller p"
+                      , "      do return ()"
+                      ]
+              syms <- getDocumentSymbols foo
+              liftIO $
+                  fmap (length . toList) (preview (_Left . _head . children . _Just) syms) @?=
+                  Just 2
         ]
 
 completionTests
