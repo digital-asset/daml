@@ -141,7 +141,7 @@ object InMemoryLedgerWriter {
     }
   }
 
-  final class PreExecutingOwner(
+  final class Owner(
       participantId: ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
       metrics: Metrics,

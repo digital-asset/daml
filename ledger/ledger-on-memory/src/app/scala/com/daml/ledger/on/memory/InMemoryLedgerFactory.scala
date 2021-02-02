@@ -46,7 +46,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
   ): ResourceOwner[KeyValueLedger] = {
     val metrics = createMetrics(participantConfig, config)
     if (config.extra.alwaysPreExecute)
-      new InMemoryLedgerReaderWriter.PreExecutingOwner(
+      new InMemoryLedgerReaderWriter.Owner(
         ledgerId = config.ledgerId,
         participantId = participantConfig.participantId,
         keySerializationStrategy = DefaultStateKeySerializationStrategy,

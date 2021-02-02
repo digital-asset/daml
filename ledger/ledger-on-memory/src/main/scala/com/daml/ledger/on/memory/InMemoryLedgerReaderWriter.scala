@@ -74,7 +74,7 @@ object InMemoryLedgerReaderWriter {
     }
   }
 
-  final class PreExecutingOwner(
+  final class Owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
@@ -89,7 +89,7 @@ object InMemoryLedgerReaderWriter {
     override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
       for {
-        writer <- new InMemoryLedgerWriter.PreExecutingOwner(
+        writer <- new InMemoryLedgerWriter.Owner(
           participantId,
           keySerializationStrategy,
           metrics,
