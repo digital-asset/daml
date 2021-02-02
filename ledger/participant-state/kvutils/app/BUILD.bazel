@@ -35,6 +35,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/language",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-auth",

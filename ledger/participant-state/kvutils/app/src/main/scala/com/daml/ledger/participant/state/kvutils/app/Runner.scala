@@ -11,6 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -80,10 +81,13 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine =
-      // TODO https://github.com/digital-asset/daml/issues/8369
-      //  switch back to Engine.StableEngine() once LF 1.12 is stable
-      new Engine(EngineConfig(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
+    val allowedLanguageVersions =
+      config.engineMode match {
+        case EngineMode.Stable => LanguageVersion.StableVersions
+        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
+      }
+
+    val sharedEngine = new Engine(EngineConfig(allowedLanguageVersions))
 
     newLoggingContext { implicit loggingContext =>
       for {

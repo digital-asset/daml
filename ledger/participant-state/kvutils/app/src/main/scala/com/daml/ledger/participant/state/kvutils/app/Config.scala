@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
@@ -37,6 +38,7 @@ final case class Config[Extra](
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     trackerRetentionPeriod: FiniteDuration,
+    engineMode: EngineMode,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -65,6 +67,7 @@ object Config {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
+      engineMode = EngineMode.Stable,
       extra = extra,
     )
 
@@ -312,10 +315,24 @@ object Config {
           success
       })
 
+      opt[Unit]("early-access-unsafe")
+        .optional()
+        .action((_, c) => c.copy(engineMode = EngineMode.EarlyAccess))
+        .text(
+          "Enable preview version of the next Daml-LF language. Should not be used in production."
+        )
+
       help("help").text(s"$name as a service.")
     }
     extraOptions(parser)
     parser
+  }
+
+  sealed abstract class EngineMode extends Product with Serializable
+
+  object EngineMode {
+    final case object Stable extends EngineMode
+    final case object EarlyAccess extends EngineMode
   }
 
 }
