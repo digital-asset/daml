@@ -193,15 +193,33 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "upb" not in native.existing_rules():
+        # upb is a dependency of com_github_grpc_grpc.
+        # It is usually pulled in automatically by grpc_deps(), but depend on it explicitly to patch it.
+        # This http_archive can be removed when we no longer need to patch upb.
+        http_archive(
+            name = "upb",
+            sha256 = "c0b97bf91dfea7e8d7579c24e2ecdd02d10b00f3c5defc3dce23d95100d0e664",
+            strip_prefix = "upb-60607da72e89ba0c84c84054d2e562d8b6b61177",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
+                "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
+            ],
+            patches = [
+                # Remove this patch once we upgraded to Bazel 3.4 or later.
+                "@com_github_digital_asset_daml//bazel_tools:upb_compat.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.34.1",
-            urls = ["https://github.com/grpc/grpc/archive/v1.34.1.tar.gz"],
-            sha256 = "c260a1dcdd26a78a9596494a3f41f9594ab5ec3a4d65cba4658bdee2b55ac844",
+            strip_prefix = "grpc-ea22dd6f1b610a37a44be3e9050addbe8a1cb59d",
+            urls = ["https://github.com/grpc/grpc/archive/ea22dd6f1b610a37a44be3e9050addbe8a1cb59d.tar.gz"],
+            sha256 = "c89c54c5fb9b4b4b0b7ecfa7cd6bbbdecd060bac81ba35b9ee997c1342934b16",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
-                "@com_github_digital_asset_daml//bazel_tools:grpc-upbdefs.patch",
             ],
             patch_args = ["-p1"],
         )
