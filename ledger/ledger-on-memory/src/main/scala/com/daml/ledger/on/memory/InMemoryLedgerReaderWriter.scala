@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.api._
@@ -17,35 +16,6 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import scala.concurrent.ExecutionContext
 
 object InMemoryLedgerReaderWriter {
-
-  final class BatchingOwner(
-      ledgerId: LedgerId,
-      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-      participantId: ParticipantId,
-      metrics: Metrics,
-      timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
-      stateValueCache: InMemoryLedgerWriter.StateValueCache = Cache.none,
-      dispatcher: Dispatcher[Index],
-      state: InMemoryState,
-      engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
-      val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
-      for {
-        writer <- new InMemoryLedgerWriter.BatchingOwner(
-          batchingLedgerWriterConfig,
-          participantId,
-          metrics,
-          timeProvider,
-          stateValueCache,
-          dispatcher,
-          state,
-          engine,
-        ).acquire()
-      } yield createKeyValueLedger(reader, writer)
-    }
-  }
 
   final class Owner(
       ledgerId: LedgerId,

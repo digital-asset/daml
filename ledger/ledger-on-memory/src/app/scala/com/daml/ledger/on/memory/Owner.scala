@@ -8,7 +8,7 @@ import com.daml.ledger.resources.ResourceOwner
 
 object Owner {
   // Utily if you want to spin this up as a library.
-  def apply(config: Config[ExtraConfig]): ResourceOwner[Unit] =
+  def apply(config: Config[Unit]): ResourceOwner[Unit] =
     for {
       dispatcher <- dispatcherOwner
       sharedState = InMemoryState.empty

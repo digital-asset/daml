@@ -71,6 +71,9 @@ object Config {
       extra = extra,
     )
 
+  def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
+    owner(name, _ => (), (), args)
+
   def owner[Extra](
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,

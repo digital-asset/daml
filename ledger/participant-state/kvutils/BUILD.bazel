@@ -226,7 +226,6 @@ client_server_build(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
-        "--force-pre-execution=true",
     ],
     visibility = [":__subpackages__"],
 ) if not is_windows and scala_major_version == "2.12" else None

@@ -9,7 +9,7 @@ import java.util.stream.Collectors
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.on.memory.{ExtraConfig, Owner}
+import com.daml.ledger.on.memory.Owner
 import com.daml.ledger.participant.state.kvutils.app.{ParticipantConfig, ParticipantRunMode}
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.participant.state.v1
@@ -73,15 +73,10 @@ trait MultiParticipantFixture
       for {
         _ <- Owner(
           kvutils.Config
-            .createDefault(ExtraConfig.reasonableDefault)
+            .createDefault(())
             .copy(
-              participants = Seq(
-                participant1,
-                participant2,
-              ),
-              archiveFiles = Seq(
-                darFile
-              ),
+              participants = Seq(participant1, participant2),
+              archiveFiles = Seq(darFile),
             )
         )
       } yield (readPortfile(participant1Portfile), readPortfile(participant2Portfile))

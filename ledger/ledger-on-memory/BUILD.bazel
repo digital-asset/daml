@@ -36,8 +36,6 @@ da_scala_library(
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
@@ -137,23 +135,7 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--batching enable=true,max-batch-size-bytes=262144",
-    ],
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-pre-execution",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--batching enable=false",
-        "--force-pre-execution=true",
+        "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
         "--verbose",
@@ -169,9 +151,8 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example1,port=6865",
-        "--participant participant-id=example2,port=6866",
-        "--batching enable=true,max-batch-size-bytes=262144",
+        "--participant=participant-id=example1,port=6865",
+        "--participant=participant-id=example2,port=6866",
     ],
     test_tool_args = [
         "--verbose",
@@ -187,9 +168,8 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
-        "--participant participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
-        "--batching enable=true,max-batch-size-bytes=262144",
+        "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
+        "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
     ],
     test_tool_args = [
         "--verbose",
@@ -203,8 +183,7 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--batching enable=true,max-batch-size-bytes=262144",
+        "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
         "--verbose",
@@ -218,8 +197,7 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--batching enable=true,max-batch-size-bytes=262144",
+        "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
         "--verbose",
@@ -233,7 +211,7 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
+        "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
         "--verbose",

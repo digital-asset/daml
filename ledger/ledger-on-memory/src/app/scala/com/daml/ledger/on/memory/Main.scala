@@ -10,12 +10,7 @@ import com.daml.resources.ProgramResource
 object Main {
   def main(args: Array[String]): Unit = {
     val resource = for {
-      config <- Config.owner(
-        RunnerName,
-        InMemoryLedgerFactory.extraConfigParser,
-        InMemoryLedgerFactory.defaultExtraConfig,
-        args,
-      )
+      config <- Config.ownerWithoutExtras(RunnerName, args)
       owner <- Owner(config)
     } yield owner
     new ProgramResource(resource).run(ResourceContext.apply)
