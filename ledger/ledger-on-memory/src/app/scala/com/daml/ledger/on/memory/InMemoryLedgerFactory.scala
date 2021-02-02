@@ -58,6 +58,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
         dispatcher = dispatcher,
         state = state,
         engine = engine,
+        committerExecutionContext = materializer.executionContext,
       )
     else
       new InMemoryLedgerReaderWriter.BatchingOwner(

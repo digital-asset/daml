@@ -14,6 +14,8 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
+import scala.concurrent.ExecutionContext
+
 object InMemoryLedgerReaderWriter {
 
   final class BatchingOwner(
@@ -84,8 +86,8 @@ object InMemoryLedgerReaderWriter {
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
+      committerExecutionContext: ExecutionContext,
+  ) extends ResourceOwner[KeyValueLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
       for {
@@ -98,6 +100,7 @@ object InMemoryLedgerReaderWriter {
           dispatcher,
           state,
           engine,
+          committerExecutionContext,
         ).acquire()
       } yield createKeyValueLedger(reader, writer)
     }

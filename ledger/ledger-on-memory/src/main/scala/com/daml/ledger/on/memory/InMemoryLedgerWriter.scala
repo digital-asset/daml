@@ -150,8 +150,8 @@ object InMemoryLedgerWriter {
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[LedgerWriter] {
+      committerExecutionContext: ExecutionContext,
+  ) extends ResourceOwner[LedgerWriter] {
     override def acquire()(implicit context: ResourceContext): Resource[LedgerWriter] = {
       val keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
       for {
@@ -165,7 +165,7 @@ object InMemoryLedgerWriter {
     private def createPreExecutingCommitter(
         keyValueCommitting: KeyValueCommitting,
         ledgerDataExporter: LedgerDataExporter,
-    )(implicit materializer: Materializer): ValidateAndCommit = {
+    ): ValidateAndCommit = {
       val now = () => timeProvider.getCurrentTime
       val committer = new PreExecutingValidatingCommitter[
         Option[DamlStateValue],
@@ -184,7 +184,7 @@ object InMemoryLedgerWriter {
         ledgerDataExporter = ledgerDataExporter,
       )
       locally {
-        implicit val executionContext: ExecutionContext = materializer.executionContext
+        implicit val executionContext: ExecutionContext = committerExecutionContext
 
         def validateAndCommit(
             correlationId: String,
