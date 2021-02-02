@@ -24,7 +24,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 
 sealed abstract class Queries {
-  import Queries._
+  import Queries._, InitDdl._
   import Implicits._
 
   protected[this] def dropTableIfExists(table: String): Fragment
@@ -32,33 +32,30 @@ sealed abstract class Queries {
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"payload"
 
-  private[this] val dropContractsTable: Fragment = dropTableIfExists("contract")
-
-  private[this] val createContractsTable: Fragment = sql"""
+  private[this] val createContractsTable = CreateTable(
+    "contract",
+    sql"""
       CREATE TABLE
         contract
         (contract_id """ ++ textType ++ sql""" NOT NULL PRIMARY KEY
         ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
         ,""" ++ jsonColumn(sql"key") ++ sql"""
-        ,""" ++ jsonColumn(sql"payload") ++
-    contractsTableSignatoriesObservers ++ sql"""
+        ,""" ++ jsonColumn(contractColumnName) ++
+      contractsTableSignatoriesObservers ++ sql"""
         ,agreement_text """ ++ textType ++ sql""" NOT NULL
         )
-    """
+    """,
+  )
 
   protected[this] def contractsTableSignatoriesObservers: Fragment
 
-  val indexContractsTable: Fragment = sql"""
+  val indexContractsTable = CreateIndex(sql"""
       CREATE INDEX contract_tpid_idx ON contract (tpid)
-    """
+    """)
 
-  private[this] val indexContractsKeys: Fragment = sql"""
-      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
-  """
-
-  private[this] val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
-
-  private[this] val createOffsetTable: Fragment = sql"""
+  private[this] val createOffsetTable = CreateTable(
+    "ledger_offset",
+    sql"""
       CREATE TABLE
         ledger_offset
         (party """ ++ textType ++ sql""" NOT NULL
@@ -66,9 +63,8 @@ sealed abstract class Queries {
         ,last_offset """ ++ textType ++ sql""" NOT NULL
         ,PRIMARY KEY (party, tpid)
         )
-    """
-
-  private[this] val dropTemplateIdsTable: Fragment = dropTableIfExists("template_id")
+    """,
+  )
 
   protected[this] def bigIntType: Fragment // must match bigserial
   protected[this] def bigSerialType: Fragment
@@ -76,7 +72,9 @@ sealed abstract class Queries {
 
   protected[this] def jsonColumn(name: Fragment): Fragment
 
-  private[this] val createTemplateIdsTable: Fragment = sql"""
+  private[this] val createTemplateIdsTable = CreateTable(
+    "template_id",
+    sql"""
       CREATE TABLE
         template_id
         (tpid """ ++ bigSerialType ++ sql""" NOT NULL PRIMARY KEY
@@ -85,25 +83,27 @@ sealed abstract class Queries {
         ,template_entity_name """ ++ textType ++ sql""" NOT NULL
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
-    """
+    """,
+  )
 
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] =
-    (dropContractsTable.update.run
-      *> dropOffsetTable.update.run
-      *> dropTemplateIdsTable.update.run).void
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdls.reverse
+      .collect { case CreateTable(name, _) => dropTableIfExists(name) }
+      .traverse_(_.update.run)
+  }
 
-  protected[this] def initDatabaseDdls: Vector[Fragment] =
+  protected[this] def initDatabaseDdls: Vector[InitDdl] =
     Vector(
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
       indexContractsTable,
-      indexContractsKeys,
     )
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls.traverse_(_.update.run)
+    initDatabaseDdls.traverse_(_.create.update.run)
   }
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
@@ -339,6 +339,15 @@ object Queries {
       )
   }
 
+  private[dbbackend] sealed abstract class InitDdl extends Product with Serializable {
+    def create: Fragment
+  }
+
+  private[dbbackend] object InitDdl {
+    final case class CreateTable(name: String, create: Fragment) extends InitDdl
+    final case class CreateIndex(create: Fragment) extends InitDdl
+  }
+
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
     * and whether it may compute >1 query to run.
     *
@@ -390,7 +399,7 @@ object Queries {
 }
 
 private object PostgresQueries extends Queries {
-  import Queries.{DBContract, SurrogateTpId}
+  import Queries.{DBContract, SurrogateTpId}, Queries.InitDdl.CreateIndex
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) =
@@ -401,6 +410,12 @@ private object PostgresQueries extends Queries {
   protected[this] override def textType = sql"TEXT"
 
   protected[this] override def jsonColumn(name: Fragment) = name ++ sql" JSONB NOT NULL"
+
+  private[this] val indexContractsKeys = CreateIndex(sql"""
+      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
+  """)
+
+  protected[this] override def initDatabaseDdls = super.initDatabaseDdls :+ indexContractsKeys
 
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
@@ -453,7 +468,7 @@ private object PostgresQueries extends Queries {
 }
 
 private object OracleQueries extends Queries {
-  import Queries.{DBContract, SurrogateTpId}
+  import Queries.{DBContract, SurrogateTpId}, Queries.InitDdl.CreateTable
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
@@ -475,23 +490,29 @@ private object OracleQueries extends Queries {
 
   protected[this] override def contractsTableSignatoriesObservers = sql""
 
-  private val createSignatoriesTable: Fragment = sql"""
+  private val createSignatoriesTable = CreateTable(
+    "signatories",
+    sql"""
       CREATE TABLE
         signatories
           (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id)
           ,party NVARCHAR2(100) NOT NULL
           ,UNIQUE (contract_id, party)
           )
-    """
+    """,
+  )
 
-  private val createObserversTable: Fragment = sql"""
+  private val createObserversTable = CreateTable(
+    "observers",
+    sql"""
       CREATE TABLE
         observers
           (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id)
           ,party NVARCHAR2(100) NOT NULL
           ,UNIQUE (contract_id, party)
           )
-    """
+    """,
+  )
 
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(createSignatoriesTable, createObserversTable)
