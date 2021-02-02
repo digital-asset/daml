@@ -61,12 +61,14 @@ private[dao] final class TransactionsReader(
   private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
-  private def deserializeEvent[E](verbose: Boolean)(entry: EventsTable.Entry[Raw[E]]): Future[E] =
-    Future(entry.event.applyDeserialization(lfValueTranslation, verbose))
+  private def deserializeEvent[E](verbose: Boolean)(entry: EventsTable.Entry[Raw[E]])(implicit
+      loggingContext: LoggingContext
+  ): Future[E] =
+    entry.event.applyDeserialization(lfValueTranslation, verbose)
 
   private def deserializeEntry[E](verbose: Boolean)(
       entry: EventsTable.Entry[Raw[E]]
-  ): Future[EventsTable.Entry[E]] =
+  )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
   def getFlatTransactions(

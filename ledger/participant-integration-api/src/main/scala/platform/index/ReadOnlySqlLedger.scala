@@ -14,6 +14,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -41,6 +42,7 @@ private[platform] object ReadOnlySqlLedger {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      enricher: ValueEnricher,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
@@ -105,6 +107,7 @@ private[platform] object ReadOnlySqlLedger {
         servicesExecutionContext,
         metrics,
         lfValueTranslationCache,
+        Some(enricher),
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =

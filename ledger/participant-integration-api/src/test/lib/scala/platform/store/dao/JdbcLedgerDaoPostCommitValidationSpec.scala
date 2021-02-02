@@ -30,6 +30,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
+        enricher = None,
       )
 
   private val ok = io.grpc.Status.Code.OK.value()

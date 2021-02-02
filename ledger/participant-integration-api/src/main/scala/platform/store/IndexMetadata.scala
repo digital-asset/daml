@@ -44,6 +44,7 @@ object IndexMetadata {
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
+      enricher = None,
     )
 
   private val Empty = "<empty>"

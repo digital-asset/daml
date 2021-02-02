@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
@@ -21,14 +21,13 @@ import com.daml.lf.engine.{
   ResultNeedPackage,
   Error => DamlLfError,
 }
-import com.daml.lf.language.Ast.Package
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
@@ -37,6 +36,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     contractStore: ContractStore,
     metrics: Metrics,
 ) extends CommandExecutor {
+
+  private[this] val packageLoader = new DeduplicatingPackageLoader()
 
   override def execute(
       commands: ApiCommands,
@@ -93,10 +94,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       }
   }
 
-  // Concurrent map of promises to request each package only once.
-  private val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
-    new ConcurrentHashMap()
-
   private def consume[A](readers: Set[Ref.Party], result: Result[A])(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -145,37 +142,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultNeedPackage(packageId, resume) =>
-          var gettingPackage = false
-          val promise = packagePromises.computeIfAbsent(
-            packageId,
-            _ => {
-              gettingPackage = true
-              Promise[Option[Package]]()
-            },
-          )
-
-          if (gettingPackage) {
-            val future =
-              Timed.future(
-                metrics.daml.execution.getLfPackage,
-                packagesService.getLfPackage(packageId),
-              )
-            future.onComplete {
-              case Success(None) | Failure(_) =>
-                // Did not find the package or got an error when looking for it. Remove the promise to allow later retries.
-                packagePromises.remove(packageId)
-
-              case Success(Some(_)) =>
-              // we don't need to treat a successful package fetch here
-            }
-            promise.completeWith(future)
-          }
-
-          promise.future.flatMap { maybePackage =>
-            resolveStep(
-              Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage))
+          packageLoader
+            .loadPackage(
+              packageId = packageId,
+              delegate = packageId => packagesService.getLfArchive(packageId)(loggingContext),
+              metric = metrics.daml.execution.getLfPackage,
             )
-          }
+            .flatMap { maybePackage =>
+              resolveStep(
+                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage))
+              )
+            }
       }
 
     resolveStep(result).andThen { case _ =>

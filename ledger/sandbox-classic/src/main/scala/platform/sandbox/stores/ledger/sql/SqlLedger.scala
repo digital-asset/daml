@@ -21,6 +21,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -78,6 +79,7 @@ private[sandbox] object SqlLedger {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      engine: Engine,
       validatePartyAllocation: Boolean = false,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
@@ -233,6 +235,7 @@ private[sandbox] object SqlLedger {
         metrics,
         lfValueTranslationCache,
         validatePartyAllocation,
+        Some(new ValueEnricher(engine)),
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =

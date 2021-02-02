@@ -59,6 +59,7 @@ object JdbcIndexer {
           metrics,
           lfValueTranslationCache,
           jdbcAsyncCommits = true,
+          enricher = None,
         ),
         new FlywayMigrations(config.jdbcUrl),
       )

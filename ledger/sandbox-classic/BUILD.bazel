@@ -136,6 +136,7 @@ da_scala_library(
     deps = [
         ":sandbox-classic",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",

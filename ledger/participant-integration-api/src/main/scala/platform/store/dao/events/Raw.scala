@@ -12,10 +12,12 @@ import com.daml.ledger.api.v1.event.{
   ExercisedEvent => PbExercisedEvent,
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
+import com.daml.logging.LoggingContext
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.Compression
 
 import scala.collection.compat.immutable.ArraySeq
+import scala.concurrent.{ExecutionContext, Future}
 
 /** An event as it's fetched from the participant index, before
   * the deserialization the values contained therein. Allows to
@@ -30,7 +32,13 @@ private[events] sealed trait Raw[+E] {
     * @param lfValueTranslation The delegate in charge of applying deserialization
     * @param verbose If true, field names of records will be included
     */
-  def applyDeserialization(lfValueTranslation: LfValueTranslation, verbose: Boolean): E
+  def applyDeserialization(
+      lfValueTranslation: LfValueTranslation,
+      verbose: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[E]
 
 }
 
@@ -52,8 +60,11 @@ private[events] object Raw {
     final override def applyDeserialization(
         lfValueTranslation: LfValueTranslation,
         verbose: Boolean,
-    ): E =
-      wrapInEvent(lfValueTranslation.deserialize(this, verbose))
+    )(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[E] =
+      lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
   }
 
   private object Created {
@@ -140,8 +151,11 @@ private[events] object Raw {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
           verbose: Boolean,
-      ): PbFlatEvent =
-        PbFlatEvent(PbFlatEvent.Event.Archived(raw))
+      )(implicit
+          ec: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[PbFlatEvent] =
+        Future.successful(PbFlatEvent(PbFlatEvent.Event.Archived(raw)))
     }
 
     object Archived {
@@ -227,8 +241,14 @@ private[events] object Raw {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
           verbose: Boolean,
-      ): PbTreeEvent =
-        PbTreeEvent(PbTreeEvent.Kind.Exercised(lfValueTranslation.deserialize(this, verbose)))
+      )(implicit
+          ec: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[PbTreeEvent] =
+        lfValueTranslation
+          .deserialize(this, verbose)
+          .map(event => PbTreeEvent(PbTreeEvent.Kind.Exercised(event)))
+
     }
 
     object Exercised {

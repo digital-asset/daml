@@ -16,6 +16,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -303,6 +304,7 @@ final class SqlLedgerSpec
         servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
+        engine = new Engine(),
         validatePartyAllocation = validatePartyAllocation,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
