@@ -15,7 +15,8 @@ import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine._
+import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
@@ -79,7 +80,10 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine = Engine.StableEngine()
+    val sharedEngine =
+      // TODO https://github.com/digital-asset/daml/issues/8369
+      //  switch back to Engine.StableEngine() once LF 1.12 is stable
+      new Engine(EngineConfig(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
 
     newLoggingContext { implicit loggingContext =>
       for {
