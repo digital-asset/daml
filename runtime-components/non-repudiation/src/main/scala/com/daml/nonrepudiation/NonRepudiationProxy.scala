@@ -9,7 +9,7 @@ import io.grpc.{Channel, Server, ServerBuilder}
 
 object NonRepudiationProxy {
 
-  def owner[Context: HasExecutionContext, Key](
+  def owner[Context: HasExecutionContext](
       participant: Channel,
       serverBuilder: ServerBuilder[_],
       keyRepository: KeyRepository.Read,

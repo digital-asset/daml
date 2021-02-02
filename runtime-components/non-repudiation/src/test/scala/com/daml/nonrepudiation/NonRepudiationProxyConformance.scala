@@ -50,7 +50,7 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
           sandboxChannelBuilder,
           shutdownTimeout = 5.seconds,
         )
-        proxy <- NonRepudiationProxy.owner[ResourceContext, CommandIdString](
+        proxy <- NonRepudiationProxy.owner[ResourceContext](
           sandboxChannel,
           proxyBuilder,
           keys,
