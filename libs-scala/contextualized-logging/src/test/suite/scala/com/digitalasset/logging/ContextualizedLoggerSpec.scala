@@ -12,7 +12,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.{EventConstants, Level}
 import org.slf4j.{Logger, Marker}
-import org.slf4j.event.Level
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
