@@ -11,7 +11,7 @@ package object memory {
 
   private[memory] val StartIndex: Index = 0
 
-  private[memory] def dispatcherOwner: ResourceOwner[Dispatcher[Index]] =
+  def dispatcherOwner: ResourceOwner[Dispatcher[Index]] =
     Dispatcher.owner(
       name = "in-memory-key-value-participant-state",
       zeroIndex = StartIndex,

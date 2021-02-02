@@ -47,35 +47,6 @@ object InMemoryLedgerReaderWriter {
     }
   }
 
-  final class SingleParticipantBatchingOwner(
-      ledgerId: LedgerId,
-      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
-      stateValueCache: InMemoryLedgerWriter.StateValueCache = Cache.none,
-      metrics: Metrics,
-      engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
-      val state = InMemoryState.empty
-      for {
-        dispatcher <- dispatcherOwner.acquire()
-        readerWriter <- new BatchingOwner(
-          ledgerId,
-          batchingLedgerWriterConfig,
-          participantId,
-          metrics,
-          timeProvider,
-          stateValueCache,
-          dispatcher,
-          state,
-          engine,
-        ).acquire()
-      } yield readerWriter
-    }
-  }
-
   final class Owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,

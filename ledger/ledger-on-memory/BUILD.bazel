@@ -43,36 +43,6 @@ da_scala_library(
     ],
 )
 
-da_scala_library(
-    name = "ledger-on-memory-test-lib",
-    srcs = glob(["src/test/lib/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
-    ],
-    deps = [
-        ":ledger-on-memory",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/caching",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-health",
-        "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
-        "//ledger/metrics",
-        "//ledger/participant-state",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils:kvutils-tests-lib",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/resources",
-    ],
-)
-
 da_scala_test_suite(
     name = "ledger-on-memory-tests",
     size = "small",
@@ -94,11 +64,12 @@ da_scala_test_suite(
     ],
     deps = [
         ":ledger-on-memory",
-        ":ledger-on-memory-test-lib",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
@@ -109,6 +80,8 @@ da_scala_test_suite(
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
