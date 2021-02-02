@@ -298,7 +298,7 @@ final private[kvutils] class PackageCommitter(
     }
   }
 
-  private[this] def preloadExecutor =
+  private[this] lazy val preloadExecutor =
     Executors.newSingleThreadExecutor { (runnable: Runnable) =>
       val t = new Thread(runnable)
       t.setDaemon(true)
