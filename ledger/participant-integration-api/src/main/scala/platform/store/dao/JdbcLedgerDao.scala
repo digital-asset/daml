@@ -219,7 +219,7 @@ private class JdbcLedgerDao(
       rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
-      logger.info(s"Storing a configuration entry")
+      logger.info("Storing a configuration entry")
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
@@ -296,7 +296,7 @@ private class JdbcLedgerDao(
       offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-    logger.info(s"Storing party entry")
+    logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       ParametersTable.updateLedgerEnd(offsetStep)
       val savepoint = conn.setSavepoint()
@@ -467,7 +467,7 @@ private class JdbcLedgerDao(
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-    logger.info(s"Storing transaction events")
+    logger.info("Storing transaction events")
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         preparedInsert.writeEvents(metrics)(_)
@@ -499,7 +499,7 @@ private class JdbcLedgerDao(
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     withEnrichedLoggingContext(Logging.transactionId(transactionId)) { implicit loggingContext =>
-      logger.info(s"Storing transaction")
+      logger.info("Storing transaction")
       dbDispatcher
         .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
           validate(ledgerEffectiveTime, transaction, divulged) match {

@@ -91,9 +91,8 @@ private[apiserver] final class ApiPartyManagementService private (
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    withEnrichedLoggingContext(logging.party(request.displayName)) { implicit loggingContext =>
+    withEnrichedLoggingContext(logging.party(request.partyIdHint)) { implicit loggingContext =>
       logger.info("Allocating party")
-      logger.debug(s"Party ID hint: '${request.partyIdHint}'")
       val validatedPartyIdentifier =
         if (request.partyIdHint.isEmpty) {
           Future.successful(None)

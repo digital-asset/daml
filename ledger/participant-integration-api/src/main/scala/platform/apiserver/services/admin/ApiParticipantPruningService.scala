@@ -19,7 +19,6 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.logging
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
@@ -41,9 +40,7 @@ final class ApiParticipantPruningService private (
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
 
-  override def prune(request: PruneRequest): Future[PruneResponse] =
-    withEnrichedLoggingContext(logging.submissionId(request.submissionId)) { implicit logCtx =>
-      logger.info(s"Pruning up to ${request.pruneUpTo}")
+  override def prune(request: PruneRequest): Future[PruneResponse] = {
       val submissionIdOrErr = SubmissionId
         .fromString(
           if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
@@ -54,8 +51,9 @@ final class ApiParticipantPruningService private (
       submissionIdOrErr.fold(
         Future.failed,
         submissionId =>
-          LoggingContext.withEnrichedLoggingContext("submissionId" -> submissionId) {
+          LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
             implicit logCtx =>
+              logger.info(s"Pruning up to ${request.pruneUpTo}")
               (for {
 
                 pruneUpTo <- validateRequest(request: PruneRequest)
