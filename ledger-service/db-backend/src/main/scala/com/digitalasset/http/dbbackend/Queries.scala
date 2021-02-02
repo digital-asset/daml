@@ -27,7 +27,7 @@ sealed abstract class Queries {
   import Queries._
   import Implicits._
 
-  def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
+  protected[this] def dropTableIfExists(table: String): Fragment
 
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"payload"
@@ -393,6 +393,9 @@ private object PostgresQueries extends Queries {
   import Queries.{DBContract, SurrogateTpId}
   import Implicits._
 
+  protected[this] override def dropTableIfExists(table: String) =
+    Fragment.const(s"DROP TABLE IF EXISTS ${table}")
+
   protected[this] override def bigIntType = sql"BIGINT"
   protected[this] override def bigSerialType = sql"BIGSERIAL"
   protected[this] override def textType = sql"TEXT"
@@ -452,6 +455,15 @@ private object PostgresQueries extends Queries {
 private object OracleQueries extends Queries {
   import Queries.{DBContract, SurrogateTpId}
   import Implicits._
+
+  protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
+      EXECUTE IMMEDIATE 'DROP TABLE ' || $table;
+    EXCEPTION
+      WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+          RAISE;
+        END IF;
+    END;"""
 
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
