@@ -41,33 +41,33 @@ final class ApiParticipantPruningService private (
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
 
   override def prune(request: PruneRequest): Future[PruneResponse] = {
-      val submissionIdOrErr = SubmissionId
-        .fromString(
-          if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
-        )
-        .left
-        .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
-
-      submissionIdOrErr.fold(
-        Future.failed,
-        submissionId =>
-          LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
-            implicit logCtx =>
-              logger.info(s"Pruning up to ${request.pruneUpTo}")
-              (for {
-
-                pruneUpTo <- validateRequest(request: PruneRequest)
-
-                // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
-                // systems back in sync by reissuing the prune request at the currently specified or later offset.
-                _ <- pruneWriteService(pruneUpTo, submissionId)
-
-                pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
-
-              } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
-          },
+    val submissionIdOrErr = SubmissionId
+      .fromString(
+        if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
-    }
+      .left
+      .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
+
+    submissionIdOrErr.fold(
+      Future.failed,
+      submissionId =>
+        LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
+          implicit logCtx =>
+            logger.info(s"Pruning up to ${request.pruneUpTo}")
+            (for {
+
+              pruneUpTo <- validateRequest(request: PruneRequest)
+
+              // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
+              // systems back in sync by reissuing the prune request at the currently specified or later offset.
+              _ <- pruneWriteService(pruneUpTo, submissionId)
+
+              pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
+
+            } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
+        },
+    )
+  }
 
   private def validateRequest(
       request: PruneRequest
