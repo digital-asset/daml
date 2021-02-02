@@ -8,10 +8,13 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
+
+import scala.concurrent.ExecutionContext
 
 private[platform] object JdbcIndex {
   def owner(
@@ -20,16 +23,20 @@ private[platform] object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       eventsPageSize: Int,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      enricher: ValueEnricher,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
-      serverRole,
-      jdbcUrl,
-      ledgerId,
-      eventsPageSize,
-      metrics,
-      lfValueTranslationCache,
+      serverRole = serverRole,
+      jdbcUrl = jdbcUrl,
+      initialLedgerId = ledgerId,
+      eventsPageSize = eventsPageSize,
+      servicesExecutionContext = servicesExecutionContext,
+      metrics = metrics,
+      lfValueTranslationCache = lfValueTranslationCache,
+      enricher = enricher,
     ).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId)
     }

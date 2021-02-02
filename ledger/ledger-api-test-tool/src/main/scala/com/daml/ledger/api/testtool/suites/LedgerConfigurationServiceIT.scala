@@ -27,7 +27,9 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
     implicit ec => { case Participants(Participant(ledger)) =>
       val invalidLedgerId = "THIS_IS_AN_INVALID_LEDGER_ID"
       for {
-        failure <- ledger.configuration(overrideLedgerId = Some(invalidLedgerId)).failed
+        failure <- ledger
+          .configuration(overrideLedgerId = Some(invalidLedgerId))
+          .mustFail("retrieving ledger configuration with an invalid ledger ID")
       } yield {
         assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
       }
@@ -52,7 +54,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
 
   test(
     "CSLSuccessIfMaxDeduplicationTimeExceeded",
-    "Submission returns OK if deduplication time is too high",
+    "Submission returns INVALID_ARGUMENT if deduplication time is too big",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitRequest(party, Dummy(party).create.command)
@@ -67,7 +69,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
             )
           )
         )
-        .failed
+        .mustFail("submitting a command with a deduplication time that is too big")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "")
     }

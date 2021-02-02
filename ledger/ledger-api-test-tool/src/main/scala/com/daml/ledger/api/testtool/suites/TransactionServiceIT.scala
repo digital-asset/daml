@@ -101,7 +101,7 @@ class TransactionServiceIT extends LedgerTestSuite {
       futureOffset <- ledger.offsetBeyondLedgerEnd()
       request = ledger.getTransactionsRequest(Seq(party))
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
-      failure <- ledger.flatTransactions(beyondEnd).failed
+      failure <- ledger.flatTransactions(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
       assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
     }
@@ -117,7 +117,7 @@ class TransactionServiceIT extends LedgerTestSuite {
       futureOffset <- ledger.offsetBeyondLedgerEnd()
       request = ledger.getTransactionsRequest(Seq(party))
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
-      failure <- ledger.transactionTrees(beyondEnd).failed
+      failure <- ledger.transactionTrees(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
       assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
     }
@@ -270,7 +270,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     val request = ledger.getTransactionsRequest(Seq(party))
     val requestWithEmptyFilter = request.update(_.filter.filtersByParty := Map.empty)
     for {
-      failure <- ledger.flatTransactions(requestWithEmptyFilter).failed
+      failure <- ledger
+        .flatTransactions(requestWithEmptyFilter)
+        .mustFail("subscribing with an empty filter")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "filtersByParty cannot be empty")
     }
@@ -384,7 +386,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       later <- ledger.currentEnd()
       request = ledger.getTransactionsRequest(Seq(party))
       invalidRequest = request.update(_.begin := later, _.end := earlier)
-      failure <- ledger.flatTransactions(invalidRequest).failed
+      failure <- ledger
+        .flatTransactions(invalidRequest)
+        .mustFail("subscribing with the end before the begin")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "is before Begin offset")
     }
@@ -491,7 +495,7 @@ class TransactionServiceIT extends LedgerTestSuite {
           dummy
             .exerciseConsumeIfTimeIsBetween(_, Primitive.Timestamp.MAX, Primitive.Timestamp.MAX),
         )
-        .failed
+        .mustFail("exercising with a failing assertion")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
     }
@@ -855,7 +859,9 @@ class TransactionServiceIT extends LedgerTestSuite {
         triProposal <- alpha.create(operator, TriProposal(operator, receiver, giver))
         _ <- eventually {
           for {
-            failure <- beta.exercise(giver, triProposal.exerciseTriProposalAccept).failed
+            failure <- beta
+              .exercise(giver, triProposal.exerciseTriProposalAccept)
+              .mustFail("exercising with missing authorizers")
           } yield {
             assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
           }
@@ -891,7 +897,7 @@ class TransactionServiceIT extends LedgerTestSuite {
           for {
             failure <- beta
               .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
-              .failed
+              .mustFail("exercising with failing assertion")
           } yield {
             assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
           }
@@ -1036,7 +1042,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       .getTransactionsRequest(Seq(party))
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.flatTransactions(invalidRequest).failed
+      failure <- ledger
+        .flatTransactions(invalidRequest)
+        .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1052,7 +1060,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       .getTransactionsRequest(Seq(party))
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.transactionTrees(invalidRequest).failed
+      failure <- ledger
+        .transactionTrees(invalidRequest)
+        .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1068,7 +1078,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       .getTransactionByIdRequest("not-relevant", Seq(party))
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.transactionTreeById(invalidRequest).failed
+      failure <- ledger
+        .transactionTreeById(invalidRequest)
+        .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1084,7 +1096,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       .getTransactionByIdRequest("not-relevant", Seq(party))
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.flatTransactionById(invalidRequest).failed
+      failure <- ledger
+        .flatTransactionById(invalidRequest)
+        .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1100,7 +1114,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       .getTransactionByEventIdRequest("not-relevant", Seq(party))
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.transactionTreeByEventId(invalidRequest).failed
+      failure <- ledger
+        .transactionTreeByEventId(invalidRequest)
+        .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1116,7 +1132,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       .getTransactionByEventIdRequest("not-relevant", Seq(party))
       .update(_.ledgerId := invalidLedgerId)
     for {
-      failure <- ledger.flatTransactionByEventId(invalidRequest).failed
+      failure <- ledger
+        .flatTransactionByEventId(invalidRequest)
+        .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1129,7 +1147,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
     for {
-      failure <- ledger.currentEnd(invalidLedgerId).failed
+      failure <- ledger.currentEnd(invalidLedgerId).mustFail("requesting with the wrong ledger ID")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
     }
@@ -1158,7 +1176,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       dummy <- alpha.create(party, Dummy(party))
       tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
       _ <- synchronize(alpha, beta)
-      failure <- beta.transactionTreeById(tree.transactionId, intruder).failed
+      failure <- beta
+        .transactionTreeById(tree.transactionId, intruder)
+        .mustFail("subscribing to an invisible transaction tree")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1166,11 +1186,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXTransactionTreeByIdNotFound",
-    "Return NOT_FOUND when looking up an inexistent transaction tree by identifier",
+    "Return NOT_FOUND when looking up a non-existent transaction tree by identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger.transactionTreeById("a" * 60, party).failed
+      failure <- ledger
+        .transactionTreeById("a" * 60, party)
+        .mustFail("looking up an non-existent transaction tree")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1182,7 +1204,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
-      failure <- ledger.transactionTreeById("not-relevant").failed
+      failure <- ledger
+        .transactionTreeById("not-relevant")
+        .mustFail("looking up a transaction tree without specifying a party")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: requesting_parties")
     }
@@ -1232,7 +1256,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     for {
       dummy <- ledger.create(party, Dummy(party))
       tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
-      failure <- ledger.flatTransactionById(tree.transactionId, intruder).failed
+      failure <- ledger
+        .flatTransactionById(tree.transactionId, intruder)
+        .mustFail("looking up an invisible flat transaction")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1240,11 +1266,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXFlatTransactionByIdNotFound",
-    "Return NOT_FOUND when looking up an inexistent flat transaction by identifier",
+    "Return NOT_FOUND when looking up a non-existent flat transaction by identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger.flatTransactionById("a" * 60, party).failed
+      failure <- ledger
+        .flatTransactionById("a" * 60, party)
+        .mustFail("looking up a non-existent flat transaction")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1256,7 +1284,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
-      failure <- ledger.flatTransactionById("not-relevant").failed
+      failure <- ledger
+        .flatTransactionById("not-relevant")
+        .mustFail("looking up a flat transaction without specifying a party")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: requesting_parties")
     }
@@ -1307,7 +1337,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       dummy <- alpha.create(party, Dummy(party))
       tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
       _ <- synchronize(alpha, beta)
-      failure <- beta.transactionTreeByEventId(tree.rootEventIds.head, intruder).failed
+      failure <- beta
+        .transactionTreeByEventId(tree.rootEventIds.head, intruder)
+        .mustFail("looking up an invisible transaction tree")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1315,11 +1347,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXTransactionTreeByEventIdInvalid",
-    "Return INVALID when looking up an invalid transaction tree by event identifier",
+    "Return INVALID when looking up a transaction tree using an invalid event identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger.transactionTreeByEventId("dont' worry, be happy", party).failed
+      failure <- ledger
+        .transactionTreeByEventId("dont' worry, be happy", party)
+        .mustFail("looking up an transaction tree using an invalid event ID")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Invalid field event_id")
     }
@@ -1327,11 +1361,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXTransactionTreeByEventIdNotFound",
-    "Return NOT_FOUND when looking up an inexistent transaction tree by event identifier",
+    "Return NOT_FOUND when looking up a non-existent transaction tree by event identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger.transactionTreeByEventId(s"#${"a" * 60}:000", party).failed
+      failure <- ledger
+        .transactionTreeByEventId(s"#${"a" * 60}:000", party)
+        .mustFail("looking up a non-existent transaction tree")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1343,7 +1379,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
-      failure <- ledger.transactionTreeByEventId("not-relevant").failed
+      failure <- ledger
+        .transactionTreeByEventId("not-relevant")
+        .mustFail("looking up a transaction tree without specifying a party")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: requesting_parties")
     }
@@ -1373,7 +1411,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     for {
       dummy <- ledger.create(party, Dummy(party))
       tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
-      failure <- ledger.flatTransactionByEventId(tree.rootEventIds.head, intruder).failed
+      failure <- ledger
+        .flatTransactionByEventId(tree.rootEventIds.head, intruder)
+        .mustFail("looking up an invisible flat transaction")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1381,11 +1421,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXFlatTransactionByEventIdInvalid",
-    "Return INVALID when looking up a flat transaction by an invalid event identifier",
+    "Return INVALID when looking up a flat transaction using an invalid event identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger.flatTransactionByEventId("dont' worry, be happy", party).failed
+      failure <- ledger
+        .flatTransactionByEventId("dont' worry, be happy", party)
+        .mustFail("looking up a flat transaction using an invalid event ID")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Invalid field event_id")
     }
@@ -1393,11 +1435,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXFlatTransactionByEventIdNotFound",
-    "Return NOT_FOUND when looking up an inexistent flat transaction by event identifier",
+    "Return NOT_FOUND when looking up a non-existent flat transaction by event identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger.flatTransactionByEventId(s"#${"a" * 60}:000", party).failed
+      failure <- ledger
+        .flatTransactionByEventId(s"#${"a" * 60}:000", party)
+        .mustFail("looking up a non-existent flat transaction")
     } yield {
       assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
     }
@@ -1409,7 +1453,9 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
-      failure <- ledger.flatTransactionByEventId("not-relevant").failed
+      failure <- ledger
+        .flatTransactionByEventId("not-relevant")
+        .mustFail("looking up a flat transaction without specifying a party")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: requesting_parties")
     }

@@ -40,7 +40,6 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_h2database_h2",
         "@maven//:org_postgresql_postgresql",
-        "@maven//:org_xerial_sqlite_jdbc",
     ],
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -137,6 +136,7 @@ da_scala_library(
     deps = [
         ":sandbox-classic",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",

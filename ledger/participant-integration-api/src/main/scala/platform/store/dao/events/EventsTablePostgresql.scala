@@ -39,7 +39,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
   override def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      serialized: TransactionIndexing.Serialized,
+      compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches = {
 
     val batchSize = info.events.size
@@ -83,13 +83,13 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-          createArguments(i) = serialized.createArguments(nodeId)
+          createArguments(i) = compressed.createArguments(nodeId)
           createSignatories(i) = create.signatories.mkString("|")
           createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
           if (create.coinst.agreementText.nonEmpty) {
             createAgreementTexts(i) = create.coinst.agreementText
           }
-          createKeyValues(i) = serialized.createKeyValues.get(nodeId).orNull
+          createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
         case exercise: Exercise =>
           submitters(i) = submittersValue
           contractIds(i) = exercise.targetCoid.coid
@@ -100,8 +100,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
           exerciseConsuming(i) = exercise.consuming
           exerciseChoices(i) = exercise.choiceId
-          exerciseArguments(i) = serialized.exerciseArguments(nodeId)
-          exerciseResults(i) = serialized.exerciseResults.get(nodeId).orNull
+          exerciseArguments(i) = compressed.exerciseArguments(nodeId)
+          exerciseResults(i) = compressed.exerciseResults.get(nodeId).orNull
           exerciseActors(i) = exercise.actingParties.mkString("|")
           exerciseChildEventIds(i) = exercise.children
             .map(EventId(tx.transactionId, _).toLedgerString)
@@ -137,6 +137,10 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       exerciseResults,
       exerciseActors,
       exerciseChildEventIds,
+      createArgumentsCompression = eventIds.map(_ => compressed.createArgumentsCompression.id),
+      createKeyValueCompression = eventIds.map(_ => compressed.createKeyValueCompression.id),
+      exerciseArgumentCompression = eventIds.map(_ => compressed.exerciseArgumentsCompression.id),
+      exerciseResultCompression = eventIds.map(_ => compressed.exerciseResultsCompression.id),
     )
 
     val archivals =
@@ -174,6 +178,10 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseResults = "exerciseResults"
     val exerciseActors = "exerciseActors"
     val exerciseChildEventIds = "exerciseChildEventIds"
+    val createArgumentsCompression = "createArgumentsCompression"
+    val createKeyValueCompression = "create_key_value_compression"
+    val exerciseArgumentCompression = "exercise_argument_compression"
+    val exerciseResultCompression = "exercise_result_compression"
   }
 
   /** Allows idempotent event insertions (i.e. discards new rows on `event_id` conflicts).
@@ -192,24 +200,24 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     import Params._
     s"""insert into participant_events(
            event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
-           create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
-           exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
+           create_argument, create_argument_compression, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value, create_key_value_compression,
+           exercise_consuming, exercise_choice, exercise_argument, exercise_argument_compression, exercise_result, exercise_result_compression, exercise_actors, exercise_child_event_ids
          )
          select
            event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, string_to_array(submitters,'|'), string_to_array(flat_event_witnesses, '|'), string_to_array(tree_event_witnesses, '|'),
-           create_argument, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_consumed_at, create_key_value,
-           exercise_consuming, exercise_choice, exercise_argument, exercise_result, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
+           create_argument, create_argument_compression, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_consumed_at, create_key_value, create_key_value_compression,
+           exercise_consuming, exercise_choice, exercise_argument, exercise_argument_compression, exercise_result, exercise_result_compression, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
          from
            unnest(
              {$eventIds}, {$eventOffsets}, {$contractIds}, {$transactionIds}, {$workflowIds}, {$ledgerEffectiveTimes}, {$templateIds}, {$nodeIndexes}, {$commandIds}, {$applicationIds}, {$submitters}, {$flatEventWitnesses}, {$treeEventWitnesses},
-             {$createArguments}, {$createSignatories}, {$createObservers}, {$createAgreementTexts}, {$createConsumedAt}, {$createKeyValues},
-             {$exerciseConsuming}, {$exerciseChoices}, {$exerciseArguments}, {$exerciseResults}, {$exerciseActors}, {$exerciseChildEventIds}
+             {$createArguments}, {$createArgumentsCompression}, {$createSignatories}, {$createObservers}, {$createAgreementTexts}, {$createConsumedAt}, {$createKeyValues}, {$createKeyValueCompression},
+             {$exerciseConsuming}, {$exerciseChoices}, {$exerciseArguments}, {$exerciseArgumentCompression}, {$exerciseResults}, {$exerciseResultCompression}, {$exerciseActors}, {$exerciseChildEventIds}
            )
            as
                t(
                  event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
-                 create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
-                 exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
+                 create_argument, create_argument_compression, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value, create_key_value_compression,
+                 exercise_consuming, exercise_choice, exercise_argument, exercise_argument_compression, exercise_result, exercise_result_compression, exercise_actors, exercise_child_event_ids
                )
          $conflictActionClause
        """
@@ -241,8 +249,12 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       exerciseResults: Array[Array[Byte]],
       exerciseActors: Array[String],
       exerciseChildEventIds: Array[String],
+      createArgumentsCompression: Array[Option[Int]],
+      createKeyValueCompression: Array[Option[Int]],
+      exerciseArgumentCompression: Array[Option[Int]],
+      exerciseResultCompression: Array[Option[Int]],
   ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions._
+    import com.daml.platform.store.Conversions.IntToSmallIntConversions._
     anorm
       .SQL(insertStmt)
       .on(
@@ -271,6 +283,10 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
         Params.exerciseResults -> exerciseResults,
         Params.exerciseActors -> exerciseActors,
         Params.exerciseChildEventIds -> exerciseChildEventIds,
+        Params.exerciseResultCompression -> exerciseResultCompression,
+        Params.exerciseArgumentCompression -> exerciseArgumentCompression,
+        Params.createArgumentsCompression -> createArgumentsCompression,
+        Params.createKeyValueCompression -> createKeyValueCompression,
       )
   }
 }

@@ -175,13 +175,16 @@ final class JdbcIndexerSpec
       ServerRole.Indexer,
       config.jdbcUrl,
       config.eventsPageSize,
+      materializer.executionContext,
       metrics,
       LfValueTranslation.Cache.none,
       jdbcAsyncCommits = true,
+      enricher = None,
     )
     new indexer.JdbcIndexer.Factory(
       config = config,
       readService = mockedReadService(),
+      servicesExecutionContext = materializer.executionContext,
       metrics = metrics,
       updateFlowOwnerBuilder =
         mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
@@ -204,6 +207,7 @@ final class JdbcIndexerSpec
         any[LedgerDao],
         eqTo(metrics),
         eqTo(participantId),
+        any[Int],
         any[ExecutionContext],
         any[LoggingContext],
       )

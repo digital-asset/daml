@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
+import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -29,8 +30,8 @@ import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[sandbox] trait IndexAndWriteService {
   def indexService: IndexService
@@ -54,8 +55,10 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      engine: Engine,
       validatePartyAllocation: Boolean = false,
   )(implicit
       mat: Materializer,
@@ -74,9 +77,11 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter = transactionCommitter,
       startMode = startMode,
       eventsPageSize = eventsPageSize,
+      servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
-      lfValueTranslationCache,
-      validatePartyAllocation,
+      lfValueTranslationCache = lfValueTranslationCache,
+      engine = engine,
+      validatePartyAllocation = validatePartyAllocation,
     ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
 
   def inMemory(

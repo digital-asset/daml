@@ -28,7 +28,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
-      failure <- participant.prune("", attempts = 1).failed
+      failure <- participant
+        .prune("", attempts = 1)
+        .mustFail("pruning without specifying an offset")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
     }
@@ -40,7 +42,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
-      cannotPruneNonHexOffset <- participant.prune("cofefe", attempts = 1).failed
+      cannotPruneNonHexOffset <- participant
+        .prune("cofefe", attempts = 1)
+        .mustFail("pruning, specifiying a non-hexadecimal offset")
     } yield {
       assertGrpcError(
         cannotPruneNonHexOffset,
@@ -61,7 +65,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       actualEndExclusive <- participant.currentEnd()
       cannotPruneOffsetBeyondEnd <- participant
         .prune(actualEndExclusive, attempts = 1)
-        .failed
+        .mustFail("pruning, specifiying an offset after the ledger end")
     } yield {
       assertGrpcError(
         cannotPruneOffsetBeyondEnd,
@@ -99,7 +103,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             .getTransactionsRequest(parties = Seq(submitter))
             .update(_.begin := offsetOfSecondToLastPrunedTransaction)
         )
-        .failed
+        .mustFail("attempting to read transactions before the pruning cut-off")
     } yield {
       assert(
         transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
@@ -145,7 +149,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             .getTransactionsRequest(parties = Seq(submitter))
             .update(_.begin := offsetOfSecondToLastPrunedTransaction)
         )
-        .failed
+        .mustFail("attempting to read transactions before the pruning cut-off")
     } yield {
       assert(
         txAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
@@ -193,7 +197,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           1,
           participant.completionStreamRequest(offsetOfSecondToLastPrunedCheckpoint)(submitter),
         )
-        .failed
+        .mustFail("attempting to read transactions before the pruning cut-off")
     } yield {
       assert(
         firstCheckpointBeforePrune.offset.exists(o => o.getAbsolute < offsetToPruneUpTo.getAbsolute)
@@ -202,7 +206,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         firstCheckpointsAfterPrune.offset.exists(o =>
           o.getAbsolute == offsetOfFirstSurvivingCheckpoint.getAbsolute
         ),
-        s"first checkpoint offset ${firstCheckpointsAfterPrune.offset} after pruning does not match expected offset ${offsetOfFirstSurvivingCheckpoint}",
+        s"first checkpoint offset ${firstCheckpointsAfterPrune.offset} after pruning does not match expected offset $offsetOfFirstSurvivingCheckpoint",
       )
       assertGrpcError(
         cannotReadAnymore,
@@ -263,7 +267,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant.prune(offsetToPruneUpTo)
 
       prunedTransactionTrees <- Future.sequence(
-        prunedTransactionIds.map(participant.transactionTreeById(_, submitter).failed)
+        prunedTransactionIds.map(
+          participant
+            .transactionTreeById(_, submitter)
+            .mustFail("attempting to read transactions before the pruning cut-off")
+        )
       )
 
       _ <- Future.sequence(
@@ -302,7 +310,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant.prune(offsetToPruneUpTo)
 
       prunedFlatTransactions <- Future.sequence(
-        prunedTransactionIds.map(participant.flatTransactionById(_, submitter).failed)
+        prunedTransactionIds.map(
+          participant
+            .flatTransactionById(_, submitter)
+            .mustFail("attempting to read transactions before the pruning cut-off")
+        )
       )
 
       _ <- Future.sequence(
@@ -339,7 +351,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant.prune(offsetToPruneUpTo)
 
       prunedEventsViaTree <- Future.sequence(
-        prunedEventIds.map(participant.transactionTreeByEventId(_, submitter).failed)
+        prunedEventIds.map(
+          participant
+            .transactionTreeByEventId(_, submitter)
+            .mustFail("attempting to read transactions before the pruning cut-off")
+        )
       )
 
       _ <- Future.sequence(unprunedEventIds.map(participant.transactionTreeByEventId(_, submitter)))
@@ -374,7 +390,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant.prune(offsetToPruneUpTo)
 
       prunedEventsViaFlat <- Future.sequence(
-        prunedEventIds.map(participant.flatTransactionByEventId(_, submitter).failed)
+        prunedEventIds.map(
+          participant
+            .flatTransactionByEventId(_, submitter)
+            .mustFail("attempting to read transactions before the pruning cut-off")
+        )
       )
 
       _ <- Future.sequence(unprunedEventIds.map(participant.flatTransactionByEventId(_, submitter)))

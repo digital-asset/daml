@@ -7,8 +7,6 @@ import java.io.ByteArrayInputStream
 import java.security.{PublicKey, Signature}
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
-import com.daml.nonrepudiation.KeyRepository.Fingerprint
-import com.google.common.io.BaseEncoding
 import io.grpc.Metadata.Key
 import io.grpc._
 import org.slf4j.{Logger, LoggerFactory}
@@ -17,7 +15,7 @@ import scala.util.Try
 
 final class SignatureVerificationInterceptor(
     keyRepository: KeyRepository.Read,
-    signedCommands: SignedCommandRepository.Write,
+    signedPayloads: SignedPayloadRepository.Write,
 ) extends ServerInterceptor {
 
   import SignatureVerificationInterceptor._
@@ -28,24 +26,27 @@ final class SignatureVerificationInterceptor(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
 
-    val requestMetadata =
+    val signatureData =
       for {
-        signature <- getHeader(metadata, Headers.SIGNATURE)
-        algorithm <- getHeader(metadata, Headers.ALGORITHM)
-        fingerprint <- getHeader(metadata, Headers.FINGERPRINT)
+        signature <- getHeader(metadata, Headers.SIGNATURE, SignatureBytes.wrap)
+        algorithm <- getHeader(metadata, Headers.ALGORITHM, AlgorithmString.wrap)
+        fingerprint <- getHeader(metadata, Headers.FINGERPRINT, FingerprintBytes.wrap)
         key <- getKey(keyRepository, fingerprint)
-      } yield (signature, algorithm, key)
+      } yield SignatureData(
+        signature = signature,
+        algorithm = algorithm,
+        fingerprint = fingerprint,
+        key = key,
+      )
 
-    requestMetadata match {
-      case Right((signature, signatureAlgorithm, signaturePublicKey)) =>
+    signatureData match {
+      case Right(signatureData) =>
         new SignatureVerificationServerCallListener(
           call = call,
           metadata = metadata,
           next = next,
-          signature = signature,
-          signatureAlgorithm = signatureAlgorithm,
-          signaturePublicKey = signaturePublicKey,
-          signatures = signedCommands,
+          signatureData = signatureData,
+          signedPayloads = signedPayloads,
         )
       case Left(rejection) =>
         rejection.report()
@@ -93,23 +94,21 @@ object SignatureVerificationInterceptor {
   val SignatureVerificationFailed: Status =
     Status.UNAUTHENTICATED.withDescription("Signature verification failed")
 
-  private def assertFingerprint(rawFingerprint: String): Either[Rejection, Fingerprint] =
-    Fingerprint.fromString(rawFingerprint).toEither.left.map(Rejection.fromException)
-
   private def getKey(
       keys: KeyRepository.Read,
-      rawFingerprint: String,
+      fingerprint: FingerprintBytes,
   ): Either[Rejection, PublicKey] = {
-    logger.trace("Retrieving key for fingerprint '{}'", rawFingerprint)
-    for {
-      fingerprint <- assertFingerprint(rawFingerprint)
-      key <- keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint))
-    } yield key
+    logger.trace("Retrieving key for fingerprint '{}'", fingerprint.base64)
+    keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint.base64))
   }
 
-  private def getHeader[A](metadata: Metadata, key: Key[A]): Either[Rejection, A] = {
+  private def getHeader[Raw, Wrapped](
+      metadata: Metadata,
+      key: Key[Raw],
+      wrap: Raw => Wrapped,
+  ): Either[Rejection, Wrapped] = {
     logger.trace("Reading header '{}' from request", key.name)
-    Option(metadata.get(key)).toRight(Rejection.missingHeader(key))
+    Option(metadata.get(key)).toRight(Rejection.missingHeader(key)).map(wrap)
   }
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[SignatureVerificationInterceptor])
@@ -118,10 +117,8 @@ object SignatureVerificationInterceptor {
       call: ServerCall[ReqT, RespT],
       metadata: Metadata,
       next: ServerCallHandler[ReqT, RespT],
-      signature: String,
-      signatureAlgorithm: String,
-      signaturePublicKey: PublicKey,
-      signatures: SignedCommandRepository.Write,
+      signatureData: SignatureData,
+      signedPayloads: SignedPayloadRepository.Write,
   ) extends ForwardingServerCallListener(call, metadata, next) {
 
     private def castToByteArray(request: ReqT): Either[Rejection, Array[Byte]] = {
@@ -132,23 +129,22 @@ object SignatureVerificationInterceptor {
     private def verifySignature(payload: Array[Byte]): Either[Rejection, Boolean] =
       Try {
         logger.trace("Decoding signature bytes from Base64-encoded signature")
-        val signatureBytes = BaseEncoding.base64().decode(signature)
         logger.trace("Initializing signature verifier")
-        val verifier = Signature.getInstance(signatureAlgorithm)
-        verifier.initVerify(signaturePublicKey)
+        val verifier = Signature.getInstance(signatureData.algorithm)
+        verifier.initVerify(signatureData.key)
         verifier.update(payload)
-        logger.trace("Verifying signature '{}'", signature)
-        verifier.verify(signatureBytes)
+        logger.trace("Verifying signature '{}'", signatureData.signature.base64)
+        verifier.verify(signatureData.signature.unsafeArray)
       }.toEither.left
         .map(Rejection.fromException)
         .filterOrElse(identity, Rejection.KeyVerificationFailed)
 
     private def addSignedCommand(
-        payload: Array[Byte],
-        signature: String,
+        payload: Array[Byte]
     ): Either[Rejection, Unit] = {
       logger.trace("Adding signed payload")
-      Try(signatures.put(payload, signature)).toEither.left.map(Rejection.fromException)
+      val signedPayload = signatureData.toSignedPayload(payload)
+      Try(signedPayloads.put(signedPayload)).toEither.left.map(Rejection.fromException)
     }
 
     override def onMessage(request: ReqT): Unit = {
@@ -156,7 +152,7 @@ object SignatureVerificationInterceptor {
         for {
           payload <- castToByteArray(request)
           _ <- verifySignature(payload)
-          _ <- addSignedCommand(payload, signature)
+          _ <- addSignedCommand(payload)
         } yield {
           val input = new ByteArrayInputStream(payload)
           val dup = call.getMethodDescriptor.parseRequest(input)

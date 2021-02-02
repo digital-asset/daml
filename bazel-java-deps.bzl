@@ -20,6 +20,7 @@ version_specific = {
 
 netty_version = "4.1.58.Final"
 grpc_version = "1.35.0"
+akka_version = "2.6.12"
 
 def install_java_deps():
     maven_install(
@@ -49,15 +50,15 @@ def install_java_deps():
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_{}:0.19".format(scala_major_version),
             "com.storm-enroute:scalameter-core_{}:0.19".format(scala_major_version),
-            "com.typesafe.akka:akka-actor_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-actor-typed_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-http_{}:10.2.1".format(scala_major_version),
+            "com.typesafe.akka:akka-actor_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-actor-typed_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-http_{}:10.2.1".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-http-spray-json_{}:10.2.1".format(scala_major_version),
             "com.typesafe.akka:akka-http-testkit_{}:10.2.1".format(scala_major_version),
-            "com.typesafe.akka:akka-slf4j_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-stream_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-stream-testkit_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-testkit_{}:2.6.11".format(scala_major_version),
+            "com.typesafe.akka:akka-slf4j_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-stream_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-stream-testkit_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-testkit_{}:{}".format(scala_major_version, akka_version),
             "org.playframework.anorm:anorm_{}:2.6.8".format(scala_major_version),
             "org.playframework.anorm:anorm-akka_{}:2.6.8".format(scala_major_version),
             "com.typesafe.scala-logging:scala-logging_{}:3.9.2".format(scala_major_version),

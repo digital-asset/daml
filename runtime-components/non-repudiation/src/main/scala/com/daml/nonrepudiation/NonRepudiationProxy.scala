@@ -13,12 +13,12 @@ object NonRepudiationProxy {
       participant: Channel,
       serverBuilder: ServerBuilder[_],
       keyRepository: KeyRepository.Read,
-      signedCommandRepository: SignedCommandRepository.Write,
+      signedPayloadRepository: SignedPayloadRepository.Write,
       serviceName: String,
       serviceNames: String*
   ): AbstractResourceOwner[Context, Server] = {
     val signatureVerification =
-      new SignatureVerificationInterceptor(keyRepository, signedCommandRepository)
+      new SignatureVerificationInterceptor(keyRepository, signedPayloadRepository)
     ReverseProxy.owner(
       backend = participant,
       serverBuilder = serverBuilder,

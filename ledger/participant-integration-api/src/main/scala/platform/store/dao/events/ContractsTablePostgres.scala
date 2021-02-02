@@ -18,25 +18,26 @@ object ContractsTablePostgres extends ContractsTable {
     val timestamps = "timestamps"
     val hashes = "hashes"
     val stakeholders = "stakeholders"
+    val createArgCompression = "createArgumentCompression"
   }
 
   private val insertContractQuery: SqlQuery = {
     import Params._
     anorm.SQL(s"""insert into participant_contracts(
-       contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders
+       contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders
      )
      select
-       contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, string_to_array(create_stakeholders,'|')
+       contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, string_to_array(create_stakeholders,'|')
      from
-       unnest({$contractIds}, {$templateIds}, {$createArgs}, {$timestamps}, {$hashes}, {$stakeholders})
-       as t(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders)
+       unnest({$contractIds}, {$templateIds}, {$createArgs}, {$createArgCompression}, {$timestamps}, {$hashes}, {$stakeholders})
+       as t(contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders)
             on conflict do nothing;""")
   }
 
   override def toExecutables(
       info: TransactionIndexing.ContractsInfo,
       tx: TransactionIndexing.TransactionInfo,
-      serialized: TransactionIndexing.Serialized,
+      serialized: TransactionIndexing.Compressed.Contracts,
   ): ContractsTable.Executables = {
     ContractsTable.Executables(
       deleteContracts = buildDeletes(info),
@@ -47,9 +48,10 @@ object ContractsTablePostgres extends ContractsTable {
   private def buildInserts(
       tx: TransactionIndexing.TransactionInfo,
       contractsInfo: TransactionIndexing.ContractsInfo,
-      serialized: TransactionIndexing.Serialized,
+      serialized: TransactionIndexing.Compressed.Contracts,
   ): Executable = {
     import com.daml.platform.store.Conversions._
+    import com.daml.platform.store.Conversions.IntToSmallIntConversions._
 
     val netCreatesSize = contractsInfo.netCreates.size
     val divulgedSize = contractsInfo.divulgedContracts.size
@@ -67,7 +69,7 @@ object ContractsTablePostgres extends ContractsTable {
       contractIds(idx) = create.coid.coid
       templateIds(idx) = create.templateId.toString
       stakeholders(idx) = create.stakeholders.mkString("|")
-      createArgs(idx) = serialized.createArgumentsByContract(create.coid)
+      createArgs(idx) = serialized.createArguments(create.coid)
       hashes(idx) = create.key
         .map(convertLfValueKey(create.templateId, _))
         .map(_.hash.bytes.toByteArray)
@@ -79,9 +81,12 @@ object ContractsTablePostgres extends ContractsTable {
         contractIds(idx + netCreatesSize) = contractId.coid
         templateIds(idx + netCreatesSize) = contractInst.template.toString
         stakeholders(idx + netCreatesSize) = ""
-        createArgs(idx + netCreatesSize) = serialized.createArgumentsByContract(contractId)
+        createArgs(idx + netCreatesSize) = serialized.createArguments(contractId)
         hashes(idx + netCreatesSize) = null
     }
+
+    val createArgCompressions =
+      Array.fill[Option[Int]](batchSize)(serialized.createArgumentsCompression.id)
 
     val inserts = insertContractQuery.on(
       Params.contractIds -> contractIds,
@@ -90,6 +95,7 @@ object ContractsTablePostgres extends ContractsTable {
       Params.timestamps -> timestamps,
       Params.hashes -> hashes,
       Params.stakeholders -> stakeholders,
+      Params.createArgCompression -> createArgCompressions,
     )
 
     new InsertExecutable(inserts)

@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
@@ -100,10 +99,9 @@ private[apiserver] final class ApiPackageManagementService private (
       else
         SubmissionId.assertFromString(request.submissionId)
 
-    val stream = new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray))
-
+    val darInputStream = new ZipInputStream(request.darFile.newInput())
     val response = for {
-      dar <- decodeAndValidate(stream).fold(
+      dar <- decodeAndValidate(darInputStream).fold(
         err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
         Future.successful,
       )

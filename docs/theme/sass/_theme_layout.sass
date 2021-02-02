@@ -288,7 +288,7 @@ html
   min-height: 100%
   color: $menu-medium
   background: $nav-background-color
-  z-index: 10000
+  z-index: 1000
   box-shadow: 3px 0 2px -1px $nav-shadow
   -moz-box-shadow: 3px 0 2px -1px $nav-shadow
   -webkit-box-shadow: 3px 0 2px -1px $nav-shadow
@@ -693,7 +693,7 @@ body
 
 .topbar.fixed
   position: fixed
-  z-index: 9999
+  z-index: 999
   width: calc(100% - #{$nav-desktop-width})
   background: $white
 
@@ -1185,15 +1185,9 @@ body
             padding-left: 42px
 
           &:hover
-            background-color: $menu-background-color
+            background-color: $gray-lighter
             border-left: 5px solid $blue
             padding-left: 42px
-
-            a
-              color: $white
-
-            .context
-              color: $white
 
           a
             float: left
@@ -1554,7 +1548,7 @@ body
         position: absolute
         left: 19px
         top: 26px
-        z-index: 9999
+        z-index: 999
 
       .wy-menu-vertical-title
         position: relative
@@ -1602,7 +1596,7 @@ body
       margin-left: 4px
       margin-top: 13px
       position: fixed
-      z-index: 10001
+      z-index: 1001
 
       i.wy-nav-top-toggle
         margin-top: -1px
@@ -2032,7 +2026,7 @@ div.pdf-download
       background-size: 11px
 
 #feedback-container
-  z-index: 20000
+  z-index: 2000
   float: right
   padding: 150px 0 30px 40px
   margin-right: calc(100% - $nav-content-width)
@@ -2051,13 +2045,13 @@ div.pdf-download
   position: fixed
   bottom: 50px
   right: 20px
-  z-index: 20000
+  z-index: 2000
 
   +media($mobile)
     display: none
 
 #popoutContent
-  z-index: 20000
+  z-index: 2000
   +media($mobile)
     display: none
 

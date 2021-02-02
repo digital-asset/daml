@@ -17,14 +17,16 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "f76d0e11e576faeb0b9016d0bb09074e24a45d7e"
-GHCIDE_SHA256 = "8c2e2c52f87afa669eea40a2b8a48f6d4f628ae76ef5a0dc065065a0e9292aa9"
+GHCIDE_REV = "0fdad67601eb7c6521c4a4a712bbc396d1c012b8"
+GHCIDE_SHA256 = "14d4028eb1e52fd3a1ac0710fb2a6fc0a7b5f1d1b8bc8d0a79c23837bc63b903"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.18.5"
 ZIP_VERSION = "1.5.0"
+GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
+GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -121,7 +123,6 @@ haskell_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
-            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-bounds.patch",
         ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
@@ -175,10 +176,11 @@ cc_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
+            "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
         ],
-        sha256 = "531bbd4df2eca160be436074ade336a70cad3a6477df8d00d479440edfe9896b",
-        strip_prefix = "gRPC-haskell-0cb7999e9e89d0c17c5e1d917e97cc6e450b9346/core",
-        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/0cb7999e9e89d0c17c5e1d917e97cc6e450b9346.tar.gz"],
+        sha256 = GRPC_HASKELL_SHA256,
+        strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
+        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
     )
 
     http_archive(
@@ -193,9 +195,9 @@ haskell_library(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "531bbd4df2eca160be436074ade336a70cad3a6477df8d00d479440edfe9896b",
-        strip_prefix = "gRPC-haskell-0cb7999e9e89d0c17c5e1d917e97cc6e450b9346",
-        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/0cb7999e9e89d0c17c5e1d917e97cc6e450b9346.tar.gz"],
+        sha256 = GRPC_HASKELL_SHA256,
+        strip_prefix = "gRPC-haskell-{}".format(GRPC_HASKELL_REV),
+        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
     )
 
     http_archive(
@@ -216,6 +218,8 @@ haskell_cabal_library(
         sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
         strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
         urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+        patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
+        patch_args = ["-p1"],
     )
 
     http_archive(

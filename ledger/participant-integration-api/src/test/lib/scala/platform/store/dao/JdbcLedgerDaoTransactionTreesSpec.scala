@@ -228,7 +228,15 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
   it should "filter correctly by party" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      (_, tx) <- store(multipleCreates(charlie, Seq(alice -> "foo:bar:baz", bob -> "foo:bar:baz")))
+      (_, tx) <- store(
+        multipleCreates(
+          charlie,
+          Seq(
+            (alice, someTemplateId, someContractArgument),
+            (bob, someTemplateId, someContractArgument),
+          ),
+        )
+      )
       to <- ledgerDao.lookupLedgerEnd()
       individualLookupForAlice <- lookupIndividually(Seq(tx), as = Set(alice))
       individualLookupForBob <- lookupIndividually(Seq(tx), as = Set(bob))

@@ -54,6 +54,7 @@ final class ExecuteUpdateSpec
   )
   private val someMetrics = new Metrics(new MetricRegistry)
   private val someParticipantId = ParticipantId.assertFromString("some-participant")
+  private val prepareUpdateParallelism = 2
   private val ledgerEffectiveTime = Instant.EPOCH
 
   private val packageUploadRejectionReason = "some rejection reason"
@@ -141,6 +142,7 @@ final class ExecuteUpdateSpec
       val loggingContext: LoggingContext,
       val executionContext: ExecutionContext,
       val flow: ExecuteUpdateFlow,
+      private[indexer] val updatePreparationParallelism: Int = prepareUpdateParallelism,
   ) extends ExecuteUpdate
 
   private val executeUpdate = new ExecuteUpdateMock(
@@ -158,6 +160,7 @@ final class ExecuteUpdateSpec
       ledgerDaoMock,
       someMetrics,
       someParticipantId,
+      prepareUpdateParallelism,
       materializer.executionContext,
       loggingContext,
     )
@@ -213,7 +216,14 @@ final class ExecuteUpdateSpec
     "receives multiple updates including a transaction accepted" should {
       "process the pipelined stages in the correct order" in {
         PipelinedExecuteUpdate
-          .owner(ledgerDaoMock, someMetrics, someParticipantId, executionContext, loggingContext)
+          .owner(
+            ledgerDaoMock,
+            someMetrics,
+            someParticipantId,
+            prepareUpdateParallelism,
+            executionContext,
+            loggingContext,
+          )
           .use { executeUpdate =>
             Source
               .fromIterator(() => Iterator(transactionAcceptedOffsetPair, metadataUpdateOffsetPair))
@@ -269,7 +279,14 @@ final class ExecuteUpdateSpec
     "receives multiple updates including a transaction accepted" should {
       "execute all updates atomically" in {
         AtomicExecuteUpdate
-          .owner(ledgerDaoMock, someMetrics, someParticipantId, executionContext, loggingContext)
+          .owner(
+            ledgerDaoMock,
+            someMetrics,
+            someParticipantId,
+            prepareUpdateParallelism,
+            executionContext,
+            loggingContext,
+          )
           .use { executeUpdate =>
             Source
               .fromIterator(() => Iterator(transactionAcceptedOffsetPair, metadataUpdateOffsetPair))

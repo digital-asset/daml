@@ -226,7 +226,7 @@ object ValueCoder {
           case proto.Value.SumCase.PARTY =>
             val party = Party.fromString(protoValue.getParty)
             party.fold(e => throw Err("error decoding party: " + e), ValueParty)
-          case proto.Value.SumCase.CONTRACT_ID | proto.Value.SumCase.CONTRACT_ID_STRUCT =>
+          case proto.Value.SumCase.CONTRACT_ID_STRUCT =>
             val cid = decodeCid.decode(protoValue.getContractIdStruct)
             cid.fold(
               e => throw Err("error decoding contractId: " + e.errorMessage),

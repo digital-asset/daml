@@ -60,7 +60,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           generation = response3.configurationGeneration,
           newTimeModel = oldTimeModel,
         )
-        .failed
+        .mustFail("setting a time model with an expired MRT")
     } yield {
       assert(
         response1.configurationGeneration < response2.configurationGeneration,

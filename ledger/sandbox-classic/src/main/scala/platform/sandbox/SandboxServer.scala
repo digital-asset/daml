@@ -288,41 +288,49 @@ final class SandboxServer(
         metrics = metrics,
       )
 
-    val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
-      case Some(jdbcUrl) =>
-        "postgres" -> SandboxIndexAndWriteService.postgres(
-          name = name,
-          providedLedgerId = config.ledgerIdMode,
-          participantId = config.participantId,
-          jdbcUrl = jdbcUrl,
-          timeProvider = timeProvider,
-          ledgerEntries = ledgerEntries,
-          startMode = startMode,
-          queueDepth = config.commandConfig.maxParallelSubmissions,
-          transactionCommitter = transactionCommitter,
-          templateStore = packageStore,
-          eventsPageSize = config.eventsPageSize,
-          metrics = metrics,
-          lfValueTranslationCache = lfValueTranslationCache,
-          validatePartyAllocation = !config.implicitPartyAllocation,
-        )
-
-      case None =>
-        "in-memory" -> SandboxIndexAndWriteService.inMemory(
-          name,
-          config.ledgerIdMode,
-          config.participantId,
-          timeProvider,
-          acs,
-          ledgerEntries,
-          transactionCommitter,
-          packageStore,
-          metrics,
-        )
+    val ledgerType = config.jdbcUrl match {
+      case Some(_) => "postgres"
+      case None => "in-memory"
     }
 
     for {
-      indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
+        .acquire()
+      indexAndWriteService <- (config.jdbcUrl match {
+        case Some(jdbcUrl) =>
+          SandboxIndexAndWriteService.postgres(
+            name = name,
+            providedLedgerId = config.ledgerIdMode,
+            participantId = config.participantId,
+            jdbcUrl = jdbcUrl,
+            timeProvider = timeProvider,
+            ledgerEntries = ledgerEntries,
+            startMode = startMode,
+            queueDepth = config.commandConfig.maxParallelSubmissions,
+            transactionCommitter = transactionCommitter,
+            templateStore = packageStore,
+            eventsPageSize = config.eventsPageSize,
+            servicesExecutionContext = servicesExecutionContext,
+            metrics = metrics,
+            lfValueTranslationCache = lfValueTranslationCache,
+            engine = engine,
+            validatePartyAllocation = !config.implicitPartyAllocation,
+          )
+        case None =>
+          SandboxIndexAndWriteService.inMemory(
+            name,
+            config.ledgerIdMode,
+            config.participantId,
+            timeProvider,
+            acs,
+            ledgerEntries,
+            transactionCommitter,
+            packageStore,
+            metrics,
+          )
+      }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
@@ -341,10 +349,6 @@ final class SandboxServer(
       )
       ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
-      servicesExecutionContext <- ResourceOwner
-        .forExecutorService(() => Executors.newWorkStealingPool())
-        .map(ExecutionContext.fromExecutorService)
-        .acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = config.participantId,
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),

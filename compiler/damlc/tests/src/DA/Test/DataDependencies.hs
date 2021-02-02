@@ -57,6 +57,7 @@ numStablePackages ver
   | ver == LF.version1_7 = 16
   | ver == LF.version1_8 = 16
   | ver == LF.version1_11 = 17
+  | ver == LF.version1_12 = 17
   | ver == LF.versionDev = 17
   | otherwise = error $ "Unsupported LF version: " <> show ver
 

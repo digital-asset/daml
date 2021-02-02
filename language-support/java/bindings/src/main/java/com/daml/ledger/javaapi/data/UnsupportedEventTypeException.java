@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 public class UnsupportedEventTypeException extends RuntimeException {
-    public UnsupportedEventTypeException(String eventStr) {
-        super("Unsupported event " + eventStr);
-    }
+  public UnsupportedEventTypeException(String eventStr) {
+    super("Unsupported event " + eventStr);
+  }
 }

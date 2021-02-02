@@ -54,7 +54,9 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
         _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
-        failure <- alpha.exercise(owner, iou.exerciseTransfer(_, leftWithNothing)).failed
+        failure <- alpha
+          .exercise(owner, iou.exerciseTransfer(_, leftWithNothing))
+          .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
@@ -115,7 +117,7 @@ final class SemanticTests extends LedgerTestSuite {
           iou.exerciseTransfer(owner, newOwner1).command,
           iou.exerciseTransfer(owner, newOwner2).command,
         )
-        failure <- alpha.submitAndWait(doubleSpend).failed
+        failure <- alpha.submitAndWait(doubleSpend).mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
           failure,
@@ -135,7 +137,9 @@ final class SemanticTests extends LedgerTestSuite {
         shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
         _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1)
         _ <- synchronize(alpha, beta)
-        failure <- beta.exercise(owner2, shared.exerciseSharedContract_Consume2).failed
+        failure <- beta
+          .exercise(owner2, shared.exerciseSharedContract_Consume2)
+          .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
@@ -221,7 +225,9 @@ final class SemanticTests extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
     for {
-      failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
+      failure <- alpha
+        .create(houseOwner, PaintAgree(painter, houseOwner))
+        .mustFail("creating a contract on behalf of two parties")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
     }
@@ -236,7 +242,9 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-        failure <- beta.exercise(painter, offer.exercisePaintOffer_Accept(_, iou)).failed
+        failure <- beta
+          .exercise(painter, offer.exercisePaintOffer_Accept(_, iou))
+          .mustFail("exercising a choice without consent")
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
       }
@@ -264,7 +272,8 @@ final class SemanticTests extends LedgerTestSuite {
         // The IOU should be visible only to the payer and the owner
         _ <- fetchIou(alpha, bank, iou)
         _ <- fetchIou(alpha, houseOwner, iou)
-        iouFetchFailure <- fetchIou(beta, painter, iou).failed
+        iouFetchFailure <- fetchIou(beta, painter, iou)
+          .mustFail("fetching the IOU with the wrong party")
 
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
         _ <- synchronize(alpha, beta)
@@ -272,7 +281,8 @@ final class SemanticTests extends LedgerTestSuite {
         // The house owner and the painter can see the offer but the bank can't
         _ <- fetchPaintOffer(alpha, houseOwner, offer)
         _ <- fetchPaintOffer(beta, painter, offer)
-        paintOfferFetchFailure <- fetchPaintOffer(alpha, bank, offer).failed
+        paintOfferFetchFailure <- fetchPaintOffer(alpha, bank, offer)
+          .mustFail("fetching the offer with the wrong party")
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
         (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
@@ -284,7 +294,8 @@ final class SemanticTests extends LedgerTestSuite {
 
         // The Bank can see the new IOU, but it cannot see the PaintAgree contract
         _ <- fetchIou(alpha, bank, newIou)
-        paintAgreeFetchFailure <- fetchPaintAgree(alpha, bank, agreement).failed
+        paintAgreeFetchFailure <- fetchPaintAgree(alpha, bank, agreement)
+          .mustFail("fetching the agreement with the wrong party")
 
         // The house owner and the painter can see the contract
         _ <- fetchPaintAgree(beta, painter, agreement)
@@ -292,7 +303,8 @@ final class SemanticTests extends LedgerTestSuite {
 
         // The painter sees its new IOU but the house owner cannot see it
         _ <- fetchIou(beta, painter, newIou)
-        secondIouFetchFailure <- fetchIou(alpha, houseOwner, newIou).failed
+        secondIouFetchFailure <- fetchIou(alpha, houseOwner, newIou)
+          .mustFail("fetching the new IOU with the wrong party")
 
       } yield {
         assertGrpcError(iouFetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
@@ -362,7 +374,7 @@ final class SemanticTests extends LedgerTestSuite {
           _ <- synchronize(alpha, beta)
           failure <- beta
             .exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
-            .failed
+            .mustFail("divulging with a non-consuming choice")
 
           // Successful divulgence and delegation
           divulgeToken <- alpha.create(owner, Delegation(owner, delegate))

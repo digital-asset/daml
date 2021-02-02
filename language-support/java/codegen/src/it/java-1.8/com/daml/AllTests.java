@@ -8,8 +8,7 @@ import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-        AllGenericTests.class,
-        NumericTest.class,
+  AllGenericTests.class,
+  NumericTest.class,
 })
-public class AllTests {
-}
+public class AllTests {}

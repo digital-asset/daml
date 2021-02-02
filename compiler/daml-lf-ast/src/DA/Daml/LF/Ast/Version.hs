@@ -35,6 +35,10 @@ version1_8 = V1 $ PointStable 8
 version1_11 :: Version
 version1_11 = V1 $ PointStable 11
 
+-- | DAML-LF version 1.12
+version1_12 :: Version
+version1_12 = V1 $ PointStable 12
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_8
@@ -44,7 +48,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, versionDev]
+supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, version1_12, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = supportedOutputVersions
