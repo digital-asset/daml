@@ -12,6 +12,14 @@ lf_latest_version = "1.11"
 lf_preview_version = ["1.12"]
 lf_dev_version = "1.dev"
 
+# We generate docs for the latest preview version since releasing
+# preview versions without docs for them is a bit annoying.
+# Once we start removing modules in newer LF versions, we might
+# have to come up with something more clever here to make
+# sure that we don’t remove docs for a module that is still supported
+# in a stable LF version.
+lf_docs_version = lf_preview_version[0] if lf_preview_version != [] else lf_latest_version
+
 # All LF versions for which we have protobufs.
 LF_VERSIONS = [
     "1.6",

@@ -11,7 +11,10 @@ module DA.Map where
 
 #else
 
--- | This module exports the generic map type `Map k v` and associated
+
+-- | Note: This is only supported in DAML-LF 1.11 or later.
+--
+-- This module exports the generic map type `Map k v` and associated
 -- functions. This module should be imported qualified, for example:
 --
 -- ```

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
+load("//daml-lf/language:daml-lf.bzl", "lf_docs_version")
 load("//rules_daml:daml.bzl", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
@@ -232,8 +233,9 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
+            --target={} \
             $(locations //compiler/damlc/daml-prim-src)
-    """,
+    """.format(lf_docs_version),
     tools = [
         "//compiler/damlc",
     ],
@@ -249,8 +251,9 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
+            --target={} \
             $(locations //compiler/damlc/daml-stdlib-src)
-    """,
+    """.format(lf_docs_version),
     tools = [
         "//compiler/damlc",
     ],
@@ -284,9 +287,10 @@ genrule(
             --base-url=https://docs.daml.com/daml/stdlib \\
             --output-hoogle=$(location :daml-base-hoogle.txt) \\
             --output-anchor=$(location :daml-base-anchors.json) \\
+            --target={} \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
-    """,
+    """.format(lf_docs_version),
     tools = [
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc",
