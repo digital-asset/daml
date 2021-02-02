@@ -86,7 +86,6 @@ final class Runner[T <: ReadWriteService, Extra](
         case EngineMode.Stable => LanguageVersion.StableVersions
         case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
       }
-
     val sharedEngine = new Engine(EngineConfig(allowedLanguageVersions))
 
     newLoggingContext { implicit loggingContext =>
