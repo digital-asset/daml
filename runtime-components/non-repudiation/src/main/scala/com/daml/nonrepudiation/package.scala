@@ -3,13 +3,14 @@
 
 package com.daml
 
-import java.security.PublicKey
+import java.security.{PrivateKey, PublicKey}
 
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.google.common.io.BaseEncoding
 
+import scala.collection.compat.immutable.ArraySeq
 import scala.util.Try
 
 package object nonrepudiation {
@@ -40,37 +41,43 @@ package object nonrepudiation {
     private def parseFromSubmitAndWait(payload: Array[Byte]): Try[Option[Commands]] =
       Try(SubmitAndWaitRequest.parseFrom(payload).commands)
 
-    private def commands(payload: PayloadBytes): Try[Commands] =
+    private def commands(payload: Array[Byte]): Try[Commands] =
       parseFromSubmit(payload).orElse(parseFromSubmitAndWait(payload)).map(getCommandsOrThrow)
 
     def fromPayload(payload: PayloadBytes): Try[CommandIdString] =
-      commands(payload).map(_.commandId).map(wrap)
+      commands(payload.unsafeArray).map(_.commandId).map(wrap)
 
     def assertFromPayload(payload: PayloadBytes): CommandIdString =
       fromPayload(payload).get
   }
 
-  type FingerprintBytes <: Array[Byte]
+  type FingerprintBytes <: ArraySeq[Byte]
 
   object FingerprintBytes {
-    def wrap(bytes: Array[Byte]): FingerprintBytes = bytes.asInstanceOf[FingerprintBytes]
-    def fromPublicKey(key: PublicKey): FingerprintBytes = wrap(Fingerprints.compute(key))
+    def wrap(bytes: Array[Byte]): FingerprintBytes =
+      ArraySeq.unsafeWrapArray(bytes).asInstanceOf[FingerprintBytes]
+    def compute(key: PublicKey): FingerprintBytes =
+      wrap(Fingerprints.compute(key))
   }
 
-  type PayloadBytes <: Array[Byte]
+  type PayloadBytes <: ArraySeq[Byte]
 
   object PayloadBytes {
-    def wrap(bytes: Array[Byte]): PayloadBytes = bytes.asInstanceOf[PayloadBytes]
+    def wrap(bytes: Array[Byte]): PayloadBytes =
+      ArraySeq.unsafeWrapArray(bytes).asInstanceOf[PayloadBytes]
   }
 
-  type SignatureBytes <: Array[Byte]
+  type SignatureBytes <: ArraySeq[Byte]
 
   object SignatureBytes {
-    def wrap(bytes: Array[Byte]): SignatureBytes = bytes.asInstanceOf[SignatureBytes]
+    def wrap(bytes: Array[Byte]): SignatureBytes =
+      ArraySeq.unsafeWrapArray(bytes).asInstanceOf[SignatureBytes]
+    def sign(algorithm: AlgorithmString, key: PrivateKey, payload: PayloadBytes): SignatureBytes =
+      wrap(Signatures.sign(algorithm, key, payload.unsafeArray))
   }
 
-  implicit final class BytesToBase64[Bytes <: Array[Byte]](val bytes: Bytes) extends AnyVal {
-    def base64: String = BaseEncoding.base64().encode(bytes)
+  implicit final class BytesToBase64[Bytes <: ArraySeq[Byte]](val bytes: Bytes) extends AnyVal {
+    def base64: String = BaseEncoding.base64().encode(bytes.unsafeArray)
   }
 
 }

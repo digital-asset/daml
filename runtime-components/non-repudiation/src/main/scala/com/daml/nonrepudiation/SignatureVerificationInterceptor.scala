@@ -133,8 +133,8 @@ object SignatureVerificationInterceptor {
         val verifier = Signature.getInstance(signatureData.algorithm)
         verifier.initVerify(signatureData.key)
         verifier.update(payload)
-        logger.trace("Verifying signature '{}'", signatureData.signature)
-        verifier.verify(signatureData.signature)
+        logger.trace("Verifying signature '{}'", signatureData.signature.base64)
+        verifier.verify(signatureData.signature.unsafeArray)
       }.toEither.left
         .map(Rejection.fromException)
         .filterOrElse(identity, Rejection.KeyVerificationFailed)

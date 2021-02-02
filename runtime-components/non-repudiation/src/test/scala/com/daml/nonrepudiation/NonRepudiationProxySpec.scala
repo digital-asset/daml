@@ -8,7 +8,6 @@ import java.security.{KeyPairGenerator, PublicKey}
 import com.daml.grpc.test.GrpcServer
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
 import com.daml.nonrepudiation.client.SigningInterceptor
-import com.google.common.io.BaseEncoding
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.{Channel, StatusRuntimeException}
 import org.scalatest.Inside
@@ -56,15 +55,21 @@ final class NonRepudiationProxySpec
           signedPayloads.keyEncoder.encode(expectedPayload)
 
         val expectedFingerprint =
-          FingerprintBytes.fromPublicKey(keyPair.getPublic)
+          FingerprintBytes.compute(keyPair.getPublic)
 
         val expectedSignature =
-          SignatureBytes.wrap(
-            Signatures.sign(
-              expectedAlgorithm,
-              keyPair.getPrivate,
-              expectedPayload,
-            )
+          SignatureBytes.sign(
+            expectedAlgorithm,
+            keyPair.getPrivate,
+            expectedPayload,
+          )
+
+        val expectedSignedPayload =
+          SignedPayload(
+            expectedAlgorithm,
+            expectedFingerprint,
+            expectedPayload,
+            expectedSignature,
           )
 
         val result =
@@ -75,11 +80,8 @@ final class NonRepudiationProxySpec
 
         result shouldEqual Health.getHealthStatus(channel)
 
-        inside(signedPayloads.get(expectedKey)) { case Seq(signedPayload) =>
-          signedPayload.algorithm shouldBe expectedAlgorithm
-          signedPayload.fingerprint shouldBe expectedFingerprint
-          signedPayload.payload shouldBe expectedPayload
-          signedPayload.signature shouldBe expectedSignature
+        inside(signedPayloads.get(expectedKey)) { case signedPayloads =>
+          signedPayloads should contain only expectedSignedPayload
         }
 
       }
@@ -161,16 +163,16 @@ object NonRepudiationProxySpec {
 
   final class Keys(keys: PublicKey*) extends KeyRepository {
 
-    private val map: TrieMap[String, PublicKey] = TrieMap(
-      keys.map(key => BaseEncoding.base64().encode(Fingerprints.compute(key)) -> key): _*
+    private val map: TrieMap[FingerprintBytes, PublicKey] = TrieMap(
+      keys.map(key => FingerprintBytes.compute(key) -> key): _*
     )
 
     override def get(fingerprint: FingerprintBytes): Option[PublicKey] =
-      map.get(fingerprint.base64)
+      map.get(fingerprint)
 
     override def put(key: PublicKey): FingerprintBytes = {
-      val fingerprint = FingerprintBytes.fromPublicKey(key)
-      map.put(fingerprint.base64, key)
+      val fingerprint = FingerprintBytes.compute(key)
+      map.put(fingerprint, key)
       fingerprint
     }
   }
