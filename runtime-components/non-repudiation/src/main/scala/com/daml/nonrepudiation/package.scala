@@ -28,7 +28,7 @@ package object nonrepudiation {
   type CommandIdString <: String
 
   object CommandIdString {
-    private def wrap(string: String): CommandIdString = string.asInstanceOf[CommandIdString]
+    def wrap(string: String): CommandIdString = string.asInstanceOf[CommandIdString]
 
     private val BadInput = "The mandatory `commands` field is absent"
 
