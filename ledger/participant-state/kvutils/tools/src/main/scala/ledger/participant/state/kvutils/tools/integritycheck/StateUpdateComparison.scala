@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, Update}
+import com.daml.lf.data.Time
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -64,7 +65,9 @@ object ReadServiceStateUpdateComparison {
 
   private def compareUpdates(expectedUpdate: Update, normalizedUpdate: Update): Future[Unit] = {
     val expectedNormalizedUpdate = normalizeUpdate(expectedUpdate)
-    val actualNormalizedUpdate = normalizeUpdate(normalizedUpdate)
+    // We overwrite the record time of the update with the expected one because it can vary.
+    val actualNormalizedUpdate =
+      updateRecordTime(normalizeUpdate(normalizedUpdate), expectedNormalizedUpdate.recordTime)
     if (expectedNormalizedUpdate != actualNormalizedUpdate) {
       Future.failed(
         new ComparisonFailureException(
@@ -80,8 +83,22 @@ object ReadServiceStateUpdateComparison {
     }
   }
 
+  // Rejection reasons can change arbitrarily. We just want to check the type.
   private def normalizeUpdate(update: Update): Update = update match {
-    // Rejection reasons can change arbitrarily. We just want to check the type.
+    case Update.ConfigurationChangeRejected(
+          recordTime,
+          submissionId,
+          participantId,
+          proposedConfiguration,
+          _,
+        ) =>
+      Update.ConfigurationChangeRejected(
+        recordTime = recordTime,
+        submissionId = submissionId,
+        participantId = participantId,
+        proposedConfiguration = proposedConfiguration,
+        rejectionReason = "",
+      )
     case Update.CommandRejected(recordTime, submitterInfo, rejectionReason) =>
       Update.CommandRejected(
         recordTime,
@@ -90,6 +107,18 @@ object ReadServiceStateUpdateComparison {
       )
     case _ => update
   }
+
+  private def updateRecordTime(update: Update, newRecordTime: Time.Timestamp): Update =
+    update match {
+      case u: Update.ConfigurationChanged => u.copy(recordTime = newRecordTime)
+      case u: Update.ConfigurationChangeRejected => u.copy(recordTime = newRecordTime)
+      case u: Update.PartyAddedToParticipant => u.copy(recordTime = newRecordTime)
+      case u: Update.PartyAllocationRejected => u.copy(recordTime = newRecordTime)
+      case u: Update.PublicPackageUpload => u.copy(recordTime = newRecordTime)
+      case u: Update.PublicPackageUploadRejected => u.copy(recordTime = newRecordTime)
+      case u: Update.TransactionAccepted => u.copy(recordTime = newRecordTime)
+      case u: Update.CommandRejected => u.copy(recordTime = newRecordTime)
+    }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
     reason match {

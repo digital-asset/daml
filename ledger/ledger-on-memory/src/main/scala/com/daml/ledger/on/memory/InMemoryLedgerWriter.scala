@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerWriter,
 }
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.batch.{
@@ -36,7 +36,11 @@ import com.daml.ledger.validator.preexecution.{
   TimeBasedWriteSetSelector,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
-import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
+import com.daml.ledger.validator.{
+  SerializingStateReader,
+  StateKeySerializationStrategy,
+  ValidateAndCommit,
+}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -168,15 +172,13 @@ object InMemoryLedgerWriter {
         RawPreExecutingCommitStrategy.ReadSet,
         RawKeyValuePairsWithLogEntry,
       ](
-        participantId = participantId,
-        now = now,
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
           new RawPreExecutingCommitStrategy(keySerializationStrategy),
           metrics,
         ),
-        postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
+        postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
         postExecutionWriteSetSelector = new TimeBasedWriteSetSelector(now),
         postExecutionWriter = new RawPostExecutionWriter,
         ledgerDataExporter = ledgerDataExporter,
@@ -190,34 +192,27 @@ object InMemoryLedgerWriter {
             submittingParticipantId: ParticipantId,
         ) =
           committer.commit(
+            submittingParticipantId,
             correlationId,
             submissionEnvelope,
-            submittingParticipantId,
+            now(),
             new InMemoryLedgerStateAccess(state, metrics),
           )
 
         validateAndCommit
       }
     }
-  }
 
-  private def transformStateReader(
-      keySerializationStrategy: StateKeySerializationStrategy,
-      cache: Cache[DamlStateKey, DamlStateValue],
-  )(stateReader: LedgerStateReader): DamlLedgerStateReader = {
-    CachingStateReader(
-      cache,
-      ImmutablesOnlyCacheUpdatePolicy,
-      stateReader
-        .contramapKeys(keySerializationStrategy.serializeStateKey)
-        .mapValues(value =>
-          value.map(
-            Envelope
-              .openStateValue(_)
-              .getOrElse(sys.error("Opening enveloped DamlStateValue failed"))
-          )
-        ),
-    )
+    private def transformStateReader(
+        keySerializationStrategy: StateKeySerializationStrategy,
+        cache: Cache[DamlStateKey, DamlStateValue],
+    )(stateReader: LedgerStateReader): DamlLedgerStateReader = {
+      CachingStateReader(
+        cache,
+        ImmutablesOnlyCacheUpdatePolicy,
+        SerializingStateReader(keySerializationStrategy)(stateReader),
+      )
+    }
   }
 
   private def createKeyValueCommitting(
