@@ -15,7 +15,7 @@ eval "$(dev-env/bin/dade-assist)"
 is_test=
 scalafmt_args=()
 javafmt_args=(--set-exit-if-changed --replace)
-hlint_diff=false
+diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
 
@@ -36,6 +36,19 @@ run() {
     exit 1
   fi
   return 0
+}
+
+#  We do not run on deleted files, or files that have been added since we last rebased onto main.
+check_diff() {
+  # $1 merge_base
+  # $2 regex
+  # "${@:3}" command
+  changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 || [[ $? == 1 ]])
+  if [[ -n "$changed_files" ]]; then
+    run "${@:3}" ${changed_files[@]:-}
+  else
+    echo "No changed file to check matching '$2', skipping."
+  fi
 }
 
 ## Main ##
@@ -64,7 +77,7 @@ USAGE
       shift
       merge_base="$(git merge-base origin/main HEAD)"
       scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
-      hlint_diff=true
+      diff_mode=true
       ;;
     *)
       echo "fmt.sh: unknown argument $1" >&2
@@ -112,24 +125,21 @@ run dade-copyright-headers "$dade_copyright_arg" .
 
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
-HLINT=(hlint -j4)
-echo "\$ ${HLINT[*]}"
-if [ "$hlint_diff" = "true" ]; then
-  #  We do not run on deleted files, or files that have been added since we last rebased onto trunk.
-  changed_haskell_files="$(git diff --name-only --diff-filter=ACMRT "$merge_base" | grep '\.hs$' || [[ $? == 1 ]])"
-  if [[ -n "$changed_haskell_files" ]]; then
-    "${HLINT[@]}" -j4 $changed_haskell_files
-  fi
+if [ "$diff_mode" = "true" ]; then
+  check_diff $merge_base '\.hs$' hlint -j4
+  check_diff $merge_base '\.java$' javafmt "${javafmt_args[@]:-}"
 else
-  "${HLINT[@]}" --git
+  run hlint -j4 --git
+  java_files=$(find . -name "*.java")
+  if [[ -z "$java_files" ]]; then
+    echo "Unexpected: no Java file in the repository"
+    exit 1
+  fi
+  run javafmt "${javafmt_args[@]:-}" ${java_files[@]:-}
 fi
 
 # check for scala code style
 run scalafmt "${scalafmt_args[@]:-}"
-
-# check for java code style
-java_files=$(find . -name "*.java")
-run javafmt "${javafmt_args[@]:-}" ${java_files[@]:-}
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
