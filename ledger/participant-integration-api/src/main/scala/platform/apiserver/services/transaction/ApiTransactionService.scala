@@ -77,10 +77,10 @@ private[apiserver] final class ApiTransactionService private (
     }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
-    s"Responding with transactions: ${transactions.transactions.map(_.transactionId).mkString("[", ",", "]")}"
+    s"Responding with transactions: ${transactions.transactions.map(_.toProtoString).mkString("[", ",", "]")}"
 
   private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
-    s"Responding with transaction trees: ${trees.transactions.map(_.transactionId).mkString("[", ",", "]")}"
+    s"Responding with transaction trees: ${trees.transactions.map(_.toProtoString).mkString("[", ",", "]")}"
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
