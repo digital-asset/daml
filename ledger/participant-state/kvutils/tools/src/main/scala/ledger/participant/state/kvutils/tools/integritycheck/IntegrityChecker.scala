@@ -222,12 +222,31 @@ class IntegrityChecker[LogResult](
         if (expectedWriteSet.size == actualWriteSet.size) {
           compareSameSizeWriteSets(expectedWriteSet, actualWriteSet)
         } else {
-          Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
+          Some(
+            Seq(
+              Seq(
+                s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}."
+              ),
+              Seq("Expected:"),
+              writeSetToStrings(expectedWriteSet),
+              Seq("Actual:"),
+              writeSetToStrings(actualWriteSet),
+            ).flatten.mkString(System.lineSeparator())
+          )
         }
       messageMaybe.foreach { message =>
         throw new ComparisonFailureException(message)
       }
     }
+
+  private def writeSetToStrings(writeSet: WriteSet): Seq[String] =
+    writeSet.map((writeItemToString _).tupled)
+
+  private def writeItemToString(key: Raw.Key, value: Raw.Value): String = {
+    val keyString = commitStrategySupport.stateKeySerializationStrategy.deserializeStateKey(key)
+    val valueString = kvutils.Envelope.open(value)
+    s"$keyString -> $valueString"
+  }
 
   private[tools] def compareSameSizeWriteSets(
       expectedWriteSet: WriteSet,
