@@ -14,6 +14,7 @@ import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Control.Monad.Loops
+import Control.Retry
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
@@ -317,20 +318,32 @@ download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
     tokens <- Control.Concurrent.QSem.newQSem 20
-    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
+    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) $ \url ->
         bracket_
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
               req <- add_github_contact_header <$> HTTP.parseRequest (show url)
-              HTTP.withResponse req manager (\resp -> do
-                  let body = HTTP.responseBody resp
-                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
-                      while (readFrom body) (writeTo handle)))))
+              recovering
+                retryPolicy
+                [retryHandler]
+                (\_ -> downloadFile req manager url)
+          )
   where while = Control.Monad.Loops.whileJust_
         readFrom body = ifNotEmpty <$> HTTP.brRead body
         ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
         writeTo = Data.ByteString.hPut
+        -- Retry for 5 minutes total, doubling delay starting with 20ms
+        retryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
+        retryHandler status =
+          logRetries
+            (\(_ :: IOException) -> pure True) -- Don’t try to be clever, just retry
+            (\shouldRetry err status -> IO.hPutStrLn IO.stderr $ defaultLogMsg shouldRetry err status)
+            status
+        downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
+            let body = HTTP.responseBody resp
+            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode $ \handle -> do
+                while (readFrom body) (writeTo handle)
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
