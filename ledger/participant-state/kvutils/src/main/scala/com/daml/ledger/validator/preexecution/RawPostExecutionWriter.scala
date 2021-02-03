@@ -4,19 +4,19 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.daml.ledger.validator.LedgerStateOperations
+import com.daml.ledger.validator.LedgerStateWriteOperations
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** A writer that simply pushes the data to [[LedgerStateOperations]]. */
+/** A writer that simply pushes the data to [[LedgerStateWriteOperations]]. */
 final class RawPostExecutionWriter extends PostExecutionWriter[RawKeyValuePairsWithLogEntry] {
   override def write[LogResult](
       writeSet: RawKeyValuePairsWithLogEntry,
-      ledgerStateOperations: LedgerStateOperations[LogResult],
+      operations: LedgerStateWriteOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     for {
-      _ <- ledgerStateOperations.writeState(writeSet.state)
-      _ <- ledgerStateOperations.appendToLog(writeSet.logEntryKey, writeSet.logEntryValue)
+      _ <- operations.writeState(writeSet.state)
+      _ <- operations.appendToLog(writeSet.logEntryKey, writeSet.logEntryValue)
     } yield SubmissionResult.Acknowledged
   }
 }
