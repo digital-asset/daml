@@ -36,6 +36,7 @@ import scala.util.{Failure, Success}
   * @param transformStateReader          Transforms the state reader into the format used by the underlying store.
   * @param validator                     The pre-execution validator.
   * @param postExecutionConflictDetector The post-execution conflict detector.
+  * @param postExecutionWriteSetSelector The mechanism for selecting a write set.
   * @param postExecutionWriter           The post-execution writer.
   * @param ledgerDataExporter            Exports to a file.
   */
@@ -50,6 +51,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       ReadSet,
       WriteSet,
     ],
+    postExecutionWriteSetSelector: WriteSetSelector[ReadSet, WriteSet],
     postExecutionWriter: PostExecutionWriter[WriteSet],
     ledgerDataExporter: LedgerDataExporter,
 ) {
@@ -88,7 +90,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
               Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
             case result => result
           }
-          writeSet = selectWriteSet(preExecutionOutput)
+          writeSet = postExecutionWriteSetSelector.selectWriteSet(preExecutionOutput)
           submissionResult <- postExecutionWriter.write(
             writeSet,
             new CombinedLedgerStateWriteOperations(
@@ -103,20 +105,6 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
         }
       }
     }
-
-  private def selectWriteSet(
-      preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet]
-  ): WriteSet = {
-    val recordTime = now()
-    val withinTimeBounds =
-      !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
-        !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
-    if (withinTimeBounds) {
-      preExecutionOutput.successWriteSet
-    } else {
-      preExecutionOutput.outOfTimeBoundsWriteSet
-    }
-  }
 
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
     RetryStrategy.constant(attempts = Some(3), 5.seconds)

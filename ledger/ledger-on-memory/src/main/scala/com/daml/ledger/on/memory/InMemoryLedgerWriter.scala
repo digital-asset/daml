@@ -33,6 +33,7 @@ import com.daml.ledger.validator.preexecution.{
   RawKeyValuePairsWithLogEntry,
   RawPostExecutionWriter,
   RawPreExecutingCommitStrategy,
+  TimeBasedWriteSetSelector,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
@@ -161,13 +162,14 @@ object InMemoryLedgerWriter {
         keyValueCommitting: KeyValueCommitting,
         ledgerDataExporter: LedgerDataExporter,
     )(implicit materializer: Materializer): ValidateAndCommit = {
+      val now = () => timeProvider.getCurrentTime
       val committer = new PreExecutingValidatingCommitter[
         Option[DamlStateValue],
         RawPreExecutingCommitStrategy.ReadSet,
         RawKeyValuePairsWithLogEntry,
       ](
         participantId = participantId,
-        now = () => timeProvider.getCurrentTime,
+        now = now,
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
@@ -175,6 +177,7 @@ object InMemoryLedgerWriter {
           metrics,
         ),
         postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
+        postExecutionWriteSetSelector = new TimeBasedWriteSetSelector(now),
         postExecutionWriter = new RawPostExecutionWriter,
         ledgerDataExporter = ledgerDataExporter,
       )
