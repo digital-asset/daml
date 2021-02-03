@@ -7,13 +7,17 @@ steps:
     # Location of the disk cache for CI servers set in their init files:
     # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
     # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
-    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 30000 ]; then
+
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 40000 ]; then
         echo "Disk full, cleaning up..."
         disk_cache="$HOME/.bazel-cache"
         rm -rf "$disk_cache"
         echo "removed '$disk_cache'"
         local_cache="$HOME/.cache/bazel"
         if [ -d "$local_cache" ]; then
+            for pid in $(lsof "$local_cache" | sed 1d | awk '{print $2}' | sort -u); do
+                kill -s KILL $pid
+            done
             chmod -R +w "$local_cache"
             rm -rf "$local_cache"
             echo "removed '$local_cache'"
