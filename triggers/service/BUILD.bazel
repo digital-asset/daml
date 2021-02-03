@@ -46,6 +46,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
