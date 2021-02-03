@@ -3,10 +3,12 @@
 
 package com.daml.ledger.on.memory
 
+import java.time.Instant
+
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.on.memory.InMemoryLedgerWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api.{CommitMetadata, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
@@ -24,11 +26,7 @@ import com.daml.ledger.validator.preexecution.{
   TimeBasedWriteSetSelector,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
-import com.daml.ledger.validator.{
-  SerializingStateReader,
-  StateKeySerializationStrategy,
-  ValidateAndCommit,
-}
+import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -39,18 +37,28 @@ import scala.util.Success
 final class InMemoryLedgerWriter private[memory] (
     override val participantId: ParticipantId,
     dispatcher: Dispatcher[Index],
+    now: () => Instant,
     state: InMemoryState,
-    validateAndCommit: ValidateAndCommit,
+    committer: Committer,
+    committerExecutionContext: ExecutionContext,
+    metrics: Metrics,
 ) extends LedgerWriter {
   override def commit(
       correlationId: String,
       envelope: Raw.Value,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
-    validateAndCommit(correlationId, envelope, participantId)
+    committer
+      .commit(
+        participantId,
+        correlationId,
+        envelope,
+        exportRecordTime = now(),
+        ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics),
+      )(committerExecutionContext)
       .andThen { case Success(SubmissionResult.Acknowledged) =>
         dispatcher.signalNewHead(state.newHeadSinceLastWrite())
-      }(DirectExecutionContext)
+      }(committerExecutionContext)
 
   override def currentHealth(): HealthStatus = Healthy
 }
@@ -60,6 +68,12 @@ object InMemoryLedgerWriter {
   private[memory] val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   private[memory] type StateValueCache = Cache[DamlStateKey, DamlStateValue]
+
+  private[memory] type Committer = PreExecutingValidatingCommitter[
+    Option[DamlStateValue],
+    RawPreExecutingCommitStrategy.ReadSet,
+    RawKeyValuePairsWithLogEntry,
+  ]
 
   final class Owner(
       participantId: ParticipantId,
@@ -72,26 +86,28 @@ object InMemoryLedgerWriter {
       engine: Engine,
       committerExecutionContext: ExecutionContext,
   ) extends ResourceOwner[LedgerWriter] {
-    override def acquire()(implicit context: ResourceContext): Resource[LedgerWriter] = {
-      val keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
+    private val now = () => timeProvider.getCurrentTime
+
+    override def acquire()(implicit context: ResourceContext): Resource[LedgerWriter] =
       for {
         ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
-      } yield {
-        val committer = createPreExecutingCommitter(keyValueCommitting, ledgerDataExporter)
-        new InMemoryLedgerWriter(participantId, dispatcher, state, committer)
-      }
-    }
+      } yield new InMemoryLedgerWriter(
+        participantId,
+        dispatcher,
+        now,
+        state,
+        newCommitter(ledgerDataExporter),
+        committerExecutionContext,
+        metrics,
+      )
 
-    private def createPreExecutingCommitter(
-        keyValueCommitting: KeyValueCommitting,
-        ledgerDataExporter: LedgerDataExporter,
-    ): ValidateAndCommit = {
-      val now = () => timeProvider.getCurrentTime
-      val committer = new PreExecutingValidatingCommitter[
-        Option[DamlStateValue],
-        RawPreExecutingCommitStrategy.ReadSet,
-        RawKeyValuePairsWithLogEntry,
-      ](
+    private def newCommitter(ledgerDataExporter: LedgerDataExporter): Committer = {
+      val keyValueCommitting = new KeyValueCommitting(
+        engine,
+        metrics,
+        inStaticTimeMode = needStaticTimeModeFor(timeProvider),
+      )
+      new Committer(
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
@@ -103,24 +119,6 @@ object InMemoryLedgerWriter {
         postExecutionWriter = new RawPostExecutionWriter,
         ledgerDataExporter = ledgerDataExporter,
       )
-      locally {
-        implicit val executionContext: ExecutionContext = committerExecutionContext
-
-        def validateAndCommit(
-            correlationId: String,
-            submissionEnvelope: Raw.Value,
-            submittingParticipantId: ParticipantId,
-        ) =
-          committer.commit(
-            submittingParticipantId,
-            correlationId,
-            submissionEnvelope,
-            now(),
-            new InMemoryLedgerStateAccess(state, metrics),
-          )
-
-        validateAndCommit
-      }
     }
 
     private def transformStateReader(
@@ -134,13 +132,6 @@ object InMemoryLedgerWriter {
       )
     }
   }
-
-  private def createKeyValueCommitting(
-      metrics: Metrics,
-      timeProvider: TimeProvider,
-      engine: Engine,
-  ): KeyValueCommitting =
-    new KeyValueCommitting(engine, metrics, inStaticTimeMode = needStaticTimeModeFor(timeProvider))
 
   private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
     timeProvider != TimeProvider.UTC
