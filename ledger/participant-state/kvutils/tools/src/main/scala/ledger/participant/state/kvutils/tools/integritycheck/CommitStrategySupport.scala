@@ -5,10 +5,11 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.kvutils.export.WriteSet
+import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.v1.ReadService
-import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.ledger.validator.{CommitStrategy, StateKeySerializationStrategy}
+import com.daml.ledger.validator.StateKeySerializationStrategy
+
+import scala.concurrent.Future
 
 trait QueryableWriteSet {
   def getAndClearRecordedWriteSet(): WriteSet
@@ -29,11 +30,9 @@ trait ReplayingReadServiceFactory {
 trait CommitStrategySupport[LogResult] {
   def stateKeySerializationStrategy: StateKeySerializationStrategy
 
-  def ledgerStateReader: DamlLedgerStateReader
-
-  def commitStrategy: CommitStrategy[LogResult]
-
-  def writeSet: QueryableWriteSet
+  def commit(
+      submissionInfo: SubmissionInfo
+  )(implicit materializer: Materializer): Future[WriteSet]
 
   def newReadServiceFactory(): ReplayingReadServiceFactory
 

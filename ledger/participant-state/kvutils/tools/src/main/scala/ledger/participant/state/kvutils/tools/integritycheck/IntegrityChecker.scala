@@ -11,21 +11,14 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
-  NoOpLedgerDataExporter,
   ProtobufBasedLedgerDataImporter,
   WriteSet,
 }
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.batch.{
-  BatchedSubmissionValidator,
-  BatchedSubmissionValidatorParameters,
-  ConflictDetection,
-}
-import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -62,16 +55,6 @@ class IntegrityChecker[LogResult](
       println()
     }
 
-    val engine = new Engine()
-    val metricRegistry = new MetricRegistry
-    val metrics = new Metrics(metricRegistry)
-    val submissionValidator = BatchedSubmissionValidator[LogResult](
-      params = BatchedSubmissionValidatorParameters(cpuParallelism = 1, readParallelism = 1),
-      committer = new KeyValueCommitting(engine, metrics),
-      conflictDetection = new ConflictDetection(metrics),
-      metrics = metrics,
-      ledgerDataExporter = NoOpLedgerDataExporter,
-    )
     val expectedReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val actualReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val stateUpdates = new ReadServiceStateUpdateComparison(
@@ -82,7 +65,6 @@ class IntegrityChecker[LogResult](
     checkIntegrity(
       config,
       importer,
-      submissionValidator,
       expectedReadServiceFactory,
       actualReadServiceFactory,
       stateUpdates,
@@ -96,7 +78,6 @@ class IntegrityChecker[LogResult](
   private def checkIntegrity(
       config: Config,
       importer: LedgerDataImporter,
-      submissionValidator: BatchedSubmissionValidator[LogResult],
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       stateUpdates: StateUpdateComparison,
@@ -108,7 +89,6 @@ class IntegrityChecker[LogResult](
     for {
       _ <- processSubmissions(
         importer,
-        submissionValidator,
         expectedReadServiceFactory,
         actualReadServiceFactory,
         config,
@@ -189,7 +169,6 @@ class IntegrityChecker[LogResult](
 
   private def processSubmissions(
       importer: LedgerDataImporter,
-      submissionValidator: BatchedSubmissionValidator[LogResult],
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       config: Config,
@@ -212,15 +191,7 @@ class IntegrityChecker[LogResult](
         }
         expectedReadServiceFactory.appendBlock(expectedWriteSet)
         if (!config.indexOnly) {
-          submissionValidator.validateAndCommit(
-            submissionInfo.submissionEnvelope,
-            submissionInfo.correlationId,
-            submissionInfo.recordTimeInstant,
-            submissionInfo.participantId,
-            commitStrategySupport.ledgerStateReader,
-            commitStrategySupport.commitStrategy,
-          ) map { _ =>
-            val actualWriteSet = commitStrategySupport.writeSet.getAndClearRecordedWriteSet()
+          commitStrategySupport.commit(submissionInfo) map { actualWriteSet =>
             val orderedActualWriteSet =
               if (config.sortWriteSet)
                 actualWriteSet.sortBy(_._1)
