@@ -149,19 +149,24 @@ object InMemoryLedgerWriter {
       extends ResourceOwner[LedgerWriter] {
     override def acquire()(implicit context: ResourceContext): Resource[LedgerWriter] = {
       val keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
-      val committer = createPreExecutingCommitter(keyValueCommitting)
-      val writer = new InMemoryLedgerWriter(participantId, dispatcher, state, committer)
-      Resource.successful(writer)
+      for {
+        ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
+      } yield {
+        val committer = createPreExecutingCommitter(keyValueCommitting, ledgerDataExporter)
+        new InMemoryLedgerWriter(participantId, dispatcher, state, committer)
+      }
     }
 
     private def createPreExecutingCommitter(
-        keyValueCommitting: KeyValueCommitting
+        keyValueCommitting: KeyValueCommitting,
+        ledgerDataExporter: LedgerDataExporter,
     )(implicit materializer: Materializer): ValidateAndCommit = {
       val committer = new PreExecutingValidatingCommitter[
         Option[DamlStateValue],
         RawPreExecutingCommitStrategy.ReadSet,
         RawKeyValuePairsWithLogEntry,
       ](
+        participantId = participantId,
         now = () => timeProvider.getCurrentTime,
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
@@ -171,6 +176,7 @@ object InMemoryLedgerWriter {
         ),
         postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
         postExecutionWriter = new RawPostExecutionWriter,
+        ledgerDataExporter = ledgerDataExporter,
       )
       locally {
         implicit val executionContext: ExecutionContext = materializer.executionContext
