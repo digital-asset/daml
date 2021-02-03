@@ -12,7 +12,7 @@ import com.daml.metrics.Metrics
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] final class InMemoryLedgerStateAccess(state: InMemoryState, metrics: Metrics)
+final class InMemoryLedgerStateAccess(state: InMemoryState, metrics: Metrics)
     extends LedgerStateAccess[Index] {
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T])(implicit
       executionContext: ExecutionContext

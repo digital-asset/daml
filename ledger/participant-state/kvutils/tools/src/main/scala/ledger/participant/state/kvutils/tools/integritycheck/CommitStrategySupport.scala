@@ -11,10 +11,6 @@ import com.daml.ledger.validator.StateKeySerializationStrategy
 
 import scala.concurrent.Future
 
-trait QueryableWriteSet {
-  def getAndClearRecordedWriteSet(): WriteSet
-}
-
 /** A ReadService that streams back previously recorded state updates */
 trait ReplayingReadService extends ReadService {
   def updateCount(): Long

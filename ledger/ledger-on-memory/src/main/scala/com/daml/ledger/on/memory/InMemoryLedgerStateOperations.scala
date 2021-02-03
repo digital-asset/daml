@@ -3,21 +3,19 @@
 
 package com.daml.ledger.on.memory
 
+import com.daml.ledger.on.memory.InMemoryLedgerStateOperations._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.BatchingLedgerStateOperations
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] final class InMemoryLedgerStateOperations(
+final class InMemoryLedgerStateOperations(
     log: InMemoryState.MutableLog,
     state: InMemoryState.MutableState,
 ) extends BatchingLedgerStateOperations[Index] {
-
-  import InMemoryLedgerStateOperations.appendEntry
 
   override def readState(
       keys: Iterable[Raw.Key]
@@ -35,14 +33,10 @@ private[memory] final class InMemoryLedgerStateOperations(
       executionContext: ExecutionContext
   ): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
+
 }
 
 object InMemoryLedgerStateOperations {
-  def apply(): InMemoryLedgerStateOperations = {
-    val inMemoryState = mutable.Map.empty[Raw.Key, Raw.Value]
-    val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
-    new InMemoryLedgerStateOperations(inMemoryLog, inMemoryState)
-  }
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Index = {
     val entryAtIndex = log.size
@@ -51,4 +45,5 @@ object InMemoryLedgerStateOperations {
     log += entry
     entryAtIndex
   }
+
 }

@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
-import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
+import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
@@ -35,16 +35,9 @@ final class LogAppendingCommitStrategySupport(
     metrics: Metrics
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategySupport[Index] {
-  private val ledgerStateOperations =
-    new WriteRecordingLedgerStateOperations[Index](InMemoryLedgerStateOperations())
+  private val state = InMemoryState.empty
 
   private val serializationStrategy = StateKeySerializationStrategy.createDefault()
-
-  private val (ledgerStateReader, commitStrategy) =
-    BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
-      ledgerStateOperations,
-      serializationStrategy,
-    )
 
   private val engine = new Engine()
 
@@ -61,17 +54,26 @@ final class LogAppendingCommitStrategySupport(
 
   override def commit(
       submissionInfo: SubmissionInfo
-  )(implicit materializer: Materializer): Future[WriteSet] =
-    submissionValidator
-      .validateAndCommit(
-        submissionInfo.submissionEnvelope,
-        submissionInfo.correlationId,
-        submissionInfo.recordTimeInstant,
-        submissionInfo.participantId,
-        ledgerStateReader,
-        commitStrategy,
-      )
-      .map(_ => ledgerStateOperations.getAndClearRecordedWriteSet())
+  )(implicit materializer: Materializer): Future[WriteSet] = {
+    val access = new WriteRecordingLedgerStateAccess(new InMemoryLedgerStateAccess(state, metrics))
+    access.inTransaction { operations =>
+      val (ledgerStateReader, commitStrategy) =
+        BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
+          operations,
+          serializationStrategy,
+        )
+      submissionValidator
+        .validateAndCommit(
+          submissionInfo.submissionEnvelope,
+          submissionInfo.correlationId,
+          submissionInfo.recordTimeInstant,
+          submissionInfo.participantId,
+          ledgerStateReader,
+          commitStrategy,
+        )
+        .map(_ => access.getWriteSet)
+    }
+  }
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(metrics)
