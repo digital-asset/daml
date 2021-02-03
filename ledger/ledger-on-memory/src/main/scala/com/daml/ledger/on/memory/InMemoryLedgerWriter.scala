@@ -9,13 +9,13 @@ import com.daml.caching.Cache
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriter,
   BatchingLedgerWriterConfig,
   CommitMetadata,
   LedgerWriter,
 }
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -31,7 +31,7 @@ import com.daml.ledger.validator.preexecution.{
   PreExecutingSubmissionValidator,
   PreExecutingValidatingCommitter,
   RawKeyValuePairsWithLogEntry,
-  RawPostExecutionFinalizer,
+  RawPostExecutionWriter,
   RawPreExecutingCommitStrategy,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
@@ -162,6 +162,7 @@ object InMemoryLedgerWriter {
         RawPreExecutingCommitStrategy.ReadSet,
         RawKeyValuePairsWithLogEntry,
       ](
+        now = () => timeProvider.getCurrentTime,
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
@@ -169,9 +170,7 @@ object InMemoryLedgerWriter {
           metrics,
         ),
         postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
-        postExecutionFinalizer = new RawPostExecutionFinalizer(
-          now = () => timeProvider.getCurrentTime
-        ),
+        postExecutionWriter = new RawPostExecutionWriter,
       )
       locally {
         implicit val executionContext: ExecutionContext = materializer.executionContext
