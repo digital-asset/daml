@@ -254,7 +254,6 @@ class IntegrityChecker[LogResult](
           Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
         }
       messageMaybe.foreach { message =>
-        println("FAIL".red)
         throw new ComparisonFailureException(message)
       }
     }
@@ -381,15 +380,16 @@ object IntegrityChecker {
       config: Config,
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Unit = {
-    runAsync(config, commitStrategySupportFactory).failed
-      .foreach {
-        case exception: CheckFailedException =>
-          println(exception.getMessage.red)
-          sys.exit(1)
-        case exception =>
-          exception.printStackTrace()
-          sys.exit(1)
-      }(DirectExecutionContext)
+    runAsync(config, commitStrategySupportFactory).onComplete {
+      case Success(_) =>
+        sys.exit(0)
+      case Failure(exception: CheckFailedException) =>
+        println(exception.getMessage.red)
+        sys.exit(1)
+      case Failure(exception) =>
+        exception.printStackTrace()
+        sys.exit(1)
+    }(DirectExecutionContext)
   }
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
@@ -419,8 +419,5 @@ object IntegrityChecker {
     val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
     new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
       .run(importer, config)
-      .andThen { case _ =>
-        sys.exit(0)
-      }(DirectExecutionContext)
   }
 }
