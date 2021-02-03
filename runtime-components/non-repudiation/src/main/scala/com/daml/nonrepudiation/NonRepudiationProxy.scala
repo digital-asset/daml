@@ -3,6 +3,8 @@
 
 package com.daml.nonrepudiation
 
+import java.time.Clock
+
 import com.daml.grpc.ReverseProxy
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext}
 import io.grpc.{Channel, Server, ServerBuilder}
@@ -14,11 +16,16 @@ object NonRepudiationProxy {
       serverBuilder: ServerBuilder[_],
       keyRepository: KeyRepository.Read,
       signedPayloadRepository: SignedPayloadRepository.Write,
+      timestampProvider: Clock,
       serviceName: String,
       serviceNames: String*
   ): AbstractResourceOwner[Context, Server] = {
     val signatureVerification =
-      new SignatureVerificationInterceptor(keyRepository, signedPayloadRepository)
+      new SignatureVerificationInterceptor(
+        keyRepository,
+        signedPayloadRepository,
+        timestampProvider,
+      )
     ReverseProxy.owner(
       backend = participant,
       serverBuilder = serverBuilder,

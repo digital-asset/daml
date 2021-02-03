@@ -5,6 +5,7 @@ package com.daml.nonrepudiation
 
 import java.io.ByteArrayInputStream
 import java.security.{PublicKey, Signature}
+import java.time.Clock
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import io.grpc.Metadata.Key
@@ -16,6 +17,7 @@ import scala.util.Try
 final class SignatureVerificationInterceptor(
     keyRepository: KeyRepository.Read,
     signedPayloads: SignedPayloadRepository.Write,
+    timestampProvider: Clock,
 ) extends ServerInterceptor {
 
   import SignatureVerificationInterceptor._
@@ -47,6 +49,7 @@ final class SignatureVerificationInterceptor(
           next = next,
           signatureData = signatureData,
           signedPayloads = signedPayloads,
+          timestampProvider = timestampProvider,
         )
       case Left(rejection) =>
         rejection.report()
@@ -119,6 +122,7 @@ object SignatureVerificationInterceptor {
       next: ServerCallHandler[ReqT, RespT],
       signatureData: SignatureData,
       signedPayloads: SignedPayloadRepository.Write,
+      timestampProvider: Clock,
   ) extends ForwardingServerCallListener(call, metadata, next) {
 
     private def castToByteArray(request: ReqT): Either[Rejection, Array[Byte]] = {
@@ -143,7 +147,13 @@ object SignatureVerificationInterceptor {
         payload: Array[Byte]
     ): Either[Rejection, Unit] = {
       logger.trace("Adding signed payload")
-      val signedPayload = signatureData.toSignedPayload(payload)
+      val signedPayload = SignedPayload(
+        algorithm = signatureData.algorithm,
+        fingerprint = signatureData.fingerprint,
+        payload = PayloadBytes.wrap(payload),
+        signature = signatureData.signature,
+        timestamp = timestampProvider.instant(),
+      )
       Try(signedPayloads.put(signedPayload)).toEither.left.map(Rejection.fromException)
     }
 

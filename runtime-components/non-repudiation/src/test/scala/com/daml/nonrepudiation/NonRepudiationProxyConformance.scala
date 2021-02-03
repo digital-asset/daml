@@ -4,6 +4,7 @@
 package com.daml.nonrepudiation
 
 import java.security.KeyPairGenerator
+import java.time.Clock
 
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCasesRunner,
@@ -55,6 +56,7 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
           proxyBuilder,
           keys,
           signedPayloads,
+          Clock.systemUTC(),
           CommandService.scalaDescriptor.fullName,
           CommandSubmissionService.scalaDescriptor.fullName,
         )
