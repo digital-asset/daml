@@ -24,6 +24,7 @@ import scalaz.Tag
 import java.io.{Closeable, IOException}
 
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import com.daml.doobie.logging.Slf4jLogHandler
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -93,7 +94,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   implicit val identifierGet: Get[Identifier] =
     implicitly[Get[String]].map(Identifier.assertFromString(_))
 
-  private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
+  private implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[DbTriggerDao])
 
   private[this] val flywayMigrations = new DbFlywayMigrations(dataSource)
 
