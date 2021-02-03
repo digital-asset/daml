@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
 
 import cats.effect.{Blocker, ContextShift, IO}
+import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCasesRunner,
   LedgerTestSummary,
@@ -32,7 +33,6 @@ import io.grpc.netty.NettyChannelBuilder
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.slf4j.LoggerFactory
 import sun.security.tools.keytool.CertAndKeyGen
 
 import scala.concurrent.ExecutionContext
@@ -51,7 +51,7 @@ final class NonRepudiationProxyConformance
   it should "pass all conformance tests" in {
     implicit val context: ResourceContext = ResourceContext(executionContext)
     implicit val shift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
-    implicit val logHandler: LogHandler = slf4jLogHandler(LoggerFactory.getLogger(getClass))
+    implicit val logHandler: LogHandler = Slf4jLogHandler(classOf[NonRepudiationProxyConformance])
     val config = SandboxConfig.defaultConfig.copy(port = Port.Dynamic)
 
     val proxyName = InProcessServerBuilder.generateName()
