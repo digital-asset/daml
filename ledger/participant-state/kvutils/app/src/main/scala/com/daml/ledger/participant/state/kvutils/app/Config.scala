@@ -315,7 +315,7 @@ object Config {
           success
       })
 
-      opt[Unit]("early-access-unsafe")
+      opt[Unit]("early-access")
         .optional()
         .action((_, c) => c.copy(engineMode = EngineMode.EarlyAccess))
         .text(
