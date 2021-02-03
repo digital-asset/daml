@@ -9,13 +9,13 @@ import com.daml.caching.Cache
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriter,
   BatchingLedgerWriterConfig,
   CommitMetadata,
   LedgerWriter,
 }
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -31,7 +31,7 @@ import com.daml.ledger.validator.preexecution.{
   PreExecutingSubmissionValidator,
   PreExecutingValidatingCommitter,
   RawKeyValuePairsWithLogEntry,
-  RawPostExecutionFinalizer,
+  RawPostExecutionWriter,
   RawPreExecutingCommitStrategy,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
@@ -149,19 +149,25 @@ object InMemoryLedgerWriter {
       extends ResourceOwner[LedgerWriter] {
     override def acquire()(implicit context: ResourceContext): Resource[LedgerWriter] = {
       val keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
-      val committer = createPreExecutingCommitter(keyValueCommitting)
-      val writer = new InMemoryLedgerWriter(participantId, dispatcher, state, committer)
-      Resource.successful(writer)
+      for {
+        ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
+      } yield {
+        val committer = createPreExecutingCommitter(keyValueCommitting, ledgerDataExporter)
+        new InMemoryLedgerWriter(participantId, dispatcher, state, committer)
+      }
     }
 
     private def createPreExecutingCommitter(
-        keyValueCommitting: KeyValueCommitting
+        keyValueCommitting: KeyValueCommitting,
+        ledgerDataExporter: LedgerDataExporter,
     )(implicit materializer: Materializer): ValidateAndCommit = {
       val committer = new PreExecutingValidatingCommitter[
         Option[DamlStateValue],
         RawPreExecutingCommitStrategy.ReadSet,
         RawKeyValuePairsWithLogEntry,
       ](
+        participantId = participantId,
+        now = () => timeProvider.getCurrentTime,
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
@@ -169,9 +175,8 @@ object InMemoryLedgerWriter {
           metrics,
         ),
         postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
-        postExecutionFinalizer = new RawPostExecutionFinalizer(
-          now = () => timeProvider.getCurrentTime
-        ),
+        postExecutionWriter = new RawPostExecutionWriter,
+        ledgerDataExporter = ledgerDataExporter,
       )
       locally {
         implicit val executionContext: ExecutionContext = materializer.executionContext
