@@ -25,6 +25,7 @@ private[kvutils] case class CommitContext(
     private val inputs: DamlStateMap,
     recordTime: Option[Timestamp],
     participantId: ParticipantId,
+    preExecute: Boolean,
 ) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -43,8 +44,6 @@ private[kvutils] case class CommitContext(
   // Rejection log entry used for generating an out-of-time-bounds log entry in case of
   // pre-execution.
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
-
-  def preExecute: Boolean = recordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state.
     * Throws an exception if the key is not found in either.

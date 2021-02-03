@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
-
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder
@@ -109,16 +108,14 @@ class KeyValueCommitting private[daml] (
 
   @throws(classOf[Err])
   def preExecuteSubmission(
+      recordTime: Timestamp,
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
   ): PreExecutionResult =
-    createCommitter(engine, defaultConfig, submission).runWithPreExecution(
-      submission,
-      participantId,
-      inputState,
-    )
+    createCommitter(engine, defaultConfig, submission)
+      .runWithPreExecution(Some(recordTime), submission, participantId, inputState)
 
   private def createCommitter(
       engine: Engine,

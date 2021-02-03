@@ -23,6 +23,7 @@ trait SubmissionExecutor {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue])
 
   def runWithPreExecution(
+      recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,

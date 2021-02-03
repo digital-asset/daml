@@ -3,6 +3,8 @@
 
 package com.daml.ledger.validator.preexecution
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlSubmission}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
@@ -10,6 +12,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.reading.StateReader
 import com.daml.ledger.validator.{HasDamlStateValue, ValidationFailed}
+import com.daml.lf.data.Time
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -40,8 +43,9 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
-      submissionEnvelope: Raw.Value,
       submittingParticipantId: ParticipantId,
+      submissionEnvelope: Raw.Value,
+      recordTime: Instant,
       ledgerStateReader: StateReader[DamlStateKey, StateValue],
   )(implicit
       executionContext: ExecutionContext,
@@ -55,6 +59,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
         fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
         inputState = fetchedInputs.view.mapValues(hasDamlStateValue.damlStateValue).toMap
         preExecutionResult = committer.preExecuteSubmission(
+          Time.Timestamp.assertFromInstant(recordTime),
           LedgerReader.DefaultConfiguration,
           decodedSubmission,
           submittingParticipantId,

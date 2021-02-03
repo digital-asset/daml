@@ -212,9 +212,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         val context =
           createCommitContext(recordTime = Some(recordTime), inputs = inputs)
 
-        val actual =
-          transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
-
+        val actual = transactionCommitter.deduplicateCommand(context, aTransactionEntrySummary)
         actual match {
           case StepContinue(_) => fail()
           case StepStop(actualLogEntry) =>
@@ -284,8 +282,10 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           .minusMillis(1)
       val upperBound =
         recordTimeInstant.plus(theDefaultConfig.timeModel.maxSkew).plusMillis(1)
-      val inputWithDeclaredConfig =
-        Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue))
+      val inputWithDeclaredConfig = Map(
+        Conversions.configurationStateKey -> Some(emptyConfigurationStateValue),
+        aDedupKey -> None,
+      )
 
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
@@ -299,9 +299,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
             )
             .build
         )
-        val actual =
-          transactionCommitter.validateLedgerTime(context, transactionEntrySummary)
-
+        val actual = transactionCommitter.validateLedgerTime(context, transactionEntrySummary)
         actual match {
           case StepContinue(_) => fail()
           case StepStop(actualLogEntry) =>

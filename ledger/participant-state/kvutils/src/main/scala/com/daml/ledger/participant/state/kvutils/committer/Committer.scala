@@ -14,8 +14,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils._
+import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
@@ -81,18 +81,19 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
-      val commitContext = CommitContext(inputState, recordTime, participantId)
+      val commitContext = CommitContext(inputState, recordTime, participantId, preExecute = false)
       val logEntry = runSteps(commitContext, submission)
       logEntry -> commitContext.getOutputs.toMap
     }
 
   def runWithPreExecution(
+      recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
   ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
-      val commitContext = CommitContext(inputState, recordTime = None, participantId)
+      val commitContext = CommitContext(inputState, recordTime, participantId, preExecute = true)
       preExecute(submission, commitContext)
     }
 

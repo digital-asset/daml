@@ -60,7 +60,12 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val ledgerStateReader = createLedgerStateReader(actualInputState)
 
       instance
-        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReader)
+        .validate(
+          submittingParticipantId = aParticipantId,
+          submissionEnvelope = anEnvelope(expectedReadSet),
+          recordTime = recordTime.toInstant,
+          ledgerStateReader = ledgerStateReader,
+        )
         .map { actual =>
           actual.minRecordTime shouldBe expectedMinRecordTime
           actual.maxRecordTime shouldBe expectedMaxRecordTime
@@ -79,7 +84,12 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val ledgerStateReader = createLedgerStateReader(actualInputState)
 
       instance
-        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReader)
+        .validate(
+          submittingParticipantId = aParticipantId,
+          submissionEnvelope = anEnvelope(expectedReadSet),
+          recordTime = recordTime.toInstant,
+          ledgerStateReader = ledgerStateReader,
+        )
         .map(verifyReadSet(_, expectedReadSet))
     }
 
@@ -95,9 +105,10 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
       instance
         .validate(
-          Envelope.enclose(aBatchedSubmission),
-          aParticipantId,
-          mock[StateReader[DamlStateKey, TestValue]],
+          submittingParticipantId = aParticipantId,
+          submissionEnvelope = Envelope.enclose(aBatchedSubmission),
+          recordTime = recordTime.toInstant,
+          ledgerStateReader = mock[StateReader[DamlStateKey, TestValue]],
         )
         .failed
         .map { case ValidationError(actualReason) =>
@@ -109,7 +120,12 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val instance = createInstance()
 
       instance
-        .validate(anInvalidEnvelope, aParticipantId, mock[StateReader[DamlStateKey, TestValue]])
+        .validate(
+          submittingParticipantId = aParticipantId,
+          submissionEnvelope = anInvalidEnvelope,
+          recordTime = recordTime.toInstant,
+          ledgerStateReader = mock[StateReader[DamlStateKey, TestValue]],
+        )
         .failed
         .map { case ValidationError(actualReason) =>
           actualReason should include("Cannot open envelope")
@@ -122,9 +138,10 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
       instance
         .validate(
-          anEnvelopedDamlLogEntry,
-          aParticipantId,
-          mock[StateReader[DamlStateKey, TestValue]],
+          submittingParticipantId = aParticipantId,
+          submissionEnvelope = anEnvelopedDamlLogEntry,
+          recordTime = recordTime.toInstant,
+          ledgerStateReader = mock[StateReader[DamlStateKey, TestValue]],
         )
         .failed
         .map { case ValidationError(actualReason) =>
@@ -183,6 +200,7 @@ object PreExecutingSubmissionValidatorSpec {
     )
     when(
       mockCommitter.preExecuteSubmission(
+        any[Timestamp],
         any[Configuration],
         any[DamlSubmission],
         any[ParticipantId],

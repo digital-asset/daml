@@ -185,52 +185,57 @@ private[kvutils] class TransactionCommitter(
         getCurrentConfiguration(defaultConfig, commitContext, logger)
       val timeModel = config.timeModel
 
-      commitContext.recordTime match {
-        case Some(recordTime) =>
-          val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
+      val maybeDeduplicateUntil =
+        getLedgerDeduplicateUntil(transactionEntry, commitContext)
+      val minimumRecordTime = transactionMinRecordTime(
+        transactionEntry.submissionTime.toInstant,
+        transactionEntry.ledgerEffectiveTime.toInstant,
+        maybeDeduplicateUntil,
+        timeModel,
+      )
+      val maximumRecordTime = transactionMaxRecordTime(
+        transactionEntry.submissionTime.toInstant,
+        transactionEntry.ledgerEffectiveTime.toInstant,
+        timeModel,
+      )
+      commitContext.deduplicateUntil = maybeDeduplicateUntil
+      commitContext.minimumRecordTime = Some(minimumRecordTime)
+      commitContext.maximumRecordTime = Some(maximumRecordTime)
+      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.InvalidLedgerTime(
+              s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
+            ),
+          )
+        )
+        .build
+      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
 
-          timeModel
-            .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
-            .fold(
-              reason =>
-                reject(
-                  commitContext.recordTime,
-                  buildRejectionLogEntry(
-                    transactionEntry,
-                    RejectionReason.InvalidLedgerTime(reason),
+      if (commitContext.preExecute) {
+        // Pre-execution: propagate the time bounds and defer the checks to post-execution.
+        StepContinue(transactionEntry)
+      } else {
+        commitContext.recordTime match {
+          case None =>
+            StepContinue(transactionEntry)
+          case Some(recordTime) =>
+            val ledgerTime = transactionEntry.ledgerEffectiveTime.toInstant
+            timeModel
+              .checkTime(ledgerTime = ledgerTime, recordTime = recordTime.toInstant)
+              .fold(
+                reason =>
+                  reject(
+                    commitContext.recordTime,
+                    buildRejectionLogEntry(
+                      transactionEntry,
+                      RejectionReason.InvalidLedgerTime(reason),
+                    ),
                   ),
-                ),
-              _ => StepContinue(transactionEntry),
-            )
-        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution.
-          val maybeDeduplicateUntil =
-            getLedgerDeduplicateUntil(transactionEntry, commitContext)
-          val minimumRecordTime = transactionMinRecordTime(
-            transactionEntry.submissionTime.toInstant,
-            transactionEntry.ledgerEffectiveTime.toInstant,
-            maybeDeduplicateUntil,
-            timeModel,
-          )
-          val maximumRecordTime = transactionMaxRecordTime(
-            transactionEntry.submissionTime.toInstant,
-            transactionEntry.ledgerEffectiveTime.toInstant,
-            timeModel,
-          )
-          commitContext.deduplicateUntil = maybeDeduplicateUntil
-          commitContext.minimumRecordTime = Some(minimumRecordTime)
-          commitContext.maximumRecordTime = Some(maximumRecordTime)
-          val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
-            .setTransactionRejectionEntry(
-              buildRejectionLogEntry(
-                transactionEntry,
-                RejectionReason.InvalidLedgerTime(
-                  s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
-                ),
+                _ => StepContinue(transactionEntry),
               )
-            )
-            .build
-          commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
-          StepContinue(transactionEntry)
+        }
       }
     }
 

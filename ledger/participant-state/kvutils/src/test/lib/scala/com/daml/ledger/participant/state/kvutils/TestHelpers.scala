@@ -47,5 +47,10 @@ object TestHelpers {
       inputs: DamlStateMap = Map.empty,
       participantId: Int = 0,
   ): CommitContext =
-    CommitContext(inputs, recordTime, mkParticipantId(participantId))
+    CommitContext(
+      inputs,
+      recordTime,
+      mkParticipantId(participantId),
+      preExecute = recordTime.isEmpty,
+    )
 }

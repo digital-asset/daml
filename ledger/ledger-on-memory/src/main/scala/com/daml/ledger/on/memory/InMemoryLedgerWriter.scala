@@ -161,13 +161,13 @@ object InMemoryLedgerWriter {
         keyValueCommitting: KeyValueCommitting,
         ledgerDataExporter: LedgerDataExporter,
     )(implicit materializer: Materializer): ValidateAndCommit = {
+      val now = () => timeProvider.getCurrentTime
       val committer = new PreExecutingValidatingCommitter[
         Option[DamlStateValue],
         RawPreExecutingCommitStrategy.ReadSet,
         RawKeyValuePairsWithLogEntry,
       ](
-        participantId = participantId,
-        now = () => timeProvider.getCurrentTime,
+        now = now,
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
@@ -187,10 +187,11 @@ object InMemoryLedgerWriter {
             submittingParticipantId: ParticipantId,
         ) =
           committer.commit(
-            correlationId,
-            submissionEnvelope,
-            submittingParticipantId,
-            new InMemoryLedgerStateAccess(state, metrics),
+            submittingParticipantId = submittingParticipantId,
+            correlationId = correlationId,
+            submissionEnvelope = submissionEnvelope,
+            recordTime = now(),
+            ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics),
           )
 
         validateAndCommit

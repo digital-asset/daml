@@ -7,12 +7,11 @@ import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.kvutils.`export`.{
+import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataExporter,
   SubmissionAggregatorWriteOperations,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
 import com.daml.ledger.validator.{
@@ -31,7 +30,6 @@ import scala.util.{Failure, Success}
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
   * value.
   *
-  * @param participantId                 The ID of the participant.
   * @param now                           Returns the current time.
   * @param transformStateReader          Transforms the state reader into the format used by the underlying store.
   * @param validator                     The pre-execution validator.
@@ -40,7 +38,6 @@ import scala.util.{Failure, Success}
   * @param ledgerDataExporter            Exports to a file.
   */
 class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
-    participantId: v1.ParticipantId,
     now: () => Instant,
     transformStateReader: LedgerStateReader => StateReader[DamlStateKey, StateValue],
     validator: PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet],
@@ -59,13 +56,15 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
   /** Pre-executes and then commits a submission.
     */
   def commit(
+      submittingParticipantId: ParticipantId,
       correlationId: String,
       submissionEnvelope: Raw.Value,
-      submittingParticipantId: ParticipantId,
+      recordTime: Instant,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
-      val submissionInfo = SubmissionInfo(participantId, correlationId, submissionEnvelope, now())
+      val submissionInfo =
+        SubmissionInfo(submittingParticipantId, correlationId, submissionEnvelope, recordTime)
       val submissionAggregator = ledgerDataExporter.addSubmission(submissionInfo)
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
@@ -73,8 +72,9 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
           transformStateReader(new LedgerStateOperationsReaderAdapter(ledgerStateOperations))
         for {
           preExecutionOutput <- validator.validate(
-            submissionEnvelope,
             submittingParticipantId,
+            submissionEnvelope,
+            recordTime,
             stateReader,
           )
           _ <- retry { case _: ConflictDetectedException =>

@@ -143,18 +143,6 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
       context.getOutputs should have size 0
     }
   }
-
-  "preExecute" should {
-    "return false in case record time is set" in {
-      val context = newInstance(recordTime = Some(Time.Timestamp.now()))
-      context.preExecute shouldBe false
-    }
-
-    "return true in case record time is not set" in {
-      val context = newInstance(recordTime = None)
-      context.preExecute shouldBe true
-    }
-  }
 }
 
 object CommitContextSpec {
@@ -173,8 +161,9 @@ object CommitContextSpec {
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
       inputs: DamlStateMap = Map.empty,
+      preExecute: Boolean = false,
   ) =
-    CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
+    CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1), preExecute)
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =
     (for ((key, value) <- keyAndValues)

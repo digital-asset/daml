@@ -376,6 +376,7 @@ object KVTest {
       inputKeys = damlSubmission.getInputDamlStateList.asScala
       inputState <- createInputState(inputKeys)
       preExecutionResult = testState.keyValueCommitting.preExecuteSubmission(
+        recordTime = testState.recordTime,
         defaultConfig = testState.defaultConfig,
         submission = damlSubmission,
         participantId = testState.participantId,
