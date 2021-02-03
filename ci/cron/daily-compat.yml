@@ -116,7 +116,7 @@ jobs:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ../daily_tell_slack.yml
         parameters:
-          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
+          success-message: $(jq --arg stats "$(cat $(Build.StagingDirectory)/perf-results.json)" --arg link "$COMMIT_LINK" -n '"perf for " + $link + ":```" + $stats + "```"')
 
   - job: perf_http_json
     timeoutInMinutes: 120
