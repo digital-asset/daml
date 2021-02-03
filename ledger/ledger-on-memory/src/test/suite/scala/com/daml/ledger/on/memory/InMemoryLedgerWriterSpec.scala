@@ -3,14 +3,12 @@
 
 package com.daml.ledger.on.memory
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.ValidateAndCommit
 import com.daml.lf.data.Ref
-import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -19,7 +17,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class InMemoryLedgerReaderWriterSpec
+class InMemoryLedgerWriterSpec
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with Matchers
@@ -33,13 +31,11 @@ class InMemoryLedgerReaderWriterSpec
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception"))
         )
-      val instance = new InMemoryLedgerReaderWriter(
-        "ledger ID",
+      val instance = new InMemoryLedgerWriter(
         Ref.ParticipantId.assertFromString("participant ID"),
         mockDispatcher,
         InMemoryState.empty,
         mockCommitter,
-        new Metrics(new MetricRegistry),
       )
 
       instance
