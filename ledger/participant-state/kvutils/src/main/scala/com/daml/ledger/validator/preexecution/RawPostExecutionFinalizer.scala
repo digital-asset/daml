@@ -58,7 +58,6 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   ): Iterable[Raw.KeyValuePair] =
     if (withinTimeBounds) {
       preExecutionOutput.successWriteSet.state
-    } else {
-      Seq.empty
-    }
+    } else
+      preExecutionOutput.outOfTimeBoundsWriteSet.state
 }
