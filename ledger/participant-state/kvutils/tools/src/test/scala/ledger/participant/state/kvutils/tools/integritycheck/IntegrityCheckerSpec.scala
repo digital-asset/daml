@@ -5,13 +5,10 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.nio.file.Paths
 
-import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.immutable.WrappedString
 import scala.concurrent.Future
 
 final class IntegrityCheckerSpec
@@ -19,91 +16,6 @@ final class IntegrityCheckerSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
-  "compareSameSizeWriteSets" should {
-    "return None in case strategy cannot explain difference" in {
-      val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(
-        mockCommitStrategySupport
-          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
-      )
-        .thenReturn(None)
-      val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
-
-      instance.compareSameSizeWriteSets(
-        writeSet("key" -> "a"),
-        writeSet("key" -> "b"),
-      ) shouldBe None
-    }
-
-    "return None in case of no difference" in {
-      val instance = createMockIntegrityChecker()
-      val aWriteSet = writeSet("key" -> "value")
-
-      instance.compareSameSizeWriteSets(aWriteSet, aWriteSet) shouldBe None
-    }
-
-    "return explanation from strategy in case it can explain the difference" in {
-      val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(
-        mockCommitStrategySupport
-          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
-      )
-        .thenReturn(Some("expected explanation"))
-      val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
-
-      val actual =
-        instance.compareSameSizeWriteSets(writeSet("key" -> "a"), writeSet("key" -> "b"))
-
-      actual match {
-        case Some(explanation) => explanation should include("expected explanation")
-        case None => fail()
-      }
-    }
-
-    "return all explanations in case of multiple differences" in {
-      val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(
-        mockCommitStrategySupport
-          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
-      )
-        .thenReturn(Some("first explanation"), Some("second explanation"))
-      val instance = new IntegrityChecker[Unit](_ => mockCommitStrategySupport)
-
-      val actual =
-        instance.compareSameSizeWriteSets(
-          writeSet("key1" -> "a", "key2" -> "a"),
-          writeSet("key1" -> "b", "key2" -> "b"),
-        )
-
-      actual match {
-        case Some(explanation) =>
-          explanation should include("first explanation")
-          explanation should include("second explanation")
-          // We output 3 lines per one pair of mismatching keys and we don't insert a new line
-          // after the last.
-          countOccurrences(explanation, System.lineSeparator()) shouldBe 2 * 3 - 1
-
-        case None => fail()
-      }
-    }
-
-    "return differing keys" in {
-      val instance = createMockIntegrityChecker()
-
-      val actual =
-        instance.compareSameSizeWriteSets(writeSet("key1" -> "a"), writeSet("key2" -> "b"))
-
-      actual match {
-        case Some(explanation) =>
-          explanation should include("expected key")
-          explanation should include("actual key")
-          // We output 2 lines per one pair of mismatching keys.
-          countOccurrences(explanation, System.lineSeparator()) shouldBe 1
-
-        case None => fail()
-      }
-    }
-  }
 
   "compareStateUpdates" should {
     "call compare if not in index-only mode" in {
@@ -163,6 +75,4 @@ final class IntegrityCheckerSpec
     instance
   }
 
-  private def countOccurrences(input: String, pattern: String): Int =
-    new WrappedString(input).sliding(pattern.length).map(_.toString).count(_ == pattern)
 }

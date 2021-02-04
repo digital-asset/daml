@@ -7,12 +7,11 @@ import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.kvutils.`export`.{
+import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataExporter,
   SubmissionAggregatorWriteOperations,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
 import com.daml.ledger.validator.{
@@ -31,17 +30,14 @@ import scala.util.{Failure, Success}
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
   * value.
   *
-  * @param participantId                 The ID of the participant.
-  * @param now                           Returns the current time.
   * @param transformStateReader          Transforms the state reader into the format used by the underlying store.
   * @param validator                     The pre-execution validator.
   * @param postExecutionConflictDetector The post-execution conflict detector.
+  * @param postExecutionWriteSetSelector The mechanism for selecting a write set.
   * @param postExecutionWriter           The post-execution writer.
   * @param ledgerDataExporter            Exports to a file.
   */
 class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
-    participantId: v1.ParticipantId,
-    now: () => Instant,
     transformStateReader: LedgerStateReader => StateReader[DamlStateKey, StateValue],
     validator: PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet],
     postExecutionConflictDetector: PostExecutionConflictDetector[
@@ -50,6 +46,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       ReadSet,
       WriteSet,
     ],
+    postExecutionWriteSetSelector: WriteSetSelector[ReadSet, WriteSet],
     postExecutionWriter: PostExecutionWriter[WriteSet],
     ledgerDataExporter: LedgerDataExporter,
 ) {
@@ -59,13 +56,15 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
   /** Pre-executes and then commits a submission.
     */
   def commit(
+      submittingParticipantId: ParticipantId,
       correlationId: String,
       submissionEnvelope: Raw.Value,
-      submittingParticipantId: ParticipantId,
+      exportRecordTime: Instant,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
-      val submissionInfo = SubmissionInfo(participantId, correlationId, submissionEnvelope, now())
+      val submissionInfo =
+        SubmissionInfo(submittingParticipantId, correlationId, submissionEnvelope, exportRecordTime)
       val submissionAggregator = ledgerDataExporter.addSubmission(submissionInfo)
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
@@ -88,7 +87,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
               Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
             case result => result
           }
-          writeSet = selectWriteSet(preExecutionOutput)
+          writeSet = postExecutionWriteSetSelector.selectWriteSet(preExecutionOutput)
           submissionResult <- postExecutionWriter.write(
             writeSet,
             new CombinedLedgerStateWriteOperations(
@@ -103,20 +102,6 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
         }
       }
     }
-
-  private def selectWriteSet(
-      preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet]
-  ): WriteSet = {
-    val recordTime = now()
-    val withinTimeBounds =
-      !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
-        !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
-    if (withinTimeBounds) {
-      preExecutionOutput.successWriteSet
-    } else {
-      preExecutionOutput.outOfTimeBoundsWriteSet
-    }
-  }
 
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
     RetryStrategy.constant(attempts = Some(3), 5.seconds)
