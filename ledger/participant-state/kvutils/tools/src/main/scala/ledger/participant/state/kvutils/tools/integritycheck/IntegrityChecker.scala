@@ -240,7 +240,7 @@ class IntegrityChecker[LogResult](
     }
 
   private def writeSetToStrings(writeSet: WriteSet): Seq[String] =
-    writeSet.map((writeItemToString _).tupled)
+    writeSet.view.map((writeItemToString _).tupled).toVector
 
   private def writeItemToString(key: Raw.Key, value: Raw.Value): String = {
     val keyString = commitStrategySupport.stateKeySerializationStrategy.deserializeStateKey(key)
