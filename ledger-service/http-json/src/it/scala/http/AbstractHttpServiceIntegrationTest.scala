@@ -73,7 +73,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
-  this: AsyncFreeSpec with Matchers with Inside with StrictLogging =>
+  this: AsyncTestSuite with Matchers with Inside =>
   import AbstractHttpServiceIntegrationTestFuns._
   import json.JsonProtocol._
   import HttpServiceTestFixture._
