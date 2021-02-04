@@ -41,4 +41,4 @@ ENV PATH="/home/daml/.daml/bin:${PATH}"
 WORKDIR /home/daml
 EOF
 
-docker build ${tmpdir}
+docker build -t "digitalasset/daml-sdk:${version}" ${tmpdir}
