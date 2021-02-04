@@ -50,6 +50,17 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
     }
   }
 
+  private[this] def resultIsReplayedBy(
+      recorded: Option[Value[Cid]],
+      replayed: Option[Value[Cid]],
+  ) =
+    (recorded, replayed) match {
+      case (None, _) => true
+      case (Some(recordedValue), Some(replayedValue)) =>
+        valueIsReplayedBy(recordedValue, replayedValue)
+      case _ => false
+    }
+
   private[this] def keys[K](entries: ImmArray[(K, _)]): Iterator[K] =
     entries.iterator.map(_._1)
 
@@ -284,7 +295,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
         case (LazyList(), LazyList()) =>
           stack match {
             case (nid1, exe1, nids1, nid2, exe2, nids2) :: rest =>
-              if (exe1.exerciseResult.isEmpty || exe1.exerciseResult === exe2.exerciseResult)
+              if (resultIsReplayedBy(exe1.exerciseResult, exe2.exerciseResult))
                 loop(nids1, nids2, rest)
               else
                 Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
