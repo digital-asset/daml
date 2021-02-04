@@ -4,7 +4,7 @@
 App Architecture
 ****************
 
-In this section we'll look at the different components of our social network app. The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
+In this section we'll look at the different components of our social network app. The goal is to familiarize you enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
 
   * the Daml model and
   * the React/TypeScript frontend.

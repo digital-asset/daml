@@ -210,7 +210,7 @@ The last expression in the ``do`` block of the ``Redeem`` choice is a pattern ma
 A sample Action
 ---------------
 
-If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calulated.
+If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calculated.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
@@ -255,7 +255,7 @@ One option is to make the function explicitly partial by returning an ``Optional
   :start-after: -- OPTIONAL_POW_BEGIN
   :end-before: -- OPTIONAL_POW_END
 
-This is a useful pattern if we need to be able to handle the error case, but it also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on convenience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferrable to fail catastrophically instead:
+This is a useful pattern if we need to be able to handle the error case, but it also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on convenience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferable to fail catastrophically instead:
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml

@@ -151,7 +151,7 @@ Sandbox
 *******
 
 Start the sandbox using the following command.
-Replace ``JSON_Web_Key_Set`` by the corrseponding URL found in the application settings
+Replace ``JSON_Web_Key_Set`` by the corresponding URL found in the application settings
 and make sure that the ledger ID matches the one in the Auth0 rule.
 
 .. code-block:: shell

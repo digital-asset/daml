@@ -64,7 +64,7 @@ Activities to be carried out *before* invoking a pruning operation should thus i
 
 In addition, activities to be carried out *after* invoking a pruning operation might include:
 
-- On a PostreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the database reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the database.
+- On a PostgreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the database reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the database.
 
 Backing up and vacuuming, in addition to pruning itself, are also long-running and resource-hungry operations that might negatively affect the performance of regular workloads and even the availability of the system: this is true in particular for `VACUUM FULL` in PostgreSQL and equivalent commands in other DBMSs. These operations should thus be planned and taken carefully into account when sizing system resources. They should also be scheduled sensibly in relation to the desired sustained performance levels of regular workloads and to the hot storage usage goals.
 

@@ -202,7 +202,7 @@ You'll notice that new messages appear in the UI as soon as they are sent (due t
 
    .. figure:: images/create-daml-app-message-received.png
       :scale: 50 %
-      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messsaging" panel
+      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messaging" panel
 
 .. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
 

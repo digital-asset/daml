@@ -184,7 +184,7 @@ In contrast, the **Create** actions of the `CounterOffer` and Alice's `Iou` are 
 
 .. https://app.lucidchart.com/documents/edit/44d97c43-1bb2-4d60-ac30-6b6048b5b5f5
 
-.. _causality-graph-couteroffer-split:
+.. _causality-graph-counteroffer-split:
 
 .. figure:: ./images/counteroffer-split-action-order.svg
    :align: center
@@ -239,7 +239,7 @@ Definition »Minimal consistent causality graph«
   An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` (same vertices, fewer edges) is an `X`-consistent causality graph.
   If `X` is the set of all actions in `G`, then `X` is omitted.
 
-For example, the :ref:`above causality graph for the split counteroffer workflow <causality-graph-couteroffer-split>` is consistent.
+For example, the :ref:`above causality graph for the split counteroffer workflow <causality-graph-counteroffer-split>` is consistent.
 This causality graph is minimal, as the following analysis shows:
 
 +----------------+--------------------------------------------------------------------------------------+
@@ -297,7 +297,7 @@ From causality graphs to ledgers
 
 Since causality graphs are acyclic, their vertices can be sorted topologically and the resulting list is again a causality graph, where every vertex has an outgoing edge to all later vertices.
 If the original causality graph is `X`\ -consistent, then so is the topological sort, as topological sorting merely adds edges.
-For example, the transactions on the :ref:`ledger <split-counteroffer-ledger>` in the :ref:`out-of-band causality example <causality-example-out-of-band>` are a topological sort of the :ref:`corresponding causality graph <causality-graph-couteroffer-split>`.
+For example, the transactions on the :ref:`ledger <split-counteroffer-ledger>` in the :ref:`out-of-band causality example <causality-example-out-of-band>` are a topological sort of the :ref:`corresponding causality graph <causality-graph-counteroffer-split>`.
 
 Conversely, we can reduce an `X`\ -consistent causality graph to only the causal dependencies that `X`\ -consistency imposes.
 This gives a minimal `X`\ -consistent causality graph.
@@ -349,7 +349,7 @@ Definition »Causal consistency for a party«
 The notions of `X`\ -minimality and `X`\ -reduction extend to parties accordingly.
 
 For example, the :ref:`split counteroffer causality graph without the edge tx2 -> tx4 <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is an informee of exactly the highlighted actions.
-It is also minimal Bank-consistent and the Bank-reduction of the :ref:`original split counteroffer causality graph <causality-graph-couteroffer-split>`.
+It is also minimal Bank-consistent and the Bank-reduction of the :ref:`original split counteroffer causality graph <causality-graph-counteroffer-split>`.
   
 Definition »Projection of a consistent causality graph«
   The **projection** `proj`:sub:`P`\ `(G)` of a consistent causality graph `G` to a party `P` is the `P`\ -reduction of the following causality graph `G'`:
@@ -358,7 +358,7 @@ Definition »Projection of a consistent causality graph«
 
   * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from the `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
 
-For the :ref:`split counteroffer causality graph <causality-graph-couteroffer-split>`, the projections to Alice, the Bank, and the painter are as follows.
+For the :ref:`split counteroffer causality graph <causality-graph-counteroffer-split>`, the projections to Alice, the Bank, and the painter are as follows.
 
 .. https://app.lucidchart.com/documents/edit/65a83eba-9b09-4003-b824-8e7bec50ce10
 
@@ -368,14 +368,14 @@ For the :ref:`split counteroffer causality graph <causality-graph-couteroffer-sp
    :align: center
    :width: 100%
 
-   Projections of the :ref:`split counteroffer causality graph <causality-graph-couteroffer-split>`.
+   Projections of the :ref:`split counteroffer causality graph <causality-graph-counteroffer-split>`.
 
 Alice's projection is the same as the original minimal causality graph.
 The Bank sees only actions on `Iou` contracts, so the causality graph projection does not contain `tx2` any more.
 Similarly, the painter is not aware of `tx1`, where Alice's `Iou` is created.
 Moreover, there is no longer an edge from `tx3` to `tx4` in the painter's local ledger.
 This is because the edge is induced by the **Fetch** of Alice's `Iou` preceding the consuming **Exercise**.
-However, the painter is not an informee of those two actions; he merely witnesses the **Fetch** and **Exercse** actions as part of divulgence.
+However, the painter is not an informee of those two actions; he merely witnesses the **Fetch** and **Exercise** actions as part of divulgence.
 Therefore no ordering is required from the painter's point of view.
 This difference explains the :ref:`divulgence causality example <causality-divulgence-example>`.
 

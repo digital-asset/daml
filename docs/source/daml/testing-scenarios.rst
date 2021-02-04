@@ -76,7 +76,7 @@ A very simple scenario looks like this:
 
 In this example, there is only one transaction, authorized by the party ``Alice`` (created using ``getParty "Alice"``).  The ledger update is a ``create``, and has to include the :ref:`arguments for the template <daml-ref-template-parameters>` (``Payout with receiver = alice; giver = alice``).
 
-.. Download :download:`the Payout template <code-snipppets/Payout.daml>`.
+.. Download :download:`the Payout template <code-snippets/Payout.daml>`.
 
 Example with two updates
 ========================

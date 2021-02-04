@@ -171,7 +171,7 @@ use the ``token`` parameter:
 .. code-block:: scala
 
    transactionClient.getLedgerEnd() // Uses the token specified in LedgerClientConfiguration
-   transactionClient.getLedgerEnd(token = acessToken) // Uses the given token
+   transactionClient.getLedgerEnd(token = accessToken) // Uses the given token
 
 Note that if your tokens can change at run time (e.g., because they expire or because you switch users),
 you will need to specify them on a per-call basis as shown above.

@@ -6,7 +6,7 @@
 Daml: Defining Contract Models Compactly
 ----------------------------------------
 
-As described in preceeding sections, both the integrity and privacy notions depend on
+As described in preceding sections, both the integrity and privacy notions depend on
 a contract model, and such a model must specify:
 
 #. a set of allowed actions on the contracts, and

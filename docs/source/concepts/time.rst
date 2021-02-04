@@ -45,7 +45,7 @@ for details, contact your ledger operator.
 Guarantees
 **********
 
-The ledger time of valid transaction ``TX`` must fullfil the following rules:
+The ledger time of valid transaction ``TX`` must fulfill the following rules:
 
 #. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
    on a contract ``C``, ``lt_TX >= lt_C``,

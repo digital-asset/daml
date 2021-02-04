@@ -32,8 +32,8 @@ Hovering over the compilation error displays:
 
   [Type checker] Argument expands to non-serializable type Party -> Party.
 
-Modelling questions
-*******************
+Modeling questions
+******************
 
 .. _faqs-proposal:
 

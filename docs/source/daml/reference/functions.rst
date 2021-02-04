@@ -26,7 +26,7 @@ You can define this function equivalently using lambdas, involving ``\``, a sequ
 Partial application
 *******************
 
-The type of the ``tubeSurfaceArea`` function described previously, is ``Decimal -> Decimal -> Decimal``. An equivalent, but more instructive, way to read its type is: ``Decmial -> (Decimal -> Decimal)``: saying that ``tubeSurfaceArea`` is a function that takes *one* argument and returns another function.
+The type of the ``tubeSurfaceArea`` function described previously, is ``Decimal -> Decimal -> Decimal``. An equivalent, but more instructive, way to read its type is: ``Decimal -> (Decimal -> Decimal)``: saying that ``tubeSurfaceArea`` is a function that takes *one* argument and returns another function.
 
 So ``tubeSurfaceArea`` expects one argument of type ``Decimal`` and returns a function of type ``Decimal -> Decimal``. In other words, this function returns another function. *Only the last application of an argument yields a non-function.*
 

@@ -73,7 +73,7 @@ The application directs the user to this endoint if the ``/auth`` endpoint retur
 This will request authentication and authorization of the user from the IAM for the given claims.
 E.g. in the OAuth 2.0 based implementation included in DAML Connect, this will start an Authorization Code Grant flow.
 
-If authorization is granted this will store the access and optional refresh token in a cookie. The request can define a callback URI, if specified this endpoint will redirect to the callback URI at the end of the flow. Otherwise, it will resepond with a status code that indicates whether authorization was successful or not.
+If authorization is granted this will store the access and optional refresh token in a cookie. The request can define a callback URI, if specified this endpoint will redirect to the callback URI at the end of the flow. Otherwise, it will respond with a status code that indicates whether authorization was successful or not.
 
 HTTP Request
 ============
