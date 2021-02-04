@@ -65,7 +65,8 @@ object ReadServiceStateUpdateComparison {
 
   private def compareUpdates(expectedUpdate: Update, normalizedUpdate: Update): Future[Unit] = {
     val expectedNormalizedUpdate = normalizeUpdate(expectedUpdate)
-    // We overwrite the record time of the update with the expected one because it can vary.
+    // We ignore the record time set later by post-execution because it's unimportant.
+    // We only care about the update type and content.
     val actualNormalizedUpdate =
       updateRecordTime(normalizeUpdate(normalizedUpdate), expectedNormalizedUpdate.recordTime)
     if (expectedNormalizedUpdate != actualNormalizedUpdate) {
@@ -83,7 +84,8 @@ object ReadServiceStateUpdateComparison {
     }
   }
 
-  // Rejection reasons can change arbitrarily. We just want to check the type.
+  // Rejection reason strings can change arbitrarily.
+  // We just want to check the structured information.
   private def normalizeUpdate(update: Update): Update = update match {
     case Update.ConfigurationChangeRejected(
           recordTime,
