@@ -180,10 +180,16 @@ final class WriteSetComparisonSpec extends AsyncWordSpec with Matchers with Insi
           fail("Expected a failure message.")
         case Some(explanation) =>
           explanation should include(
-            s"expected value:    ${rawHexString(valueA1)}\n vs. actual value: ${rawHexString(valueA2)}\n"
+            Seq(
+              s"expected value:    ${rawHexString(valueA1)}",
+              s" vs. actual value: ${rawHexString(valueA2)}",
+            ).map(_ + System.lineSeparator()).mkString("")
           )
           explanation should include(
-            s"expected value:    ${rawHexString(valueB1)}\n vs. actual value: ${rawHexString(valueB2)}\n"
+            Seq(
+              s"expected value:    ${rawHexString(valueB1)}",
+              s" vs. actual value: ${rawHexString(valueB2)}",
+            ).map(_ + System.lineSeparator()).mkString("")
           )
       }
     }
