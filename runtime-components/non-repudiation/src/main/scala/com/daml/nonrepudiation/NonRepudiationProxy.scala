@@ -14,7 +14,7 @@ object NonRepudiationProxy {
   def owner[Context: HasExecutionContext](
       participant: Channel,
       serverBuilder: ServerBuilder[_],
-      keyRepository: KeyRepository.Read,
+      certificateRepository: CertificateRepository.Read,
       signedPayloadRepository: SignedPayloadRepository.Write,
       timestampProvider: Clock,
       serviceName: String,
@@ -22,7 +22,7 @@ object NonRepudiationProxy {
   ): AbstractResourceOwner[Context, Server] = {
     val signatureVerification =
       new SignatureVerificationInterceptor(
-        keyRepository,
+        certificateRepository,
         signedPayloadRepository,
         timestampProvider,
       )

@@ -3,7 +3,8 @@
 
 package com.daml
 
-import java.security.{PrivateKey, PublicKey}
+import java.security.PrivateKey
+import java.security.cert.X509Certificate
 
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -20,6 +21,7 @@ package object nonrepudiation {
   object AlgorithmString {
     def wrap(string: String): AlgorithmString = string.asInstanceOf[AlgorithmString]
 
+    val RSA: AlgorithmString = wrap("RSA")
     val SHA256withRSA: AlgorithmString = wrap("SHA256withRSA")
   }
 
@@ -56,8 +58,8 @@ package object nonrepudiation {
   object FingerprintBytes {
     def wrap(bytes: Array[Byte]): FingerprintBytes =
       ArraySeq.unsafeWrapArray(bytes).asInstanceOf[FingerprintBytes]
-    def compute(key: PublicKey): FingerprintBytes =
-      wrap(Fingerprints.compute(key))
+    def compute(certificate: X509Certificate): FingerprintBytes =
+      wrap(Fingerprints.compute(certificate))
   }
 
   type PayloadBytes <: ArraySeq[Byte]

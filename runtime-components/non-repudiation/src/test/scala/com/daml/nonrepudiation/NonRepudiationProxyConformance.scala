@@ -3,7 +3,6 @@
 
 package com.daml.nonrepudiation
 
-import java.security.KeyPairGenerator
 import java.time.Clock
 
 import com.daml.ledger.api.testtool.infrastructure.{
@@ -29,17 +28,16 @@ import scala.concurrent.duration.DurationInt
 
 final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers with EitherValues {
 
-  import NonRepudiationProxySpec._
   import NonRepudiationProxyConformance.ConformanceTestCases
+  import NonRepudiationProxySpec._
 
   behavior of "NonRepudiationProxy"
 
   it should "pass all conformance tests" in {
     implicit val context: ResourceContext = ResourceContext(executionContext)
     val config = SandboxConfig.defaultConfig.copy(port = Port.Dynamic)
-    val Setup(keys, signedPayloads, proxyBuilder, proxyChannel) = Setup.newInstance[CommandIdString]
-    val keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair()
-    keys.put(keyPair.getPublic)
+    val Setup(certificates, signedPayloads, privateKey, certificate, proxyBuilder, proxyChannel) =
+      Setup.newInstance[CommandIdString]
 
     val proxy =
       for {
@@ -54,7 +52,7 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
         proxy <- NonRepudiationProxy.owner[ResourceContext](
           sandboxChannel,
           proxyBuilder,
-          keys,
+          certificates,
           signedPayloads,
           Clock.systemUTC(),
           CommandService.scalaDescriptor.fullName,
@@ -67,7 +65,7 @@ final class NonRepudiationProxyConformance extends AsyncFlatSpec with Matchers w
         testCases = ConformanceTestCases,
         participants = Vector(proxyChannel),
         commandInterceptors = Seq(
-          new SigningInterceptor(keyPair, AlgorithmString.SHA256withRSA)
+          new SigningInterceptor(privateKey, certificate)
         ),
       )
 
