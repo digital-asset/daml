@@ -63,6 +63,7 @@ da_scala_test(
         "//ledger/participant-integration-api",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_mockito_mockito_core",
     ],

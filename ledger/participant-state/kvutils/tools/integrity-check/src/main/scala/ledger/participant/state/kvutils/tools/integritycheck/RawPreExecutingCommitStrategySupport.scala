@@ -8,15 +8,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.rawHexString
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw, export}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, export}
 import com.daml.ledger.validator.preexecution.{
   EqualityBasedPostExecutionConflictDetector,
   PreExecutingSubmissionValidator,
@@ -87,41 +80,4 @@ final class RawPreExecutingCommitStrategySupport(
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(metrics)
-
-  override def explainMismatchingValue(
-      logEntryId: Raw.Key,
-      expectedValue: Raw.Value,
-      actualValue: Raw.Value,
-  ): Option[String] = {
-    val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
-    val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
-    Some(
-      s"Log entry ID: ${rawHexString(logEntryId)}${System.lineSeparator()}" +
-        s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
-    )
-  }
-
-  override def checkEntryIsReadable(rawKey: Raw.Key, rawValue: Raw.Value): Either[String, Unit] =
-    Envelope.open(rawValue) match {
-      case Left(errorMessage) =>
-        Left(s"Invalid value envelope: $errorMessage")
-      case Right(Envelope.LogEntryMessage(logEntry)) =>
-        val _ = DamlLogEntryId.parseFrom(rawKey.bytes)
-        if (logEntry.getPayloadCase == DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET)
-          Left("Log entry payload not set.")
-        else
-          Right(())
-      case Right(Envelope.StateValueMessage(value)) =>
-        val key = stateKeySerializationStrategy.deserializeStateKey(rawKey)
-        if (key.getKeyCase == DamlStateKey.KeyCase.KEY_NOT_SET)
-          Left("State key not set.")
-        else if (value.getValueCase == DamlStateValue.ValueCase.VALUE_NOT_SET)
-          Left("State value not set.")
-        else
-          Right(())
-      case Right(Envelope.SubmissionMessage(submission)) =>
-        Left(s"Unexpected submission message: $submission")
-      case Right(Envelope.SubmissionBatchMessage(batch)) =>
-        Left(s"Unexpected submission batch message: $batch")
-    }
 }
