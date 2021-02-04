@@ -62,6 +62,7 @@ ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
 ScriptTest:traceOrder SUCCESS
+ScriptTest:tree SUCCESS
 ScriptTest:tupleKey SUCCESS
 EOF
 )"
