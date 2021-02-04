@@ -3,8 +3,8 @@
 
 package com.daml.nonrepudiation
 
-import java.security.spec.X509EncodedKeySpec
-import java.security.{KeyFactory, PublicKey}
+import java.io.ByteArrayInputStream
+import java.security.cert.{CertificateFactory, X509Certificate}
 
 import doobie.util.{Get, Put}
 
@@ -30,14 +30,13 @@ package object postgresql {
   implicit val putCommandIdString: Put[CommandIdString] =
     Put[String].contramap(identity)
 
-  implicit val getPublicKey: Get[PublicKey] =
+  implicit val getCertificate: Get[X509Certificate] =
     Get[Array[Byte]].map { bytes =>
-      val keySpec = new X509EncodedKeySpec(bytes)
-      val keyFactory = KeyFactory.getInstance("RSA")
-      keyFactory.generatePublic(keySpec)
+      val factory = CertificateFactory.getInstance("X.509");
+      factory.generateCertificate(new ByteArrayInputStream(bytes)).asInstanceOf[X509Certificate]
     }
 
-  implicit val putPublicKey: Put[PublicKey] =
+  implicit val putCertificate: Put[X509Certificate] =
     Put[Array[Byte]].contramap(_.getEncoded)
 
 }

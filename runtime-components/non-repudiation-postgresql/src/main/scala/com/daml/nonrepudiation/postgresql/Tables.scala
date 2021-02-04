@@ -6,7 +6,6 @@ package com.daml.nonrepudiation.postgresql
 import java.util.Collections
 
 import cats.effect.IO
-import com.daml.nonrepudiation.{CommandIdString, KeyRepository, SignedPayloadRepository}
 import doobie.hikari.HikariTransactor
 import doobie.util.log.LogHandler
 import org.flywaydb.core.Flyway
@@ -24,11 +23,11 @@ object Tables {
             .dataSource(dataSource)
             .locations("classpath:com/daml/nonrepudiation/postgresql/")
             .placeholders(Collections.singletonMap("tables.prefix", Prefix))
-            .table(s"${Prefix}_flyway_schema_history")
+            .table(s"${Prefix}_schema_history")
             .load()
             .migrate()
           new Tables(
-            keys = new PostgresqlKeyRepository(transactor),
+            certificates = new PostgresqlCertificateRepository(transactor),
             signedPayloads = new PostgresqlSignedPayloadRepository(transactor),
           )
         }
@@ -38,6 +37,6 @@ object Tables {
 }
 
 final class Tables private (
-    val keys: KeyRepository,
-    val signedPayloads: SignedPayloadRepository[CommandIdString],
+    val certificates: PostgresqlCertificateRepository,
+    val signedPayloads: PostgresqlSignedPayloadRepository,
 )
