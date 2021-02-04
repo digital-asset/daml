@@ -177,6 +177,7 @@ jobs:
           //language-support/scala/... \
           //ledger-api/... \
           //ledger/... \
+          //daml-script/dump/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
           -//ledger/ledger-api-test-tool/... \
@@ -188,6 +189,7 @@ jobs:
           //language-support/scala/... \
           //ledger-api/... \
           //ledger/... \
+          //daml-script/dump/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
