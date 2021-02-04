@@ -156,7 +156,7 @@ sealed abstract class Queries {
       tpid: SurrogateTpId,
       newOffset: String,
       lastOffsets: Map[String, String],
-  )(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
+  )(implicit log: LogHandler): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
     val (existingParties, newParties) = {
       import cats.syntax.foldable._
@@ -169,19 +169,24 @@ sealed abstract class Queries {
     )
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
-    val update =
-      sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+    val update = existingParties match {
+      case hdP +: tlP =>
+        Some(
+          sql"""UPDATE ledger_offset SET last_offset = $newOffset
+            WHERE """ ++ Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP)) ++
+            sql"""
+                  AND tpid = $tpid
+                  AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+        )
+      case _ => None
+    }
     for {
       inserted <-
         if (newParties.empty) { Applicative[ConnectionIO].pure(0) }
         else {
           insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
         }
-      updated <-
-        if (existingParties.empty) { Applicative[ConnectionIO].pure(0) }
-        else {
-          update.update.run
-        }
+      updated <- update.cata(_.update.run, Applicative[ConnectionIO].pure(0))
     } yield { inserted + updated }
   }
 
