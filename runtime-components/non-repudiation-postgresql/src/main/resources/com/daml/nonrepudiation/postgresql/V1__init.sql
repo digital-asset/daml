@@ -6,14 +6,15 @@ create table ${tables.prefix}_signed_payloads(
     algorithm text not null,
     fingerprint bytea not null,
     payload bytea not null,
-    signature bytea not null
+    signature bytea not null,
+    "timestamp" timestamptz not null,
 );
 
 create index ${tables.prefix}_signed_payloads_command_id_index on ${tables.prefix}_signed_payloads using hash(command_id);
 
-create table ${tables.prefix}_keys(
+create table ${tables.prefix}_certificates(
     fingerprint bytea not null,
-    "key" bytea not null
+    certificate bytea not null
 );
 
-create index ${tables.prefix}_keys_fingerprint_index on ${tables.prefix}_keys using hash(fingerprint);
+create index ${tables.prefix}_certificates_fingerprint_index on ${tables.prefix}_keys using hash(fingerprint);

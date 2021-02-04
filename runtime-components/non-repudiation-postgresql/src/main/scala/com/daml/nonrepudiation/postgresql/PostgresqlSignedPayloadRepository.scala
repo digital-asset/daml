@@ -6,6 +6,7 @@ package com.daml.nonrepudiation.postgresql
 import cats.effect.IO
 import com.daml.nonrepudiation.{CommandIdString, SignedPayload, SignedPayloadRepository}
 import doobie.implicits._
+import doobie.implicits.legacy.instant._
 import doobie.util.fragment.Fragment
 import doobie.util.log.LogHandler
 import doobie.util.transactor.Transactor
@@ -24,7 +25,7 @@ final class PostgresqlSignedPayloadRepository(transactor: Transactor[IO])(implic
 
   private def putSignedPayload(key: CommandIdString, signedPayload: SignedPayload): Fragment = {
     import signedPayload._
-    fr"insert into " ++ table ++ fr"(command_id, algorithm, fingerprint, payload, signature) values($key, $algorithm, $fingerprint, $payload, $signature)"
+    fr"insert into " ++ table ++ fr"""(command_id, algorithm, fingerprint, payload, signature, timestamp) values($key, $algorithm, $fingerprint, $payload, $signature, $timestamp)"""
   }
 
   override def put(signedPayload: SignedPayload): Unit = {

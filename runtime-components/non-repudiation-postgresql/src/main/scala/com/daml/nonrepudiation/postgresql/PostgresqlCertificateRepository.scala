@@ -16,16 +16,16 @@ final class PostgresqlCertificateRepository(transactor: Transactor[IO])(implicit
     logHandler: LogHandler
 ) extends CertificateRepository {
 
-  private val table = Fragment.const(s"${Tables.Prefix}_keys")
+  private val table = Fragment.const(s"${Tables.Prefix}_certificates")
 
   private def getCertificate(fingerprint: FingerprintBytes): Fragment =
-    fr"""select "key" from """ ++ table ++ fr"where fingerprint = $fingerprint"
+    fr"select certificate from " ++ table ++ fr"where fingerprint = $fingerprint"
 
   override def get(fingerprint: FingerprintBytes): Option[X509Certificate] =
     getCertificate(fingerprint).query[X509Certificate].option.transact(transactor).unsafeRunSync()
 
   private def putKey(fingerprint: FingerprintBytes, certificate: X509Certificate): Fragment =
-    fr"insert into " ++ table ++ fr"""(fingerprint, "key") values ($fingerprint, $certificate)"""
+    fr"insert into " ++ table ++ fr"""(fingerprint, certificate) values ($fingerprint, $certificate)"""
 
   override def put(certificate: X509Certificate): FingerprintBytes = {
     val fingerprint = FingerprintBytes.compute(certificate)
