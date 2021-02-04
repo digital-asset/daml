@@ -398,6 +398,28 @@ requestTests run _runScenarios = testGroup "requests"
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
           liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+
+          -- introduce syntax error
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 6 6) (Position 6 6))) Nothing "+\n"]
+          expectDiagnostics [("Main.daml", [(DsError, (6, 6), "Parse error")])]
+
+          -- everything should still work because we use stale information.
+          -- thisIsAParam
+          locs <- getDefinitions main' (Position 3 24)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
+          -- letParam
+          locs <- getDefinitions main' (Position 4 37)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
+          -- import Test
+          locs <- getDefinitions main' (Position 1 10)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
+          -- use of `bar` in template
+          locs <- getDefinitions main' (Position 14 20)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
+          -- answerFromTest
+          locs <- getDefinitions main' (Position 2 8)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+
           closeDoc main'
           closeDoc test
     ]

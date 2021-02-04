@@ -45,7 +45,6 @@ import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
 import Development.IDE.LSP.Protocol
@@ -457,10 +456,12 @@ runRepl importPkgs opts replClient logger ideState = do
         -- to decide what to do. If a case succeeds we immediately print all diagnostics.
         -- If it fails, we return them and only print them once everything failed.
         diagsRef <- liftIO $ newIORef id
+        -- here we don't want to use the `useE` function that uses cached results
+        let useE' k = MaybeT . use k
         let writeDiags diags = atomicModifyIORef diagsRef (\f -> (f . (diags:), ()))
         r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber)
+            (,) <$> useE' GenerateDalf (lineFilePath lineNumber)
+                <*> useE' TypeCheck (lineFilePath lineNumber)
         diags <- liftIO $ ($ []) <$> readIORef diagsRef
         case r of
             Nothing -> throwError (TypeError, diags)
