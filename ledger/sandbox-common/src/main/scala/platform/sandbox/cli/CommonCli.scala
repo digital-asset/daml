@@ -362,6 +362,24 @@ class CommonCli(name: LedgerName) {
     this
   }
 
+  def withDevEngine: CommonCli = {
+    parser
+      .opt[Unit]("daml-lf-dev-mode-unsafe")
+      .optional()
+      .hidden()
+      .action((_, c) =>
+        if (c.engineMode == SandboxConfig.EngineMode.Stable) {
+          c.copy(engineMode = SandboxConfig.EngineMode.Dev)
+        } else {
+          c
+        }
+      )
+      .text(
+        "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
+      )
+    this
+  }
+
 }
 
 object CommonCli {
