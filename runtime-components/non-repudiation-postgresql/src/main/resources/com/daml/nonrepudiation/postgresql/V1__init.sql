@@ -7,7 +7,7 @@ create table ${tables.prefix}_signed_payloads(
     fingerprint bytea not null,
     payload bytea not null,
     signature bytea not null,
-    "timestamp" timestamptz not null,
+    "timestamp" timestamptz not null
 );
 
 create index ${tables.prefix}_signed_payloads_command_id_index on ${tables.prefix}_signed_payloads using hash(command_id);
@@ -17,4 +17,4 @@ create table ${tables.prefix}_certificates(
     certificate bytea not null
 );
 
-create index ${tables.prefix}_certificates_fingerprint_index on ${tables.prefix}_keys using hash(fingerprint);
+create index ${tables.prefix}_certificates_fingerprint_index on ${tables.prefix}_certificates using hash(fingerprint);

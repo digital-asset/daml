@@ -3,7 +3,7 @@
 
 package com.daml.nonrepudiation.postgresql
 
-import java.security.KeyPair
+import java.time.Clock
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
 
@@ -34,6 +34,7 @@ import org.scalatest.EitherValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sun.security.tools.keytool.CertAndKeyGen
+import sun.security.x509.X500Name
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
@@ -58,11 +59,13 @@ final class NonRepudiationProxyConformance
     val proxyBuilder = InProcessServerBuilder.forName(proxyName)
     val proxyChannel = InProcessChannelBuilder.forName(proxyName).build()
 
-    val keyPair = {
-      val generator = new CertAndKeyGen(AlgorithmString.RSA, AlgorithmString.SHA256withRSA)
-      generator.generate(2048)
-      new KeyPair(generator.getPublicKey, generator.getPrivateKey)
-    }
+    val generator = new CertAndKeyGen(AlgorithmString.RSA, AlgorithmString.SHA256withRSA)
+    generator.generate(2048)
+    val key = generator.getPrivateKey
+    val certificate = generator.getSelfCertificate(
+      new X500Name("CN=Non-Repudiation Test,O=Digital Asset,L=Zurich,C=CH"),
+      1.hour.toSeconds,
+    )
 
     val proxy =
       for {
@@ -76,12 +79,13 @@ final class NonRepudiationProxyConformance
         )
         transactor <- managedHikariTransactor(postgresDatabase.url, maxPoolSize = 10)
         db = Tables.initialize(transactor)
-        _ = db.keys.put(keyPair.getPublic)
+        _ = db.certificates.put(certificate)
         proxy <- NonRepudiationProxy.owner[ResourceContext](
           sandboxChannel,
           proxyBuilder,
-          db.keys,
+          db.certificates,
           db.signedPayloads,
+          Clock.systemUTC(),
           CommandService.scalaDescriptor.fullName,
           CommandSubmissionService.scalaDescriptor.fullName,
         )
@@ -92,7 +96,7 @@ final class NonRepudiationProxyConformance
         testCases = ConformanceTestCases,
         participants = Vector(proxyChannel),
         commandInterceptors = Seq(
-          new SigningInterceptor(keyPair, AlgorithmString.SHA256withRSA)
+          new SigningInterceptor(key, certificate)
         ),
       )
 
