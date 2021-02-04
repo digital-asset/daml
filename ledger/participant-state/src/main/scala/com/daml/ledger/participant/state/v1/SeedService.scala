@@ -34,14 +34,14 @@ object SeedService {
     seeding match {
       case Seeding.Strong => StrongRandom
       case Seeding.Weak => WeakRandom
-      case Seeding.Static => StaticRandom
+      case Seeding.Static => staticRandom("static random seed service")
     }
 
   /** Pseudo random generator seeded with high entropy seed.
     * May block while gathering entropy from the underlying operating system
     * Thread safe.
     */
-  // lazy to avoid gathering unecessary entropy.
+  // lazy to avoid gathering unnecessary entropy.
   lazy val StrongRandom = {
     val logger = LoggerFactory.getLogger(this.getClass)
     var done = false
@@ -49,16 +49,13 @@ object SeedService {
     new Thread {
       override def run(): Unit = {
         Thread.sleep(5 * 1000)
-        if (!done) {
+        if (!done)
           logger.info(
             s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty.
-               |On testing environment consider using the "${Seeding.Weak.name}" mode, that does not block on startup but produces insecure contract IDs.""".stripMargin
+               |On testing environment consider using the "${Seeding.Weak.name}" mode, that produces insecure contract IDs but does not block on startup.""".stripMargin
           )
-        }
-        while (!done) {
-          Thread.sleep(10 * 1000)
+        while ({ Thread.sleep(10 * 1000); !done })
           logger.info("Still Trying to gather entropy to initialized the contract ID seeding...  ")
-        }
       }
     }.start()
 
@@ -77,12 +74,6 @@ object SeedService {
     val seed = new SecureRandom().generateSeed(crypto.Hash.underlyingHashLength)
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
-
-  /** Pseudo random generator seeded with a static seed.
-    * Do not block. Thread safe.
-    * Can be use to get reproducible run. Do not use in production mode.
-    */
-  val StaticRandom = staticRandom("static random seed service")
 
   /** Pseudo random generator seeded with a given seed.
     * Do not block. Thread safe.
