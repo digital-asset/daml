@@ -3,9 +3,12 @@
 
 package com.daml.nonrepudiation
 
+import java.time.Instant
+
 final case class SignedPayload(
     algorithm: AlgorithmString,
     fingerprint: FingerprintBytes,
     payload: PayloadBytes,
     signature: SignatureBytes,
+    timestamp: Instant,
 )

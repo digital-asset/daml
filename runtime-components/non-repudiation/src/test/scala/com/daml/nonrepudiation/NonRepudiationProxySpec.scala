@@ -4,6 +4,7 @@
 package com.daml.nonrepudiation
 
 import java.security.{KeyPairGenerator, PublicKey}
+import java.time.{Clock, Instant, ZoneId}
 
 import com.daml.grpc.test.GrpcServer
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
@@ -35,6 +36,8 @@ final class NonRepudiationProxySpec
     val Setup(keys, signedPayloads, proxyBuilder, proxyChannel) = Setup.newInstance[String]
     val keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair()
     keys.put(keyPair.getPublic)
+    val expectedTimestamp = Instant.ofEpochMilli(42)
+    val timestampProvider = Clock.fixed(expectedTimestamp, ZoneId.systemDefault())
 
     NonRepudiationProxy
       .owner(
@@ -42,6 +45,7 @@ final class NonRepudiationProxySpec
         serverBuilder = proxyBuilder,
         keyRepository = keys,
         signedPayloadRepository = signedPayloads,
+        timestampProvider = timestampProvider,
         Health.Name,
       )
       .use { _ =>
@@ -70,6 +74,7 @@ final class NonRepudiationProxySpec
             expectedFingerprint,
             expectedPayload,
             expectedSignature,
+            expectedTimestamp,
           )
 
         val result =
@@ -99,6 +104,7 @@ final class NonRepudiationProxySpec
         serverBuilder = proxyBuilder,
         keyRepository = keys,
         signedPayloadRepository = signatures,
+        timestampProvider = Clock.systemUTC(),
         Health.Name,
       )
       .use { _ =>
@@ -116,7 +122,7 @@ final class NonRepudiationProxySpec
     val keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair()
 
     NonRepudiationProxy
-      .owner(channel, proxyBuilder, keys, signatures, Health.Name)
+      .owner(channel, proxyBuilder, keys, signatures, Clock.systemUTC(), Health.Name)
       .use { _ =>
         the[StatusRuntimeException] thrownBy {
           Health.getHealthStatus(
