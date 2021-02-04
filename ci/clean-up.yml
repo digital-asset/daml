@@ -15,7 +15,7 @@ steps:
         echo "removed '$disk_cache'"
         local_cache="$HOME/.cache/bazel"
         if [ -d "$local_cache" ]; then
-            for pid in $(lsof "$local_cache" | sed 1d | awk '{print $2}' | sort -u); do
+            for pid in $(pgrep -a -f bazel | awk '{print $1}'); do
                 kill -s KILL $pid
             done
             chmod -R +w "$local_cache"
