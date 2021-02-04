@@ -46,6 +46,7 @@ let
       ];
     });
     scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
+      version = "2.12.12";
       name = "scala-2.12.12";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";

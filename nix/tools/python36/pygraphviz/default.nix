@@ -1,5 +1,5 @@
 # From https://github.com/NixOS/nixpkgs/blob/release-18.03/pkgs/development/python-modules/pygraphviz/default.nix, adjusted for v1.5.
-{ stdenv, buildPythonPackage, fetchPypi, graphviz
+{ lib, buildPythonPackage, fetchPypi, graphviz
 , pkgconfig, doctest-ignore-unicode, mock, nose }:
 
 buildPythonPackage rec {
@@ -19,7 +19,7 @@ buildPythonPackage rec {
   # check status of pygraphviz/pygraphviz#129
   doCheck = false;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Python interface to Graphviz graph drawing package";
     homepage = https://github.com/pygraphviz/pygraphviz;
     license = licenses.bsd3;

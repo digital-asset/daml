@@ -933,8 +933,8 @@ encodeModule Module{..} = do
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do
-    packageMetadataNameInternedStr <- either (const $ error "Package name is always interned") id <$> encodeInternableString (unPackageName packageName)
-    packageMetadataVersionInternedStr <- either (const $ error "Package name is always interned") id <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataNameInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageName packageName)
+    packageMetadataVersionInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
     pure P.PackageMetadata{..}
 
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.

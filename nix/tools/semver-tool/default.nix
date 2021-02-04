@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub }:
+{ lib, stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
   version = "7cd86658";
@@ -25,7 +25,7 @@ stdenv.mkDerivation rec {
   meta = {
     homepage = https://github.com/fsaintjacques/semver-tool;
     description = "The semver shell utility";
-    license = stdenv.lib.licenses.gpl3;
-    platforms = stdenv.lib.platforms.all;
+    license = lib.licenses.gpl3;
+    platforms = lib.platforms.all;
   };
 }
