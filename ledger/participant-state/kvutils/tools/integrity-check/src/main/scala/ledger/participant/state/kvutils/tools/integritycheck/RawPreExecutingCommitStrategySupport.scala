@@ -33,6 +33,7 @@ final class RawPreExecutingCommitStrategySupport(
     StateKeySerializationStrategy.createDefault()
 
   private val state = InMemoryState.empty
+  private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
 
   // To mimic the original pre-execution as closely as possible, we use the original submission
   // record time as the current time. This effectively means that the committer thinks the
@@ -65,7 +66,7 @@ final class RawPreExecutingCommitStrategySupport(
   override def commit(
       submissionInfo: export.SubmissionInfo
   )(implicit materializer: Materializer): Future[export.WriteSet] = {
-    val access = new WriteRecordingLedgerStateAccess(new InMemoryLedgerStateAccess(state, metrics))
+    val access = new WriteRecordingLedgerStateAccess(ledgerStateAccess)
     currentSubmissionRecordTime.set(submissionInfo.recordTimeInstant)
     committer
       .commit(

@@ -110,6 +110,8 @@ da_scala_test(
     deps = [
         ":integrity-check",
         "//daml-lf/data",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
