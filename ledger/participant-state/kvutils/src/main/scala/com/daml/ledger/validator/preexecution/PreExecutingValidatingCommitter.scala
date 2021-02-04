@@ -56,22 +56,26 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
   /** Pre-executes and then commits a submission.
     */
   def commit(
-      participantId: ParticipantId,
+      submittingParticipantId: ParticipantId,
       correlationId: String,
       submissionEnvelope: Raw.Value,
-      recordTime: Instant,
+      exportRecordTime: Instant,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       val submissionInfo =
-        SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTime)
+        SubmissionInfo(submittingParticipantId, correlationId, submissionEnvelope, exportRecordTime)
       val submissionAggregator = ledgerDataExporter.addSubmission(submissionInfo)
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         val stateReader =
           transformStateReader(new LedgerStateOperationsReaderAdapter(ledgerStateOperations))
         for {
-          preExecutionOutput <- validator.validate(submissionEnvelope, participantId, stateReader)
+          preExecutionOutput <- validator.validate(
+            submissionEnvelope,
+            submittingParticipantId,
+            stateReader,
+          )
           _ <- retry { case _: ConflictDetectedException =>
             logger.error("Conflict detected during post-execution. Retrying...")
             true
