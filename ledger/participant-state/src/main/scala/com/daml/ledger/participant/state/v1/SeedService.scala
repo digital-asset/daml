@@ -4,6 +4,8 @@
 package com.daml.ledger.participant.state.v1
 
 import java.security.SecureRandom
+import java.util.concurrent.TimeUnit.SECONDS
+import java.util.{Timer, TimerTask}
 
 import com.daml.lf.crypto
 import org.slf4j.LoggerFactory
@@ -44,24 +46,27 @@ object SeedService {
   // lazy to avoid gathering unnecessary entropy.
   lazy val StrongRandom = {
     val logger = LoggerFactory.getLogger(this.getClass)
-    var done = false
-
-    new Thread {
-      override def run(): Unit = {
-        Thread.sleep(5 * 1000)
-        if (!done)
-          logger.info(
-            s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty.
-               |On testing environment consider using the "${Seeding.Weak.name}" mode, that produces insecure contract IDs but does not block on startup.""".stripMargin
-          )
-        while ({ Thread.sleep(10 * 1000); !done })
-          logger.info("Still Trying to gather entropy to initialized the contract ID seeding...  ")
+    val timer = new Timer()
+    def sndTask = new TimerTask {
+      def run(): Unit =
+        logger.info(
+          s""""Still Trying to gather entropy to initialized the contract ID seeding...  """"
+        )
+    }
+    val fstTask = new TimerTask {
+      def run(): Unit = {
+        logger.info(
+          s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty.
+             |On testing environment consider using the "${Seeding.Weak.name}" mode, that produces insecure contract IDs but does not block on startup.""".stripMargin
+        )
+        timer.schedule(sndTask, SECONDS.toMillis(10), SECONDS.toMillis(10))
       }
-    }.start()
+    }
+    timer.schedule(fstTask, SECONDS.toMillis(5))
 
     val seed = SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)
 
-    done = true
+    timer.cancel()
 
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
