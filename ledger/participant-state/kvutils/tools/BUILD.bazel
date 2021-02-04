@@ -73,7 +73,7 @@ da_scala_binary(
     name = "integrity-check",
     srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
     main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
-    resources = glob(["src/main/resources/*"]),
+    resources = glob(["integrity-check/src/main/resources/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
