@@ -114,6 +114,39 @@ sh_test(
     ],
 ) if not is_windows else None
 
+sh_test(
+    name = "npm-update-check",
+    srcs = ["npm_check.sh"],
+    args = [
+        "$(location //:daml2js)",
+        "$(location @nodejs//:npm_bin)",
+        "$(location @jq_dev_env//:jq)",
+        "$(location :npmcheck1.dar)",
+        "$(location :npmcheck2.dar)",
+        sdk_version,
+    ],
+    data = [
+        ":npmcheck1.dar",
+        ":npmcheck2.dar",
+        "//:daml2js",
+        "@jq_dev_env//:jq",
+        "@nodejs//:npm_bin",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+) if not is_windows else None
+
+daml_compile(
+    name = "npmcheck1",
+    srcs = ["daml/Npm1.daml"],
+)
+
+daml_compile(
+    name = "npmcheck2",
+    srcs = ["daml/Npm2.daml"],
+)
+
 da_haskell_library(
     name = "daml2js-test-helpers",
     srcs = ["src/DA/Test/Daml2jsUtils.hs"],
