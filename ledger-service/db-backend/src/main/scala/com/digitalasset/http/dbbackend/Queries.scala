@@ -157,7 +157,6 @@ sealed abstract class Queries {
       newOffset: String,
       lastOffsets: Map[String, String],
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    import spray.json.DefaultJsonProtocol._
     val (existingParties, newParties) = {
       import cats.syntax.foldable._
       parties.toList.partition(p => lastOffsets.contains(p))
@@ -174,9 +173,11 @@ sealed abstract class Queries {
         Some(
           sql"""UPDATE ledger_offset SET last_offset = $newOffset
             WHERE """ ++ Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP)) ++
-            sql"""
-                  AND tpid = $tpid
-                  AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+            sql""" AND tpid = $tpid
+                   AND last_offset = """ ++ caseLookup(
+              lastOffsets.filter { case (k, _) => existingParties contains k },
+              fr"party",
+            )
         )
       case _ => None
     }
@@ -189,6 +190,15 @@ sealed abstract class Queries {
       updated <- update.cata(_.update.run, Applicative[ConnectionIO].pure(0))
     } yield { inserted + updated }
   }
+
+  private[this] def caseLookup(m: Map[String, String], selector: Fragment): Fragment =
+    fr"CASE" ++ {
+      assert(m.nonEmpty, "existing offsets must be non-empty")
+      val when +: whens = m.iterator.map { case (k, v) =>
+        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
+      }.toVector
+      concatFragment(OneAnd(when, whens))
+    } ++ fr"ELSE NULL END"
 
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
