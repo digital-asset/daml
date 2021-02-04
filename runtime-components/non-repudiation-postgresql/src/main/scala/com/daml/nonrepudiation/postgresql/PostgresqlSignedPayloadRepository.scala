@@ -6,7 +6,7 @@ package com.daml.nonrepudiation.postgresql
 import cats.effect.IO
 import com.daml.nonrepudiation.{CommandIdString, SignedPayload, SignedPayloadRepository}
 import doobie.implicits._
-import doobie.implicits.legacy.instant._
+import doobie.implicits.javatime._
 import doobie.util.fragment.Fragment
 import doobie.util.log.LogHandler
 import doobie.util.transactor.Transactor

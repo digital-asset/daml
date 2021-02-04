@@ -19,7 +19,7 @@ final class PostgresqlCertificateRepository(transactor: Transactor[IO])(implicit
   private val table = Fragment.const(s"${Tables.Prefix}_certificates")
 
   private def getCertificate(fingerprint: FingerprintBytes): Fragment =
-    fr"select certificate from " ++ table ++ fr"where fingerprint = $fingerprint"
+    fr"select certificate from " ++ table ++ fr" where fingerprint = $fingerprint"
 
   override def get(fingerprint: FingerprintBytes): Option[X509Certificate] =
     getCertificate(fingerprint).query[X509Certificate].option.transact(transactor).unsafeRunSync()

@@ -6,7 +6,7 @@ package com.daml.nonrepudiation
 import java.io.ByteArrayInputStream
 import java.security.cert.{CertificateFactory, X509Certificate}
 
-import doobie.util.{Get, Put}
+import doobie.util.{Get, Put, Read}
 
 import scala.collection.compat.immutable.ArraySeq
 
@@ -35,6 +35,9 @@ package object postgresql {
       val factory = CertificateFactory.getInstance("X.509");
       factory.generateCertificate(new ByteArrayInputStream(bytes)).asInstanceOf[X509Certificate]
     }
+
+  implicit val readCertificate: Read[X509Certificate] =
+    Read.fromGet[X509Certificate]
 
   implicit val putCertificate: Put[X509Certificate] =
     Put[Array[Byte]].contramap(_.getEncoded)
