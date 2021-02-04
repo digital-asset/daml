@@ -156,7 +156,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "0.0.0",  # TODO This should become the latest available snapshot when it becomes available
+        "start": "1.10.0-snapshot.20210201.6207.0.7cf1914d",
         "platform_ranges": [
             {
                 "end": "1.10.0-snapshot.20210125.6143.0.550aa48f",
