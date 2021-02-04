@@ -659,7 +659,41 @@ main =
                 expectScriptSuccess rs (vr "testSucceed") $ \r ->
                   matchRegex r "Active contracts:  #0:0, #1:0"
                 expectScriptFailure rs (vr "testFail") $ \r ->
-                  matchRegex r "missing authorization from 'p1'"
+                  matchRegex r "missing authorization from 'p1'",
+              testCase "submitTree" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.Foldable"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    p : Party"
+                    , "    v : Int"
+                    , "  where"
+                    , "    signatory p"
+                    , "    nonconsuming choice CreateN : ()"
+                    , "      with n : Int"
+                    , "      controller p"
+                    , "      do forA_ [ 1 .. n ] $ \\i -> create (T p i)"
+                    , "test = do"
+                    , "  p <- allocateParty \"p\""
+                    , "  TransactionTree [CreatedEvent (Created cid arg)] <- submitTree p (createCmd (T p 0))"
+                    , "  fromAnyTemplate arg === Some (T p 0)"
+                    , "  let Some cid' = fromAnyContractId @T cid"
+                    , "  optT <- queryContractId p cid'"
+                    , "  optT === Some (T p 0)"
+                    , "  TransactionTree [ExercisedEvent ex] <- submitTree p (exerciseCmd cid' (CreateN 3))"
+                    , "  fromAnyContractId ex.contractId === Some cid'"
+                    , "  let [CreatedEvent c1, CreatedEvent c2, CreatedEvent c3] = ex.childEvents"
+                    , "  fromAnyTemplate c1.argument === Some (T p 1)"
+                    , "  fromAnyTemplate c2.argument === Some (T p 2)"
+                    , "  fromAnyTemplate c3.argument === Some (T p 3)"
+                    ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
