@@ -3,7 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
+import akka.stream.Materializer
+import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
@@ -11,41 +12,68 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue,
 }
+import com.daml.ledger.participant.state.kvutils.export.{
+  NoOpLedgerDataExporter,
+  SubmissionInfo,
+  WriteSet,
+}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.rawHexString
-import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
-import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.ledger.validator.{CommitStrategy, StateKeySerializationStrategy}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
+import com.daml.ledger.validator.StateKeySerializationStrategy
+import com.daml.ledger.validator.batch.{
+  BatchedSubmissionValidator,
+  BatchedSubmissionValidatorFactory,
+  BatchedSubmissionValidatorParameters,
+  ConflictDetection,
+}
+import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
-final class LogAppendingCommitStrategySupport(metrics: Metrics)(implicit
-    executionContext: ExecutionContext
-) extends CommitStrategySupport[Index] {
-  private val ledgerStateOperations =
-    InMemoryLedgerStateOperations()
-
-  private val writeRecordingLedgerStateOperations =
-    new WriteRecordingLedgerStateOperations[Index](ledgerStateOperations)
+final class LogAppendingCommitStrategySupport(
+    metrics: Metrics
+)(implicit executionContext: ExecutionContext)
+    extends CommitStrategySupport[Index] {
+  private val state = InMemoryState.empty
 
   private val serializationStrategy = StateKeySerializationStrategy.createDefault()
 
-  private val readerAndCommitStrategy =
-    BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
-      writeRecordingLedgerStateOperations,
-      serializationStrategy,
-    )
+  private val engine = new Engine()
+
+  private val submissionValidator = BatchedSubmissionValidator[Index](
+    params = BatchedSubmissionValidatorParameters(cpuParallelism = 1, readParallelism = 1),
+    committer = new KeyValueCommitting(engine, metrics),
+    conflictDetection = new ConflictDetection(metrics),
+    metrics = metrics,
+    ledgerDataExporter = NoOpLedgerDataExporter,
+  )
 
   override val stateKeySerializationStrategy: StateKeySerializationStrategy =
     serializationStrategy
 
-  override val writeSet: QueryableWriteSet = writeRecordingLedgerStateOperations
-
-  override val ledgerStateReader: DamlLedgerStateReader = readerAndCommitStrategy._1
-
-  override val commitStrategy: CommitStrategy[Index] =
-    readerAndCommitStrategy._2
+  override def commit(
+      submissionInfo: SubmissionInfo
+  )(implicit materializer: Materializer): Future[WriteSet] = {
+    val access = new WriteRecordingLedgerStateAccess(new InMemoryLedgerStateAccess(state, metrics))
+    access.inTransaction { operations =>
+      val (ledgerStateReader, commitStrategy) =
+        BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
+          operations,
+          serializationStrategy,
+        )
+      submissionValidator
+        .validateAndCommit(
+          submissionInfo.submissionEnvelope,
+          submissionInfo.correlationId,
+          submissionInfo.recordTimeInstant,
+          submissionInfo.participantId,
+          ledgerStateReader,
+          commitStrategy,
+        )
+        .map(_ => access.getWriteSet)
+    }
+  }
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(metrics)

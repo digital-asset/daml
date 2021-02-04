@@ -29,7 +29,6 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
-        "//daml-lf/engine",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/metrics",
@@ -83,6 +82,8 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//daml-lf/data",
+        "//daml-lf/engine",
         "//ledger/ledger-api-health",
         "//ledger/ledger-on-memory",
         "//ledger/metrics",
