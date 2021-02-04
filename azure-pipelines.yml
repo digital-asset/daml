@@ -197,7 +197,7 @@ jobs:
         push daml-script-runner $(script-runner)
         push daml-script-runner $(script-runner).asc
       env:
-        AUTH: $(ARTIFACTORY_USERPASS)
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
       condition: not(eq(variables['skip-github'], 'TRUE'))
     - template: ci/bash-lib.yml
       parameters:
