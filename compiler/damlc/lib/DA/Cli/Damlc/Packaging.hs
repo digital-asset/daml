@@ -103,7 +103,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
       loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
           (,) <$> useNoFileE GenerateStablePackages
-              <*> useE GeneratePackageMap projectRoot
+              <*> (fst <$> useE GeneratePackageMap projectRoot)
       (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
       let stablePkgIds :: Set LF.PackageId
           stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
@@ -620,7 +620,7 @@ getExposedModules opts projectRoot = do
     hscEnv <-
         (maybe (exitWithError "Failed to list exposed modules") (pure . hscEnv) =<<) $
         withDamlIdeState opts logger diagnosticsLogger $ \ide ->
-        runActionSync ide $ runMaybeT $ useE GhcSession projectRoot
+        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession projectRoot
     pure $! exposedModulesFromDynFlags $ hsc_dflags hscEnv
   where
     exposedModulesFromDynFlags :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)

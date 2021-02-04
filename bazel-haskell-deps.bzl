@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "0fdad67601eb7c6521c4a4a712bbc396d1c012b8"
-GHCIDE_SHA256 = "14d4028eb1e52fd3a1ac0710fb2a6fc0a7b5f1d1b8bc8d0a79c23837bc63b903"
+GHCIDE_REV = "a6879b77da2968bae9256bb2f5658b909056d4ef"
+GHCIDE_SHA256 = "94be2607354c7ab111b87fa2b4afe8f6ef50981277864a05e906b7b0a783c58f"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
