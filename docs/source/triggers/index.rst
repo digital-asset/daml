@@ -211,7 +211,7 @@ will be submitted as a single transaction. The actual commands can be
 created using ``exerciseCmd`` and ``createCmd``. In addition to that,
 we also pass in a list of contract ids. Those contracts will be marked
 pending and not be included in the result of ``query`` until
-the commands have either been comitted to the ledger or the command
+the commands have either been committed to the ledger or the command
 submission failed.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml

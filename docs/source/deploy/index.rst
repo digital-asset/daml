@@ -34,7 +34,7 @@ for production use today.
      - `Amazon QLDB <https://aws.amazon.com/qldb/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
    * - `project : DABL <https://projectdabl.com/>`__
-     - `Managed cloud enviroment <https://projectdabl.com/>`__
+     - `Managed cloud environment <https://projectdabl.com/>`__
      - `Digital Asset <https://digitalasset.com/>`__
    * - `Hyperledger Besu <https://besu.hyperledger.org/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
