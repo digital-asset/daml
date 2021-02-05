@@ -113,16 +113,16 @@ This social network is similar to Twitter and Instagram, where by following some
 We will see how we encode this in Daml in the next section.
 
    .. figure:: images/create-daml-app-bob-follows-alice.png
-      :alt: In the create-daml-app users can follow each other in a similiar fashion as in Twitter or Instagram
+      :alt: In the create-daml-app users can follow each other in a similar fashion as in Twitter or Instagram
 
 To make this relationship reciprocal, open a new browser window/tab at http://localhost:3000.
 (Having separate windows/tabs allows you to see both you and the screen of the user you are following at the same time.)
 Once you log in as the user you are following - Alice, you'll notice your name in her network.
-In fact, Alice can see the entire list of users you are follwing in the *Network* panel.
+In fact, Alice can see the entire list of users you are following in the *Network* panel.
 This is because this list is part of the user data that became visible when you started following her.
 
    .. figure:: images/create-daml-app-alice-sees-bob.png
-      :alt: In the create-daml-app when you start following somone you reveal the list of people you are following
+      :alt: In the create-daml-app when you start following someone you reveal the list of people you are following
 
 When Alice starts following you, you can see her in your network as well.
 Just switch to the window where you are logged in as yourself - the network should update automatically.

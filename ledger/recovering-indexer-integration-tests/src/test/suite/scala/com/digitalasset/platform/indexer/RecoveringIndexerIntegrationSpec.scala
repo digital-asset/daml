@@ -6,6 +6,7 @@ package com.daml.platform.indexer
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -13,12 +14,10 @@ import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory
-import com.daml.ledger.participant.state.kvutils.api.{
-  BatchingLedgerWriterConfig,
-  KeyValueParticipantState,
-}
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
@@ -38,8 +37,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec
@@ -198,15 +197,19 @@ class RecoveringIndexerIntegrationSpec
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState,
         config = IndexerConfig(
-          participantId,
-          jdbcUrl,
+          participantId = participantId,
+          jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
+        servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       )(materializer, loggingContext)
@@ -220,9 +223,11 @@ class RecoveringIndexerIntegrationSpec
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
+      servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
       jdbcAsyncCommits = true,
+      enricher = None,
     )
   }
 }
@@ -249,13 +254,22 @@ object RecoveringIndexerIntegrationSpec {
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
-      new memory.InMemoryLedgerReaderWriter.SingleParticipantBatchingOwner(
-        ledgerId,
-        BatchingLedgerWriterConfig.reasonableDefault,
-        participantId,
-        metrics = metrics,
-        engine = Engine.DevEngine(),
-      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+      for {
+        dispatcher <- memory.dispatcherOwner
+        committerExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newCachedThreadPool())
+          .map(ExecutionContext.fromExecutorService)
+        readerWriter <- new memory.InMemoryLedgerReaderWriter.Owner(
+          ledgerId = ledgerId,
+          participantId = participantId,
+          keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
+          metrics = metrics,
+          dispatcher = dispatcher,
+          state = memory.InMemoryState.empty,
+          engine = Engine.DevEngine(),
+          committerExecutionContext = committerExecutionContext,
+        )
+      } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
     }
   }
 

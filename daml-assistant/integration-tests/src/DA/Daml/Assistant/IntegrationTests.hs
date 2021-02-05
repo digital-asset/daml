@@ -332,7 +332,9 @@ damlToolTests =
                                unwords
                                    [ "daml"
                                    , "oauth2-middleware"
-                                   , "--port"
+                                   , "--address"
+                                   , "localhost"
+                                   , "--http-port"
                                    , show middlewarePort
                                    , "--oauth-auth"
                                    , "http://localhost:0/authorize"

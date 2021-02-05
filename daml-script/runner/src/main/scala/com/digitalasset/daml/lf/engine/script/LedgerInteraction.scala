@@ -33,7 +33,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Time
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
 import com.daml.lf.speedy.{ScenarioRunner, TraceLog, svalue}
 import com.daml.lf.speedy.Speedy.{Machine, OffLedger, OnLedger}
 import com.daml.lf.speedy.{PartialTransaction, SValue}
@@ -41,7 +41,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.jwt.domain.Jwt
@@ -57,6 +57,7 @@ import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.scenario.ScenarioLedger.{RichTransaction}
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
@@ -97,6 +98,21 @@ object ScriptLedgerClient {
       contractId: ContractId,
       argument: Value[ContractId],
   )
+
+  final case class TransactionTree(rootEvents: List[TreeEvent])
+  sealed trait TreeEvent
+  final case class Exercised(
+      templateId: Identifier,
+      contractId: ContractId,
+      choice: ChoiceName,
+      argument: Value[ContractId],
+      childEvents: List[TreeEvent],
+  ) extends TreeEvent
+  final case class Created(
+      templateId: Identifier,
+      contractId: ContractId,
+      argument: Value[ContractId],
+  ) extends TreeEvent
 }
 
 // This abstracts over the interaction with the ledger. This allows
@@ -140,6 +156,13 @@ trait ScriptLedgerClient {
       commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
+
+  def submitTree(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.Command],
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
 
   def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
@@ -319,6 +342,35 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
+  }
+
+  override def submitTree(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.Command],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[ScriptLedgerClient.TransactionTree] = {
+    import scalaz.std.list._
+    import scalaz.syntax.traverse._
+    for {
+      ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
+      apiCommands = Commands(
+        party = actAs.head,
+        actAs = actAs.toList,
+        readAs = readAs.toList,
+        commands = ledgerCommands,
+        ledgerId = grpcClient.ledgerId.unwrap,
+        applicationId = applicationId.unwrap,
+        commandId = UUID.randomUUID.toString,
+      )
+      request = SubmitAndWaitRequest(Some(apiCommands))
+      resp <- grpcClient.commandServiceClient
+        .submitAndWaitForTransactionTree(request)
+      converted <- Converter.toFuture(Converter.fromTransactionTree(resp.getTransaction))
+    } yield converted
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
@@ -528,96 +580,100 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location],
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
-    // Clear state at the beginning like in SBSBeginCommit for scenarios.
-    machine.returnValue = null
-    onLedger.commitLocation = optLocation
-    onLedger.localContracts = Map.empty
-    onLedger.globalDiscriminators = Set.empty
-    val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
-    val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
-    machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
-    onLedger.committers = actAs.toList.toSet
-    var result: Seq[ScriptLedgerClient.CommandResult] = null
-    while (result == null) {
-      machine.run() match {
-        case SResultNeedContract(coid, tid @ _, committers @ _, cbMissing, cbPresent) =>
-          scenarioRunner.lookupContract(coid, actAs.toSet, readAs, cbMissing, cbPresent).toTry.get
-        case SResultNeedKey(keyWithMaintainers, committers @ _, cb) =>
-          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb).toTry.get
-        case SResultFinalValue(SUnit) =>
-          onLedger.ptx.finish match {
-            case PartialTransaction.CompleteTransaction(tx) =>
-              val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
-                tx.nodes(n) match {
-                  case create: NodeCreate[ContractId] =>
-                    ScriptLedgerClient.CreateResult(create.coid)
-                  case exercise: NodeExercises[_, ContractId] =>
-                    ScriptLedgerClient.ExerciseResult(
-                      exercise.templateId,
-                      exercise.choiceId,
-                      exercise.exerciseResult.get,
-                    )
-                  case n =>
-                    // Root nodes can only be creates and exercises.
-                    throw new RuntimeException(s"Unexpected node: $n")
+  )(implicit ec: ExecutionContext): Future[
+    Either[StatusRuntimeException, (RichTransaction, Seq[ScriptLedgerClient.CommandResult])]
+  ] =
+    Future {
+      // Clear state at the beginning like in SBSBeginCommit for scenarios.
+      machine.returnValue = null
+      onLedger.commitLocation = optLocation
+      onLedger.localContracts = Map.empty
+      onLedger.globalDiscriminators = Set.empty
+      val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
+      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
+      machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
+      onLedger.committers = actAs.toSet
+      var result: (RichTransaction, Seq[ScriptLedgerClient.CommandResult]) = null
+      while (result == null) {
+        machine.run() match {
+          case SResultNeedContract(coid, tid @ _, committers @ _, cbMissing, cbPresent) =>
+            scenarioRunner.lookupContract(coid, actAs.toSet, readAs, cbMissing, cbPresent).toTry.get
+          case SResultNeedKey(keyWithMaintainers, committers @ _, cb) =>
+            scenarioRunner
+              .lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb)
+              .toTry
+              .get
+          case SResultFinalValue(SUnit) =>
+            onLedger.ptx.finish match {
+              case PartialTransaction.CompleteTransaction(tx) =>
+                val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
+                  tx.nodes(n) match {
+                    case create: NodeCreate[ContractId] =>
+                      ScriptLedgerClient.CreateResult(create.coid)
+                    case exercise: NodeExercises[_, ContractId] =>
+                      ScriptLedgerClient.ExerciseResult(
+                        exercise.templateId,
+                        exercise.choiceId,
+                        exercise.exerciseResult.get,
+                      )
+                    case n =>
+                      // Root nodes can only be creates and exercises.
+                      throw new RuntimeException(s"Unexpected node: $n")
+                  }
                 }
-              }
-              ScenarioLedger.commitTransaction(
-                actAs = actAs.toSet,
-                readAs = readAs,
-                effectiveAt = scenarioRunner.ledger.currentTime,
-                optLocation = onLedger.commitLocation,
-                tx = tx,
-                l = scenarioRunner.ledger,
-              ) match {
-                case Left(fas) =>
-                  // Capture the error and exit.
-                  throw ScenarioErrorCommitError(fas)
-                case Right(commitResult) =>
-                  scenarioRunner.ledger = commitResult.newLedger
-                  // Capture the result and exit.
-                  result = results.toSeq
-              }
-            case PartialTransaction.IncompleteTransaction(ptx) =>
-              throw new RuntimeException(s"Unexpected abort: $ptx")
-          }
-        case SResultFinalValue(v) =>
-          // The final result should always be unit.
-          throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
-        case SResultScenarioCommit(_, _, _, _) =>
-          throw new RuntimeException("FATAL: Encountered scenario commit in DAML Script")
-        case SResultError(err) =>
-          // Capture the error and exit.
-          throw err
-        case SResultNeedTime(callback) =>
-          callback(scenarioRunner.ledger.currentTime)
-        case SResultNeedPackage(pkg, callback @ _) =>
-          throw new RuntimeException(
-            s"FATAL: Missing package $pkg should have been reported at Script compilation"
-          )
-        case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
-          throw new RuntimeException(
-            "FATAL: Encountered scenario instruction for submitMustFail in DAML script"
-          )
-        case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
-          throw new RuntimeException(
-            "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"
-          )
-        case SResultScenarioPassTime(relTime @ _, callback @ _) =>
-          throw new RuntimeException(
-            "FATAL: Encountered scenario instruction setTime in DAML Script"
-          )
-        case SResultScenarioGetParty(partyText @ _, callback @ _) =>
-          throw new RuntimeException(
-            "FATAL: Encountered scenario instruction getParty in DAML Script"
-          )
+                ScenarioLedger.commitTransaction(
+                  actAs = actAs.toSet,
+                  readAs = readAs,
+                  effectiveAt = scenarioRunner.ledger.currentTime,
+                  optLocation = onLedger.commitLocation,
+                  tx = tx,
+                  l = scenarioRunner.ledger,
+                ) match {
+                  case Left(fas) =>
+                    // Capture the error and exit.
+                    throw ScenarioErrorCommitError(fas)
+                  case Right(commitResult) =>
+                    scenarioRunner.ledger = commitResult.newLedger
+                    // Capture the result and exit.
+                    result = (commitResult.richTransaction, results.toSeq)
+                }
+              case PartialTransaction.IncompleteTransaction(ptx) =>
+                throw new RuntimeException(s"Unexpected abort: $ptx")
+            }
+          case SResultFinalValue(v) =>
+            // The final result should always be unit.
+            throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
+          case SResultScenarioCommit(_, _, _, _) =>
+            throw new RuntimeException("FATAL: Encountered scenario commit in DAML Script")
+          case SResultError(err) =>
+            // Capture the error and exit.
+            throw err
+          case SResultNeedTime(callback) =>
+            callback(scenarioRunner.ledger.currentTime)
+          case SResultNeedPackage(pkg, callback @ _) =>
+            throw new RuntimeException(
+              s"FATAL: Missing package $pkg should have been reported at Script compilation"
+            )
+          case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML script"
+            )
+          case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"
+            )
+          case SResultScenarioPassTime(relTime @ _, callback @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction setTime in DAML Script"
+            )
+          case SResultScenarioGetParty(partyText @ _, callback @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction getParty in DAML Script"
+            )
+        }
       }
+      Right(result)
     }
-    Right(result)
-  }
 
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
@@ -632,7 +688,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       case Right(x) =>
         // Expected successful commit so clear.
         machine.clearCommit
-        Right(x)
+        Right(x._2)
       case Left(err) =>
         // Unexpected failure, do not clear so we can display the partial
         // transaction.
@@ -657,6 +713,41 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         machine.clearCommit
         Future.successful(Right(()))
       })
+  }
+
+  override def submitTree(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.Command],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[ScriptLedgerClient.TransactionTree] = {
+    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+      case Right(x) =>
+        // Expected successful commit so clear.
+        machine.clearCommit
+        val y = x._1.transaction
+        def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] = y.nodes(id) match {
+          case create: NodeCreate[ContractId] =>
+            Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
+          case exercise: NodeExercises[NodeId, ContractId] =>
+            Some(
+              ScriptLedgerClient.Exercised(
+                exercise.templateId,
+                exercise.targetCoid,
+                exercise.choiceId,
+                exercise.chosenValue,
+                exercise.children.collect(Function.unlift(convEvent(_))).toList,
+              )
+            )
+          case _: NodeFetch[ContractId] => None
+          case _: NodeLookupByKey[ContractId] => None
+        }
+        ScriptLedgerClient.TransactionTree(y.roots.collect(Function.unlift(convEvent(_))).toList)
+      case Left(err) => throw new IllegalStateException(err)
+    }
   }
 
   // All parties known to the ledger. This may include parties that were not
@@ -925,6 +1016,23 @@ class JsonLedgerClient(
       case Left(_) => Right(())
     })
   }
+
+  override def submitTree(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.Command],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[ScriptLedgerClient.TransactionTree] = {
+    Future.failed(
+      new RuntimeException(
+        "submitTree is not supported when running DAML Script over the JSON API."
+      )
+    )
+  }
+
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -986,31 +1094,9 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
   ): Future[Unit] = {
-    // Relax once the JSON API supports multi-party read/write
-    import scalaz.std.string._
-    if (tokenPayload.actAs.isEmpty) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token contains no actAs parties."
-        )
-      )
-    } else if ((actAs.toList: List[String]) /== tokenPayload.actAs) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token provides claims for actAs = ${tokenPayload.actAs
-            .mkString(" ")}"
-        )
-      )
-    } else if ((readAs.toList: List[String]) /== tokenPayload.readAs) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command with readAs = ${readAs.mkString(", ")} but token provides claims for readAs = ${tokenPayload.readAs
-            .mkString(" ")}"
-        )
-      )
-    } else {
-      Future.unit
-    }
+    JsonLedgerClient
+      .validateSubmitParties(actAs, readAs, tokenPayload)
+      .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
   }
 
   private def create(
@@ -1148,6 +1234,37 @@ class JsonLedgerClient(
 }
 
 object JsonLedgerClient {
+
+  def validateSubmitParties(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      tokenPayload: AuthServiceJWTPayload,
+  ): Either[String, Unit] = {
+    val tokenActAs = tokenPayload.actAs.toSet
+    // Relax once the JSON API supports multi-party read/write
+    import scalaz.std.string._
+    val onlyReadAs = readAs.diff(actAs.toSet)
+    val tokenOnlyReadAs = tokenPayload.readAs.toSet.diff(tokenActAs)
+    if (tokenPayload.actAs.isEmpty) {
+      Left(
+        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
+      )
+
+    } else if (actAs.toList.toSet[String] /== tokenActAs) {
+      Left(
+        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
+          .mkString(" ")}]"
+      )
+    } else if (onlyReadAs.toSet[String] /== tokenOnlyReadAs) {
+      Left(
+        s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
+          .mkString(" ")}]"
+      )
+    } else {
+      Right(())
+    }
+  }
+
   sealed trait Response[A] {
     def status: StatusCode
   }

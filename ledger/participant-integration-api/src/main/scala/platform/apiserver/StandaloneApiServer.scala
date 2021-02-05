@@ -16,7 +16,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
@@ -25,12 +25,11 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
   ServerRole,
 }
-import com.daml.ports.{PortFiles}
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.ports.Port
+import com.daml.ports.{Port, PortFiles}
 import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.immutable
@@ -66,16 +65,20 @@ final class StandaloneApiServer(
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
+    val valueEnricher = new ValueEnricher(engine)
+
     val owner = for {
       indexService <- JdbcIndex
         .owner(
-          ServerRole.ApiServer,
-          domain.LedgerId(ledgerId),
-          participantId,
-          config.jdbcUrl,
-          config.eventsPageSize,
-          metrics,
-          lfValueTranslationCache,
+          serverRole = ServerRole.ApiServer,
+          ledgerId = domain.LedgerId(ledgerId),
+          participantId = participantId,
+          jdbcUrl = config.jdbcUrl,
+          eventsPageSize = config.eventsPageSize,
+          servicesExecutionContext = servicesExecutionContext,
+          metrics = metrics,
+          lfValueTranslationCache = lfValueTranslationCache,
+          enricher = valueEnricher,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)

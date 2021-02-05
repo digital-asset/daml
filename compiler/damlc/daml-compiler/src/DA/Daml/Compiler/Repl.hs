@@ -35,7 +35,7 @@ import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
 import Data.IORef
-import Data.List (foldl', intercalate)
+import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -45,7 +45,6 @@ import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
 import Development.IDE.LSP.Protocol
@@ -53,19 +52,14 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import ErrUtils
 import GHC
-import HsExpr (Stmt, StmtLR(..), LHsExpr)
-import HsExtension (GhcPs, GhcTc)
-import HsPat (Pat(..))
 import HscTypes (HscEnv(..), mkPrintUnqualified)
 import Language.Haskell.GhclibParserEx.Parse
 import Language.Haskell.LSP.Messages
-import Lexer (ParseResult(..))
 import Module (unitIdString)
 import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (parens, ppr, showSDoc, showSDocForUser)
 import qualified Outputable
 import RdrName (mkRdrUnqual)
-import SrcLoc (unLoc)
 import qualified System.Console.Repline as Repl
 import System.Exit
 import System.IO.Extra
@@ -393,15 +387,18 @@ runRepl importPkgs opts replClient logger ideState = do
           , lineNumber = 0
           , printUnqualified = getPrintUnqualified dflags tcr
           }
-    -- TODO[AH] Use Repl.evalReplOpts once we're using repline >= 0.2.2
-    let replM = Repl.evalRepl banner command options prefix tabComplete initialiser
-          where
-            banner = pure "daml> "
-            command = replLine
-            options = replOptions
-            prefix = Just ':'
-            tabComplete = Repl.Cursor $ \_ _ -> pure []
-            initialiser = pure ()
+    let replM = Repl.evalReplOpts Repl.ReplOpts
+          { banner = const (pure "daml> ")
+          , command = replLine
+          , options = replOptions
+          , prefix = Just ':'
+          , multilineCommand = Nothing
+          , tabComplete = Repl.Cursor $ \_ _ -> pure []
+          , initialiser = pure ()
+          , finaliser = do
+                  liftIO $ putStrLn "Goodbye."
+                  pure Repl.Exit
+          }
     State.evalStateT replM initReplState
   where
     handleStmt
@@ -459,10 +456,12 @@ runRepl importPkgs opts replClient logger ideState = do
         -- to decide what to do. If a case succeeds we immediately print all diagnostics.
         -- If it fails, we return them and only print them once everything failed.
         diagsRef <- liftIO $ newIORef id
+        -- here we don't want to use the `useE` function that uses cached results
+        let useE' k = MaybeT . use k
         let writeDiags diags = atomicModifyIORef diagsRef (\f -> (f . (diags:), ()))
         r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber)
+            (,) <$> useE' GenerateDalf (lineFilePath lineNumber)
+                <*> useE' TypeCheck (lineFilePath lineNumber)
         diags <- liftIO $ ($ []) <$> readIORef diagsRef
         case r of
             Nothing -> throwError (TypeError, diags)
@@ -494,17 +493,17 @@ runRepl importPkgs opts replClient logger ideState = do
 
     mkReplOption
         :: (DynFlags -> [String] -> ExceptT Error ReplM ())
-        -> [String] -> ReplM ()
+        -> String -> ReplM ()
     mkReplOption option args = do
         ReplState {lineNumber} <- State.get
         dflags <- liftIO $
             hsc_dflags . hscEnv <$>
             runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
-        r <- runExceptT $ option dflags args
+        r <- runExceptT $ option dflags (words args)
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
-    replOptions :: [(String, [String] -> ReplM ())]
+    replOptions :: Repl.Options ReplM
     replOptions =
       [ ("help", mkReplOption optHelp)
       , ("json", mkReplOption optJson)

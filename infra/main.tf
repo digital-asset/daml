@@ -49,3 +49,5 @@ locals {
 
   ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/daml-lang-hoogle-app-service-https-cert"
 }
+
+resource "secret_resource" "vsts-token" {}

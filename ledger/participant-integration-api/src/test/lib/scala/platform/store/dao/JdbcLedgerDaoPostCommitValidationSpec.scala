@@ -27,8 +27,10 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
         eventsPageSize = eventsPageSize,
+        servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
+        enricher = None,
       )
 
   private val ok = io.grpc.Status.Code.OK.value()
@@ -147,4 +149,14 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     }
   }
 
+  it should "refuse to insert entries with conflicting transaction ids" in {
+    val original = txCreateContractWithKey(alice, "some-key", Some("1337"))
+    val duplicateTxId = txCreateContractWithKey(alice, "another-key", Some("1337"))
+    recoverToSucceededIf[Exception] {
+      for {
+        _ <- store(original)
+        _ <- store(duplicateTxId)
+      } yield ()
+    }
+  }
 }

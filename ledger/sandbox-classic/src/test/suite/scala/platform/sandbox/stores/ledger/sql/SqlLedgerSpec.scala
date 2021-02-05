@@ -16,6 +16,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -31,8 +32,8 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
-import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
@@ -300,8 +301,10 @@ final class SqlLedgerSpec
         transactionCommitter = LegacyTransactionCommitter,
         startMode = SqlStartMode.ContinueIfExists,
         eventsPageSize = 100,
+        servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
+        engine = new Engine(),
         validatePartyAllocation = validatePartyAllocation,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger

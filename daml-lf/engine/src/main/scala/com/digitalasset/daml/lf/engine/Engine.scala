@@ -212,9 +212,10 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         submissionSeed,
       )
       (rtx, _) = result
-      validationResult <- Tx
-        .isReplayedBy(tx, rtx)
-        .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
+      validationResult <-
+        transaction.Validation
+          .isReplayedBy(tx, rtx)
+          .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
     } yield validationResult
   }
 

@@ -1,0 +1,22 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+#ifndef DAML_GENMAP
+
+-- | HIDE
+module DA.Set.Types where
+
+#else
+
+-- | MOVE DA.Set
+module DA.Set.Types where
+
+import DA.Internal.LF (Map)
+
+-- | The type of a set. This is a wrapper over the `Map` type.
+data Set k = Set with
+    map : Map k ()
+
+#endif

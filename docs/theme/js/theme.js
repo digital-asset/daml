@@ -519,8 +519,8 @@ $(document).ready(function () {
         $(item).parent().addClass('h6-section');
     });
     if (searchEngine === 'custom') {
-        var queryParam = location.search.split('query=')[1];
-        if (queryParam !== undefined) {
+        var queryParam = new URLSearchParams(window.location.search).get('query');
+        if (queryParam !== undefined && queryParam !== null) {
             $('#rtd-search-inline-form [name=q]').val(unescape(queryParam));
             searchState.latestQuery = queryParam;
             var results = $('#search-results');

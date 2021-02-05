@@ -8,5 +8,5 @@ import scala.concurrent.Future
 class FutureResourceOwner[Context: HasExecutionContext, T](acquireFuture: () => Future[T])
     extends AbstractResourceOwner[Context, T] {
   override def acquire()(implicit context: Context): Resource[Context, T] =
-    Resource.fromFuture(acquireFuture())
+    PureResource(acquireFuture())
 }

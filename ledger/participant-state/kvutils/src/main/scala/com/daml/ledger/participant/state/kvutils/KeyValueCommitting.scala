@@ -7,19 +7,19 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
-  SubmissionExecutor,
   PackageCommitter,
   PartyAllocationCommitter,
-  TransactionCommitter,
+  SubmissionExecutor,
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
+
 import com.daml.lf.engine.Engine
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.TransactionOuterClass
-import com.daml.lf.value.ValueOuterClass
+import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.ValueCoder
 import com.daml.metrics.Metrics
 import org.slf4j.LoggerFactory
 
@@ -192,9 +192,8 @@ object KeyValueCommitting {
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val transactionEntry = submission.getTransactionEntry
-        transactionOutputs(transactionEntry) + commandDedupKey(
-          transactionEntry.getSubmitterInfo
-        )
+        transactionOutputs(transactionEntry) +
+          commandDedupKey(transactionEntry.getSubmitterInfo)
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         val configEntry = submission.getConfigurationSubmission
@@ -211,72 +210,65 @@ object KeyValueCommitting {
   private def transactionOutputs(
       transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
-    val transaction = transactionEntry.getTransaction
-    transaction.getNodesList.asScala.flatMap { node: TransactionOuterClass.Node =>
-      node.getNodeTypeCase match {
-        case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
-          val create = node.getCreate
-          val templateId = create.getContractInstance.getTemplateId
-          val contractKeyStateKeyOrEmpty =
-            if (create.hasKeyWithMaintainers)
-              List(contractKeyToStateKey(templateId, create.getKeyWithMaintainers.getKey))
-            else
-              List.empty
+    val outputs = Set.newBuilder[DamlStateKey]
+    transactionEntry.getTransaction.getNodesList.asScala.foreach { case node =>
+      val nodeVersion = TransactionCoder.decodeVersion(node.getVersion) match {
+        case Right(value) => value
+        case Left(err) => throw Err.DecodeError("Node", err.errorMessage)
+      }
 
-          Conversions
-            .contractIdStructOrStringToStateKey(
-              create.getContractIdStruct
-            ) :: contractKeyStateKeyOrEmpty
+      node.getNodeTypeCase match {
+
+        case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
+          val protoCreate = node.getCreate
+          TransactionCoder.nodeKey(nodeVersion, protoCreate) match {
+            case Right(Some(key)) =>
+              outputs += contractKeyToStateKey(key)
+            case Right(None) =>
+            case Left(err) => throw Err.DecodeError("ContractKey", err.errorMessage)
+          }
+          outputs +=
+            Conversions.contractIdStructOrStringToStateKey(protoCreate.getContractIdStruct)
 
         case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
-          val exe = node.getExercise
-          val contractKeyStateKeyOrEmpty =
-            if (exe.getConsuming && exe.hasKeyWithMaintainers)
-              List(contractKeyToStateKey(exe.getTemplateId, exe.getKeyWithMaintainers.getKey))
-            else
-              List.empty
-
-          Conversions
-            .contractIdStructOrStringToStateKey(
-              exe.getContractIdStruct
-            ) :: contractKeyStateKeyOrEmpty
+          val protoExercise = node.getExercise
+          TransactionCoder.nodeKey(nodeVersion, protoExercise) match {
+            case Right(Some(key)) =>
+              outputs += contractKeyToStateKey(key)
+            case Right(None) =>
+            case Left(err) => throw Err.DecodeError("ContractKey", err.errorMessage)
+          }
+          outputs +=
+            Conversions.contractIdStructOrStringToStateKey(protoExercise.getContractIdStruct)
 
         case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
           // A fetch may cause a divulgence, which is why the target contract is a potential output.
-          List(
-            Conversions
-              .contractIdStructOrStringToStateKey(
-                node.getFetch.getContractIdStruct
-              )
-          )
+          outputs +=
+            Conversions.contractIdStructOrStringToStateKey(node.getFetch.getContractIdStruct)
+
         case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
-          // Contract state only modified on divulgence, in which case we'll have a fetch node,
-          // so no outputs from lookup node.
-          List.empty
+        // Contract state only modified on divulgence, in which case we'll have a fetch node,
+        // so no outputs from lookup node.
 
         case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
           throw Err.InvalidSubmission("submissionOutputs: NODETYPE_NOT_SET")
       }
-    }.toSet
+    }
+    outputs.result()
   }
 
   private def contractKeyToStateKey(
-      templateId: ValueOuterClass.Identifier,
-      key: ValueOuterClass.VersionedValue,
+      key: GlobalKey
   ): DamlStateKey = {
     // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
     // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
     // to allocate a log entry id and we can directly place the output keys into the submission and do not need
     // to compute outputs from serialized transaction.
-    val contractKey =
-      GlobalKey
-        .build(decodeIdentifier(templateId), decodeVersionedValue(key).value)
-        .getOrElse(throw Err.DecodeError("ContractKey", "Contract key contained contract id"))
     DamlStateKey.newBuilder
       .setContractKey(
         DamlContractKey.newBuilder
-          .setTemplateId(templateId)
-          .setHash(contractKey.hash.bytes.toByteString)
+          .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
+          .setHash(key.hash.bytes.toByteString)
       )
       .build
   }

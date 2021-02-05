@@ -3,8 +3,9 @@
 
 module Main (main) where
 
+import qualified BazelCache
+
 import Data.Function ((&))
-import Data.Semigroup ((<>))
 import System.FilePath.Posix ((</>))
 
 import qualified Control.Concurrent.Async
@@ -13,6 +14,7 @@ import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Control.Monad.Loops
+import Control.Retry
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
@@ -195,7 +197,7 @@ fetch_gh_paginated url = do
               in
               case typed_regex of
                 (_, _, _, [url, rel]) -> (rel, url)
-                _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
+                _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
 data Asset = Asset { uri :: Network.URI.URI }
 instance JSON.FromJSON Asset where
@@ -316,20 +318,32 @@ download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
     tokens <- Control.Concurrent.QSem.newQSem 20
-    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
+    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) $ \url ->
         bracket_
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
               req <- add_github_contact_header <$> HTTP.parseRequest (show url)
-              HTTP.withResponse req manager (\resp -> do
-                  let body = HTTP.responseBody resp
-                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
-                      while (readFrom body) (writeTo handle)))))
+              recovering
+                retryPolicy
+                [retryHandler]
+                (\_ -> downloadFile req manager url)
+          )
   where while = Control.Monad.Loops.whileJust_
         readFrom body = ifNotEmpty <$> HTTP.brRead body
         ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
         writeTo = Data.ByteString.hPut
+        -- Retry for 5 minutes total, doubling delay starting with 20ms
+        retryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
+        retryHandler status =
+          logRetries
+            (\(_ :: IOException) -> pure True) -- Don’t try to be clever, just retry
+            (\shouldRetry err status -> IO.hPutStrLn IO.stderr $ defaultLogMsg shouldRetry err status)
+            status
+        downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
+            let body = HTTP.responseBody resp
+            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode $ \handle -> do
+                while (readFrom body) (writeTo handle)
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
@@ -426,11 +440,13 @@ data CliArgs = Docs
              | Check { bash_lib :: String,
                        gcp_credentials :: Maybe String,
                        max_releases :: Maybe Int }
+             | BazelCache BazelCache.Opts
 
 parser :: Opt.ParserInfo CliArgs
 parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
               (Opt.hsubparser (Opt.command "docs" docs
-                            <> Opt.command "check" check))
+                            <> Opt.command "check" check
+                            <> Opt.command "bazel-cache" bazelCache))
   where info t p = Opt.info (p Opt.<**> Opt.helper) (Opt.progDesc t)
         docs = info "Build & push latest docs, if needed."
                     (pure Docs)
@@ -446,6 +462,30 @@ parser = info "This program is meant to be run by CI cron. You probably don't ha
                                   Opt.option Opt.auto (Opt.long "max-releases"
                                          <> Opt.metavar "INT"
                                          <> Opt.help "Max number of releases to check.")))
+        bazelCache =
+            info "Bazel cache debugging and fixing." $
+            fmap BazelCache $ BazelCache.Opts
+              <$> fmap (\m -> fromInteger (m * 60)) (Opt.option Opt.auto
+                       (Opt.long "age" <>
+                        Opt.help "Maximum age of entries that will be considered in minutes")
+                    )
+              <*> Opt.optional
+                    (Opt.strOption
+                      (Opt.long "cache-suffix" <>
+                      Opt.help "Cache suffix as set by ci/configure-bazel.sh"))
+              <*> Opt.option Opt.auto
+                    (Opt.long "queue-size" <>
+                     Opt.value 128 <>
+                     Opt.help "Size of the queue used to distribute tasks among workers")
+              <*> Opt.option Opt.auto
+                    (Opt.long "concurrency" <>
+                     Opt.value 32 <>
+                     Opt.help "Number of concurrent workers that validate AC entries")
+              <*> fmap BazelCache.Delete
+                    (Opt.switch
+                       (Opt.long "delete" <>
+                        Opt.help "Whether invalid entries should be deleted or just displayed"))
+
 
 main :: IO ()
 main = do
@@ -457,3 +497,4 @@ main = do
           docs sdkDocOpts
           docs damlOnSqlDocOpts
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases
+      BazelCache opts -> BazelCache.run opts

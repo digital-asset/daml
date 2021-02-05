@@ -155,6 +155,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "1.10.0-snapshot.20210201.6207.0.7cf1914d",
+        "platform_ranges": [
+            {
+                "end": "1.10.0-snapshot.20210125.6143.0.550aa48f",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/8642
+                    "PartyManagementServiceIT:PMRejectLongPartyHints",
+                    "PartyManagementServiceIT:PMRejectInvalidPartyHints",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -453,6 +466,7 @@ def sdk_platform_test(sdk_version, platform_version):
 
     client_server_test(
         name = name + "-classic-postgresql",
+        size = "large",
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",

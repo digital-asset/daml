@@ -80,6 +80,8 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+                # Can be removed once https://github.com/tweag/rules_haskell/pull/1464 is merged.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-windows.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -146,11 +148,12 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "60d2012e3922e429294d3a4ac31f336016514a91e5a63fd33f35743ccfe1bd7d",
-            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
-            strip_prefix = "protobuf-3.11.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
+            sha256 = "bf0e5070b4b99240183b29df78155eee335885e53a8af8683964579c214ad301",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
+            strip_prefix = "protobuf-3.14.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.14.0.zip"],
             patches = [
+                "@com_github_digital_asset_daml//bazel_tools:protobuf-win32.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -190,16 +193,48 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "upb" not in native.existing_rules():
+        # upb is a dependency of com_github_grpc_grpc.
+        # It is usually pulled in automatically by grpc_deps(), but depend on it explicitly to patch it.
+        # This http_archive can be removed when we no longer need to patch upb.
+        http_archive(
+            name = "upb",
+            sha256 = "c0b97bf91dfea7e8d7579c24e2ecdd02d10b00f3c5defc3dce23d95100d0e664",
+            strip_prefix = "upb-60607da72e89ba0c84c84054d2e562d8b6b61177",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
+                "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
+            ],
+            patches = [
+                # Remove this patch once we upgraded to Bazel 3.4 or later.
+                "@com_github_digital_asset_daml//bazel_tools:upb_compat.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
     if "com_github_grpc_grpc" not in native.existing_rules():
-        # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.23.1",
-            urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
-            sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
+            strip_prefix = "grpc-ea22dd6f1b610a37a44be3e9050addbe8a1cb59d",
+            urls = ["https://github.com/grpc/grpc/archive/ea22dd6f1b610a37a44be3e9050addbe8a1cb59d.tar.gz"],
+            sha256 = "c89c54c5fb9b4b4b0b7ecfa7cd6bbbdecd060bac81ba35b9ee997c1342934b16",
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-apple.patch",
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
+    if "com_google_absl" not in native.existing_rules():
+        http_archive(
+            name = "com_google_absl",
+            sha256 = "3d74cdc98b42fd4257d91f652575206de195e2c824fcd8d6e6d227f85cb143ef",
+            strip_prefix = "abseil-cpp-0f3bb466b868b523cf1dc9b2aaaed65c77b28862",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
+                "https://github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
+            ],
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -207,12 +242,9 @@ def daml_deps():
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.21.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
-            sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-java-plugin-visibility.patch",
-            ],
+            strip_prefix = "grpc-java-1.35.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.35.0.tar.gz"],
+            sha256 = "537d01bdc5ae2bdb267853a75578d671db3075b33e3a00a93f5a572191d3a7b3",
             patch_args = ["-p1"],
         )
 
@@ -224,13 +256,23 @@ def daml_deps():
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
         )
 
-        if "com_github_googleapis_googleapis" not in native.existing_rules():
-            http_archive(
-                name = "com_github_googleapis_googleapis",
-                strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
-                urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
-                sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
-            )
+    if "com_github_googleapis_googleapis" not in native.existing_rules():
+        http_archive(
+            name = "com_github_googleapis_googleapis",
+            strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
+            urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
+            sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+        )
+
+    if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_remote_apis",
+            strip_prefix = "remote-apis-2.0.0",
+            urls = ["https://github.com/bazelbuild/remote-apis/archive/v2.0.0.tar.gz"],
+            sha256 = "79204ed1fa385c03b5235f65b25ced6ac51cf4b00e45e1157beca6a28bdb8043",
+            patches = ["@com_github_digital_asset_daml//:bazel_tools/remote_apis_no_services.patch"],
+            patch_args = ["-p1"],
+        )
 
     # Buildifier.
     # It is written in Go and hence needs rules_go to be available.

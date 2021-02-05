@@ -17,6 +17,10 @@ da_scala_library(
     deps = [
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
     ],
 )
 

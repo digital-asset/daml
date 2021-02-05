@@ -11,11 +11,13 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine._
+import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
@@ -57,7 +59,7 @@ final class Runner[T <: ReadWriteService, Extra](
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
-      newLoggingContext("jdbcUrl" -> jdbcUrl) { implicit loggingContext: LoggingContext =>
+      newLoggingContext { implicit loggingContext: LoggingContext =>
         Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
           case Failure(exception) =>
             logger.error("Error while retrieving the index metadata", exception)
@@ -79,7 +81,13 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine = Engine.StableEngine()
+    val allowedLanguageVersions =
+      config.engineMode match {
+        case EngineMode.Stable => LanguageVersion.StableVersions
+        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
+        case EngineMode.Dev => LanguageVersion.DevVersions
+      }
+    val sharedEngine = new Engine(EngineConfig(allowedLanguageVersions))
 
     newLoggingContext { implicit loggingContext =>
       for {
@@ -128,6 +136,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 new StandaloneIndexerServer(
                   readService = readService,
                   config = factory.indexerConfig(participantConfig, config),
+                  servicesExecutionContext = servicesExecutionContext,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()

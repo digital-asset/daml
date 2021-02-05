@@ -13,7 +13,7 @@ class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorSe
     acquireExecutorService: () => T
 ) extends AbstractResourceOwner[Context, T] {
   override def acquire()(implicit context: Context): Resource[Context, T] =
-    Resource.apply(Future {
+    ReleasableResource(Future {
       val executorService = acquireExecutorService()
       // If we try and release an executor service which is itself being used to power the
       // releasing, we end up in a deadlock—the executor can't shut down, and therefore

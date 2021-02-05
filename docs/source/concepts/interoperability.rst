@@ -271,7 +271,7 @@ Definition »Multi-Ledger causal consistency for a contract«
 
   #. For every maximal chain in `X` (i.e., maximal totally ordered subset of `X`), the sequence of `(`\ incoming ledger, outgoing ledger\ `)` pairs is a ledger trace, using `NONE` if the action does not have an incoming or outgoing ledger annotation.
 
-The first three conditions mimick the conditions of :ref:`causal consistency <def-causal-consistency-contract>` for ordinary causality graphs.
+The first three conditions mimic the conditions of :ref:`causal consistency <def-causal-consistency-contract>` for ordinary causality graphs.
 They ensure that **Create** actions come first and consuming **Exercise** actions last.
 An **Enter** action takes the role of a **Create** if there is no **Create**.
 The fourth condition ensures that all transfer actions are synchronization points for a contract.

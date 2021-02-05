@@ -122,7 +122,7 @@ use one of the following command line options:
 - ``--auth-jwt-es256-crt=<filename>``.
   The sandbox will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
-  and DER-encoded certicates (binary files) are supported.
+  and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-es512-crt=<filename>``.
   The sandbox will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)     with the public key loaded from the given X.509 certificate file.

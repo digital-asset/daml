@@ -154,6 +154,18 @@ page][intellij_plugin_jetbrains].
 [intellij_plugin_install]: https://ij.bazel.build/docs/bazel-plugin.html#getting-started
 [intellij_plugin_jetbrains]: https://plugins.jetbrains.com/plugin/8609-bazel
 
+#### Side note: code formatting
+
+While not relevant to setup IntelliJ to work with Bazel, if you plan to work on Java
+code you are also advised to install the [google-java-format plugin][intellij_plugin_javafmt].
+This plugin integrates the IntelliJ code formatting actions with the
+[Google Java Style Guide][google_java_style_guide], which is enforced on CI with
+the [google-java-format tool][google_java_format_tool].
+
+[intellij_plugin_javafmt]: https://plugins.jetbrains.com/plugin/8527-google-java-format
+[google_java_style_guide]: https://google.github.io/styleguide/javaguide.html
+[google_java_format_tool]: https://github.com/google/google-java-format
+
 ### Importing a project
 
 To import a Bazel project into IntelliJ select "Import Bazel Project" in the

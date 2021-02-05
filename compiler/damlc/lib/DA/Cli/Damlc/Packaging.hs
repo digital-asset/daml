@@ -103,7 +103,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
       loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
           (,) <$> useNoFileE GenerateStablePackages
-              <*> useE GeneratePackageMap projectRoot
+              <*> (fst <$> useE GeneratePackageMap projectRoot)
       (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
       let stablePkgIds :: Set LF.PackageId
           stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
@@ -129,8 +129,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
                         (darsFromDataDependencies ++ darsFromDependencies)
               }
 
-      -- We perform this check before checking for unit id collisions
+      -- We perform these check before checking for unit id collisions
       -- since it provides a more useful error message.
+      whenLeft
+          (checkForInconsistentLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
       whenLeft
           (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
           exitWithError
@@ -299,8 +302,26 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
     recachePkgDb dbPath
 
+-- | Fake settings, we need those to make ghc-pkg happy.
+--
+-- As a long-term solution, it might make sense to clone ghc-pkg
+-- and strip it down to only the functionality we need. A lot of this
+-- is rather sketchy in the context of daml.
+settings :: [(T.Text, T.Text)]
+settings =
+  [ ("target arch", "ArchUnknown")
+  , ("target os", "OSUnknown")
+  , ("target word size", "8")
+  , ("Unregisterised", "YES")
+  , ("target has GNU nonexec stack", "YES")
+  , ("target has .ident directive", "YES")
+  , ("target has subsections via symbols", "YES")
+  , ("cross compiling", "NO")
+  ]
+
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
+    T.writeFileUtf8 (dbPath </> "settings") $ T.pack $ show settings
     ghcPkgPath <- getGhcPkgPath
     callProcess
         (ghcPkgPath </> exe "ghc-pkg")
@@ -341,6 +362,7 @@ baseImports =
           , "DA.Internal.Down"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"
+          , "DA.Set.Types"
           , "DA.Monoid.Types"
           , "DA.Logic.Types"
           , "DA.Validation.Types"
@@ -380,15 +402,7 @@ installDar dbPath confFiles dalf srcs = do
     forM_ srcs $ \src -> do
         let path = dbPath </> ZipArchive.eRelativePath src
         write path (ZipArchive.fromEntry src)
-    ghcPkgPath <- getGhcPkgPath
-    callProcess
-        (ghcPkgPath </> exe "ghc-pkg")
-        [ "recache"
-              -- ghc-pkg insists on using a global package db and will try
-              -- to find one automatically if we don’t specify it here.
-        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-        , "--expand-pkgroot"
-        ]
+    recachePkgDb dbPath
   where
     write fp bs =
         createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
@@ -405,7 +419,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-8.10.3/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
@@ -522,6 +536,34 @@ data DependencyInfo = DependencyInfo
   -- flags which define which packages are exposed by default.
   }
 
+showDeps :: [((LF.PackageId, UnitId), LF.Version)] -> String
+showDeps deps =
+    intercalate
+        ", "
+        [ T.unpack (LF.unPackageId pkgId) <> " (" <> unitIdString unitId <> "): " <>
+        DA.Pretty.renderPretty ver
+        | ((pkgId, unitId), ver) <- deps
+        ]
+
+checkForInconsistentLfVersions :: LF.Version -> DependencyInfo -> Either String ()
+checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, mainUnitIds}
+  | null inconsistentLfDeps = Right ()
+  | otherwise = Left $ concat
+        [ "Targeted LF version "
+        , DA.Pretty.renderPretty lfTarget
+        , " but dependencies have different LF versions: "
+        , showDeps inconsistentLfDeps
+        ]
+  where
+    inconsistentLfDeps =
+        [ ((LF.dalfPackageId decodedDalfPkg, decodedUnitId), ver)
+        | DecodedDalf {..} <- dalfsFromDependencies
+        , let mainUnitIdsSet = Set.fromList mainUnitIds
+        , decodedUnitId `Set.member` mainUnitIdsSet
+        , let ver = LF.packageLfVersion $ LF.extPackagePkg $ LF.dalfPackagePkg decodedDalfPkg
+        , ver /= lfTarget
+        ]
+
 checkForIncompatibleLfVersions :: LF.Version -> DependencyInfo -> Either String ()
 checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, dalfsFromDataDependencies}
   | null incompatibleLfDeps = Right ()
@@ -529,11 +571,7 @@ checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, da
         [ "Targeted LF version "
         , DA.Pretty.renderPretty lfTarget
         , " but dependencies have newer LF versions: "
-        , intercalate ", "
-              [ T.unpack (LF.unPackageId pkgId) <>
-                " (" <> unitIdString unitId <> "): " <> DA.Pretty.renderPretty ver
-              | ((pkgId, unitId), ver) <- incompatibleLfDeps
-              ]
+        , showDeps incompatibleLfDeps
         ]
   where
     incompatibleLfDeps =
@@ -582,7 +620,7 @@ getExposedModules opts projectRoot = do
     hscEnv <-
         (maybe (exitWithError "Failed to list exposed modules") (pure . hscEnv) =<<) $
         withDamlIdeState opts logger diagnosticsLogger $ \ide ->
-        runActionSync ide $ runMaybeT $ useE GhcSession projectRoot
+        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession projectRoot
     pure $! exposedModulesFromDynFlags $ hsc_dflags hscEnv
   where
     exposedModulesFromDynFlags :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)

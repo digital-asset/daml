@@ -6,15 +6,17 @@ package com.daml.auth.middleware.oauth2
 import java.nio.file.{Path, Paths}
 
 import akka.http.scaladsl.model.Uri
+import com.daml.cliopts
 import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
-import com.daml.ports.Port
 
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 case class Config(
-    // Port the middleware listens on
-    port: Port,
+    // Host and port the middleware listens on
+    address: String,
+    port: Int,
+    portFile: Option[Path],
     // The URI to which the OAuth2 server will redirect after a completed login flow.
     // Must map to the `/cb` endpoint of the auth middleware.
     callbackUri: Option[Uri],
@@ -36,13 +38,16 @@ case class Config(
 )
 
 object Config {
+  val DefaultHttpPort: Int = 3000
   val DefaultCookieSecure: Boolean = true
   val DefaultMaxLoginRequests: Int = 100
   val DefaultLoginTimeout: FiniteDuration = FiniteDuration(5, duration.MINUTES)
 
   private val Empty =
     Config(
-      port = Port.Dynamic,
+      address = cliopts.Http.defaultAddress,
+      port = DefaultHttpPort,
+      portFile = None,
       callbackUri = None,
       maxLoginRequests = DefaultMaxLoginRequests,
       loginTimeout = DefaultLoginTimeout,
@@ -65,10 +70,12 @@ object Config {
     new scopt.OptionParser[Config]("oauth-middleware") {
       head("OAuth2 Middleware")
 
-      opt[Int]("port")
-        .action((x, c) => c.copy(port = Port(x)))
-        .required()
-        .text("Port to listen on")
+      cliopts.Http.serverParse(this, serviceName = "OAuth2 Middleware")(
+        address = (f, c) => c.copy(address = f(c.address)),
+        httpPort = (f, c) => c.copy(port = f(c.port)),
+        defaultHttpPort = Some(DefaultHttpPort),
+        portFile = Some((f, c) => c.copy(portFile = f(c.portFile))),
+      )
 
       opt[String]("callback")
         .action((x, c) => c.copy(callbackUri = Some(Uri(x))))

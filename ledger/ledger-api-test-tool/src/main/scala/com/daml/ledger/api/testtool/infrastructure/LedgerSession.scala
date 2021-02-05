@@ -3,17 +3,13 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  ParticipantSession,
-  ParticipantSessionManager,
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSession
 
-import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 private[infrastructure] final class LedgerSession private (
-    participantSessions: immutable.Seq[(String, ParticipantSession)],
+    participantSessions: Vector[(String, ParticipantSession)],
     shuffleParticipants: Boolean,
 )(implicit val executionContext: ExecutionContext) {
   private[infrastructure] def createTestContext(
@@ -33,12 +29,12 @@ private[infrastructure] final class LedgerSession private (
 
 object LedgerSession {
   def apply(
-      participantSessionManager: ParticipantSessionManager,
+      participantSessions: Vector[ParticipantSession],
       shuffleParticipants: Boolean,
   )(implicit executionContext: ExecutionContext): LedgerSession = {
     val endpointIdProvider =
       Identification.circularWithIndex(Identification.greekAlphabet)
-    val participantSessions = participantSessionManager.allSessions.map(endpointIdProvider() -> _)
-    new LedgerSession(participantSessions, shuffleParticipants)
+    val sessions = participantSessions.map(endpointIdProvider() -> _)
+    new LedgerSession(sessions, shuffleParticipants)
   }
 }

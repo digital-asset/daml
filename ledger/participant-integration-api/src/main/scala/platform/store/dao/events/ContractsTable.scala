@@ -26,7 +26,7 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
   def toExecutables(
       info: TransactionIndexing.ContractsInfo,
       tx: TransactionIndexing.TransactionInfo,
-      serialized: TransactionIndexing.Serialized,
+      serialized: TransactionIndexing.Compressed.Contracts,
   ): ContractsTable.Executables
 
   protected def buildDeletes(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {

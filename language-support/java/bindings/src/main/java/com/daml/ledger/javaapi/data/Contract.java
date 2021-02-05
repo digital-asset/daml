@@ -3,5 +3,4 @@
 
 package com.daml.ledger.javaapi.data;
 
-public interface Contract {
-}
+public interface Contract {}

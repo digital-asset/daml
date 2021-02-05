@@ -11,9 +11,12 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 
+import scala.concurrent.ExecutionContext
+
 final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
+    servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
@@ -26,10 +29,15 @@ final class StandaloneIndexerServer(
       ServerRole.Indexer,
       config,
       readService,
+      servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
     )
-    val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
+    val indexer = new RecoveringIndexer(
+      materializer.system.scheduler,
+      materializer.executionContext,
+      config.restartDelay,
+    )
     config.startupMode match {
       case IndexerStartupMode.MigrateOnly =>
         Resource.unit

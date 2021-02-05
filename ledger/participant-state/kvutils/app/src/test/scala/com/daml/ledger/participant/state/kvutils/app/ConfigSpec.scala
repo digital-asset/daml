@@ -3,13 +3,23 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.util.concurrent.TimeUnit
+
 import com.daml.ledger.participant.state.v1.ParticipantId
+import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
 
-final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
+import scala.concurrent.duration.FiniteDuration
+
+final class ConfigSpec
+    extends AnyFlatSpec
+    with Matchers
+    with OptionValues
+    with TableDrivenPropertyChecks {
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
   private val participantOption = "--participant"
@@ -21,6 +31,8 @@ final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
   private val jdbcEnvVar = "JDBC_ENV_VAR"
 
   private val certRevocationChecking = "--cert-revocation-checking"
+  private val trackerRetentionPeriod = "--tracker-retention-period"
+  private val clientAuth = "--client-auth"
 
   object TestJdbcValues {
     val jdbcFromCli = "command-line-jdbc"
@@ -91,6 +103,45 @@ final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
         .getOrElse(parsingFailure())
 
     config.tlsConfig.value.enableCertRevocationChecking should be(true)
+  }
+
+  it should "get the tracker retention period when provided" in {
+    val periodStringRepresentation = "P0DT1H2M3S"
+    val expectedPeriod =
+      FiniteDuration(1, TimeUnit.HOURS) +
+        FiniteDuration(2, TimeUnit.MINUTES) +
+        FiniteDuration(3, TimeUnit.SECONDS)
+    val config =
+      configParser(parameters =
+        minimalValidOptions ++ List(trackerRetentionPeriod, periodStringRepresentation)
+      )
+        .getOrElse(parsingFailure())
+
+    config.trackerRetentionPeriod should be(expectedPeriod)
+  }
+
+  it should "set the client-auth parameter when provided" in {
+    val cases = Table(
+      ("clientAuthParam", "expectedParsedValue"),
+      ("none", ClientAuth.NONE),
+      ("optional", ClientAuth.OPTIONAL),
+      ("require", ClientAuth.REQUIRE),
+    )
+    forAll(cases) { (param, expectedValue) =>
+      val config =
+        configParser(parameters = minimalValidOptions ++ List(clientAuth, param))
+          .getOrElse(parsingFailure())
+
+      config.tlsConfig.value.clientAuth shouldBe expectedValue
+    }
+  }
+
+  it should "set REQUIRE client-auth when the parameter is not explicitly provided" in {
+    val aValidTlsOptions = List(s"$certRevocationChecking", "false")
+    val config =
+      configParser(parameters = minimalValidOptions ++ aValidTlsOptions).getOrElse(parsingFailure())
+
+    config.tlsConfig.value.clientAuth shouldBe ClientAuth.REQUIRE
   }
 
   private def parsingFailure(): Nothing = fail("Config parsing failed.")

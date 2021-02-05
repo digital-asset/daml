@@ -154,6 +154,7 @@ class CommitterSpec
     "stop at first StepStop" in {
       val expectedLogEntry = aLogEntry
       val instance = new Committer[Int] {
+
         override protected def steps: Iterable[(StepInfo, Step)] = Iterable[(StepInfo, Step)](
           ("first", (_, _) => StepContinue(1)),
           ("second", (_, _) => StepStop(expectedLogEntry)),
@@ -284,4 +285,6 @@ class CommitterSpec
       .build
 
   private def createLogger(): Logger = LoggerFactory.getLogger(this.getClass)
+
+  private type Step = Committer.Step[Int]
 }

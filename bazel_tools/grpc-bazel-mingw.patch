@@ -1,10 +1,10 @@
 diff --git a/include/grpc/impl/codegen/port_platform.h b/include/grpc/impl/codegen/port_platform.h
-index 0349e31bb3..d2e7408dbf 100644
+index c1bada11df..ab2888f82d 100644
 --- a/include/grpc/impl/codegen/port_platform.h
 +++ b/include/grpc/impl/codegen/port_platform.h
-@@ -39,15 +39,9 @@
- #define NOMINMAX
- #endif /* NOMINMAX */
+@@ -53,15 +53,9 @@
+ 
+ #include <windows.h>
  
 -#ifndef _WIN32_WINNT
 -#error \
@@ -19,5 +19,5 @@ index 0349e31bb3..d2e7408dbf 100644
 +#define WINVER 0x0A00
 +#define _WIN32_WINNT 0x0A00
  
- #include <windows.h>
-
+ #ifdef GRPC_WIN32_LEAN_AND_MEAN_WAS_NOT_DEFINED
+ #undef GRPC_WIN32_LEAN_AND_MEAN_WAS_NOT_DEFINED

@@ -19,6 +19,11 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 daml_deps()
 
 load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "bazel_remote_apis_imports",
+)
 
 rules_haskell_dependencies()
 
@@ -103,8 +108,6 @@ common_nix_file_deps = [
     "//nix:nixpkgs.nix",
     "//nix:nixpkgs/default.nix",
     "//nix:nixpkgs/default.src.json",
-    "//nix:grpc-Rename-gettid-functions.patch",
-    "//nix:grpc-Fix-gettid-naming-conflict.patch",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -330,7 +333,7 @@ nixpkgs_package(
 
 nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
-    "//nix:overrides/ghc-8.6.5.nix",
+    "//nix:overrides/ghc-8.10.3.nix",
     "//nix:overrides/ghc-8.6.3-binary.nix",
 ]
 
@@ -398,7 +401,7 @@ filegroup(
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
@@ -421,7 +424,7 @@ common_ghc_flags = [
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
+    attribute_path = "ghcDwarf" if enable_ghc_dwarf else "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
@@ -439,7 +442,6 @@ haskell_register_ghc_nixpkgs(
         "-optc-mmacosx-version-min=10.14",
         "-opta-mmacosx-version-min=10.14",
         "-optl-mmacosx-version-min=10.14",
-        "-optP-mmacosx-version-min=10.14",
     ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
@@ -454,14 +456,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    static_runtime = True,
-    version = "8.6.5",
+    version = "8.10.3",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.6.5",
+    version = "8.10.3",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -858,27 +859,6 @@ apple_rules_dependencies()
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 
 buildifier_dependencies()
-
-nixpkgs_package(
-    name = "grpc_nix",
-    attribute_path = "grpc",
-    build_file_content = """
-load("@os_info//:os_info.bzl", "is_linux")
-cc_library(
-  name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgpr.so"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
-  visibility = ["//visibility:public"],
-  hdrs = [":include"],
-  includes = ["include"],
-)
-    """,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
-    repositories = dev_env_nix_repos,
-)
 
 nixpkgs_package(
     name = "postgresql_nix",

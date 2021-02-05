@@ -296,7 +296,7 @@ final class JsonApiIt
         )
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command with actAs = Bob but token provides claims for actAs = Alice"
+          exception.getMessage === "Tried to submit a command with actAs = [Bob] but token provides claims for actAs = [Alice]"
         )
       }
     }
@@ -340,7 +340,7 @@ final class JsonApiIt
         )
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command with actAs = Alice but token contains no actAs parties."
+          exception.getMessage === "Tried to submit a command with actAs = [Alice] but token contains no actAs parties."
         )
       }
     }

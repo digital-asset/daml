@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -29,7 +29,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeCreate(
           coid = contractId,
           templateId = someTemplateId,
-          arg = someValueRecord,
+          arg = someContractArgument,
           agreementText = someAgreement,
           optLocation = None,
           signatories = Set(alice),
@@ -47,13 +47,13 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeCreate(
           coid = contractId,
           someTemplateId,
-          someValueRecord,
+          someContractArgument,
           someAgreement,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
           version = TransactionVersion.minVersion,
         )
@@ -66,18 +66,18 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeExercises(
           targetCoid = create1,
           templateId = someTemplateId,
-          choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
+          choiceId = someChoiceName,
           optLocation = None,
           consuming = true,
           actingParties = Set(bob),
-          chosenValue = someValueRecord,
+          chosenValue = someChoiceArgument,
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
           // TODO https://github.com/digital-asset/daml/issues/7709
           //  also test the case of non-empty choice-observers
           choiceObservers = Set.empty,
           children = ImmArray.empty,
-          exerciseResult = None,
+          exerciseResult = Some(someChoiceResult),
           key = None,
           byKey = false,
           version = TransactionVersion.minVersion,
@@ -103,18 +103,18 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeExercises(
           targetCoid = create2,
           templateId = someTemplateId,
-          choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
+          choiceId = someChoiceName,
           optLocation = None,
           consuming = true,
           actingParties = Set(bob),
-          chosenValue = someValueRecord,
+          chosenValue = someChoiceArgument,
           stakeholders = Set(bob),
           signatories = Set(bob),
           choiceObservers = Set.empty,
           children = ImmArray.empty,
-          exerciseResult = None,
+          exerciseResult = Some(someChoiceResult),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
           byKey = false,
           version = TransactionVersion.minVersion,
@@ -125,13 +125,13 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeCreate(
           coid = builder.newCid,
           someTemplateId,
-          someValueRecord,
+          someContractArgument,
           someAgreement,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
           version = TransactionVersion.minVersion,
         ),

@@ -18,6 +18,16 @@ import com.daml.ledger.api.v1.{value => api}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
+/** Translates [[com.daml.lf.value.Value]] values to [[com.daml.ledger.api.v1.value]] values.
+  *
+  * All conversion functions are pure and total.
+  *
+  * Most conversion functions have a verbose flag:
+  * - If verbose mode is disabled, then all resulting Api values have missing type identifiers and record field names.
+  * - If verbose mode is enabled, then type identifiers and record field names are copied from the input DAML-LF values.
+  *   The caller is responsible for filling in missing type information using [[com.daml.lf.engine.ValueEnricher]],
+  *   which may involve loading DAML-LF packages.
+  */
 object LfEngineToApi {
 
   private[this] type LfValue[+Cid] = Lf[Cid]

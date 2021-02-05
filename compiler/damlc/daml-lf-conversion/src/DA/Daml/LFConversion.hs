@@ -90,7 +90,6 @@ import           Development.IDE.GHC.Util
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Extra
-import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
@@ -109,7 +108,7 @@ import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
-import           "ghc-lib-parser" InstEnv (ClsInst(..), OverlapFlag(..), OverlapMode(..))
+import           "ghc-lib-parser" InstEnv (ClsInst(..))
 import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim

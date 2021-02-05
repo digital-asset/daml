@@ -24,6 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable
+import scala.io.Source
 import scala.util.{Failure, Success}
 
 class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
@@ -54,6 +55,20 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
       refreshToken = None,
       scope = Some(claims.toQueryString()),
     )
+  }
+  "the port file" should {
+    "list the HTTP port" in {
+      val bindingPort = middlewareBinding.localAddress.getPort.toString
+      val filePort = {
+        val source = Source.fromFile(middlewarePortFile)
+        try {
+          source.mkString.stripLineEnd
+        } finally {
+          source.close()
+        }
+      }
+      assert(bindingPort == filePort)
+    }
   }
   "the /auth endpoint" should {
     "return unauthorized without cookie" in {

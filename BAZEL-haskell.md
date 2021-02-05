@@ -55,7 +55,7 @@ Those toolchains are defined in `BUILD` (we'll skip listing their definitions he
 The GHC toolchain is registered within macros provided by `rules_haskell`:
 ```
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     compiler_flags = [ ... ],
     ...

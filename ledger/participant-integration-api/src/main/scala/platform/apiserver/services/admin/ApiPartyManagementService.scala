@@ -40,6 +40,8 @@ private[apiserver] final class ApiPartyManagementService private (
 ) extends PartyManagementService
     with GrpcApiService {
 
+  import ApiPartyManagementService.CreateSubmissionId
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val synchronousResponse = new SynchronousResponse(
@@ -81,30 +83,36 @@ private[apiserver] final class ApiPartyManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
-    // TODO: This should do proper validation.
-    def randomSubmissionId(prefix: String): Ref.IdString.LedgerString =
-      v1.SubmissionId.assertFromString(s"${prefix}_${UUID.randomUUID().toString}")
 
-    val party =
-      if (request.partyIdHint.isEmpty) None
-      else Some(Ref.Party.assertFromString(request.partyIdHint))
-    val submissionId = randomSubmissionId(prefix = party.getOrElse(""))
-
-    val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-
-    synchronousResponse
-      .submitAndWait(submissionId, (party, displayName))
-      .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
-        AllocatePartyResponse(
-          Some(
-            PartyDetails(
-              partyDetails.party,
-              partyDetails.displayName.getOrElse(""),
-              partyDetails.isLocal,
-            )
+    val validatedPartyIdentifier =
+      if (request.partyIdHint.isEmpty) {
+        Future.successful(None)
+      } else {
+        Ref.Party
+          .fromString(request.partyIdHint)
+          .fold(
+            error => Future.failed(ErrorFactories.invalidArgument(error)),
+            party => Future.successful(Some(party)),
           )
-        )
       }
+
+    validatedPartyIdentifier
+      .flatMap(party => {
+        val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+        synchronousResponse
+          .submitAndWait(CreateSubmissionId.withPrefix(party), (party, displayName))
+          .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+            AllocatePartyResponse(
+              Some(
+                PartyDetails(
+                  partyDetails.party,
+                  partyDetails.displayName.getOrElse(""),
+                  partyDetails.isLocal,
+                )
+              )
+            )
+          }
+      })
       .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
 
@@ -128,6 +136,18 @@ private[apiserver] object ApiPartyManagementService {
       writeBackend,
       managementServiceTimeout,
     )
+
+  private object CreateSubmissionId {
+    // Suffix is `-` followed by a random UUID as a string
+    private val SuffixLength: Int = 1 + UUID.randomUUID().toString.length
+    private val MaxLength: Int = 255
+    private val PrefixMaxLength: Int = MaxLength - SuffixLength
+    def withPrefix(maybeParty: Option[Ref.Party]): v1.SubmissionId = {
+      val uuid = UUID.randomUUID().toString
+      val raw = maybeParty.fold(uuid)(party => s"${party.take(PrefixMaxLength)}-$uuid")
+      v1.SubmissionId.assertFromString(raw)
+    }
+  }
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,

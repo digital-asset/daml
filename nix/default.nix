@@ -25,8 +25,7 @@ let
 in rec {
   inherit pkgs;
 
-  # GHC with static linking patches.
-  ghcStatic = bazel_dependencies.ghcStatic;
+  ghc = bazel_dependencies.ghc;
 
   # Tools used in the dev-env. These are invoked through wrappers
   # in dev-env/bin. See the development guide for more information:
@@ -41,10 +40,10 @@ in rec {
     protoc          = bazel_dependencies.protobuf3_8;
 
     # Haskell development
-    ghcStatic       = bazel_dependencies.ghcStatic;
+    ghc             = bazel_dependencies.ghc;
     ghcid           = pkgs.haskellPackages.ghcid;
-    hlint           = bazel_dependencies.ghcStaticPkgs.hlint;
-    ghci            = bazel_dependencies.ghcStatic;
+    hlint           = bazel_dependencies.ghcPkgs.hlint;
+    ghci            = bazel_dependencies.ghc;
 
     # Hazel’s configure step currently searches for the C compiler in
     # PATH instead of taking it from our cc toolchain so we have to add
@@ -66,6 +65,8 @@ in rec {
     jmap   = jdk;
     jstack = jdk;
     jar    = jdk;
+
+    javafmt = pkgs.callPackage ./tools/google-java-format {};
 
     # The package itself is called bazel-watcher. However, the executable is
     # called ibazel. We call the attribute ibazel so that the default dev-env
@@ -91,7 +92,6 @@ in rec {
     # nixpkgs ships with an RC for scalafmt 2.0 that seems to be significantly slower
     # and changes a lot of formatting so for now we stick to 1.5.1.
     scalafmt = pkgs.callPackage ./overrides/scalafmt.nix { jre = jdk; };
-    dependency-check = (pkgs.callPackage ./tools/dependency-check { });
 
     # Nix development
     cabal2nix = pkgs.cabal2nix;

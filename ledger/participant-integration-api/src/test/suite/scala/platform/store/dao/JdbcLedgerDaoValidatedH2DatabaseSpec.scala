@@ -13,3 +13,4 @@ final class JdbcLedgerDaoValidatedH2DatabaseSpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendH2Database
     with JdbcLedgerDaoPostCommitValidationSpec
+    with JdbcAtomicTransactionInsertion

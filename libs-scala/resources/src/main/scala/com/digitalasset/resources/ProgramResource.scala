@@ -10,7 +10,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.resources.ProgramResource._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
@@ -26,7 +26,7 @@ final class ProgramResource[Context: HasExecutionContext, T](
     newLoggingContext { implicit loggingContext =>
       val resource = {
         implicit val context: Context = newContext(ExecutionContext.fromExecutor(executorService))
-        Try(owner.acquire()).fold(Resource.failed, identity)
+        Try(owner.acquire()).fold(exception => PureResource(Future.failed(exception)), identity)
       }
 
       def stop(): Unit = {

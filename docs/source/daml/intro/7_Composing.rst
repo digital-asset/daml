@@ -37,7 +37,7 @@ You compile a Daml project by running ``daml build`` from the project root direc
 Project structure
 -----------------
 
-This project contains an asset holding model for transferrable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
+This project contains an asset holding model for transferable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
 
 In addition, there are tests in modules ``Test.Intro.Asset``, ``Test.Intro.Asset.Role``, and ``Test.Intro.Asset.Trade``.
 
@@ -222,7 +222,7 @@ Transaction Submission
 Validation
   The Transaction/Commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of Commits, and no double spends occur.
 Commitment
-  The Commit is actually commited according to the commit or consensus protocol of the Ledger.
+  The Commit is actually committed according to the commit or consensus protocol of the Ledger.
 Confirmation
   The network sends confirmations of the commitment back to all involved Participant Nodes.
 Completion

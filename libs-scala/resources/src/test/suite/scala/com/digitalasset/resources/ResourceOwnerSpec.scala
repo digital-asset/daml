@@ -7,7 +7,10 @@ import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
-import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
+import com.daml.resources.FailingResourceOwner.{
+  FailingResourceFailedToOpen,
+  TriedToReleaseAFailedResource,
+}
 import com.daml.resources.{Resource => AbstractResource}
 import com.daml.timer.Delayed
 import com.github.ghik.silencer.silent
@@ -81,7 +84,21 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "treat releases idempotently, only releasing once regardless of the number of calls" in {
+    "treat single releases idempotently, only releasing once regardless of the number of calls" in {
+      val owner = TestResourceOwner(7)
+      val resource = owner.acquire()
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+        // if `TestResourceOwner`'s release function is called twice, it'll fail
+        _ <- resource.release()
+      } yield {
+        owner.hasBeenAcquired should be(false)
+      }
+    }
+
+    "treat nested releases idempotently, only releasing once regardless of the number of calls" in {
       val ownerA = TestResourceOwner(7)
       val ownerB = TestResourceOwner("eight")
 
@@ -226,6 +243,96 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         withClue("after releasing,") {
           innerResourceOwner.hasBeenAcquired should be(false)
           outerResourceOwner.hasBeenAcquired should be(false)
+        }
+      }
+    }
+
+    "transform success into another success" in {
+      val owner = TestResourceOwner(5)
+      val resource = owner.acquire()
+
+      val transformedResource = resource.transform {
+        case Success(value) =>
+          Success(value + 1)
+        case Failure(_) =>
+          fail("The failure path should never be called.")
+      }
+
+      for {
+        value <- transformedResource.asFuture
+        _ <- transformedResource.release()
+      } yield {
+        withClue("after releasing,") {
+          value should be(6)
+        }
+      }
+    }
+
+    "transform success into a failure" in {
+      val owner = TestResourceOwner(9)
+      val resource = owner.acquire()
+
+      val transformedResource = resource.transform[Int] {
+        case Success(value) =>
+          Failure(new RuntimeException(s"Oh no! The value was $value."))
+        case Failure(_) =>
+          fail("The failure path should never be called.")
+      }
+
+      for {
+        exception <- transformedResource.asFuture.failed
+        _ <- transformedResource.release()
+      } yield {
+        withClue("after releasing,") {
+          exception.getMessage should be("Oh no! The value was 9.")
+        }
+      }
+    }
+
+    "transform failure into a success" in {
+      val owner = new TestResourceOwner[Int](
+        Future.failed(new Exception("This one didn't work.")),
+        _ => Future.failed(new TriedToReleaseAFailedResource),
+      )
+      val resource = owner.acquire()
+
+      val transformedResource = resource.transform {
+        case Success(_) =>
+          fail("The success path should never be called.")
+        case Failure(exception) =>
+          Success(exception.getMessage)
+      }
+
+      for {
+        value <- transformedResource.asFuture
+        _ <- transformedResource.release()
+      } yield {
+        withClue("after releasing,") {
+          value should be("This one didn't work.")
+        }
+      }
+    }
+
+    "transform failure into another failure" in {
+      val owner = new TestResourceOwner[Int](
+        Future.failed(new Exception("This also didn't work.")),
+        _ => Future.failed(new TriedToReleaseAFailedResource),
+      )
+      val resource = owner.acquire()
+
+      val transformedResource = resource.transform[Int] {
+        case Success(_) =>
+          fail("The success path should never be called.")
+        case Failure(exception) =>
+          Failure(new Exception(exception.getMessage + " Boo."))
+      }
+
+      for {
+        exception <- transformedResource.asFuture.failed
+        _ <- transformedResource.release()
+      } yield {
+        withClue("after releasing,") {
+          exception.getMessage should be("This also didn't work. Boo.")
         }
       }
     }

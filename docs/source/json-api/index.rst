@@ -1508,13 +1508,13 @@ A status code of ``200`` indicates a successful liveness check.
 This is an unauthenticated endpoint intended to be used as a liveness
 probe.
 
-Readyness check
+Readiness check
 ===============
 
 - URL: ``/readyz``
 - Method: ``GET``
 
-A status code of ``200`` indicates a successful readyness check.
+A status code of ``200`` indicates a successful readiness check.
 
 This is an unauthenticated endpoint intended to be used as a liveness
 probe. It validates both the ledger connection as well as the database

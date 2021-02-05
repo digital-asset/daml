@@ -19,17 +19,25 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.DbType
 
-object TransactionsWriter {
-
-  final class PreparedInsert private[TransactionsWriter] (
+private[platform] object TransactionsWriter {
+  private[platform] class PreparedInsert(
       eventsTableExecutables: EventsTable.Batches,
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
-      import metrics.daml.index.db.storeTransactionDbMetrics._
+      writeEvents(metrics)
+      writeState(metrics)
+    }
 
-      Timed.value(eventsBatch, eventsTableExecutables.execute())
+    def writeEvents(metrics: Metrics)(implicit connection: Connection): Unit =
+      Timed.value(
+        metrics.daml.index.db.storeTransactionDbMetrics.eventsBatch,
+        eventsTableExecutables.execute(),
+      )
+
+    def writeState(metrics: Metrics)(implicit connection: Connection): Unit = {
+      import metrics.daml.index.db.storeTransactionDbMetrics._
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
@@ -55,13 +63,16 @@ object TransactionsWriter {
   }
 }
 
-private[dao] final class TransactionsWriter(
+private[platform] final class TransactionsWriter(
     dbType: DbType,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
+    compressionStrategy: CompressionStrategy,
+    compressionMetrics: CompressionMetrics,
+    idempotentEventInsertions: Boolean = false,
 ) {
 
-  private val eventsTable = EventsTable(dbType)
+  private val eventsTable = EventsTable(dbType, idempotentEventInsertions)
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
@@ -104,9 +115,19 @@ private[dao] final class TransactionsWriter(
         ),
       )
 
+    val compressed =
+      Timed.value(
+        metrics.daml.index.db.storeTransactionDbMetrics.compressionTimer,
+        TransactionIndexing.compress(
+          serialized,
+          compressionStrategy,
+          compressionMetrics,
+        ),
+      )
+
     new TransactionsWriter.PreparedInsert(
-      eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
-      contractsTable.toExecutables(indexing.contracts, indexing.transaction, serialized),
+      eventsTable.toExecutables(indexing.transaction, indexing.events, compressed.events),
+      contractsTable.toExecutables(indexing.contracts, indexing.transaction, compressed.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
     )
   }

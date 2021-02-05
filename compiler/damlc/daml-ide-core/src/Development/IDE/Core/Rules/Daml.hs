@@ -24,23 +24,17 @@ import Maybes (MaybeErr(..))
 import TcRnMonad (initIfaceLoad)
 
 import Control.Concurrent.Extra
+import Control.DeepSeq (NFData())
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
-import Development.IDE.Core.Compile
-import Development.IDE.GHC.Error
-import Development.IDE.GHC.Warnings
-import Development.IDE.Core.OfInterest
-import Development.IDE.GHC.Util
-import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
-import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
+import Data.Binary (Binary())
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BS
@@ -48,9 +42,10 @@ import Data.Either.Extra
 import Data.Foldable
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
+import Data.Hashable (Hashable())
+import qualified Data.IntMap.Strict as IntMap
 import Data.List.Extra
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -59,15 +54,24 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
+import Data.Typeable (Typeable())
+import Development.IDE.Core.Compile
+import Development.IDE.Core.OfInterest
+import Development.IDE.GHC.Error
+import Development.IDE.GHC.Util
+import Development.IDE.GHC.Warnings
+import Development.IDE.Types.Location as Base
+import Development.IDE.Types.Logger hiding (Priority)
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
-import "ghc-lib" GHC hiding (typecheckModule, Succeeded)
-import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
+import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
+import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
 import Safe
+import System.Directory.Extra as Dir
 import System.Environment
+import System.FilePath
 import System.IO
 import System.IO.Error
-import System.Directory.Extra as Dir
-import System.FilePath
+import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
@@ -85,7 +89,7 @@ import Development.IDE.Core.RuleTypes.Daml
 
 import DA.Bazel.Runfiles
 import DA.Daml.DocTest
-import DA.Daml.LFConversion (convertModule, sourceLocToRange)
+import DA.Daml.LFConversion (convertModule)
 import DA.Daml.LFConversion.UtilLF
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
@@ -188,7 +192,7 @@ data DalfDependency = DalfDependency
   }
 
 getDlintIdeas :: NormalizedFilePath -> Action (Maybe ())
-getDlintIdeas f = runMaybeT $ useE GetDlintDiagnostics f
+getDlintIdeas f = runMaybeT $ fst <$> useE GetDlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
@@ -206,8 +210,8 @@ diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
 -- | Dependencies on other packages excluding stable DALFs.
 getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getUnstableDalfDependencies files = do
-    unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
-    pkgMap <- Map.unions . map getPackageMap <$> usesE GeneratePackageMap files
+    unitIds <- concatMap transitivePkgDeps <$> usesE' GetDependencies files
+    pkgMap <- Map.unions . map getPackageMap <$> usesE' GeneratePackageMap files
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
@@ -593,6 +597,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-NonEmpty-Types.dalf"
                     , "DA-Time-Types.dalf"
                     , "DA-Semigroup-Types.dalf"
+                    , "DA-Set-Types.dalf"
                     , "DA-Monoid-Types.dalf"
                     , "DA-Validation-Types.dalf"
                     , "DA-Logic-Types.dalf"
@@ -653,10 +658,10 @@ generatePackageRule =
 -- and having it be a function makes the merging a bit easier.
 generateSerializedPackage :: LF.PackageName -> Maybe LF.PackageVersion -> [NormalizedFilePath] -> MaybeT Action LF.Package
 generateSerializedPackage pkgName pkgVersion rootFiles = do
-    fileDeps <- usesE GetDependencies rootFiles
+    fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
-    dalfs <- usesE ReadSerializedDalf files
+    dalfs <- usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     pure $ buildPackage (Just pkgName) pkgVersion lfVersion dalfs
 
@@ -1192,6 +1197,23 @@ discardInternalModules mbPackageName files = do
                           moduleNameFile modName `isSuffixOf` fromNormalizedFilePath f)
                      $ Map.keys stablePackages)
         moduleNameFile (LF.ModuleName segments) = joinPath (map T.unpack segments) <.> "daml"
+
+usesE' ::
+       ( Eq k
+       , Hashable k
+       , Binary k
+       , Show k
+       , Show (RuleResult k)
+       , Typeable k
+       , Typeable (RuleResult k)
+       , NFData k
+       , NFData (RuleResult k)
+       )
+    => k
+    -> [NormalizedFilePath]
+    -> MaybeT Action [RuleResult k]
+usesE' k = fmap (map fst) . usesE k
+
 
 internalModules :: [FilePath]
 internalModules = map normalise

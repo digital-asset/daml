@@ -43,6 +43,7 @@ compile_deps = [
     "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
+    "//libs-scala/resources-grpc",
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "@maven//:com_google_guava_guava",
@@ -51,9 +52,7 @@ compile_deps = [
     "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
-    "@maven//:io_netty_netty_common",
     "@maven//:io_netty_netty_handler",
-    "@maven//:io_netty_netty_transport",
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:io_opentelemetry_opentelemetry_api",
@@ -74,7 +73,6 @@ runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
-    "@maven//:org_xerial_sqlite_jdbc",
 ]
 
 da_scala_library(
@@ -155,12 +153,15 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
@@ -172,6 +173,8 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
@@ -220,6 +223,7 @@ test_deps = [
     "//libs-scala/postgresql-testing",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
+    "//libs-scala/resources-grpc",
     "//libs-scala/timer-utils",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
@@ -255,6 +259,7 @@ openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@o
 
 da_scala_test_suite(
     name = "participant-integration-api-tests",
+    size = "large",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],

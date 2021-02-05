@@ -24,7 +24,7 @@ interaction. Alice (`A`) gets some digital cash, in the form of an I-Owe-You
 from a bank, and she needs her house painted. She gets an offer from
 a painter (`P`) with reference number `P123` to paint her house in
 exchange for this IOU. Lastly, `A`
-accepts the offer, transfering the money and signing
+accepts the offer, transferring the money and signing
 a contract with `P`, whereby he is promising to paint her house.
 
 This acceptance can be viewed as `A` *exercising* her right to accept

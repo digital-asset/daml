@@ -4,5 +4,6 @@
 package com.daml.grpc.adapter;
 
 public class TestExecutionSequencerFactory {
-    public static ExecutionSequencerFactory instance = new SingleThreadExecutionSequencerPool("rs-grpc-bridge-testing");
+  public static ExecutionSequencerFactory instance =
+      new SingleThreadExecutionSequencerPool("rs-grpc-bridge-testing");
 }

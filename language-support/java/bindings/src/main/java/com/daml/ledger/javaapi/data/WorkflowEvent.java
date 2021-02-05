@@ -3,11 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
-/**
- * A Ledger event regarding a workflow identified by the
- * {@link WorkflowEvent#getWorkflowId()}.
- */
+/** A Ledger event regarding a workflow identified by the {@link WorkflowEvent#getWorkflowId()}. */
 public interface WorkflowEvent {
 
-    String getWorkflowId();
+  String getWorkflowId();
 }

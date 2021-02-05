@@ -21,7 +21,7 @@ jobs:
 
 - job: check_perf_test
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
     demands: assignment -equals default
   steps:
   - bash: |
@@ -60,6 +60,8 @@ jobs:
     json-api: $[ dependencies.Linux.outputs['publish.json-api'] ]
     script-runner: $[ dependencies.Linux.outputs['publish.script-runner'] ]
     trigger-runner: $[ dependencies.Linux.outputs['publish.trigger-runner'] ]
+    trigger-service: $[ dependencies.Linux.outputs['publish.trigger-service'] ]
+    oauth2-middleware: $[ dependencies.Linux.outputs['publish.oauth2-middleware'] ]
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -110,6 +112,16 @@ jobs:
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: $(json-api)
+        targetPath: $(Build.StagingDirectory)/release
+      condition: not(eq(variables['skip-github'], 'TRUE'))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: $(trigger-service)
+        targetPath: $(Build.StagingDirectory)/release
+      condition: not(eq(variables['skip-github'], 'TRUE'))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: $(oauth2-middleware)
         targetPath: $(Build.StagingDirectory)/release
       condition: not(eq(variables['skip-github'], 'TRUE'))
     - task: DownloadPipelineArtifact@0
@@ -232,7 +244,7 @@ jobs:
   - release
   - check_for_release
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
     demands: assignment -equals default
   variables:
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]

@@ -92,7 +92,7 @@ makeSignedJwt sharedSecret = do
   T.unpack text
 
 unauthenticatedTests :: Tools -> TestTree
-unauthenticatedTests tools@Tools{..} = do
+unauthenticatedTests tools = do
     withSandbox defaultSandboxConf $ \getSandboxPort ->
         testGroup "unauthenticated"
             [ fetchTest tools getSandboxPort

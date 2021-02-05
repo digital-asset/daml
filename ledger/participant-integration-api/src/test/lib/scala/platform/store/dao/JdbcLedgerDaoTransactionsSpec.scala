@@ -18,6 +18,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
+import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -186,7 +187,15 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "filter correctly by party" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      (_, tx) <- store(multipleCreates(charlie, Seq(alice -> "foo:bar:baz", bob -> "foo:bar:baz")))
+      (_, tx) <- store(
+        multipleCreates(
+          charlie,
+          Seq(
+            (alice, someTemplateId, someContractArgument),
+            (bob, someTemplateId, someContractArgument),
+          ),
+        )
+      )
       to <- ledgerDao.lookupLedgerEnd()
       individualLookupForAlice <- lookupIndividually(Seq(tx), as = Set(alice))
       individualLookupForBob <- lookupIndividually(Seq(tx), as = Set(bob))
@@ -232,9 +241,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            alice -> "pkg:mod:Template1",
-            bob -> "pkg:mod:Template3",
-            alice -> "pkg:mod:Template3",
+            (alice, someTemplateId, someContractArgument),
+            (bob, otherTemplateId, otherContractArgument),
+            (alice, otherTemplateId, otherContractArgument),
           ),
         )
       )
@@ -244,17 +253,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from,
             endInclusive = to,
-            filter = Map(alice -> Set(Identifier.assertFromString("pkg:mod:Template3"))),
+            filter = Map(alice -> Set(otherTemplateId)),
             verbose = true,
           )
       )
     } yield {
       inside(result.loneElement.events.loneElement.event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template3"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
     }
   }
@@ -266,9 +272,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            alice -> "pkg:mod:Template1",
-            bob -> "pkg:mod:Template3",
-            alice -> "pkg:mod:Template3",
+            (alice, someTemplateId, someContractArgument),
+            (bob, otherTemplateId, otherContractArgument),
+            (alice, otherTemplateId, otherContractArgument),
           ),
         )
       )
@@ -279,12 +285,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(
-              alice -> Set(
-                Identifier.assertFromString("pkg:mod:Template3")
-              ),
-              bob -> Set(
-                Identifier.assertFromString("pkg:mod:Template3")
-              ),
+              alice -> Set(otherTemplateId),
+              bob -> Set(otherTemplateId),
             ),
             verbose = true,
           )
@@ -294,17 +296,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       events should have length 2
       inside(events(0).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe bob
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template3"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
       inside(events(1).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template3"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
     }
   }
@@ -316,9 +312,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            alice -> "pkg:mod:Template1",
-            bob -> "pkg:mod:Template3",
-            alice -> "pkg:mod:Template3",
+            (alice, someTemplateId, someContractArgument),
+            (bob, otherTemplateId, otherContractArgument),
+            (alice, otherTemplateId, otherContractArgument),
           ),
         )
       )
@@ -329,12 +325,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(
-              alice -> Set(
-                Identifier.assertFromString("pkg:mod:Template1")
-              ),
-              bob -> Set(
-                Identifier.assertFromString("pkg:mod:Template3")
-              ),
+              alice -> Set(someTemplateId),
+              bob -> Set(otherTemplateId),
             ),
             verbose = true,
           )
@@ -344,17 +336,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       events should have length 2
       inside(events(0).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template1"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
       }
       inside(events(1).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe bob
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template3"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
     }
   }
@@ -366,9 +352,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            alice -> "pkg:mod:Template1",
-            bob -> "pkg:mod:Template3",
-            alice -> "pkg:mod:Template3",
+            (alice, someTemplateId, someContractArgument),
+            (bob, otherTemplateId, otherContractArgument),
+            (alice, otherTemplateId, otherContractArgument),
           ),
         )
       )
@@ -379,9 +365,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(
-              alice -> Set(
-                Identifier.assertFromString("pkg:mod:Template3")
-              ),
+              alice -> Set(otherTemplateId),
               bob -> Set.empty,
             ),
             verbose = true,
@@ -392,17 +376,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       events should have length 2
       inside(events(0).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe bob
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template3"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
       inside(events(1).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        val identifier = create.templateId.value
-        identifier.packageId shouldBe "pkg"
-        identifier.moduleName shouldBe "mod"
-        identifier.entityName shouldBe "Template3"
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
       }
     }
   }
@@ -692,7 +670,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       ),
       Mk(
         "mixedTemplates",
-        Map(alice -> Set(someTemplateId), bob -> Set(someRecordId)),
+        Map(alice -> Set(someTemplateId), bob -> Set(otherTemplateId)),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),

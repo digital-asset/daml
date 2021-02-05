@@ -5,10 +5,10 @@ package com.daml.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
-import java.util.concurrent.{Executor, TimeUnit}
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
 
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
 import com.google.protobuf.Message
@@ -16,7 +16,8 @@ import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
 
-import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
+import scala.util.Failure
 import scala.util.control.NoStackTrace
 
 private[apiserver] object GrpcServer {
@@ -28,7 +29,7 @@ private[apiserver] object GrpcServer {
   // allow for extra information such as the exception stack trace.
   private val MaximumStatusDescriptionLength = 4 * 1024 // 4 KB
 
-  final class Owner(
+  def owner(
       address: Option[String],
       desiredPort: Port,
       maxInboundMessageSize: Int,
@@ -37,44 +38,27 @@ private[apiserver] object GrpcServer {
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
-  ) extends ResourceOwner[Server] {
-    override def acquire()(implicit context: ResourceContext): Resource[Server] = {
-      val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
-      Resource(Future {
-        val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
-        builder.sslContext(sslContext.orNull)
-        builder.permitKeepAliveTime(10, SECONDS)
-        builder.permitKeepAliveWithoutCalls(true)
-        builder.executor(servicesExecutor)
-        builder.maxInboundMessageSize(maxInboundMessageSize)
-        interceptors.foreach(builder.intercept)
-        builder.intercept(new MetricsInterceptor(metrics))
-        builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
-        services.foreach { service =>
-          builder.addService(service)
-          toLegacyService(service).foreach(builder.addService)
-        }
-        val server = builder.build()
-        try {
-          server.start()
-        } catch {
-          case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
-            throw new UnableToBind(desiredPort, e.getCause)
-        }
-        server
-      })(server =>
-        Future {
-          // Phase 1, initialize shutdown, but wait for termination.
-          // If the shutdown has been initiated by the reset service, this gives the service time to gracefully complete the request.
-          server.shutdown()
-          server.awaitTermination(1, TimeUnit.SECONDS)
-
-          // Phase 2: Now cut off all remaining connections.
-          server.shutdownNow()
-          server.awaitTermination()
-        }
-      )
+  ): ResourceOwner[Server] = {
+    val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
+    val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
+    builder.sslContext(sslContext.orNull)
+    builder.permitKeepAliveTime(10, SECONDS)
+    builder.permitKeepAliveWithoutCalls(true)
+    builder.executor(servicesExecutor)
+    builder.maxInboundMessageSize(maxInboundMessageSize)
+    interceptors.foreach(builder.intercept)
+    builder.intercept(new MetricsInterceptor(metrics))
+    builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
+    services.foreach { service =>
+      builder.addService(service)
+      toLegacyService(service).foreach(builder.addService)
     }
+    ResourceOwner
+      .forServer(builder, shutdownTimeout = 1.second)
+      .transform(_.recoverWith {
+        case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
+          Failure(new UnableToBind(desiredPort, e.getCause))
+      })
   }
 
   final class UnableToBind(port: Port, cause: Throwable)

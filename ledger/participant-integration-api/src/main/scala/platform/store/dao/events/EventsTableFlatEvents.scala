@@ -14,7 +14,9 @@ private[events] object EventsTableFlatEvents {
 
   private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     EventsTable.createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createArgumentCompression ~
+          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
@@ -30,10 +32,12 @@ private[events] object EventsTableFlatEvents {
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
+            createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
             createObservers = ArraySeq.unsafeWrapArray(createObservers),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyValueCompression = createKeyValueCompression,
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
           ),
         )
@@ -76,10 +80,12 @@ private[events] object EventsTableFlatEvents {
       "contract_id",
       "template_id",
       "create_argument",
+      "create_argument_compression",
       "create_signatories",
       "create_observers",
       "create_agreement_text",
       "create_key_value",
+      "create_key_value_compression",
     ).mkString(", ")
 
   private val groupByColumns =
@@ -93,10 +99,12 @@ private[events] object EventsTableFlatEvents {
       "contract_id",
       "template_id",
       "create_argument",
+      "create_argument_compression",
       "create_signatories",
       "create_observers",
       "create_agreement_text",
       "create_key_value",
+      "create_key_value_compression",
     ).mkString(", ")
 
   def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
@@ -117,7 +125,9 @@ private[events] object EventsTableFlatEvents {
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
                  case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
-          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
+          join parameters on
+              (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+              and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by event_sequential_id"""
   }
@@ -133,7 +143,9 @@ private[events] object EventsTableFlatEvents {
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
-          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
+          join parameters on
+              (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+              and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
           group by (#$groupByColumns)
           order by event_sequential_id"""

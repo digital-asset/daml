@@ -98,8 +98,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         )
       case Some(url) if url.startsWith("jdbc:sqlite:") =>
         ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
-      case Some(url) =>
-        throw new InvalidDatabaseException(s"Unknown database: $url")
+      case Some(_) =>
+        throw new InvalidDatabaseException(s"Unknown database")
       case None =>
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
     }
@@ -180,6 +180,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     )
                     .map(_ => ())
                 }
+              servicesExecutionContext <- ResourceOwner
+                .forExecutorService(() => Executors.newWorkStealingPool())
+                .map(ExecutionContext.fromExecutorService)
               _ <- new StandaloneIndexerServer(
                 readService = readService,
                 config = IndexerConfig(
@@ -191,6 +194,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   eventsPageSize = config.eventsPageSize,
                   allowExistingSchema = true,
                 ),
+                servicesExecutionContext = servicesExecutionContext,
                 metrics = metrics,
                 lfValueTranslationCache = lfValueTranslationCache,
               )
@@ -212,9 +216,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   authorizer,
                 )
               }
-              servicesExecutionContext <- ResourceOwner
-                .forExecutorService(() => Executors.newWorkStealingPool())
-                .map(ExecutionContext.fromExecutorService)
               apiServer <- new StandaloneApiServer(
                 ledgerId = ledgerId,
                 config = ApiServerConfig(

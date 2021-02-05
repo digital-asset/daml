@@ -3,13 +3,12 @@
 
 package com.daml.ledger.javaapi.data;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
-
 import java.math.BigDecimal;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 @Deprecated
 public class Decimal extends Numeric {
-    public Decimal(@NonNull BigDecimal value) {
-        super(value);
-    }
+  public Decimal(@NonNull BigDecimal value) {
+    super(value);
+  }
 }

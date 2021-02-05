@@ -3,15 +3,13 @@
 
 package com.daml.ledger.javaapi.data;
 
+import java.util.*;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.*;
-
 @Deprecated // Use DamlTextMap
-public class DamlMap extends DamlTextMap{
+public class DamlMap extends DamlTextMap {
 
-    public DamlMap(Map<@NonNull String, @NonNull Value> value) {
-        super(Collections.unmodifiableMap(new HashMap<>(value)));
-    }
-
+  public DamlMap(Map<@NonNull String, @NonNull Value> value) {
+    super(Collections.unmodifiableMap(new HashMap<>(value)));
+  }
 }

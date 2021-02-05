@@ -487,7 +487,7 @@ IOU, this action is also permissible. Thus, the entire third commit
 is also well-authorized, and then so is the ledger.
 
 Similarly, the intuitively problematic examples
-are prohibitied by our authorization criterion. In the
+are prohibited by our authorization criterion. In the
 first example, Alice forced the painter to paint her house. The
 authorizations for the example are shown below.
 

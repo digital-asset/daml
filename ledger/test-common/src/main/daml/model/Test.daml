@@ -121,6 +121,9 @@ template ParameterShowcase
   where
     signatory operator
 
+    key (operator, text) : (Party, Text)
+    maintainer key._1
+
     -- multiple argument choice
     controller operator can
       Choice1 : ContractId ParameterShowcase

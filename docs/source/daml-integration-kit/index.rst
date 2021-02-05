@@ -244,7 +244,7 @@ this section is best read jointly with the code in
   interfaces whose implementation is specific to a particular `X` ledger. These
   interfaces are optimized for ease of implementation.
 ``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/main/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
-  These utilities provide methods to succintly implement interfaces from
+  These utilities provide methods to succinctly implement interfaces from
   ``participant-state.jar`` on top of a key-value state storage.
 
   See documentation in

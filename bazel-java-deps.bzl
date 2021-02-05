@@ -18,6 +18,10 @@ version_specific = {
     ],
 }
 
+netty_version = "4.1.58.Final"
+grpc_version = "1.35.0"
+akka_version = "2.6.12"
+
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
@@ -45,15 +49,15 @@ def install_java_deps():
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_{}:0.19".format(scala_major_version),
             "com.storm-enroute:scalameter-core_{}:0.19".format(scala_major_version),
-            "com.typesafe.akka:akka-actor_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-actor-typed_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-http_{}:10.2.1".format(scala_major_version),
+            "com.typesafe.akka:akka-actor_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-actor-typed_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-http_{}:10.2.1".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-http-spray-json_{}:10.2.1".format(scala_major_version),
             "com.typesafe.akka:akka-http-testkit_{}:10.2.1".format(scala_major_version),
-            "com.typesafe.akka:akka-slf4j_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-stream_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-stream-testkit_{}:2.6.11".format(scala_major_version),
-            "com.typesafe.akka:akka-testkit_{}:2.6.11".format(scala_major_version),
+            "com.typesafe.akka:akka-slf4j_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-stream_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-stream-testkit_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-testkit_{}:{}".format(scala_major_version, akka_version),
             "org.playframework.anorm:anorm_{}:2.6.8".format(scala_major_version),
             "org.playframework.anorm:anorm-akka_{}:2.6.8".format(scala_major_version),
             "com.typesafe.scala-logging:scala-logging_{}:3.9.2".format(scala_major_version),
@@ -86,20 +90,20 @@ def install_java_deps():
             # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
             # need to be updated with careful consideration.
             # grpc
-            "io.grpc:grpc-api:1.29.0",
-            "io.grpc:grpc-core:1.29.0",
-            "io.grpc:grpc-netty:1.29.0",
-            "io.grpc:grpc-protobuf:1.29.0",
-            "io.grpc:grpc-services:1.29.0",
-            "io.grpc:grpc-stub:1.29.0",
+            "io.grpc:grpc-api:{}".format(grpc_version),
+            "io.grpc:grpc-core:{}".format(grpc_version),
+            "io.grpc:grpc-netty:{}".format(grpc_version),
+            "io.grpc:grpc-protobuf:{}".format(grpc_version),
+            "io.grpc:grpc-services:{}".format(grpc_version),
+            "io.grpc:grpc-stub:{}".format(grpc_version),
             # netty
-            "io.netty:netty-codec-http2:4.1.48.Final",
-            "io.netty:netty-handler:4.1.48.Final",
-            "io.netty:netty-handler-proxy:4.1.48.Final",
-            "io.netty:netty-resolver:4.1.48.Final",
-            "io.netty:netty-tcnative-boringssl-static:2.0.30.Final",
+            "io.netty:netty-codec-http2:{}".format(netty_version),
+            "io.netty:netty-handler:{}".format(netty_version),
+            "io.netty:netty-handler-proxy:{}".format(netty_version),
+            "io.netty:netty-resolver:{}".format(netty_version),
+            "io.netty:netty-tcnative-boringssl-static:2.0.36.Final",
             # protobuf
-            "com.google.protobuf:protobuf-java:3.11.0",
+            "com.google.protobuf:protobuf-java:3.14.0",
             #scalapb
             "com.thesamet.scalapb:compilerplugin_{}:0.9.0".format(scala_major_version),
             "com.thesamet.scalapb:lenses_{}:0.9.0".format(scala_major_version),
@@ -153,6 +157,7 @@ def install_java_deps():
             "org.slf4j:slf4j-simple:1.7.26",
             "org.typelevel:kind-projector_{}:0.11.2".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.9.2".format(scala_major_version),
+            "org.tpolecat:doobie-hikari_{}:0.9.2".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.9.2".format(scala_major_version),
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.10".format(scala_version),

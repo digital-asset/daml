@@ -9,12 +9,12 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
@@ -479,7 +479,7 @@ private[lf] object Speedy {
     // TODO: share common code with executeApplication
     private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Unit = {
       vfun match {
-        case SPAP(prim, actualsSoFar, arity) =>
+        case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
 
@@ -499,7 +499,7 @@ private[lf] object Speedy {
 
           // Not enough arguments. Return a PAP.
           if (othersLength < 0) {
-            this.returnValue = SPAP(prim, actuals, arity)
+            this.returnValue = SValue.SPAP(prim, actuals, arity)
 
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
@@ -510,7 +510,7 @@ private[lf] object Speedy {
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
-              case closure: PClosure =>
+              case closure: SValue.PClosure =>
                 this.frame = closure.frame
                 this.actuals = actuals
                 // Maybe push a continuation for the profiler
@@ -523,7 +523,7 @@ private[lf] object Speedy {
                 popTempStackToBase()
                 this.ctrl = closure.expr
 
-              case PBuiltin(builtin) =>
+              case SValue.PBuiltin(builtin) =>
                 this.actuals = actuals
                 try {
                   builtin.execute(actuals, this)
@@ -544,7 +544,7 @@ private[lf] object Speedy {
     /** The function has been evaluated to a value, now start evaluating the arguments. */
     private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Unit = {
       vfun match {
-        case SPAP(prim, actualsSoFar, arity) =>
+        case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
 
@@ -565,11 +565,11 @@ private[lf] object Speedy {
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
-              case closure: PClosure =>
+              case closure: SValue.PClosure =>
                 // Push a continuation to execute the function body when the arguments have been evaluated
                 this.pushKont(KFun(this, closure, actuals))
 
-              case PBuiltin(builtin) =>
+              case SValue.PBuiltin(builtin) =>
                 // Push a continuation to execute the builtin when the arguments have been evaluated
                 this.pushKont(KBuiltin(this, builtin, actuals))
             }
@@ -644,92 +644,126 @@ private[lf] object Speedy {
 
     // This translates a well-typed LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
+    // Note the method does not check the value is well-typed as opposed as
+    // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] def importValue(value: V[V.ContractId]): Unit = {
-      def go(value0: V[V.ContractId]): SValue =
-        value0 match {
-          case V.ValueList(vs) => SList(vs.map[SValue](go))
-          case V.ValueContractId(coid) =>
-            addGlobalCid(coid)
-            SContractId(coid)
-          case V.ValueInt64(x) => SInt64(x)
-          case V.ValueNumeric(x) => SNumeric(x)
-          case V.ValueText(t) => SText(t)
-          case V.ValueTimestamp(t) => STimestamp(t)
-          case V.ValueParty(p) => SParty(p)
-          case V.ValueBool(b) => SBool(b)
-          case V.ValueDate(x) => SDate(x)
-          case V.ValueUnit => SUnit
-          case V.ValueRecord(Some(id), fs) =>
-            val values = new util.ArrayList[SValue](fs.length)
-            val names = fs.map {
-              case (Some(f), v) =>
-                values.add(go(v))
-                f
-              case (None, _) => crash("SValue.fromValue: record missing field name")
-            }
-            SRecord(id, names, values)
-          case V.ValueRecord(None, _) =>
-            crash("SValue.fromValue: record missing identifier")
-          case V.ValueVariant(None, _variant @ _, _value @ _) =>
-            crash("SValue.fromValue: variant without identifier")
-          case V.ValueEnum(None, constructor @ _) =>
-            crash("SValue.fromValue: enum without identifier")
-          case V.ValueOptional(mbV) =>
-            SOptional(mbV.map(go))
-          case V.ValueTextMap(entries) =>
-            SGenMap(
-              isTextMap = true,
-              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) },
-            )
-          case V.ValueGenMap(entries) =>
-            SGenMap(
-              isTextMap = false,
-              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) },
-            )
-          case V.ValueVariant(Some(id), variant, arg) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataVariant) =>
-                    SVariant(id, variant, data.constructorRank(variant), go(arg))
+    private[speedy] def importValue(typ0: Type, value0: V[V.ContractId]): Unit = {
+
+      def go(ty: Type, value: V[V.ContractId]): SValue = {
+        def typeMismatch = crash(s"mismatching type: $ty and value: $value")
+
+        val (tyFun, argTypes) = AstUtil.destructApp(ty)
+        tyFun match {
+          case TBuiltin(_) =>
+            argTypes match {
+              case Nil =>
+                value match {
+                  case V.ValueInt64(value) =>
+                    SValue.SInt64(value)
+                  case V.ValueNumeric(value) =>
+                    SValue.SNumeric(value)
+                  case V.ValueText(value) =>
+                    SValue.SText(value)
+                  case V.ValueTimestamp(value) =>
+                    SValue.STimestamp(value)
+                  case V.ValueDate(value) =>
+                    SValue.SDate(value)
+                  case V.ValueParty(value) =>
+                    SValue.SParty(value)
+                  case V.ValueBool(b) =>
+                    if (b) SValue.SValue.True else SValue.SValue.False
+                  case V.ValueUnit =>
+                    SValue.SValue.Unit
                   case _ =>
-                    crash(s"definition for variant $id not found")
+                    typeMismatch
                 }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    },
-                  )
-                )
-            }
-          case V.ValueEnum(Some(id), constructor) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataEnum) =>
-                    SEnum(id, constructor, data.constructorRank(constructor))
+              case elemType :: Nil =>
+                value match {
+                  case V.ValueContractId(cid) =>
+                    addGlobalCid(cid)
+                    SValue.SContractId(cid)
+                  case V.ValueNumeric(d) =>
+                    SValue.SNumeric(d)
+                  case V.ValueOptional(mb) =>
+                    mb match {
+                      case Some(value) => SValue.SOptional(Some(go(elemType, value)))
+                      case None => SValue.SValue.None
+                    }
+                  // list
+                  case V.ValueList(ls) =>
+                    SValue.SList(ls.map(go(elemType, _)))
+
+                  // textMap
+                  case V.ValueTextMap(entries) =>
+                    SValue.SGenMap(
+                      isTextMap = true,
+                      entries = entries.iterator.map { case (k, v) =>
+                        SValue.SText(k) -> go(elemType, v)
+                      },
+                    )
                   case _ =>
-                    crash(s"definition for variant $id not found")
+                    typeMismatch
                 }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    },
-                  )
-                )
+              case keyType :: valueType :: Nil =>
+                value match {
+                  // genMap
+                  case V.ValueGenMap(entries) =>
+                    SValue.SGenMap(
+                      isTextMap = false,
+                      entries = entries.iterator.map { case (k, v) =>
+                        go(keyType, k) -> go(valueType, v)
+                      },
+                    )
+                  case _ =>
+                    typeMismatch
+                }
+              case _ =>
+                typeMismatch
             }
+          case TTyCon(tyCon) =>
+            val signature = compiledPackages.signatures(tyCon.packageId)
+            value match {
+              case V.ValueRecord(_, fields) =>
+                signature.lookupRecord(tyCon.qualifiedName) match {
+                  case Right((params, DataRecord(fieldsDef))) =>
+                    lazy val subst = (params.toSeq.view.map(_._1) zip argTypes).toMap
+                    val n = fields.length
+                    val values = new util.ArrayList[SValue](n)
+                    (fieldsDef.iterator zip fields.iterator).foreach {
+                      case ((_, fieldType), (_, fieldValue)) =>
+                        values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
+                        ()
+                    }
+                    SValue.SRecord(tyCon, fieldsDef.map(_._1), values)
+                  case Left(err) => crash(err)
+                }
+              case V.ValueVariant(_, constructor, value) =>
+                signature.lookupVariant(tyCon.qualifiedName) match {
+                  case Right((params, variantDef)) =>
+                    val rank = variantDef.constructorRank(constructor)
+                    val typDef = variantDef.variants(rank)._2
+                    val valType =
+                      AstUtil.substitute(typDef, params.toSeq.view.map(_._1) zip argTypes)
+                    SValue.SVariant(tyCon, constructor, rank, go(valType, value))
+                  case Left(err) => crash(err)
+                }
+              case V.ValueEnum(_, constructor) =>
+                signature.lookupEnum(tyCon.qualifiedName) match {
+                  case Right(enumDef) =>
+                    val rank = enumDef.constructorRank(constructor)
+                    SValue.SEnum(tyCon, constructor, rank)
+                  case Left(err) => crash(err)
+                }
+              case _ =>
+                typeMismatch
+            }
+          case _ =>
+            typeMismatch
         }
-      returnValue = go(value)
+      }
+
+      returnValue = go(typ0, value0)
     }
 
   }
@@ -918,7 +952,7 @@ private[lf] object Speedy {
   /** The function-closure and arguments have been evaluated. Now execute the body. */
   private[speedy] final case class KFun(
       machine: Machine,
-      closure: PClosure,
+      closure: SValue.PClosure,
       actuals: util.ArrayList[SValue],
   ) extends Kont
       with SomeArrayEquals {
@@ -969,21 +1003,21 @@ private[lf] object Speedy {
   /** The function's partial-arguments have been evaluated. Construct and return the PAP */
   private[speedy] final case class KPap(
       machine: Machine,
-      prim: Prim,
+      prim: SValue.Prim,
       actuals: util.ArrayList[SValue],
       arity: Int,
   ) extends Kont {
 
     def execute(v: SValue) = {
       actuals.add(v)
-      machine.returnValue = SPAP(prim, actuals, arity)
+      machine.returnValue = SValue.SPAP(prim, actuals, arity)
     }
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
     val altOpt = v match {
-      case SBool(b) =>
+      case SValue.SBool(b) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPPrimCon(PCTrue) => b
@@ -992,7 +1026,7 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SVariant(_, _, rank1, arg) =>
+      case SValue.SVariant(_, _, rank1, arg) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPVariant(_, _, rank2) if rank1 == rank2 =>
@@ -1002,7 +1036,7 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SEnum(_, _, rank1) =>
+      case SValue.SEnum(_, _, rank1) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPEnum(_, _, rank2) => rank1 == rank2
@@ -1010,20 +1044,20 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SList(lst) =>
+      case SValue.SList(lst) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPNil if lst.isEmpty => true
             case SCPCons if !lst.isEmpty =>
               val Some((head, tail)) = lst.pop
               machine.pushEnv(head)
-              machine.pushEnv(SList(tail))
+              machine.pushEnv(SValue.SList(tail))
               true
             case SCPDefault => true
             case _ => false
           }
         }
-      case SUnit =>
+      case SValue.SUnit =>
         alts.find { alt =>
           alt.pattern match {
             case SCPPrimCon(PCUnit) => true
@@ -1031,7 +1065,7 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SOptional(mbVal) =>
+      case SValue.SOptional(mbVal) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPNone if mbVal.isEmpty => true
@@ -1046,11 +1080,10 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
-            _
-          ) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) | STNat(
-            _
-          ) | _: SPAP | SToken =>
+      case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
+          SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
+          SValue.SGenMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
+          SValue.STNat(_) | _: SValue.SPAP | SValue.SToken =>
         crash("Match on non-matchable value")
     }
 
@@ -1268,8 +1301,8 @@ private[lf] object Speedy {
       extends Kont {
     def execute(v: SValue) = {
       v match {
-        case SPAP(PClosure(_, expr, closure), args, arity) =>
-          machine.returnValue = SPAP(PClosure(label, expr, closure), args, arity)
+        case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
+          machine.returnValue = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
         case _ =>
           machine.returnValue = v
       }

@@ -33,13 +33,18 @@ object IndexMetadata {
       } yield metadata(ledgerId, participantId, ledgerEnd)
     }
 
-  private def ownDao(jdbcUrl: String)(implicit loggingContext: LoggingContext) =
+  private def ownDao(jdbcUrl: String)(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ) =
     JdbcLedgerDao.readOwner(
       serverRole = ServerRole.ReadIndexMetadata,
       jdbcUrl = jdbcUrl,
       eventsPageSize = 1000,
+      servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
+      enricher = None,
     )
 
   private val Empty = "<empty>"

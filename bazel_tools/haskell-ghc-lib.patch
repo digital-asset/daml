@@ -1,0 +1,13 @@
+diff --git a/ghc-lib-8.8.1.20210101/compiler/cmm/CmmParse.y b/ghc-lib-8.8.1.20210101/compiler/cmm/CmmParse.y
+index a3bba72..1db96f7 100644
+--- a/ghc-lib-8.8.1.20210101/compiler/cmm/CmmParse.y
++++ b/ghc-lib-8.8.1.20210101/compiler/cmm/CmmParse.y
+@@ -200,4 +200,6 @@ necessary to the stack to accommodate it (e.g. 2).
+ {
+ module CmmParse ( parseCmmFile ) where
+
++import qualified Prelude
++
+ import GhcPrelude
+
+ import StgCmmExtCode

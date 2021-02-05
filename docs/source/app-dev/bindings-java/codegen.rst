@@ -223,12 +223,12 @@ A Java file is generated that defines the class for the type ``Name``:
     package com.acme.producttypes;
 
     public class Name {
-      public final String fistName;
+      public final String firstName;
       public final String lastName;
 
       public static Person fromValue(Value value$) { /* ... */ }
 
-      public Name(String fistName, String lastName) { /* ... */ }
+      public Name(String firstName, String lastName) { /* ... */ }
       public Record toValue() { /* ... */ }
     }
 
@@ -527,7 +527,7 @@ to be passed to ``DamlOptional::of`` function.
 
 To convert back `DamlOptional`_ to Java ``Optional``, one must use the
 containers method ``toOptional``. This method expects a function to
-convert back the value possibiy contains in the container.
+convert back the value possibly contains in the container.
 
 .. code-block:: java
 

@@ -7,7 +7,7 @@ def _integrity_test_impl(ctx):
         output = wrapper,
         content = """#!/usr/bin/env bash
 set -eux
-{checker} $(rlocation "$TEST_WORKSPACE/{dump}")
+exec {checker} $(rlocation "$TEST_WORKSPACE/{dump}")
 """.format(
             checker = ctx.executable.checker.short_path,
             dump = ctx.file.dump.short_path,

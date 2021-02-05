@@ -63,6 +63,7 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"
     , "DA.Monoid.Types"
+    , "DA.Set.Types"
 
     -- This module needs to use the PatternSynonyms extension.
     , "DA.Maybe"
