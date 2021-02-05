@@ -54,7 +54,8 @@ let
       };
     });
    haskell = pkgs.haskell // {
-      packages = pkgs.haskell.packages // {
+     packages = pkgs.haskell.packages // {
+       integer-simple = pkgs.haskell.packages.integer-simple // {
         ghc8103 = pkgs.haskell.packages.ghc8103.override {
           ghc = pkgs.haskell.compiler.ghc8103.overrideAttrs (old: {
             postInstall = ''
@@ -70,7 +71,8 @@ let
   '';
           });
         };
-      };
+       };
+     };
     };
   };
 
