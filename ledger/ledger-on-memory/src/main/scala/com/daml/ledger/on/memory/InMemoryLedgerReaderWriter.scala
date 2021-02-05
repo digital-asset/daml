@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.api._
@@ -14,67 +13,11 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
+import scala.concurrent.ExecutionContext
+
 object InMemoryLedgerReaderWriter {
 
-  final class BatchingOwner(
-      ledgerId: LedgerId,
-      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-      participantId: ParticipantId,
-      metrics: Metrics,
-      timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
-      stateValueCache: InMemoryLedgerWriter.StateValueCache = Cache.none,
-      dispatcher: Dispatcher[Index],
-      state: InMemoryState,
-      engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
-      val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
-      for {
-        writer <- new InMemoryLedgerWriter.BatchingOwner(
-          batchingLedgerWriterConfig,
-          participantId,
-          metrics,
-          timeProvider,
-          stateValueCache,
-          dispatcher,
-          state,
-          engine,
-        ).acquire()
-      } yield createKeyValueLedger(reader, writer)
-    }
-  }
-
-  final class SingleParticipantBatchingOwner(
-      ledgerId: LedgerId,
-      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
-      stateValueCache: InMemoryLedgerWriter.StateValueCache = Cache.none,
-      metrics: Metrics,
-      engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
-      val state = InMemoryState.empty
-      for {
-        dispatcher <- dispatcherOwner.acquire()
-        readerWriter <- new BatchingOwner(
-          ledgerId,
-          batchingLedgerWriterConfig,
-          participantId,
-          metrics,
-          timeProvider,
-          stateValueCache,
-          dispatcher,
-          state,
-          engine,
-        ).acquire()
-      } yield readerWriter
-    }
-  }
-
-  final class PreExecutingOwner(
+  final class Owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
@@ -84,12 +27,12 @@ object InMemoryLedgerReaderWriter {
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
+      committerExecutionContext: ExecutionContext,
+  ) extends ResourceOwner[KeyValueLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
       for {
-        writer <- new InMemoryLedgerWriter.PreExecutingOwner(
+        writer <- new InMemoryLedgerWriter.Owner(
           participantId,
           keySerializationStrategy,
           metrics,
@@ -98,6 +41,7 @@ object InMemoryLedgerReaderWriter {
           dispatcher,
           state,
           engine,
+          committerExecutionContext,
         ).acquire()
       } yield createKeyValueLedger(reader, writer)
     }

@@ -5,21 +5,13 @@ package com.daml.ledger
 
 import com.daml.caching.ConcurrentCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
-import com.daml.ledger.participant.state.kvutils.{CorrelationId, Raw}
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.concurrent.{ExecutionContext, Future}
 
 package object validator {
   type SubmittingParticipantId = ParticipantId
-
-  /** Orchestrates committing to a ledger after validating submissions.
-    */
-  type ValidateAndCommit = (
-      CorrelationId,
-      Raw.Value,
-      SubmittingParticipantId,
-  ) => Future[SubmissionResult]
 
   type StateValueCache = ConcurrentCache[Raw.Value, DamlStateValue]
 
