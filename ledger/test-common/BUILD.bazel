@@ -28,10 +28,10 @@ test_common_configurations = [
     (lf_stable_version, ""),
     (lf_latest_version, "-latest"),
     (lf_dev_version, "-dev"),
-] + [(
-    lf_preview_version[0],
-    "-preview",
-)] if lf_preview_version != [] else []
+] + [
+    (v, "-preview")
+    for v in lf_preview_version
+]
 
 da_scala_library(
     name = "test-common",

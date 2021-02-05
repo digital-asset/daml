@@ -7,6 +7,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "lf_preview_version",
     "lf_stable_version",
 )
 load(
@@ -55,6 +56,15 @@ da_scala_library(
         "//language-support/scala/bindings",
     ],
 )
+
+# Targets defined in //ledger/test-common
+daml_lf_targets = [
+    "-latest",
+    "-dev",
+] + [
+    "-preview"
+    for _ in lf_preview_version
+]
 
 # The ledger API test tool has compile time dependencies on the compiled DAML code,
 # through the Scala codegen. The compiled DAR files are also bundled with the test tool binary.
@@ -207,12 +217,7 @@ EOF
             ],
         ),
     ]
-    for lf_version_suffix in [
-        "",
-        "-dev",
-        "-latest",
-        "-preview",
-    ]
+    for lf_version_suffix in [""] + daml_lf_targets
 ]
 
 conformance_test(
@@ -294,8 +299,8 @@ conformance_test(
 [
     [
         conformance_test(
-            name = "conformance-test-lf-version-%s" % lf_version,
-            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+            name = "conformance-test-lf-version%s" % daml_lf_target,
+            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool%s" % daml_lf_target,
             server = "//ledger/ledger-on-memory:app",
             server_args = [
                 "--daml-lf-dev-mode-unsafe",  # Enables the use of all known compiler versions
@@ -307,9 +312,5 @@ conformance_test(
             ],
         ),
     ]
-    for lf_version in [
-        "latest",
-        "preview",
-        "dev",
-    ]
+    for daml_lf_target in daml_lf_targets
 ]
