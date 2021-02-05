@@ -37,7 +37,7 @@ COPY --chown=daml:daml ${sdk_tarball} /tmp/
 RUN tar xf /tmp/${sdk_tarball} -C /tmp && \
   /tmp/sdk-${version}/install.sh && \
   rm -rf /tmp/${sdk_tarball} /tmp/sdk-${version}
-ENV PATH="/home/daml/.daml/bin:${PATH}"
+ENV PATH="/home/daml/.daml/bin:\${PATH}"
 WORKDIR /home/daml
 EOF
 
