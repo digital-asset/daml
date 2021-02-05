@@ -239,7 +239,6 @@ jobs:
         }
         until testConnection
         do
-          docker logs oracle
           echo "Could not connect to Oracle, trying again..."
           sleep 1
         done
