@@ -234,8 +234,14 @@ jobs:
         export ORACLE_PWD=hunter2
         docker login --username $ARTIFACTORY_USERNAME --password $ARTIFACTORY_PASSWORD digitalasset-daml-on-oracle-docker.jfrog.io
         docker pull digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        # Cleanup stray containers that might still be running from
+        # another build that didn’t get shut down cleanly.
         docker stop oracle || true
         docker run -d --rm --name oracle -p $ORACLE_PORT:1521 -e ORACLE_PWD=$ORACLE_PWD digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        cleanup() {
+            docker stop oracle
+        }
+        trap cleanup EXIT
         testConnection() {
             docker exec oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/XEPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
         }
