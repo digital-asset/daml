@@ -87,7 +87,10 @@ object LedgerApiTestTool {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
-    val defaultTests: Vector[LedgerTestSuite] = Tests.default(config.ledgerClockGranularity)
+    val defaultTests: Vector[LedgerTestSuite] = Tests.default(
+      timeoutScaleFactor = config.timeoutScaleFactor,
+      ledgerClockGranularity = config.ledgerClockGranularity,
+    )
     val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ Tests.optional
     val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
     val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
