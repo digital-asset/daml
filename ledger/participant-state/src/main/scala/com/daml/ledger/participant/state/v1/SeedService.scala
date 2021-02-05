@@ -44,7 +44,6 @@ object SeedService {
     */
   // lazy to avoid gathering unnecessary entropy.
   lazy val StrongRandom = {
-    remy.log("1")
     val logger = LoggerFactory.getLogger(this.getClass)
     val timer = new java.util.Timer()
     val task = new java.util.TimerTask {
