@@ -238,7 +238,7 @@ jobs:
         # another build that didn’t get shut down cleanly.
         docker stop oracle || true
         docker run -d --rm --name oracle -p $ORACLE_PORT:1521 -e ORACLE_PWD=$ORACLE_PWD digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
-        cleanup() {
+        function cleanup() {
             docker stop oracle
         }
         trap cleanup EXIT
