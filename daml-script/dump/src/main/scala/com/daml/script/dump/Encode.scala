@@ -219,7 +219,7 @@ private[dump] object Encode {
     // - PartyIdStrings are strings that match the regexp ``[A-Za-z0-9:\-_ ]+``.
     def safeParty(p: String) =
       Seq(":", "-", "_", " ").foldLeft(p) { case (p, x) => p.replace(x, "") }.toLowerCase
-    // Map from original party id to DAML identifier
+    // Map from original party id to Daml identifier
     var partyMap: Map[String, String] = Map.empty
     // Number of times we’ve gotten the same result from safeParty, we resolve collisions with a suffix.
     var usedParties: Map[String, Int] = Map.empty
