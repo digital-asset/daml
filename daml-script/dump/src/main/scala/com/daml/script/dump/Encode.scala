@@ -244,8 +244,8 @@ private[dump] object Encode {
       } else {
         s.head.toLower.toString + s.tail
       }
-    cids.zipWithIndex.toList.flatMap { case (cs, treeIndex) =>
-      cs.zipWithIndex.map { case (c, i) =>
+    cids.view.zipWithIndex.flatMap { case (cs, treeIndex) =>
+      cs.view.zipWithIndex.map { case (c, i) =>
         c.cid -> s"${lowerFirst(c.tplId.entityName)}_${treeIndex}_$i"
       }
     }.toMap
