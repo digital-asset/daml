@@ -56,8 +56,8 @@ let
    haskell = pkgs.haskell // {
      packages = pkgs.haskell.packages // {
        integer-simple = pkgs.haskell.packages.integer-simple // {
-        ghc8103 = pkgs.haskell.packages.ghc8103.override {
-          ghc = pkgs.haskell.compiler.ghc8103.overrideAttrs (old: {
+        ghc8103 = pkgs.haskell.packages.integer-simple.ghc8103.override {
+          ghc = pkgs.haskell.compiler.integer-simple.ghc8103.overrideAttrs (old: {
             postInstall = ''
     # Install the bash completion file.
     install -D -m 444 utils/completion/ghc.bash $out/share/bash-completion/completions/ghc
