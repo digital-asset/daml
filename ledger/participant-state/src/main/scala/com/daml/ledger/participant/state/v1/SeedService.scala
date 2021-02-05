@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.v1
 
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit.SECONDS
-import java.util.{Timer, TimerTask}
 
 import com.daml.lf.crypto
 import org.slf4j.LoggerFactory
@@ -45,13 +44,16 @@ object SeedService {
     */
   // lazy to avoid gathering unnecessary entropy.
   lazy val StrongRandom = {
+    remy.log("1")
     val logger = LoggerFactory.getLogger(this.getClass)
-    val timer = new Timer()
-    val task = new TimerTask {
+    val timer = new java.util.Timer()
+    val task = new java.util.TimerTask {
       def run(): Unit = {
-        logger.info(
-          s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty.
-             |In CI environments environment consider using the "${Seeding.Weak.name}" mode, that may produce insecure contract IDs but does not block on startup.""".stripMargin
+        logger.warn(
+          s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty."""
+        )
+        logger.warn(
+          s"""In CI environments environment consider using the "${Seeding.Weak.name}" mode, that may produce insecure contract IDs but does not block on startup."""
         )
       }
     }
@@ -64,12 +66,14 @@ object SeedService {
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
 
-  /** Pseudo random generator seeded with low entropy seed.
+  /** Pseudo random generator seeded with a possibly low entropy seed.
     * Do not block. Thread safe.
     * Do not use in production mode.
     */
   lazy val WeakRandom: SeedService = {
-    val seed = new SecureRandom().generateSeed(crypto.Hash.underlyingHashLength)
+    val seed = new Array[Byte](crypto.Hash.underlyingHashLength)
+    // uses `nextBytes` on a default SecureRandom, that should not block
+    (new SecureRandom()).nextBytes(seed)
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
 
