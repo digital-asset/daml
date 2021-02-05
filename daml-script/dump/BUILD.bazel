@@ -1,0 +1,93 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+da_scala_binary(
+    name = "dump",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    main_class = "com.daml.script.dump.Main",
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "@maven//:org_apache_commons_commons_text",
+    ],
+)
+
+da_scala_test(
+    name = "tests",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":dump",
+        "//daml-lf/data",
+        "//language-support/scala/bindings",
+    ],
+)
+
+da_scala_test(
+    name = "integration-tests",
+    srcs = glob(["src/it/scala/**/*.scala"]),
+    data = [
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/test-common:dar-files",
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":dump",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_netty_netty_handler",
+    ],
+)
