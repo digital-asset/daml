@@ -9,17 +9,20 @@ import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope,
 import com.daml.ledger.api.testtool.suites._
 
 import scala.collection.SortedSet
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
 object Tests {
 
-  def default(ledgerClockGranularity: Duration): Vector[LedgerTestSuite] =
+  def default(
+      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
+      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
+  ): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(ledgerClockGranularity),
+      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
       new DivulgenceIT,
