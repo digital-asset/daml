@@ -513,7 +513,7 @@ private object OracleQueries extends Queries {
     sql"""
       CREATE TABLE
         signatories
-          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id)
+          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
           ,party NVARCHAR2(100) NOT NULL
           ,UNIQUE (contract_id, party)
           )
@@ -525,7 +525,7 @@ private object OracleQueries extends Queries {
     sql"""
       CREATE TABLE
         observers
-          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id)
+          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
           ,party NVARCHAR2(100) NOT NULL
           ,UNIQUE (contract_id, party)
           )
