@@ -75,6 +75,9 @@ object Dependencies {
     }
     out.close
   }
+  
+  private val providedLibraries: Set[Ref.PackageName] =
+    Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
   // Given the pkg id of a main dalf and the map of all downloaded packages produce
   // a DAR or return None for builtin packages like daml-stdlib
@@ -95,10 +98,7 @@ object Dependencies {
       go(List(pkgId), Set.empty) - pkgId
     }
     for {
-      pkg <- pkgs.get(pkgId) if pkg._2.metadata.isDefined
-      if !Seq("daml-stdlib", "daml-prim", "daml-script")
-        .map(Ref.PackageName.assertFromString(_))
-        .contains(pkg._2.metadata.get.name)
+      pkg <- pkgs.get(pkgId) if !pkg._2.metadata.exists(providedLibraries)
     } yield {
       Dar(
         (pkgId, pkg._1, pkg._2),
