@@ -85,6 +85,7 @@ final class Runner[T <: ReadWriteService, Extra](
       config.engineMode match {
         case EngineMode.Stable => LanguageVersion.StableVersions
         case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
+        case EngineMode.Dev => LanguageVersion.DevVersions
       }
     val sharedEngine = new Engine(EngineConfig(allowedLanguageVersions))
 

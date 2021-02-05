@@ -325,6 +325,14 @@ object Config {
           "Enable preview version of the next Daml-LF language. Should not be used in production."
         )
 
+      opt[Unit]("daml-lf-dev-mode-unsafe")
+        .optional()
+        .hidden()
+        .action((_, c) => c.copy(engineMode = EngineMode.Dev))
+        .text(
+          "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
+        )
+
       help("help").text(s"$name as a service.")
     }
     extraOptions(parser)
@@ -336,6 +344,7 @@ object Config {
   object EngineMode {
     final case object Stable extends EngineMode
     final case object EarlyAccess extends EngineMode
+    final case object Dev extends EngineMode
   }
 
 }
