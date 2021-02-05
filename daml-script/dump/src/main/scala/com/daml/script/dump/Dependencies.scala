@@ -75,7 +75,7 @@ object Dependencies {
     }
     out.close
   }
-  
+
   private val providedLibraries: Set[Ref.PackageName] =
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
@@ -98,7 +98,7 @@ object Dependencies {
       go(List(pkgId), Set.empty) - pkgId
     }
     for {
-      pkg <- pkgs.get(pkgId) if !pkg._2.metadata.exists(providedLibraries)
+      pkg <- pkgs.get(pkgId) if !pkg._2.metadata.exists(m => providedLibraries.contains(m.name))
     } yield {
       Dar(
         (pkgId, pkg._1, pkg._2),
