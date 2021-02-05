@@ -53,6 +53,25 @@ let
         sha256 = "3520cd1f3c9efff62baee75f32e52d1e5dc120be2ccf340649e470e48f527e2b";
       };
     });
+   haskell = pkgs.haskell // {
+      packages = pkgs.haskell.packages // {
+        ghc8103 = pkgs.haskell.packages.ghc8103.override {
+          ghc = pkgs.haskell.compiler.ghc8103.overrideAttrs (old: {
+            postInstall = ''
+    # Install the bash completion file.
+    install -D -m 444 utils/completion/ghc.bash $out/share/bash-completion/completions/ghc
+
+    # Patch scripts to include "readelf" and "cat" in $PATH.
+    for i in "$out/bin/"*; do
+      test ! -h $i || continue
+      egrep --quiet '^#!' <(head -n 1 $i) || continue
+      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.stdenv.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
+    done
+  '';
+          });
+        };
+      };
+    };
   };
 
   nixpkgs = import src {
