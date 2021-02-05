@@ -199,6 +199,65 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
+- job: Linux_oracle
+  dependsOn:
+    - da_ghc_lib
+  timeoutInMinutes: 360
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - template: clean-up.yml
+    - bash: |
+        source dev-env/lib/ensure-nix
+        ci/dev-env-push.py
+      displayName: 'Push Developer Environment build results'
+      condition: eq(variables['System.PullRequest.IsFork'], 'False')
+      env:
+        # to upload to the Nix cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+    - bash: ci/configure-bazel.sh
+      displayName: 'Configure Bazel'
+      env:
+        IS_FORK: $(System.PullRequest.IsFork)
+        # to upload to the bazel cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+        docker login --username $ARTIFACTORY_USERNAME --password $ARTIFACTORY_PASSWORD digitalasset-daml-on-oracle-docker.jfrog.io
+        docker pull digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        docker run -d --rm --name oracle -p 1521:1521 -e ORACLE_PWD=hunter2 digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        cleanup() {
+            docker stop oracle
+        }
+        trap cleanup EXIT
+        testConnection() {
+            docker exec -it oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/XEPDB1 <<< "select * from dba_users;"; exit $?'
+        }
+        until testConnection
+        do
+          echo "Could not connect to Oracle, trying again..."
+          sleep 1
+        done
+
+        export ORACLE_PORT=1521
+
+        # TODO Actually run some tests once we have them.
+      env:
+        ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
+        ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
+      displayName: 'Build'
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml
+
 - job: compatibility_ts_libs
   dependsOn:
     - da_ghc_lib
