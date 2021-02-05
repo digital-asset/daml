@@ -232,7 +232,7 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         docker login --username $ARTIFACTORY_USERNAME --password $ARTIFACTORY_PASSWORD digitalasset-daml-on-oracle-docker.jfrog.io
         docker pull digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
-        docker run -d --rm --name oracle -p 1521:1521 -e ORACLE_PWD=hunter2 digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        docker run --rm --name oracle -p 1521:1521 -e ORACLE_PWD=hunter2 digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
         cleanup() {
             docker stop oracle
         }
