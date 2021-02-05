@@ -4,13 +4,12 @@
 package com.daml.ledger.participant.state.v1
 
 import java.security.SecureRandom
-import java.util.concurrent.TimeUnit.SECONDS
+import java.util.concurrent.TimeUnit
 
 import com.daml.lf.crypto
-import org.slf4j.LoggerFactory
 
 final class SeedService(seed: crypto.Hash) {
-  def nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(seed)
+  val nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(seed)
 }
 
 object SeedService {
@@ -44,7 +43,7 @@ object SeedService {
     */
   // lazy to avoid gathering unnecessary entropy.
   lazy val StrongRandom = {
-    val logger = LoggerFactory.getLogger(this.getClass)
+    val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
     val timer = new java.util.Timer()
     val task = new java.util.TimerTask {
       def run(): Unit = {
@@ -56,7 +55,7 @@ object SeedService {
         )
       }
     }
-    timer.schedule(task, SECONDS.toMillis(5))
+    timer.schedule(task, TimeUnit.SECONDS.toMillis(5))
 
     val seed = SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)
 
