@@ -36,7 +36,7 @@ jobs:
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals nixpkgs-upgrade
+    demands: assignment -equals default
   steps:
     - template: report-start.yml
     - checkout: self
@@ -73,7 +73,7 @@ jobs:
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
-    demands: assignment -equals nixpkgs-upgrade
+    demands: assignment -equals default
   variables:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
