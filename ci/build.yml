@@ -238,10 +238,11 @@ jobs:
         }
         trap cleanup EXIT
         testConnection() {
-            docker exec -it oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/XEPDB1 <<< "select * from dba_users;"; exit $?'
+            docker exec oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/XEPDB1 <<< "select * from dba_users;"; exit $?'
         }
         until testConnection
         do
+          docker logs oracle
           echo "Could not connect to Oracle, trying again..."
           sleep 1
         done
