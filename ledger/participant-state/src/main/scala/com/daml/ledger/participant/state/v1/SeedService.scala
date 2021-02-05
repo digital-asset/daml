@@ -47,22 +47,15 @@ object SeedService {
   lazy val StrongRandom = {
     val logger = LoggerFactory.getLogger(this.getClass)
     val timer = new Timer()
-    def sndTask = new TimerTask {
-      def run(): Unit =
-        logger.info(
-          s""""Still Trying to gather entropy to initialized the contract ID seeding...  """"
-        )
-    }
-    val fstTask = new TimerTask {
+    val task = new TimerTask {
       def run(): Unit = {
         logger.info(
           s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty.
-             |On testing environment consider using the "${Seeding.Weak.name}" mode, that produces insecure contract IDs but does not block on startup.""".stripMargin
+             |In CI environments environment consider using the "${Seeding.Weak.name}" mode, that may produce insecure contract IDs but does not block on startup.""".stripMargin
         )
-        timer.schedule(sndTask, SECONDS.toMillis(10), SECONDS.toMillis(10))
       }
     }
-    timer.schedule(fstTask, SECONDS.toMillis(5))
+    timer.schedule(task, SECONDS.toMillis(5))
 
     val seed = SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)
 
@@ -75,7 +68,7 @@ object SeedService {
     * Do not block. Thread safe.
     * Do not use in production mode.
     */
-  val WeakRandom: SeedService = {
+  lazy val WeakRandom: SeedService = {
     val seed = new SecureRandom().generateSeed(crypto.Hash.underlyingHashLength)
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
