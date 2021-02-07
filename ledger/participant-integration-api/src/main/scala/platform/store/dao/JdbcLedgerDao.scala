@@ -496,22 +496,22 @@ private class JdbcLedgerDao(
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-      logger.info("Storing transaction")
-      dbDispatcher
-        .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-          validate(ledgerEffectiveTime, transaction, divulged) match {
-            case None =>
-              preparedInsert.writeState(metrics)
-              preparedInsert.writeEvents(metrics)
-              insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
-            case Some(error) =>
-              submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
-          }
-
-          updateLedgerEnd(offsetStep)
-          Ok
+    logger.info("Storing transaction")
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
+        validate(ledgerEffectiveTime, transaction, divulged) match {
+          case None =>
+            preparedInsert.writeState(metrics)
+            preparedInsert.writeEvents(metrics)
+            insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
+          case Some(error) =>
+            submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
         }
-    }
+
+        updateLedgerEnd(offsetStep)
+        Ok
+      }
+  }
 
   private def validate(
       ledgerEffectiveTime: Instant,
