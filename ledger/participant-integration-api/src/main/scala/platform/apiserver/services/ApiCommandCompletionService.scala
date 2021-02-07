@@ -54,7 +54,17 @@ private[apiserver] final class ApiCommandCompletionService private (
     }
 
   private def completionsLoggable(response: CompletionStreamResponse): String =
-    s"Responding with completions: ${response.completions.map(_.toProtoString).mkString("[", ",", "]")}"
+    s"Responding with completions: ${response.completions.toList
+      .map(c => singleCompletionLoggable(c.commandId, c.status.map(_.code)))}"
+
+  private def singleCompletionLoggable(
+      commandId: String,
+      statusCode: Option[Int],
+  ): Map[String, String] =
+    Map(
+      logging.commandId(commandId),
+      "statusCode" -> statusCode.map(_.toString).getOrElse(""),
+    )
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])

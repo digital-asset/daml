@@ -66,8 +66,12 @@ package object logging {
     "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
     "submittedAt" -> t.toString
+  private[services] def transactionId(id: String): (String, String) =
+    "transactionId" -> id
   private[services] def transactionId(id: TransactionId): (String, String) =
     "transactionId" -> id.unwrap
+  private[services] def workflowId(id: String): (String, String) =
+    "workflowId" -> id
   private[services] def workflowId(id: WorkflowId): (String, String) =
     "workflowId" -> id.unwrap
   private[services] def commands(cmds: Commands): Map[String, String] = {

@@ -77,10 +77,25 @@ private[apiserver] final class ApiTransactionService private (
     }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
-    s"Responding with transactions: ${transactions.transactions.map(_.toProtoString).mkString("[", ",", "]")}"
+    s"Responding with transactions: ${transactions.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
 
   private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
-    s"Responding with transaction trees: ${trees.transactions.map(_.toProtoString).mkString("[", ",", "]")}"
+    s"Responding with transaction trees: ${trees.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+
+  private def entityLoggable(
+      commandId: String,
+      transactionId: String,
+      workflowId: String,
+      offset: String,
+  ): Map[String, String] =
+    Map(
+      logging.commandId(commandId),
+      logging.transactionId(transactionId),
+      logging.workflowId(workflowId),
+      "offset" -> offset,
+    )
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
