@@ -7,7 +7,7 @@ resource "google_compute_network" "hoogle" {
 
 resource "google_compute_firewall" "hoogle" {
   name        = "hoogle-firewall"
-  network     = "${google_compute_network.hoogle.name}"
+  network     = google_compute_network.hoogle.name
   target_tags = ["hoogle"]
 
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
@@ -22,7 +22,7 @@ resource "google_compute_instance_template" "hoogle" {
   name_prefix  = "hoogle-"
   machine_type = "n1-standard-1"
   tags         = ["hoogle"]
-  labels       = "${local.machine-labels}"
+  labels       = local.machine-labels
 
   disk {
     boot         = true
@@ -120,8 +120,8 @@ echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -u hoogle -
 STARTUP
 
   network_interface {
-    network       = "${google_compute_network.hoogle.name}"
-    access_config = {}
+    network = google_compute_network.hoogle.name
+    access_config {}
   }
 
   service_account {
@@ -141,15 +141,15 @@ STARTUP
 }
 
 resource "google_compute_instance_group_manager" "hoogle" {
-  provider           = "google-beta"
+  provider           = google-beta
   name               = "hoogle"
   base_instance_name = "hoogle"
-  zone               = "${local.zone}"
+  zone               = local.zone
   target_size        = "3"
 
   version {
     name              = "hoogle"
-    instance_template = "${google_compute_instance_template.hoogle.self_link}"
+    instance_template = google_compute_instance_template.hoogle.self_link
   }
 
   named_port {
@@ -163,7 +163,7 @@ resource "google_compute_instance_group_manager" "hoogle" {
   }
 
   auto_healing_policies {
-    health_check = "${google_compute_health_check.hoogle-https.self_link}"
+    health_check = google_compute_health_check.hoogle-https.self_link
 
     # Compiling hoogle takes some time
     initial_delay_sec = 2500
@@ -193,28 +193,28 @@ resource "google_compute_health_check" "hoogle-http" {
 
 resource "google_compute_backend_service" "hoogle-http" {
   name          = "hoogle-http"
-  health_checks = ["${google_compute_health_check.hoogle-http.self_link}"]
+  health_checks = [google_compute_health_check.hoogle-http.self_link]
   port_name     = "http"
 
   backend {
-    group = "${google_compute_instance_group_manager.hoogle.instance_group}"
+    group = google_compute_instance_group_manager.hoogle.instance_group
   }
 }
 
 resource "google_compute_url_map" "hoogle-http" {
   name            = "hoogle-http"
-  default_service = "${google_compute_backend_service.hoogle-http.self_link}"
+  default_service = google_compute_backend_service.hoogle-http.self_link
 }
 
 resource "google_compute_target_http_proxy" "hoogle-http" {
   name    = "hoogle-http"
-  url_map = "${google_compute_url_map.hoogle-http.self_link}"
+  url_map = google_compute_url_map.hoogle-http.self_link
 }
 
 resource "google_compute_global_forwarding_rule" "hoogle_http" {
   name       = "hoogle-http"
-  target     = "${google_compute_target_http_proxy.hoogle-http.self_link}"
-  ip_address = "${google_compute_global_address.hoogle.address}"
+  target     = google_compute_target_http_proxy.hoogle-http.self_link
+  ip_address = google_compute_global_address.hoogle.address
   port_range = "80"
 }
 
@@ -230,33 +230,33 @@ resource "google_compute_health_check" "hoogle-https" {
 
 resource "google_compute_backend_service" "hoogle-https" {
   name          = "hoogle-https"
-  health_checks = ["${google_compute_health_check.hoogle-https.self_link}"]
+  health_checks = [google_compute_health_check.hoogle-https.self_link]
   port_name     = "https"
 
   backend {
-    group = "${google_compute_instance_group_manager.hoogle.instance_group}"
+    group = google_compute_instance_group_manager.hoogle.instance_group
   }
 }
 
 resource "google_compute_url_map" "hoogle-https" {
   name            = "hoogle-https"
-  default_service = "${google_compute_backend_service.hoogle-https.self_link}"
+  default_service = google_compute_backend_service.hoogle-https.self_link
 }
 
 resource "google_compute_target_https_proxy" "hoogle-https" {
   name    = "hoogle-https"
-  url_map = "${google_compute_url_map.hoogle-https.self_link}"
+  url_map = google_compute_url_map.hoogle-https.self_link
 
-  ssl_certificates = ["${local.ssl_certificate_hoogle}"]
+  ssl_certificates = [local.ssl_certificate_hoogle]
 }
 
 resource "google_compute_global_forwarding_rule" "hoogle_https" {
   name       = "hoogle-https"
-  target     = "${google_compute_target_https_proxy.hoogle-https.self_link}"
-  ip_address = "${google_compute_global_address.hoogle.address}"
+  target     = google_compute_target_https_proxy.hoogle-https.self_link
+  ip_address = google_compute_global_address.hoogle.address
   port_range = "443"
 }
 
 output "hoogle_address" {
-  value = "${google_compute_global_address.hoogle.address}"
+  value = google_compute_global_address.hoogle.address
 }

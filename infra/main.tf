@@ -23,11 +23,11 @@ provider "secret" {
 }
 
 provider "template" {
-  version = "2.1.2"
+  version = "~>2.2"
 }
 
 data "google_project" "current" {
-  project_id = "${local.project}"
+  project_id = local.project
 }
 
 locals {
@@ -36,12 +36,10 @@ locals {
     host-group      = "buildpipeline"
     infra-owner     = "daml-language"
     managed         = "true"
-
-    # default the target name to be the name of the folder
-    target = "${basename(path.module)}"
+    target          = "infra"
   }
 
-  machine-labels = "${merge(local.labels, map("env", "production"))}"
+  machine-labels = merge(local.labels, map("env", "production"))
 
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
