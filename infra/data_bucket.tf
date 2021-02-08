@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 resource "google_storage_bucket" "data" {
-  project = "${local.project}"
+  project = local.project
   name    = "daml-data"
-  labels  = "${local.labels}"
+  labels  = local.labels
 
   # SLA is enough for a cache and is cheaper than MULTI_REGIONAL
   # see https://cloud.google.com/storage/docs/storage-classes
   storage_class = "REGIONAL"
 
   # Use a normal region since the storage_class is regional
-  location = "${local.region}"
+  location = local.region
 
   versioning {
     enabled = true
@@ -19,7 +19,7 @@ resource "google_storage_bucket" "data" {
 }
 
 resource "google_storage_bucket_acl" "data" {
-  bucket = "${google_storage_bucket.data.name}"
+  bucket = google_storage_bucket.data.name
 
   role_entity = [
     "OWNER:project-owners-${data.google_project.current.number}",
@@ -30,7 +30,7 @@ resource "google_storage_bucket_acl" "data" {
 
 // allow rw access for CI writer (see writer.tf)
 resource "google_storage_bucket_iam_member" "data_create" {
-  bucket = "${google_storage_bucket.data.name}"
+  bucket = google_storage_bucket.data.name
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectCreator"
@@ -38,7 +38,7 @@ resource "google_storage_bucket_iam_member" "data_create" {
 }
 
 resource "google_storage_bucket_iam_member" "data_read" {
-  bucket = "${google_storage_bucket.data.name}"
+  bucket = google_storage_bucket.data.name
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectViewer"
@@ -59,8 +59,8 @@ variable "appr" {
 }
 
 resource "google_storage_bucket_iam_member" "appr" {
-  count  = "${length(var.appr)}"
-  bucket = "${google_storage_bucket.data.name}"
+  count  = length(var.appr)
+  bucket = google_storage_bucket.data.name
   role   = "roles/storage.objectViewer"
-  member = "${var.appr[count.index]}"
+  member = var.appr[count.index]
 }

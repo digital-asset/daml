@@ -7,5 +7,5 @@
 resource "google_service_account" "writer" {
   account_id   = "daml-ci-writer"
   display_name = "CI Writer"
-  project      = "${local.project}"
+  project      = local.project
 }
