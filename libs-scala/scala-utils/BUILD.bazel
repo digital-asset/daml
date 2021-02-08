@@ -7,7 +7,7 @@ load(
     "da_scala_test",
     "lf_scalacopts",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -15,7 +15,9 @@ scalacopts = lf_scalacopts + [
 
 da_scala_library(
     name = "scala-utils",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]) + glob([
+        "src/main/{}/**/*.scala".format(scala_major_version),
+    ]),
     plugins = [
         "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
     ],

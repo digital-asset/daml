@@ -8,18 +8,40 @@ import scalaz.{Foldable, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 
-sealed abstract class NonEmptyColl {
+sealed abstract class NonEmptyColl extends NonEmptyCollCompat {
   type NonEmpty[+A]
   type NonEmptyF[F[_], A] <: NonEmpty[F[A]]
+
   private[scalautil] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
+  private[scalautil] def unsafeNarrow[Self](self: Self with sci.Iterable[_]): NonEmpty[Self]
+
+  /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
+    * this in an upper-bound, because that would prevent us from adding implicit
+    * methods that replace the stdlib ones.)
+    */
   def subtype[A]: NonEmpty[A] <~< A
+
+  /** Usable proof that [[NonEmptyF]] is actually equivalent to its [[NonEmpty]]
+    * parent type, not a strict subtype.  (We want Scala to treat it as a strict
+    * subtype, usually, so that the type will be deconstructed by
+    * partial-unification correctly.)
+    */
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
+  /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
   def apply[Self](self: Self with sci.Iterable[_]): Option[NonEmpty[Self]]
-  private[scalautil] def unsafeNarrow[Self](self: Self with sci.Iterable[_]): NonEmpty[Self]
+
+  /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
+    * [[sci.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
+    * to `ne` if the pattern matches.
+    *
+    * The type-checker will not permit you to apply this to a value that already
+    * has the [[NonEmpty]] type, so don't worry about redundant checks here.
+    */
+  def unapply[Self](self: Self with sci.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
 }
 
-object NonEmptyColl extends NonEmptyCollInstances {
+object NonEmptyColl extends NonEmptyCollInstances with NonEmptyCollCompat {
   private[scalautil] object Instance extends NonEmptyColl {
     type NonEmpty[+A] = A
     type NonEmptyF[F[_], A] = F[A]
@@ -66,6 +88,26 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
+
+  object RefinedOps /* extends RefinedOpsUnportable */ {
+    implicit final class `NE Map Ops`[A, CC[_], C](
+        private val self: IterableOps[A, CC, C with sci.Iterable[A]]
+    ) {
+      // def groupBy1(f: A => K): Map[
+    }
+  }
+
+  /** Total version of [[+:]]. */
+  object +-: {
+    def unapply[A, CC[_], C](t: NonEmpty[SeqOps[A, CC, C]]): Some[(A, C)] =
+      Some((t.head, t.tail))
+  }
+
+  /** Total version of [[:+]]. */
+  object :-+ {
+    def unapply[A, CC[_], C](t: NonEmpty[SeqOps[A, CC, C]]): Some[(C, A)] =
+      Some((t.init, t.last))
+  }
 }
 
 sealed abstract class NonEmptyCollInstances {
