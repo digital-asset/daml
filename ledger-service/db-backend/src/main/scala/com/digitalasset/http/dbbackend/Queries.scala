@@ -3,7 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import scala.language.higherKinds
 import com.github.ghik.silencer.silent
 
 import doobie._
@@ -163,12 +162,12 @@ sealed abstract class Queries {
       sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
     for {
       inserted <-
-        if (newParties.empty) { Applicative[ConnectionIO].pure(0) }
+        if (newParties.isEmpty) { Applicative[ConnectionIO].pure(0) }
         else {
           insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
         }
       updated <-
-        if (existingParties.empty) { Applicative[ConnectionIO].pure(0) }
+        if (existingParties.isEmpty) { Applicative[ConnectionIO].pure(0) }
         else {
           update.update.run
         }
