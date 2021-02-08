@@ -13,6 +13,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import scalaz.{@@, Tag}
 import spray.json._
 
+import scala.collection.compat.immutable.LazyList
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
 import scala.util.Try
@@ -42,10 +43,10 @@ object Request {
       applicationId: Option[ApplicationId],
   ) {
     def toQueryString() = {
-      val adminS = if (admin) Stream("admin") else Stream()
-      val actAsS = actAs.toStream.map(party => s"actAs:$party")
-      val readAsS = readAs.toStream.map(party => s"readAs:$party")
-      val applicationIdS = applicationId.toList.toStream.map(appId => s"applicationId:$appId")
+      val adminS = if (admin) LazyList("admin") else LazyList()
+      val actAsS = actAs.to(LazyList).map(party => s"actAs:$party")
+      val readAsS = readAs.to(LazyList).map(party => s"readAs:$party")
+      val applicationIdS = applicationId.toList.to(LazyList).map(appId => s"applicationId:$appId")
       (adminS ++ actAsS ++ readAsS ++ applicationIdS).mkString(" ")
     }
   }
@@ -85,7 +86,7 @@ object Request {
       Claims(admin, actAs.toList, readAs.toList, applicationId)
     }
     implicit val marshalRequestEntity: Marshaller[Claims, String] =
-      Marshaller.opaque(_.toQueryString)
+      Marshaller.opaque(_.toQueryString())
     implicit val unmarshalHttpEntity: Unmarshaller[String, Claims] =
       Unmarshaller { _ => s => Future.fromTry(Try(apply(s))) }
   }
@@ -128,7 +129,7 @@ object Response {
 
   object Login {
     val callbackParameters: Directive1[Login] =
-      parameters('error, 'error_description ?)
+      parameters(Symbol("error"), Symbol("error_description") ?)
         .as[LoginError](LoginError)
         .or(provide(LoginSuccess))
   }

@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "silencer_plugin",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
@@ -78,6 +79,16 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
     ],
+    plugins = [silencer_plugin],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -103,10 +114,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -131,6 +138,12 @@ da_scala_library(
             "//ledger/test-common/test-certificates",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalatestplus_scalacheck_1_14",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
         deps = [
             ":test-utils",
             "//bazel_tools/runfiles:scala_runfiles",
@@ -158,10 +171,6 @@ da_scala_library(
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
             "//triggers/runner:trigger-runner-lib",
-            "@maven//:com_typesafe_akka_akka_stream_2_12",
-            "@maven//:org_scalacheck_scalacheck_2_12",
-            "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-            "@maven//:org_scalaz_scalaz_core_2_12",
         ],
     )
     for lf_version in DAML_LF_VERSIONS

@@ -310,37 +310,55 @@ object Converter {
   }
 
   private def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
-    value expect ("RelTime", { case SRecord(_, _, JavaList(SInt64(microseconds))) =>
-      FiniteDuration(microseconds, MICROSECONDS)
-    })
+    value.expect(
+      "RelTime",
+      { case SRecord(_, _, JavaList(SInt64(microseconds))) =>
+        FiniteDuration(microseconds, MICROSECONDS)
+      },
+    )
 
   private def toIdentifier(v: SValue): Either[String, Identifier] =
-    v expect ("STypeRep", { case STypeRep(TTyCon(id)) =>
-      id
-    })
+    v.expect(
+      "STypeRep",
+      { case STypeRep(TTyCon(id)) =>
+        id
+      },
+    )
 
   private def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
-    v expectE ("TemplateTypeRep", { case SRecord(_, _, JavaList(id)) =>
-      toIdentifier(id)
-    })
+    v.expectE(
+      "TemplateTypeRep",
+      { case SRecord(_, _, JavaList(id)) =>
+        toIdentifier(id)
+      },
+    )
 
   private def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
-    v expectE ("RegisteredTemplate", { case SRecord(_, _, JavaList(sttr)) =>
-      toTemplateTypeRep(sttr)
-    })
+    v.expectE(
+      "RegisteredTemplate",
+      { case SRecord(_, _, JavaList(sttr)) =>
+        toTemplateTypeRep(sttr)
+      },
+    )
 
   private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
-    v expectE ("list of RegisteredTemplate", { case SList(tpls) =>
-      tpls.traverse(toRegisteredTemplate).map(_.toImmArray.toSeq)
-    })
+    v.expectE(
+      "list of RegisteredTemplate",
+      { case SList(tpls) =>
+        tpls.traverse(toRegisteredTemplate).map(_.toImmArray.toSeq)
+      },
+    )
 
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] =
-    v expectE ("AnyContractId", { case SRecord(_, _, JavaList(stid, scid)) =>
-      for {
-        templateId <- toTemplateTypeRep(stid)
-        contractId <- toContractId(scid)
-      } yield AnyContractId(templateId, contractId)
-    })
+    v.expectE(
+      "AnyContractId",
+      { case SRecord(_, _, JavaList(stid, scid)) =>
+        for {
+          templateId <- toTemplateTypeRep(stid)
+          contractId <- toContractId(scid)
+        } yield AnyContractId(templateId, contractId)
+      },
+    )
 
   private[this] def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {
@@ -361,35 +379,45 @@ object Converter {
     }
 
   private def toAnyContractKey(v: SValue): Either[String, AnyContractKey] =
-    v expect ("AnyContractKey", { case SRecord(_, _, JavaList(SAny(_, v), _)) =>
-      AnyContractKey(v)
-    })
+    v.expect(
+      "AnyContractKey",
+      { case SRecord(_, _, JavaList(SAny(_, v), _)) =>
+        AnyContractKey(v)
+      },
+    )
 
   private[this] def toCreate(v: SValue): Either[String, CreateCommand] =
-    v expectE ("CreateCommand", { case SRecord(_, _, JavaList(sTpl)) =>
-      for {
-        anyTmpl <- toAnyTemplate(sTpl)
-        templateArg <- toLedgerRecord(anyTmpl.arg)
-      } yield CreateCommand(Some(toApiIdentifier(anyTmpl.ty)), Some(templateArg))
-    })
+    v.expectE(
+      "CreateCommand",
+      { case SRecord(_, _, JavaList(sTpl)) =>
+        for {
+          anyTmpl <- toAnyTemplate(sTpl)
+          templateArg <- toLedgerRecord(anyTmpl.arg)
+        } yield CreateCommand(Some(toApiIdentifier(anyTmpl.ty)), Some(templateArg))
+      },
+    )
 
   private[this] def toExercise(v: SValue): Either[String, ExerciseCommand] =
-    v expectE ("ExerciseCommand", { case SRecord(_, _, JavaList(sAnyContractId, sChoiceVal)) =>
-      for {
-        anyContractId <- toAnyContractId(sAnyContractId)
-        anyChoice <- toAnyChoice(sChoiceVal)
-        choiceArg <- toLedgerValue(anyChoice.arg)
-      } yield ExerciseCommand(
-        Some(toApiIdentifier(anyContractId.templateId)),
-        anyContractId.contractId.coid,
-        anyChoice.name,
-        Some(choiceArg),
-      )
-    })
+    v.expectE(
+      "ExerciseCommand",
+      { case SRecord(_, _, JavaList(sAnyContractId, sChoiceVal)) =>
+        for {
+          anyContractId <- toAnyContractId(sAnyContractId)
+          anyChoice <- toAnyChoice(sChoiceVal)
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield ExerciseCommand(
+          Some(toApiIdentifier(anyContractId.templateId)),
+          anyContractId.contractId.coid,
+          anyChoice.name,
+          Some(choiceArg),
+        )
+      },
+    )
 
   private[this] def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
-    v expectE ("ExerciseByKeyCommand", {
-      case SRecord(_, _, JavaList(stplId, skeyVal, sChoiceVal)) =>
+    v.expectE(
+      "ExerciseByKeyCommand",
+      { case SRecord(_, _, JavaList(stplId, skeyVal, sChoiceVal)) =>
         for {
           tplId <- toTemplateTypeRep(stplId)
           keyVal <- toAnyContractKey(skeyVal)
@@ -402,22 +430,26 @@ object Converter {
           anyChoice.name,
           Some(choiceArg),
         )
-    })
+      },
+    )
 
   private[this] def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
-    v expectE ("CreateAndExerciseCommand", { case SRecord(_, _, JavaList(sTpl, sChoiceVal)) =>
-      for {
-        anyTmpl <- toAnyTemplate(sTpl)
-        templateArg <- toLedgerRecord(anyTmpl.arg)
-        anyChoice <- toAnyChoice(sChoiceVal)
-        choiceArg <- toLedgerValue(anyChoice.arg)
-      } yield CreateAndExerciseCommand(
-        Some(toApiIdentifier(anyTmpl.ty)),
-        Some(templateArg),
-        anyChoice.name,
-        Some(choiceArg),
-      )
-    })
+    v.expectE(
+      "CreateAndExerciseCommand",
+      { case SRecord(_, _, JavaList(sTpl, sChoiceVal)) =>
+        for {
+          anyTmpl <- toAnyTemplate(sTpl)
+          templateArg <- toLedgerRecord(anyTmpl.arg)
+          anyChoice <- toAnyChoice(sChoiceVal)
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield CreateAndExerciseCommand(
+          Some(toApiIdentifier(anyTmpl.ty)),
+          Some(templateArg),
+          anyChoice.name,
+          Some(choiceArg),
+        )
+      },
+    )
 
   private def toCommand(v: SValue): Either[String, Command] = {
     v match {
@@ -443,9 +475,12 @@ object Converter {
 
   private def toCommands(v: SValue): Either[String, Seq[Command]] =
     for {
-      cmdValues <- v expect ("[Command]", { case SList(cmdValues) =>
-        cmdValues
-      })
+      cmdValues <- v.expect(
+        "[Command]",
+        { case SList(cmdValues) =>
+          cmdValues
+        },
+      )
       commands <- cmdValues.traverse(toCommand)
     } yield commands.toImmArray.toSeq
 

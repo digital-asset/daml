@@ -22,7 +22,7 @@ object Config {
   private val Empty =
     Config(port = Port.Dynamic, ledgerId = null, jwtSecret = null, clock = None)
 
-  def parseConfig(args: Seq[String]): Option[Config] =
+  def parseConfig(args: collection.Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

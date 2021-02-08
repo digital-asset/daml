@@ -8,7 +8,6 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.data.Ref._
 import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import java.io.File

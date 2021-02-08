@@ -72,7 +72,7 @@ object Resources {
               concat(
                 path("authorize") {
                   get {
-                    parameters('claims.as[Claims]) { claims =>
+                    parameters(Symbol("claims").as[Claims]) { claims =>
                       client.authorize(claims) {
                         case Client.Authorized(authorization) =>
                           import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
@@ -93,7 +93,7 @@ object Resources {
                 },
                 path("login") {
                   get {
-                    parameters('claims.as[Claims]) { claims =>
+                    parameters(Symbol("claims").as[Claims]) { claims =>
                       import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
                       import com.daml.auth.middleware.api.JsonProtocol.ResponseLoginFormat
                       client.login(claims, login => complete(StatusCodes.OK, login))

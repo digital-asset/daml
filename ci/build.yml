@@ -178,6 +178,7 @@ jobs:
           //ledger-api/... \
           //ledger/... \
           //ledger-service/... \
+          //triggers/... \
           -//ledger-service/http-json/... \
           -//ledger-service/http-json-perf/... \
           -//ledger-service/http-json-testing/... \
@@ -195,6 +196,7 @@ jobs:
           //ledger/... \
           //ledger-service/... \
           //daml-script/dump/... \
+          //triggers/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
