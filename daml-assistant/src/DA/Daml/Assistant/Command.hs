@@ -136,7 +136,7 @@ defaultCompleter = mkCompleter $ \word -> do
 -- The implementation here is a variant of optparse-applicative’s `bashCompleter`.
   let cmd = unwords ["compgen", "-o", "bashdefault", "-o", "default", "--", requote word]
   result <- tryIO $ readProcess "bash" ["-c", cmd] ""
-  return . lines . either (const []) id $ result
+  return . lines . fromRight [] $ result
 
 -- | Strongly quote the string we pass to compgen.
 --

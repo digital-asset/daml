@@ -150,8 +150,7 @@ update_s3 opts temp vs = do
         -- Not going through Aeson because it represents JSON objects as
         -- unordered maps, and here order matters.
         versions_json vs = vs
-                           & map show
-                           & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
+                           & map ((\s -> "\"" <> s <> "\": \"" <> s <> "\"") . show)
                            & Data.List.intercalate ", "
                            & \s -> "{" <> s <> "}"
         push text name = do

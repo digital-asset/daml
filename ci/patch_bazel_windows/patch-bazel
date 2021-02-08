@@ -1,9 +1,28 @@
+From 167bee5cd95f679dc4c4e1ff732a4e251ef12633 Mon Sep 17 00:00:00 2001
+From: Jakob Buchgraber <buchgr@google.com>
+Date: Thu, 25 Jul 2019 16:55:21 +0200
+Subject: [PATCH] Enable sandboxing and remote caching for the "exclusive" tag
+
+There's no good reason why tests tagged with exclusive shouldn't
+be able to use sandboxing and/or remote caching. The current
+limitations have been kept from open sourcing Bazel and have
+never been revisited since.
+
+Remote execution will continue to be disabled because Bazel
+can't control what else is running on a remote machine.
+---
+ .../templates/attributes/common/tags.html     |  5 ++--
+ .../analysis/test/TestTargetProperties.java   |  5 +++-
+ .../rules/test/TestTargetPropertiesTest.java  | 19 +++++++++++++
+ .../bazel/remote/remote_execution_test.sh     | 28 +++++++++++++++++++
+ 4 files changed, 54 insertions(+), 3 deletions(-)
+
 diff --git a/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html b/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html
-index e665cc4a34..7f8cdf493d 100644
+index 7660791878..8211580098 100644
 --- a/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html
 +++ b/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html
 @@ -86,8 +86,9 @@
-   <li><code>exclusive</code> keyword will force the test to be run in the
+   <li><code>exclusive</code> will force the test to be run in the
      &quot;exclusive&quot; mode, ensuring that no other tests are running at the
      same time. Such tests will be executed in serial fashion after all build
 -    activity and non-exclusive tests have been completed. They will also always
@@ -13,12 +32,12 @@ index e665cc4a34..7f8cdf493d 100644
 +    running on a remote machine.
    </li>
  
-   <li><code>manual</code> keyword will force the test target to not be included in target pattern
+   <li><code>manual</code> keyword will exclude the target from expansion of target pattern wildcards
 diff --git a/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java b/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java
-index 214969c1a8..0de7325853 100644
+index 0493dc69b1..580b072d9b 100644
 --- a/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java
 +++ b/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java
-@@ -87,9 +87,12 @@ public class TestTargetProperties {
+@@ -94,9 +94,12 @@ public class TestTargetProperties {
  
      Map<String, String> executionInfo = Maps.newLinkedHashMap();
      executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
@@ -32,38 +51,6 @@ index 214969c1a8..0de7325853 100644
  
      if (executionRequirements != null) {
        // This will overwrite whatever TargetUtils put there, which might be confusing.
-diff --git a/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java b/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
-index b55046dfe3..5271532d8b 100644
---- a/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
-+++ b/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
-@@ -1031,6 +1031,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
-         looseHdrsDirs = Sets.newHashSet(ccCompilationContext.getLooseHdrsDirs().toList());
-       }
-       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, looseHdrsDirs)) {
-+        System.err.println("DA-DEBUG: isDeclaredIn was false" + input.getExecPath().toString());
-         errors.add(input.getExecPath().toString());
-       }
-     }
-diff --git a/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java b/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
-index 013e47d499..761fb2e28c 100644
---- a/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
-+++ b/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
-@@ -154,6 +154,7 @@ public class HeaderDiscovery {
-               LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                   execPath.relativeTo(execRoot.getParentDirectory()));
-         } else {
-+          System.err.println("DA-DEBUG: Absolute path " + execPathFragment.getPathString() + " outside of execroot " + execRoot);
-           problems.add(execPathFragment.getPathString());
-           continue;
-         }
-@@ -181,6 +182,7 @@ public class HeaderDiscovery {
- 
-       // Abort if we see files that we can't resolve, likely caused by
-       // undeclared includes or illegal include constructs.
-+      System.err.println("DA-DEBUG: Valid system includes: " + permittedSystemIncludePrefixes.toString());
-       problems.add(execPathFragment.getPathString());
-     }
-     if (shouldValidateInclusions) {
 diff --git a/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java b/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java
 index 5571f5fcde..0c0b113bba 100644
 --- a/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java
@@ -100,11 +87,11 @@ index 5571f5fcde..0c0b113bba 100644
 +  }
  }
 diff --git a/src/test/shell/bazel/remote/remote_execution_test.sh b/src/test/shell/bazel/remote/remote_execution_test.sh
-index 9d9ff41dfb..4ed6f3c24d 100755
+index 03c5e68f96..cc99912ae8 100755
 --- a/src/test/shell/bazel/remote/remote_execution_test.sh
 +++ b/src/test/shell/bazel/remote/remote_execution_test.sh
-@@ -1845,6 +1845,34 @@ EOF
-     @default_foo//:all
+@@ -2141,6 +2141,34 @@ EOF
+     @local_foo//:all
  }
  
 +function test_exclusive_tag() {

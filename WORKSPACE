@@ -331,17 +331,11 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-nix_ghc_deps = common_nix_file_deps + [
-    "//nix:ghc.nix",
-    "//nix:overrides/ghc-8.10.3.nix",
-    "//nix:overrides/ghc-8.6.3-binary.nix",
-]
-
 nixpkgs_package(
     name = "hlint_nix",
     attribute_path = "hlint",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = nix_ghc_deps,
+    nix_file_deps = common_nix_file_deps,
     # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
     # confuses the JAR query in `daml-sdk-head`.
     quiet = True,
@@ -407,7 +401,7 @@ package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
 """,
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = nix_ghc_deps,
+    nix_file_deps = common_nix_file_deps,
     # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
     # confuses the JAR query in `daml-sdk-head`.
     quiet = True,
@@ -449,7 +443,7 @@ haskell_register_ghc_nixpkgs(
     },
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = nix_ghc_deps,
+    nix_file_deps = common_nix_file_deps,
     repl_ghci_args = [
         "-O0",
         "-fexternal-interpreter",
