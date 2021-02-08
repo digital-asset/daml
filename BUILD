@@ -9,6 +9,7 @@ load(
     "c2hs_toolchain",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
+load("//bazel_tools:scala.bzl", "da_scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
 
@@ -131,6 +132,33 @@ da_haskell_library(
         "ghc-lib-parser",
         "split",
     ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "sdk-version-scala",
+    srcs = [],
+    outs = ["SdkVersion.scala"],
+    cmd = """
+        cat > $@ <<EOF
+package com.daml
+
+object SdkVersion {{
+  val sdkVersion: String = "{sdk}"
+
+  val mvnVersion: String = "{mvn}"
+}}
+
+EOF
+    """.format(
+        mvn = mvn_version,
+        sdk = sdk_version,
+    ),
+)
+
+da_scala_library(
+    name = "sdk-version-scala-lib",
+    srcs = [":sdk-version-scala"],
     visibility = ["//visibility:public"],
 )
 
