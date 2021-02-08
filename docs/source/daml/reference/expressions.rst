@@ -11,7 +11,7 @@ This page gives reference information for Daml expressions that are not :doc:`up
 Definitions
 ***********
 
-Use assignement to bind values or functions at the top level of a Daml file or in a contract template body.
+Use assignment to bind values or functions at the top level of a Daml file or in a contract template body.
 
 Values
 ======

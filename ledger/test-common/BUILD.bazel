@@ -15,9 +15,23 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "lf_dev_version",
+    "lf_latest_version",
+    "lf_preview_version",
     "lf_stable_version",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
+
+# Tuples of (lf_version, name_suffix)
+# The DAML files are compiled once for each daml-lf version listed here.
+test_common_configurations = [
+    (lf_stable_version, ""),
+    (lf_latest_version, "-latest"),
+    (lf_dev_version, "-dev"),
+] + [
+    (v, "-preview")
+    for v in lf_preview_version
+]
 
 da_scala_library(
     name = "test-common",
@@ -37,49 +51,53 @@ da_scala_library(
 [
     [
         daml_compile(
-            name = "%s-tests" % test_name,
+            name = "%s-tests%s" % (test_name, target_suffix),
             srcs = glob(["src/main/daml/%s/*.daml" % test_name]),
             target = target,
             visibility = ["//visibility:public"],
         ),
         dar_to_scala(
-            name = "%s-tests.scala-codegen" % test_name,
-            srcs = [":%s-tests.dar" % test_name],
+            name = "%s-tests%s.scala-codegen" % (test_name, target_suffix),
+            srcs = [":%s-tests%s.dar" % (test_name, target_suffix)],
             package_prefix = "com.daml.ledger.test.%s" % test_name,
-            srcjar_out = "%s.scala.srcjar" % test_name,
+            srcjar_out = "%s%s.scala.srcjar" % (test_name, target_suffix),
             verbosity = 2,
             visibility = ["//visibility:public"],
         ),
         da_scala_library(
-            name = "%s-tests.scala" % test_name,
-            srcs = [":%s-tests.scala-codegen" % test_name],
+            name = "%s-tests%s.scala" % (test_name, target_suffix),
+            srcs = [":%s-tests%s.scala-codegen" % (test_name, target_suffix)],
             visibility = ["//visibility:public"],
             deps = [
                 "//language-support/scala/bindings",
             ] + extra_deps,
         ) if scala_major_version == "2.12" else None,
     ]
-    for (test_name, target, extra_deps) in [
+    for (test_name, extra_deps) in [
         (
             "model",
-            lf_stable_version,
             ["@maven//:org_scala_lang_modules_scala_collection_compat_2_12"],
         ),
         (
             "semantic",
-            lf_stable_version,
             ["@maven//:org_scala_lang_modules_scala_collection_compat_2_12"],
         ),
-        ("performance", lf_stable_version, []),
+        ("performance", []),
     ]
+    for (target, target_suffix) in test_common_configurations
 ]
 
-filegroup(
-    name = "dar-files",
-    srcs = [
-        ":model-tests.dar",
-        ":performance-tests.dar",
-        ":semantic-tests.dar",
-    ],
-    visibility = ["//visibility:public"],
-)
+[
+    [
+        filegroup(
+            name = "dar-files%s" % target_suffix,
+            srcs = [
+                ":model-tests%s.dar" % target_suffix,
+                ":performance-tests%s.dar" % target_suffix,
+                ":semantic-tests%s.dar" % target_suffix,
+            ],
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for (target, target_suffix) in test_common_configurations
+]

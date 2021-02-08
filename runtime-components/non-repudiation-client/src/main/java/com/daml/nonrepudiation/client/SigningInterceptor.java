@@ -7,8 +7,8 @@ import com.daml.nonrepudiation.Fingerprints;
 import com.daml.nonrepudiation.Headers;
 import com.daml.nonrepudiation.Signatures;
 import io.grpc.*;
-import java.security.KeyPair;
 import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 
 /**
  * A gRPC client-side interceptor that uses a key pair to sign a payload and adds it as metadata to
@@ -20,11 +20,11 @@ public final class SigningInterceptor implements ClientInterceptor {
   private final byte[] fingerprint;
   private final String algorithm;
 
-  public SigningInterceptor(KeyPair keyPair, String signingAlgorithm) {
+  public SigningInterceptor(PrivateKey key, X509Certificate certificate) {
     super();
-    this.key = keyPair.getPrivate();
-    this.algorithm = signingAlgorithm;
-    this.fingerprint = Fingerprints.compute(keyPair.getPublic());
+    this.key = key;
+    this.algorithm = certificate.getSigAlgName();
+    this.fingerprint = Fingerprints.compute(certificate);
   }
 
   @Override

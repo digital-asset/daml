@@ -158,6 +158,7 @@ def install_java_deps():
             "org.slf4j:slf4j-simple:1.7.26",
             "org.typelevel:kind-projector_{}:0.11.2".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.9.2".format(scala_major_version),
+            "org.tpolecat:doobie-hikari_{}:0.9.2".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.9.2".format(scala_major_version),
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.10".format(scala_version),

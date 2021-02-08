@@ -13,7 +13,7 @@ private[sandboxnext] object Cli extends SandboxCli {
   override def defaultConfig: SandboxConfig = SandboxConfig.defaultConfig
 
   override protected val parser: OptionParser[SandboxConfig] = {
-    val parser = new CommonCli(Name).withEarlyAccess
+    val parser = new CommonCli(Name).withEarlyAccess.withDevEngine
       .withContractIdSeeding(
         defaultConfig,
         Some(Seeding.Strong),

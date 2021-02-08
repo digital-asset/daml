@@ -3,7 +3,9 @@
 
 package com.daml.nonrepudiation
 
-import java.security.{KeyPairGenerator, PublicKey}
+import java.security.PrivateKey
+import java.security.cert.X509Certificate
+import java.time.{Clock, Duration, Instant, ZoneId}
 
 import com.daml.grpc.test.GrpcServer
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
@@ -13,6 +15,8 @@ import io.grpc.{Channel, StatusRuntimeException}
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sun.security.tools.keytool.CertAndKeyGen
+import sun.security.x509.X500Name
 
 import scala.collection.concurrent.TrieMap
 
@@ -32,16 +36,18 @@ final class NonRepudiationProxySpec
     Health.newInstance,
     Reflection.newInstance,
   ) { channel =>
-    val Setup(keys, signedPayloads, proxyBuilder, proxyChannel) = Setup.newInstance[String]
-    val keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair()
-    keys.put(keyPair.getPublic)
+    val Setup(certificates, signedPayloads, privateKey, certificate, proxyBuilder, proxyChannel) =
+      Setup.newInstance[String]
+    val expectedTimestamp = Instant.ofEpochMilli(42)
+    val timestampProvider = Clock.fixed(expectedTimestamp, ZoneId.systemDefault())
 
     NonRepudiationProxy
       .owner(
         participant = channel,
         serverBuilder = proxyBuilder,
-        keyRepository = keys,
+        certificateRepository = certificates,
         signedPayloadRepository = signedPayloads,
+        timestampProvider = timestampProvider,
         Health.Name,
       )
       .use { _ =>
@@ -55,12 +61,12 @@ final class NonRepudiationProxySpec
           signedPayloads.keyEncoder.encode(expectedPayload)
 
         val expectedFingerprint =
-          FingerprintBytes.compute(keyPair.getPublic)
+          FingerprintBytes.compute(certificate)
 
         val expectedSignature =
           SignatureBytes.sign(
             expectedAlgorithm,
-            keyPair.getPrivate,
+            privateKey,
             expectedPayload,
           )
 
@@ -70,12 +76,13 @@ final class NonRepudiationProxySpec
             expectedFingerprint,
             expectedPayload,
             expectedSignature,
+            expectedTimestamp,
           )
 
         val result =
           Health.getHealthStatus(
             proxyChannel,
-            new SigningInterceptor(keyPair, expectedAlgorithm),
+            new SigningInterceptor(privateKey, certificate),
           )
 
         result shouldEqual Health.getHealthStatus(channel)
@@ -91,14 +98,16 @@ final class NonRepudiationProxySpec
     Health.newInstance,
     Reflection.newInstance,
   ) { channel =>
-    val Setup(keys, signatures, proxyBuilder, proxyChannel) = Setup.newInstance[String]
+    val Setup(certificates, signatures, _, _, proxyBuilder, proxyChannel) =
+      Setup.newInstance[String]
 
     NonRepudiationProxy
       .owner(
         participant = channel,
         serverBuilder = proxyBuilder,
-        keyRepository = keys,
+        certificateRepository = certificates,
         signedPayloadRepository = signatures,
+        timestampProvider = Clock.systemUTC(),
         Health.Name,
       )
       .use { _ =>
@@ -108,20 +117,22 @@ final class NonRepudiationProxySpec
       }
   }
 
-  it should "reject requests with an unknown signature" in withServices(
+  it should "reject requests signed with an unknown key" in withServices(
     Health.newInstance,
     Reflection.newInstance,
   ) { channel =>
-    val Setup(keys, signatures, proxyBuilder, proxyChannel) = Setup.newInstance[String]
-    val keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair()
+    val Setup(certificates, signatures, _, _, proxyBuilder, proxyChannel) =
+      Setup.newInstance[String]
+
+    val (privateKey, certificate) = Setup.generateKeyAndCertificate()
 
     NonRepudiationProxy
-      .owner(channel, proxyBuilder, keys, signatures, Health.Name)
+      .owner(channel, proxyBuilder, certificates, signatures, Clock.systemUTC(), Health.Name)
       .use { _ =>
         the[StatusRuntimeException] thrownBy {
           Health.getHealthStatus(
             proxyChannel,
-            new SigningInterceptor(keyPair, AlgorithmString.SHA256withRSA),
+            new SigningInterceptor(privateKey, certificate),
           )
         } should have message SignatureVerificationFailed.asRuntimeException.getMessage
       }
@@ -132,21 +143,36 @@ final class NonRepudiationProxySpec
 object NonRepudiationProxySpec {
 
   final case class Setup[Key](
-      keys: KeyRepository,
+      certificates: CertificateRepository,
       signedPayloads: SignedPayloadRepository[Key],
+      privateKey: PrivateKey,
+      certificate: X509Certificate,
       proxyBuilder: InProcessServerBuilder,
       proxyChannel: Channel,
   )
 
   object Setup {
 
+    def generateKeyAndCertificate(): (PrivateKey, X509Certificate) = {
+      val generator = new CertAndKeyGen(AlgorithmString.RSA, AlgorithmString.SHA256withRSA)
+      generator.generate(2048)
+      val privateKey = generator.getPrivateKey
+      val certificate = generator.getSelfCertificate(
+        new X500Name("CN=Non-Repudiation Test,O=Digital Asset,L=Zurich,C=CH"),
+        Duration.ofHours(1).getSeconds,
+      )
+      (privateKey, certificate)
+    }
+
     def newInstance[Key: KeyEncoder]: Setup[Key] = {
-      val keys = new Keys
+      val certificates = new Certificates
       val signatures = new SignedPayloads
       val proxyName = InProcessServerBuilder.generateName()
       val proxyBuilder = InProcessServerBuilder.forName(proxyName)
       val proxyChannel = InProcessChannelBuilder.forName(proxyName).build()
-      Setup(keys, signatures, proxyBuilder, proxyChannel)
+      val (privateKey, certificate) = generateKeyAndCertificate()
+      certificates.put(certificate)
+      Setup(certificates, signatures, privateKey, certificate, proxyBuilder, proxyChannel)
     }
 
   }
@@ -161,18 +187,16 @@ object NonRepudiationProxySpec {
       map.get(key).toList
   }
 
-  final class Keys(keys: PublicKey*) extends KeyRepository {
+  final class Certificates extends CertificateRepository {
 
-    private val map: TrieMap[FingerprintBytes, PublicKey] = TrieMap(
-      keys.map(key => FingerprintBytes.compute(key) -> key): _*
-    )
+    private val map = TrieMap.empty[FingerprintBytes, X509Certificate]
 
-    override def get(fingerprint: FingerprintBytes): Option[PublicKey] =
+    override def get(fingerprint: FingerprintBytes): Option[X509Certificate] =
       map.get(fingerprint)
 
-    override def put(key: PublicKey): FingerprintBytes = {
-      val fingerprint = FingerprintBytes.compute(key)
-      map.put(fingerprint, key)
+    override def put(certificate: X509Certificate): FingerprintBytes = {
+      val fingerprint = FingerprintBytes.compute(certificate)
+      map.put(fingerprint, certificate)
       fingerprint
     }
   }

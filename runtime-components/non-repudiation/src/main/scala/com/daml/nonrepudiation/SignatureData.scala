@@ -10,12 +10,4 @@ final case class SignatureData(
     fingerprint: FingerprintBytes,
     key: PublicKey,
     signature: SignatureBytes,
-) {
-  def toSignedPayload(payload: Array[Byte]): SignedPayload =
-    SignedPayload(
-      algorithm = algorithm,
-      fingerprint = fingerprint,
-      payload = PayloadBytes.wrap(payload),
-      signature = signature,
-    )
-}
+)

@@ -9,8 +9,15 @@ import scala.concurrent.ExecutionContext
 
 object Main {
   def main(args: Array[String]): Unit =
-    IntegrityChecker.run(args, commitStrategySupportFactory _)
+    IntegrityChecker.run(args, preExecutionCommitStrategySupportFactory _)
 
-  private def commitStrategySupportFactory(metrics: Metrics, executionContext: ExecutionContext) =
-    new LogAppendingCommitStrategySupport(metrics)(executionContext)
+  def batchingCommitStrategySupportFactory(
+      metrics: Metrics,
+      executionContext: ExecutionContext,
+  ) = new LogAppendingCommitStrategySupport(metrics)(executionContext)
+
+  def preExecutionCommitStrategySupportFactory(
+      metrics: Metrics,
+      executionContext: ExecutionContext,
+  ) = new RawPreExecutingCommitStrategySupport(metrics)(executionContext)
 }

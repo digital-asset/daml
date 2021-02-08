@@ -12,7 +12,7 @@ import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.{OptionParser, Read}
 
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
 object Cli {
@@ -203,12 +203,13 @@ object Cli {
     opt[Unit]("version")
       .optional()
       .action((_, _) => {
-        println(BuildInfo.Version); sys.exit(0)
+        println(BuildInfo.Version)
+        sys.exit(0)
       })
       .text("Prints the version on stdout and exit.")
 
-    opt[Duration]("ledger-clock-granularity")(
-      oneOfRead(Read.durationRead, Read.intRead.map(_.millis))
+    opt[FiniteDuration]("ledger-clock-granularity")(
+      oneOfRead(Read.finiteDurationRead, Read.intRead.map(_.millis))
     )
       .optional()
       .action((x, c) => c.copy(ledgerClockGranularity = x))

@@ -82,7 +82,7 @@ Reading can be scaled out by building caches of the ledger contents; as the proj
 To ensure ledger integrity, the writing component must preserve the ledger's :ref:`validity conditions <da-model-validity>`.
 Writing can thus be further split up into three sub-components, one for each of the three validity conditions:
 
-1. :ref:`model conformance <da-model-conformance>` checks (i.e., Daml intepretation),
+1. :ref:`model conformance <da-model-conformance>` checks (i.e., Daml interpretation),
 #. :ref:`authorization <da-model-authorization>` checks, and
 #. :ref:`consistency <da-model-consistency>` checks.
 

@@ -155,7 +155,7 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` conctract.
+Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` contract.
 It is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.

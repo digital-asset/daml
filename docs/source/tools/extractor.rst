@@ -282,7 +282,7 @@ This is how the ``contract`` table looks:
 .. figure:: images/contracts.png
    :align: center
 
-You can see that the ``archived_by_transacion_id`` and ``archived_by_event_id`` fields of contract ``#0:0`` is not empty, thus this contract is archived. These fields of contracts ``#1:1`` and ``#2:0`` are ``NULL`` s, which mean they are active contracts, not yet archived.
+You can see that the ``archived_by_transaction_id`` and ``archived_by_event_id`` fields of contract ``#0:0`` is not empty, thus this contract is archived. These fields of contracts ``#1:1`` and ``#2:0`` are ``NULL`` s, which mean they are active contracts, not yet archived.
 
 This is how the ``exercise`` table looks:
 

@@ -8,6 +8,9 @@ module Daml.Script
   , submitMustFail
   , submitMulti
   , submitMultiMustFail
+  , submitTree
+  , submitTreeMulti
+  , createdCid
   , query
   , queryContractId
   , queryContractKey
@@ -32,10 +35,17 @@ module Daml.Script
   , passTime
   , sleep
   , script
+  , TransactionTree(..)
+  , TreeEvent(..)
+  , Created(..)
+  , Exercised(..)
+  , AnyContractId
+  , fromAnyContractId
   ) where
 
 import DA.Functor
 import DA.NonEmpty (NonEmpty(..))
+import DA.List.Total
 import DA.Optional
 import DA.Stack
 import DA.Time
@@ -75,6 +85,7 @@ newtype Commands a = Commands (Ap CommandsF a)
 data ScriptF a
   = Submit (SubmitCmd a)
   | SubmitMustFail (SubmitMustFailCmd a)
+  | SubmitTree (SubmitTreePayload a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
   | QueryContractKey (QueryContractKeyPayload a)
@@ -452,3 +463,128 @@ lift m = Script with
 -- it is implemented using `script` or not.
 script : Script a -> Script a
 script = identity
+
+-- | HIDE This is an early access feature.
+data TransactionTree = TransactionTree
+  with
+    rootEvents: [TreeEvent]
+  deriving Show
+
+-- | HIDE Select a contract id using a list of child indices.
+-- TODO (MK) Come up with a clearer API for this.
+createdCid : Template t => [Int] -> TransactionTree -> ContractId t
+createdCid [] _ = error "List of selectors passed to createdCid was empty"
+createdCid (i :: ss) (TransactionTree evs) =
+  case evs !! i of
+    None ->
+      error $ "Transaction tree has only " <> show (length evs) <> " root events but selected " <> show i
+    Some t -> createdCidGo ss t
+
+createdCidGo : Template t => [Int] -> TreeEvent -> ContractId t
+createdCidGo [] (CreatedEvent (Created cid _)) =
+  case fromAnyContractId cid of
+    None -> error "createdCid selected a create node of the wrong template type"
+    Some cid -> cid
+createdCidGo [] (ExercisedEvent _) =
+  error "createdCid selected an exercise event"
+createdCidGo ss@(_ :: _) (CreatedEvent _) =
+  error $ "createdCid reached created event before the following selectors have been applied: " <> show ss
+createdCidGo (i :: ss) (ExercisedEvent ex) =
+  case ex.childEvents !! i of
+    None ->
+      error $
+        "Exercised event has only " <>
+        show (length ex.childEvents) <> " child events but selected " <>
+        show i
+    Some e -> createdCidGo ss e
+
+-- | HIDE This is an early access feature.
+data TreeEvent
+  = CreatedEvent Created
+  | ExercisedEvent Exercised
+  deriving Show
+
+-- | HIDE This is an early access feature.
+data Created = Created
+  with
+    contractId : AnyContractId
+    argument : AnyTemplate
+
+-- | Custom Show instance since we cannot show AnyTemplate
+instance Show Created where
+  showsPrec d (Created contractId _) =
+    showString "Created {" .
+    showString "contractId = " .
+    showsPrec 0 contractId .
+    showString "}"
+
+-- | HIDE This is an early access feature.
+data Exercised = Exercised
+  with
+    contractId : AnyContractId
+    choice : Text
+    argument : AnyChoice
+    childEvents: [TreeEvent]
+
+-- | Custom Show instance since we cannot
+-- show AnyChoice.
+instance Show Exercised where
+  showsPrec d (Exercised cid choice _arg childEvents) =
+    showString "Exercised {" .
+    showString "contractId = " .
+    showsPrec 0 cid .
+    showCommaSpace .
+    showString "choice = " .
+    showsPrec 0 choice .
+    showCommaSpace .
+    showString "childEvents = " .
+    showsPrec 0 childEvents .
+    showString "}"
+
+-- | HIDE This is an early access feature
+data AnyContractId = AnyContractId
+  { templateId : TemplateTypeRep
+  , contractId : ContractId ()
+  } deriving Eq
+
+instance Show AnyContractId where
+  showsPrec d (AnyContractId _ cid) = showParen (d > app_prec) $
+    showString "AnyContractId " . showsPrec (app_prec +1) cid
+    where app_prec = 10
+
+-- | HIDE This is an early access feature.
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId cid
+  | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
+  | otherwise = None
+
+data SubmitTreePayload a = SubmitTreePayload
+  with
+    actAs : NonEmpty Party
+    readAs : [Party]
+    commands : Commands ()
+    continue : TransactionTree -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+-- | HIDE Equivalent to `submit` but returns the full transaction tree.
+-- This is an early access feature.
+submitTree : HasCallStack => Party -> Commands a -> Script TransactionTree
+submitTree p cmds =
+  lift $ Free $ fmap pure $ SubmitTree $ SubmitTreePayload with
+    actAs = NonEmpty p []
+    readAs = []
+    commands = void cmds
+    locations = getCallStack callStack
+    continue = identity
+
+-- | HIDE Equivalent to `submitMulti` but returns the full transaction tree.
+-- This is an early access feature.
+submitTreeMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script TransactionTree
+submitTreeMulti actAs readAs cmds =
+  lift $ Free $ fmap pure $ SubmitTree $ SubmitTreePayload with
+    actAs = actAsNonEmpty actAs
+    readAs = readAs
+    commands = void cmds
+    locations = getCallStack callStack
+    continue = identity

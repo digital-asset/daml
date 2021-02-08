@@ -5,6 +5,7 @@ package com.daml.http.dbbackend
 
 import cats.effect._
 import cats.syntax.apply._
+import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import doobie.LogHandler
@@ -20,7 +21,7 @@ import scala.concurrent.ExecutionContext
 
 class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
 
-  implicit val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
+  implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
 
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)

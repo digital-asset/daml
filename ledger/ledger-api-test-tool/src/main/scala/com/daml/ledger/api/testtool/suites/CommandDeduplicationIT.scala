@@ -14,11 +14,16 @@ import com.daml.timer.Delayed
 import io.grpc.Status
 
 import scala.concurrent.Future
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
-final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerTestSuite {
-  private val deduplicationTime = 3.seconds
+final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
+    extends LedgerTestSuite {
+  private val deduplicationTime = 3.seconds * timeoutScaleFactor match {
+    case duration: FiniteDuration => duration
+    case _ =>
+      throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
+  }
   private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 2
 
   test(

@@ -113,7 +113,7 @@ fetchByKey Dispute During Validation
 
   Disputed: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d
 
-lookupByKey Distpute During Validation
+lookupByKey Dispute During Validation
 ......................................
 
 .. code-block:: none
@@ -147,7 +147,7 @@ So what should happen now if Alice's participant encounters a ``fetchByKey @T k`
 
 If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, Contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
 
-If a ``fetchByKey`` or ``lookupByKey`` node is encountered, the contract is only resolved if the requester is a stakeholder on an active contract with the given key. If that's not the case, there is no reason to believe that the key still resolves to some contract that was witnessed earlier. Thus, when using contract keys, make sure you make the likely requesters of transactions observers on your contracts. If you don't, ``fetchByKey`` will always fail, and ``lookupBeyKey`` will always return ``None``.
+If a ``fetchByKey`` or ``lookupByKey`` node is encountered, the contract is only resolved if the requester is a stakeholder on an active contract with the given key. If that's not the case, there is no reason to believe that the key still resolves to some contract that was witnessed earlier. Thus, when using contract keys, make sure you make the likely requesters of transactions observers on your contracts. If you don't, ``fetchByKey`` will always fail, and ``lookupByKey`` will always return ``None``.
 
 Let's illustrate how collisions and operational semantics and interleave:
 

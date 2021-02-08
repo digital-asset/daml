@@ -58,7 +58,7 @@ and their package ids. Here is a (shortened) example output:
   daml-stdlib-0.0.0-a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a "a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a"
 
 In addition to the human-readable output, you can also get the output
-as JSON. This is easier to consume programatically and it is more
+as JSON. This is easier to consume programmatically and it is more
 robust to changes across SDK versions:
 
 .. code-block:: sh
@@ -233,7 +233,7 @@ This will alias the ``X`` in ``foo-1.0.0`` as ``Foo1.X``, and alias the ``X`` in
 
 It is also possible to add a prefix to all modules in a package using
 the ``module-prefixes`` field in your ``daml.yaml``. This is
-partiuclarly useful for upgrades where you can map all modules of
+particularly useful for upgrades where you can map all modules of
 version ``v`` of your package under ``V$v``. For the example above you
 can use the following:
 

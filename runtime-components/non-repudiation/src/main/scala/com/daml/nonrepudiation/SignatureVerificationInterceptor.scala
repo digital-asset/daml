@@ -5,6 +5,7 @@ package com.daml.nonrepudiation
 
 import java.io.ByteArrayInputStream
 import java.security.{PublicKey, Signature}
+import java.time.Clock
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import io.grpc.Metadata.Key
@@ -14,8 +15,9 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.util.Try
 
 final class SignatureVerificationInterceptor(
-    keyRepository: KeyRepository.Read,
+    certificateRepository: CertificateRepository.Read,
     signedPayloads: SignedPayloadRepository.Write,
+    timestampProvider: Clock,
 ) extends ServerInterceptor {
 
   import SignatureVerificationInterceptor._
@@ -31,7 +33,7 @@ final class SignatureVerificationInterceptor(
         signature <- getHeader(metadata, Headers.SIGNATURE, SignatureBytes.wrap)
         algorithm <- getHeader(metadata, Headers.ALGORITHM, AlgorithmString.wrap)
         fingerprint <- getHeader(metadata, Headers.FINGERPRINT, FingerprintBytes.wrap)
-        key <- getKey(keyRepository, fingerprint)
+        key <- getKey(certificateRepository, fingerprint)
       } yield SignatureData(
         signature = signature,
         algorithm = algorithm,
@@ -47,6 +49,7 @@ final class SignatureVerificationInterceptor(
           next = next,
           signatureData = signatureData,
           signedPayloads = signedPayloads,
+          timestampProvider = timestampProvider,
         )
       case Left(rejection) =>
         rejection.report()
@@ -68,11 +71,11 @@ object SignatureVerificationInterceptor {
     def missingHeader[A](header: Key[A]): Rejection =
       Error(s"Malformed request did not contain header '${header.name}'")
 
-    def missingKey(fingerprint: String): Rejection =
-      Error(s"No key found for fingerprint $fingerprint")
+    def missingCertificate(fingerprint: String): Rejection =
+      Error(s"No certificate found for fingerprint $fingerprint")
 
-    val KeyVerificationFailed: Rejection =
-      Error("Key verification failed")
+    val SignatureVerificationFailed: Rejection =
+      Error("Signature verification failed")
 
     final case class Error(description: String) extends Rejection
 
@@ -95,11 +98,14 @@ object SignatureVerificationInterceptor {
     Status.UNAUTHENTICATED.withDescription("Signature verification failed")
 
   private def getKey(
-      keys: KeyRepository.Read,
+      certificates: CertificateRepository.Read,
       fingerprint: FingerprintBytes,
   ): Either[Rejection, PublicKey] = {
     logger.trace("Retrieving key for fingerprint '{}'", fingerprint.base64)
-    keys.get(fingerprint).toRight(Rejection.missingKey(fingerprint.base64))
+    certificates
+      .get(fingerprint)
+      .toRight(Rejection.missingCertificate(fingerprint.base64))
+      .map(_.getPublicKey)
   }
 
   private def getHeader[Raw, Wrapped](
@@ -119,6 +125,7 @@ object SignatureVerificationInterceptor {
       next: ServerCallHandler[ReqT, RespT],
       signatureData: SignatureData,
       signedPayloads: SignedPayloadRepository.Write,
+      timestampProvider: Clock,
   ) extends ForwardingServerCallListener(call, metadata, next) {
 
     private def castToByteArray(request: ReqT): Either[Rejection, Array[Byte]] = {
@@ -137,13 +144,19 @@ object SignatureVerificationInterceptor {
         verifier.verify(signatureData.signature.unsafeArray)
       }.toEither.left
         .map(Rejection.fromException)
-        .filterOrElse(identity, Rejection.KeyVerificationFailed)
+        .filterOrElse(identity, Rejection.SignatureVerificationFailed)
 
     private def addSignedCommand(
         payload: Array[Byte]
     ): Either[Rejection, Unit] = {
       logger.trace("Adding signed payload")
-      val signedPayload = signatureData.toSignedPayload(payload)
+      val signedPayload = SignedPayload(
+        algorithm = signatureData.algorithm,
+        fingerprint = signatureData.fingerprint,
+        payload = PayloadBytes.wrap(payload),
+        signature = signatureData.signature,
+        timestamp = timestampProvider.instant(),
+      )
       Try(signedPayloads.put(signedPayload)).toEither.left.map(Rejection.fromException)
     }
 

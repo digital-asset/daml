@@ -217,7 +217,7 @@ Location of the failed commit
    If the failing part of the script was a ``submit``, the source location
    of the call to ``submit`` will be displayed.
 Stack trace
-   A list of source locations that were encoutered before the error occured. The last encountered
+   A list of source locations that were encountered before the error occurred. The last encountered
    location is the first entry in the list.
 Ledger time
    The ledger time at which the error occurred.

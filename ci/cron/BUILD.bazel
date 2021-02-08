@@ -28,6 +28,7 @@ da_haskell_binary(
         "proto3-suite",
         "regex-tdfa",
         "resourcet",
+        "retry",
         "safe",
         "safe-exceptions",
         "semver",

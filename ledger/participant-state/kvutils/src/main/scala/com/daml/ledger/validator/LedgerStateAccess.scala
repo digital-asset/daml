@@ -26,11 +26,9 @@ trait LedgerStateAccess[+LogResult] {
   )(implicit executionContext: ExecutionContext): Future[T]
 }
 
-/** Defines how the validator/committer can access the backing store of the ledger.
-  *
-  * @tparam LogResult type of the offset used for a log entry
+/** Defines how the validator/committer can read from the backing store of the ledger.
   */
-trait LedgerStateOperations[+LogResult] {
+trait LedgerStateReadOperations {
 
   /** Reads value of a single key from the backing store.
     *
@@ -49,6 +47,13 @@ trait LedgerStateOperations[+LogResult] {
   def readState(
       keys: Iterable[Raw.Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]]
+}
+
+/** Defines how the validator/committer can write to the backing store of the ledger.
+  *
+  * @tparam LogResult type of the offset used for a log entry
+  */
+trait LedgerStateWriteOperations[+LogResult] {
 
   /** Writes a single key-value pair to the backing store.  In case the key already exists its value is overwritten.
     */
@@ -73,6 +78,14 @@ trait LedgerStateOperations[+LogResult] {
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[LogResult]
 }
+
+/** Defines how the validator/committer can access the backing store of the ledger.
+  *
+  * @tparam LogResult type of the offset used for a log entry
+  */
+trait LedgerStateOperations[+LogResult]
+    extends LedgerStateReadOperations
+    with LedgerStateWriteOperations[LogResult]
 
 object LedgerStateOperations {
 

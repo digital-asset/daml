@@ -10,22 +10,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
-  NoOpLedgerDataExporter,
   ProtobufBasedLedgerDataImporter,
-  WriteSet,
 }
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.batch.{
-  BatchedSubmissionValidator,
-  BatchedSubmissionValidatorParameters,
-  ConflictDetection,
-}
-import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -33,7 +23,6 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.dao.events.LfValueTranslation
 
-import scala.PartialFunction.condOpt
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.{Failure, Success}
@@ -44,6 +33,8 @@ class IntegrityChecker[LogResult](
   private val metricRegistry = new MetricRegistry
   private val metrics = new Metrics(metricRegistry)
   private val commitStrategySupport = commitStrategySupportBuilder(metrics)
+  private val writeSetComparison =
+    new WriteSetComparison(commitStrategySupport.stateKeySerializationStrategy)
 
   import IntegrityChecker._
 
@@ -62,16 +53,6 @@ class IntegrityChecker[LogResult](
       println()
     }
 
-    val engine = new Engine()
-    val metricRegistry = new MetricRegistry
-    val metrics = new Metrics(metricRegistry)
-    val submissionValidator = BatchedSubmissionValidator[LogResult](
-      params = BatchedSubmissionValidatorParameters(cpuParallelism = 1, readParallelism = 1),
-      committer = new KeyValueCommitting(engine, metrics),
-      conflictDetection = new ConflictDetection(metrics),
-      metrics = metrics,
-      ledgerDataExporter = NoOpLedgerDataExporter,
-    )
     val expectedReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val actualReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val stateUpdates = new ReadServiceStateUpdateComparison(
@@ -82,7 +63,6 @@ class IntegrityChecker[LogResult](
     checkIntegrity(
       config,
       importer,
-      submissionValidator,
       expectedReadServiceFactory,
       actualReadServiceFactory,
       stateUpdates,
@@ -96,7 +76,6 @@ class IntegrityChecker[LogResult](
   private def checkIntegrity(
       config: Config,
       importer: LedgerDataImporter,
-      submissionValidator: BatchedSubmissionValidator[LogResult],
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       stateUpdates: StateUpdateComparison,
@@ -108,7 +87,6 @@ class IntegrityChecker[LogResult](
     for {
       _ <- processSubmissions(
         importer,
-        submissionValidator,
         expectedReadServiceFactory,
         actualReadServiceFactory,
         config,
@@ -189,7 +167,6 @@ class IntegrityChecker[LogResult](
 
   private def processSubmissions(
       importer: LedgerDataImporter,
-      submissionValidator: BatchedSubmissionValidator[LogResult],
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       config: Config,
@@ -205,22 +182,14 @@ class IntegrityChecker[LogResult](
             + s" writeSetSize=${expectedWriteSet.size}"
         )
         expectedWriteSet.foreach { case (key, value) =>
-          val result = commitStrategySupport.checkEntryIsReadable(key, value)
+          val result = writeSetComparison.checkEntryIsReadable(key, value)
           result.left.foreach { message =>
             throw new UnreadableWriteSetException(message)
           }
         }
         expectedReadServiceFactory.appendBlock(expectedWriteSet)
         if (!config.indexOnly) {
-          submissionValidator.validateAndCommit(
-            submissionInfo.submissionEnvelope,
-            submissionInfo.correlationId,
-            submissionInfo.recordTimeInstant,
-            submissionInfo.participantId,
-            commitStrategySupport.ledgerStateReader,
-            commitStrategySupport.commitStrategy,
-          ) map { _ =>
-            val actualWriteSet = commitStrategySupport.writeSet.getAndClearRecordedWriteSet()
+          commitStrategySupport.commit(submissionInfo) map { actualWriteSet =>
             val orderedActualWriteSet =
               if (config.sortWriteSet)
                 actualWriteSet.sortBy(_._1)
@@ -228,9 +197,13 @@ class IntegrityChecker[LogResult](
                 actualWriteSet
             actualReadServiceFactory.appendBlock(orderedActualWriteSet)
 
-            if (config.performByteComparison) {
-              compareWriteSets(expectedWriteSet, orderedActualWriteSet)
-            }
+            if (config.performByteComparison)
+              writeSetComparison.compareWriteSets(expectedWriteSet, orderedActualWriteSet) match {
+                case None =>
+                  println("OK".green)
+                case Some(message) =>
+                  throw new ComparisonFailureException(message)
+              }
           }
         } else {
           Future.unit
@@ -242,76 +215,6 @@ class IntegrityChecker[LogResult](
         println()
       }
   }
-
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit =
-    if (expectedWriteSet == actualWriteSet) {
-      println("OK".green)
-    } else {
-      val messageMaybe =
-        if (expectedWriteSet.size == actualWriteSet.size) {
-          compareSameSizeWriteSets(expectedWriteSet, actualWriteSet)
-        } else {
-          Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
-        }
-      messageMaybe.foreach { message =>
-        println("FAIL".red)
-        throw new ComparisonFailureException(message)
-      }
-    }
-
-  private[tools] def compareSameSizeWriteSets(
-      expectedWriteSet: WriteSet,
-      actualWriteSet: WriteSet,
-  ): Option[String] = {
-    val differencesExplained = expectedWriteSet
-      .zip(actualWriteSet)
-      .map { case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
-        if (expectedKey == actualKey && expectedValue != actualValue) {
-          explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
-            Seq(
-              s"expected value:    ${rawHexString(expectedValue)}",
-              s" vs. actual value: ${rawHexString(actualValue)}",
-              explainedDifference,
-            )
-          }
-        } else if (expectedKey != actualKey) {
-          Some(
-            Seq(
-              s"expected key:    ${rawHexString(expectedKey)}",
-              s" vs. actual key: ${rawHexString(actualKey)}",
-            )
-          )
-        } else {
-          None
-        }
-      }
-      .map(_.toList)
-      .filterNot(_.isEmpty)
-      .flatten
-      .flatten
-      .mkString(System.lineSeparator())
-    condOpt(differencesExplained.isEmpty) { case false =>
-      differencesExplained
-    }
-  }
-
-  private def explainDifference(
-      key: Raw.Key,
-      expectedValue: Raw.Value,
-      actualValue: Raw.Value,
-  ): Option[String] =
-    kvutils.Envelope
-      .openStateValue(expectedValue)
-      .toOption
-      .map { expectedStateValue =>
-        val stateKey =
-          commitStrategySupport.stateKeySerializationStrategy.deserializeStateKey(key)
-        val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
-        s"""|State key: $stateKey
-            |Expected: $expectedStateValue
-            |Actual: $actualStateValue""".stripMargin
-      }
-      .orElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
   private def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
     val reporter = ConsoleReporter
@@ -355,9 +258,6 @@ object IntegrityChecker {
   type CommitStrategySupportFactory[LogResult] =
     (Metrics, ExecutionContext) => CommitStrategySupport[LogResult]
 
-  def rawHexString(raw: Raw.Bytes): String =
-    raw.bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
-
   abstract class CheckFailedException(message: String) extends RuntimeException(message)
 
   final class UnreadableWriteSetException(message: String) extends CheckFailedException(message)
@@ -381,15 +281,16 @@ object IntegrityChecker {
       config: Config,
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Unit = {
-    runAsync(config, commitStrategySupportFactory).failed
-      .foreach {
-        case exception: CheckFailedException =>
-          println(exception.getMessage.red)
-          sys.exit(1)
-        case exception =>
-          exception.printStackTrace()
-          sys.exit(1)
-      }(DirectExecutionContext)
+    runAsync(config, commitStrategySupportFactory).onComplete {
+      case Success(_) =>
+        sys.exit(0)
+      case Failure(exception: CheckFailedException) =>
+        println(exception.getMessage.red)
+        sys.exit(1)
+      case Failure(exception) =>
+        exception.printStackTrace()
+        sys.exit(1)
+    }(DirectExecutionContext)
   }
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
@@ -419,8 +320,5 @@ object IntegrityChecker {
     val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
     new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
       .run(importer, config)
-      .andThen { case _ =>
-        sys.exit(0)
-      }(DirectExecutionContext)
   }
 }
