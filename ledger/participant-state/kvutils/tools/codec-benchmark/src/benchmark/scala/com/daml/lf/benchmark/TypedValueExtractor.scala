@@ -38,7 +38,7 @@ final class TypedValueExtractor(signatures: PartialFunction[PackageId, PackageSi
             import scala.Ordering.Implicits.infixOrderingOps
             TransactionCoder.decodeVersion(node.getVersion) match {
               case Right(ver) if (ver >= TransactionVersion.V12) =>
-                validateIdentifier(node.getCreate.getTemplateId)
+                validateIdentifier(create.getTemplateId)
               case Right(_) =>
                 validateIdentifier(create.getContractInstance.getTemplateId)
               case Left(message) =>
