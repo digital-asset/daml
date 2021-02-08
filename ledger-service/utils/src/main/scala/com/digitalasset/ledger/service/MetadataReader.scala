@@ -31,7 +31,7 @@ object MetadataReader {
     for {
       dar <- \/.fromEither(
         DarReader().readArchiveFromFile(darFile).toEither
-      ).leftMap(e => Error('readFromDar, e.description))
+      ).leftMap(e => Error(Symbol("readFromDar"), e.description))
 
       packageStore <- decodePackageStoreFromDar(dar)
 
@@ -53,13 +53,13 @@ object MetadataReader {
   ): Error \/ iface.Interface =
     \/.fromTryCatchNonFatal {
       iface.reader.InterfaceReader.readInterface(a)
-    }.leftMap(e => Error('decodeInterfaceFromArchive, e.description))
+    }.leftMap(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
       .flatMap { case (errors, out) =>
         if (errors.empty) {
           \/.right(out)
         } else {
           val errorMsg = s"Errors reading LF archive ${a._1: Ref.PackageId}:\n${errors.toString}"
-          \/.left(Error('decodeInterfaceFromArchive, errorMsg))
+          \/.left(Error(Symbol("decodeInterfaceFromArchive"), errorMsg))
         }
       }
 
