@@ -45,7 +45,7 @@ locals {
   region  = "us-east4"
   zone    = "us-east4-a"
 
-  ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/daml-lang-hoogle-app-service-https-cert"
+  ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/hoogle-google-cert"
 }
 
 resource "secret_resource" "vsts-token" {}
