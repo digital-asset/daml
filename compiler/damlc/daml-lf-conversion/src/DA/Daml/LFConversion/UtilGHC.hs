@@ -121,13 +121,13 @@ splitDFunId v
     | otherwise
     = Nothing
 
--- | Pattern for template desugaring DFuns.
-pattern DesugarDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> FastString -> [GHC.Type] -> GHC.Var
-pattern DesugarDFunId tyCoVars dfunArgs clsName classArgs <-
+-- | Pattern for desugaring DFuns.
+pattern DesugarDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> GHC.Name -> [GHC.Type] -> GHC.Var
+pattern DesugarDFunId tyCoVars dfunArgs name classArgs <-
     (splitDFunId -> Just
         ( tyCoVars
         , dfunArgs
-        , GHC.className -> NameIn DA_Internal_Template_Functions clsName
+        , GHC.className -> name
         , classArgs
         )
     )
@@ -136,31 +136,36 @@ pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFun
     HasArchiveDFunId :: TyCon -> GHC.Var
 
 pattern HasSignatoryDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasSignatory"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasSignatory")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasEnsureDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasEnsure"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasEnsure")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasAgreementDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasAgreement"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasAgreement")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasObserverDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasObserver"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasObserver")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasArchiveDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasArchive"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasArchive")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 
 pattern HasKeyDFunId, HasMaintainerDFunId :: TyCon -> Type -> GHC.Var
 
 pattern HasKeyDFunId templateTyCon keyTy <-
-    DesugarDFunId [] [] "HasKey"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasKey")
         [ splitTyConApp_maybe -> Just (templateTyCon, [])
         , keyTy ]
 pattern HasMaintainerDFunId templateTyCon keyTy <-
-    DesugarDFunId [] [] "HasMaintainer"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasMaintainer")
         [ splitTyConApp_maybe -> Just (templateTyCon, [])
         , keyTy ]
+
+pattern HasMessageDFunId :: TyCon -> GHC.Var
+pattern HasMessageDFunId tyCon <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Exception "HasMessage")
+        [splitTyConApp_maybe -> Just (tyCon, [])]
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
@@ -219,6 +224,16 @@ hasDamlEnumCtx t
     | [theta] <- tyConStupidTheta t
     , TypeCon tycon [] <- theta
     , NameIn GHC_Types "DamlEnum" <- tycon
+    = True
+
+    | otherwise
+    = False
+
+hasDamlExceptionCtx :: TyCon -> Bool
+hasDamlExceptionCtx t
+    | [theta] <- tyConStupidTheta t
+    , TypeCon tycon [] <- theta
+    , NameIn DA_Internal_Exception "DamlException" <- tycon
     = True
 
     | otherwise

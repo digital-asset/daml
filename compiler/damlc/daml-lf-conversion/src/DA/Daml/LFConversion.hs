@@ -169,6 +169,7 @@ data Env = Env
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
+    ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -366,6 +367,19 @@ scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
         _ -> Nothing
     ]
 
+data ExceptionBinds = ExceptionBinds
+    { ebTyCon :: GHC.TyCon
+    , ebMessage :: GHC.Expr Var
+    }
+
+scrapeExceptionBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName ExceptionBinds
+scrapeExceptionBinds binds = MS.fromList
+    [ ( mkTypeCon [getOccText (GHC.tyConName exn)]
+      , ExceptionBinds { ebTyCon = exn, ebMessage = msg } )
+    | (HasMessageDFunId exn, msg) <- binds
+    , hasDamlExceptionCtx exn
+    ]
+
 type ModInstanceInfo = MS.Map DFunId OverlapMode
 
 modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
@@ -385,7 +399,8 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ definitions))
+    exceptions <- convertExceptionDefs env
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions))
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -408,6 +423,11 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
         templateBinds = scrapeTemplateBinds binds
+        exceptionBinds
+            | lfVersion `supports` featureExceptions =
+                scrapeExceptionBinds binds
+            | otherwise =
+                MS.empty
 
         env = Env
           { envLFModuleName = lfModName
@@ -418,6 +438,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
           , envStablePackages = stablePackages
           , envLfVersion = lfVersion
           , envTemplateBinds = templateBinds
+          , envExceptionBinds = exceptionBinds
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -670,6 +691,19 @@ convertTemplateKey env tname TemplateBinds{..}
 
     | otherwise
     = pure Nothing
+
+convertExceptionDefs :: Env -> ConvertM [Definition]
+convertExceptionDefs env =
+    forM (MS.toList (envExceptionBinds env)) $ \(ename, ebinds) -> do
+        resetFreshVarCounters
+        DException <$> convertDefException env ename ebinds
+
+convertDefException :: Env -> LF.TypeConName -> ExceptionBinds -> ConvertM DefException
+convertDefException env exnName ExceptionBinds{..} = do
+    let exnLocation = convNameLoc (GHC.tyConName ebTyCon)
+    withRange exnLocation $ do
+        exnMessage <- useSingleMethodDict env ebMessage id
+        pure DefException {..}
 
 -- | Convert the method from a single method type class dictionary
 -- (such as those used in template desugaring), and then fmap over it
