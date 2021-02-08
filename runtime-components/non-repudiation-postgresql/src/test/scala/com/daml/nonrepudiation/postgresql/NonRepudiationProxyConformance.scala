@@ -116,7 +116,7 @@ object NonRepudiationProxyConformance {
 
   private val ConformanceTestCases =
     Tests
-      .default(ledgerClockGranularity = 1.second)
+      .default()
       .filter {
         case _: ClosedWorldIT => false
         case _ => true
