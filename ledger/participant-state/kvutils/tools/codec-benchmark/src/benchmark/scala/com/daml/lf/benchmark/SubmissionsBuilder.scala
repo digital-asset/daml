@@ -24,7 +24,7 @@ final class SubmissionsBuilder(
   }
   def result(): Submissions =
     Submissions(
-      PureCompiledPackages(packages.result(), com.daml.lf.speedy.Compiler.Config.Dev).fold(sys.error, identity),
+      PureCompiledPackages(packages.result(), speedy.Compiler.Config.Dev).fold(sys.error, identity),
       transactions.result(),
     )
 }
