@@ -1,8 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package object scalautil {
+package com.daml.scalautil
+package object nonempty {
   val NonEmpty: NonEmptyColl = NonEmptyColl.Instance
 
   /** A non-empty `A`.  Implicitly converts to `A` in relevant contexts.
@@ -32,4 +32,8 @@ package object scalautil {
     * destructures that type.
     */
   type NonEmptyF[F[_], A] = NonEmpty.NonEmptyF[F, A]
+
+  // aliases for Samir
+  val ±: : +-:.type = +-:
+  val :∓ : :-+.type = :-+
 }

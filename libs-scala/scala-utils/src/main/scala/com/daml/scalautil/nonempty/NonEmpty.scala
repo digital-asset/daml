@@ -1,19 +1,20 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil
+package com.daml.scalautil.nonempty
 
 import scala.collection.{immutable => sci}, sci.Map, sci.Set
 import scalaz.{Foldable, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
+import NonEmptyCollCompat._
 
-sealed abstract class NonEmptyColl extends NonEmptyCollCompat {
+sealed abstract class NonEmptyColl {
   type NonEmpty[+A]
   type NonEmptyF[F[_], A] <: NonEmpty[F[A]]
 
-  private[scalautil] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
-  private[scalautil] def unsafeNarrow[Self](self: Self with sci.Iterable[_]): NonEmpty[Self]
+  private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
+  private[nonempty] def unsafeNarrow[Self](self: Self with sci.Iterable[_]): NonEmpty[Self]
 
   /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
     * this in an upper-bound, because that would prevent us from adding implicit
@@ -41,17 +42,17 @@ sealed abstract class NonEmptyColl extends NonEmptyCollCompat {
   def unapply[Self](self: Self with sci.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
 }
 
-object NonEmptyColl extends NonEmptyCollInstances with NonEmptyCollCompat {
-  private[scalautil] object Instance extends NonEmptyColl {
+object NonEmptyColl extends NonEmptyCollInstances {
+  private[nonempty] object Instance extends NonEmptyColl {
     type NonEmpty[+A] = A
     type NonEmptyF[F[_], A] = F[A]
-    private[scalautil] override def substF[T[_[_]], F[_]](tf: T[F]) = tf
+    private[nonempty] override def substF[T[_[_]], F[_]](tf: T[F]) = tf
     override def subtype[A] = Liskov.refl[A]
     override def equiv[F[_], A] = Leibniz.refl
 
     override def apply[Self](self: Self with sci.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
-    private[scalautil] override def unsafeNarrow[Self](self: Self with sci.Iterable[_]) = self
+    private[nonempty] override def unsafeNarrow[Self](self: Self with sci.Iterable[_]) = self
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
@@ -95,18 +96,6 @@ object NonEmptyColl extends NonEmptyCollInstances with NonEmptyCollCompat {
     ) {
       // def groupBy1(f: A => K): Map[
     }
-  }
-
-  /** Total version of [[+:]]. */
-  object +-: {
-    def unapply[A, CC[_], C](t: NonEmpty[SeqOps[A, CC, C]]): Some[(A, C)] =
-      Some((t.head, t.tail))
-  }
-
-  /** Total version of [[:+]]. */
-  object :-+ {
-    def unapply[A, CC[_], C](t: NonEmpty[SeqOps[A, CC, C]]): Some[(C, A)] =
-      Some((t.init, t.last))
   }
 }
 
