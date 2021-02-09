@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 
-import com.codahale.metrics.Timer
+import com.codahale.metrics.{InstrumentedExecutorService, Timer}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -31,7 +31,8 @@ private[platform] final class DbDispatcher private (
 
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
-  override def currentHealth(): HealthStatus = connectionProvider.currentHealth()
+  override def currentHealth(): HealthStatus =
+    connectionProvider.currentHealth()
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
@@ -97,15 +98,20 @@ private[platform] object DbDispatcher {
         metrics.registry,
         connectionAsyncCommit,
       )
+      threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>
-        Executors.newFixedThreadPool(
-          maxConnections,
-          new ThreadFactoryBuilder()
-            .setNameFormat(s"daml.index.db.connection.${serverRole.threadPoolSuffix}-%d")
-            .setUncaughtExceptionHandler((_, e) =>
-              logger.error("Uncaught exception in the SQL executor.", e)
-            )
-            .build(),
+        new InstrumentedExecutorService(
+          Executors.newFixedThreadPool(
+            maxConnections,
+            new ThreadFactoryBuilder()
+              .setNameFormat(s"$threadPoolName-%d")
+              .setUncaughtExceptionHandler((_, e) =>
+                logger.error("Uncaught exception in the SQL executor.", e)
+              )
+              .build(),
+          ),
+          metrics.registry,
+          threadPoolName,
         )
       )
     } yield new DbDispatcher(

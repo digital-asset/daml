@@ -7,16 +7,20 @@ jobs:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
     - bash: |
         set -euo pipefail
+        source $(bash-lib)
         if [ "$(Build.Reason)" == "PullRequest" ]; then
-            echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
-            echo "##vso[task.setvariable variable=main;isOutput=true]$(git rev-parse HEAD^1)"
-            echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
+            setvar branch "$(git rev-parse HEAD^2)"
+            setvar main "$(git rev-parse HEAD^1)"
+            setvar fork_point "$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
         else
-            echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
-            echo "##vso[task.setvariable variable=main;isOutput=true]$(git rev-parse HEAD^1)"
-            echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
+            setvar branch "$(git rev-parse HEAD)"
+            setvar main "$(git rev-parse HEAD^1)"
+            setvar fork_point "$(git rev-parse HEAD^1)"
         fi
       name: out
 
@@ -177,6 +181,11 @@ jobs:
           //language-support/scala/... \
           //ledger-api/... \
           //ledger/... \
+          //ledger-service/... \
+          //triggers/... \
+          -//ledger-service/http-json/... \
+          -//ledger-service/http-json-perf/... \
+          -//ledger-service/http-json-testing/... \
           //daml-script/dump/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
@@ -189,12 +198,17 @@ jobs:
           //language-support/scala/... \
           //ledger-api/... \
           //ledger/... \
+          //ledger-service/... \
           //daml-script/dump/... \
+          //triggers/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
           -//ledger/ledger-api-test-tool/... \
-          -//ledger/ledger-api-test-tool-on-canton/...
+          -//ledger/ledger-api-test-tool-on-canton/... \
+          -//ledger-service/http-json/... \
+          -//ledger-service/http-json-perf/... \
+          -//ledger-service/http-json-testing/...
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:
@@ -351,8 +365,12 @@ jobs:
     name: "ubuntu_20_04"
     demands: assignment -equals default
   steps:
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
     - bash: |
         set -euo pipefail
+        source $(bash-lib)
 
         ./release.sh check
 
@@ -366,11 +384,6 @@ jobs:
             add_one="1_0"
             change_one="1_1"
             [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
-        }
-
-        setvar() {
-            echo "Setting '$1' to '$2'"
-            echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
         }
 
         added_line() {

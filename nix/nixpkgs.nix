@@ -46,12 +46,36 @@ let
       ];
     });
     scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
+      version = "2.12.12";
       name = "scala-2.12.12";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";
         sha256 = "3520cd1f3c9efff62baee75f32e52d1e5dc120be2ccf340649e470e48f527e2b";
       };
     });
+   haskell = pkgs.haskell // {
+     packages = pkgs.haskell.packages // {
+       integer-simple = pkgs.haskell.packages.integer-simple // {
+        ghc8103 = pkgs.haskell.packages.integer-simple.ghc8103.override {
+          ghc = pkgs.haskell.compiler.integer-simple.ghc8103.overrideAttrs (old: {
+            # We need to include darwin.cctools in PATH to make sure GHC finds
+            # otool.
+            postInstall = ''
+    # Install the bash completion file.
+    install -D -m 444 utils/completion/ghc.bash $out/share/bash-completion/completions/ghc
+
+    # Patch scripts to include "readelf" and "cat" in $PATH.
+    for i in "$out/bin/"*; do
+      test ! -h $i || continue
+      egrep --quiet '^#!' <(head -n 1 $i) || continue
+      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.stdenv.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
+    done
+  '';
+          });
+        };
+       };
+     };
+    };
   };
 
   nixpkgs = import src {

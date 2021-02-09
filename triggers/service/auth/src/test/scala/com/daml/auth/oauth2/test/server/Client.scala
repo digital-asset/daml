@@ -101,36 +101,42 @@ object Client {
       },
       path("cb") {
         get {
-          parameters('code, 'state ?).as[Response.Authorize](Response.Authorize) { resp =>
-            extractRequest { request =>
-              // We got the code, now request a token
-              val body = Request.Token(
-                grantType = "authorization_code",
-                code = resp.code,
-                redirectUri = toRedirectUri(request.uri),
-                clientId = config.clientId,
-                clientSecret = config.clientSecret,
-              )
-              val f = for {
-                entity <- Marshal(body).to[RequestEntity]
-                req = HttpRequest(
-                  uri = config.authServerUrl.withPath(Path./("token")),
-                  entity = entity,
-                  method = HttpMethods.POST,
+          parameters(Symbol("code"), Symbol("state") ?).as[Response.Authorize](Response.Authorize) {
+            resp =>
+              extractRequest { request =>
+                // We got the code, now request a token
+                val body = Request.Token(
+                  grantType = "authorization_code",
+                  code = resp.code,
+                  redirectUri = toRedirectUri(request.uri),
+                  clientId = config.clientId,
+                  clientSecret = config.clientSecret,
                 )
-                resp <- Http().singleRequest(req)
-                tokenResp <- Unmarshal(resp).to[Response.Token]
-              } yield tokenResp
-              onSuccess(f) { tokenResp =>
-                // Now we have the access_token and potentially the refresh token. At this point,
-                // we would start the trigger.
-                complete(
-                  AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response
-                )
+                val f = for {
+                  entity <- Marshal(body).to[RequestEntity]
+                  req = HttpRequest(
+                    uri = config.authServerUrl.withPath(Path./("token")),
+                    entity = entity,
+                    method = HttpMethods.POST,
+                  )
+                  resp <- Http().singleRequest(req)
+                  tokenResp <- Unmarshal(resp).to[Response.Token]
+                } yield tokenResp
+                onSuccess(f) { tokenResp =>
+                  // Now we have the access_token and potentially the refresh token. At this point,
+                  // we would start the trigger.
+                  complete(
+                    AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response
+                  )
+                }
               }
-            }
           } ~
-            parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
+            parameters(
+              Symbol("error"),
+              Symbol("error_description") ?,
+              Symbol("error_uri").as[Uri] ?,
+              Symbol("state") ?,
+            )
               .as[Response.Error](Response.Error) { resp =>
                 complete(ErrorResponse(resp.error): Response)
               }

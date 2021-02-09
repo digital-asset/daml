@@ -29,7 +29,20 @@ let shared = rec {
     zip
     ;
 
-  scala = pkgs.scala_2_12;
+    scala = (pkgs.scala_2_12.override { }).overrideAttrs (attrs: {
+      # Something appears to be broken in nixpkgs' fixpoint which results in the
+      # test not having the version number we overwrite so it fails
+      # with a mismatch between the version in nixpkgs and the one we
+      # overwrite.
+      installCheckPhase = "";
+      buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
+      installPhase = attrs.installPhase + ''
+        wrapProgram $out/bin/scala    --add-flags "-nobootcp"
+        wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
+        wrapProgram $out/bin/scaladoc --add-flags "-nobootcp"
+        wrapProgram $out/bin/scalap   --add-flags "-nobootcp"
+      '';
+    });
 
   # We need to have a file in GOPATH that we can use as
   # root_file in go_wrap_sdk.
@@ -38,19 +51,14 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghcPkgs = (import ./ghc.nix { inherit pkgs; }).override {
-    overrides = self: super: {
-      mkDerivation = args: super.mkDerivation (args // {
-        enableLibraryProfiling = false;
-        doHoogle = false;
-        doHaddock = false;
-        doCheck = false;
-      });
-      hlint = pkgs.haskell.lib.justStaticExecutables super.hlint;
-    };
-  };
+  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8103;
+
   ghc = ghcPkgs.ghc;
-  hlint = ghcPkgs.hlint;
+  # Deliberately not taken from ghcPkgs. This is a fully
+  # static executable so it doesn’t pull in another GHC
+  # and upstream nixpkgs does not cache packages for
+  # integer-simple.
+  hlint = pkgs.hlint;
 
 
   # Java 8 development
@@ -141,5 +149,4 @@ in shared // (if pkgs.stdenv.isLinux then {
   inherit (pkgs)
     glibcLocales
     ;
-  ghcDwarf = shared.ghc.override { enableDwarf = true; };
   } else {})

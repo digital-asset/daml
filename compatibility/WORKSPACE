@@ -62,12 +62,6 @@ common_nix_file_deps = [
     "@daml//nix:nixpkgs/default.src.json",
 ]
 
-nix_ghc_deps = common_nix_file_deps + [
-    "@daml//nix:ghc.nix",
-    "@daml//nix:overrides/ghc-8.10.3.nix",
-    "@daml//nix:overrides/ghc-8.6.3-binary.nix",
-]
-
 dev_env_nix_repos = {
     "nixpkgs": "@nixpkgs",
 }
@@ -114,7 +108,7 @@ haskell_register_ghc_nixpkgs(
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "@daml//nix:bazel.nix",
-    nix_file_deps = nix_ghc_deps,
+    nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
     version = "8.10.3",
 )
@@ -204,7 +198,7 @@ nixpkgs_package(
     name = "hlint_nix",
     attribute_path = "hlint",
     nix_file = "@daml//nix:bazel.nix",
-    nix_file_deps = nix_ghc_deps,
+    nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
 

@@ -27,6 +27,7 @@ import com.daml.ports.{Port, PortFiles}
 import scalaz.{-\/, \/-}
 import spray.json._
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -97,7 +98,7 @@ class Server(config: Config) extends StrictLogging {
     }
 
   private val auth: Route =
-    parameters('claims.as[Request.Claims])
+    parameters(Symbol("claims").as[Request.Claims])
       .as[Request.Auth](Request.Auth) { auth =>
         optionalToken {
           case Some(token)
@@ -119,14 +120,18 @@ class Server(config: Config) extends StrictLogging {
     new RequestStore(config.maxLoginRequests, config.loginTimeout)
 
   private val login: Route =
-    parameters('redirect_uri.as[Uri] ?, 'claims.as[Request.Claims], 'state ?)
+    parameters(
+      Symbol("redirect_uri").as[Uri] ?,
+      Symbol("claims").as[Request.Claims],
+      Symbol("state") ?,
+    )
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
           val stored = requests.put(
             requestId,
             login.redirectUri.map { redirectUri =>
-              var query = redirectUri.query().to[Seq]
+              var query = redirectUri.query().to(Seq)
               login.state.foreach(x => query ++= Seq("state" -> x))
               redirectUri.withQuery(Uri.Query(query: _*))
             },
@@ -166,7 +171,7 @@ class Server(config: Config) extends StrictLogging {
         }
 
         concat(
-          parameters('code, 'state ?)
+          parameters(Symbol("code"), Symbol("state") ?)
             .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
               popRequest(authorize.state) { redirectUri =>
                 extractRequest { request =>
@@ -219,12 +224,17 @@ class Server(config: Config) extends StrictLogging {
                 }
               }
             },
-          parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
+          parameters(
+            Symbol("error"),
+            Symbol("error_description") ?,
+            Symbol("error_uri").as[Uri] ?,
+            Symbol("state") ?,
+          )
             .as[OAuthResponse.Error](OAuthResponse.Error) { error =>
               popRequest(error.state) {
                 case Some(redirectUri) =>
                   val uri = redirectUri.withQuery {
-                    var params = redirectUri.query().to[Seq]
+                    var params = redirectUri.query().to(Seq)
                     params ++= Seq("error" -> error.error)
                     error.errorDescription.foreach(x => params ++= Seq("error_description" -> x))
                     Uri.Query(params: _*)

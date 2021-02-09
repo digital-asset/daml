@@ -34,8 +34,17 @@ final class TypedValueExtractor(signatures: PartialFunction[PackageId, PackageSi
       node.getNodeTypeCase match {
         case NodeTypeCase.CREATE =>
           val create = node.getCreate
-          val (packageId, qualifiedName) =
-            validateIdentifier(create.getContractInstance.getTemplateId)
+          val (packageId, qualifiedName) = {
+            import scala.Ordering.Implicits.infixOrderingOps
+            TransactionCoder.decodeVersion(node.getVersion) match {
+              case Right(ver) if (ver >= TransactionVersion.V12) =>
+                validateIdentifier(create.getTemplateId)
+              case Right(_) =>
+                validateIdentifier(create.getContractInstance.getTemplateId)
+              case Left(message) =>
+                sys.error(message.errorMessage)
+            }
+          }
           val template =
             signatures(packageId).lookupTemplate(qualifiedName).fold(sys.error, identity)
           val argument =

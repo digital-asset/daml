@@ -11,6 +11,7 @@ import com.daml.auth.middleware.api.Request
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 
+import scala.collection.compat._
 import scala.collection.concurrent.TrieMap
 import scala.io.{BufferedSource, Source}
 import scala.util.Try
@@ -88,7 +89,7 @@ private[oauth2] class RequestTemplates(
   /** Convert a JSON value to a string mapping representing request parameters.
     */
   private def toRequestParams(value: ujson.Value): Try[Map[String, String]] =
-    Try(value.obj.mapValues(_.str).toMap)
+    Try(value.obj.view.mapValues(_.str).toMap)
 
   private def createRequest(
       template: (String, sjsonnet.Path),

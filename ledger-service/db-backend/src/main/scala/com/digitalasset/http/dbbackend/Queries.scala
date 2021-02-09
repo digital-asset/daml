@@ -3,7 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import scala.language.higherKinds
 import com.github.ghik.silencer.silent
 
 import doobie._
@@ -183,7 +182,7 @@ sealed abstract class Queries {
     }
     for {
       inserted <-
-        if (newParties.empty) { Applicative[ConnectionIO].pure(0) }
+        if (newParties.isEmpty) { Applicative[ConnectionIO].pure(0) }
         else {
           insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
         }

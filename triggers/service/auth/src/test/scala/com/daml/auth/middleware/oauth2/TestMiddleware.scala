@@ -391,7 +391,7 @@ class TestMiddlewareClientLimitedCallbackStore
           .withScheme("http")
           .withAuthority(host.getHostName, host.getPort)
           .withPath(Uri.Path./("login"))
-          .withQuery(Uri.Query("claims" -> claims.toQueryString))
+          .withQuery(Uri.Query("claims" -> claims.toQueryString()))
         val req = HttpRequest(uri = uri)
         Http().singleRequest(req)
       }
@@ -451,7 +451,7 @@ class TestMiddlewareClientNoRedirectToLogin
         .withScheme("http")
         .withAuthority(host.getHostName, host.getPort)
         .withPath(Uri.Path./("authorize"))
-        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString()))
       val req = HttpRequest(uri = uri)
       for {
         resp <- Http().singleRequest(req)
@@ -461,7 +461,7 @@ class TestMiddlewareClientNoRedirectToLogin
         challenge = wwwAuthenticate.challenges
           .find(_.scheme == Response.authenticateChallengeName)
           .value
-        _ = challenge.params.keys should contain allOf ("auth", "login")
+        _ = challenge.params.keys should contain.allOf("auth", "login")
         authUri = challenge.params.get("auth").value
         loginUri = challenge.params.get("login").value
         headerChallenge = Response.AuthenticateChallenge(
@@ -499,7 +499,7 @@ class TestMiddlewareClientYesRedirectToLogin
         .withScheme("http")
         .withAuthority(host.getHostName, host.getPort)
         .withPath(Uri.Path./("authorize"))
-        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString()))
       val req = HttpRequest(uri = uri)
       for {
         resp <- Http().singleRequest(req)
@@ -531,7 +531,7 @@ class TestMiddlewareClientAutoRedirectToLogin
         .withScheme("http")
         .withAuthority(host.getHostName, host.getPort)
         .withPath(Uri.Path./("authorize"))
-        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString()))
       val acceptHtml: HttpHeader = headers.Accept(MediaTypes.`text/html`)
       val req = HttpRequest(uri = uri, headers = immutable.Seq(acceptHtml))
       for {
@@ -548,7 +548,7 @@ class TestMiddlewareClientAutoRedirectToLogin
         .withScheme("http")
         .withAuthority(host.getHostName, host.getPort)
         .withPath(Uri.Path./("authorize"))
-        .withQuery(Uri.Query("claims" -> claims.toQueryString))
+        .withQuery(Uri.Query("claims" -> claims.toQueryString()))
       val acceptHtml: HttpHeader = headers.Accept(MediaTypes.`application/json`)
       val req = HttpRequest(uri = uri, headers = immutable.Seq(acceptHtml))
       for {

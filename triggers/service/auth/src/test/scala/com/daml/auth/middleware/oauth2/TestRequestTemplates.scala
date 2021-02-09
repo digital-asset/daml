@@ -54,8 +54,15 @@ class TestRequestTemplates
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
-      params.keys should contain only ("audience", "client_id", "redirect_uri", "response_type", "scope", "state")
-      params should contain allOf (
+      params.keys should contain.only(
+        "audience",
+        "client_id",
+        "redirect_uri",
+        "response_type",
+        "scope",
+        "state",
+      )
+      params should contain.allOf(
         "audience" -> "https://daml.com/ledger-api",
         "client_id" -> clientId,
         "redirect_uri" -> redirectUri.toString,
@@ -70,8 +77,15 @@ class TestRequestTemplates
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
-      params.keys should contain only ("audience", "client_id", "redirect_uri", "response_type", "scope", "state")
-      params should contain allOf (
+      params.keys should contain.only(
+        "audience",
+        "client_id",
+        "redirect_uri",
+        "response_type",
+        "scope",
+        "state",
+      )
+      params should contain.allOf(
         "audience" -> "https://daml.com/ledger-api",
         "client_id" -> clientId,
         "redirect_uri" -> redirectUri.toString,
@@ -79,7 +93,7 @@ class TestRequestTemplates
         "state" -> requestId.toString,
       )
       val scope = params.valueAt("scope").split(" ")
-      scope should contain allOf ("admin", "offline_access")
+      scope should contain.allOf("admin", "offline_access")
     }
     "handle actAs claims" in {
       val templates = getTemplates()
@@ -92,8 +106,15 @@ class TestRequestTemplates
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
-      params.keys should contain only ("audience", "client_id", "redirect_uri", "response_type", "scope", "state")
-      params should contain allOf (
+      params.keys should contain.only(
+        "audience",
+        "client_id",
+        "redirect_uri",
+        "response_type",
+        "scope",
+        "state",
+      )
+      params should contain.allOf(
         "audience" -> "https://daml.com/ledger-api",
         "client_id" -> clientId,
         "redirect_uri" -> redirectUri.toString,
@@ -101,7 +122,7 @@ class TestRequestTemplates
         "state" -> requestId.toString,
       )
       val scope = params.valueAt("scope").split(" ")
-      scope should contain allOf ("actAs:Alice", "actAs:Bob", "offline_access")
+      scope should contain.allOf("actAs:Alice", "actAs:Bob", "offline_access")
     }
     "handle readAs claims" in {
       val templates = getTemplates()
@@ -114,8 +135,15 @@ class TestRequestTemplates
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
-      params.keys should contain only ("audience", "client_id", "redirect_uri", "response_type", "scope", "state")
-      params should contain allOf (
+      params.keys should contain.only(
+        "audience",
+        "client_id",
+        "redirect_uri",
+        "response_type",
+        "scope",
+        "state",
+      )
+      params should contain.allOf(
         "audience" -> "https://daml.com/ledger-api",
         "client_id" -> clientId,
         "redirect_uri" -> redirectUri.toString,
@@ -123,7 +151,7 @@ class TestRequestTemplates
         "state" -> requestId.toString,
       )
       val scope = params.valueAt("scope").split(" ")
-      scope should contain allOf ("offline_access", "readAs:Alice", "readAs:Bob")
+      scope should contain.allOf("offline_access", "readAs:Alice", "readAs:Bob")
     }
     "handle an applicationId claim" in {
       val templates = getTemplates()
@@ -136,8 +164,15 @@ class TestRequestTemplates
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
-      params.keys should contain only ("audience", "client_id", "redirect_uri", "response_type", "scope", "state")
-      params should contain allOf (
+      params.keys should contain.only(
+        "audience",
+        "client_id",
+        "redirect_uri",
+        "response_type",
+        "scope",
+        "state",
+      )
+      params should contain.allOf(
         "audience" -> "https://daml.com/ledger-api",
         "client_id" -> clientId,
         "redirect_uri" -> redirectUri.toString,
@@ -145,7 +180,7 @@ class TestRequestTemplates
         "state" -> requestId.toString,
       )
       val scope = params.valueAt("scope").split(" ")
-      scope should contain allOf ("applicationId:application-id", "offline_access")
+      scope should contain.allOf("applicationId:application-id", "offline_access")
     }
   }
   "the builtin token template" should {

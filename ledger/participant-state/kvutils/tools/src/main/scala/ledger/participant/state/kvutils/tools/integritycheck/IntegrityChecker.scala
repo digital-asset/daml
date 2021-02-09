@@ -33,8 +33,7 @@ class IntegrityChecker[LogResult](
   private val metricRegistry = new MetricRegistry
   private val metrics = new Metrics(metricRegistry)
   private val commitStrategySupport = commitStrategySupportBuilder(metrics)
-  private val writeSetComparison =
-    new WriteSetComparison(commitStrategySupport.stateKeySerializationStrategy)
+  private val writeSetComparison = commitStrategySupport.writeSetComparison
 
   import IntegrityChecker._
 

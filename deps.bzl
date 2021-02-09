@@ -205,11 +205,6 @@ def daml_deps():
                 "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
                 "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
             ],
-            patches = [
-                # Remove this patch once we upgraded to Bazel 3.4 or later.
-                "@com_github_digital_asset_daml//bazel_tools:upb_compat.patch",
-            ],
-            patch_args = ["-p1"],
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():

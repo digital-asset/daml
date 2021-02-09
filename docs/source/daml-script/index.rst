@@ -194,28 +194,40 @@ Running a Script
 ----------------
 
 To run our script, we first build it with ``daml build`` and then run
-it by pointing to the DAR, the name of our script, the host and
-port our ledger is running on and the time mode of the ledger.
+it by pointing to the DAR, the name of our script, and the host and
+port our ledger is running on.
 
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865``
 
-Up to now, we have worked with parties that we have allocated in the
-test. We can also pass in the path to a file containing
-the input in the :doc:`/json-api/lf-value-specification`.
+Up to now, we have worked with a script (``test``) that is entirely
+self-contained. This is fine for running unit-test type scenarios in the IDE,
+but for more complex use-cases you may want to vary the inputs of a script and
+inspect its outputs, ideally without having to recompile it. To that end, the
+``daml script`` command supports the flags ``--input-file`` and
+``--output-file``. Both flags take a filename, and said file will be
+read/written as JSON, following the :doc:`/json-api/lf-value-specification`.
+
+The ``--output-file`` option instructs ``daml script`` to write the result of
+the given ``--script-name`` to the given filename (creating the file if it does
+not exist; overwriting it otherwise). This is most usfeful if the given program
+has a type ``Script b``, where ``b`` is a meaningful value, which is not the
+case here: all of our ``Script`` programs have type ``Script ()``.
+
+If the ``--input-file`` flag is specified, the ``--script-name`` flag must
+point to a function of one argument returning a ``Script``, and the function
+will be called with the result of parsing the input file as its argument. For
+example, we can initialize our ledger using the ``initialize`` function defined
+above. It takes a ``LedgerParties`` argument, so a valid file for
+``--input-file`` would look like:
 
 .. literalinclude:: ./template-root/ledger-parties.json
    :language: daml
 
-We can then initialize our ledger passing in the json file via ``--input-file``.
+Using that file, we can initialize our ledger passing it in via ``--input-file``:
 
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json``
 
 If you open Navigator, you can now see the contracts that have been created.
-
-While we will not use it here, there is also an ``--output-file``
-option that you can use to write the result of a script to a file
-using the Daml-LF JSON encoding. This is particularly useful if you need to consume
-the result from another program.
 
 .. _script-ledger-initialization:
 

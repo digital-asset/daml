@@ -81,4 +81,7 @@ final class RawPreExecutingCommitStrategySupport(
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(metrics)
+
+  override val writeSetComparison: WriteSetComparison =
+    new RawWriteSetComparison(stateKeySerializationStrategy)
 }

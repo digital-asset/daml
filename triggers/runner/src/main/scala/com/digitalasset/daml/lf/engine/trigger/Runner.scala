@@ -21,8 +21,6 @@ import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 
-import scala.language.higherKinds
-
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
@@ -653,12 +651,16 @@ object Runner extends StrictLogging {
     def trial(tries: Int, value: A): Future[B] =
       if (tries <= 1) notRetryable(value)
       else
-        retryable(value).flatMap(_ cata (Future.successful, {
-          Future {
-            try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
-            catch { case _: InterruptedException => }
-          }.flatMap(_ => trial(tries - 1, value))
-        }))
+        retryable(value).flatMap(
+          _.cata(
+            Future.successful, {
+              Future {
+                try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
+                catch { case _: InterruptedException => }
+              }.flatMap(_ => trial(tries - 1, value))
+            },
+          )
+        )
     Flow[A].mapAsync(parallelism)(trial(initialTries, _))
   }
 
@@ -668,7 +670,7 @@ object Runner extends StrictLogging {
     val ov = m get k
     f(ov) map {
       (ov, _) match {
-        case (_, Some(v)) => m updated (k, v)
+        case (_, Some(v)) => m.updated(k, v)
         case (None, None) => m
         case (Some(_), None) => m - k
       }
@@ -704,7 +706,10 @@ object Runner extends StrictLogging {
       party: String,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap).right.get
+    val compiledPackages = PureCompiledPackages(darMap) match {
+      case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
+      case Right(pkgs) => pkgs
+    }
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
       case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
       case Right(trigger) => trigger

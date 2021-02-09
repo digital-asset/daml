@@ -7,7 +7,7 @@ variable "name" {
 
 variable "labels" {
   description = "Labels to apply on all the resources"
-  type        = "map"
+  type        = map
   default     = {}
 }
 

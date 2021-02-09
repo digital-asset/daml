@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 data "template_file" "vsts-agent-ubuntu_20_04-startup" {
-  template = "${file("${path.module}/vsts_agent_ubuntu_20_04_startup.sh")}"
+  template = file("${path.module}/vsts_agent_ubuntu_20_04_startup.sh")
 
   vars = {
-    vsts_token   = "${secret_resource.vsts-token.value}"
+    vsts_token   = secret_resource.vsts-token.value
     vsts_account = "digitalasset"
     vsts_pool    = "ubuntu_20_04"
   }
 }
 
 resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04" {
-  provider           = "google-beta"
+  provider           = google-beta
   name               = "vsts-agent-ubuntu-20-04"
   base_instance_name = "vsts-agent-ubuntu-20-04"
   region             = "us-east1"
@@ -20,7 +20,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
 
   version {
     name              = "vsts-agent-ubuntu-20-04"
-    instance_template = "${google_compute_instance_template.vsts-agent-ubuntu_20_04.self_link}"
+    instance_template = google_compute_instance_template.vsts-agent-ubuntu_20_04.self_link
   }
 
   update_policy {
@@ -34,7 +34,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
 resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
   name_prefix  = "vsts-agent-ubuntu-20-04-"
   machine_type = "c2-standard-8"
-  labels       = "${local.machine-labels}"
+  labels       = local.machine-labels
 
   disk {
     disk_size_gb = 200
@@ -46,18 +46,10 @@ resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
     create_before_destroy = true
   }
 
-  metadata {
-    startup-script = "${data.template_file.vsts-agent-ubuntu_20_04-startup.rendered}"
+  metadata = {
+    startup-script = data.template_file.vsts-agent-ubuntu_20_04-startup.rendered
 
-    shutdown-script = <<EOS
-#!/usr/bin/env bash
-set -euo pipefail
-cd /home/vsts/agent
-su vsts <<SHUTDOWN_AGENT
-export VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'
-./config.sh remove --unattended --auth PAT
-SHUTDOWN_AGENT
-    EOS
+    shutdown-script = "#!/usr/bin/env bash\nset -euo pipefail\ncd /home/vsts/agent\nsu vsts <<SHUTDOWN_AGENT\nexport VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'\n./config.sh remove --unattended --auth PAT\nSHUTDOWN_AGENT\n    "
   }
 
   network_interface {
