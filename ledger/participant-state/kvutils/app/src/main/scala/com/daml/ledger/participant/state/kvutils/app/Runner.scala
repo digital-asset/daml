@@ -9,6 +9,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
@@ -128,7 +129,13 @@ final class Runner[T <: ReadWriteService, Extra](
               )
             )
             servicesExecutionContext <- ResourceOwner
-              .forExecutorService(() => Executors.newWorkStealingPool())
+              .forExecutorService(() =>
+                new InstrumentedExecutorService(
+                  Executors.newWorkStealingPool(),
+                  metrics.registry,
+                  metrics.daml.lapi.threadpool.apiServices.toString,
+                )
+              )
               .map(ExecutionContext.fromExecutorService)
               .acquire()
             _ <- participantConfig.mode match {
