@@ -164,7 +164,7 @@ object TriggerRunnerImpl {
               // here. It won't receive it (many Bothans died to bring
               // us this information).
               logger.info(s"Trigger $name stopped")
-              killSwitch.shutdown
+              killSwitch.shutdown()
               Behaviors.stopped
             case (_, PreRestart) =>
               // No need to send any messages here. The server has

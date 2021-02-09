@@ -28,6 +28,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
 import Data.Either
+import Data.Functor
 import Data.Maybe
 import Data.IORef
 import GHC.Generics
@@ -125,7 +126,7 @@ findServerJar = do
 -- JAVA_HOME is correctly set, but 'java' is not in PATH.
 javaProc :: [String] -> IO CreateProcess
 javaProc args =
-  lookupEnv "JAVA_HOME" >>= return . \case
+  lookupEnv "JAVA_HOME" <&> \case
     Nothing ->
       proc "java" args
     Just javaHome ->

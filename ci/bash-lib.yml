@@ -142,6 +142,11 @@ steps:
         rm -rf $gpg_dir $key
         return $res
     }
+    setvar() {
+      echo "Setting '$1' to '$2'"
+      echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+    }
+
     END
     echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"
   displayName: install Bash lib

@@ -74,7 +74,7 @@ class ApiCodecCompressedSpec
     val emptyRecordId = defRef("EmptyRecord")
     val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
     val simpleRecordId = defRef("SimpleRecord")
-    val simpleRecordVariantSpec = 'fA ->> VA.text :: 'fB ->> VA.int64 :: RNil
+    val simpleRecordVariantSpec = Symbol("fA") ->> VA.text :: Symbol("fB") ->> VA.int64 :: RNil
     val (simpleRecordDDT, simpleRecordT) =
       VA.record(simpleRecordId, simpleRecordVariantSpec)
     val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
@@ -82,29 +82,29 @@ class ApiCodecCompressedSpec
     val simpleVariantId = defRef("SimpleVariant")
     val (simpleVariantDDT, simpleVariantT) =
       VA.variant(simpleVariantId, simpleRecordVariantSpec)
-    val simpleVariantV = HSum[simpleVariantT.Inj[Cid]]('fA ->> "foo")
+    val simpleVariantV = HSum[simpleVariantT.Inj[Cid]](Symbol("fA") ->> "foo")
 
     val complexRecordId = defRef("ComplexRecord")
     val (complexRecordDDT, complexRecordT) =
       VA.record(
         complexRecordId,
-        'fText ->> VA.text
-          :: 'fBool ->> VA.bool
-          :: 'fDecimal ->> VA.numeric(Decimal.scale)
-          :: 'fUnit ->> VA.unit
-          :: 'fInt64 ->> VA.int64
-          :: 'fParty ->> VA.party
-          :: 'fContractId ->> VA.contractId
-          :: 'fListOfText ->> VA.list(VA.text)
-          :: 'fListOfUnit ->> VA.list(VA.unit)
-          :: 'fDate ->> VA.date
-          :: 'fTimestamp ->> VA.timestamp
-          :: 'fOptionalText ->> VA.optional(VA.text)
-          :: 'fOptionalUnit ->> VA.optional(VA.unit)
-          :: 'fOptOptText ->> VA.optional(VA.optional(VA.text))
-          :: 'fMap ->> VA.map(VA.int64)
-          :: 'fVariant ->> simpleVariantT
-          :: 'fRecord ->> simpleRecordT
+        Symbol("fText") ->> VA.text
+          :: Symbol("fBool") ->> VA.bool
+          :: Symbol("fDecimal") ->> VA.numeric(Decimal.scale)
+          :: Symbol("fUnit") ->> VA.unit
+          :: Symbol("fInt64") ->> VA.int64
+          :: Symbol("fParty") ->> VA.party
+          :: Symbol("fContractId") ->> VA.contractId
+          :: Symbol("fListOfText") ->> VA.list(VA.text)
+          :: Symbol("fListOfUnit") ->> VA.list(VA.unit)
+          :: Symbol("fDate") ->> VA.date
+          :: Symbol("fTimestamp") ->> VA.timestamp
+          :: Symbol("fOptionalText") ->> VA.optional(VA.text)
+          :: Symbol("fOptionalUnit") ->> VA.optional(VA.unit)
+          :: Symbol("fOptOptText") ->> VA.optional(VA.optional(VA.text))
+          :: Symbol("fMap") ->> VA.map(VA.int64)
+          :: Symbol("fVariant") ->> simpleVariantT
+          :: Symbol("fRecord") ->> simpleRecordT
           :: RNil,
       )
     val complexRecordV: complexRecordT.Inj[Cid] =
@@ -204,7 +204,7 @@ class ApiCodecCompressedSpec
         implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
         import kva.{injarb, injshrink}, mapVa.{injarb => maparb, injshrink => mapshrink}
         forAll(minSuccessful(50)) { (k: kva.Inj[Cid], v: VA.int64.Inj[Cid], map: mapVa.Inj[Cid]) =>
-          val canonical = mapVa.inj(map updated (k, v))
+          val canonical = mapVa.inj(map.updated(k, v))
           val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
             elements
           }

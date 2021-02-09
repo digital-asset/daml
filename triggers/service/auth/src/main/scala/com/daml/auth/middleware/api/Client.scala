@@ -48,7 +48,7 @@ class Client(config: Client.Config) {
     * Note, a GET request on the `callbackUri` must map to this route.
     */
   val callbackHandler: Route =
-    parameters('state.as[UUID]) { requestId =>
+    parameters(Symbol("state").as[UUID]) { requestId =>
       callbacks.pop(requestId) match {
         case None =>
           complete(StatusCodes.NotFound)

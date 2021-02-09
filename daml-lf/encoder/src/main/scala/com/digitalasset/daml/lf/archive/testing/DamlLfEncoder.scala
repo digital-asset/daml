@@ -4,15 +4,15 @@
 package com.daml.lf.archive.testing
 
 import java.io.File
-import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
-import java.util.zip.ZipEntry
 
+import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
+import com.daml.SdkVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
@@ -80,21 +80,12 @@ private[daml] object DamlLfEncoder extends App {
   private def makeDar(source: String, file: File)(implicit
       parserParameters: ParserParameters[this.type]
   ) = {
-    import java.io.FileOutputStream
-    import java.util.zip.ZipOutputStream
-
     val archive = makeArchive(source)
-
-    val out = new ZipOutputStream(new FileOutputStream(file))
-    out.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"))
-    out.write(MANIFEST)
-    out.closeEntry()
-
-    out.putNextEntry(new ZipEntry("archive.dalf"))
-    out.write(archive.toByteArray)
-    out.closeEntry()
-    out.close()
-
+    DarWriter.encode(
+      SdkVersion.sdkVersion,
+      Dar(("archive.dalf", archive.toByteArray), List()),
+      file.toPath,
+    )
   }
 
   private case class Arguments(
@@ -143,19 +134,6 @@ private[daml] object DamlLfEncoder extends App {
       case _ =>
         error(s"version '$version' not supported")
     }
-
-  // Be careful when adjusting the Manifest.
-  // Each line of the manifest must be shorter than 72 bytes.
-  // See https://docs.oracle.com/javase/6/docs/technotes/guides/jar/jar.html#JAR%20Manifest.
-  private val MANIFEST =
-    """Manifest-Version: 1.0
-      |Created-By: DAML-LF Encoder
-      |Sdk-Version: 0.0.0
-      |Main-Dalf: archive.dalf
-      |Dalfs: archive.dalf
-      |Format: daml-lf
-      |Encryption: non-encrypted
-      |""".stripMargin.getBytes(StandardCharsets.US_ASCII)
 
   main()
 

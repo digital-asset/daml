@@ -26,6 +26,13 @@ import DA.Internal.Prelude
 
 --------------------------------------------------------------
 
+-- | HIDE DatatypeContexts tag for user-defined exception types.
+-- Used internally by the Daml compiler.
+class DamlException
+instance DamlException
+
+--------------------------------------------------------------
+
 -- | Exception typeclass. This should not be implemented directly,
 -- instead, use the `exception` syntax.
 type Exception e =

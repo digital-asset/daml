@@ -324,7 +324,7 @@ class Server(
             },
             // List triggers currently running for the given party.
             get {
-              parameters('party.as[Party]) { party =>
+              parameters(Symbol("party").as[Party]) { party =>
                 val claims = Claims(readAs = List(party))
                 authorize(claims) { _ =>
                   extractExecutionContext { implicit ec =>

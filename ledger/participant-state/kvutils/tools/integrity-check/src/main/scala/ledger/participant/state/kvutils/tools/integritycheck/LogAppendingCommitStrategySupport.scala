@@ -69,4 +69,7 @@ final class LogAppendingCommitStrategySupport(
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(metrics)
+
+  override val writeSetComparison: WriteSetComparison =
+    new RawWriteSetComparison(serializationStrategy)
 }

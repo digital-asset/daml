@@ -120,7 +120,6 @@ class Server(config: Config) {
     }
   }
 
-  import Request.Token.unmarshalHttpEntity
   import Request.Refresh.unmarshalHttpEntity
   implicit val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
@@ -128,12 +127,12 @@ class Server(config: Config) {
     path("authorize") {
       get {
         parameters(
-          'response_type,
-          'client_id,
-          'redirect_uri.as[Uri],
-          'scope ?,
-          'state ?,
-          'audience.as[Uri] ?,
+          Symbol("response_type"),
+          Symbol("client_id"),
+          Symbol("redirect_uri").as[Uri],
+          Symbol("scope") ?,
+          Symbol("state") ?,
+          Symbol("audience").as[Uri] ?,
         )
           .as[Request.Authorize](Request.Authorize) { request =>
             val payload = toPayload(request)

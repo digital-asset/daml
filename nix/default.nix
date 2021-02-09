@@ -42,7 +42,7 @@ in rec {
     # Haskell development
     ghc             = bazel_dependencies.ghc;
     ghcid           = pkgs.haskellPackages.ghcid;
-    hlint           = bazel_dependencies.ghcPkgs.hlint;
+    hlint           = bazel_dependencies.hlint;
     ghci            = bazel_dependencies.ghc;
 
     # Hazel’s configure step currently searches for the C compiler in
@@ -68,20 +68,7 @@ in rec {
 
     javafmt = pkgs.callPackage ./tools/google-java-format {};
 
-    # The package itself is called bazel-watcher. However, the executable is
-    # called ibazel. We call the attribute ibazel so that the default dev-env
-    # wrapper works.
-    ibazel = pkgs.bazel-watcher;
-
-    scala = (bazel_dependencies.scala.override { jre = jdk; }).overrideAttrs (attrs: {
-      buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
-      installPhase = attrs.installPhase + ''
-        wrapProgram $out/bin/scala    --add-flags "-nobootcp"
-        wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
-        wrapProgram $out/bin/scaladoc --add-flags "-nobootcp"
-        wrapProgram $out/bin/scalap   --add-flags "-nobootcp"
-      '';
-    });
+    scala = bazel_dependencies.scala;
     fsc      = scala;
     scalac   = scala;
     scaladoc = scala;
@@ -129,7 +116,7 @@ in rec {
 
     pex = pkgs.python37Packages.pex;
     pipenv = import ./tools/pipenv {
-      lib = pkgs.stdenv.lib;
+      lib = pkgs.lib;
       python3 = python3;
     };
 
@@ -177,7 +164,7 @@ in rec {
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-    '' + pkgs.stdenv.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
+    '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     '' + ''
       exec ${pkgs.bazel}/bin/bazel --bazelrc "${bazelrc}" "$@"
@@ -226,9 +213,7 @@ in rec {
     docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
-    # of the secret provider that is compatiblz with Terraform 0.12 (1.1.0+)
-    terraform = pkgs.terraform_0_11.withPlugins (p: with p; [
+    terraform = pkgs.terraform_0_12.withPlugins (p: with p; [
       google
       google-beta
       random

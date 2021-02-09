@@ -60,51 +60,55 @@ steps:
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'),
                    eq('${{parameters.name}}', 'linux'))
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash-lib
   - bash: |
       set -euo pipefail
+      source $(bash-lib)
       eval "$(./dev-env/bin/dade-assist)"
 
       TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
-      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+      setvar tarball "$TARBALL"
 
       PROTOS_ZIP=protobufs-${{parameters.release_tag}}.zip
       cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
-      echo "##vso[task.setvariable variable=protos-zip;isOutput=true]$PROTOS_ZIP"
+      setvar protos-zip "$PROTOS_ZIP"
 
       DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //ledger/daml-on-sql:daml-on-sql-binary_deploy.jar
       cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
-      echo "##vso[task.setvariable variable=daml-on-sql;isOutput=true]$DAML_ON_SQL"
+      setvar daml-on-sql "$DAML_ON_SQL"
 
       JSON_API=http-json-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //ledger-service/http-json:http-json-binary_deploy.jar
       cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
-      echo "##vso[task.setvariable variable=json-api;isOutput=true]$JSON_API"
+      setvar json-api "$JSON_API"
 
       TRIGGER=daml-trigger-runner-${{parameters.release_tag}}.jar
       bazel build //triggers/runner:trigger-runner_deploy.jar
       cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $(Build.StagingDirectory)/$TRIGGER
-      echo "##vso[task.setvariable variable=trigger-runner;isOutput=true]$TRIGGER"
+      setvar trigger-runner "$TRIGGER"
 
       TRIGGER_SERVICE=trigger-service-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //triggers/service:trigger-service-binary_deploy.jar
       cp bazel-bin/triggers/service/trigger-service-binary_deploy.jar $(Build.StagingDirectory)/$TRIGGER_SERVICE
-      echo "##vso[task.setvariable variable=trigger-service;isOutput=true]$TRIGGER_SERVICE"
+      setvar trigger-service "$TRIGGER_SERVICE"
 
       OAUTH2_MIDDLEWARE=oauth2-middleware-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //triggers/service/auth:oauth2-middleware-binary_deploy.jar
       cp bazel-bin/triggers/service/auth/oauth2-middleware-binary_deploy.jar $(Build.StagingDirectory)/$OAUTH2_MIDDLEWARE
-      echo "##vso[task.setvariable variable=oauth2-middleware;isOutput=true]$OAUTH2_MIDDLEWARE"
+      setvar oauth2-middleware "$OAUTH2_MIDDLEWARE"
 
       SCRIPT=daml-script-${{parameters.release_tag}}.jar
       bazel build //daml-script/runner:script-runner_deploy.jar
       cp bazel-bin/daml-script/runner/script-runner_deploy.jar $(Build.StagingDirectory)/$SCRIPT
-      echo "##vso[task.setvariable variable=script-runner;isOutput=true]$SCRIPT"
+      setvar script-runner "$SCRIPT"
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish

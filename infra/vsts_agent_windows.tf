@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 locals {
-  vsts_token   = "${secret_resource.vsts-token.value}"
+  vsts_token   = secret_resource.vsts-token.value
   vsts_account = "digitalasset"
   vsts_pool    = "windows-pool"
 }
 
 resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
-  provider = "google-beta"
+  provider = google-beta
   name     = "vsts-agent-windows"
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
@@ -20,7 +20,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 
   version {
     name              = "vsts-agent-windows"
-    instance_template = "${google_compute_instance_template.vsts-agent-windows.self_link}"
+    instance_template = google_compute_instance_template.vsts-agent-windows.self_link
   }
 
   update_policy {
@@ -39,7 +39,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 resource "google_compute_instance_template" "vsts-agent-windows" {
   name_prefix  = "vsts-agent-windows-"
   machine_type = "c2-standard-8"
-  labels       = "${local.machine-labels}"
+  labels       = local.machine-labels
 
   disk {
     disk_size_gb = 200
@@ -59,7 +59,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
     create_before_destroy = true
   }
 
-  metadata {
+  metadata = {
     // Prepare the machine
     windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
 Set-StrictMode -Version latest
@@ -85,8 +85,8 @@ Invoke-WebRequest https://dl.google.com/cloudagents/windows/StackdriverLogging-v
 iex (New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')
 
 # Install git, bash
-& choco install git --no-progress --yes 2>&1 | %{ "$_" }
-& choco install windows-sdk-10.1 --no-progress --yes 2>&1 | %{ "$_" }
+& choco install git --no-progress --yes 2>&1 | %%{ "$_" }
+& choco install windows-sdk-10.1 --no-progress --yes 2>&1 | %%{ "$_" }
 
 # Add tools to the PATH
 $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).path
@@ -104,7 +104,7 @@ format fs=ntfs quick
 assign letter="D"
 "@
 $partition | Set-Content C:\diskpart.txt
-& diskpart /s C:\diskpart.txt 2>&1 | %{ "$_" }
+& diskpart /s C:\diskpart.txt 2>&1 | %%{ "$_" }
 
 # Create a temporary and random password for the VSTS user, forget about it once this script has finished running
 $Username = "u"

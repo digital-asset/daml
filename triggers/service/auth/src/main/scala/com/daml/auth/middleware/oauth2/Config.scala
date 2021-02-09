@@ -62,7 +62,7 @@ object Config {
       tokenVerifier = null,
     )
 
-  def parseConfig(args: Seq[String]): Option[Config] =
+  def parseConfig(args: collection.Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -123,7 +123,8 @@ object Config {
         .action((x, c) => c.copy(oauthRefreshTemplate = Some(Paths.get(x))))
         .text("OAuth2 refresh request Jsonnet template")
 
-      opt[String]("id").hidden
+      opt[String]("id")
+        .hidden()
         .action((x, c) => c.copy(clientId = x))
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_ID", ""))
         .validate(x =>
@@ -131,7 +132,8 @@ object Config {
           else success
         )
 
-      opt[String]("secret").hidden
+      opt[String]("secret")
+        .hidden()
         .action((x, c) => c.copy(clientSecret = x))
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_SECRET", ""))
         .validate(x =>

@@ -31,6 +31,7 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

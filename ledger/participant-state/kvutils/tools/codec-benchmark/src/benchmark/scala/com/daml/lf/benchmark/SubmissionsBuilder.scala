@@ -1,9 +1,9 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.benchmark
+package com.daml.lf
+package benchmark
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.transaction.TransactionOuterClass.Transaction
@@ -24,7 +24,7 @@ final class SubmissionsBuilder(
   }
   def result(): Submissions =
     Submissions(
-      PureCompiledPackages(packages.result()).fold(sys.error, identity),
+      PureCompiledPackages(packages.result(), speedy.Compiler.Config.Dev).fold(sys.error, identity),
       transactions.result(),
     )
 }

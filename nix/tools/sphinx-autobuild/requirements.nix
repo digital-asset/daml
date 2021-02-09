@@ -12,7 +12,7 @@
 let
 
   inherit (pkgs) makeWrapper;
-  inherit (pkgs.stdenv.lib) fix' extends inNixShell;
+  inherit (pkgs.lib) fix' extends inNixShell;
 
   pythonPackages =
   import "${toString pkgs.path}/pkgs/top-level/python-packages.nix" {
@@ -86,7 +86,7 @@ let
       format = "setuptools";
       buildInputs = commonBuildInputs ++ [ ];
       propagatedBuildInputs = [ ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "http://github.com/neithere/argh/";
         license = licenses.lgpl2;
         description = "An unobtrusive argparse wrapper with natural syntax";
@@ -106,7 +106,7 @@ let
         self."six"
         self."tornado"
       ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "https://github.com/lepture/python-livereload";
         license = licenses.bsdOriginal;
         description = "Python LiveReload is an awesome tool for web developers";
@@ -123,7 +123,7 @@ let
       format = "setuptools";
       buildInputs = commonBuildInputs ++ [ ];
       propagatedBuildInputs = [ ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "http://github.com/gorakhargosh/pathtools";
         license = licenses.mit;
         description = "File system general utilities";
@@ -140,7 +140,7 @@ let
       format = "setuptools";
       buildInputs = commonBuildInputs ++ [ ];
       propagatedBuildInputs = [ ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "https://github.com/kmike/port-for/";
         license = licenses.mit;
         description = "Utility that helps with local TCP ports managment. It can find an unused TCP localhost port and remember the association.";
@@ -157,7 +157,7 @@ let
       format = "setuptools";
       buildInputs = commonBuildInputs ++ [ ];
       propagatedBuildInputs = [ ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "https://github.com/yaml/pyyaml";
         license = licenses.mit;
         description = "YAML parser and emitter for Python";
@@ -174,7 +174,7 @@ let
       format = "setuptools";
       buildInputs = commonBuildInputs ++ [ ];
       propagatedBuildInputs = [ ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "https://github.com/benjaminp/six";
         license = licenses.mit;
         description = "Python 2 and 3 compatibility utilities";
@@ -199,7 +199,7 @@ let
         self."tornado"
         self."watchdog"
       ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "https://github.com/GaretJax/sphinx-autobuild";
         license = licenses.mit;
         description = "Watch a Sphinx directory and rebuild the documentation when a change is detected. Also includes a livereload enabled web server.";
@@ -216,7 +216,7 @@ let
       format = "setuptools";
       buildInputs = commonBuildInputs ++ [ ];
       propagatedBuildInputs = [ ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "http://www.tornadoweb.org/";
         license = licenses.asl20;
         description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed.";
@@ -235,7 +235,7 @@ let
       propagatedBuildInputs = [
         self."pathtools"
       ];
-      meta = with pkgs.stdenv.lib; {
+      meta = with pkgs.lib; {
         homepage = "http://github.com/gorakhargosh/watchdog";
         license = licenses.asl20;
         description = "Filesystem events monitoring";

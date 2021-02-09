@@ -12,8 +12,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue,
 }
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawWriteSetComparisonSpec._
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparison.rawHexString
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparisonSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -22,10 +22,10 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class WriteSetComparisonSpec extends AsyncWordSpec with Matchers with Inside {
+final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with Inside {
 
   private val writeSetComparison =
-    new WriteSetComparison(StateKeySerializationStrategy.createDefault())
+    new RawWriteSetComparison(StateKeySerializationStrategy.createDefault())
 
   "checking the entries are readable" should {
     "parse a log entry" in {
@@ -212,7 +212,7 @@ final class WriteSetComparisonSpec extends AsyncWordSpec with Matchers with Insi
 
 }
 
-object WriteSetComparisonSpec {
+object RawWriteSetComparisonSpec {
 
   private val noKey: Raw.Key =
     Raw.Key(ByteString.EMPTY)
