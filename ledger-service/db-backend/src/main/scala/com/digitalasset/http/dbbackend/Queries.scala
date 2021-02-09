@@ -3,8 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import com.github.ghik.silencer.silent
-
 import doobie._
 import doobie.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
@@ -223,7 +221,7 @@ sealed abstract class Queries {
     }
   }
 
-  private[http] def selectContracts(
+  private[http] final def selectContracts(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
       predicate: Fragment,
@@ -231,7 +229,9 @@ sealed abstract class Queries {
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]]
+  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
+    selectContractsMultiTemplate(parties, Seq((tpid, predicate)), MatchedQueryMarker.Unused)
+      .map(_ copy (templateId = ()))
 
   /** Make the smallest number of queries from `queries` that still indicates
     * which query or queries produced each contract.
@@ -241,7 +241,6 @@ sealed abstract class Queries {
     * `templateId` of the resulting [[DBContract]] is actually the 0-based index
     * into the `queries` argument that produced the contract.
     */
-  @silent(" gvs .* never used")
   private[http] def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
       queries: Seq[(SurrogateTpId, Fragment)],
@@ -250,50 +249,9 @@ sealed abstract class Queries {
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
-    val partyVector = parties.toVector
-    def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
-      val assocedPreds = preds.map { case (tpid, predicate) =>
-        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
-      }
-      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
-      val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
-                      FROM contract AS c
-                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                       AND (""" ++ unionPred ++ sql")"
-      q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
-        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
-          DBContract(
-            contractId = cid,
-            templateId = findMark(tpid),
-            key = key,
-            payload = payload,
-            signatories = signatories,
-            observers = observers,
-            agreementText = agreement,
-          )
-        }
-    }
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]]
 
-    trackMatchIndices match {
-      case MatchedQueryMarker.ByInt =>
-        type Ix = Int
-        uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
-          preds: Map[SurrogateTpId, (Fragment, Ix)] =>
-            val predHd +: predTl = preds.toVector
-            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
-              (tpid, predicate)
-            }
-            query(predsList, tpid => preds(tpid)._2)
-        }
-
-      case MatchedQueryMarker.Unused =>
-        val predHd +: predTl = queries.toVector
-        query(OneAnd(predHd, predTl), identity)
-    }
-  }
-
-  private[http] def fetchById(
+  private[http] final def fetchById(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
       contractId: String,
@@ -414,7 +372,7 @@ object Queries {
 }
 
 private object PostgresQueries extends Queries {
-  import Queries.{DBContract, SurrogateTpId}, Queries.InitDdl.CreateIndex
+  import Queries._, Queries.InitDdl.CreateIndex
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) =
@@ -454,37 +412,60 @@ private object PostgresQueries extends Queries {
       logHandler0 = log,
     ).updateMany(dbcs)
 
-  private[http] override def selectContracts(
+  private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      tpid: SurrogateTpId,
-      predicate: Fragment,
+      queries: Seq[(SurrogateTpId, Fragment)],
+      trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     val partyVector = parties.toVector
-    val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
-                  FROM contract
-                  WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                   AND tpid = $tpid AND (""" ++ predicate ++ sql")"
-    q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
-      case (cid, key, payload, signatories, observers, agreement) =>
-        DBContract(
-          contractId = cid,
-          templateId = (),
-          key = key,
-          payload = payload,
-          signatories = signatories,
-          observers = observers,
-          agreementText = agreement,
-        )
+    def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
+      val assocedPreds = preds.map { case (tpid, predicate) =>
+        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
+      }
+      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
+      val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
+                      FROM contract AS c
+                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                       AND (""" ++ unionPred ++ sql")"
+      q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
+        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
+          DBContract(
+            contractId = cid,
+            templateId = findMark(tpid),
+            key = key,
+            payload = payload,
+            signatories = signatories,
+            observers = observers,
+            agreementText = agreement,
+          )
+        }
+    }
+
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt =>
+        type Ix = Int
+        uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
+          preds: Map[SurrogateTpId, (Fragment, Ix)] =>
+            val predHd +: predTl = preds.toVector
+            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
+              (tpid, predicate)
+            }
+            query(predsList, tpid => preds(tpid)._2)
+        }
+
+      case MatchedQueryMarker.Unused =>
+        val predHd +: predTl = queries.toVector
+        query(OneAnd(predHd, predTl), identity)
     }
   }
 }
 
 private object OracleQueries extends Queries {
-  import Queries.{DBContract, SurrogateTpId}, Queries.InitDdl.CreateTable
+  import Queries.{DBContract, MatchedQueryMarker, SurrogateTpId}, Queries.InitDdl.CreateTable
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
@@ -576,32 +557,36 @@ private object OracleQueries extends Queries {
     r *> r2 *> r3
   }
 
-  private[http] override def selectContracts(
+  private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      tpid: SurrogateTpId,
-      predicate: Fragment,
+      queries: Seq[(SurrogateTpId, Fragment)],
+      trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
-    val _ = (parties, predicate)
-    // val partyVector = parties.toVector
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+    val Seq((tpid, predicate @ _)) = queries // TODO SC handle more than one
+    val _ = parties
     println("selecting")
     val q = sql"""SELECT contract_id, key, payload, agreement_text
                   FROM contract
-                  WHERE tpid = $tpid"""
-    q.query[(String, JsValue, JsValue, Option[String])].map { case (cid, key, payload, agreement) =>
-      DBContract(
-        contractId = cid,
-        templateId = (),
-        key = key,
-        payload = payload,
-        signatories = Vector(),
-        observers = Vector(),
-        agreementText = agreement getOrElse "",
-      )
+                  WHERE tpid = $tpid""" // TODO SC AND (""" ++ predicate ++ sql")"
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
+      case MatchedQueryMarker.Unused =>
+        q.query[(String, JsValue, JsValue, Option[String])].map {
+          case (cid, key, payload, agreement) =>
+            DBContract(
+              contractId = cid,
+              templateId = tpid,
+              key = key,
+              payload = payload,
+              signatories = Vector(),
+              observers = Vector(),
+              agreementText = agreement getOrElse "",
+            )
+        }
     }
   }
-
 }
