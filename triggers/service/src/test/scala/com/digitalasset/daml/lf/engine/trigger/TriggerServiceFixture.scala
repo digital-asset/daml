@@ -85,7 +85,8 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
     Http()
       .singleRequest {
         if (cookieJar.nonEmpty) {
-          val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+          val hd +: tl = cookieJar.view.map(headers.HttpCookiePair(_)).toSeq
+          val cookies = headers.Cookie(hd, tl: _*)
           request.addHeader(cookies)
         } else {
           request
@@ -422,7 +423,7 @@ trait TriggerDaoPostgresFixture
   }
 
   override protected def afterAll(): Unit = {
-    triggerDao.destroyPermanently() fold (fail(_), identity)
+    triggerDao.destroyPermanently().fold(fail(_), identity)
 
     super.afterAll()
   }

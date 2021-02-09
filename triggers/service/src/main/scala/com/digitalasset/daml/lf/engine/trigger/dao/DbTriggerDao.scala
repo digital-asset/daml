@@ -217,7 +217,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   private def run[T](query: ConnectionIO[T], errorContext: String = "")(implicit
       ec: ExecutionContext
   ): Future[T] = {
-    query.transact(xa).unsafeToFuture.recoverWith { case NonFatal(e) =>
+    query.transact(xa).unsafeToFuture().recoverWith { case NonFatal(e) =>
       Future.failed(new DatabaseError(errorContext, e))
     }
   }
@@ -287,10 +287,13 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   @throws[IOException]
   override def close() =
-    destroyPermanently() fold ({
-      case e: IOException => throw e
-      case e => throw new IOException(e)
-    }, identity)
+    destroyPermanently().fold(
+      {
+        case e: IOException => throw e
+        case e => throw new IOException(e)
+      },
+      identity,
+    )
 }
 
 object DbTriggerDao {

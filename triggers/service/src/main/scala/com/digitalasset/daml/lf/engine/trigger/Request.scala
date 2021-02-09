@@ -13,7 +13,7 @@ object Request {
   implicit object IdentifierFormat extends JsonFormat[Identifier] {
     def read(value: JsValue): Identifier = value match {
       case JsString(s) =>
-        Identifier fromString s fold (deserializationError(_), identity)
+        Identifier.fromString(s).fold(deserializationError(_), identity)
       case _ => deserializationError("Expected trigger identifier of the form pkgid:mod:name")
     }
     def write(id: Identifier): JsValue = JsString(id.toString)
