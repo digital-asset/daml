@@ -37,8 +37,8 @@ rules_haskell_version = "3987c494f7a3b72805855246a844a28880dd0b15"
 rules_haskell_sha256 = "7f6e7005cefbce61930e2feca71d96abba9d7a23059ca1bcdc1d13355f5d448f"
 rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
 rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
-buildifier_version = "3.3.0"
-buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
+buildifier_version = "4.0.0"
+buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "2.3.1"
@@ -101,6 +101,8 @@ def daml_deps():
                 # reportedly solves the issue. See
                 # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
                 "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
+                # Already upstreamed to rules-nixpkgs. Remove on next upgrade.
+                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -358,14 +360,14 @@ genrule(
   cmd = '''
     DIR=$$(dirname $(execpath _config.yml))
     $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
-    tar hc _site \\
-        --owner=1000 \\
-        --group=1000 \\
-        --mtime=2000-01-01\\ 00:00Z \\
-        --no-acls \\
-        --no-xattrs \\
-        --no-selinux \\
-        --sort=name \\
+    tar hc _site \\\\
+        --owner=1000 \\\\
+        --group=1000 \\\\
+        --mtime=2000-01-01\\\\ 00:00Z \\\\
+        --no-acls \\\\
+        --no-xattrs \\\\
+        --no-selinux \\\\
+        --sort=name \\\\
         | gzip -n > $(OUTS)
   ''',
 )
