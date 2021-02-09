@@ -1,0 +1,17 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+-- @QUERY-LF [ .modules[].exceptions[] ] | length == 1
+-- @WARN Modules compiled with the DatatypeContexts language extension
+{-# LANGUAGE DatatypeContexts #-}
+
+-- | Test that desugared exceptions are picked up during LF conversion.
+module ExceptionDesugared where
+
+data DA.Internal.Desugar.DamlException => MyException =
+    MyException with
+        m : Text
+
+instance DA.Internal.Desugar.HasMessage MyException where
+    message (MyException m) = m
