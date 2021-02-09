@@ -28,15 +28,20 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
 import scalaz.syntax.tag._
+import scalaz.std.scalaFuture._
+import scalaz.std.list._
 import scalaz.syntax.traverse._
 import spray.json._
 
+import scala.concurrent.Future
 import scala.sys.process._
+import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -104,96 +109,38 @@ final class IT
       )
     )
 
-  "Generated dump for IOU transfer compiles" in {
+  private def collectTrees(client: LedgerClient, parties: List[Ref.Party]) =
+    client.transactionClient
+      .getTransactionTrees(
+        LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
+        Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+        transactionFilter(parties: _*),
+      )
+      .runWith(Sink.seq)
+
+  private def test(
+      numParties: Int
+  )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
     for {
       client <- LedgerClient(channel, clientConfiguration)
-      p1 <- client.partyManagementClient.allocateParty(None, None).map(_.party)
-      p2 <- client.partyManagementClient.allocateParty(None, None).map(_.party)
-      t0 <- submit(
-        client,
-        p1,
-        Command().withCreate(
-          CreateCommand(
-            templateId = Some(iouId("Iou")),
-            createArguments = Some(
-              api.Record(
-                fields = Seq(
-                  api.RecordField("issuer", Some(api.Value().withParty(p1))),
-                  api.RecordField("owner", Some(api.Value().withParty(p1))),
-                  api.RecordField("currency", Some(api.Value().withText("USD"))),
-                  api.RecordField("amount", Some(api.Value().withNumeric("100"))),
-                  api.RecordField("observers", Some(api.Value().withList(api.List()))),
-                )
-              )
-            ),
-          )
-        ),
-      )
-      cid0 = t0.getTransaction.events(0).getCreated.contractId
-      t1 <- submit(
-        client,
-        p1,
-        Command().withExercise(
-          ExerciseCommand(
-            templateId = Some(iouId("Iou")),
-            choice = "Iou_Split",
-            contractId = cid0,
-            choiceArgument = Some(
-              api
-                .Value()
-                .withRecord(
-                  api.Record(fields =
-                    Seq(api.RecordField(value = Some(api.Value().withNumeric("50"))))
-                  )
-                )
-            ),
-          )
-        ),
-      )
-      cid1 = t1.getTransaction.events(1).getCreated.contractId
-      cid2 = t1.getTransaction.events(2).getCreated.contractId
-      t2 <- submit(
-        client,
-        p1,
-        Command().withExercise(
-          ExerciseCommand(
-            templateId = Some(iouId("Iou")),
-            choice = "Iou_Transfer",
-            contractId = cid2,
-            choiceArgument = Some(
-              api
-                .Value()
-                .withRecord(
-                  api.Record(fields = Seq(api.RecordField(value = Some(api.Value().withParty(p2)))))
-                )
-            ),
-          )
-        ),
-      )
-      cid3 = t2.getTransaction.events(1).getCreated.contractId
-      _ <- submit(
-        client,
-        p2,
-        Command().withExercise(
-          ExerciseCommand(
-            templateId = Some(iouId("IouTransfer")),
-            choice = "IouTransfer_Accept",
-            contractId = cid3,
-            choiceArgument = Some(api.Value().withRecord(api.Record())),
-          )
-        ),
-      )
+      parties <- List
+        .range(0, numParties)
+        .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
+      // setup
+      _ <- f(client, parties)
+      before <- collectTrees(client, parties)
+      // build script dump
       _ <- Main.run(
         Config(
           ledgerHost = "localhost",
           ledgerPort = serverPort.value,
-          parties = scala.List(p1, p2),
+          parties = parties,
           outputPath = tmpDir,
           damlScriptLib = damlScriptLib.toString,
           sdkVersion = SdkVersion.sdkVersion,
         )
       )
-
+      // compile script dump
       _ = Seq[String](
         damlc.toString,
         "build",
@@ -202,16 +149,17 @@ final class IT
         "-o",
         tmpDir.resolve("dump.dar").toString,
       ).! shouldBe 0
-      // Now run the DAML Script again
-      p3 <- client.partyManagementClient.allocateParty(None, None).map(_.party)
-      p4 <- client.partyManagementClient.allocateParty(None, None).map(_.party)
+      // run script dump
+      newParties <- List
+        .range(0, numParties)
+        .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
       encodedDar = DarReader().readArchiveFromFile(tmpDir.resolve("dump.dar").toFile).get
       dar: Dar[(PackageId, Package)] = encodedDar
         .map { case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive) }
       _ <- Runner.run(
         dar,
         Ref.Identifier(dar.main._1, Ref.QualifiedName.assertFromString("Dump:dump")),
-        inputValue = Some(JsArray(JsString(p3), JsString(p4))),
+        inputValue = Some(JsArray(newParties.map(JsString(_)).toVector)),
         timeMode = ScriptTimeMode.WallClock,
         initialClients = Participants(
           default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
@@ -219,34 +167,95 @@ final class IT
           party_participants = Map.empty,
         ),
       )
-      transactions <- client.transactionClient
-        .getTransactions(
-          LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
-          Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-          transactionFilter(p3),
+      // check that the new transaction trees are the same
+      after <- collectTrees(client, newParties)
+    } yield {
+      TransactionEq.equivalent(before, after).fold(fail(_), _ => succeed)
+    }
+
+  "Generated dump for IOU transfer compiles" in {
+    test(2) { case (client, Seq(p1, p2)) =>
+      for {
+        t0 <- submit(
+          client,
+          p1,
+          Command().withCreate(
+            CreateCommand(
+              templateId = Some(iouId("Iou")),
+              createArguments = Some(
+                api.Record(
+                  fields = Seq(
+                    api.RecordField("issuer", Some(api.Value().withParty(p1))),
+                    api.RecordField("owner", Some(api.Value().withParty(p1))),
+                    api.RecordField("currency", Some(api.Value().withText("USD"))),
+                    api.RecordField("amount", Some(api.Value().withNumeric("100"))),
+                    api.RecordField("observers", Some(api.Value().withList(api.List()))),
+                  )
+                )
+              ),
+            )
+          ),
         )
-        .runWith(Sink.seq)
-      _ = transactions should have length 4
-      transactions <- client.transactionClient
-        .getTransactions(
-          LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
-          Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-          transactionFilter(p4),
+        cid0 = t0.getTransaction.events(0).getCreated.contractId
+        t1 <- submit(
+          client,
+          p1,
+          Command().withExercise(
+            ExerciseCommand(
+              templateId = Some(iouId("Iou")),
+              choice = "Iou_Split",
+              contractId = cid0,
+              choiceArgument = Some(
+                api
+                  .Value()
+                  .withRecord(
+                    api.Record(fields =
+                      Seq(api.RecordField(value = Some(api.Value().withNumeric("50"))))
+                    )
+                  )
+              ),
+            )
+          ),
         )
-        .runWith(Sink.seq)
-      _ = transactions should have length 2
-      acs <- client.activeContractSetClient
-        .getActiveContracts(transactionFilter(p3))
-        .runWith(Sink.seq)
-      _ = acs.flatMap(_.activeContracts) should have size 2
-      _ = println(acs)
-      acs <- client.activeContractSetClient
-        .getActiveContracts(transactionFilter(p4))
-        .runWith(Sink.seq)
-      _ = acs.flatMap(_.activeContracts) should have size 1
-    } yield succeed
+        cid1 = t1.getTransaction.events(1).getCreated.contractId
+        cid2 = t1.getTransaction.events(2).getCreated.contractId
+        t2 <- submit(
+          client,
+          p1,
+          Command().withExercise(
+            ExerciseCommand(
+              templateId = Some(iouId("Iou")),
+              choice = "Iou_Transfer",
+              contractId = cid2,
+              choiceArgument = Some(
+                api
+                  .Value()
+                  .withRecord(
+                    api.Record(fields =
+                      Seq(api.RecordField(value = Some(api.Value().withParty(p2))))
+                    )
+                  )
+              ),
+            )
+          ),
+        )
+        cid3 = t2.getTransaction.events(1).getCreated.contractId
+        _ <- submit(
+          client,
+          p2,
+          Command().withExercise(
+            ExerciseCommand(
+              templateId = Some(iouId("IouTransfer")),
+              choice = "IouTransfer_Accept",
+              contractId = cid3,
+              choiceArgument = Some(api.Value().withRecord(api.Record())),
+            )
+          ),
+        )
+      } yield ()
+    }
   }
 
-  private def transactionFilter(p: Ref.Party) =
-    TransactionFilter(filtersByParty = Seq(p -> Filters()).toMap)
+  private def transactionFilter(ps: Ref.Party*) =
+    TransactionFilter(filtersByParty = ps.map(p => p -> Filters()).toMap)
 }
