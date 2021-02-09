@@ -23,6 +23,7 @@ da_scala_binary(
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive/encoder",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/scala/bindings",
