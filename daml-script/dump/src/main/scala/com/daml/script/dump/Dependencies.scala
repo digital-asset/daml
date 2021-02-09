@@ -3,14 +3,12 @@
 
 package com.daml.script.dump
 
-import java.io.{ByteArrayOutputStream, FileOutputStream}
+import java.io.FileOutputStream
 import java.nio.file.Path
-import java.util.jar.{Attributes, Manifest}
-import java.util.zip.{ZipEntry, ZipOutputStream}
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.client.LedgerClient
-import com.daml.lf.archive.{Dar, Decode}
+import com.daml.lf.archive.{Dar, DarWriter, Decode}
 import com.daml.lf.archive.Reader.damlLfCodedInputStreamFromBytes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -19,6 +17,7 @@ import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
+import scalaz.syntax.traverse._
 
 object Dependencies {
 
@@ -55,26 +54,21 @@ object Dependencies {
       file: Path,
       dar: Dar[(PackageId, ByteString, Ast.Package)],
   ): Unit = {
-    def encode(pkgId: PackageId, bs: ByteString) = {
-      DamlLf.Archive
-        .newBuilder()
-        .setHash(pkgId)
-        .setHashFunction(DamlLf.HashFunction.SHA256)
-        .setPayload(bs)
-        .build()
-    }
-
-    val out = new ZipOutputStream(new FileOutputStream(file.toFile))
-    out.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"))
-    out.write(manifest(sdkVersion, dar))
-    out.closeEntry()
-    dar.all.foreach { case (pkgId, bs, _) =>
-      out.putNextEntry(new ZipEntry(pkgId + ".dalf"))
-      out.write(encode(pkgId, bs).toByteArray)
-      out.closeEntry
-    }
-    out.close
+    val out = new FileOutputStream(file.toFile)
+    DarWriter.encode(
+      sdkVersion,
+      dar.map { case (pkgId, dalf, _) => (pkgId + ".dalf", encodeDalf(pkgId, dalf).toByteArray) },
+      out,
+    )
   }
+
+  private def encodeDalf(pkgId: PackageId, bs: ByteString) =
+    DamlLf.Archive
+      .newBuilder()
+      .setHash(pkgId)
+      .setHashFunction(DamlLf.HashFunction.SHA256)
+      .setPayload(bs)
+      .build
 
   private val providedLibraries: Set[Ref.PackageName] =
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
@@ -106,20 +100,4 @@ object Dependencies {
       )
     }
   }
-
-  private def manifest[A, B](sdkVersion: String, dar: Dar[(PackageId, A, B)]): Array[Byte] = {
-    val manifest = new Manifest()
-    manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0")
-    manifest.getMainAttributes().put(new Attributes.Name("Format"), "daml-lf")
-    manifest
-      .getMainAttributes()
-      .put(new Attributes.Name("Dalfs"), dar.all.map(pkg => pkg._1 + ".dalf").mkString(", "))
-    manifest.getMainAttributes().put(new Attributes.Name("Main-Dalf"), dar.main._1 + ".dalf")
-    manifest.getMainAttributes().put(new Attributes.Name("Sdk-Version"), sdkVersion)
-    val bytes = new ByteArrayOutputStream()
-    manifest.write(bytes)
-    bytes.close
-    bytes.toByteArray
-  }
-
 }
