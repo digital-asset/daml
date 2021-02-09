@@ -223,18 +223,18 @@ aeson 1.5.5.1 : BSD 3-clause "New" or "Revised" License
 aeson-compat 0.3.9 : BSD 3-clause "New" or "Revised" License
 aeson-extra 0.4.1.3 : BSD 3-clause "New" or "Revised" License
 aeson-pretty 0.8.8 : BSD 3-clause "New" or "Revised" License
-akka-actor 2.6.11 : Apache License 2.0
-akka-actor-typed 2.6.11 : Apache License 2.0
+akka-actor 2.6.12 : Apache License 2.0
+akka-actor-typed 2.6.12 : Apache License 2.0
 akka-http 10.2.1 : Apache License 2.0
 akka-http-core 10.2.1 : Apache License 2.0
 akka-http-spray-json 10.2.1 : Apache License 2.0
 akka-http-testkit 10.2.1 : Apache License 2.0
 akka-parsing 10.2.1 : Apache License 2.0
-akka-protobuf-v3 2.6.11 : Apache License 2.0
-akka-slf4j 2.6.11 : Apache License 2.0
-akka-stream 2.6.11 : Apache License 2.0
-akka-stream-testkit 2.6.11 : Apache License 2.0
-akka-testkit 2.6.11 : Apache License 2.0
+akka-protobuf-v3 2.6.12 : Apache License 2.0
+akka-slf4j 2.6.12 : Apache License 2.0
+akka-stream 2.6.12 : Apache License 2.0
+akka-stream-testkit 2.6.12 : Apache License 2.0
+akka-testkit 2.6.12 : Apache License 2.0
 anorm 2.6.8 : Apache License 2.0
 anorm-tokenizer 2.6.8 : Apache License 2.0
 ansi-regex 2.1.1 : MIT License
@@ -419,6 +419,7 @@ domutils 1.7.0 : BSD 2-clause "Simplified" License
 domutils 2.4.3 : BSD 2-clause "Simplified" License
 doobie-core 0.9.2 : MIT License
 doobie-free 0.9.2 : MIT License
+doobie-hikari 0.9.2 : MIT License
 doobie-postgres 0.9.2 : MIT License
 duplexer 0.1.1 : MIT License
 duplexer2.jbenet 0.1.4 : BSD 3-clause "New" or "Revised" License
@@ -566,6 +567,7 @@ haskell TLS 1.6.6 : BSD 3-clause "New" or "Revised" License
 haskell TLS 1.6.7 : BSD 3-clause "New" or "Revised" License
 haskell TLS 1.7.5 : BSD 3-clause "New" or "Revised" License
 haskell-adjunctions 4.4 : BSD 2-clause "Simplified" License
+haskell-conduit 0.8.0 : BSD 3-clause "New" or "Revised" License
 haskell-conduit 1.2.4.2 : MIT License
 haskell-conduit 1.3.4 : MIT License
 haskell-conduit 1.3.5 : MIT License
@@ -934,7 +936,7 @@ performance-now 2.1.0 : MIT License
 phadej/cabal-doctest 1.0.8 : BSD 3-clause "New" or "Revised" License
 pify 2.3.0 : MIT License
 pinkie-promise 2.0.1 : MIT License
-pip 20.1.1 : MIT License
+pip 20.2.4 : MIT License
 polyparse 1.13 : GNU Lesser General Public License v3.0 or later
 portscanner 2.2.0 : MIT License
 posix-character-classes 0.1.1 : MIT License
@@ -955,8 +957,8 @@ pureconfig-core 0.14.0 : Mozilla Public License 2.0
 pureconfig-generic 0.14.0 : Mozilla Public License 2.0
 pureconfig-generic-base 0.14.0 : Mozilla Public License 2.0
 pureconfig-macros 0.14.0 : Mozilla Public License 2.0
-pypa/setuptools 46.4.0 : Python Software Foundation License 2.0
-python-wheel 0.34.2 : MIT License
+pypa/setuptools 50.3.2 : MIT License
+python-wheel 0.35.1 : MIT License
 qs -  QS Querystring 6.9.4 : BSD 3-clause "New" or "Revised" License
 qs -  QS Querystring v6.7.0 : BSD 3-clause "New" or "Revised" License
 querystring-es3 0.2.1 : MIT License
@@ -1120,6 +1122,7 @@ stache 2.2.0 : BSD 3-clause "New" or "Revised" License
 static-extend 0.1.2 : MIT License
 statuses 1.5.0 : MIT License
 stm-chans 3.0.0.4 : BSD 3-clause "New" or "Revised" License
+stm-conduit 4.0.1 : BSD 3-clause "New" or "Revised" License
 stream-browserify 2.0.1 : MIT License
 stream-browserify 2.0.2 : MIT License
 stream-combiner2 1.1.1 : MIT License
@@ -1265,7 +1268,7 @@ zlib 0.6.2.2 : BSD 3-clause "New" or "Revised" License
 Licenses: 
 
 Apache License 2.0
-(Apache Commons Codec 1.14, Apache Commons Exec 1.3, Apache Commons Lang 3.9, Apache Commons Logging 1.2, Apache Commons Math 3.2, Apache Commons Net 3.6, Apache Commons Pool 2.6.0, Apache Commons Text 1.4, Apache HttpClient rel/v4.5.12, Apache HttpComponents Core 4.4.13, Apache HttpMime 4.5.12, Apache XML Commons 1.4.01, Apache Xalan (Java) 2.7.2, Apache Xerces2 J 2.12.0, Awaitility 3.1.6, BSON 3.6.0, Byte Buddy byte-buddy-1.10.18, Caffeine cache 2.8.0, Commons IO 2.5, FindBugs jsr305 3.0.2, Google Android Annotations Library 4.1.1.4, Graphite Integration for Metrics 4.1.2, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java v29.0, HikariCP 3.2.0, HtmlUnit 2.39.0, HtmlUnit CSS Parser 1.5.0, HtmlUnit NekoHtml 2.39.0, J2ObjC Annotations 1.3, JCommander Library 1.12, JSONStream 0.10.0, JSONStream 1.3.5, JVM Integration for Metrics 4.1.2, Jackson module: Paranamer 2.9.9, JavaPoet 1.11.1, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert v2.2.1, Joda Time v2.10.8, Metrics Core 4.1.2, Metrics Integration with JMX 4.1.2, Mongo Java Driver 3.6.0, MongoDB Asynchronous Driver 3.6.0, Netty Project 4.1.42.Final, Netty Project netty-4.1.58.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.36.Final, Netty/Transport/Native/Unix/Common 4.1.42.Final, OkHttp 3.11.0, OkIO 1.14.0, OpenTelemetry 0.8.0, OpenTelemetry Java 0.8.0, RabbitMQ amqp-client 5.5.3, RedisClient 3.10, Selenium 3.12.0, Selenium 3.141.59, Silencer 1.7.1, SnakeYAML 1.26, TestNG 6.7, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, Xalan Java Serializer 2.7.2, Xerial SQLite JDBC 3.30.1, Zipkin 1.31.3, Zipkin Reporter: Core 1.0.4, acorn-node 1.8.2, akka-actor 2.6.11, akka-actor-typed 2.6.11, akka-http 10.2.1, akka-http-core 10.2.1, akka-http-spray-json 10.2.1, akka-http-testkit 10.2.1, akka-parsing 10.2.1, akka-protobuf-v3 2.6.11, akka-slf4j 2.6.11, akka-stream 2.6.11, akka-stream-testkit 2.6.11, akka-testkit 2.6.11, anorm 2.6.8, anorm-tokenizer 2.6.8, atob 2.1.2, boopickle 1.3.1, brave 4.6.0, byte-buddy-agent 1.10.18, cats-effect 2.1.4, circe-yaml 0.13.0, com.google.api.grpc:proto-google-common-protos 2.0.1, compilerPlugin 0.9.0, config - com.typesafe:config 1.4.0, core 0.13.0, core 2.3.3, dash-ast 1.0.0, diff 2.0.1, doctrine v3.0.0, error-prone annotations 2.4.0, flyway-core 6.5.0, gatling-app 3.3.1, gatling-charts 3.3.1, gatling-commons 3.3.1, gatling-core 3.3.1, gatling-graphite 3.3.1, gatling-http 3.3.1, gatling-http-client 3.3.1, gatling-jdbc 3.3.1, gatling-jms 3.3.1, gatling-netty-util 3.3.1, gatling-redis 3.3.1, generic 0.13.0, get-assigned-identifiers 1.2.0, ghcide 0.1.0, google-gson 2.8.2, htmlunit-driver 2.39.0, io.grpc:grpc-api 1.35.0, io.grpc:grpc-context 1.35.0, io.grpc:grpc-core 1.35.0, io.grpc:grpc-netty 1.35.0, io.grpc:grpc-protobuf 1.35.0, io.grpc:grpc-protobuf-lite 1.35.0, io.grpc:grpc-services 1.35.0, io.grpc:grpc-stub 1.35.0, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.9.9, jawn 0.13.0, jsonpath 0.7.0, lenses 0.9.0, logstash-logback-encoder logstash-logback-encoder-6.3, macro-compat 1.1.1, macro-visit 0.1.2, main-tester 0.2.0.1, mongo-scala-bson 2.2.0, mongo-scala-driver 2.2.0, numbers 0.13.0, objenesis 3.1, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.3.2, parboiled 2.1.8, parser 0.13.0, perfmark:perfmark-api 0.23.0, proto3-wire 1.2.0, protoc-bridge 0.7.8, quicklens 1.4.12, rxjava 2.2.1, sangria 2.0.1, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.1, scala-collection-compat 2.3.2, scala-extensions 0.5.3, scala-logging 3.9.2, scala-parser-combinators 1.1.2, scala-xml 1.2.0, scalacheck-1.14 3.1.4.0, scalapb-runtime 0.9.0, scalapb-runtime-grpc 0.9.0, selenium-3.141 3.1.3.0, selenium-edge-driver 3.12.0, selenium-opera-driver 3.12.0, shasum-object 1.0.0, spark-java 2.9.1, spdx-correct.js v3.1.1, spray JSON v1.3.5, ssl-config-core 0.4.2, t-digest 3.1, testng-6.7 3.1.4.0, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.6, validate-npm-package-license 3.0.4, wartremover 2.4.10, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4)
+(Apache Commons Codec 1.14, Apache Commons Exec 1.3, Apache Commons Lang 3.9, Apache Commons Logging 1.2, Apache Commons Math 3.2, Apache Commons Net 3.6, Apache Commons Pool 2.6.0, Apache Commons Text 1.4, Apache HttpClient rel/v4.5.12, Apache HttpComponents Core 4.4.13, Apache HttpMime 4.5.12, Apache XML Commons 1.4.01, Apache Xalan (Java) 2.7.2, Apache Xerces2 J 2.12.0, Awaitility 3.1.6, BSON 3.6.0, Byte Buddy byte-buddy-1.10.18, Caffeine cache 2.8.0, Commons IO 2.5, FindBugs jsr305 3.0.2, Google Android Annotations Library 4.1.1.4, Graphite Integration for Metrics 4.1.2, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java v29.0, HikariCP 3.2.0, HtmlUnit 2.39.0, HtmlUnit CSS Parser 1.5.0, HtmlUnit NekoHtml 2.39.0, J2ObjC Annotations 1.3, JCommander Library 1.12, JSONStream 0.10.0, JSONStream 1.3.5, JVM Integration for Metrics 4.1.2, Jackson module: Paranamer 2.9.9, JavaPoet 1.11.1, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert v2.2.1, Joda Time v2.10.8, Metrics Core 4.1.2, Metrics Integration with JMX 4.1.2, Mongo Java Driver 3.6.0, MongoDB Asynchronous Driver 3.6.0, Netty Project 4.1.42.Final, Netty Project netty-4.1.58.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.36.Final, Netty/Transport/Native/Unix/Common 4.1.42.Final, OkHttp 3.11.0, OkIO 1.14.0, OpenTelemetry 0.8.0, OpenTelemetry Java 0.8.0, RabbitMQ amqp-client 5.5.3, RedisClient 3.10, Selenium 3.12.0, Selenium 3.141.59, Silencer 1.7.1, SnakeYAML 1.26, TestNG 6.7, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, Xalan Java Serializer 2.7.2, Xerial SQLite JDBC 3.30.1, Zipkin 1.31.3, Zipkin Reporter: Core 1.0.4, acorn-node 1.8.2, akka-actor 2.6.12, akka-actor-typed 2.6.12, akka-http 10.2.1, akka-http-core 10.2.1, akka-http-spray-json 10.2.1, akka-http-testkit 10.2.1, akka-parsing 10.2.1, akka-protobuf-v3 2.6.12, akka-slf4j 2.6.12, akka-stream 2.6.12, akka-stream-testkit 2.6.12, akka-testkit 2.6.12, anorm 2.6.8, anorm-tokenizer 2.6.8, atob 2.1.2, boopickle 1.3.1, brave 4.6.0, byte-buddy-agent 1.10.18, cats-effect 2.1.4, circe-yaml 0.13.0, com.google.api.grpc:proto-google-common-protos 2.0.1, compilerPlugin 0.9.0, config - com.typesafe:config 1.4.0, core 0.13.0, core 2.3.3, dash-ast 1.0.0, diff 2.0.1, doctrine v3.0.0, error-prone annotations 2.4.0, flyway-core 6.5.0, gatling-app 3.3.1, gatling-charts 3.3.1, gatling-commons 3.3.1, gatling-core 3.3.1, gatling-graphite 3.3.1, gatling-http 3.3.1, gatling-http-client 3.3.1, gatling-jdbc 3.3.1, gatling-jms 3.3.1, gatling-netty-util 3.3.1, gatling-redis 3.3.1, generic 0.13.0, get-assigned-identifiers 1.2.0, ghcide 0.1.0, google-gson 2.8.2, htmlunit-driver 2.39.0, io.grpc:grpc-api 1.35.0, io.grpc:grpc-context 1.35.0, io.grpc:grpc-core 1.35.0, io.grpc:grpc-netty 1.35.0, io.grpc:grpc-protobuf 1.35.0, io.grpc:grpc-protobuf-lite 1.35.0, io.grpc:grpc-services 1.35.0, io.grpc:grpc-stub 1.35.0, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.9.9, jawn 0.13.0, jsonpath 0.7.0, lenses 0.9.0, logstash-logback-encoder logstash-logback-encoder-6.3, macro-compat 1.1.1, macro-visit 0.1.2, main-tester 0.2.0.1, mongo-scala-bson 2.2.0, mongo-scala-driver 2.2.0, numbers 0.13.0, objenesis 3.1, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.3.2, parboiled 2.1.8, parser 0.13.0, perfmark:perfmark-api 0.23.0, proto3-wire 1.2.0, protoc-bridge 0.7.8, quicklens 1.4.12, rxjava 2.2.1, sangria 2.0.1, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.1, scala-collection-compat 2.3.2, scala-extensions 0.5.3, scala-logging 3.9.2, scala-parser-combinators 1.1.2, scala-xml 1.2.0, scalacheck-1.14 3.1.4.0, scalapb-runtime 0.9.0, scalapb-runtime-grpc 0.9.0, selenium-3.141 3.1.3.0, selenium-edge-driver 3.12.0, selenium-opera-driver 3.12.0, shasum-object 1.0.0, spark-java 2.9.1, spdx-correct.js v3.1.1, spray JSON v1.3.5, ssl-config-core 0.4.2, t-digest 3.1, testng-6.7 3.1.4.0, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.6, validate-npm-package-license 3.0.4, wartremover 2.4.10, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4)
 
 Apache License
 Version 2.0, January 2004
@@ -2639,7 +2642,7 @@ POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD 3-clause "New" or "Revised" License
-(CSSselect 1.2.0, Diff 0.4.0, GaloisInc/cereal 0.5.8.1, Glob 0.10.1, Globule 1.3.2, HLint 2.2.11, HUnit 1.6.1.0, JLine 3.7.1, JMESPath Core 0.4.0, JMESPath Jackson 0.4.0, Only 0.1, Pebble 3.1.0, Protocol Buffer Java API 3.14.0, Protocol Buffer Java Util Package 3.12.0, QuickCheck 2.14.2, Soostone/retry 0.8.1.2, aeson 1.0.2.0, aeson 1.5.5.1, aeson-compat 0.3.9, aeson-extra 0.4.1.3, aeson-pretty 0.8.8, ansi-terminal 0.10.3, ansi-wl-pprint 0.6.9, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 0.1.1.7, base64-bytestring 1.1.0.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.9, blaze-builder 0.4.1.0, blaze-html 0.9.1.2, blaze-markup 0.8.2.7, bos/attoparsec 0.13.2.4, byteable 0.1.1, charset 0.3.7.1, cmark-gfm 0.2.2, cmdargs 0.10.20, comonad 5.0.8, contravariant v1.5.3, cryptohash-md5 0.11.100.1, cryptohash-sha1 0.11.100.1, cryptonite 0.27, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.0, digest 0.0.1.2, distributive 0.6.2.1, either 5.0.1.1, ekmett/exceptions 0.10.4, ekmett/free 5.1.5, ekmett/profunctors 5.5.2, ekmett/void v0.7.3, entropy 0.4.1.6, extra 1.7.1, fast-logger 3.0.2, file-embed 0.0.13.0, filepattern 0.1.2, foldl 1.4.10, ghc-lib-parser-ex 8.8.5.8, haskell TLS 0.11.9, haskell TLS 1.6.11, haskell TLS 1.6.6, haskell TLS 1.6.7, haskell TLS 1.7.5, haskell-foundation/foundation basement-v0.0.11, haskell-lexer 1.1, haskell-opengl/StateVar 1.2.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-src-exts 1.23.1, haskell-vector 0.12.1.2, haskell/network 3.1.1.1, heaps 0.3.6.1, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.3, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.7.4, http-types 0.12.3, indexed-profunctors 0.1, insert-ordered-containers 0.2.3.1, jpeg-js v0.4.2, kan-extensions 5.2.1, language-c 0.8.3, lsp-test 0.11.0.7, managed 1.0.8, maoe/lifted-async 0.10.1.2, memory 0.15.0, mwc-random 0.14.0.0, ndmitchell/nsis v0.3.3, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.3.0, old-locale 1.0.0.7, old-time 1.1.0.3, open-browser 0.2.1.0, optics-core 0.3.0.1, optics-extra 0.3, optics-th 0.3.0.2, optional-args 1.0.2, optparse-applicative 0.15.1.0, optparse-generic 1.3.1, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.2.1, path-io 1.6.2, pem 0.2.4, phadej/cabal-doctest 1.0.8, primitive 0.7.1.0, quickcheck-instances 0.3.25.2, random 1.1, refact 0.3.0.2, rope-utf16-splay 0.3.1.0, rst-selector-parser 2.2.3, safe 0.3.19, scala-java8-compat 0.9.0, scalacheck 1.14.0, scalameter 0.19, scalameter-core 0.19, scientific 0.3.6.2, scodec-bits 1.1.16, sebfisch's primes 0.2.1.0, semigroupoids 5.3.5, semigroups 0.19.1, shake 0.18.5, simonmar/async 2.2.2, simple-smt 0.9.4, socks 0.6.1, sorted-list 0.2.1.0, spl/dlist 0.8.0.8, split 0.2.3.4, splitmix 0.1.0.3, stache 2.2.0, stm-chans 3.0.0.4, strict 0.4.0.1, syb 0.7.1, tagged v0.8.6.1, tar 0.5.1.1, tasty-ant-xml 1.1.7, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, these 1.1.0.1, these v1.1.1.1, tibbe/hashable 1.3.0.0, time-compat 1.9.5, time-locale-compat 0.1.1.5, transformers-base 0.4.5.2, transformers-compat 0.6.6, turtle 1.5.20, type-equality 1, unbounded-delays 0.1.1.1, uniplate 1.6.13, unix-compat 0.5.2, unordered-containers v0.2.13.0, uri-encode 1.5.0.7, utf8-string v1.0.2, vector-algorithms 0.8.0.4, wcwidth 0.0.2, xml 1.3.14, zip 1.5.0, zlib 0.6.2.2)
+(CSSselect 1.2.0, Diff 0.4.0, GaloisInc/cereal 0.5.8.1, Glob 0.10.1, Globule 1.3.2, HLint 2.2.11, HUnit 1.6.1.0, JLine 3.7.1, JMESPath Core 0.4.0, JMESPath Jackson 0.4.0, Only 0.1, Pebble 3.1.0, Protocol Buffer Java API 3.14.0, Protocol Buffer Java Util Package 3.12.0, QuickCheck 2.14.2, Soostone/retry 0.8.1.2, aeson 1.0.2.0, aeson 1.5.5.1, aeson-compat 0.3.9, aeson-extra 0.4.1.3, aeson-pretty 0.8.8, ansi-terminal 0.10.3, ansi-wl-pprint 0.6.9, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 0.1.1.7, base64-bytestring 1.1.0.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.9, blaze-builder 0.4.1.0, blaze-html 0.9.1.2, blaze-markup 0.8.2.7, bos/attoparsec 0.13.2.4, byteable 0.1.1, charset 0.3.7.1, cmark-gfm 0.2.2, cmdargs 0.10.20, comonad 5.0.8, contravariant v1.5.3, cryptohash-md5 0.11.100.1, cryptohash-sha1 0.11.100.1, cryptonite 0.27, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.0, digest 0.0.1.2, distributive 0.6.2.1, either 5.0.1.1, ekmett/exceptions 0.10.4, ekmett/free 5.1.5, ekmett/profunctors 5.5.2, ekmett/void v0.7.3, entropy 0.4.1.6, extra 1.7.1, fast-logger 3.0.2, file-embed 0.0.13.0, filepattern 0.1.2, foldl 1.4.10, ghc-lib-parser-ex 8.8.5.8, haskell TLS 0.11.9, haskell TLS 1.6.11, haskell TLS 1.6.6, haskell TLS 1.6.7, haskell TLS 1.7.5, haskell-conduit 0.8.0, haskell-foundation/foundation basement-v0.0.11, haskell-lexer 1.1, haskell-opengl/StateVar 1.2.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-src-exts 1.23.1, haskell-vector 0.12.1.2, haskell/network 3.1.1.1, heaps 0.3.6.1, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.3, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.7.4, http-types 0.12.3, indexed-profunctors 0.1, insert-ordered-containers 0.2.3.1, jpeg-js v0.4.2, kan-extensions 5.2.1, language-c 0.8.3, lsp-test 0.11.0.7, managed 1.0.8, maoe/lifted-async 0.10.1.2, memory 0.15.0, mwc-random 0.14.0.0, ndmitchell/nsis v0.3.3, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.3.0, old-locale 1.0.0.7, old-time 1.1.0.3, open-browser 0.2.1.0, optics-core 0.3.0.1, optics-extra 0.3, optics-th 0.3.0.2, optional-args 1.0.2, optparse-applicative 0.15.1.0, optparse-generic 1.3.1, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.2.1, path-io 1.6.2, pem 0.2.4, phadej/cabal-doctest 1.0.8, primitive 0.7.1.0, quickcheck-instances 0.3.25.2, random 1.1, refact 0.3.0.2, rope-utf16-splay 0.3.1.0, rst-selector-parser 2.2.3, safe 0.3.19, scala-java8-compat 0.9.0, scalacheck 1.14.0, scalameter 0.19, scalameter-core 0.19, scientific 0.3.6.2, scodec-bits 1.1.16, sebfisch's primes 0.2.1.0, semigroupoids 5.3.5, semigroups 0.19.1, shake 0.18.5, simonmar/async 2.2.2, simple-smt 0.9.4, socks 0.6.1, sorted-list 0.2.1.0, spl/dlist 0.8.0.8, split 0.2.3.4, splitmix 0.1.0.3, stache 2.2.0, stm-chans 3.0.0.4, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.1, tagged v0.8.6.1, tar 0.5.1.1, tasty-ant-xml 1.1.7, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, these 1.1.0.1, these v1.1.1.1, tibbe/hashable 1.3.0.0, time-compat 1.9.5, time-locale-compat 0.1.1.5, transformers-base 0.4.5.2, transformers-compat 0.6.6, turtle 1.5.20, type-equality 1, unbounded-delays 0.1.1.1, uniplate 1.6.13, unix-compat 0.5.2, unordered-containers v0.2.13.0, uri-encode 1.5.0.7, utf8-string v1.0.2, vector-algorithms 0.8.0.4, wcwidth 0.0.2, xml 1.3.14, zip 1.5.0, zlib 0.6.2.2)
 
 Copyright (c) <YEAR>, <OWNER>
 All rights reserved.
@@ -10035,45 +10038,6 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(pip 20.1.1)
-
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Source: https://pypi.org/project/pip/
-
-Files: *
-Copyright: (c) 2008-2019 The pip developers (see AUTHORS.txt file)
-License: Expat
-
-Files: debian/*
-Copyright: 2009 Jeff Licquia <licquia@debian.org>
-           2020 Scott Kitterman <scott@kitterman.com>
-License: Expat
-
-License: Expat
-   
-
-Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-    .
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-    .
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (form-data 3.0.0)
 
 License: Expat
@@ -11321,32 +11285,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(python-wheel 0.34.2)
-
-The MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-the rights to use, copy, modify, merge, publish, distribute, sublicense,
-and/or sell copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
-(@apollo/client 3.3.3, @babel/code-frame 7.10.4, @babel/generator 7.12.5, @babel/helper-annotate-as-pure 7.10.4, @babel/helper-function-name 7.10.4, @babel/helper-get-function-arity 7.10.4, @babel/helper-module-imports 7.12.5, @babel/helper-split-export-declaration 7.11.0, @babel/helper-validator-identifier 7.10.4, @babel/highlight 7.10.4, @babel/parser 7.12.7, @babel/runtime 7.12.5, @babel/template 7.12.7, @babel/traverse 7.12.9, @babel/types 7.12.7, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @popperjs/core 2.5.4, @types/node 14.0.13, @types/node 14.14.10, @types/react 16.14.2, @types/tmp 0.0.29, @types/warning 3.0.0, @types/zen-observable 0.8.1, @wry/equality 0.3.0, Acorn 7.3.1, Animal Sniffer Annotations 1.19, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Checker Qual 3.5.0, Enzyme 1.0.4, Lodash 4.17.20, Mockito v3.6.28, Modernizr v3.11.4, Moment JavaScript Date Library 2.29.1, PCollections 2.1.3, React from Facebook 17.0.1, React-Redux v7.2.2, SLF4J API Module 1.7.26, Styled Components v5.2.1, Visionmedia Debug 4.3.1, ansi-styles v4.3.0, array.prototype.flat 1.2.4, babel-plugin-styled-components 1.12.0, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, base-compat 0.11.2, base-compat-batteries 0.11.2, base-orphans 0.8.4, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, call-bind 1.0.0, clsx 1.1.1, color-string 1.5.4, cookie 0.4.5, crypto-browserify/pbkdf2 v3.1.1, csstype 3.0.5, dom-helpers 5.2.0, dom-serializer 1.1.0, doobie-core 0.9.2, doobie-free 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.3, error v7.2.1, es-abstract 1.17.7, es-abstract 1.18.0-next.1, es-get-iterator 1.1.1, fansi 0.2.9, fast-uuid 0.1, fastparse 2.3.0, fp-ts 2.6.5, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, geny 0.6.2, get-intrinsic 1.0.1, graphql 15.4.0, graphql-tag 2.11.0, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, haskell-lsp 0.23.0.0, haskell-lsp-types 0.23.0.0, hspec 2.7.5, html-to-react 1.4.5, htmlparser2 v5.0.1, integer-logarithms 1.0.3.1, is-bigint 1.0.1, is-buffer v2.0.5, is-callable 1.2.2, is-regex 1.1.1, jwks-rsa 0.11.0, kind-projector 0.11.2, lightning-csv 8.0.3, ljharb/object.assign 4.1.2, macros 0.16.2, mdast-util-from-markdown 0.8.1, micromark 2.10.1, mockito-scala 1.16.3, monad-logger 0.3.36, nearley 2.19.9, nikita-volkov/neat-interpolation 0.5.1.2, node-deep-equal v2.0.5, node-fetch v2.6.1, node-xml2js 0.4.23, object-inspect v1.9.0, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, optimism 0.13.1, org.brotli:dec 0.1.2, os-lib_2.12 0.7.1, parse5 3.0.3, parser 1.0.0, path-platform 0.11.15, pprint 0.6.0, ramda v0.27.1, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, react-virtualized v9.22.2, regenerator-runtime 0.13.7, repline 0.4.0.0, safe-exceptions 0.1.7.1, scalatags 0.9.1, scheduler 0.20.1, scopt 4.0.0, sfm-util 8.0.3, side-channel 1.0.3, sjsonnet_2.12 0.3.0, sourcecode 0.2.1, streaming-commons 0.2.2.1, string.prototype.trim 1.2.3, string.prototype.trimend 1.0.3, string.prototype.trimstart 1.0.3, subscriptions-transport-ws 0.9.18, symbol-observable 2.0.3, ts-invariant 0.5.1, typed-process 0.2.6.0, typescript-collections 1.3.3, ujson_2.12 1.2.0, uncontrollable 7.1.1, unified 9.2.0, unist-util-is 4.0.4, unist-util-visit 2.0.3, unist-util-visit-parents 3.1.1, unliftio 0.2.13.1, upickle-core_2.12 1.2.0, vfile 4.2.0, whatwg-fetch 3.5.0, xml-types 0.3.8, yargs 15.4.1)
+(@apollo/client 3.3.3, @babel/code-frame 7.10.4, @babel/generator 7.12.5, @babel/helper-annotate-as-pure 7.10.4, @babel/helper-function-name 7.10.4, @babel/helper-get-function-arity 7.10.4, @babel/helper-module-imports 7.12.5, @babel/helper-split-export-declaration 7.11.0, @babel/helper-validator-identifier 7.10.4, @babel/highlight 7.10.4, @babel/parser 7.12.7, @babel/runtime 7.12.5, @babel/template 7.12.7, @babel/traverse 7.12.9, @babel/types 7.12.7, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @popperjs/core 2.5.4, @types/node 14.0.13, @types/node 14.14.10, @types/react 16.14.2, @types/tmp 0.0.29, @types/warning 3.0.0, @types/zen-observable 0.8.1, @wry/equality 0.3.0, Acorn 7.3.1, Animal Sniffer Annotations 1.19, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Checker Qual 3.5.0, Enzyme 1.0.4, Lodash 4.17.20, Mockito v3.6.28, Modernizr v3.11.4, Moment JavaScript Date Library 2.29.1, PCollections 2.1.3, React from Facebook 17.0.1, React-Redux v7.2.2, SLF4J API Module 1.7.26, Styled Components v5.2.1, Visionmedia Debug 4.3.1, ansi-styles v4.3.0, array.prototype.flat 1.2.4, babel-plugin-styled-components 1.12.0, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, base-compat 0.11.2, base-compat-batteries 0.11.2, base-orphans 0.8.4, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, call-bind 1.0.0, clsx 1.1.1, color-string 1.5.4, cookie 0.4.5, crypto-browserify/pbkdf2 v3.1.1, csstype 3.0.5, dom-helpers 5.2.0, dom-serializer 1.1.0, doobie-core 0.9.2, doobie-free 0.9.2, doobie-hikari 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.3, error v7.2.1, es-abstract 1.17.7, es-abstract 1.18.0-next.1, es-get-iterator 1.1.1, fansi 0.2.9, fast-uuid 0.1, fastparse 2.3.0, fp-ts 2.6.5, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, geny 0.6.2, get-intrinsic 1.0.1, graphql 15.4.0, graphql-tag 2.11.0, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, haskell-lsp 0.23.0.0, haskell-lsp-types 0.23.0.0, hspec 2.7.5, html-to-react 1.4.5, htmlparser2 v5.0.1, integer-logarithms 1.0.3.1, is-bigint 1.0.1, is-buffer v2.0.5, is-callable 1.2.2, is-regex 1.1.1, jwks-rsa 0.11.0, kind-projector 0.11.2, lightning-csv 8.0.3, ljharb/object.assign 4.1.2, macros 0.16.2, mdast-util-from-markdown 0.8.1, micromark 2.10.1, mockito-scala 1.16.3, monad-logger 0.3.36, nearley 2.19.9, nikita-volkov/neat-interpolation 0.5.1.2, node-deep-equal v2.0.5, node-fetch v2.6.1, node-xml2js 0.4.23, object-inspect v1.9.0, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, optimism 0.13.1, org.brotli:dec 0.1.2, os-lib_2.12 0.7.1, parse5 3.0.3, parser 1.0.0, path-platform 0.11.15, pip 20.2.4, pprint 0.6.0, pypa/setuptools 50.3.2, python-wheel 0.35.1, ramda v0.27.1, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, react-virtualized v9.22.2, regenerator-runtime 0.13.7, repline 0.4.0.0, safe-exceptions 0.1.7.1, scalatags 0.9.1, scheduler 0.20.1, scopt 4.0.0, sfm-util 8.0.3, side-channel 1.0.3, sjsonnet_2.12 0.3.0, sourcecode 0.2.1, streaming-commons 0.2.2.1, string.prototype.trim 1.2.3, string.prototype.trimend 1.0.3, string.prototype.trimstart 1.0.3, subscriptions-transport-ws 0.9.18, symbol-observable 2.0.3, ts-invariant 0.5.1, typed-process 0.2.6.0, typescript-collections 1.3.3, ujson_2.12 1.2.0, uncontrollable 7.1.1, unified 9.2.0, unist-util-is 4.0.4, unist-util-visit 2.0.3, unist-util-visit-parents 3.1.1, unliftio 0.2.13.1, upickle-core_2.12 1.2.0, vfile 4.2.0, whatwg-fetch 3.5.0, xml-types 0.3.8, yargs 15.4.1)
 
 The MIT License
 ===============
@@ -16379,64 +16318,6 @@ Public Domain
 (XZ for Java 1.8, conduit-parse 0.2.1.0, jsonify 0.0.0, monad-loops 0.4.3)
 
 Public domain code is not subject to any license.
-
----
-
-Python Software Foundation License 2.0
-(pypa/setuptools 46.4.0)
-
-This license was approved as the official PSF License Version 2 on October 22,
-2004. The only differences between this and version 1 of the PSF license consist
-of removing Python version numbers (like 2.1.1 or 2.3).
-
-
-
-PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
-============================================
-
---------------------------------------------
-
-  1.  This LICENSE AGREEMENT is between the Python Software Foundation ("PSF"),
-    and the Individual or Organization ("Licensee") accessing and otherwise using
-    this software ("Python") in source or binary form and its associated
-    documentation.
-
-  2.  Subject to the terms and conditions of this License Agreement, PSF hereby
-    grants Licensee a nonexclusive, royalty-free, world-wide license to
-    reproduce, analyze, test, perform and/or display publicly, prepare derivative
-    works, distribute, and otherwise use Python alone or in any derivative
-    version, provided, however, that PSF's License Agreement and PSF's notice of
-    copyright, i.e., "Copyright (c) 2001, 2002, 2003, 2004 Python Software
-    Foundation; All Rights Reserved" are retained in Python alone or in any
-    derivative version prepared by Licensee.
-
-  3. In the event Licensee prepares a derivative work that is based on or
-    incorporates Python or any part thereof, and wants to make the derivative
-    work available to others as provided herein, then Licensee hereby agrees to
-    include in any such work a brief summary of the changes made to Python.
-
-  4.  PSF is making Python available to Licensee on an "AS IS" basis. PSF MAKES
-    NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF EXAMPLE, BUT
-    NOT LIMITATION, PSF MAKES NO AND DISCLAIMS ANY REPRESENTATION OR WARRANTY OF
-    MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF
-    PYTHON WILL NOT INFRINGE ANY THIRD PARTY RIGHTS.
-
-  5.  PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON FOR ANY
-    INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS A RESULT OF
-    MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON, OR ANY DERIVATIVE
-    THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
-
-  6.  This License Agreement will automatically terminate upon a material breach
-    of its terms and conditions.
-
-  7.  Nothing in this License Agreement shall be deemed to create any
-    relationship of agency, partnership, or joint venture between PSF and
-    Licensee. This License Agreement does not grant permission to use PSF
-    trademarks or trade name in a trademark sense to endorse or promote products
-    or services of Licensee, or any third party.
-
-  8.  By copying, installing or otherwise using Python, Licensee agrees to be
-    bound by the terms and conditions of this License Agreement.
 
 ---
 
