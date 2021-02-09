@@ -80,10 +80,12 @@ private[daml] object DamlLfEncoder extends App {
   private def makeDar(source: String, file: File)(implicit
       parserParameters: ParserParameters[this.type]
   ) = {
-    import java.io.FileOutputStream
     val archive = makeArchive(source)
-    val out = new FileOutputStream(file)
-    DarWriter.encode(SdkVersion.sdkVersion, Dar(("archive.dalf", archive.toByteArray), List()), out)
+    DarWriter.encode(
+      SdkVersion.sdkVersion,
+      Dar(("archive.dalf", archive.toByteArray), List()),
+      file.toPath,
+    )
   }
 
   private case class Arguments(

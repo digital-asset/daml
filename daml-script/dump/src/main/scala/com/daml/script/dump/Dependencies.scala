@@ -3,7 +3,6 @@
 
 package com.daml.script.dump
 
-import java.io.FileOutputStream
 import java.nio.file.Path
 
 import com.daml.daml_lf_dev.DamlLf
@@ -54,11 +53,10 @@ object Dependencies {
       file: Path,
       dar: Dar[(PackageId, ByteString, Ast.Package)],
   ): Unit = {
-    val out = new FileOutputStream(file.toFile)
     DarWriter.encode(
       sdkVersion,
       dar.map { case (pkgId, dalf, _) => (pkgId + ".dalf", encodeDalf(pkgId, dalf).toByteArray) },
-      out,
+      file,
     )
   }
 
