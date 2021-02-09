@@ -70,14 +70,18 @@ jobs:
     - checkout: self
       persistCredentials: true
     - template: ci/clean-up.yml
+    - template: ci/bash-lib.yml
+      parameters:
+        var_name: bash-lib
     - bash: |
         set -euo pipefail
+        source $(bash-lib)
         if git tag v$(release_tag) $(release_sha); then
           git push origin v$(release_tag)
           mkdir $(Build.StagingDirectory)/release
           mkdir $(Build.StagingDirectory)/artifactory
         else
-          echo "##vso[task.setvariable variable=skip-github]TRUE"
+          setvar skip-github TRUE
         fi
     - task: DownloadPipelineArtifact@0
       inputs:
@@ -261,11 +265,6 @@ jobs:
       eval "$(./dev-env/bin/dade-assist)"
 
       source $(bash_lib)
-
-      setvar() {
-          echo "Setting '$1' to '$2'"
-          echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
-      }
 
       DELAY=1
       while ! curl --fail -I https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/$(release_tag)/ledger-api-test-tool-$(release_tag).jar; do
