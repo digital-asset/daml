@@ -59,7 +59,9 @@ of the following command line options:
   seeding mode `<seeding-mode>` to seed the generation of random
   contract identifiers. Possible seeding modes are:
 
-  - ``no``: The Sandbox uses the ``deterministic`` scheme.
+  - ``no``: The Sandbox uses the ``deterministic`` scheme. This is
+    only supported by Sandbox classic and it prevents Sandbox from
+    accepting packages in Daml-LF 1.11 or newer.
 
   - ``strong``: The Sandbox uses the ``random`` scheme initialized
     with a high-entropy seed.  Depending on the underlying operating
