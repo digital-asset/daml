@@ -253,6 +253,12 @@ final class Metrics(val registry: MetricRegistry) {
       private val Prefix: MetricName = daml.Prefix :+ "lapi"
 
       def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
+
+      object threadpool {
+        private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
+
+        val apiServices: MetricName = Prefix :+ "api-services"
+      }
     }
 
     object ledger {
