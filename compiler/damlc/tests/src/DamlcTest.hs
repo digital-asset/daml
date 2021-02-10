@@ -178,7 +178,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
               , "x = scenario $ assert False"
               ]
             (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
-            stdout @?= ""
+            stdout @?= "test coverage: templates 100%, choices 100%\n"
             assertInfixOf "Scenario execution failed" stderr
             exitCode @?= ExitFailure 1
     , testCase "damlc test --files outside of project" $ withTempDir $ \projDir -> do

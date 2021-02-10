@@ -9,27 +9,28 @@ module DA.Cli.Damlc.Test (
     ) where
 
 import Control.Monad.Except
-import qualified DA.Pretty
-import qualified DA.Pretty as Pretty
-import DA.Cli.Damlc.Base
-import qualified Data.HashSet as HashSet
-import Data.Maybe
-import Data.List.Extra
-import Data.Tuple.Extra
 import Control.Monad.Extra
-import Development.IDE.Core.Service.Daml
-import DA.Daml.Options.Types
+import DA.Cli.Damlc.Base
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import DA.Daml.Options.Types
+import qualified DA.Pretty
+import qualified DA.Pretty as Pretty
+import qualified Data.HashSet as HashSet
+import Data.List.Extra
+import Data.Maybe
+import qualified Data.NameMap as NM
 import qualified Data.Text as T
+import Data.Tuple.Extra
 import qualified Data.Vector as V
-import qualified Development.Shake as Shake
 import Development.IDE.Core.API
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import qualified Development.Shake as Shake
 import qualified ScenarioService as SS
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
@@ -59,7 +60,12 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
     deps <- runActionSync h $ mapM getDependencies inFiles
     let files = nubOrd $ concat $ inFiles : catMaybes deps
 
-    results <- runActionSync h $
+    results <- runActionSync h $ do
+        dalfs <- Shake.forP files $
+          \file -> dalfForScenario file
+        let templates = [t | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
+        let nrOfTemplates = length templates
+        let nrOfChoices = length [n | t <- templates, n <- NM.names $ LF.tplChoices t]
         Shake.forP files $ \file -> do
             mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
@@ -67,7 +73,9 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
                 Nothing -> failedTestOutput h file
                 Just scenarioResults -> do
                     -- failures are printed out through diagnostics, so just print the sucesses
-                    liftIO $ printScenarioResults [(v, r) | (v, Right r) <- scenarioResults] color
+                    let results' = [(v, r) | (v, Right r) <- scenarioResults]
+                    liftIO $ printScenarioResults results' color
+                    liftIO $ printTestCoverage results' nrOfTemplates nrOfChoices
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
@@ -85,6 +93,40 @@ failedTestOutput h file = do
     let errMsg = showDiagnostics diagnostics
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
+
+printTestCoverage :: [(VirtualResource, SS.ScenarioResult)] -> Int -> Int -> IO ()
+printTestCoverage results nrOfTemplates nrOfChoices =
+    putStrLn $
+    unwords
+        [ "test coverage: templates"
+        , percentage coveredNrOfTemplates nrOfTemplates <> ","
+        , "choices"
+        , percentage coveredNrOfChoices nrOfChoices
+        ]
+  where
+    percentage i j
+      | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
+      | otherwise = "100%"
+    allScenarioNodes = [n | (_vr, res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
+    coveredNrOfTemplates =
+        length $
+        nubSort $
+        [ SS.contractInstanceTemplateId contractInstance
+        | n <- allScenarioNodes
+        , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
+              [SS.nodeNode n]
+        , Just contractInstance <- [node_CreateContractInstance]
+        ]
+    coveredNrOfChoices =
+        length $
+        nubSort $
+        [ (templateId, node_ExerciseChoiceId)
+        | n <- allScenarioNodes
+        , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
+                                                     , SS.node_ExerciseChoiceId
+                                                     }) <- [SS.nodeNode n]
+        , Just templateId <- [node_ExerciseTemplateId]
+        ]
 
 printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
 printScenarioResults results color = do
