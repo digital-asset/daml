@@ -12,6 +12,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
+import com.daml.lf.speedy.PartialTransaction.ExercisesContextInfo
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -310,10 +311,10 @@ private[lf] object Speedy {
 
     private[lf] def contextActors: Set[Party] =
       withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.exeContext match {
-          case Some(ctx) =>
+        onLedger.ptx.context.info match {
+          case ctx: ExercisesContextInfo =>
             ctx.actingParties union ctx.signatories
-          case None =>
+          case _ =>
             onLedger.committers
         }
       }

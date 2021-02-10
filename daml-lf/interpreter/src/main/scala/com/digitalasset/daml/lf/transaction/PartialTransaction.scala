@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.Authorize
@@ -14,8 +15,8 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion => TxVersion,
   Transaction => Tx,
+  TransactionVersion => TxVersion,
 }
 import com.daml.lf.value.Value
 
@@ -27,18 +28,49 @@ private[lf] object PartialTransaction {
   type Node = Node.GenNode[NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyNode[Value.ContractId]
 
+  sealed abstract class ContextInfo {
+    private[PartialTransaction] def childrenSeeds(idx: Int): crypto.Hash
+  }
+
+  sealed abstract class RootContextInfo extends ContextInfo
+
+  private[PartialTransaction] final class SeededTransactionRootContext(seed: crypto.Hash)
+      extends RootContextInfo {
+    override private[PartialTransaction] def childrenSeeds(idx: Int) =
+      crypto.Hash.deriveNodeSeed(seed, idx)
+  }
+
+  private[PartialTransaction] final class SeededPartialTransactionRootContext(
+      seeds: ImmArray[Option[crypto.Hash]]
+  ) extends RootContextInfo {
+    override def childrenSeeds(idx: NodeIdx): Hash = {
+      val opt = if (0 <= idx && idx < seeds.length) {
+        seeds(idx)
+      } else {
+        None
+      }
+      opt.getOrElse(throw new RuntimeException(s"seed for ${idx}th root node not provided"))
+    }
+  }
+
+  private[PartialTransaction] object NoneSeededTransactionRootContext extends RootContextInfo {
+    override private[PartialTransaction] def childrenSeeds(idx: NodeIdx): Nothing = {
+      throw new RuntimeException(s"the machine is not configure to create transaction")
+    }
+  }
+
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
     */
   final class Context private (
-      val exeContext: Option[ExercisesContext], // empty if root context
-      val children: BackStack[NodeId],
-      protected val childrenSeeds: Int => crypto.Hash,
+      val info: ContextInfo,
+      val children: BackStack[NodeId] = BackStack.empty,
   ) {
     def addChild(child: NodeId): Context =
-      new Context(exeContext, children :+ child, childrenSeeds)
-    def nextChildrenSeed: crypto.Hash =
-      childrenSeeds(children.length)
+      new Context(info, children :+ child)
+    // needs to be lazy as info.childrenSeeds may be undefined on children.length
+    lazy val nextChildrenSeed: crypto.Hash =
+      info.childrenSeeds(children.length)
   }
 
   object Context {
@@ -46,32 +78,18 @@ private[lf] object PartialTransaction {
     def apply(initialSeeds: InitialSeeding): Context =
       initialSeeds match {
         case InitialSeeding.TransactionSeed(seed) =>
-          new Context(None, BackStack.empty, childrenSeeds(seed))
+          new Context(new SeededTransactionRootContext(seed))
         case InitialSeeding.RootNodeSeeds(seeds) =>
-          new Context(
-            None,
-            BackStack.empty,
-            i =>
-              (if (0 <= i && i < seeds.length) seeds(i) else None)
-                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided")),
-          )
+          new Context(new SeededPartialTransactionRootContext(seeds))
         case InitialSeeding.NoSeed =>
-          new Context(
-            None,
-            BackStack.empty,
-            _ => throw new RuntimeException(s"the machine is not configure to create transaction"),
-          )
+          new Context(NoneSeededTransactionRootContext)
       }
 
-    private[PartialTransaction] def apply(exeContext: ExercisesContext) =
+    private[PartialTransaction] def apply(exeContext: ExercisesContextInfo) =
       new Context(
-        Some(exeContext),
+        exeContext,
         BackStack.empty,
-        childrenSeeds(exeContext.parent.nextChildrenSeed),
       )
-
-    private[this] def childrenSeeds(seed: crypto.Hash)(i: Int) =
-      crypto.Hash.deriveNodeSeed(seed, i)
 
   }
 
@@ -96,7 +114,7 @@ private[lf] object PartialTransaction {
     *                       happening.
     *  @param byKey True if the exercise is done "by key"
     */
-  case class ExercisesContext(
+  final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       templateId: TypeConName,
       contractKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
@@ -111,7 +129,10 @@ private[lf] object PartialTransaction {
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
-  )
+  ) extends ContextInfo {
+    override private[PartialTransaction] def childrenSeeds(idx: NodeIdx) =
+      crypto.Hash.deriveNodeSeed(parent.nextChildrenSeed, idx)
+  }
 
   def initial(
       pkg2TxVersion: Ref.PackageId => TxVersion,
@@ -227,14 +248,16 @@ private[lf] case class PartialTransaction(
     *   the `outputTransactionVersions`.
     */
   def finish: PartialTransaction.Result =
-    if (context.exeContext.isEmpty && aborted.isEmpty) {
-      CompleteTransaction(
-        SubmittedTransaction(
-          TxVersion.asVersionedTransaction(context.children.toImmArray, nodes)
+    context.info match {
+      case _: RootContextInfo if aborted.isEmpty =>
+        CompleteTransaction(
+          SubmittedTransaction(
+            TxVersion.asVersionedTransaction(context.children.toImmArray, nodes)
+          )
         )
-      )
-    } else
-      IncompleteTransaction(this)
+      case _ =>
+        IncompleteTransaction(this)
+    }
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
@@ -365,7 +388,7 @@ private[lf] case class PartialTransaction(
     } else {
       val nid = NodeId(nextNodeIdx)
       val ec =
-        ExercisesContext(
+        ExercisesContextInfo(
           targetId = targetId,
           templateId = templateId,
           contractKey = mbKey,
@@ -404,8 +427,8 @@ private[lf] case class PartialTransaction(
   }
 
   def endExercises(value: Value[Value.ContractId]): PartialTransaction =
-    context.exeContext match {
-      case Some(ec) =>
+    context.info match {
+      case ec: ExercisesContextInfo =>
         val exerciseNode = Node.NodeExercises(
           targetCoid = ec.targetId,
           templateId = ec.templateId,
@@ -430,7 +453,7 @@ private[lf] case class PartialTransaction(
           nodes = nodes.updated(nodeId, exerciseNode),
           nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
         )
-      case None =>
+      case _ =>
         noteAbort(Tx.EndExerciseInRootContext)
     }
 

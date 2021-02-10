@@ -6,9 +6,10 @@ package com.daml.lf.scenario
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, PartialTransaction => SPartialTransaction, TraceLog}
-import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId}
+import com.daml.lf.speedy.{SError, SValue, TraceLog, PartialTransaction => SPartialTransaction}
+import com.daml.lf.transaction.{GlobalKey, NodeId, Node => N}
 import com.daml.lf.ledger._
+import com.daml.lf.speedy.PartialTransaction.{ExercisesContextInfo, RootContextInfo}
 import com.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
@@ -392,15 +393,15 @@ final class Conversions(
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
       )
 
-    ptx.context.exeContext match {
-      case None =>
-      case Some(ctx) =>
+    ptx.context.info match {
+      case ctx: ExercisesContextInfo =>
         val ecBuilder = proto.ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
           .setChosenValue(convertValue(ctx.chosenValue))
         ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
         builder.setExerciseContext(ecBuilder.build)
+      case _: RootContextInfo =>
     }
     builder.build
   }
