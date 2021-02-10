@@ -542,10 +542,8 @@ jobs:
         #
         # release only run on releases and is skipped otherwise.
         if [[ "$(Linux.status)" != "Succeeded"
-            || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || "$(compatibility_linux.status)" != "Succeeded"
-            || "$(compatibility_macos.status)" != "Succeeded"
             || "$(compatibility_windows.status)" != "Succeeded"
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
