@@ -464,14 +464,12 @@ private class JdbcLedgerDao(
 
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-    logger.info("Storing transaction events")
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         preparedInsert.writeEvents(metrics)(_)
       )
       .map(_ => Ok)(servicesExecutionContext)
-  }
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
