@@ -411,9 +411,11 @@ jobs:
   condition: always()
   dependsOn:
     - Linux
+    - macOS
     - Windows
     - release
     - git_sha
+    - compatibility_macos
     - compatibility_linux
     - compatibility_windows
     - Linux_scala_2_13
@@ -425,6 +427,10 @@ jobs:
     Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
     Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
     Linux.status: $[ dependencies.Linux.result ]
+    macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
+    macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
+    macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
+    macOS.status: $[ dependencies.macOS.result ]
     Windows.start: $[ dependencies.Windows.outputs['start.time'] ]
     Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
     Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
@@ -441,6 +447,10 @@ jobs:
     compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
     compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
     compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+    compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
+    compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
+    compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
+    compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
     compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
     compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
     compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
@@ -472,6 +482,10 @@ jobs:
                             "machine": "$(Linux.machine)",
                             "end": "$(Linux.end)",
                             "status": "$(Linux.status)"},
+                  "macOS": {"start": "$(macOS.start)",
+                            "machine": "$(macOS.machine)",
+                            "end": "$(macOS.end)",
+                            "status": "$(macOS.status)"},
                   "Windows": {"start": "$(Windows.start)",
                               "machine": "$(Windows.machine)",
                               "end": "$(Windows.end)",
@@ -484,6 +498,10 @@ jobs:
                                           "machine": "$(compatibility_linux.machine)",
                                           "end": "$(compatibility_linux.end)",
                                           "status": "$(compatibility_linux.status)"},
+                  "compatibility_macos": {"start": "$(compatibility_macos.start)",
+                                          "machine": "$(compatibility_macos.machine)",
+                                          "end": "$(compatibility_macos.end)",
+                                          "status": "$(compatibility_macos.status)"},
                   "compatibility_windows": {"start": "$(compatibility_windows.start)",
                                             "machine": "$(compatibility_windows.machine)",
                                             "end": "$(compatibility_windows.end)",
@@ -524,8 +542,10 @@ jobs:
         #
         # release only run on releases and is skipped otherwise.
         if [[ "$(Linux.status)" != "Succeeded"
+            || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || "$(compatibility_linux.status)" != "Succeeded"
+            || "$(compatibility_macos.status)" != "Succeeded"
             || "$(compatibility_windows.status)" != "Succeeded"
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
