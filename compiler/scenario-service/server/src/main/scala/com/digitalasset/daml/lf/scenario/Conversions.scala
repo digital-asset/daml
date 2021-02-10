@@ -400,6 +400,10 @@ final class Conversions(
           .setChosenValue(convertValue(ctx.chosenValue))
         ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
         builder.setExerciseContext(ecBuilder.build)
+      case _: SPartialTransaction.TryContextInfo =>
+        // TODO: https://github.com/digital-asset/daml/issues/8020
+        //  handle catch context
+        sys.error("exception not supported")
       case _: SPartialTransaction.RootContextInfo =>
     }
     builder.build

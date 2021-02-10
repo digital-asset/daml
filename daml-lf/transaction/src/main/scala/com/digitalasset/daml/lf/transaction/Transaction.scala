@@ -527,10 +527,15 @@ object Transaction {
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
 
-  /** Signal that a 'endExercise' was called in a root-context; i.e.,
+  /** Signal that a 'endExercise' was called in a non exercise-context; i.e.,
     * without a matching 'beginExercise'.
     */
-  case object EndExerciseInRootContext extends TransactionError
+  case object NonExerciseContext extends TransactionError
+
+  /** Signal that a 'endCatch' or a 'rollback`` was called in a non catch-context; i.e.,
+    * without a matching 'beginCatch'.
+    */
+  case object NonCatchContext extends TransactionError
 
   /** Signals that the contract-id `coid` was expected to be active, but
     * is not.
