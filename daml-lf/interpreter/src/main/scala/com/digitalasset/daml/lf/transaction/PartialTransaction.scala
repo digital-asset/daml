@@ -4,7 +4,6 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.Authorize
@@ -15,8 +14,8 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  Transaction => Tx,
   TransactionVersion => TxVersion,
+  Transaction => Tx,
 }
 import com.daml.lf.value.Value
 
@@ -42,7 +41,7 @@ private[lf] object PartialTransaction {
   private[PartialTransaction] final class SeededPartialTransactionRootContext(
       seeds: ImmArray[Option[crypto.Hash]]
   ) extends RootContextInfo {
-    override val childSeed: Int => Hash = { idx =>
+    override val childSeed: Int => crypto.Hash = { idx =>
       seeds.get(idx) match {
         case Some(Some(value)) =>
           value
