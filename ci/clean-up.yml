@@ -8,7 +8,7 @@ steps:
     # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
     # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 
-    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 40000 ]; then
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
         echo "Disk full, cleaning up..."
         disk_cache="$HOME/.bazel-cache"
         rm -rf "$disk_cache"
