@@ -71,6 +71,7 @@ jobs:
     - template: report-end.yml
 
 - job: macOS
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -312,6 +313,7 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_macos
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -540,10 +542,8 @@ jobs:
         #
         # release only run on releases and is skipped otherwise.
         if [[ "$(Linux.status)" != "Succeeded"
-            || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || "$(compatibility_linux.status)" != "Succeeded"
-            || "$(compatibility_macos.status)" != "Succeeded"
             || "$(compatibility_windows.status)" != "Succeeded"
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
