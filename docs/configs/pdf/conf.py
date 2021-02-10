@@ -334,7 +334,6 @@ rst_prolog = """
 .. _installer: https://github.com/digital-asset/daml/releases/download/v{release}/daml-sdk-{release}-windows.exe
 .. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
 .. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
-.. _create-daml-app: https://github.com/digital-asset/daml/tree/v{release}/templates/create-daml-app
 """.format(release = release)
 
 # Import the Daml lexer

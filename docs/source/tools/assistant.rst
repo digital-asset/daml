@@ -7,7 +7,7 @@ Daml Assistant (``daml``)
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
 
 - Create new Daml projects: ``daml new <path to create project in>``
-- Create a new project based on the create-daml-app_ template: ``daml new --template=create-daml-app <path to create project in>``
+- Create a new project based on the ``create-daml-app`` template: ``daml new --template=create-daml-app <path to create project in>``
 - Initialize a Daml project: ``daml init``
 - Compile a Daml project: ``daml build``
 
