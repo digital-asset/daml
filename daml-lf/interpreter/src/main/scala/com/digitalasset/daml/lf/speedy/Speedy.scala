@@ -630,7 +630,7 @@ private[lf] object Speedy {
     private[lf] def clearCommit: Unit = withOnLedger("clearCommit") { onLedger =>
       val freshSeed =
         crypto.Hash.deriveTransactionSeed(
-          onLedger.ptx.context.nextChildrenSeed,
+          onLedger.ptx.context.nextChildSeed,
           scenarioServiceParticipant,
           onLedger.ptx.submissionTime,
         )
