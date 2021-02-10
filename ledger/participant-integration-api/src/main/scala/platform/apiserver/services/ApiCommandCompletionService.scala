@@ -63,7 +63,7 @@ private[apiserver] final class ApiCommandCompletionService private (
   ): Map[String, String] =
     Map(
       logging.commandId(commandId),
-      "statusCode" -> statusCode.map(_.toString).getOrElse(""),
+      "statusCode" -> statusCode.mkString,
     )
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
