@@ -8,8 +8,17 @@ Comprehensive documentation for `@daml/react` can be found [here](https://docs.d
 
 ## Usage
 
-The best way to get you started quickly is to look at [Create Daml App](https://github.com/digital-asset/create-daml-app)
-and to read the [QuickstartGuide](https://docs.daml.com/getting-started/quickstart.html).
+The best way to get you started quickly is to use the [`create-daml-app` template]:
+
+[`create-daml-app` template]: https://github.com/digital-asset/daml/tree/v0.0.0-SDKVERSION/templates/create-daml-app
+
+```
+daml new --template=create-daml-app my-project-name
+```
+
+and to read the [Quickstart Guide].
+
+[Quickstart Guide]: https://docs.daml.com/getting-started/quickstart.html
 
 To get an overview on how to build a Daml application, please read the [application architecture overview](https://docs.daml.com/app-dev/app-arch.html).
 

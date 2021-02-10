@@ -10,8 +10,10 @@ Comprehensive documentation for `@daml/ledger` can be found
 
 ## Usage
 
-The best way to get you started quickly is to start with the `create-daml-app`
-template:
+The best way to get you started quickly is to use the [`create-daml-app` template]:
+
+[`create-daml-app` template]: https://github.com/digital-asset/daml/tree/v0.0.0-SDKVERSION/templates/create-daml-app
+
 ```
 daml new --template=create-daml-app my-project-name
 ```
