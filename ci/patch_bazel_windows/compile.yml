@@ -42,7 +42,7 @@ jobs:
   variables:
     cache_key: $[ dependencies.patch_bazel_pre_check.outputs['out.cache_key'] ]
     should_run: $[ dependencies.patch_bazel_pre_check.outputs['out.should_run'] ]
-    bazel_base_version: 3.7.2
+    bazel_base_version: 4.0.0
   pool:
     vmImage: windows-2019
   steps:
@@ -52,7 +52,6 @@ jobs:
       git clone https://github.com/bazelbuild/bazel.git
       cd bazel
       git checkout $(bazel_base_version)
-      git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn < ../ci/patch_bazel_windows/patch-bazel
     condition: eq(variables.should_run, 'true')
   - powershell: |
       choco install msys2 --noprogress --yes
