@@ -44,6 +44,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
+      // this was the previous default.
+      // keeping it hardcoded here to keep tests working as before extracting the parameter
       connectionPoolSize = 16,
       eventsPageSize = eventsPageSize,
       servicesExecutionContext = executionContext,
