@@ -81,7 +81,7 @@ object TreeUtils {
 
   case class CreatedContract(cid: String, tplId: Identifier, path: List[Selector])
 
-  def treeCids(tree: TransactionTree): Seq[CreatedContract] = {
+  def treeCreatedCids(tree: TransactionTree): Seq[CreatedContract] = {
     var cids: Seq[CreatedContract] = Seq()
     traverseTree(tree) { case (selectors, kind) =>
       kind match {

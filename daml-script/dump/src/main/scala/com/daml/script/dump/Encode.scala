@@ -21,7 +21,7 @@ private[dump] object Encode {
   def encodeTransactionTreeStream(trees: Seq[TransactionTree]): Doc = {
     val parties = trees.toList.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
-    val cids = trees.map(treeCids(_))
+    val cids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(cids)
     val refs = trees.toList.foldMap(treeRefs(_))
     val moduleRefs = refs.map(_.moduleName).toSet
@@ -202,7 +202,7 @@ private[dump] object Encode {
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
     val submitters = rootEvs.flatMap(evParties(_)).toSet
-    val cids = treeCids(tree)
+    val cids = treeCreatedCids(tree)
     (Doc.text("tree <- submitTreeMulti ") + encodeParties(partyMap, submitters) + Doc.text(
       " [] do"
     ) /
