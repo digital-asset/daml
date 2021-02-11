@@ -197,7 +197,7 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions init
         initPackageDb cliOptions initPkgDb
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
             -- TODO: We set up one scenario service context per file that
-            -- we pass to execTest and scenario cnotexts are quite expensive.
+            -- we pass to execTest and scenario contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc

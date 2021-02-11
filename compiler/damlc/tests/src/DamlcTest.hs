@@ -4,7 +4,7 @@ module DamlcTest
    ( main
    ) where
 
-import Data.List.Extra (isInfixOf)
+import Data.List.Extra (isInfixOf, isSuffixOf)
 import System.Directory
 import System.Environment.Blank
 import System.Exit
@@ -170,6 +170,26 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             stdout @?= ""
             assertInfixOf "Parse error" stderr
             exitCode @?= ExitFailure 1
+    , testCase "Test coverage report" $ do
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
+              [ "module Foo where"
+              , "template S with p : Party where"
+              , "  signatory p"
+              , "template T with p : Party where"
+              , "  signatory p"
+              , "  choice X : () with controller p"
+              , "    do pure ()"
+              , "x = scenario do"
+              , "      alice <- getParty \"Alice\""
+              , "      c <- submit alice $ create T with p = alice"
+              , "      submit alice $ exercise c X with"
+              ]
+            (exitCode, stdout, _stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
+            exitCode @?= ExitSuccess
+            assertBool "test coverage is reported correctly"
+                       ("test coverage: templates 50%, choices 33%\n" `isSuffixOf` stdout)
     , testCase "File with failing scenario" $ do
         withTempDir $ \dir -> do
             let file = dir </> "Foo.daml"
