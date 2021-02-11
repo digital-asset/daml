@@ -370,7 +370,7 @@ private[lf] object Speedy {
       // Most iterations are performed by the inner-loop, thus avoiding the work of to
       // wrap the exception handler on each of these steps. This is a performace gain.
       // However, we still need the outer loop because of the case:
-      //    case _:SErrorDamlException if tryHandleException =>
+      //    case _:SErrorDamlException if tryHandleSubmitMustFail =>
       // where we must continue iteration.
       var result: SResult = null
       while (result == null) {
@@ -407,7 +407,8 @@ private[lf] object Speedy {
             result = res //stop
           case serr: SError =>
             serr match {
-              case _: SErrorDamlException if tryHandleException() => () // outer loop will run again
+              case _: SErrorDamlException if tryHandleSubmitMustFail() =>
+                () // outer loop will run again
               case _ => result = SResultError(serr) //stop
             }
           case ex: RuntimeException =>
@@ -421,11 +422,11 @@ private[lf] object Speedy {
       * the catch handler. Returns true if the exception
       * was catched.
       */
-    def tryHandleException(): Boolean = {
+    private[speedy] def tryHandleSubmitMustFail(): Boolean = {
       val catchIndex =
-        kontStack.asScala.lastIndexWhere(_.isInstanceOf[KCatch])
+        kontStack.asScala.lastIndexWhere(_.isInstanceOf[KCatchSubmitMustFail])
       if (catchIndex >= 0) {
-        val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
+        val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatchSubmitMustFail]
         kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
         ctrl = kcatch.handler
@@ -1260,10 +1261,10 @@ private[lf] object Speedy {
 
   /** A catch frame marks the point to which an exception (of type 'SErrorDamlException')
     * is unwound. The 'envSize' specifies the size to which the environment must be pruned.
-    * If an exception is raised and 'KCatch' is found from kont-stack, then 'handler' is
-    * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
+    * If an exception is raised and 'KCatchSubmitMustFail' is found from kont-stack, then 'handler' is
+    * evaluated. If 'KCatchSubmitMustFail' is encountered naturally, then 'fin' is evaluated.
     */
-  private[speedy] final case class KCatch(
+  private[speedy] final case class KCatchSubmitMustFail(
       machine: Machine,
       handler: SExpr,
       fin: SExpr,
@@ -1271,7 +1272,7 @@ private[lf] object Speedy {
       with SomeArrayEquals {
 
     // We call [markBase] (as standard) so the continuation may access its temporaries.
-    // In addition [env.size] is recorded for use in [tryHandleException] to allow the
+    // In addition [env.size] is recorded for use in [tryHandleSubmitMustFail] to allow the
     // env-stack to be unwound correctly when an exception is thrown.
 
     val envSize = machine.env.size
