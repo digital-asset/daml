@@ -46,7 +46,9 @@ private[sql] final class Cli(
     parser
       .opt[Int]("database-connection-pool-size")
       .optional()
-      .text("The number of connections in the database connection pool.")
+      .text(
+        s"The number of connections in the database connection pool. Defaults to ${SandboxConfig.DefaultDatabaseConnectionPoolSize}"
+      )
       .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
 
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
