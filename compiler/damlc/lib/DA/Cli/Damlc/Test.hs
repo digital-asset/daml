@@ -17,6 +17,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import DA.Daml.Options.Types
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
+import Data.Either
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import Data.Maybe
@@ -62,9 +63,6 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
 
     results <- runActionSync h $ do
         dalfs <- Shake.forP files dalfForScenario
-        let templates = [t | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
-        let nrOfTemplates = length templates
-        let nrOfChoices = length [n | t <- templates, n <- NM.names $ LF.tplChoices t]
         Shake.forP files $ \file -> do
             mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
@@ -74,7 +72,7 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
                     -- failures are printed out through diagnostics, so just print the sucesses
                     let results' = [(v, r) | (v, Right r) <- scenarioResults]
                     liftIO $ printScenarioResults results' color
-                    liftIO $ printTestCoverage results' nrOfTemplates nrOfChoices
+                    liftIO $ printTestCoverage dalfs scenarioResults
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
@@ -93,8 +91,10 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
 
-printTestCoverage :: [(VirtualResource, SS.ScenarioResult)] -> Int -> Int -> IO ()
-printTestCoverage results nrOfTemplates nrOfChoices =
+printTestCoverage :: [LF.Module] -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
+printTestCoverage dalfs results
+  | any (\(_, errOrRes) -> isLeft errOrRes) results = pure ()
+  | otherwise =
     putStrLn $
     unwords
         [ "test coverage: templates"
@@ -103,10 +103,13 @@ printTestCoverage results nrOfTemplates nrOfChoices =
         , percentage coveredNrOfChoices nrOfChoices
         ]
   where
+    templates = [t | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
+    nrOfTemplates = length templates
+    nrOfChoices = length [n | t <- templates, n <- NM.names $ LF.tplChoices t]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"
-    allScenarioNodes = [n | (_vr, res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
+    allScenarioNodes = [n | (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
     coveredNrOfTemplates =
         length $
         nubSort $
