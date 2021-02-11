@@ -1,0 +1,42 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Test where
+
+template BigTemplate
+  with
+    p: Party
+    x000: Int, x001: Int, x002: Int, x003: Int, x004: Int, x005: Int, x006: Int, x007: Int, x008: Int, x009: Int
+    x010: Int, x011: Int, x012: Int, x013: Int, x014: Int, x015: Int, x016: Int, x017: Int, x018: Int, x019: Int
+    x020: Int, x021: Int, x022: Int, x023: Int, x024: Int, x025: Int, x026: Int, x027: Int, x028: Int, x029: Int
+    x030: Int, x031: Int, x032: Int, x033: Int, x034: Int, x035: Int, x036: Int, x037: Int, x038: Int, x039: Int
+    x040: Int, x041: Int, x042: Int, x043: Int, x044: Int, x045: Int, x046: Int, x047: Int, x048: Int, x049: Int
+    x050: Int, x051: Int, x052: Int, x053: Int, x054: Int, x055: Int, x056: Int, x057: Int, x058: Int, x059: Int
+    x060: Int, x061: Int, x062: Int, x063: Int, x064: Int, x065: Int, x066: Int, x067: Int, x068: Int, x069: Int
+    x070: Int, x071: Int, x072: Int, x073: Int, x074: Int, x075: Int, x076: Int, x077: Int, x078: Int, x079: Int
+    x080: Int, x081: Int, x082: Int, x083: Int, x084: Int, x085: Int, x086: Int, x087: Int, x088: Int, x089: Int
+    x090: Int, x091: Int, x092: Int, x093: Int, x094: Int, x095: Int, x096: Int, x097: Int, x098: Int, x099: Int
+    x100: Int, x101: Int, x102: Int, x103: Int, x104: Int, x105: Int, x106: Int, x107: Int, x108: Int, x109: Int
+    x110: Int, x111: Int, x112: Int, x113: Int, x114: Int, x115: Int, x116: Int, x117: Int, x118: Int, x119: Int
+  where
+    signatory p
+
+run = do
+  alice <- getParty "Alice"
+  submit alice do create $
+                    BigTemplate
+                      alice
+                      000 001 002 003 004 005 006 007 008 009
+                      010 011 012 013 014 015 016 017 018 019
+                      020 021 022 023 024 025 026 027 028 029
+                      030 031 032 033 034 035 036 037 038 039
+                      040 041 042 043 044 045 046 047 048 049
+                      050 051 052 053 054 055 056 057 058 059
+                      060 061 062 063 064 065 066 067 068 069
+                      070 071 072 073 074 075 076 077 078 079
+                      080 081 082 083 084 085 086 087 088 089
+                      090 091 092 093 094 095 096 097 098 099
+                      100 101 102 103 104 105 106 107 108 109
+                      110 111 112 113 114 115 116 117 118 119
+
+
