@@ -20,11 +20,13 @@ final case class ParticipantConfig(
     port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
-    indexerDatabaseConnectionPoolSize: Int,
-    apiServerDatabaseConnectionPoolSize: Int,
     allowExistingSchemaForIndex: Boolean,
     maxCommandsInFlight: Option[Int],
-    managementServiceTimeout: Duration,
+    managementServiceTimeout: Duration = ParticipantConfig.defaultManagementServiceTimeout,
+    indexerDatabaseConnectionPoolSize: Int =
+      ParticipantConfig.defaultIndexerDatabaseConnectionPoolSize,
+    apiServerDatabaseConnectionPoolSize: Int =
+      ParticipantConfig.defaultApiServerDatabaseConnectionPoolSize,
 )
 
 object ParticipantConfig {
