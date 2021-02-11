@@ -31,9 +31,7 @@ GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a153
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
 
-    # XXX: We do not have access to an integer-simple version of GHC on Windows.
-    # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
-    use_integer_simple = not is_windows
+    use_integer_simple = true
 
     #
     # Executables
