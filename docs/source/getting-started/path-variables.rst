@@ -27,12 +27,11 @@ Mac OS
 
 First, you need to figure out whether you are running Bash or zsh. To do that, open a Terminal and run::
 
-        echo $SHELL - $0
+        echo $SHELL
 
-This should return either ``/bin/bash - bash``, in which case you are running
-Bash, or ``/bin/zsh - -zsh``, in which case you are running zsh. We provide
-instructions for both, but you only need to follow the instructions for the one
-you are using.
+This should return either ``/bin/bash``, in which case you are running Bash, or
+``/bin/zsh``, in which case you are running zsh. We provide instructions for
+both, but you only need to follow the instructions for the one you are using.
 
 If you get any other output, you have a non-standard setup. If you're not sure
 how to set up environment variables in your setup, please come and ask on the
