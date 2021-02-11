@@ -20,7 +20,7 @@ load("@dadew//:dadew.bzl", "dadew_tool_home")
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
 
-    use_integer_simple = not is_windows
+    use_integer_simple = True
 
     stack_snapshot(
         name = "stackage",
