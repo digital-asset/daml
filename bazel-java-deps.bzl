@@ -175,6 +175,7 @@ def install_java_deps():
             "org.xerial:sqlite-jdbc:3.30.1",
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",
+            "com.softwaremill.diffx:diffx-core_{}:0.4.1".format(scala_major_version),
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),

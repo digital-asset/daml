@@ -19,8 +19,11 @@ import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
+import com.softwaremill.diffx.Diff
 import io.grpc.Status
 import scalaz.syntax.tag._
+import com.softwaremill.diffx.generic.auto._
+//import com.softwaremill.diffx._
 
 final class CommandServiceIT extends LedgerTestSuite {
   test(
@@ -477,6 +480,7 @@ final class CommandServiceIT extends LedgerTestSuite {
           Vector(Dummy.id.unwrap),
         )
         val contractId = trees.flatMap(createdEvents).head.contractId
+        val x = implicitly[Diff[Vector[(String, String, Boolean)]]]
         assertEquals(
           "Unexpected exercise event triple (choice, contractId, consuming)",
           trees.flatMap(exercisedEvents).map(e => (e.choice, e.contractId, e.consuming)),

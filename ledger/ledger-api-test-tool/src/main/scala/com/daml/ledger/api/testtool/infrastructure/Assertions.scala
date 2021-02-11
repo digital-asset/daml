@@ -5,7 +5,9 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.regex.Pattern
 
-import ai.x.diff.DiffShow
+//import ai.x.diff.DiffShow
+//import com.softwaremill.diffx.generic.auto._
+import com.softwaremill.diffx._
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import io.grpc.Status
 
@@ -28,11 +30,20 @@ object Assertions extends DiffExtensions {
   def assertSingleton[A](context: String, as: Seq[A]): A =
     assertLength(context, 1, as).head
 
-  def assertEquals[T: DiffShow](context: String, actual: T, expected: T): Unit = {
-    val diff = DiffShow.diff(actual, expected)
+//  def assertEquals[T: DiffShow](context: String, actual: T, expected: T): Unit = {
+//    val diff = DiffShow.diff(actual, expected)
+//    if (!diff.isIdentical)
+//      throw AssertionErrorWithPreformattedMessage(
+//        diff.string,
+//        s"$context: two objects are supposed to be equal but they are not",
+//      )
+//  }
+
+  def assertEquals[T: Diff](context: String, actual: T, expected: T): Unit = {
+    val diff = Diff.compare(actual, expected)
     if (!diff.isIdentical)
       throw AssertionErrorWithPreformattedMessage(
-        diff.string,
+        diff.show,
         s"$context: two objects are supposed to be equal but they are not",
       )
   }
