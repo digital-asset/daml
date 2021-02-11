@@ -290,6 +290,7 @@ final class SqlLedgerSpec
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
+        databaseConnectionPoolSize = 16,
         providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         participantId = participantId.getOrElse(DefaultParticipantId),
         timeProvider = TimeProvider.UTC,

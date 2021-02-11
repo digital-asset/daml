@@ -43,6 +43,12 @@ private[sql] final class Cli(
       )
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
+    parser
+      .opt[Int]("database-connection-pool-size")
+      .optional()
+      .text("The number of connections in the database connection pool.")
+      .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
+
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the
     // configuration afterwards.

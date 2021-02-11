@@ -12,7 +12,6 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -24,6 +23,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
@@ -54,8 +54,8 @@ import com.daml.platform.store.entries.{
 }
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -123,18 +123,18 @@ private class JdbcLedgerDao(
       ParametersTable.getInitialLedgerEnd
     )
 
-  override def initializeLedger(ledgerId: LedgerId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
+  override def initializeLedger(
+      ledgerId: LedgerId
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
       implicit connection =>
         queries.enforceSynchronousCommit
         ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
     }
 
-  override def initializeParticipantId(participantId: ParticipantId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
+  override def initializeParticipantId(
+      participantId: ParticipantId
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
       queries.enforceSynchronousCommit
       ParametersTable.setParticipantId(participantId.unwrap)(connection)
@@ -566,7 +566,8 @@ private class JdbcLedgerDao(
               val submitterInfo =
                 for (
                   appId <- tx.applicationId;
-                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs); cmdId <- tx.commandId
+                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
+                  cmdId <- tx.commandId
                 )
                   yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
               prepareTransactionInsert(
@@ -626,9 +627,9 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
 
-  override def getParties(parties: Seq[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[List[PartyDetails]] =
+  override def getParties(
+      parties: Seq[Party]
+  )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
     if (parties.isEmpty)
       Future.successful(List.empty)
     else
@@ -689,9 +690,9 @@ private class JdbcLedgerDao(
         ).toMap
       )(servicesExecutionContext)
 
-  override def getLfArchive(packageId: PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Archive]] =
+  override def getLfArchive(
+      packageId: PackageId
+  )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive) { implicit conn =>
         SQL_SELECT_PACKAGE
@@ -726,7 +727,8 @@ private class JdbcLedgerDao(
         ParametersTable.updateLedgerEnd(offsetStep)
 
         if (packages.nonEmpty) {
-          val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
+          val uploadId =
+            optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
           uploadLfPackages(uploadId, packages)
         }
 
@@ -868,9 +870,9 @@ private class JdbcLedgerDao(
       |where deduplicate_until < {currentTime}
     """.stripMargin)
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
+  override def removeExpiredDeduplicationData(
+      currentTime: Instant
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.removeExpiredDeduplicationDataDbMetrics) {
       implicit conn =>
         SQL_DELETE_EXPIRED_COMMANDS
@@ -986,22 +988,20 @@ private class JdbcLedgerDao(
 
 private[platform] object JdbcLedgerDao {
 
-  private val DefaultNumberOfShortLivedConnections = 16
-
   def readOwner(
       serverRole: ServerRole,
       jdbcUrl: String,
+      connectionPoolSize: Int,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
-    val maxConnections = DefaultNumberOfShortLivedConnections
     owner(
       serverRole,
       jdbcUrl,
-      maxConnections,
+      connectionPoolSize,
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -1016,6 +1016,7 @@ private[platform] object JdbcLedgerDao {
   def writeOwner(
       serverRole: ServerRole,
       jdbcUrl: String,
+      connectionPoolSize: Int,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -1024,12 +1025,10 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
-    val maxConnections =
-      if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
     owner(
       serverRole,
       jdbcUrl,
-      maxConnections,
+      dbType.maxSupportedConnections(connectionPoolSize),
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -1044,6 +1043,7 @@ private[platform] object JdbcLedgerDao {
   def validatingWriteOwner(
       serverRole: ServerRole,
       jdbcUrl: String,
+      connectionPoolSize: Int,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -1052,12 +1052,10 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
-    val maxConnections =
-      if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
     owner(
       serverRole,
       jdbcUrl,
-      maxConnections,
+      dbType.maxSupportedConnections(connectionPoolSize),
       eventsPageSize,
       validate = true,
       servicesExecutionContext,
@@ -1070,9 +1068,9 @@ private[platform] object JdbcLedgerDao {
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
-  private[dao] def selectParties(parties: Seq[Party])(implicit
-      connection: Connection
-  ): List[ParsedPartyData] =
+  private[dao] def selectParties(
+      parties: Seq[Party]
+  )(implicit connection: Connection): List[ParsedPartyData] =
     SQL_SELECT_MULTIPLE_PARTIES
       .on("parties" -> parties)
       .as(PartyDataParser.*)
@@ -1097,7 +1095,7 @@ private[platform] object JdbcLedgerDao {
   private def owner(
       serverRole: ServerRole,
       jdbcUrl: String,
-      maxConnections: Int,
+      connectionPoolSize: Int,
       eventsPageSize: Int,
       validate: Boolean,
       servicesExecutionContext: ExecutionContext,
@@ -1112,13 +1110,13 @@ private[platform] object JdbcLedgerDao {
       dbDispatcher <- DbDispatcher.owner(
         serverRole,
         jdbcUrl,
-        maxConnections,
+        connectionPoolSize,
         250.millis,
         metrics,
         jdbcAsyncCommits,
       )
     } yield new JdbcLedgerDao(
-      maxConnections,
+      connectionPoolSize,
       dbDispatcher,
       DbType.jdbcType(jdbcUrl),
       servicesExecutionContext,
@@ -1161,7 +1159,8 @@ private[platform] object JdbcLedgerDao {
         |  set deduplicate_until={deduplicateUntil}
         |  where pcs.deduplicate_until < {submittedAt}""".stripMargin
 
-    override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
+    override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
+      "duplicate key"
 
     override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
       """truncate table configuration_entries cascade;
@@ -1179,7 +1178,8 @@ private[platform] object JdbcLedgerDao {
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
     ): Unit = {
-      val statement = conn.prepareStatement("SET LOCAL synchronous_commit = 'on'")
+      val statement =
+        conn.prepareStatement("SET LOCAL synchronous_commit = 'on'")
       try {
         statement.execute()
         ()

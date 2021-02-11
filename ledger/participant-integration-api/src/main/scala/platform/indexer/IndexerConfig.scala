@@ -12,6 +12,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 case class IndexerConfig(
     participantId: ParticipantId,
     jdbcUrl: String,
+    databaseConnectionPoolSize: Int,
     startupMode: IndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,

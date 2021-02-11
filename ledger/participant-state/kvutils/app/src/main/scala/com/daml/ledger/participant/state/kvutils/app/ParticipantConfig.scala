@@ -19,6 +19,8 @@ final case class ParticipantConfig(
     port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
+    indexerDatabaseConnectionPoolSize: Int,
+    apiServerDatabaseConnectionPoolSize: Int,
     allowExistingSchemaForIndex: Boolean,
     maxCommandsInFlight: Option[Int],
     managementServiceTimeout: Duration,
@@ -29,4 +31,7 @@ object ParticipantConfig {
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
   val defaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
+
+  val defaultIndexerDatabaseConnectionPoolSize = 10
+  val defaultApiServerDatabaseConnectionPoolSize = 50
 }

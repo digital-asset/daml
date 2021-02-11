@@ -67,6 +67,7 @@ private[sandbox] object SqlLedger {
       serverRole: ServerRole,
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
+      databaseConnectionPoolSize: Int,
       providedLedgerId: LedgerIdMode,
       participantId: domain.ParticipantId,
       timeProvider: TimeProvider,
@@ -230,6 +231,7 @@ private[sandbox] object SqlLedger {
       JdbcLedgerDao.validatingWriteOwner(
         serverRole,
         jdbcUrl,
+        databaseConnectionPoolSize,
         eventsPageSize,
         servicesExecutionContext,
         metrics,

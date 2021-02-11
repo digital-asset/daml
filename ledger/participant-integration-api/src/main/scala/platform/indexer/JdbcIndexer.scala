@@ -54,6 +54,7 @@ object JdbcIndexer {
         JdbcLedgerDao.writeOwner(
           serverRole,
           config.jdbcUrl,
+          config.databaseConnectionPoolSize,
           config.eventsPageSize,
           servicesExecutionContext,
           metrics,

@@ -222,6 +222,7 @@ class RecoveringIndexerIntegrationSpec
     JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
+      connectionPoolSize = 16,
       eventsPageSize = 100,
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
