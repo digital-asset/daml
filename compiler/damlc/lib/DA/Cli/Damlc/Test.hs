@@ -61,8 +61,7 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
     let files = nubOrd $ concat $ inFiles : catMaybes deps
 
     results <- runActionSync h $ do
-        dalfs <- Shake.forP files $
-          \file -> dalfForScenario file
+        dalfs <- Shake.forP files dalfForScenario
         let templates = [t | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
         let nrOfTemplates = length templates
         let nrOfChoices = length [n | t <- templates, n <- NM.names $ LF.tplChoices t]
