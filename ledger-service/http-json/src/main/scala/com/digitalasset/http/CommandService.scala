@@ -49,7 +49,7 @@ class CommandService(
     val et: ET[ActiveContract[lav1.value.Value]] = for {
       command <- either(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- rightT(logResult('create, submitAndWaitForTransaction(jwt, request)))
+      response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
       contract <- either(exactlyOneActiveContract(response))
     } yield contract
 
@@ -66,7 +66,9 @@ class CommandService(
     val request = submitAndWaitRequest(jwtPayload, input.meta, command)
 
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      response <- rightT(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
+      response <- rightT(
+        logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
+      )
       exerciseResult <- either(exerciseResult(response))
       contracts <- either(contracts(response))
     } yield ExerciseResponse(exerciseResult, contracts)
@@ -84,7 +86,7 @@ class CommandService(
       command <- either(createAndExerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- rightT(
-        logResult('createAndExercise, submitAndWaitForTransactionTree(jwt, request))
+        logResult(Symbol("createAndExercise"), submitAndWaitForTransactionTree(jwt, request))
       )
       exerciseResult <- either(exerciseResult(response))
       contracts <- either(contracts(response))
@@ -105,7 +107,7 @@ class CommandService(
       input: CreateCommand[lav1.value.Record]
   ): Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
-      .toRightDisjunction(Error('createCommand, cannotResolveTemplateId(input.templateId)))
+      .toRightDisjunction(Error(Symbol("createCommand"), cannotResolveTemplateId(input.templateId)))
       .map(tpId => Commands.create(refApiIdentifier(tpId), input.payload))
   }
 
@@ -134,7 +136,7 @@ class CommandService(
   ): Error \/ lav1.commands.Command.Command.CreateAndExercise =
     resolveTemplateId(input.templateId)
       .toRightDisjunction(
-        Error('createAndExerciseCommand, cannotResolveTemplateId(input.templateId))
+        Error(Symbol("createAndExerciseCommand"), cannotResolveTemplateId(input.templateId))
       )
       .map(tpId =>
         Commands
@@ -165,7 +167,12 @@ class CommandService(
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
-        -\/(Error('exactlyOneActiveContract, s"Expected exactly one active contract, got: $xs"))
+        -\/(
+          Error(
+            Symbol("exactlyOneActiveContract"),
+            s"Expected exactly one active contract, got: $xs",
+          )
+        )
     }
 
   private def activeContracts(
@@ -173,7 +180,7 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        Error('activeContracts, s"Received response without transaction: $response")
+        Error(Symbol("activeContracts"), s"Received response without transaction: $response")
       )
       .flatMap(activeContracts)
 
@@ -183,20 +190,22 @@ class CommandService(
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
-      .leftMap(e => Error('activeContracts, e.shows))
+      .leftMap(e => Error(Symbol("activeContracts"), e.shows))
   }
 
   private def contracts(
       response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
-      .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+      .toRightDisjunction(
+        Error(Symbol("contracts"), s"Received response without transaction: $response")
+      )
       .flatMap(contracts)
 
   private def contracts(
       tx: lav1.transaction.TransactionTree
   ): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)
+    Contract.fromTransactionTree(tx).leftMap(e => Error(Symbol("contracts"), e.shows)).map(_.toList)
 
   private def exerciseResult(
       a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
@@ -209,7 +218,7 @@ class CommandService(
 
     result.toRightDisjunction(
       Error(
-        'choiceArgument,
+        Symbol("choiceArgument"),
         s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}",
       )
     )

@@ -14,7 +14,7 @@ import scala.util.Try
 
 object Cli extends StrictLogging {
   private[http] def parseConfig(
-      args: Seq[String],
+      args: collection.Seq[String],
       getEnvVar: String => Option[String] = sys.env.get,
   ): Option[Config] =
     configParser(getEnvVar).parse(args, Config.Empty)

@@ -200,7 +200,7 @@ object WebSocketService {
         val (resolved, unresolved, q) = request.queries.zipWithIndex
           .foldMap { case (gacr, ix) =>
             val (resolved, unresolved) =
-              gacr.templateIds.toSet.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
+              gacr.templateIds.toSet.partitionMap(x => resolveTemplateId(x).toLeft(x))
             val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
             (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
@@ -295,14 +295,11 @@ object WebSocketService {
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: TypeLookup,
     ): StreamPredicate[Positive] = {
-
-      import util.Collections._
-
       val (resolvedWithKey, unresolved) =
         request.toSet.partitionMap { x: CKR[LfV] =>
           resolveTemplateId(x.ekey.templateId)
             .map((_, x.ekey.key))
-            .toLeftDisjunction(x.ekey.templateId)
+            .toLeft(x.ekey.templateId)
         }
 
       // invariant: every set is non-empty
@@ -398,7 +395,11 @@ class WebSocketService(
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
 
   @SuppressWarnings(
-    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable")
+    Array(
+      "org.wartremover.warts.NonUnitStatements",
+      "org.wartremover.warts.JavaSerializable",
+      "org.wartremover.warts.Serializable",
+    )
   )
   private def connCounter[A]: Flow[A, A, NotUsed] =
     Flow[A]
@@ -560,7 +561,7 @@ class WebSocketService(
     StepAndErrors[Pos, JsValue](Seq.empty, LiveBegin(offset))
 
   private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
-    remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
+    remove.cata(removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
 
   private def removePhantomArchives_[A, B](
       initialState: Set[domain.ContractId]
@@ -573,7 +574,7 @@ class WebSocketService(
             domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
-          val a1 = a0.copy(step = a0.step.mapDeletes(_ filterKeys deletesToEmit))
+          val a1 = a0.copy(step = a0.step.mapDeletes(_.view.filterKeys(deletesToEmit).toMap))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
 
@@ -609,7 +610,7 @@ class WebSocketService(
               .fromLedgerApi(ce)
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
-        )
+        )(implicitly[Factory[ServerError, Seq[ServerError]]])
         StepAndErrors(
           errors ++ aerrors,
           dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>

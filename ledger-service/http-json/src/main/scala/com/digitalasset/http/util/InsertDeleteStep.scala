@@ -10,9 +10,8 @@ import com.daml.ledger.api.v1.{event => evv1}
 import scalaz.{Monoid, \/, \/-}
 import scalaz.syntax.tag._
 
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import scala.runtime.AbstractFunction1
-import scala.language.higherKinds
 
 private[http] final case class InsertDeleteStep[+D, +C](
     inserts: InsertDeleteStep.Inserts[C],
@@ -38,19 +37,18 @@ private[http] final case class InsertDeleteStep[+D, +C](
   def partitionMapPreservingIds[LC, CC](
       f: C => (LC \/ CC)
   ): (Inserts[LC], InsertDeleteStep[D, CC]) = {
-    val (_, lcs, step) = partitionBimap(\/-(_), f)
+    val (_, lcs, step) = partitionBimap(\/-(_), f)(implicitly[Factory[Unit, List[Unit]]])
     (lcs, step)
   }
 
   /** Results undefined if cid(cc) != cid(c) */
   def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
-      LDS: CanBuildFrom[Map[String, D], LD, LDS]
+      LDS: Factory[LD, LDS]
   ): (LDS, Inserts[LC], InsertDeleteStep[DD, CC]) = {
-    import Collections._
-    import scalaz.std.tuple._, scalaz.syntax.traverse._
-    val (lcs, ins) = inserts partitionMap g
-    val (lds, del) = deletes partitionMap (_ traverse f)
-    (lds, lcs, copy(inserts = ins, deletes = del))
+    import scalaz.std.tuple._, scalaz.std.either._, scalaz.syntax.traverse._
+    val (lcs, ins) = inserts partitionMap (x => g(x).toEither)
+    val (lds, del) = deletes.toList.partitionMap(_.traverse(x => f(x).toEither))
+    (LDS.fromSpecific(lds), lcs, copy(inserts = ins, deletes = del.toMap))
   }
 }
 
@@ -72,7 +70,7 @@ private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
 
   // we always use the Last semigroup for D
   implicit def `IDS monoid`[D, C: Cid]: Monoid[InsertDeleteStep[D, C]] =
-    Monoid instance (_ append _, Empty)
+    Monoid.instance(_ append _, Empty)
 
   def appendForgettingDeletes[D, C](leftInserts: Inserts[C], right: InsertDeleteStep[Any, C])(
       implicit cid: Cid[C]

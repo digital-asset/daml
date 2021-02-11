@@ -56,9 +56,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         }
 
       case OptionalMatch(oq) =>
-        oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false }, {
-          case V.ValueOptional(None) => true; case _ => false
-        })
+        oq.map(go)
+          .cata(
+            csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
+            {
+              case V.ValueOptional(None) => true; case _ => false
+            },
+          )
 
       case range: Range[a] =>
         implicit val ord: Order[a] = range.ord
@@ -348,13 +352,13 @@ object ValuePredicate {
   )(V.ValueText)
   private[this] val DateRangeExpr = RangeExpr(
     { case JsString(q) =>
-      Time.Date fromString q fold (predicateParseError(_), identity)
+      Time.Date.fromString(q).fold(predicateParseError(_), identity)
     },
     { case V.ValueDate(v) => v },
   )(V.ValueDate)
   private[this] val TimestampRangeExpr = RangeExpr(
     { case JsString(q) =>
-      Time.Timestamp fromString q fold (predicateParseError(_), identity)
+      Time.Timestamp.fromString(q).fold(predicateParseError(_), identity)
     },
     { case V.ValueTimestamp(v) => v },
   )(V.ValueTimestamp)
@@ -362,14 +366,19 @@ object ValuePredicate {
     RangeExpr(
       {
         case JsString(q) =>
-          Numeric checkWithinBoundsAndRound (scale, BigDecimal(
-            q
-          )) fold (predicateParseError, identity)
+          Numeric
+            .checkWithinBoundsAndRound(
+              scale,
+              BigDecimal(
+                q
+              ),
+            )
+            .fold(predicateParseError, identity)
         case JsNumber(q) =>
-          Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
+          Numeric.checkWithinBoundsAndRound(scale, q).fold(predicateParseError, identity)
       },
       { case V.ValueNumeric(v) => v setScale scale },
-    )(qv => V.ValueNumeric(Numeric assertFromBigDecimal (scale, qv)))
+    )(qv => V.ValueNumeric(Numeric.assertFromBigDecimal(scale, qv)))
 
   private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
     Order.fromScalaOrdering

@@ -7,7 +7,6 @@ import scalaz.syntax.show._
 import scalaz.{-\/, Applicative, EitherT, Functor, Show, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 import scala.util.Try
 
 object FutureUtil {
