@@ -1,0 +1,68 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+
+hj_scalacopts = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
+da_scala_test(
+    name = "integration-tests",
+    size = "large",
+    srcs = glob(["src/it/scala/**/*.scala"]),
+    data = [
+        "//docs:quickstart-model.dar",
+        "//ledger-service/http-json:Account.dar",
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_2_12_12",
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        # "@maven//:com_lihaoyi_sourcecode",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        # "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        # "@maven//:org_tpolecat_doobie_core",
+        # "@maven//:org_tpolecat_doobie_free",
+        # "@maven//:org_typelevel_cats_core",
+        # "@maven//:org_typelevel_cats_effect",
+        # "@maven//:org_typelevel_cats_free",
+    ],
+    # resources = glob(["src/it/resources/**/*"]),
+    scalacopts = hj_scalacopts,
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        # "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        # "//ledger-service/db-backend",
+        "//ledger-service/http-json",
+        "//ledger-service/http-json:integration-tests-lib",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//ledger-service/utils",
+        # "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        # "//libs-scala/auth-utils",
+        # "//libs-scala/ports",
+        # "//libs-scala/scala-utils",
+    ],
+)
