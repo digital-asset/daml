@@ -13,8 +13,9 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
+  WriteSet
 }
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -269,16 +270,18 @@ object IntegrityChecker {
   def runAndExit[LogResult](
       args: Array[String],
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
+      writeSetToUpdates: Option[(WriteSet, Long) => Iterable[(Offset, Update)]],
   ): Unit = {
     val config = Config.parse(args).getOrElse {
       sys.exit(1)
     }
-    runAndExit(config, commitStrategySupportFactory)
+    runAndExit(config, commitStrategySupportFactory, writeSetToUpdates)
   }
 
   def runAndExit[LogResult](
       config: Config,
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
+      writeSetToUpdates: Option[(WriteSet, Long) => Iterable[(Offset, Update)]],
   ): Unit = {
     println(s"Verifying integrity of ${config.exportFilePath}...")
 
@@ -288,6 +291,10 @@ object IntegrityChecker {
     implicit val materializer: Materializer = Materializer(actorSystem)
 
     val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+
+    if (config.indexerPerfTest)
+      IndexerPerfTest.run(importer, config, writeSetToUpdates.get, executionContext)
+
     new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
       .run(importer, config)
       .onComplete {

@@ -9,12 +9,13 @@ import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import scopt.OptionParser
 
 case class Config(
-    exportFilePath: Path,
-    performByteComparison: Boolean,
-    sortWriteSet: Boolean,
-    indexOnly: Boolean = false,
-    reportMetrics: Boolean = false,
-    jdbcUrl: Option[String] = None,
+                   exportFilePath: Path,
+                   performByteComparison: Boolean,
+                   sortWriteSet: Boolean,
+                   indexOnly: Boolean = false,
+                   reportMetrics: Boolean = false,
+                   jdbcUrl: Option[String] = None,
+                   indexerPerfTest: Boolean = false,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
@@ -57,6 +58,10 @@ object Config {
       opt[Unit]("report-metrics")
         .text("Print all registered metrics.")
         .action((_, config) => config.copy(reportMetrics = true))
+      opt[Unit]("indexer-perf-test")
+        .text("No validation: only runs indexer performance test with streaming from export.")
+        .action((_, config) => config.copy(indexerPerfTest = true))
+
     }
 
   def parse(args: collection.Seq[String]): Option[Config] =
