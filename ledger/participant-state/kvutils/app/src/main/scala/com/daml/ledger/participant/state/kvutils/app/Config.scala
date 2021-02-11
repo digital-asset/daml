@@ -92,15 +92,13 @@ object Config {
       args: collection.Seq[String],
       getEnvVar: String => Option[String] = sys.env.get(_),
   ): Option[Config[Extra]] =
-    parser(name, extraOptions, getEnvVar)
-      .parse(args, createDefault(defaultExtra))
-      .flatMap {
-        case config if config.mode == Mode.Run && config.participants.isEmpty =>
-          System.err.println("No --participant provided to run")
-          None
-        case config =>
-          Some(config)
-      }
+    parser(name, extraOptions, getEnvVar).parse(args, createDefault(defaultExtra)).flatMap {
+      case config if config.mode == Mode.Run && config.participants.isEmpty =>
+        System.err.println("No --participant provided to run")
+        None
+      case config =>
+        Some(config)
+    }
 
   private def parser[Extra](
       name: String,
