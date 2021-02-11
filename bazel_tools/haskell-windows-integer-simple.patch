@@ -1,0 +1,15 @@
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+index 337f722e..46595b44 100644
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -274,8 +274,8 @@ GHC_BINDIST = \
+                 "95e4aadea30701fe5ab84d15f757926d843ded7115e11c4cd827809ca830718d",
+             ),
+             "windows_amd64": (
+-                "https://downloads.haskell.org/~ghc/8.10.3/ghc-8.10.3-x86_64-unknown-mingw32.tar.xz",
+-                "927a6c699533a115cd49772ef2c753d9af2c13bf9f0b2d3bd13645cc6a144ee3",
++                "https://downloads.haskell.org/~ghc/8.10.3/ghc-8.10.3-x86_64-unknown-mingw32-integer-simple.tar.xz",
++                "a114b8edaf9fe560ba7c97c3a4bb54144d28878ac6f8cb6a589bf0a45a79cf2b",
+             ),
+         },
+     }

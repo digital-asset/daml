@@ -61,6 +61,7 @@ def daml_deps():
                 "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
                 "@daml//bazel_tools:haskell-cc-wrapper-windows.patch",
+                "@daml//bazel_tools:haskell-windows-integer-simple.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
