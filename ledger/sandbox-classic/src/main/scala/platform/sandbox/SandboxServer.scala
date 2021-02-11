@@ -204,7 +204,7 @@ final class SandboxServer(
           materializer = materializer,
           metrics = metrics,
           packageStore = packageStore,
-          startMode = SqlStartMode.AlwaysReset,
+          startMode = SqlStartMode.ResetAndStart,
           currentPort = Some(port),
         )
       )
@@ -434,7 +434,7 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode.ContinueIfExists,
+        SqlStartMode.MigrateAndStart,
         currentPort = None,
       )
       Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))

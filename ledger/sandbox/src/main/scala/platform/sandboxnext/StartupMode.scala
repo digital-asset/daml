@@ -7,8 +7,12 @@ sealed trait StartupMode
 
 object StartupMode {
 
+  case object MigrateOnly extends StartupMode
+
   case object MigrateAndStart extends StartupMode
 
   case object ResetAndStart extends StartupMode
+
+  case object ValidateAndStart extends StartupMode
 
 }

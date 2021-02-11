@@ -74,7 +74,7 @@ private[sandbox] object SqlLedger {
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       transactionCommitter: TransactionCommitter,
-      startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
+      startMode: SqlStartMode = SqlStartMode.MigrateAndStart,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -88,16 +88,7 @@ private[sandbox] object SqlLedger {
 
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
-        _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
-        _ <- startMode match {
-          case SqlStartMode.MigrateOnly =>
-            Resource.unit
-          case SqlStartMode.AlwaysReset =>
-            Resource.fromFuture(dao.reset())
-          case SqlStartMode.ContinueIfExists =>
-            Resource.unit
-        }
         retrievedLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         ledgerId <- Resource.fromFuture(retrievedLedgerId.fold(initialize(dao))(resume))
         _ <- Resource.fromFuture(initOrCheckParticipantId(dao, Tag.unwrap(participantId)))
@@ -105,6 +96,19 @@ private[sandbox] object SqlLedger {
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
+        _ <- startMode match {
+          case SqlStartMode.MigrateOnly =>
+            Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
+          case SqlStartMode.ResetAndStart =>
+            Resource
+              .fromFuture(new FlywayMigrations(jdbcUrl).migrate())
+              .map(_ => dao.reset())
+              .map(_ => logger.debug("Resetting database."))
+          case SqlStartMode.MigrateAndStart =>
+            Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
+          case SqlStartMode.ValidateAndStart =>
+            Resource.unit
+        }
         // Close the dispatcher before the persistence queue.
         _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
         ledger <- sqlLedgerOwner(

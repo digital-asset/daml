@@ -11,9 +11,11 @@ private[sandbox] object SqlStartMode {
   final case object MigrateOnly extends SqlStartMode
 
   /** Will continue using an initialised ledger, otherwise initialize a new one */
-  final case object ContinueIfExists extends SqlStartMode
+  final case object MigrateAndStart extends SqlStartMode
 
   /** Will always reset and initialize the ledger, even if it has data. */
-  final case object AlwaysReset extends SqlStartMode
+  final case object ResetAndStart extends SqlStartMode
 
+  /** Will continue using an initialised ledger and will not run any migration scripts */
+  final case object ValidateAndStart extends SqlStartMode
 }
