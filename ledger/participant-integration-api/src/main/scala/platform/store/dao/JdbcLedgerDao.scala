@@ -453,15 +453,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  override def storeTransactionState(
-      preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
-        preparedInsert.writeState(metrics)(_)
-      )
-      .map(_ => Ok)(servicesExecutionContext)
-
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -499,7 +490,6 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         validate(ledgerEffectiveTime, transaction, divulged) match {
           case None =>
-            preparedInsert.writeState(metrics)
             preparedInsert.writeEvents(metrics)
             insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>

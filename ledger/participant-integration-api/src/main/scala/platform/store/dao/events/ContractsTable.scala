@@ -7,32 +7,14 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.int
-import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
+import anorm.{SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.JdbcLedgerDao
 
 import scala.util.{Failure, Success, Try}
 
-private[events] abstract class ContractsTable extends PostCommitValidationData {
-
-  private val deleteContractQuery =
-    s"delete from participant_contracts where contract_id = {contract_id}"
-
-  private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
-    Vector[NamedParameter]("contract_id" -> contractId)
-
-  def toExecutables(
-      info: TransactionIndexing.ContractsInfo,
-      tx: TransactionIndexing.TransactionInfo,
-      serialized: TransactionIndexing.Compressed.Contracts,
-  ): ContractsTable.Executables
-
-  protected def buildDeletes(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {
-    val deletes = info.netArchives.iterator.map(deleteContract).toSeq
-    batch(deleteContractQuery, deletes)
-  }
+private[events] object ContractsTable extends PostCommitValidationData {
 
   override final def lookupContractKeyGlobally(
       key: Key
@@ -60,21 +42,6 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
       connection: Connection
   ): List[PartyDetails] =
     JdbcLedgerDao.selectParties(parties).map(JdbcLedgerDao.constructPartyDetails)
-}
-
-private[events] object ContractsTable {
-
-  trait Executable {
-    def execute()(implicit connection: Connection): Unit
-  }
-
-  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Executable)
-
-  def apply(dbType: DbType): ContractsTable =
-    dbType match {
-      case DbType.Postgres => ContractsTablePostgres
-      case DbType.H2Database => ContractsTableH2
-    }
 
   private def emptyContractIds: Throwable =
     new IllegalArgumentException(
@@ -85,5 +52,4 @@ private[events] object ContractsTable {
     new IllegalArgumentException(
       s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
-
 }

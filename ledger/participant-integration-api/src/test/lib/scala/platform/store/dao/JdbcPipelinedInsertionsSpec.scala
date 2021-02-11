@@ -30,7 +30,6 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       // Assume the indexer restarts after events insertion
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
-      _ <- ledgerDao.storeTransactionState(preparedInsert)
       // Assume the indexer restarts after state insertion
       _ <- store(create) // The whole transaction insertion succeeds
       result <- ledgerDao.transactionsReader
@@ -77,7 +76,6 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
     val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
-      _ <- ledgerDao.storeTransactionState(preparedInsert)
       transactionTreeResponse <- ledgerDao.transactionsReader.lookupTransactionTreeById(
         transactionId = tx.transactionId,
         tx.actAs.toSet,
