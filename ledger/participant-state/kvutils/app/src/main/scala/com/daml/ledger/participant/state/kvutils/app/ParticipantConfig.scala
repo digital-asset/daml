@@ -7,8 +7,9 @@ import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ports.Port
-
 import java.time.Duration
+
+import com.daml.platform.indexer.IndexerConfig
 
 final case class ParticipantConfig(
     mode: ParticipantRunMode,
@@ -32,6 +33,8 @@ object ParticipantConfig {
 
   val defaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
 
-  val defaultIndexerDatabaseConnectionPoolSize = 10
-  val defaultApiServerDatabaseConnectionPoolSize = 50
+  val defaultIndexerDatabaseConnectionPoolSize = IndexerConfig.DefaultDatabaseConnectionPoolSize
+
+  // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
+  val defaultApiServerDatabaseConnectionPoolSize = 16
 }

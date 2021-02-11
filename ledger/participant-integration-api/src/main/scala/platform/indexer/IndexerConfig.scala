@@ -12,8 +12,8 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 case class IndexerConfig(
     participantId: ParticipantId,
     jdbcUrl: String,
-    databaseConnectionPoolSize: Int,
     startupMode: IndexerStartupMode,
+    databaseConnectionPoolSize: Int = DefaultDatabaseConnectionPoolSize,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
@@ -24,5 +24,7 @@ object IndexerConfig {
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
+  // Should be greater than or equal to the number of pipline stages
+  val DefaultDatabaseConnectionPoolSize: Int = 3
 
 }
