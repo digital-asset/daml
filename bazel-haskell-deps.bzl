@@ -31,7 +31,7 @@ GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a153
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
 
-    use_integer_simple = true
+    use_integer_simple = True
 
     #
     # Executables
