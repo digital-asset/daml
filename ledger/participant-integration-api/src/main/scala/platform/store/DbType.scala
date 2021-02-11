@@ -9,7 +9,7 @@ private[platform] sealed abstract class DbType(
     val supportsParallelWrites: Boolean,
     val supportsAsynchronousCommits: Boolean,
 ) {
-  def maxSupportedConnections(maxConnections: Int): Int =
+  def maxSupportedWriteConnections(maxConnections: Int): Int =
     if (supportsParallelWrites) maxConnections else 1
 }
 

@@ -1028,7 +1028,7 @@ private[platform] object JdbcLedgerDao {
     owner(
       serverRole,
       jdbcUrl,
-      dbType.maxSupportedConnections(connectionPoolSize),
+      dbType.maxSupportedWriteConnections(connectionPoolSize),
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -1055,7 +1055,7 @@ private[platform] object JdbcLedgerDao {
     owner(
       serverRole,
       jdbcUrl,
-      dbType.maxSupportedConnections(connectionPoolSize),
+      dbType.maxSupportedWriteConnections(connectionPoolSize),
       eventsPageSize,
       validate = true,
       servicesExecutionContext,
