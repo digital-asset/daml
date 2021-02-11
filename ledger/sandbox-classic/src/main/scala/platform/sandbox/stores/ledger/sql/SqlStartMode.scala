@@ -7,6 +7,9 @@ private[sandbox] sealed abstract class SqlStartMode extends Product with Seriali
 
 private[sandbox] object SqlStartMode {
 
+  /** Run Migration scripts but do not start the ledger api service */
+  final case object MigrateOnly extends SqlStartMode
+
   /** Will continue using an initialised ledger, otherwise initialize a new one */
   final case object ContinueIfExists extends SqlStartMode
 

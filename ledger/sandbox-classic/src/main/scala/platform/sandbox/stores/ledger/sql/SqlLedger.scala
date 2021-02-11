@@ -91,6 +91,8 @@ private[sandbox] object SqlLedger {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
+          case SqlStartMode.MigrateOnly =>
+            Resource.unit
           case SqlStartMode.AlwaysReset =>
             Resource.fromFuture(dao.reset())
           case SqlStartMode.ContinueIfExists =>
@@ -113,6 +115,8 @@ private[sandbox] object SqlLedger {
           persistenceQueue,
         ).acquire()
       } yield ledger
+
+
 
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
