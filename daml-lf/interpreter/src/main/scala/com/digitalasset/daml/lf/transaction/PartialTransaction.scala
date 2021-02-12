@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{
@@ -18,6 +19,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
 }
 import com.daml.lf.value.Value
+import com.github.ghik.silencer.silent
 
 import scala.collection.immutable.HashMap
 
@@ -60,10 +62,10 @@ private[lf] object PartialTransaction {
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
     */
-  final case class Context(info: ContextInfo, children: BackStack[NodeId]) {
-    def addChild(child: NodeId): Context = Context(info, children :+ child)
+  final case class Context(info: ContextInfo, children: BackStack[NodeId], nextChildIdx: Int) {
+    def addChild(child: NodeId): Context = Context(info, children :+ child, nextChildIdx + 1)
     // needs to be lazy as info.childrenSeeds may be undefined on children.length
-    def nextChildSeed: crypto.Hash = info.childSeed(children.length)
+    def nextChildSeed: crypto.Hash = info.childSeed(nextChildIdx)
   }
 
   object Context {
@@ -71,11 +73,11 @@ private[lf] object PartialTransaction {
     def apply(initialSeeds: InitialSeeding): Context =
       initialSeeds match {
         case InitialSeeding.TransactionSeed(seed) =>
-          Context(new SeededTransactionRootContext(seed), BackStack.empty)
+          Context(new SeededTransactionRootContext(seed), BackStack.empty, 0)
         case InitialSeeding.RootNodeSeeds(seeds) =>
-          Context(new SeededPartialTransactionRootContext(seeds), BackStack.empty)
+          Context(new SeededPartialTransactionRootContext(seeds), BackStack.empty, 0)
         case InitialSeeding.NoSeed =>
-          Context(NoneSeededTransactionRootContext, BackStack.empty)
+          Context(NoneSeededTransactionRootContext, BackStack.empty, 0)
       }
   }
 
@@ -118,6 +120,10 @@ private[lf] object PartialTransaction {
   ) extends ContextInfo {
     val childSeed =
       crypto.Hash.deriveNodeSeed(parent.nextChildSeed, _)
+  }
+
+  final case class TryContextInfo(parent: Context) extends ContextInfo {
+    val childSeed: NodeIdx => crypto.Hash = parent.info.childSeed
   }
 
   def initial(
@@ -350,6 +356,9 @@ private[lf] case class PartialTransaction(
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
   }
 
+  /** Open an exercises context.
+    * Must be closed by a `endExercises` or an `abortExercise`.
+    */
   def beginExercises(
       auth: Option[Authorize],
       targetId: Value.ContractId,
@@ -397,7 +406,7 @@ private[lf] case class PartialTransaction(
           templateId,
           copy(
             nextNodeIdx = nextNodeIdx + 1,
-            context = Context(ec, BackStack.empty),
+            context = Context(ec, BackStack.empty, 0),
             // important: the semantics of DAML dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
@@ -412,6 +421,9 @@ private[lf] case class PartialTransaction(
     }
   }
 
+  /** Close normally an exercise context.
+    * Must match a `beginExercises`.
+    */
   def endExercises(value: Value[Value.ContractId]): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
@@ -440,7 +452,83 @@ private[lf] case class PartialTransaction(
           nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
         )
       case _ =>
-        noteAbort(Tx.EndExerciseInRootContext)
+        noteAbort(Tx.NonExerciseContext)
+    }
+
+  /** Close a abruptly an exercise context du to an uncaught exception.
+    * Must match a `beginExercises`.
+    */
+  def abortExercises: PartialTransaction =
+    context.info match {
+      case ec: ExercisesContextInfo =>
+        val exerciseNode = Node.NodeExercises(
+          targetCoid = ec.targetId,
+          templateId = ec.templateId,
+          choiceId = ec.choiceId,
+          optLocation = ec.optLocation,
+          consuming = ec.consuming,
+          actingParties = ec.actingParties,
+          chosenValue = ec.chosenValue,
+          stakeholders = ec.stakeholders,
+          signatories = ec.signatories,
+          choiceObservers = ec.choiceObservers,
+          children = context.children.toImmArray,
+          exerciseResult = None,
+          key = ec.contractKey,
+          byKey = ec.byKey,
+          version = packageToTransactionVersion(ec.templateId.packageId),
+        )
+        val nodeId = ec.nodeId
+        val nodeSeed = context.nextChildSeed
+        copy(
+          context = ec.parent.addChild(nodeId),
+          nodes = nodes.updated(nodeId, exerciseNode),
+          nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
+        )
+      case _ =>
+        noteAbort(Tx.NonExerciseContext)
+    }
+
+  /** Open a Try context.
+    *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.
+    */
+  def beginTry: PartialTransaction =
+    copy(context = context.copy(TryContextInfo(context)))
+
+  /** Close a try context normally , i.e. no exception occurred.
+    * Must match a `beginTry`.
+    */
+  def endTry: PartialTransaction =
+    context.info match {
+      case info: TryContextInfo =>
+        copy(context = context.copy(info.parent.info))
+      case _ =>
+        noteAbort(Tx.NonCatchContext)
+    }
+
+  /** Close abruptly a try context, due to an uncaught exception,
+    * i.e. a exception was thrown inside the context but the catch associated to the try context did not handle it.
+    * Must match a `beginTry`.
+    */
+  def abortTry: PartialTransaction =
+    endTry
+
+  /** Close a try context, by catching an exception,
+    * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
+    */
+  @silent("parameter value exceptionType in method rollbackTry is never used")
+  @silent("parameter value exception in method rollbackTry is never used")
+  def rollbackTry(
+      exceptionType: Ast.Type,
+      exception: Value[Value.ContractId],
+  ): PartialTransaction =
+    context.info match {
+      case info: TryContextInfo =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        //  for now, we just drop the whole rollback part of the tree.
+        copy(context = info.parent.copy(nextChildIdx = context.nextChildIdx))
+      case _ =>
+        noteAbort(Tx.NonCatchContext)
     }
 
   /** Note that the transaction building failed due to an authorization failure */
