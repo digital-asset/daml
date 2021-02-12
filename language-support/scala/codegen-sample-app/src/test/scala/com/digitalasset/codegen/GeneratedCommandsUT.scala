@@ -35,7 +35,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
 
   "key" should {
     "make an exercise-by-key command" in {
-      inside((KeyedNumber key alice exerciseIncrement (alice, 42)).command.command) {
+      inside((KeyedNumber.key(alice).exerciseIncrement(alice, 42)).command.command) {
         case rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))
             ) =>
