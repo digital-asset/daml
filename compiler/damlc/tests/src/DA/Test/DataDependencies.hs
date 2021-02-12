@@ -876,6 +876,25 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , "useBaz = baz M"
             ]
 
+    , simpleImportTest "Non-default instance for constrained default methods"
+        -- This test checks that non-default instances of a class with
+        -- a constrained default method have the correct stubs.
+        -- [ regression test for https://github.com/digital-asset/daml/issues/8802 ]
+            [ "module Lib where"
+            , "class Foo t where"
+            , "    foo : t -> Text"
+            , "    default foo : Show t => t -> Text"
+            , "    foo = show"
+            , "data Bar = Bar" -- no Show instance
+            , "instance Foo Bar where"
+            , "    foo Bar = \"bar\""
+            ]
+            [ "module Main where"
+            , "import Lib"
+            , "baz : Text"
+            , "baz = foo Bar"
+            ]
+
     , simpleImportTest "Data constructor operators"
         -- This test checks that we reconstruct data constructors operators properly.
         [ "module Lib where"

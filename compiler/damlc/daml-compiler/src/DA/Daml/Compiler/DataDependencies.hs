@@ -431,10 +431,11 @@ generateSrcFromLf env = noLoc mod
                 [Nothing <$ genModule env (LF.qualPackage qualInstance) (LF.qualModule qualInstance)]
             Nothing -> pure $ do
                 polyTy <- HsIB noExt . noLoc <$> convDFunSig env reexportedClasses dfunSig
+                binds <- genInstanceBinds dfunSig
                 pure . Just . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
                     { cid_ext = noExt
                     , cid_poly_ty = polyTy
-                    , cid_binds = emptyBag
+                    , cid_binds = binds
                     , cid_sigs = []
                     , cid_tyfam_insts = []
                     , cid_datafam_insts = []
@@ -461,6 +462,21 @@ generateSrcFromLf env = noLoc mod
             dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
             mode <- LFC.decodeOverlapMode (snd (LF.dvalBinder dval))
             Just (noLoc mode)
+
+        genInstanceBinds :: DFunSig -> Gen (LHsBinds GhcPs)
+        genInstanceBinds DFunSig{..}
+            | DFunHeadNormal{..} <- dfsHead
+            , Right (LF.TForalls _ (LF.TStruct fields)) <-
+                LF.runGamma (envWorld env) (envLfVersion env) $ do
+                    LF.expandTypeSynonyms (LF.TForalls dfsBinders (LF.TSynApp dfhName dfhArgs))
+            = listToBag <$> sequence
+                [ noLoc <$> mkStubBind env (mkRdrName methodName) methodType
+                | (fieldName, LF.TUnit LF.:-> methodType) <- fields
+                , Just methodName <- [getClassMethodName fieldName]
+                ]
+
+            | otherwise
+            = pure emptyBag
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
@@ -666,10 +682,7 @@ mkConDeclField env fieldName fieldTy = do
 isConstraint :: LF.Type -> Bool
 isConstraint = \case
     LF.TSynApp _ _ -> True
-    LF.TStruct fields -> and
-        [ isSuperClassField fieldName && isConstraint fieldType
-        | (fieldName, fieldType) <- fields
-        ]
+    LF.TStruct _ -> True
     _ -> False
 
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
