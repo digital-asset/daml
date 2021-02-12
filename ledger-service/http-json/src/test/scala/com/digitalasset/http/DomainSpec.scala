@@ -4,7 +4,6 @@
 package com.daml.http
 
 import domain._
-import org.scalatest._
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.{NonEmptyList, OneAnd}

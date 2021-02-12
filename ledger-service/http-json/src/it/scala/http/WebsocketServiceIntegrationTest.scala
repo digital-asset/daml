@@ -324,7 +324,7 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
                 (preOffset, 2)
               }
 
-              _ = kill.shutdown
+              _ = kill.shutdown()
               heartbeats <- drain
               hbCount = (heartbeats.iterator.map {
                 case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -341,11 +341,11 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         creation <- initialCreate
-        _ = creation._1 shouldBe 'success
+        _ = creation._1 shouldBe a[StatusCodes.Success]
         iouCid = getContractId(getResult(creation._2))
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
-          .preMaterialize
+          .preMaterialize()
         lastState <- source via parseResp runWith resp(iouCid, kill)
         liveOffset = inside(lastState) { case ShouldHaveEnded(liveStart, 2, lastSeen) =>
           lastSeen.unwrap should be > liveStart.unwrap
@@ -427,7 +427,7 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
                   number shouldBe "def567"
               }
             }
-            _ = kill.shutdown
+            _ = kill.shutdown()
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -445,11 +445,11 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         r1 <- f1
-        _ = r1._1 shouldBe 'success
+        _ = r1._1 shouldBe a[StatusCodes.Success]
         cid1 = getContractId(getResult(r1._2))
 
         r2 <- f2
-        _ = r2._1 shouldBe 'success
+        _ = r2._1 shouldBe a[StatusCodes.Success]
         cid2 = getContractId(getResult(r2._2))
 
         (kill, source) = singleClientQueryStream(
@@ -516,7 +516,7 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
               (off, 0)
             }
 
-            _ = kill.shutdown
+            _ = kill.shutdown()
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -534,16 +534,16 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         r1 <- f1
-        _ = r1._1 shouldBe 'success
+        _ = r1._1 shouldBe a[StatusCodes.Success]
         cid1 = getContractId(getResult(r1._2))
 
         r2 <- f2
-        _ = r2._1 shouldBe 'success
+        _ = r2._1 shouldBe a[StatusCodes.Success]
         cid2 = getContractId(getResult(r2._2))
 
         (kill, source) = singleClientFetchStream(jwt, uri, fetchRequest())
           .viaMat(KillSwitches.single)(Keep.right)
-          .preMaterialize
+          .preMaterialize()
 
         lastState <- source
           .via(parseResp) runWith resp(cid1, cid2, kill)
@@ -684,7 +684,7 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
             )
             ContractDelta(Vector(), Vector(archivedCid2), Some(lastSeenOffset)) <- readOne
             _ = archivedCid2.contractId shouldBe cid2
-            _ = kill.shutdown
+            _ = kill.shutdown()
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -702,18 +702,18 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         r1 <- f1
-        _ = r1._1 shouldBe 'success
+        _ = r1._1 shouldBe a[StatusCodes.Success]
         cid1 = getContractId(getResult(r1._2))
 
         r2 <- f2
-        _ = r2._1 shouldBe 'success
+        _ = r2._1 shouldBe a[StatusCodes.Success]
         cid2 = getContractId(getResult(r2._2))
 
         (kill, source) = singleClientFetchStream(
           jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
           query,
-        ).viaMat(KillSwitches.single)(Keep.right).preMaterialize
+        ).viaMat(KillSwitches.single)(Keep.right).preMaterialize()
         lastState <- source via parseResp runWith resp(cid1, cid2, kill)
         liveOffset = inside(lastState) { case ShouldHaveEnded(liveStart, 5, lastSeen) =>
           lastSeen.unwrap should be > liveStart.unwrap
@@ -773,7 +773,7 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
         ]"""
       val (kill, source) = singleClientQueryStream(jwt, uri, query)
         .viaMat(KillSwitches.single)(Keep.right)
-        .preMaterialize
+        .preMaterialize()
       source
         .via(parseResp)
         .map(iouSplitResult)
@@ -841,7 +841,7 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
       \/-((Vector((genesisCid, amt)), Vector())) <- readOne
       _ = amt should ===(ss.x)
       last <- go(genesisCid, ss)
-      _ = kill.shutdown
+      _ = kill.shutdown()
     } yield last
   }
 

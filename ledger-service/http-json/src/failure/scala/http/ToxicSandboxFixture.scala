@@ -60,8 +60,8 @@ trait ToxicSandboxFixture
           } yield (ledgerProxyPort.port, toxiproxyClient, proxy, toxiproxyServer)
         }
         def stop(r: (Port, ToxiproxyClient, Proxy, Process)) = Future {
-          r._4.destroy
-          val _ = r._4.exitValue
+          r._4.destroy()
+          val _ = r._4.exitValue()
           ()
         }
         Resource(start())(stop).map { case (port, toxiproxyClient, proxy, _) =>

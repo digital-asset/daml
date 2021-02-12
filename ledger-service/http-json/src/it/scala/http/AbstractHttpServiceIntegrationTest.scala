@@ -16,7 +16,6 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.Ref
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import HttpServiceTestFixture.{UseTls, jsonCodecs}
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
@@ -434,7 +433,9 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     import encoder.implicits._
 
     val expected: domain.CreateCommand[JsValue] =
-      command.traverse(SprayJson.encode[v.Record]).getOrElse(fail)
+      command
+        .traverse(SprayJson.encode[v.Record])
+        .getOrElse(fail(s"Failed to encode command: $command"))
 
     inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) { case \/-(activeContract) =>
       (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
@@ -727,7 +728,7 @@ abstract class AbstractHttpServiceIntegrationTest
   private def expectOk[R](resp: domain.SyncResponse[R]): R = resp match {
     case ok: domain.OkResponse[_] =>
       ok.status shouldBe StatusCodes.OK
-      ok.warnings shouldBe 'empty
+      ok.warnings shouldBe empty
       ok.result
     case err: domain.ErrorResponse =>
       fail(s"Expected OK response, got: $err")
@@ -888,7 +889,7 @@ abstract class AbstractHttpServiceIntegrationTest
           decode1[domain.OkResponse, domain.ExerciseResponse[JsValue]](output)
         ) { case \/-(response) =>
           response.status shouldBe StatusCodes.OK
-          response.warnings shouldBe 'empty
+          response.warnings shouldBe empty
           inside(response.result.events) {
             case List(
                   domain.Contract(\/-(created0)),
@@ -1106,7 +1107,7 @@ abstract class AbstractHttpServiceIntegrationTest
               decode1[domain.OkResponse, List[domain.PartyDetails]](output)
             ) { case \/-(response) =>
               response.status shouldBe StatusCodes.OK
-              response.warnings shouldBe 'empty
+              response.warnings shouldBe empty
               val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
               actualIds shouldBe domain.Party.subst(partyIds.toSet)
               response.result.toSet shouldBe
@@ -1273,7 +1274,7 @@ abstract class AbstractHttpServiceIntegrationTest
           status shouldBe StatusCodes.BadRequest
           inside(decode[domain.ErrorResponse](output)) { case \/-(response) =>
             response.status shouldBe StatusCodes.BadRequest
-            response.warnings shouldBe 'empty
+            response.warnings shouldBe empty
             response.errors.length shouldBe 1
           }
         }
