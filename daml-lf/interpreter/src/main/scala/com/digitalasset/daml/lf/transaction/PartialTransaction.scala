@@ -64,7 +64,7 @@ private[lf] object PartialTransaction {
     */
   final case class Context(info: ContextInfo, children: BackStack[NodeId], nextChildIdx: Int) {
     def addChild(child: NodeId): Context = Context(info, children :+ child, nextChildIdx + 1)
-    // This function may be costly, it must be call at most one for each node.
+    // This function may be costly, it must be call at most once for each node.
     def nextChildSeed: crypto.Hash = info.childSeed(nextChildIdx)
   }
 
