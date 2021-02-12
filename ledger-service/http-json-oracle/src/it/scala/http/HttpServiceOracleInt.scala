@@ -12,12 +12,16 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns {
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  // has to be lazy because postgresFixture is NOT initialized yet
+  import sys.env
+  private[this] def oraclePort = env("ORACLE_PORT")
+  private[this] def oraclePwd = env("ORACLE_PWD")
+  private[this] def oracleUsername = env("ORACLE_USERNAME")
+
   protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "oracle.jdbc.OracleDriver",
-    url = "jdbc:oracle:thin:@//localhost:1521/XEPDB1",
-    user = "someuser",
-    password = "verysecret",
+    url = s"jdbc:oracle:thin:@//localhost:$oraclePort/XEPDB1",
+    user = oracleUsername,
+    password = oraclePwd,
     createSchema = true,
   )
 }

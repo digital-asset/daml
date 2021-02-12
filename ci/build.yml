@@ -270,7 +270,9 @@ jobs:
           echo "Could not connect to Oracle, trying again..."
           sleep 1
         done
-        # TODO Actually run some tests once we have them.
+        # Actually run some tests
+        bazel test --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
+          //ledger-service/http-json-oracle/...
       env:
         ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
         ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
