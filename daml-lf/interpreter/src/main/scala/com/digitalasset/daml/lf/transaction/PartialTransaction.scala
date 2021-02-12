@@ -64,7 +64,7 @@ private[lf] object PartialTransaction {
     */
   final case class Context(info: ContextInfo, children: BackStack[NodeId], nextChildIdx: Int) {
     def addChild(child: NodeId): Context = Context(info, children :+ child, nextChildIdx + 1)
-    // needs to be lazy as info.childrenSeeds may be undefined on children.length
+    // This function may be costly, it must be call at most once for each node.
     def nextChildSeed: crypto.Hash = info.childSeed(nextChildIdx)
   }
 
@@ -118,8 +118,8 @@ private[lf] object PartialTransaction {
       parent: Context,
       byKey: Boolean,
   ) extends ContextInfo {
-    val childSeed =
-      crypto.Hash.deriveNodeSeed(parent.nextChildSeed, _)
+    val nodeSeed = parent.nextChildSeed
+    val childSeed = crypto.Hash.deriveNodeSeed(nodeSeed, _)
   }
 
   final case class TryContextInfo(parent: Context) extends ContextInfo {
@@ -445,11 +445,10 @@ private[lf] case class PartialTransaction(
           version = packageToTransactionVersion(ec.templateId.packageId),
         )
         val nodeId = ec.nodeId
-        val nodeSeed = ec.parent.nextChildSeed
         copy(
           context = ec.parent.addChild(nodeId),
           nodes = nodes.updated(nodeId, exerciseNode),
-          nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
+          nodeSeeds = nodeSeeds :+ (nodeId -> ec.nodeSeed),
         )
       case _ =>
         noteAbort(Tx.NonExerciseContext)

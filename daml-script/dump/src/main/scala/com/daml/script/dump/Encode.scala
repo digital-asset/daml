@@ -21,8 +21,9 @@ private[dump] object Encode {
   def encodeTransactionTreeStream(trees: Seq[TransactionTree]): Doc = {
     val parties = trees.toList.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
-    val cids = trees.map(treeCids(_))
-    val cidMap = cidMapping(cids)
+    val cids = trees.map(treeCreatedCids(_))
+    val cidRefs = trees.toList.foldMap(treeReferencedCids(_))
+    val cidMap = cidMapping(cids, cidRefs)
     val refs = trees.toList.foldMap(treeRefs(_))
     val moduleRefs = refs.map(_.moduleName).toSet
     Doc.text("module Dump where") /
@@ -40,7 +41,7 @@ private[dump] object Encode {
       Doc.hardLine +
       Doc.text("dump : Parties -> Script ()") /
       (Doc.text("dump Parties{..} = do") /
-        Doc.stack(trees.map(t => encodeTree(partyMap, cidMap, t))) /
+        Doc.stack(trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))) /
         Doc.text("pure ()")).hang(2)
   }
 
@@ -195,19 +196,21 @@ private[dump] object Encode {
       ) + Doc.text("] tree")
   }
 
-  private def encodeTree(
+  private[dump] def encodeTree(
       partyMap: Map[String, String],
       cidMap: Map[String, String],
+      cidRefs: Set[String],
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
     val submitters = rootEvs.flatMap(evParties(_)).toSet
-    val cids = treeCids(tree)
-    (Doc.text("tree <- submitTreeMulti ") + encodeParties(partyMap, submitters) + Doc.text(
-      " [] do"
-    ) /
-      Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2) /
-      Doc.stack(cids.map(bindCid(cidMap, _)))
+    val cids = treeCreatedCids(tree)
+    val treeBind =
+      (Doc.text("tree <- submitTreeMulti ") + encodeParties(partyMap, submitters) + Doc.text(
+        " [] do"
+      ) / Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
+    val cidBinds = cids.filter(c => cidRefs.contains(c.cid)).map(bindCid(cidMap, _))
+    Doc.stack(treeBind +: cidBinds)
   }
 
   private def encodeSelector(selector: Selector): Doc = Doc.str(selector.i)
@@ -237,7 +240,10 @@ private[dump] object Encode {
     partyMap
   }
 
-  private def cidMapping(cids: Seq[Seq[CreatedContract]]): Map[String, String] = {
+  private def cidMapping(
+      cids: Seq[Seq[CreatedContract]],
+      cidRefs: Set[String],
+  ): Map[String, String] = {
     def lowerFirst(s: String) =
       if (s.isEmpty) {
         s
@@ -245,8 +251,9 @@ private[dump] object Encode {
         s.head.toLower.toString + s.tail
       }
     cids.view.zipWithIndex.flatMap { case (cs, treeIndex) =>
-      cs.view.zipWithIndex.map { case (c, i) =>
-        c.cid -> s"${lowerFirst(c.tplId.entityName)}_${treeIndex}_$i"
+      cs.view.zipWithIndex.collect {
+        case (c, i) if cidRefs.contains(c.cid) =>
+          c.cid -> s"${lowerFirst(c.tplId.entityName)}_${treeIndex}_$i"
       }
     }.toMap
   }
