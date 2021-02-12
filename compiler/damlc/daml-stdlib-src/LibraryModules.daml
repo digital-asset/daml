@@ -1,8 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+{-# OPTIONS -Wno-unused-imports -Wno-deprecations #-}
 
 -- | HIDE
 module LibraryModules where
