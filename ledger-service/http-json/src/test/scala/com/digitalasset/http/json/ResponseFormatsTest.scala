@@ -3,8 +3,6 @@
 
 package com.daml.http.json
 
-import com.daml.http.util.Collections._
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -19,6 +17,7 @@ import scalaz.syntax.show._
 import scalaz.{Show, \/}
 import spray.json._
 
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -43,7 +42,7 @@ class ResponseFormatsTest
 
     val jsValWarnings: Option[JsValue] = warnings.map(_.toJson)
     val (failures, successes): (Vector[JsString], Vector[JsValue]) =
-      input.toVector.partitionMap(_.leftMap(e => JsString(e.shows)))
+      input.toVector.partitionMap(_.leftMap(e => JsString(e.shows)).toEither)
 
     val jsValSource = Source[DummyError \/ JsValue](input)
 

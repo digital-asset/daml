@@ -18,7 +18,6 @@ import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
 import com.daml.http.query.ValuePredicate
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil.toFuture
-import util.Collections._
 import util.{ContractStreamStep, InsertDeleteStep}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -33,7 +32,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
-import scala.language.higherKinds
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
@@ -323,7 +322,7 @@ class ContractsService(
         val (errors, converted) = step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
             .fromLedgerApi(apiEvent)
-            .leftMap(e => Error('searchInMemory, e.shows))
+            .leftMap(e => Error(Symbol("searchInMemory"), e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
         val convertedInserts = converted.inserts filter { ac =>
@@ -401,7 +400,7 @@ class ContractsService(
       ac: domain.ActiveContract[ApiValue]
   ): Error \/ domain.ActiveContract[LfValue] =
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
-      .leftMap(e => Error('apiAcToLfAc, e.shows))
+      .leftMap(e => Error(Symbol("apiAcToLfAc"), e.shows))
 
   private[http] def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
@@ -411,7 +410,7 @@ class ContractsService(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      Error('lfValueToJsValue, e.description)
+      Error(Symbol("lfValueToJsValue"), e.description)
     )
 
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
@@ -421,7 +420,7 @@ class ContractsService(
     import scalaz.syntax.foldable._
 
     xs.toSet.partitionMap { x =>
-      resolveTemplateId(x) toLeftDisjunction x
+      resolveTemplateId(x).toLeft(x)
     }
   }
 }

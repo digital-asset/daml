@@ -36,7 +36,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         JsString(obj.coid)
       override def read(json: JsValue) = json match {
         case JsString(s) =>
-          ContractId fromString s fold (deserializationError(_), identity)
+          ContractId.fromString(s).fold(deserializationError(_), identity)
         case _ => deserializationError("ContractId must be a string")
       }
     }

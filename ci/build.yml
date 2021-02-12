@@ -183,7 +183,9 @@ jobs:
           //ledger/... \
           //ledger-service/... \
           //triggers/... \
-          -//ledger-service/http-json/... \
+          -//ledger-service/http-json:tests \
+          -//ledger-service/http-json:integration-tests \
+          -//ledger-service/http-json:failure-tests \
           -//ledger-service/http-json-perf/... \
           -//ledger-service/http-json-testing/... \
           //daml-script/dump/... \
@@ -206,7 +208,9 @@ jobs:
           -//language-support/scala/codegen-sample-app/... \
           -//ledger/ledger-api-test-tool/... \
           -//ledger/ledger-api-test-tool-on-canton/... \
-          -//ledger-service/http-json/... \
+          -//ledger-service/http-json:tests \
+          -//ledger-service/http-json:integration-tests \
+          -//ledger-service/http-json:failure-tests \
           -//ledger-service/http-json-perf/... \
           -//ledger-service/http-json-testing/...
       displayName: 'Build'
