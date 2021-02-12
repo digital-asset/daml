@@ -13,6 +13,12 @@ hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
+constraint_setting(name = "oracle_db")
+
+constraint_value(name = "oracle_available", constraint_setting = ":oracle_db")
+
+platform(name = "oracle_testing", constraint_values = [":oracle_available"])
+
 da_scala_test(
     name = "integration-tests",
     size = "large",
@@ -65,4 +71,5 @@ da_scala_test(
         # "//libs-scala/ports",
         # "//libs-scala/scala-utils",
     ],
+    target_compatible_with = [":oracle_available"],
 )
