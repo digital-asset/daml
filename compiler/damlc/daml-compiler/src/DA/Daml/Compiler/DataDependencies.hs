@@ -683,9 +683,9 @@ isConstraint :: LF.Type -> Bool
 isConstraint = \case
     LF.TSynApp _ _ -> True
     LF.TStruct fields -> and
-         [ isSuperClassField fieldName && isConstraint fieldType
-         | (fieldName, fieldType) <- fields
-         ]
+        [ isSuperClassField fieldName && isConstraint fieldType
+        | (fieldName, fieldType) <- fields
+        ]
     _ -> False
 
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
