@@ -271,8 +271,7 @@ jobs:
           sleep 1
         done
         # Actually run some tests
-        bazel test --platforms //ledger-service/http-json-oracle:oracle_testing \
-          --platforms @bazel_tools//platforms:target_platform
+        bazel test --//ledger-service/http-json-oracle:oracle_testing=yes \
           --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
           //ledger-service/http-json-oracle/...
       env:
