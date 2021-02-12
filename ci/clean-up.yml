@@ -8,6 +8,12 @@ steps:
     # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
     # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 
+    # Linux machines don't seem to recover when this script fails, and they get
+    # renewed by the instance_group
+    if [ "$(uname -s)" == "Linux" ]; then
+        trap "shutdown -h now" EXIT
+    fi
+
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
         echo "Disk full, cleaning up..."
         disk_cache="$HOME/.bazel-cache"
@@ -24,4 +30,5 @@ steps:
         fi
     fi
     df -h .
+    trap - EXIT
   displayName: clean-up disk cache
