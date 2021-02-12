@@ -73,7 +73,6 @@ da_scala_test(
         # "@maven//:org_typelevel_cats_effect",
         # "@maven//:org_typelevel_cats_free",
     ],
-    # resources = glob(["src/it/resources/**/*"]),
     scalacopts = hj_scalacopts,
     target_compatible_with = select({
         ":oracle_available": [],
