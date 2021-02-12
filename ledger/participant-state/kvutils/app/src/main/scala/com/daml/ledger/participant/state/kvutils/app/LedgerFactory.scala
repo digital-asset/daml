@@ -38,6 +38,7 @@ trait ConfigProvider[ExtraConfig] {
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
+      databaseConnectionPoolSize = participantConfig.indexerDatabaseConnectionPoolSize,
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
@@ -53,6 +54,7 @@ trait ConfigProvider[ExtraConfig] {
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
+      databaseConnectionPoolSize = participantConfig.apiServerDatabaseConnectionPoolSize,
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,

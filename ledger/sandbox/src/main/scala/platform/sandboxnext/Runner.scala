@@ -188,6 +188,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 config = IndexerConfig(
                   participantId = config.participantId,
                   jdbcUrl = indexJdbcUrl,
+                  // sandbox in-memory mode via H2 only supports a single database connection
+                  databaseConnectionPoolSize = 1,
                   startupMode =
                     if (isReset) IndexerStartupMode.ResetAndStart
                     else IndexerStartupMode.MigrateAndStart,
@@ -225,6 +227,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   port = currentPort.getOrElse(config.port),
                   address = config.address,
                   jdbcUrl = indexJdbcUrl,
+                  // 16 DB connections has been shown to be sufficient for applications running on the sandbox
+                  databaseConnectionPoolSize = 16,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
                   eventsPageSize = config.eventsPageSize,

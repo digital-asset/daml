@@ -77,6 +77,7 @@ private[sandbox] object LedgerResource {
           name = LedgerName(testClass.getSimpleName),
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
+          databaseConnectionPoolSize = 16,
           providedLedgerId = LedgerIdMode.Static(ledgerId),
           participantId = TestParticipantId,
           timeProvider = timeProvider,

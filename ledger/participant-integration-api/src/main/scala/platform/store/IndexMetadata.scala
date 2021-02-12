@@ -40,6 +40,7 @@ object IndexMetadata {
     JdbcLedgerDao.readOwner(
       serverRole = ServerRole.ReadIndexMetadata,
       jdbcUrl = jdbcUrl,
+      connectionPoolSize = 1,
       eventsPageSize = 1000,
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
