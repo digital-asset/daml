@@ -19,6 +19,7 @@ case class ApiServerConfig(
     port: Port,
     address: Option[String], // This defaults to "localhost" when set to `None`.
     jdbcUrl: String,
+    databaseConnectionPoolSize: Int,
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,

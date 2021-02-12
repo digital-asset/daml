@@ -174,6 +174,7 @@ final class JdbcIndexerSpec
     val ledgerDaoOwner = JdbcLedgerDao.writeOwner(
       ServerRole.Indexer,
       config.jdbcUrl,
+      config.databaseConnectionPoolSize,
       config.eventsPageSize,
       materializer.executionContext,
       metrics,

@@ -3,8 +3,6 @@
 
 package com.daml.http.util
 
-import language.higherKinds
-
 /** {{{
   *  object IsTyped extends NewBoolean.Named {
   *    val SinglyTyped = False

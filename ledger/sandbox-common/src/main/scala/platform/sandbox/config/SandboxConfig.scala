@@ -35,6 +35,7 @@ final case class SandboxConfig(
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
+    databaseConnectionPoolSize: Int,
     eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
@@ -54,6 +55,8 @@ object SandboxConfig {
   val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+
+  val DefaultDatabaseConnectionPoolSize: Int = 16
 
   val DefaultEventsPageSize: Int = 1000
 
@@ -83,6 +86,7 @@ object SandboxConfig {
       implicitPartyAllocation = true,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
+      databaseConnectionPoolSize = DefaultDatabaseConnectionPoolSize,
       eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,

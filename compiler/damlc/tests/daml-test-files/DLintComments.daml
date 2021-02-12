@@ -1,0 +1,11 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @INFO range=11:13-11:30; Use concatMap
+
+module DLintComments where
+
+{- DLINT ignore noHint "Use concatMap" -}
+noHint f xs = concat (map f xs)
+
+hint f xs = concat (map f xs)

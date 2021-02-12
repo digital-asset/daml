@@ -109,6 +109,13 @@ EOF
 da_scala_library(
     name = "test-utils",
     srcs = glob(["src/test-utils/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -141,11 +148,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -159,6 +161,12 @@ da_scala_test_suite(
         "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -196,10 +204,6 @@ da_scala_test_suite(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

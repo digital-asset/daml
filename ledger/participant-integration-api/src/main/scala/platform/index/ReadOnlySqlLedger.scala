@@ -38,6 +38,7 @@ private[platform] object ReadOnlySqlLedger {
       serverRole: ServerRole,
       jdbcUrl: String,
       initialLedgerId: LedgerId,
+      databaseConnectionPoolSize: Int,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -103,6 +104,7 @@ private[platform] object ReadOnlySqlLedger {
       JdbcLedgerDao.readOwner(
         serverRole,
         jdbcUrl,
+        databaseConnectionPoolSize,
         eventsPageSize,
         servicesExecutionContext,
         metrics,

@@ -153,7 +153,7 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
         LedgerClientJwt.getTermination(client),
-        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
+        LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
       )
 
@@ -196,7 +196,7 @@ object HttpService extends StrictLogging {
         contractsService,
         packageService.resolveTemplateId,
         decoder,
-        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
+        LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         wsConfig,
       )
 
@@ -277,7 +277,7 @@ object HttpService extends StrictLogging {
       packageService: PackageService
   ): (DomainJsonEncoder, DomainJsonDecoder) = {
 
-    val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageService.packageStore _) _
+    val lfTypeLookup = LedgerReader.damlLfTypeLookup(() => packageService.packageStore) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
 
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(

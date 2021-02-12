@@ -75,6 +75,7 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-script/dump/transaction-eq",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",

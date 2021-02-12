@@ -24,7 +24,7 @@ Causality examples
 
 A Daml Ledger need not totally order all transaction, unlike ledgers in the Daml Ledger Model.
 The following examples illustrate these ordering guarantees of the Ledger API.
-They are based the paint counteroffer workflow from the Daml Ledger Model's :ref:`privacy section <da-model-privacy>`,
+They are based on the paint counteroffer workflow from the Daml Ledger Model's :ref:`privacy section <da-model-privacy>`,
 ignoring the total ordering coming from the Daml Ledger Model.
 Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as follows.
 

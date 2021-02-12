@@ -22,6 +22,7 @@ private[platform] object JdbcIndex {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
+      databaseConnectionPoolSize: Int,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -31,6 +32,7 @@ private[platform] object JdbcIndex {
     new ReadOnlySqlLedger.Owner(
       serverRole = serverRole,
       jdbcUrl = jdbcUrl,
+      databaseConnectionPoolSize = databaseConnectionPoolSize,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,
       servicesExecutionContext = servicesExecutionContext,

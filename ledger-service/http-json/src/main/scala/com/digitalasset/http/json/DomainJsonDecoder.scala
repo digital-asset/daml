@@ -15,8 +15,6 @@ import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/, \/-}
 import spray.json.{JsValue, JsonReader}
 
-import scala.language.higherKinds
-
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
