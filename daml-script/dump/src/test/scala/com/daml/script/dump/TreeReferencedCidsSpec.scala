@@ -125,6 +125,24 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
+            "create" -> TreeEvent(
+              TreeEvent.Kind.Created(
+                CreatedEvent(
+                  eventId = "exercise",
+                  createArguments = Some(
+                    v.Record(
+                      recordId = Some(v.Identifier("package", "Module", "record")),
+                      fields = Seq(
+                        v.RecordField(
+                          "contract_id",
+                          Some(v.Value(v.Value.Sum.ContractId("cid_create_arg"))),
+                        )
+                      ),
+                    )
+                  ),
+                )
+              )
+            ),
             "exercise" -> TreeEvent(
               TreeEvent.Kind.Exercised(
                 ExercisedEvent(
@@ -133,12 +151,13 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
                   choiceArgument = Some(record),
                 )
               )
-            )
+            ),
           ),
-          rootEventIds = Seq("exercise"),
+          rootEventIds = Seq("create", "exercise"),
           traceContext = None,
         )
       ) shouldBe Set(
+        "cid_create_arg",
         "cid_exercise",
         "cid_variant",
         "cid_list",

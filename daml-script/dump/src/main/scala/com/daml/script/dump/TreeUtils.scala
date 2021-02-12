@@ -102,7 +102,10 @@ object TreeUtils {
         case Kind.Exercised(value) =>
           cids += value.contractId
           cids ++= value.choiceArgument.foldMap(arg => valueCids(arg.sum))
-        case Kind.Created(_) =>
+        case Kind.Created(value) =>
+          cids ++= value.createArguments.foldMap(args =>
+            args.fields.toList.foldMap(f => valueCids(f.getValue.sum))
+          )
       }
     }
     cids
