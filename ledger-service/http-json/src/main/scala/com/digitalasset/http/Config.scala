@@ -105,9 +105,9 @@ private[http] final case class JdbcConfig(
 )
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
-  import dbbackend.ContractDao.supportedJdbcDrivers
+  import dbbackend.ContractDao.supportedJdbcDriverNames
 
-  private[this] def supportedDriversHelp = supportedJdbcDrivers mkString ", "
+  private[this] def supportedDriversHelp = supportedJdbcDriverNames mkString ", "
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
@@ -116,7 +116,7 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
       s"${indent}driver -- JDBC driver class name, $supportedDriversHelp supported right now,\n" +
-      s"${indent}url -- JDBC connection URL, only jdbc:postgresql supported right now,\n" +
+      s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
@@ -140,7 +140,7 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     for {
       driver <- requiredField(x)("driver")
       _ <- Either.cond(
-        supportedJdbcDrivers contains driver,
+        supportedJdbcDriverNames(driver),
         (),
         s"$driver unsupported.  Supported drivers: $supportedDriversHelp",
       )

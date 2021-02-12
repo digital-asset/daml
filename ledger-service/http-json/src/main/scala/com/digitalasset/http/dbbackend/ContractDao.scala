@@ -31,10 +31,14 @@ class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJ
 }
 
 object ContractDao {
-  val supportedJdbcDrivers = Map(
+  private[this] val supportedJdbcDrivers = Map(
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
   )
+
+  lazy val supportedJdbcDriverNames = supportedJdbcDrivers.keySet filter { d =>
+    scala.util.Try(Class forName d).isSuccess
+  }
 
   def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
       ec: ExecutionContext
