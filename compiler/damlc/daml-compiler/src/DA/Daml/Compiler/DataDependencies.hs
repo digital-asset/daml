@@ -467,8 +467,8 @@ generateSrcFromLf env = noLoc mod
         genInstanceBinds DFunSig{..}
             | DFunHeadNormal{..} <- dfsHead
             , Right (LF.TForalls _ (LF.TStruct fields)) <-
-                LF.runGamma (envWorld env) (envLfVersion env) $ do
-                    LF.expandTypeSynonyms (LF.TForalls dfsBinders (LF.TSynApp dfhName dfhArgs))
+                LF.runGamma (envWorld env) (envLfVersion env) $
+                    LF.introTypeVars dfsBinders $ LF.expandSynApp dfhName dfhArgs
             = listToBag <$> sequence
                 [ noLoc <$> mkStubBind env (mkRdrName methodName) methodType
                 | (fieldName, LF.TUnit LF.:-> methodType) <- fields
