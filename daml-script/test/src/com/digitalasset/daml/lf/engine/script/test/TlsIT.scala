@@ -10,7 +10,6 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
-import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
