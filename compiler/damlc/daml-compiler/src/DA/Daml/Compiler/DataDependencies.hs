@@ -431,10 +431,11 @@ generateSrcFromLf env = noLoc mod
                 [Nothing <$ genModule env (LF.qualPackage qualInstance) (LF.qualModule qualInstance)]
             Nothing -> pure $ do
                 polyTy <- HsIB noExt . noLoc <$> convDFunSig env reexportedClasses dfunSig
+                binds <- genInstanceBinds dfunSig
                 pure . Just . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
                     { cid_ext = noExt
                     , cid_poly_ty = polyTy
-                    , cid_binds = emptyBag
+                    , cid_binds = binds
                     , cid_sigs = []
                     , cid_tyfam_insts = []
                     , cid_datafam_insts = []
@@ -461,6 +462,21 @@ generateSrcFromLf env = noLoc mod
             dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
             mode <- LFC.decodeOverlapMode (snd (LF.dvalBinder dval))
             Just (noLoc mode)
+
+        genInstanceBinds :: DFunSig -> Gen (LHsBinds GhcPs)
+        genInstanceBinds DFunSig{..}
+            | DFunHeadNormal{..} <- dfsHead
+            , Right (LF.TStruct fields) <-
+                LF.runGamma (envWorld env) (envLfVersion env) $
+                    LF.introTypeVars dfsBinders $ LF.expandSynApp dfhName dfhArgs
+            = listToBag <$> sequence
+                [ noLoc <$> mkStubBind env (mkRdrName methodName) methodType
+                | (fieldName, LF.TUnit LF.:-> methodType) <- fields
+                , Just methodName <- [getClassMethodName fieldName]
+                ]
+
+            | otherwise
+            = pure emptyBag
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
