@@ -11,7 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 // Custom log collector to test order of trace statements
 object LogCollector {
   val events = new ArrayBuffer[ILoggingEvent]
-  def clear(): Unit = events.clear
+  def clear(): Unit = events.clear()
 }
 
 final class LogCollector extends AppenderBase[ILoggingEvent] {

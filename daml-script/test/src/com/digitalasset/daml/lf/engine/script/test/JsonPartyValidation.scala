@@ -5,7 +5,6 @@ package com.daml.lf.engine.script.test
 
 import com.daml.ledger.api.auth.AuthServiceJWTPayload
 import com.daml.lf.data.Ref
-import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.engine.script.JsonLedgerClient
