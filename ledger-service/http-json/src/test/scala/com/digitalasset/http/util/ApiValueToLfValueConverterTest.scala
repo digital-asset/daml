@@ -35,9 +35,8 @@ class ApiValueToLfValueConverterTest
       implicit val arbInj: Arbitrary[va.Inj[CidSrc]] = va.injarb
       forAll(minSuccessful(20)) { v: va.Inj[CidSrc] =>
         val vv = va.inj(v)
-        val roundTrip = lfValueToApiValue(true, vv).right.toOption flatMap (x =>
-          apiValueToLfValue(x).toMaybe.toOption
-        )
+        val roundTrip =
+          lfValueToApiValue(true, vv).toOption flatMap (x => apiValueToLfValue(x).toMaybe.toOption)
         assert(Equal[Option[V[Cid]]].equal(roundTrip, Some(vv)))
       }
     }
@@ -68,7 +67,7 @@ object ApiValueToLfValueConverterTest {
       case V.ValueList(fs) => V.ValueList(fs map go)
       case V.ValueOptional(o) => V.ValueOptional(o map go)
       case V.ValueTextMap(m) => V.ValueTextMap(m mapValue go)
-      case V.ValueGenMap(m) => V.ValueGenMap(m map (_ bimap (go, go)))
+      case V.ValueGenMap(m) => V.ValueGenMap(m map (_.bimap(go, go)))
     }
     go(fa)
   }
