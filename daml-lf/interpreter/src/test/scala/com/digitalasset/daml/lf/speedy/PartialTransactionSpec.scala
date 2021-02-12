@@ -37,7 +37,8 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
   }
 
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
-    def create: PartialTransaction =
+
+    def insertCreate_ : PartialTransaction =
       ptx.insertCreate(
         None,
         templateId,
@@ -52,7 +53,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
         case Left(_) => sys.error("unexpected error")
       }
 
-    def beginExercise: PartialTransaction =
+    def beginExercises_ : PartialTransaction =
       ptx.beginExercises(
         auth = None,
         targetId = cid,
@@ -72,18 +73,24 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
         case Left(_) =>
           sys.error("unexpected failing beginExercises")
       }
+
+    def endExercises_ : PartialTransaction =
+      ptx.endExercises(Value.ValueUnit)
+
+    def rollbackTry_ : PartialTransaction =
+      ptx.rollbackTry(AstUtil.TUnit, Value.ValueUnit)
   }
 
   private[this] val outputCids =
     contractIdsInOrder(
       initialState //
-        .create // create cid_0
-        .beginExercise //
-        .create // create cid_1_0
-        .create // create cid_1_2
-        .create // create cid_1_3
-        .endExercises(Value.ValueUnit)
-        .create // create cid_2
+        .insertCreate_ // create the contract cid_0
+        .beginExercises_ // open an exercise context
+        .insertCreate_ // create the contract cid_1_0
+        .insertCreate_ // create the contract cid_1_2
+        .insertCreate_ // create the contract cid_1_3
+        .endExercises_ // close the exercise context normally
+        .insertCreate_ // create the contract cid_2
     )
 
   val Seq(cid_0, cid_1_0, cid_1_1, cid_1_2, cid_2) = outputCids
@@ -92,28 +99,29 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
     "be without effect when closed without exception" in {
       def run1 = contractIdsInOrder(
         initialState //
-          .create //
-          .beginExercise //
-          .create //
-          .beginTry //
-          .create //
-          .endTry //
-          .create //
-          .endExercises(Value.ValueUnit) //
-          .create //
+          .insertCreate_ // create the contract cid_0
+          .beginExercises_ // open an exercise context
+          .insertCreate_ // create the contract cid_1_0
+          .beginTry // open a try context
+          .insertCreate_ // create the contract cid_1_2
+          .endTry // close the try context
+          .insertCreate_ // create the contract cid_1_3
+          .endExercises_ // close the exercise context normally
+          .insertCreate_ // create the contract cid_2
       )
 
       def run2 = contractIdsInOrder(
+        // the double slashes below tricks scalafmt
         initialState //
-          .create //
-          .beginTry //
-          .beginExercise //
-          .create //
-          .create //
-          .create //
-          .endExercises(Value.ValueUnit) //
-          .endTry //
-          .create //
+          .insertCreate_ // create the contract cid_0
+          .beginTry // open a try context
+          .beginExercises_ // open an exercise context
+          .insertCreate_ // create the contract cid_1_0
+          .insertCreate_ // create the contract cid_1_2
+          .insertCreate_ // create the contract cid_1_3
+          .endExercises_ // close the exercise context normally
+          .endTry // close the try context
+          .insertCreate_ // create the contract cid_2
       )
 
       run1 shouldBe outputCids
@@ -123,42 +131,48 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
 
     "rollback the current transaction without resetting seed counter for contract IDs" in {
       def run1 = contractIdsInOrder(
+        // the double slashes below tricks scalafmt
         initialState //
-          .create //
-          .beginTry //
-          .beginExercise //
-          .create //
-          .create //
-          .create //
-          .endExercises(Value.ValueUnit) //
-          .catchAndRollback(AstUtil.TUnit, Value.ValueUnit) //
-          .create //
+          .insertCreate_ // create the contract cid_0
+          .beginTry // open a first try context
+          .beginExercises_ // open an exercise context
+          .insertCreate_ // create the contract cid_1_0
+          .insertCreate_ // create the contract cid_1_2
+          .insertCreate_ // create the contract cid_1_3
+          // an exception is thrown
+          .abortExercises // close abruptly the exercise due to an uncaught exception
+          .rollbackTry_ // the try context handles the exception
+          .insertCreate_ // create the contract cid_2
       )
 
       def run2 = contractIdsInOrder(
         initialState //
-          .create //
-          .beginTry //
-          .beginExercise //
-          .create //
-          .create //
-          .create //
-          .abortExercises //
-          .catchAndRollback(AstUtil.TUnit, Value.ValueUnit) //
-          .create //
+          .insertCreate_ // create the contract cid_0
+          .beginTry // open a first try context
+          .beginExercises_ // open an exercise context
+          .insertCreate_ // create the contract cid_1_0
+          .insertCreate_ // create the contract cid_1_2
+          .beginTry // open a second try context
+          .insertCreate_ // create the contract cid_1_3
+          // an exception is thrown
+          .abortTry // the second try context does not handle the exception
+          .abortExercises // close abruptly the exercise due to an uncaught exception
+          .rollbackTry_ // the first try context does handle the exception
+          .insertCreate_ // create the contract cid_2
       )
 
       def run3 = contractIdsInOrder(
+        // the double slashes below tricks scalafmt
         initialState //
-          .create //
-          .beginExercise //
-          .create //
-          .beginTry //
-          .create //
-          .catchAndRollback(AstUtil.TUnit, Value.ValueUnit) //
-          .create //
-          .abortExercises //
-          .create //
+          .insertCreate_ // create the contract cid_0
+          .beginExercises_ // open an exercise context
+          .insertCreate_ // create the contract cid_1_0
+          .beginTry // open a try context
+          .insertCreate_ // create the contract cid_1_2
+          .rollbackTry_ // the try  context does handle the exception
+          .insertCreate_ // create the contract cid_1_3
+          .endExercises_ // close the exercise context normally
+          .insertCreate_ // create the contract cid_2
       )
 
       run1 shouldBe Seq(cid_0, cid_2)

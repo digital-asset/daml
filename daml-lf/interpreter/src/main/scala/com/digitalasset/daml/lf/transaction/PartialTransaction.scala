@@ -356,6 +356,9 @@ private[lf] case class PartialTransaction(
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
   }
 
+  /** Open an exercises context.
+    * Must be closed by a `endExercises` or an `abortExercise`.
+    */
   def beginExercises(
       auth: Option[Authorize],
       targetId: Value.ContractId,
@@ -418,6 +421,9 @@ private[lf] case class PartialTransaction(
     }
   }
 
+  /** Close normally an exercise context.
+    * Must match a `beginExercises`.
+    */
   def endExercises(value: Value[Value.ContractId]): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
@@ -449,6 +455,9 @@ private[lf] case class PartialTransaction(
         noteAbort(Tx.NonExerciseContext)
     }
 
+  /** Close a abruptly an exercise context du to an uncaught exception.
+    * Must match a `beginExercises`.
+    */
   def abortExercises: PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
@@ -480,9 +489,15 @@ private[lf] case class PartialTransaction(
         noteAbort(Tx.NonExerciseContext)
     }
 
+  /** Open a Try context.
+    *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.
+    */
   def beginTry: PartialTransaction =
     copy(context = context.copy(TryContextInfo(context)))
 
+  /** Close a try context normally , i.e. no exception occurred.
+    * Must match a `beginTry`.
+    */
   def endTry: PartialTransaction =
     context.info match {
       case info: TryContextInfo =>
@@ -491,20 +506,29 @@ private[lf] case class PartialTransaction(
         noteAbort(Tx.NonCatchContext)
     }
 
+  /** Close abruptly a try context, due to an uncaught exception,
+    * i.e. a exception was thrown inside the context but the catch associated to the try context did not handle it.
+    * Must match a `beginTry`.
+    */
   def abortTry: PartialTransaction =
     endTry
 
-  @silent("parameter value exceptionType in method catchAndRollback is never used")
-  @silent("parameter value exception in method catchAndRollback is never used")
-  def catchAndRollback(
+  /** Close a try context, by catching an exception,
+    * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
+    */
+  @silent("parameter value exceptionType in method rollbackTry is never used")
+  @silent("parameter value exception in method rollbackTry is never used")
+  def rollbackTry(
       exceptionType: Ast.Type,
       exception: Value[Value.ContractId],
   ): PartialTransaction =
     context.info match {
       case info: TryContextInfo =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        //  for now, we just drop the whole rollback part of the tree.
         copy(context = info.parent.copy(nextChildIdx = context.nextChildIdx))
       case _ =>
-        noteAbort(Tx.NonExerciseContext)
+        noteAbort(Tx.NonCatchContext)
     }
 
   /** Note that the transaction building failed due to an authorization failure */
