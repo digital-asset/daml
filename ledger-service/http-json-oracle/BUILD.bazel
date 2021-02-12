@@ -9,6 +9,7 @@ load(
     "lf_scalacopts",
 )
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@scala_version//:index.bzl", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -55,7 +56,7 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     plugins = [
-        "@maven//:org_typelevel_kind_projector_2_12_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
