@@ -60,23 +60,26 @@ object Consume {
         // then step through any further steps until encountering
         // either the end or the next listen
         def go(steps: FCC[T, V], listened: Boolean): Future[FCC[T, V]] =
-          steps.resume fold ({
-            case listen @ Listen(f, _) =>
-              if (listened) Future successful (Free roll listen) else go(f(t), true)
-            case drain: Drain[s, T, FCC[T, V]] =>
-              Future successful Free.roll {
-                if (listened) drain
-                else drain.copy(init = drain.next(drain.init, t))
-              }
-            case Emit(run) => run flatMap (go(_, listened))
-          }, v =>
-            if (listened) Future successful (Free point v)
-            else
-              Future.failed(
-                new IllegalStateException(
-                  s"unexpected element $t, script already terminated with $v"
-                )
-              ))
+          steps.resume.fold(
+            {
+              case listen @ Listen(f, _) =>
+                if (listened) Future successful (Free roll listen) else go(f(t), true)
+              case drain: Drain[s, T, FCC[T, V]] =>
+                Future successful Free.roll {
+                  if (listened) drain
+                  else drain.copy(init = drain.next(drain.init, t))
+                }
+              case Emit(run) => run flatMap (go(_, listened))
+            },
+            v =>
+              if (listened) Future successful (Free point v)
+              else
+                Future.failed(
+                  new IllegalStateException(
+                    s"unexpected element $t, script already terminated with $v"
+                  )
+                ),
+          )
         go(steps, false)
       }
       .mapMaterializedValue(_.flatMap(_.foldMap(Lambda[Consume[T, *] ~> Future] {

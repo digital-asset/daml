@@ -25,12 +25,8 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.std.vector._
-import scalaz.std.option._
-import scalaz.std.vector._
-import scalaz.syntax.std.option._
-import scalaz.syntax.tag._
-import scalaz.syntax.traverse._
 
+import scala.collection.compat._
 import scala.concurrent.Future
 
 private[http] object WebsocketTestFixture extends StrictLogging with Assertions {
@@ -66,7 +62,7 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       for {
         JsObject(eventsWrapper) <- Some(jsv)
         JsArray(sums) <- eventsWrapper.get("events")
-        pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
+        pairs = sums collect { case JsObject(fields) => fields.view.filterKeys(tagKeys).toMap.head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
         creates = sets.getOrElse("created", Vector()) collect { case (_, JsObject(fields)) =>
@@ -167,8 +163,8 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
           (
             8 min size,
             Gen.chooseNum(1: Amount, x - 1) flatMap { split =>
-              Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
-                case (l, r) => Node(x, l, r)
+              Gen.zip(genSplit(split, size / 2), genSplit(x - split, size / 2)) map { case (l, r) =>
+                Node(x, l, r)
               }
             },
           ),
@@ -296,7 +292,7 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   final class MultipleJsValuesMatcher(right: Seq[JsValue]) extends Matcher[Seq[JsValue]] {
     override def apply(left: Seq[JsValue]): MatchResult = {
-      val result = left.length == right.length && (left, right).zipped.forall { case (l, r) =>
+      val result = left.length == right.length && left.lazyZip(right).forall { case (l, r) =>
         matchJsValue(r)(l).matches
       }
       MatchResult(result, s"$left did not match $right", s"$left matched $right")

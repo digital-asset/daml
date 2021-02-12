@@ -14,6 +14,7 @@ module DA.Daml.LF.TypeChecker.Env(
     match,
     lookupTypeVar,
     introTypeVar,
+    introTypeVars,
     introExprVar,
     lookupExprVar,
     withContext,
@@ -77,6 +78,10 @@ emptyGamma = Gamma ContextNone mempty mempty
 -- variable/kind binding. Does not fail on shadowing.
 introTypeVar :: MonadGamma m => TypeVarName -> Kind -> m a -> m a
 introTypeVar v k = local (tvars . at v ?~ k)
+
+-- | Introduce multiple type variables ('introTypeVar' but iterated).
+introTypeVars :: MonadGamma m => [(TypeVarName, Kind)] -> m a -> m a
+introTypeVars binders m = foldr (uncurry introTypeVar) m binders
 
 -- | Run a computation in the current enviroment extended by a new term
 -- variable/type binding. Does not fail on shadowing.
