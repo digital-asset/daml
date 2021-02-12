@@ -6,6 +6,7 @@
 module DA.Cli.Damlc.Test (
     execTest
     , UseColor(..)
+    , ShowCoverage(..)
     ) where
 
 import Control.Monad.Except
@@ -23,6 +24,7 @@ import Data.List.Extra
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import qualified Data.Vector as V
 import Development.IDE.Core.API
@@ -40,19 +42,27 @@ import qualified Text.XML.Light as XML
 
 
 newtype UseColor = UseColor {getUseColor :: Bool}
+newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 
 -- | Test a DAML file.
-execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Options -> IO ()
-execTest inFiles color mbJUnitOutput opts = do
+execTest :: [NormalizedFilePath] -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> IO ()
+execTest inFiles coverage color mbJUnitOutput opts = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDamlLfVersion opts) color mbJUnitOutput
+        testRun h inFiles (optDamlLfVersion opts) coverage color mbJUnitOutput
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
 
-testRun :: IdeState -> [NormalizedFilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
-testRun h inFiles lfVersion color mbJUnitOutput  = do
+testRun ::
+       IdeState
+    -> [NormalizedFilePath]
+    -> LF.Version
+    -> ShowCoverage
+    -> UseColor
+    -> Maybe FilePath
+    -> IO ()
+testRun h inFiles lfVersion coverage color mbJUnitOutput  = do
     -- make sure none of the files disappear
     liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
@@ -72,7 +82,7 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
                     -- failures are printed out through diagnostics, so just print the sucesses
                     let results' = [(v, r) | (v, Right r) <- scenarioResults]
                     liftIO $ printScenarioResults results' color
-                    liftIO $ printTestCoverage dalfs scenarioResults
+                    liftIO $ printTestCoverage coverage dalfs scenarioResults
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
@@ -91,27 +101,35 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
 
-printTestCoverage :: [LF.Module] -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
-printTestCoverage dalfs results
+printTestCoverage ::
+       ShowCoverage
+    -> [LF.Module]
+    -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)]
+    -> IO ()
+printTestCoverage ShowCoverage {getShowCoverage} dalfs results
   | any (\(_, errOrRes) -> isLeft errOrRes) results = pure ()
-  | otherwise =
-    putStrLn $
-    unwords
-        [ "test coverage: templates"
-        , percentage coveredNrOfTemplates nrOfTemplates <> ","
-        , "choices"
-        , percentage coveredNrOfChoices nrOfChoices
-        ]
+  | otherwise = do
+      putStrLn $
+          unwords
+              [ "test coverage: templates"
+              , percentage coveredNrOfTemplates nrOfTemplates <> ","
+              , "choices"
+              , percentage coveredNrOfChoices nrOfChoices
+              ]
+      when getShowCoverage $ do
+          putStrLn $
+              unlines $
+              ["templates never created:"] <> map T.unpack missingTemplates <>
+              ["choices never executed:"] <>
+              map T.unpack missingChoices
   where
-    templates = [t | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
-    nrOfTemplates = length templates
-    nrOfChoices = length [n | t <- templates, n <- NM.names $ LF.tplChoices t]
+    templates = [(m, t) | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
+    choices = [(m, t, n) | (m, t) <- templates, n <- NM.names $ LF.tplChoices t]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"
     allScenarioNodes = [n | (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
-    coveredNrOfTemplates =
-        length $
+    coveredTemplates =
         nubSort $
         [ SS.contractInstanceTemplateId contractInstance
         | n <- allScenarioNodes
@@ -119,8 +137,13 @@ printTestCoverage dalfs results
               [SS.nodeNode n]
         , Just contractInstance <- [node_CreateContractInstance]
         ]
-    coveredNrOfChoices =
-        length $
+    missingTemplates =
+        [ (LF.moduleNameString $ LF.moduleName m) <> ":" <>
+        (T.concat $ LF.unTypeConName $ LF.tplTypeCon t)
+        | (m, t) <- templates
+        ] \\
+        [TL.toStrict $ SS.identifierName tId | Just tId <- coveredTemplates]
+    coveredChoices =
         nubSort $
         [ (templateId, node_ExerciseChoiceId)
         | n <- allScenarioNodes
@@ -129,6 +152,18 @@ printTestCoverage dalfs results
                                                      }) <- [SS.nodeNode n]
         , Just templateId <- [node_ExerciseTemplateId]
         ]
+    missingChoices =
+        [ (LF.moduleNameString $ LF.moduleName m) <> ":" <>
+        (T.concat $ LF.unTypeConName $ LF.tplTypeCon t) <>
+        ":" <>
+        LF.unChoiceName n
+        | (m, t, n) <- choices
+        ] \\
+        [TL.toStrict $ SS.identifierName t <> ":" <> c | (t, c) <- coveredChoices]
+    nrOfTemplates = length templates
+    nrOfChoices = length choices
+    coveredNrOfChoices = length coveredChoices
+    coveredNrOfTemplates = length coveredTemplates
 
 printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
 printScenarioResults results color = do
