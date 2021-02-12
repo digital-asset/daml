@@ -47,7 +47,7 @@ private[sql] final class Cli(
       .opt[Int]("database-connection-pool-size")
       .optional()
       .text(
-        s"The number of connections in the database connection pool. Defaults to ${SandboxConfig.DefaultDatabaseConnectionPoolSize}"
+        s"The number of connections in the database connection pool. Defaults to ${SandboxConfig.DefaultDatabaseConnectionPoolSize}."
       )
       .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
 
