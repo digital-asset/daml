@@ -797,14 +797,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         ImmArray(lfTyConApp.getArgsList.asScala.map(decodeType)),
       )
 
-    private[lf] def decodeExpr(lfExpr: PLF.Expr, definition: String): Expr =
-      decodeLocation(lfExpr, definition) match {
-        case None => decodeExprBody(lfExpr, definition)
-        case Some(loc) => ELocation(loc, decodeExprBody(lfExpr, definition))
-      }
-
-    private[this] def decodeExprBody(lfExpr: PLF.Expr, definition: String): Expr =
-      lfExpr.getSumCase match {
+    private[lf] def decodeExpr(lfExpr: PLF.Expr, definition: String): Expr = {
+      val expr = lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_STR =>
           assertUntil(LV.Features.internedStrings, "Expr.var_str")
           EVar(toName(lfExpr.getVarStr))
@@ -1058,6 +1052,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
       }
+      decodeLocation(lfExpr, definition) match {
+        case None => expr
+        case Some(loc) => ELocation(loc, expr)
+      }
+    }
 
     private[this] def decodeCaseAlt(lfCaseAlt: PLF.CaseAlt, definition: String): CaseAlt = {
       val pat: CasePat = lfCaseAlt.getSumCase match {
