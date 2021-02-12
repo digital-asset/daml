@@ -39,7 +39,9 @@ object SupportedJdbcDriver {
   }
 
   val Oracle: SupportedJdbcDriver = {
-    import doobie.postgres.implicits.unliftedStringArrayType // TODO s11 just a thought
+    // import doobie.postgres.implicits.unliftedStringArrayType // TODO s11 just a thought
+    implicit val qqq: doobie.Meta[Array[String]] =
+      doobie.Meta[Int].timap(Array.fill(_)("x"))(_.length)
     new SupportedJdbcDriver(
       label = "Oracle",
       queries = Queries.Oracle,
