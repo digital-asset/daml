@@ -196,7 +196,7 @@ private[dump] object Encode {
       ) + Doc.text("] tree")
   }
 
-  private def encodeTree(
+  private[dump] def encodeTree(
       partyMap: Map[String, String],
       cidMap: Map[String, String],
       cidRefs: Set[String],
