@@ -81,7 +81,7 @@ object TreeUtils {
 
   case class CreatedContract(cid: String, tplId: Identifier, path: List[Selector])
 
-  def treeCids(tree: TransactionTree): Seq[CreatedContract] = {
+  def treeCreatedCids(tree: TransactionTree): Seq[CreatedContract] = {
     var cids: Seq[CreatedContract] = Seq()
     traverseTree(tree) { case (selectors, kind) =>
       kind match {
@@ -89,6 +89,23 @@ object TreeUtils {
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
           cids ++= Seq(CreatedContract(value.contractId, value.getTemplateId, selectors))
+      }
+    }
+    cids
+  }
+
+  def treeReferencedCids(tree: TransactionTree): Set[String] = {
+    var cids: Set[String] = Set.empty
+    traverseTree(tree) { case (_, kind) =>
+      kind match {
+        case Kind.Empty =>
+        case Kind.Exercised(value) =>
+          cids += value.contractId
+          cids ++= value.choiceArgument.foldMap(arg => valueCids(arg.sum))
+        case Kind.Created(value) =>
+          cids ++= value.createArguments.foldMap(args =>
+            args.fields.toList.foldMap(f => valueCids(f.getValue.sum))
+          )
       }
     }
     cids
@@ -129,6 +146,27 @@ object TreeUtils {
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
       value.entries.toList.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
+  }
+
+  def valueCids(v: Value.Sum): Set[String] = v match {
+    case Sum.Empty => Set()
+    case Sum.Record(value) => value.fields.toList.foldMap(f => valueCids(f.getValue.sum))
+    case Sum.Variant(value) => valueCids(value.getValue.sum)
+    case Sum.ContractId(cid) => Set(cid)
+    case Sum.List(value) => value.elements.toList.foldMap(v => valueCids(v.sum))
+    case Sum.Int64(_) => Set()
+    case Sum.Numeric(_) => Set()
+    case Sum.Text(_) => Set()
+    case Sum.Timestamp(_) => Set()
+    case Sum.Party(_) => Set()
+    case Sum.Bool(_) => Set()
+    case Sum.Unit(_) => Set()
+    case Sum.Date(_) => Set()
+    case Sum.Optional(value) => value.value.foldMap(v => valueCids(v.sum))
+    case Sum.Map(value) => value.entries.toList.foldMap(e => valueCids(e.getValue.sum))
+    case Sum.Enum(_) => Set()
+    case Sum.GenMap(value) =>
+      value.entries.toList.foldMap(e => valueCids(e.getKey.sum).union(valueCids(e.getValue.sum)))
   }
 
 }
