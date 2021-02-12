@@ -197,7 +197,8 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
             help
                 (mconcat
                      [ "Path to the root of a project containing daml.yaml. "
-                     , "If you use the assistant, you should set the DAML_PROJECT environment variable instead."
+                     , "You should prefer the DAML_PROJECT environment variable over this option."
+                     , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
                      ])
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
                help "Check if running in Daml project."

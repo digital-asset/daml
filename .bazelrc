@@ -33,6 +33,9 @@ build --experimental_strict_action_env
 # in us getting a certificate for githubassets.com instead.
 startup --host_jvm_args=-Xms1g --host_jvm_args=-Xmx1g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
 
+# Enable sandboxing and caching for exclusive tests
+build --incompatible_exclusive_test_sandboxed
+
 # Print test output of failed test.
 # Set --test_output=streamed to get the output of all tests in real time.
 # Note, this will force tests to run locally and sequentially.

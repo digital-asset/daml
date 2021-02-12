@@ -15,12 +15,11 @@ the architecture and technology stack to fit your needs, which we'll mention in 
 sections. Note that the Participant Node is integrated into the Daml drivers in some cases rather
 than being part of the Application Backend. See :doc:`/support/overview` for more details.
 
-To get started quickly with the recommended application architecture clone the
-``create-daml-app`` application template:
+To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
 .. code-block:: bash
 
-  git clone https://github.com/digital-asset/create-daml-app
+  daml new --template=create-daml-app my-project-name
 
 ``create-daml-app`` is a small, but fully functional demo application implementing the recommended
 architecture, providing you with an excellent starting point for your own application. It showcases
@@ -109,21 +108,23 @@ form of the required tokens is described in the :ref:`Authorization <authorizati
 Developer workflow
 ~~~~~~~~~~~~~~~~~~
 
-The SDK enables a local development environment with fast iteration cycles. If you run
-``daml-reload-on-change.sh`` of the ``create-daml-app``, a local Daml Sandbox is started that
-is updated with your most recent Daml code on any change. Next, you can start your frontend in
-development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your
-frontend whenever you make changes to it. You can add unit tests for your Daml models by writing
-:ref:`Daml scenarios <testing-using-scenarios>`. These will also be reevaluated on change.  A
-typical Daml developer workflow is to
+The SDK enables a local development environment with fast iteration cycles:
 
-  #. Make a small change to your Daml data model
-  #. Optionally test your Daml code and with :ref:`scenarios <testing-using-scenarios>`
+1. The integrated VSCode IDE (``daml studio``) runs your Scripts on any change to your Daml models. See :ref:`Daml scenarios <testing-using-scenarios>`.
+#. ``daml start`` will build all of your Daml code, generate the JavaScript bindings, and start the required "backend" processes (sandbox and HTTP JSON API). It will also allow you to press ``r`` (followed by Enter on Windows) to rebuild your code, regenerate the JavaScript bindings and upload the new code to the running ledger.
+#. ``npm start`` will watch your JavaScript source files for change and recompile them immediately when they are saved.
+
+Together, these features can provide you with very tight feedback loops while developing your Daml application, all the way from your Daml contracts up to your web UI. A typical Daml developer workflow is to
+
+  1. Make a small change to your Daml data model
+  #. Optionally test your Daml code with :ref:`scenarios <testing-using-scenarios>`
   #. Edit your React components to be aligned with changes made in Daml code
   #. Extend the UI to make use of the newly introduced feature
   #. Make further changes either to your Daml and/or React code until you're happy with what you've developed
 
 .. image:: ./developer_workflow.svg
+
+See :doc:`Your First Feature </getting-started/first-feature>` for a more detailed walkthrough of these steps.
 
 .. _command-deduplication:
 

@@ -26,7 +26,7 @@ A ``Script`` is like a recipe for a test, where you can script different parties
 
 Below is a basic script that creates a ``Token`` for a party called "Alice".
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_1_BEGIN
   :end-before: -- TOKEN_TEST_1_END
@@ -91,7 +91,7 @@ Testing for failure
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- FAILURE_TEST_1_BEGIN
   :end-before: -- FAILURE_TEST_1_END
@@ -104,7 +104,7 @@ The script failed, as expected, but scripts abort at the first failure. This mea
 
 To test for failing submits and keep the script running thereafter, or fail if the submission succeeds, you can use the ``submitMustFail`` function:
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
@@ -124,7 +124,7 @@ To ``archiveCmd`` the Token Alice has created, you need to get a handle on its c
 
 This script first checks that Bob cannot archive Alice's Token and then Alice successfully archives it:
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END

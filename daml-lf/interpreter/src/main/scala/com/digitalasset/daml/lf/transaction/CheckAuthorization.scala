@@ -8,7 +8,7 @@ import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
 
-import PartialTransaction.ExercisesContext
+import PartialTransaction.ExercisesContextInfo
 
 private[lf] object CheckAuthorization {
 
@@ -83,7 +83,7 @@ private[lf] object CheckAuthorization {
     )
   }
 
-  private[lf] def authorizeExercise(ex: ExercisesContext)(
+  private[lf] def authorizeExercise(ex: ExercisesContextInfo)(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(

@@ -392,15 +392,15 @@ final class Conversions(
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
       )
 
-    ptx.context.exeContext match {
-      case None =>
-      case Some(ctx) =>
+    ptx.context.info match {
+      case ctx: SPartialTransaction.ExercisesContextInfo =>
         val ecBuilder = proto.ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
           .setChosenValue(convertValue(ctx.chosenValue))
         ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
         builder.setExerciseContext(ecBuilder.build)
+      case _: SPartialTransaction.RootContextInfo =>
     }
     builder.build
   }

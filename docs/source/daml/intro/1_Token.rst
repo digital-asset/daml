@@ -36,13 +36,13 @@ Daml files and modules
 
 Each ``.daml`` file defines a *Daml Module* at the top:
 
-.. literalinclude:: daml/daml-intro-1/Token.daml
+.. literalinclude:: daml/daml-intro-1/daml/Token.daml
   :language: daml
   :lines: 5
 
 Code comments in Daml are introduced with ``--``:
 
-.. literalinclude:: daml/daml-intro-1/Token.daml
+.. literalinclude:: daml/daml-intro-1/daml/Token.daml
   :language: daml
   :lines: 4-5
 
@@ -51,7 +51,7 @@ Templates
 
 A ``template`` defines a type of contract that can be created, and who has the right to do so. *Contracts* are instances of *templates*.
 
-.. literalinclude:: daml/daml-intro-1/Token.daml
+.. literalinclude:: daml/daml-intro-1/daml/Token.daml
   :language: daml
   :lines: 12,17,21,25,30
   :caption: A simple template

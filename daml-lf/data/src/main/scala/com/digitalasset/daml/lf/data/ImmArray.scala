@@ -65,6 +65,14 @@ final class ImmArray[+A] private (
       uncheckedGet(idx)
     }
 
+  /** O(1) */
+  def get(idx: Int): Option[A] =
+    if (idx >= length) {
+      None
+    } else {
+      Some(uncheckedGet(idx))
+    }
+
   private def uncheckedGet(idx: Int): A = array(start + idx)
 
   /** O(n) */
