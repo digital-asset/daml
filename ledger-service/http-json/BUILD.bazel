@@ -165,7 +165,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_http_core",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
-        # "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
@@ -175,6 +175,7 @@ da_scala_library(
         # "@maven//:org_typelevel_cats_effect",
         # "@maven//:org_typelevel_cats_free",
     ],
+    silent_annotations = True,
     visibility = ["//ledger-service:__subpackages__"],
     deps = [
         ":http-json",
@@ -227,7 +228,6 @@ da_scala_test(
         "@maven//:org_typelevel_cats_free",
     ],
     scalacopts = hj_scalacopts,
-    silent_annotations = True,
     deps = [
         ":http-json",
         ":integration-tests-lib",
