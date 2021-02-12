@@ -466,7 +466,7 @@ generateSrcFromLf env = noLoc mod
         genInstanceBinds :: DFunSig -> Gen (LHsBinds GhcPs)
         genInstanceBinds DFunSig{..}
             | DFunHeadNormal{..} <- dfsHead
-            , Right (LF.TForalls _ (LF.TStruct fields)) <-
+            , Right (LF.TStruct fields) <-
                 LF.runGamma (envWorld env) (envLfVersion env) $
                     LF.introTypeVars dfsBinders $ LF.expandSynApp dfhName dfhArgs
             = listToBag <$> sequence
@@ -682,7 +682,10 @@ mkConDeclField env fieldName fieldTy = do
 isConstraint :: LF.Type -> Bool
 isConstraint = \case
     LF.TSynApp _ _ -> True
-    LF.TStruct _ -> True
+    LF.TStruct fields -> and
+         [ isSuperClassField fieldName && isConstraint fieldType
+         | (fieldName, fieldType) <- fields
+         ]
     _ -> False
 
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
