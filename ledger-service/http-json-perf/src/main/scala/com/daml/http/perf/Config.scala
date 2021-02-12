@@ -11,7 +11,6 @@ import scalaz.{Applicative, Traverse}
 import scopt.RenderingMode
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.language.higherKinds
 
 private[perf] final case class Config[+S](
     scenario: S,
@@ -52,7 +51,7 @@ private[perf] object Config {
     }
   }
 
-  def parseConfig(args: Seq[String]): Option[Config[String]] =
+  def parseConfig(args: collection.Seq[String]): Option[Config[String]] =
     configParser.parse(args, Config.Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

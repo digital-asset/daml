@@ -323,7 +323,7 @@ final class FailureTests
           ContractDelta(Vector((ctId, _)), Vector(), Some(newOffset)) <- readOne
           _ = ctId shouldBe accountCid.unwrap
           _ = newOffset.unwrap should be > offset.unwrap
-          _ = stop.shutdown
+          _ = stop.shutdown()
           _ <- drain
         } yield ()
       )
@@ -337,7 +337,7 @@ final class FailureTests
         uri,
         headers = headersWithParties(List(p.unwrap)),
       )
-      _ = status shouldBe 'success
+      _ = status shouldBe a[StatusCodes.Success]
       cid = getContractId(getResult(r))
       r <- (singleClientQueryStream(
         jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
@@ -357,7 +357,7 @@ final class FailureTests
         headers = headersWithParties(List(p.unwrap)),
       )
       cid = getContractId(getResult(r))
-      _ = status shouldBe 'success
+      _ = status shouldBe a[StatusCodes.Success]
       (stop, source) = singleClientQueryStream(
         jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
         uri,

@@ -37,7 +37,6 @@ import scalaz.{
 import spray.json.JsValue
 
 import scala.annotation.tailrec
-import scala.language.higherKinds
 
 object domain {
 
@@ -268,7 +267,7 @@ object domain {
           ArchivedContract.fromLedgerApi(archived).map(a => Contract(-\/(a)))
         case lav1.event.Event.Event.Empty =>
           val errorMsg = s"Expected either Created or Archived event, got: Empty"
-          -\/(Error('Contract_fromLedgerApi, errorMsg))
+          -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
       }
 
     def fromTreeEvent(
@@ -295,7 +294,7 @@ object domain {
               loop(exercised.childEventIds.toVector ++ tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Empty =>
               val errorMsg = s"Expected either Created or Exercised event, got: Empty"
-              -\/(Error('Contract_fromTreeEvent, errorMsg))
+              -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
           }
       }
 
@@ -374,7 +373,7 @@ object domain {
           h: PackageService.ResolveKeyType,
       ): Error \/ LfType =
         f(templateId)
-          .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
+          .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
     }
   }
 
@@ -457,7 +456,7 @@ object domain {
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           h(templateId)
-            .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfType, e.shows))
+            .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
       }
   }
 
@@ -476,7 +475,7 @@ object domain {
 
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
     def required(label: String): Error \/ A =
-      o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
+      o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
   }
 
   type LfType = iface.Type
@@ -507,7 +506,7 @@ object domain {
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
-          ) = basis lfType (nt(fa), templateId, f, g, h)
+          ) = basis.lfType(nt(fa), templateId, f, g, h)
         }
     }
   }
@@ -558,7 +557,7 @@ object domain {
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           g(templateId, fa.choice)
-            .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
+            .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
       }
   }
 

@@ -183,10 +183,7 @@ jobs:
           //ledger/... \
           //ledger-service/... \
           //triggers/... \
-          -//ledger-service/http-json/... \
-          -//ledger-service/http-json-perf/... \
-          -//ledger-service/http-json-testing/... \
-          //daml-script/dump/... \
+          //daml-script/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
           -//ledger/ledger-api-test-tool/... \
@@ -199,16 +196,13 @@ jobs:
           //ledger-api/... \
           //ledger/... \
           //ledger-service/... \
-          //daml-script/dump/... \
+          //daml-script/... \
           //triggers/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/... \
           -//ledger/ledger-api-test-tool/... \
-          -//ledger/ledger-api-test-tool-on-canton/... \
-          -//ledger-service/http-json/... \
-          -//ledger-service/http-json-perf/... \
-          -//ledger-service/http-json-testing/...
+          -//ledger/ledger-api-test-tool-on-canton/...
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:

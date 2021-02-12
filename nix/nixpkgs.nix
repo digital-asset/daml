@@ -30,21 +30,6 @@ let
         wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
     });
-    bazel = pkgs.bazel.overrideAttrs(oldAttrs: {
-      patches = oldAttrs.patches ++ [
-        # Note (MK)
-        # This patch enables caching of tests marked as `exclusive`. It got apparently
-        # rolled back because it caused problems internally at Google but it’s unclear
-        # what is actually failing and it seems to work fine for us.
-        # See https://github.com/bazelbuild/bazel/pull/8983/files#diff-107db037d4a55f2421fed9ed5c6cc31b
-        # for the only change that actually affects the code in this patch. The rest is tests
-        # and/or documentation.
-        (pkgs.fetchurl {
-          url = "https://patch-diff.githubusercontent.com/raw/bazelbuild/bazel/pull/8983.patch";
-          sha256 = "1qdyqymsylinkdwqhbxbm8bvbyznrdn74n744pi5xhdwb6lw1r8a";
-        })
-      ];
-    });
     scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
       version = "2.12.12";
       name = "scala-2.12.12";
@@ -68,7 +53,7 @@ let
     for i in "$out/bin/"*; do
       test ! -h $i || continue
       egrep --quiet '^#!' <(head -n 1 $i) || continue
-      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.stdenv.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
+      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
     done
   '';
           });
@@ -76,6 +61,14 @@ let
        };
      };
     };
+
+    bazel_4 = pkgs.bazel_4.overrideAttrs(oldAttrs: {
+      patches = oldAttrs.patches ++ [
+        # This should be upstreamed. Bazel is too aggressive
+        # in treating arguments starting with @ as response files.
+        ./bazel-cc-wrapper-response-file.patch
+      ];
+    });
   };
 
   nixpkgs = import src {

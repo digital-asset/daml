@@ -35,7 +35,7 @@ class FlowUtilTest
     val expected: Vector[String \/ Int] =
       xs.take(1).map(\/-(_)) ++ Vector.fill(errorNum)(-\/(error))
     val input: Source[String \/ Int, NotUsed] =
-      Source.fromIterator(() => xs.toIterator).map(\/-(_))
+      Source.fromIterator(() => xs.iterator).map(\/-(_))
 
     val actualF: Future[Vector[String \/ Int]] =
       input

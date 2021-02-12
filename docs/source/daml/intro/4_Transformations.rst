@@ -21,7 +21,7 @@ If you think of templates as classes and contracts as objects, where are the met
 
 Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
 
-.. literalinclude:: daml/daml-intro-4/Contact.daml
+.. literalinclude:: daml/daml-intro-4/daml/Contact.daml
   :language: daml
   :start-after: -- CHOICE_BEGIN
   :end-before: -- CHOICE_END
@@ -55,7 +55,7 @@ declaration of a choice.
 
 Now to exercise the new choice in a script:
 
-.. literalinclude:: daml/daml-intro-4/Contact.daml
+.. literalinclude:: daml/daml-intro-4/daml/Contact.daml
   :language: daml
   :start-after: -- CHOICE_TEST_BEGIN
   :end-before: -- CHOICE_TEST_END
@@ -84,12 +84,12 @@ Up to this point all the contracts only involved one party. ``party`` may have b
 
 The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the script:
 
-.. literalinclude:: daml/daml-intro-4/Contact.daml
+.. literalinclude:: daml/daml-intro-4/daml/Contact.daml
   :language: daml
   :start-after: -- DELEGATION_BEGIN
   :end-before: -- DELEGATION_END
 
-.. literalinclude:: daml/daml-intro-4/Contact.daml
+.. literalinclude:: daml/daml-intro-4/daml/Contact.daml
   :language: daml
   :start-after: -- DELEGATION_TEST_BEGIN
   :end-before: -- DELEGATION_TEST_END
@@ -187,7 +187,7 @@ A simple cash model
 
 With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities:
 
-.. literalinclude:: daml/daml-intro-4/SimpleIou.daml
+.. literalinclude:: daml/daml-intro-4/daml/SimpleIou.daml
   :language: daml
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.

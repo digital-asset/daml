@@ -1026,7 +1026,7 @@ private[lf] object SBuiltin {
               coid,
               templateId,
               onLedger.committers,
-              cbMissing = _ => machine.tryHandleException(),
+              cbMissing = _ => machine.tryHandleSubmitMustFail(),
               cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
                 // Note that we cannot throw in this continuation -- instead
                 // set the control appropriately which will crash the machine
@@ -1122,7 +1122,7 @@ private[lf] object SBuiltin {
                   machine.returnValue = SV.None
                   true
                 case SKeyLookupResult.NotVisible =>
-                  machine.tryHandleException()
+                  machine.tryHandleSubmitMustFail()
               },
             )
           )
@@ -1204,7 +1204,7 @@ private[lf] object SBuiltin {
                   true
                 case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
-                  machine.tryHandleException()
+                  machine.tryHandleSubmitMustFail()
               },
             )
           )
@@ -1598,8 +1598,10 @@ private[lf] object SBuiltin {
         throw DamlEFailedAuthorization(nid, fa)
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
-      case Some(Tx.EndExerciseInRootContext) =>
-        crash("internal error: end exercise in root context")
+      case Some(Tx.NonExerciseContext) =>
+        crash("internal error: end exercise in non exercise context")
+      case Some(Tx.NonCatchContext) =>
+        crash("internal error: end catch in non catch context")
       case None =>
         ()
     }

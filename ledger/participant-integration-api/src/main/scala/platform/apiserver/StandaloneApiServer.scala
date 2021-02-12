@@ -74,6 +74,7 @@ final class StandaloneApiServer(
           ledgerId = domain.LedgerId(ledgerId),
           participantId = participantId,
           jdbcUrl = config.jdbcUrl,
+          databaseConnectionPoolSize = config.databaseConnectionPoolSize,
           eventsPageSize = config.eventsPageSize,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,

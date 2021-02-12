@@ -84,7 +84,7 @@ private[platform] object DbDispatcher {
   def owner(
       serverRole: ServerRole,
       jdbcUrl: String,
-      maxConnections: Int,
+      connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
       connectionAsyncCommit: Boolean,
@@ -93,7 +93,7 @@ private[platform] object DbDispatcher {
       connectionProvider <- HikariJdbcConnectionProvider.owner(
         serverRole,
         jdbcUrl,
-        maxConnections,
+        connectionPoolSize,
         connectionTimeout,
         metrics.registry,
         connectionAsyncCommit,
@@ -102,7 +102,7 @@ private[platform] object DbDispatcher {
       executor <- ResourceOwner.forExecutorService(() =>
         new InstrumentedExecutorService(
           Executors.newFixedThreadPool(
-            maxConnections,
+            connectionPoolSize,
             new ThreadFactoryBuilder()
               .setNameFormat(s"$threadPoolName-%d")
               .setUncaughtExceptionHandler((_, e) =>
@@ -115,7 +115,7 @@ private[platform] object DbDispatcher {
         )
       )
     } yield new DbDispatcher(
-      maxConnections = maxConnections,
+      maxConnections = connectionPoolSize,
       connectionProvider = connectionProvider,
       executor = executor,
       overallWaitTimer = metrics.daml.index.db.waitAll,

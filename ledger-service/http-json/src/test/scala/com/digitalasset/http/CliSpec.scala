@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import org.scalatest._
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 

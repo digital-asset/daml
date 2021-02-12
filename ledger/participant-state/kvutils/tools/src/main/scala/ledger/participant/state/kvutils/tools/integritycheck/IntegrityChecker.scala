@@ -266,30 +266,40 @@ object IntegrityChecker {
 
   final class IndexingFailureException(message: String) extends CheckFailedException(message)
 
-  def run[LogResult](
+  def runAndExit[LogResult](
       args: Array[String],
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Unit = {
     val config = Config.parse(args).getOrElse {
       sys.exit(1)
     }
-    run(config, commitStrategySupportFactory)
+    runAndExit(config, commitStrategySupportFactory)
   }
 
-  def run[LogResult](
+  def runAndExit[LogResult](
       config: Config,
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
   ): Unit = {
-    runAsync(config, commitStrategySupportFactory).onComplete {
-      case Success(_) =>
-        sys.exit(0)
-      case Failure(exception: CheckFailedException) =>
-        println(exception.getMessage.red)
-        sys.exit(1)
-      case Failure(exception) =>
-        exception.printStackTrace()
-        sys.exit(1)
-    }(DirectExecutionContext)
+    println(s"Verifying integrity of ${config.exportFilePath}...")
+
+    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
+    implicit val executionContext: ExecutionContextExecutorService =
+      ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+    implicit val materializer: Materializer = Materializer(actorSystem)
+
+    val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+    new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
+      .run(importer, config)
+      .onComplete {
+        case Success(_) =>
+          sys.exit(0)
+        case Failure(exception: CheckFailedException) =>
+          println(exception.getMessage.red)
+          sys.exit(1)
+        case Failure(exception) =>
+          exception.printStackTrace()
+          sys.exit(1)
+      }(DirectExecutionContext)
   }
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
@@ -305,19 +315,4 @@ object IntegrityChecker {
   private[integritycheck] def defaultJdbcUrl(exportFileName: String): String =
     s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
 
-  private def runAsync[LogResult](
-      config: Config,
-      commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
-  ): Future[Unit] = {
-    println(s"Verifying integrity of ${config.exportFilePath}...")
-
-    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
-    implicit val executionContext: ExecutionContextExecutorService =
-      ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-    implicit val materializer: Materializer = Materializer(actorSystem)
-
-    val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
-    new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
-      .run(importer, config)
-  }
 }

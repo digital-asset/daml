@@ -9,7 +9,6 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue._
-import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsObject, JsString}

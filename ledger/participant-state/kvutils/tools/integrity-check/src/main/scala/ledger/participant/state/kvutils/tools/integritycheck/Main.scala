@@ -9,7 +9,7 @@ import scala.concurrent.ExecutionContext
 
 object Main {
   def main(args: Array[String]): Unit =
-    IntegrityChecker.run(args, preExecutionCommitStrategySupportFactory _)
+    IntegrityChecker.runAndExit(args, preExecutionCommitStrategySupportFactory _)
 
   def batchingCommitStrategySupportFactory(
       metrics: Metrics,

@@ -7,7 +7,7 @@ Daml Assistant (``daml``)
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
 
 - Create new Daml projects: ``daml new <path to create project in>``
-- Create a new project based on `create-daml-app <https://github.com/digital-asset/create-daml-app>`_: ``daml create-daml-app <path to create project in>``
+- Create a new project based on the ``create-daml-app`` template: ``daml new --template=create-daml-app <path to create project in>``
 - Initialize a Daml project: ``daml init``
 - Compile a Daml project: ``daml build``
 
@@ -156,8 +156,6 @@ Here is what each field means:
   say ``daml start --start-navigator=true``, the CLI argument takes precedence over
   the value in ``daml.yaml``.
 
-..  TODO (@robin-da) document the dependency syntax
-
 .. _assistant-manual-building-dars:
 
 Building Daml projects
@@ -228,3 +226,20 @@ before you call ``compinit``: ``fpath=(~/.daml/zsh $fpath)``
 
 You can override whether bash completions are installed for ``daml`` by
 passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml install``.
+
+.. _daml_project_dir:
+
+Running Commands outside of the Project Directory
+*************************************************
+
+In some cases, it can be convenient to run a command in a project
+without having to change directories. For that usecase, you can set
+the ``DAML_PROJECT`` environment variable to the path to the project:
+
+.. code-block:: sh
+
+    DAML_PROJECT=/path/to/my/project daml build
+
+Note that while some commands, most notably, ``daml build``, accept a
+``--project-root`` option, it can end up choosing the wrong SDK
+version so you should prefer the environment variable instead.

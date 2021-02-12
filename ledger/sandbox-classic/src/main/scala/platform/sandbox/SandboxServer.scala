@@ -305,6 +305,7 @@ final class SandboxServer(
             providedLedgerId = config.ledgerIdMode,
             participantId = config.participantId,
             jdbcUrl = jdbcUrl,
+            databaseConnectionPoolSize = config.databaseConnectionPoolSize,
             timeProvider = timeProvider,
             ledgerEntries = ledgerEntries,
             startMode = startMode,

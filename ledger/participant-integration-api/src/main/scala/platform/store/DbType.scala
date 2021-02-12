@@ -8,7 +8,10 @@ private[platform] sealed abstract class DbType(
     val driver: String,
     val supportsParallelWrites: Boolean,
     val supportsAsynchronousCommits: Boolean,
-)
+) {
+  def maxSupportedWriteConnections(maxConnections: Int): Int =
+    if (supportsParallelWrites) maxConnections else 1
+}
 
 private[platform] object DbType {
   object Postgres

@@ -24,7 +24,7 @@ The first kind of restriction you may want to put on the contract model are call
 
 Suppose, for example, that the ``SimpleIou`` contract from :ref:`simple_iou` should only be able to store positive amounts. You can enforce this using the ``ensure`` keyword:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- RESTRICTED_IOU_BEGIN
   :end-before: &&
@@ -32,7 +32,7 @@ Suppose, for example, that the ``SimpleIou`` contract from :ref:`simple_iou` sho
 The ``ensure`` keyword takes a single expression of type ``Bool``. If you want to add more restrictions, use logical operators ``&&``, ``||`` and ``not`` to build up expressions. The below shows the additional restriction that currencies are three capital letters:
 
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: ensure
   :end-before: -- RESTRICTED_IOU_END
@@ -41,7 +41,7 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you want t
 
   The ``T`` here stands for the ``DA.Text`` standard library which has been imported using ``import DA.Text as T``.
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- RESTRICTIONS_TEST_BEGIN
   :end-before: -- RESTRICTIONS_TEST_END
@@ -56,24 +56,24 @@ For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``o
 
 ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- TRANSFER_CHOICE_BEGIN
   :end-before: -- TRANSFER_CHOICE_END
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- TRANSFER_TEST_BEGIN
   :end-before: -- TRANSFER_TEST_END
 
 Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on weekdays. The choice doesn't do anything other than archiving the ``SimpleIou``. (This assumes that actual cash changes hands off-ledger.)
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- REDEEM_CHOICE_BEGIN
   :end-before: -- REDEEM_CHOICE_END
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- REDEEM_TEST_BEGIN
   :end-before: -- REDEEM_TEST_END
@@ -110,7 +110,7 @@ Time on ledgers
 
 On a distributed Daml ledger, there are no guarantees that ledger time or record time are strictly increasing. The only guarantee is that ledger time is increasing with causality. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LT of ``TX2`` is greater than or equal to that of ``TX1``:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- CAUSALITY_TEST_BEGIN
   :end-before: -- CAUSALITY_TEST_END
@@ -169,7 +169,7 @@ call that via ``createAndExerciseCmd`` just like we did to call
 ``fetchByKey``. Alternatively, if you do not need them to be part of the
 same transaction, you can make multiple calls to ``submit``.
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- BEGIN_EXT
   :end-before: -- END_EXT
@@ -184,7 +184,7 @@ An action followed by another action, possibly depending on the result of the fi
 
 This is where ``do`` blocks come in. ``do`` blocks allow you to build complex actions from simple ones, using the results of earlier actions in later ones.
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- DO_DEMO_BEGIN
   :end-before: -- DO_DEMO_END
@@ -212,7 +212,7 @@ A sample Action
 
 If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calculated.
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- COIN_BEGIN
   :end-before: -- COIN_END
@@ -223,7 +223,7 @@ A ``CoinGame a`` exposes a function ``play`` which takes a ``Coin`` and returns 
 
 You can't play any ``CoinGame`` game on pen and paper as you don't have a coin, but you can write down a script or recipe for a game:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- COIN_SCENARIO_BEGIN
   :end-before: -- COIN_SCENARIO_END
@@ -241,7 +241,7 @@ Errors
 
 Above, you've learnt about ``assertMsg`` and ``abort``, which represent (potentially) failing actions. Actions only have an effect when they are performed, so the following script succeeds or fails depending on the value of ``abortScript``:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- NON_PERFORMED_ABORT_BEGIN
   :end-before: -- NON_PERFORMED_ABORT_END
@@ -250,21 +250,21 @@ However, what about errors in contexts other than actions? Suppose we wanted to 
 
 One option is to make the function explicitly partial by returning an ``Optional``:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- OPTIONAL_POW_BEGIN
   :end-before: -- OPTIONAL_POW_END
 
 This is a useful pattern if we need to be able to handle the error case, but it also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on convenience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferable to fail catastrophically instead:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- ERROR_POW_BEGIN
   :end-before: -- ERROR_POW_END
 
 The big downside to this is that even unused errors cause failures. The following script will fail, because ``failingComputation`` is evaluated:
 
-.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+.. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- NON_PERFORMED_ERROR_BEGIN
   :end-before: -- NON_PERFORMED_ERROR_END

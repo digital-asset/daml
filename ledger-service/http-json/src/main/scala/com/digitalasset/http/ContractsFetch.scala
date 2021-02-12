@@ -313,7 +313,7 @@ private[http] object ContractsFetch {
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
-      txes: Traversable[lav1.event.Event]
+      txes: Iterable[lav1.event.Event]
   ): InsertDeleteStep.LAV1 = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
@@ -492,12 +492,16 @@ private[http] object ContractsFetch {
       (queries.deleteContracts(step.deletes.keySet) *>
         queries.insertContracts(
           step.inserts map (dbc =>
-            dbc copy (templateId =
-              stidMap getOrElse (dbc.templateId, throw new IllegalStateException(
-                "template ID missing from prior retrieval; impossible"
-              )),
-            signatories = domain.Party.unsubst(dbc.signatories),
-            observers = domain.Party.unsubst(dbc.observers)),
+            dbc.copy(
+              templateId = stidMap.getOrElse(
+                dbc.templateId,
+                throw new IllegalStateException(
+                  "template ID missing from prior retrieval; impossible"
+                ),
+              ),
+              signatories = domain.Party.unsubst(dbc.signatories),
+              observers = domain.Party.unsubst(dbc.observers),
+            ),
           )
         ))
     }.void
