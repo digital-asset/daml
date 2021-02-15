@@ -8,7 +8,7 @@ module DA.Cli.Damlc.Packaging
   ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception.Safe (try, SomeException)
+import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
