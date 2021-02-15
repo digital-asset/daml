@@ -127,7 +127,14 @@ final class NonRepudiationProxySpec
     val (privateKey, certificate) = Setup.generateKeyAndCertificate()
 
     NonRepudiationProxy
-      .owner(channel, proxyBuilder, certificates, signatures, Clock.systemUTC(), Health.Name)
+      .owner(
+        channel,
+        proxyBuilder,
+        certificates,
+        signatures,
+        Clock.systemUTC(),
+        Health.Name,
+      )
       .use { _ =>
         the[StatusRuntimeException] thrownBy {
           Health.getHealthStatus(

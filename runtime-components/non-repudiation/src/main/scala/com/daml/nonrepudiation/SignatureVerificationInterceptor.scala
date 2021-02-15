@@ -4,9 +4,10 @@
 package com.daml.nonrepudiation
 
 import java.io.ByteArrayInputStream
-import java.security.{PublicKey, Signature}
+import java.security.PublicKey
 import java.time.Clock
 
+import com.codahale.metrics.Timer
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import io.grpc.Metadata.Key
 import io.grpc._
@@ -16,11 +17,20 @@ import scala.util.Try
 
 final class SignatureVerificationInterceptor(
     certificateRepository: CertificateRepository.Read,
-    signedPayloads: SignedPayloadRepository.Write,
+    signedPayloadRepository: SignedPayloadRepository.Write,
     timestampProvider: Clock,
 ) extends ServerInterceptor {
 
   import SignatureVerificationInterceptor._
+
+  private val timedCertificateRepository =
+    new CertificateRepository.Timed(Metrics.getKeyTimer, certificateRepository)
+
+  private val timedSignedPayloadRepository =
+    new SignedPayloadRepository.Timed(Metrics.addSignedPayloadTimer, signedPayloadRepository)
+
+  private val timedSignatureVerification =
+    new SignatureVerification.Timed(Metrics.verifySignatureTimer)
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -28,12 +38,14 @@ final class SignatureVerificationInterceptor(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
 
+    val runningTimer = Metrics.processingTimer.time()
+
     val signatureData =
       for {
         signature <- getHeader(metadata, Headers.SIGNATURE, SignatureBytes.wrap)
         algorithm <- getHeader(metadata, Headers.ALGORITHM, AlgorithmString.wrap)
         fingerprint <- getHeader(metadata, Headers.FINGERPRINT, FingerprintBytes.wrap)
-        key <- getKey(certificateRepository, fingerprint)
+        key <- getKey(timedCertificateRepository, fingerprint)
       } yield SignatureData(
         signature = signature,
         algorithm = algorithm,
@@ -48,11 +60,13 @@ final class SignatureVerificationInterceptor(
           metadata = metadata,
           next = next,
           signatureData = signatureData,
-          signedPayloads = signedPayloads,
+          signatureVerification = timedSignatureVerification,
+          signedPayloads = timedSignedPayloadRepository,
           timestampProvider = timestampProvider,
+          runningTimer = runningTimer,
         )
       case Left(rejection) =>
-        rejection.report()
+        rejection.report(runningTimer)
         call.close(SignatureVerificationFailed, new Metadata())
         new ServerCall.Listener[ReqT] {}
     }
@@ -84,7 +98,9 @@ object SignatureVerificationInterceptor {
   }
 
   private trait Rejection {
-    def report(): Unit = {
+    def report(timer: Timer.Context): Unit = {
+      Metrics.rejectionsMeter.mark()
+      timer.stop()
       this match {
         case Rejection.Error(reason) =>
           logger.debug(reason)
@@ -124,8 +140,10 @@ object SignatureVerificationInterceptor {
       metadata: Metadata,
       next: ServerCallHandler[ReqT, RespT],
       signatureData: SignatureData,
+      signatureVerification: SignatureVerification,
       signedPayloads: SignedPayloadRepository.Write,
       timestampProvider: Clock,
+      runningTimer: Timer.Context,
   ) extends ForwardingServerCallListener(call, metadata, next) {
 
     private def castToByteArray(request: ReqT): Either[Rejection, Array[Byte]] = {
@@ -134,15 +152,7 @@ object SignatureVerificationInterceptor {
     }
 
     private def verifySignature(payload: Array[Byte]): Either[Rejection, Boolean] =
-      Try {
-        logger.trace("Decoding signature bytes from Base64-encoded signature")
-        logger.trace("Initializing signature verifier")
-        val verifier = Signature.getInstance(signatureData.algorithm)
-        verifier.initVerify(signatureData.key)
-        verifier.update(payload)
-        logger.trace("Verifying signature '{}'", signatureData.signature.base64)
-        verifier.verify(signatureData.signature.unsafeArray)
-      }.toEither.left
+      signatureVerification(payload, signatureData).toEither.left
         .map(Rejection.fromException)
         .filterOrElse(identity, Rejection.SignatureVerificationFailed)
 
@@ -168,12 +178,13 @@ object SignatureVerificationInterceptor {
           _ <- addSignedCommand(payload)
         } yield {
           val input = new ByteArrayInputStream(payload)
-          val dup = call.getMethodDescriptor.parseRequest(input)
-          super.onMessage(dup)
+          val copy = call.getMethodDescriptor.parseRequest(input)
+          runningTimer.stop()
+          super.onMessage(copy)
         }
 
       result.left.foreach { rejection =>
-        rejection.report()
+        rejection.report(runningTimer)
         call.close(SignatureVerificationFailed, new Metadata())
       }
     }

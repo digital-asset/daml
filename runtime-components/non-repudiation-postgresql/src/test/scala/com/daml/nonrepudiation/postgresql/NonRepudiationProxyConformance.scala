@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.nonrepudiation.client.SigningInterceptor
-import com.daml.nonrepudiation.{AlgorithmString, NonRepudiationProxy}
+import com.daml.nonrepudiation.{AlgorithmString, MetricsReporterOwner, NonRepudiationProxy}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.{Runner => Sandbox}
 import com.daml.ports.Port
@@ -77,6 +77,7 @@ final class NonRepudiationProxyConformance
           sandboxChannelBuilder,
           shutdownTimeout = 5.seconds,
         )
+        _ <- MetricsReporterOwner.slf4j[ResourceContext](period = 5.seconds)
         transactor <- managedHikariTransactor(postgresDatabase.url, maxPoolSize = 10)
         db = Tables.initialize(transactor)
         _ = db.certificates.put(certificate)
