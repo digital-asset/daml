@@ -208,7 +208,7 @@ private[apiserver] final class ApiSubmissionService private (
                 val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
                 withEnrichedLoggingContext(
                   logging.party(name),
-                  logging.submissionId(submissionId),
+                  logging.correlationId(submissionId),
                 ) { implicit loggingContext =>
                   logger.info("Implicit party allocation")
                   writeService

@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionId,
   WriteParticipantPruningService,
 }
+import com.daml.platform.apiserver.services.logging
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -50,7 +51,7 @@ final class ApiParticipantPruningService private (
     submissionIdOrErr.fold(
       Future.failed,
       submissionId =>
-        LoggingContext.withEnrichedLoggingContext("submissionId" -> submissionId) {
+        LoggingContext.withEnrichedLoggingContext(logging.correlationId(submissionId)) {
           implicit logCtx =>
             (for {
 

@@ -79,7 +79,7 @@ private[apiserver] final class ApiCommandService private (
       loggingContext: LoggingContext
   ): Future[Completion] =
     withEnrichedLoggingContext(
-      logging.commandId(request.getCommands.commandId),
+      logging.correlationId(request.getCommands.commandId),
       logging.party(request.getCommands.party),
       logging.actAs(request.getCommands.actAs),
       logging.readAs(request.getCommands.readAs),

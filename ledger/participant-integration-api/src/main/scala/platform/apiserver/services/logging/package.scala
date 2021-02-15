@@ -44,10 +44,10 @@ package object logging {
     }
   private[services] def applicationId(id: ApplicationId): (String, String) =
     "applicationId" -> id.unwrap
-  private[services] def commandId(id: String): (String, String) =
-    "commandId" -> id
-  private[services] def commandId(id: CommandId): (String, String) =
-    "commandId" -> id.unwrap
+  private[services] def correlationId(id: String): (String, String) =
+    "correlationId" -> id
+  private[services] def correlationId(id: CommandId): (String, String) =
+    "correlationId" -> id.unwrap
   private[services] def deduplicateUntil(t: Instant): (String, String) =
     "deduplicateUntil" -> t.toString
   private[services] def eventId(id: EventId): (String, String) =
@@ -62,8 +62,6 @@ package object logging {
           )
         )
     }.toMap
-  private[services] def submissionId(id: String): (String, String) =
-    "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
     "submittedAt" -> t.toString
   private[services] def transactionId(id: TransactionId): (String, String) =
@@ -73,7 +71,7 @@ package object logging {
   private[services] def commands(cmds: Commands): Map[String, String] = {
     val context =
       Map(
-        commandId(cmds.commandId),
+        correlationId(cmds.commandId),
         deduplicateUntil(cmds.deduplicateUntil),
         applicationId(cmds.applicationId),
         submittedAt(cmds.submittedAt),
