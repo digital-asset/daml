@@ -66,10 +66,7 @@ class MultiTableDataFormat(
       val takenNames = if (schemaPerPackage) {
         state.templateToTable.view
           .filterKeys(_.packageId == id.packageId)
-          .toMap
-          .values
-          .view
-          .map(_.withOutSchema)
+          .map(_._2.withOutSchema)
           .toSet
       } else {
         state.templateToTable.values.view.map(_.withOutSchema).toSet
