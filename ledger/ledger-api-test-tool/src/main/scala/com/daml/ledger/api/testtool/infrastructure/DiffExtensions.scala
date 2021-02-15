@@ -17,31 +17,4 @@ trait DiffExtensions {
     }
   }
 
-  implicit def diffSeq[T](implicit diffT: Diff[T]): Diff[Seq[T]] =
-    new Diff[Seq[T]] {
-      override def apply(left: Seq[T], right: Seq[T], toIgnore: List[FieldPath]): DiffResult = {
-        val changed = left.toStream
-          .zip(right.toStream)
-          .map { case (l, r) => diffT.apply(l, r) }
-          .collect { case result if !result.isIdentical => result }
-
-        val removed: Seq[DiffResult] = left.toStream
-          .drop(right.length)
-          .map(DiffResultMissing.apply)
-        val added: Seq[DiffResult] = right.toStream
-          .drop(left.length)
-          .map(DiffResultAdditional.apply)
-
-        assert(
-          removed.isEmpty || added.isEmpty,
-          "Diff[Seq[_]] thinks that both sequences are longer than each other.",
-        )
-
-        val differences = changed ++ removed ++ added
-
-        if (differences.isEmpty) Identical(left)
-        else DiffResultString(differences.toList)
-      }
-    }
-
 }
