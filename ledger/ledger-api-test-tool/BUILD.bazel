@@ -149,8 +149,8 @@ EOF
                 "//libs-scala/grpc-utils",
                 "//libs-scala/timer-utils",
                 "@maven//:com_chuusai_shapeless_2_12",
-                "@maven//:com_propensive_magnolia_2_12",
-                "@maven//:com_propensive_mercator_2_12",
+                "@maven//:com_propensive_magnolia_2_12", # transitive dependency of diffx
+                "@maven//:com_propensive_mercator_2_12", # transitive dependency of diffx
                 "@maven//:com_softwaremill_diffx_diffx_core_2_12",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
