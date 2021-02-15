@@ -3,6 +3,8 @@
 
 package com.daml.platform.indexer
 
+import java.time.{Duration, Instant}
+
 import akka.NotUsed
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Flow
@@ -12,8 +14,19 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1.{Offset, Party, Update}
+import com.daml.ledger.participant.state.v1.{
+  ApplicationId,
+  CommandId,
+  Offset,
+  ParticipantId,
+  Party,
+  SubmissionId,
+  TransactionId,
+  Update,
+  WorkflowId,
+}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
@@ -230,10 +243,10 @@ trait ExecuteUpdate {
     update match {
       case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
         Map(
-          "updateSubmissionId" -> submissionId,
-          "updateParticipantId" -> participantId,
-          "updateConfigGeneration" -> newConfiguration.generation.toString,
-          "updatedMaxDeduplicationTime" -> newConfiguration.maxDeduplicationTime.toString,
+          Logging.submissionId(submissionId),
+          Logging.participantId(participantId),
+          Logging.configGeneration(newConfiguration.generation),
+          Logging.maxDeduplicationTime(newConfiguration.maxDeduplicationTime),
         )
       case ConfigurationChangeRejected(
             _,
@@ -243,63 +256,98 @@ trait ExecuteUpdate {
             rejectionReason,
           ) =>
         Map(
-          "updateSubmissionId" -> submissionId,
-          "updateParticipantId" -> participantId,
-          "updateConfigGeneration" -> proposedConfiguration.generation.toString,
-          "updatedMaxDeduplicationTime" -> proposedConfiguration.maxDeduplicationTime.toString,
-          "updateRejectionReason" -> rejectionReason,
+          Logging.submissionId(submissionId),
+          Logging.participantId(participantId),
+          Logging.configGeneration(proposedConfiguration.generation),
+          Logging.maxDeduplicationTime(proposedConfiguration.maxDeduplicationTime),
+          Logging.rejectionReason(rejectionReason),
         )
       case PartyAddedToParticipant(party, displayName, participantId, _, submissionId) =>
         Map(
-          "updateSubmissionId" -> submissionId.getOrElse(""),
-          "updateParticipantId" -> participantId,
-          "updateParty" -> party,
-          "updateDisplayName" -> displayName,
+          Logging.submissionIdOpt(submissionId),
+          Logging.participantId(participantId),
+          Logging.party(party),
+          Logging.displayName(displayName),
         )
       case PartyAllocationRejected(submissionId, participantId, _, rejectionReason) =>
         Map(
-          "updateSubmissionId" -> submissionId,
-          "updateParticipantId" -> participantId,
-          "updateRejectionReason" -> rejectionReason,
+          Logging.submissionId(submissionId),
+          Logging.participantId(participantId),
+          Logging.rejectionReason(rejectionReason),
         )
       case PublicPackageUpload(_, sourceDescription, _, submissionId) =>
         Map(
-          "updateSubmissionId" -> submissionId.getOrElse(""),
-          "updateSourceDescription" -> sourceDescription.getOrElse(""),
+          Logging.submissionIdOpt(submissionId),
+          Logging.sourceDescriptionOpt(sourceDescription),
         )
       case PublicPackageUploadRejected(submissionId, _, rejectionReason) =>
         Map(
-          "updateSubmissionId" -> submissionId,
-          "updateRejectionReason" -> rejectionReason,
+          Logging.submissionId(submissionId),
+          Logging.rejectionReason(rejectionReason),
         )
       case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _, _) =>
         Map(
-          "updateTransactionId" -> transactionId,
-          "updateLedgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
-          "updateWorkflowId" -> transactionMeta.workflowId.getOrElse(""),
-          "updateSubmissionTime" -> transactionMeta.submissionTime.toInstant.toString,
+          Logging.transactionId(transactionId),
+          Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
+          Logging.workflowIdOpt(transactionMeta.workflowId),
+          Logging.submissionTime(transactionMeta.submissionTime),
         ) ++ optSubmitterInfo
           .map(info =>
             Map(
-              "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
-              "updateApplicationId" -> info.applicationId,
-              "updateCommandId" -> info.commandId,
-              "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
+              Logging.submitter(info.actAs),
+              Logging.applicationId(info.applicationId),
+              Logging.commandId(info.commandId),
+              Logging.deduplicateUntil(info.deduplicateUntil),
             )
           )
           .getOrElse(Map.empty)
       case CommandRejected(_, submitterInfo, reason) =>
         Map(
-          "updateSubmitter" -> loggingContextPartiesValue(submitterInfo.actAs),
-          "updateApplicationId" -> submitterInfo.applicationId,
-          "updateCommandId" -> submitterInfo.commandId,
-          "updateDeduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
-          "updateRejectionReason" -> reason.description,
+          Logging.submitter(submitterInfo.actAs),
+          Logging.applicationId(submitterInfo.applicationId),
+          Logging.commandId(submitterInfo.commandId),
+          Logging.deduplicateUntil(submitterInfo.deduplicateUntil),
+          Logging.rejectionReason(reason.description),
         )
     }
 
-  private def loggingContextPartiesValue(parties: List[Party]): String =
-    parties.mkString("[", ", ", "]")
+  private object Logging {
+    def submissionId(id: SubmissionId): (String, String) =
+      "submissionId" -> id
+    def submissionIdOpt(id: Option[SubmissionId]): (String, String) =
+      "submissionId" -> id.getOrElse("")
+    def participantId(id: ParticipantId): (String, String) =
+      "participantId" -> id
+    def commandId(id: CommandId): (String, String) =
+      "commandId" -> id
+    def party(party: Party): (String, String) =
+      "party" -> party
+    def transactionId(id: TransactionId): (String, String) =
+      "transactionId" -> id
+    def applicationId(id: ApplicationId): (String, String) =
+      "applicationId" -> id
+    def workflowIdOpt(id: Option[WorkflowId]): (String, String) =
+      "workflowId" -> id.getOrElse("")
+    def ledgerTime(time: Timestamp): (String, String) =
+      "ledgerTime" -> time.toInstant.toString
+    def submissionTime(time: Timestamp): (String, String) =
+      "submissionTime" -> time.toInstant.toString
+    def configGeneration(generation: Long): (String, String) =
+      "configGeneration" -> generation.toString
+    def maxDeduplicationTime(time: Duration): (String, String) =
+      "maxDeduplicationTime" -> time.toString
+    def deduplicateUntil(time: Instant): (String, String) =
+      "deduplicateUntil" -> time.toString
+    def rejectionReason(reason: String): (String, String) =
+      "rejectionReason" -> reason
+    def displayName(name: String): (String, String) =
+      "displayName" -> name
+    def sourceDescriptionOpt(description: Option[String]): (String, String) =
+      "sourceDescription" -> description.getOrElse("")
+    def submitter(parties: List[Party]): (String, String) =
+      "submitter" -> parties.mkString("[", ", ", "]")
+
+  }
 }
 
 class PipelinedExecuteUpdate(
