@@ -261,12 +261,11 @@ object KeyValueParticipantStateReaderSpec {
         recordTime,
       )
 
-  private def aLogEntryId(index: Int): Raw.Key =
-    Raw.Key(
+  private def aLogEntryId(index: Int): Raw.LogEntryId =
+    Raw.LogEntryId(
       DamlLogEntryId.newBuilder
         .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
         .build
-        .toByteString
     )
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {

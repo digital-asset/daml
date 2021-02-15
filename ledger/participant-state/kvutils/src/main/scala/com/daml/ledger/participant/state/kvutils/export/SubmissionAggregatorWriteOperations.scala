@@ -12,7 +12,7 @@ final class SubmissionAggregatorWriteOperations(builder: SubmissionAggregator.Wr
     extends LedgerStateWriteOperations[Unit] {
 
   override def writeState(
-      key: Raw.Key,
+      key: Raw.StateKey,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future {
@@ -20,14 +20,14 @@ final class SubmissionAggregatorWriteOperations(builder: SubmissionAggregator.Wr
     }
 
   override def writeState(
-      keyValuePairs: Iterable[(Raw.Key, Raw.Value)]
+      keyValuePairs: Iterable[Raw.StateEntry]
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future {
       builder ++= keyValuePairs
     }
 
   override def appendToLog(
-      key: Raw.Key,
+      key: Raw.LogEntryId,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future {

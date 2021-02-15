@@ -49,7 +49,7 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
 
   private def parseWriteSet(entry: LedgerExportEntry): WriteSet =
     entry.getWriteSetList.asScala.view
-      .map(writeEntry => Raw.Key(writeEntry.getKey) -> Raw.Value(writeEntry.getValue))
+      .map(writeEntry => Raw.UnknownKey(writeEntry.getKey) -> Raw.Value(writeEntry.getValue))
       .toVector
 
 }

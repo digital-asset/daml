@@ -9,9 +9,9 @@ import com.daml.ledger.participant.state.kvutils.Raw
 /** Determines how we namespace and serialize state keys.
   */
 trait StateKeySerializationStrategy {
-  def serializeStateKey(key: DamlStateKey): Raw.Key
+  def serializeStateKey(key: DamlStateKey): Raw.StateKey
 
-  def deserializeStateKey(input: Raw.Key): DamlStateKey
+  def deserializeStateKey(input: Raw.StateKey): DamlStateKey
 }
 
 object StateKeySerializationStrategy {

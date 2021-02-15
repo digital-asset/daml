@@ -54,7 +54,10 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
     val differencesExplained = expectedWriteSet
       .zip(actualWriteSet)
       .map { case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
-        if (expectedKey == actualKey && expectedValue != actualValue) {
+        // We need to compare `.bytes` because the type will be different.
+        // Unfortunately, the export format doesn't differentiate between log and state entries.
+        // We don't want to change this because it will break backwards-compatibility.
+        if (expectedKey.bytes == actualKey.bytes && expectedValue != actualValue) {
           Some(
             Seq(
               s"expected value:    ${rawHexString(expectedValue)}",
@@ -62,7 +65,7 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
               explainDifference(expectedKey, expectedValue, actualValue),
             )
           )
-        } else if (expectedKey != actualKey) {
+        } else if (expectedKey.bytes != actualKey.bytes) {
           Some(
             Seq(
               s"expected key:    ${rawHexString(expectedKey)}",

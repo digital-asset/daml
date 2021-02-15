@@ -31,17 +31,17 @@ object WriteRecordingLedgerStateAccess {
       delegate: LedgerStateOperations[LogResult],
   ) extends LedgerStateOperations[LogResult] {
     override def readState(
-        key: Raw.Key
+        key: Raw.StateKey
     )(implicit executionContext: ExecutionContext): Future[Option[Raw.Value]] =
       delegate.readState(key)
 
     override def readState(
-        keys: Iterable[Raw.Key]
+        keys: Iterable[Raw.StateKey]
     )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
       delegate.readState(keys)
 
     override def writeState(
-        key: Raw.Key,
+        key: Raw.StateKey,
         value: Raw.Value,
     )(implicit executionContext: ExecutionContext): Future[Unit] = {
       this.synchronized(recordedWriteSet.append((key, value)))
@@ -49,14 +49,14 @@ object WriteRecordingLedgerStateAccess {
     }
 
     override def writeState(
-        keyValuePairs: Iterable[Raw.KeyValuePair]
+        keyValuePairs: Iterable[Raw.StateEntry]
     )(implicit executionContext: ExecutionContext): Future[Unit] = {
       this.synchronized(recordedWriteSet.appendAll(keyValuePairs))
       delegate.writeState(keyValuePairs)
     }
 
     override def appendToLog(
-        key: Raw.Key,
+        key: Raw.LogEntryId,
         value: Raw.Value,
     )(implicit executionContext: ExecutionContext): Future[LogResult] = {
       this.synchronized(recordedWriteSet.append((key, value)))

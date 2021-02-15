@@ -68,7 +68,7 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
         DamlKvutils.Envelope.newBuilder
           .setVersion(Version.version)
           .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
-          .build()
+          .build
           .toByteString
       )
       inside(writeSetComparison.checkEntryIsReadable(noKey, value)) { case Left(message) =>
@@ -91,14 +91,14 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
 
     "fail on a log entry with an invalid payload" in {
       val key = aValidLogEntryId
-      val value = Envelope.enclose(DamlLogEntry.newBuilder.build())
+      val value = Envelope.enclose(DamlLogEntry.newBuilder.build)
       inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Left(message) =>
         message should be("Log entry payload not set.")
       }
     }
 
     "fail on a state entry with an invalid key" in {
-      val key = Raw.Key(DamlStateKey.newBuilder.build().toByteString)
+      val key = Raw.StateKey(DamlStateKey.newBuilder.build)
       val value = aValidStateValue
       inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Left(message) =>
         message should be("State key not set.")
@@ -214,32 +214,30 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
 
 object RawWriteSetComparisonSpec {
 
-  private val noKey: Raw.Key =
-    Raw.Key(ByteString.EMPTY)
+  private val noKey: Raw.Key = Raw.UnknownKey.empty
 
-  private val aValidLogEntryId: Raw.Key =
-    Raw.Key(
+  private val aValidLogEntryId: Raw.LogEntryId =
+    Raw.LogEntryId(
       DamlLogEntryId.newBuilder
         .setEntryId(ByteString.copyFromUtf8("entry-id"))
-        .build()
-        .toByteString
+        .build
     )
 
   private val aValidLogEntry: Raw.Value =
     Envelope.enclose(
       DamlLogEntry.newBuilder
         .setPartyAllocationEntry(DamlPartyAllocationEntry.newBuilder.setParty("Alice"))
-        .build()
+        .build
     )
 
-  private val aValidStateKey: Raw.Key =
+  private val aValidStateKey: Raw.StateKey =
     aConfigurationStateKey
 
-  private def aConfigurationStateKey =
-    Raw.Key(DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build().toByteString)
+  private def aConfigurationStateKey: Raw.StateKey =
+    Raw.StateKey(DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build)
 
-  private def aPartyAllocationStateKey(partyId: String): Raw.Key =
-    Raw.Key(DamlStateKey.newBuilder.setParty(partyId).build().toByteString)
+  private def aPartyAllocationStateKey(partyId: String): Raw.StateKey =
+    Raw.StateKey(DamlStateKey.newBuilder.setParty(partyId).build)
 
   private val aValidStateValue: Raw.Value =
     Envelope.enclose(aConfigurationStateValue(generation = 1))

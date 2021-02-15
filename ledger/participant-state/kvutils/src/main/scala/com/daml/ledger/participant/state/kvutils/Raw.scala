@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateKey}
 import com.google.protobuf.ByteString
 
 import scala.language.implicitConversions
@@ -30,6 +31,8 @@ object Raw {
 
   trait Companion[Self] {
 
+    val empty: Self = apply(ByteString.EMPTY)
+
     def apply(bytes: ByteString): Self
 
     /** This implicit conversion exists to aid in migration.
@@ -51,16 +54,43 @@ object Raw {
     */
   private final case class Unknown(override val bytes: ByteString) extends Bytes
 
-  final case class Key(override val bytes: ByteString) extends Bytes
+  trait Key extends Bytes
 
   object Key extends Companion[Key] {
-    implicit val `Key Ordering`: Ordering[Key] = Ordering.by(_.bytes.asReadOnlyByteBuffer)
+    def apply(bytes: ByteString): Key =
+      UnknownKey(bytes)
+
+    implicit val `Key Ordering`: Ordering[Key] =
+      Ordering.by(_.bytes.asReadOnlyByteBuffer)
+  }
+
+  final case class UnknownKey(override val bytes: ByteString) extends Key
+
+  object UnknownKey extends Companion[UnknownKey]
+
+  final case class LogEntryId(override val bytes: ByteString) extends Key
+
+  object LogEntryId extends Companion[LogEntryId] {
+    def apply(logEntryId: DamlLogEntryId): LogEntryId =
+      apply(logEntryId.toByteString)
+  }
+
+  final case class StateKey(override val bytes: ByteString) extends Key
+
+  object StateKey extends Companion[StateKey] {
+    def apply(stateKey: DamlStateKey): StateKey =
+      apply(stateKey.toByteString)
+
+    implicit val `StateKey Ordering`: Ordering[StateKey] =
+      Key.`Key Ordering`.on(identity)
   }
 
   final case class Value(override val bytes: ByteString) extends Bytes
 
   object Value extends Companion[Value]
 
-  type KeyValuePair = (Key, Value)
+  type LogEntry = (LogEntryId, Value)
+
+  type StateEntry = (StateKey, Value)
 
 }

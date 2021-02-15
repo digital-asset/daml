@@ -24,8 +24,12 @@ final class LogAppendingCommitStrategySpec
     "return index from appendToLog" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
       val expectedIndex = 1234L
-      when(mockLedgerStateOperations.appendToLog(any[Raw.Key], any[Raw.Value])(anyExecutionContext))
-        .thenReturn(Future.successful(expectedIndex))
+      when(
+        mockLedgerStateOperations.appendToLog(
+          any[Raw.LogEntryId],
+          any[Raw.Value],
+        )(anyExecutionContext)
+      ).thenReturn(Future.successful(expectedIndex))
       val instance =
         new LogAppendingCommitStrategy[Long](
           mockLedgerStateOperations,
@@ -35,11 +39,10 @@ final class LogAppendingCommitStrategySpec
       instance
         .commit(aParticipantId, "a correlation ID", aLogEntryId(), aLogEntry, Map.empty, Map.empty)
         .map { actualIndex =>
-          verify(mockLedgerStateOperations, times(1)).appendToLog(any[Raw.Key], any[Raw.Value])(
-            anyExecutionContext
-          )
+          verify(mockLedgerStateOperations, times(1))
+            .appendToLog(any[Raw.LogEntryId], any[Raw.Value])(anyExecutionContext)
           verify(mockLedgerStateOperations, times(0))
-            .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
+            .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
           actualIndex should be(expectedIndex)
         }
     }
@@ -47,13 +50,17 @@ final class LogAppendingCommitStrategySpec
     "write keys serialized according to strategy" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
       when(
-        mockLedgerStateOperations.writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
+        mockLedgerStateOperations.writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
       )
         .thenReturn(Future.unit)
-      when(mockLedgerStateOperations.appendToLog(any[Raw.Key], any[Raw.Value])(anyExecutionContext))
-        .thenReturn(Future.successful(0L))
+      when(
+        mockLedgerStateOperations.appendToLog(
+          any[Raw.LogEntryId],
+          any[Raw.Value],
+        )(anyExecutionContext)
+      ).thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
-      val expectedStateKey = Raw.Key(ByteString.copyFromUtf8("some key"))
+      val expectedStateKey = Raw.StateKey(ByteString.copyFromUtf8("some key"))
       when(mockStateKeySerializationStrategy.serializeStateKey(aStateKey))
         .thenReturn(expectedStateKey)
       val expectedOutputStateBytes = Map(expectedStateKey -> Envelope.enclose(aStateValue))

@@ -43,6 +43,6 @@ final class InMemorySubmissionAggregatorSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  private def keyValuePairOf(key: String, value: String): Raw.KeyValuePair =
-    Raw.Key(ByteString.copyFromUtf8(key)) -> Raw.Value(ByteString.copyFromUtf8(value))
+  private def keyValuePairOf(key: String, value: String): Raw.StateEntry =
+    Raw.StateKey(ByteString.copyFromUtf8(key)) -> Raw.Value(ByteString.copyFromUtf8(value))
 }

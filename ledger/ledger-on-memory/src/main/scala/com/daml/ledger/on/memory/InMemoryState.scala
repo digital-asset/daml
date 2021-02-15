@@ -42,14 +42,14 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 
 object InMemoryState {
   type ImmutableLog = collection.IndexedSeq[LedgerRecord]
-  type ImmutableState = collection.Map[Raw.Key, Raw.Value]
+  type ImmutableState = collection.Map[Raw.StateKey, Raw.Value]
 
   type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog
-  type MutableState = mutable.Map[Raw.Key, Raw.Value] with ImmutableState
+  type MutableState = mutable.Map[Raw.StateKey, Raw.Value] with ImmutableState
 
   // The first element will never be read because begin offsets are exclusive.
   private val Beginning =
-    LedgerRecord(Offset.beforeBegin, Raw.Key(ByteString.EMPTY), Raw.Value(ByteString.EMPTY))
+    LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Value(ByteString.EMPTY))
 
   def empty =
     new InMemoryState(

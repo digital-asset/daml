@@ -12,9 +12,9 @@ import scala.util.Try
 trait WriteQueries {
   def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId]
 
-  def insertRecordIntoLog(key: Raw.Key, value: Raw.Value): Try[Index]
+  def insertRecordIntoLog(key: Raw.LogEntryId, value: Raw.Value): Try[Index]
 
-  def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit]
+  def updateState(stateUpdates: Iterable[Raw.StateEntry]): Try[Unit]
 
   def truncate(): Try[Unit]
 

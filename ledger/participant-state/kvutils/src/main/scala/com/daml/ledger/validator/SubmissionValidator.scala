@@ -126,8 +126,7 @@ class SubmissionValidator[LogResult] private[validator] (
       stateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
-    val eventualLogResult =
-      stateOperations.appendToLog(Raw.Key(logEntryId.toByteString), rawLogEntry)
+    val eventualLogResult = stateOperations.appendToLog(Raw.LogEntryId(logEntryId), rawLogEntry)
     val eventualStateResult =
       if (rawStateUpdates.nonEmpty)
         stateOperations.writeState(rawStateUpdates)
@@ -306,8 +305,6 @@ class SubmissionValidator[LogResult] private[validator] (
 
 object SubmissionValidator {
 
-  type RawKeyValuePairs = Seq[Raw.KeyValuePair]
-
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
@@ -383,7 +380,7 @@ object SubmissionValidator {
 
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState
-  ): (Raw.Value, RawKeyValuePairs) = {
+  ): (Raw.Value, Seq[Raw.StateEntry]) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
     val rawStateUpdates =
       damlStateUpdates
@@ -395,8 +392,8 @@ object SubmissionValidator {
     (Envelope.enclose(logEntry), rawStateUpdates)
   }
 
-  private[validator] def rawKey(damlStateKey: DamlStateKey): Raw.Key =
-    Raw.Key(damlStateKey.toByteString)
+  private[validator] def rawKey(damlStateKey: DamlStateKey): Raw.StateKey =
+    Raw.StateKey(damlStateKey)
 
   private[validator] def rawValue(value: DamlStateValue): Raw.Value =
     Envelope.enclose(value)

@@ -36,7 +36,7 @@ trait LedgerStateReadOperations {
     * @return value corresponding to requested key or None in case it does not exist
     */
   def readState(
-      key: Raw.Key
+      key: Raw.StateKey
   )(implicit executionContext: ExecutionContext): Future[Option[Raw.Value]]
 
   /** Reads values of a set of keys from the backing store.
@@ -45,7 +45,7 @@ trait LedgerStateReadOperations {
     * @return values corresponding to the requested keys, in the same order as requested
     */
   def readState(
-      keys: Iterable[Raw.Key]
+      keys: Iterable[Raw.StateKey]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]]
 }
 
@@ -58,14 +58,14 @@ trait LedgerStateWriteOperations[+LogResult] {
   /** Writes a single key-value pair to the backing store.  In case the key already exists its value is overwritten.
     */
   def writeState(
-      key: Raw.Key,
+      key: Raw.StateKey,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[Unit]
 
   /** Writes a list of key-value pairs to the backing store.  In case a key already exists its value is overwritten.
     */
   def writeState(
-      keyValuePairs: Iterable[Raw.KeyValuePair]
+      keyValuePairs: Iterable[Raw.StateEntry]
   )(implicit executionContext: ExecutionContext): Future[Unit]
 
   /** Writes a single log entry to the backing store.  The implementation may return Future.failed in case the key
@@ -74,7 +74,7 @@ trait LedgerStateWriteOperations[+LogResult] {
     * @return offset of the latest log entry
     */
   def appendToLog(
-      key: Raw.Key,
+      key: Raw.LogEntryId,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[LogResult]
 }
@@ -105,12 +105,12 @@ object LedgerStateOperations {
   */
 abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOperations[LogResult] {
   override final def readState(
-      key: Raw.Key
+      key: Raw.StateKey
   )(implicit executionContext: ExecutionContext): Future[Option[Raw.Value]] =
     readState(Seq(key)).map(_.head)(DirectExecutionContext)
 
   override final def writeState(
-      key: Raw.Key,
+      key: Raw.StateKey,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     writeState(Seq(key -> value))
@@ -122,12 +122,12 @@ abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOpera
 abstract class NonBatchingLedgerStateOperations[LogResult]
     extends LedgerStateOperations[LogResult] {
   override final def readState(
-      keys: Iterable[Raw.Key]
+      keys: Iterable[Raw.StateKey]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
     Future.sequence(keys.map(readState)).map(_.toSeq)
 
   override final def writeState(
-      keyValuePairs: Iterable[Raw.KeyValuePair]
+      keyValuePairs: Iterable[Raw.StateEntry]
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future
       .sequence(keyValuePairs.map { case (key, value) =>
@@ -142,28 +142,28 @@ final class TimedLedgerStateOperations[LogResult](
 ) extends LedgerStateOperations[LogResult] {
 
   override def readState(
-      key: Raw.Key
+      key: Raw.StateKey
   )(implicit executionContext: ExecutionContext): Future[Option[Raw.Value]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(key))
 
   override def readState(
-      keys: Iterable[Raw.Key]
+      keys: Iterable[Raw.StateKey]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(keys))
 
   override def writeState(
-      key: Raw.Key,
+      key: Raw.StateKey,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(key, value))
 
   override def writeState(
-      keyValuePairs: Iterable[Raw.KeyValuePair]
+      keyValuePairs: Iterable[Raw.StateEntry]
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(keyValuePairs))
 
   override def appendToLog(
-      key: Raw.Key,
+      key: Raw.LogEntryId,
       value: Raw.Value,
   )(implicit executionContext: ExecutionContext): Future[LogResult] =
     Timed.future(metrics.daml.ledger.log.append, delegate.appendToLog(key, value))

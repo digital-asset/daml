@@ -11,7 +11,7 @@ sealed trait ValidationFailed extends RuntimeException with NoStackTrace
 
 object ValidationFailed {
 
-  final case class MissingInputState(keys: Seq[Raw.Key]) extends ValidationFailed
+  final case class MissingInputState(keys: Seq[Raw.StateKey]) extends ValidationFailed
 
   final case class ValidationError(reason: String) extends ValidationFailed
 

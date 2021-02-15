@@ -18,20 +18,21 @@ final class InMemoryLedgerStateOperations(
 ) extends BatchingLedgerStateOperations[Index] {
 
   override def readState(
-      keys: Iterable[Raw.Key]
+      keys: Iterable[Raw.StateKey]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
     Future.successful(keys.view.map(state.get).toSeq)
 
   override def writeState(
-      keyValuePairs: Iterable[Raw.KeyValuePair]
+      keyValuePairs: Iterable[Raw.StateEntry]
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     state ++= keyValuePairs
     Future.unit
   }
 
-  override def appendToLog(key: Raw.Key, value: Raw.Value)(implicit
-      executionContext: ExecutionContext
-  ): Future[Index] =
+  override def appendToLog(
+      key: Raw.LogEntryId,
+      value: Raw.Value,
+  )(implicit executionContext: ExecutionContext): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
 
 }
