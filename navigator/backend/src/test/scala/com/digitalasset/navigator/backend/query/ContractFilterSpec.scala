@@ -121,7 +121,8 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   def test(filters: List[(String, String)], expected: List[Contract], isAnd: Boolean): Unit = {
     it should s"return $expected on filter (${filters.map { case (k, v) => s"$k contains $v" }.mkString(" and ")})" in {
       val criteria = filters.map { case (k, v) => new FilterCriterion(k, v) }
-      val criterion = if (isAnd) AndFilterCriterion(criteria) else OrFilterCriterion(criteria)
+      val criterion: FilterCriterionBase =
+        if (isAnd) AndFilterCriterion(criteria) else OrFilterCriterion(criteria)
       val filter = new ContractFilter(criterion, damlLfDefDataTypes.get, AllContractsPager)
       contracts.filter(filter.isIncluded) should contain theSameElementsAs expected
     }

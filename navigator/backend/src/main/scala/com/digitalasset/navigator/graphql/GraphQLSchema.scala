@@ -40,9 +40,26 @@ case class UserFacingError(message: String)
   override def getMessage: String = message
 }
 
+private object Implicits {
+
+  implicit final class `ExtendedInterfaceType Ops`[Ctx, Val](
+      private val self: InterfaceType[Ctx, Val]
+  ) extends AnyVal {
+    // Hack around https://github.com/scala/bug/issues/11662 which
+    // otherwise results in the implicit PossibleObject constructor
+    // being ambiguous due to the also implicit apply method.
+    def withPossibleObjectTypes(possible: () => List[ObjectType[Ctx, _]]) =
+      self.withPossibleTypes(() => possible().map(new PossibleObject[Ctx, Val](_)))
+  }
+}
+
 /** Schema definition for the UI backend GraphQL API. */
-@SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
+@SuppressWarnings(
+  Array("org.wartremover.warts.JavaSerializable", "org.wartremover.warts.Serializable")
+)
 final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
+
+  import Implicits._
 
   implicit private val actorTimeout: Timeout = Timeout(60, TimeUnit.SECONDS)
   implicit private val executionContext: ExecutionContext = ExecutionContext.global
@@ -105,12 +122,12 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
   )
 
   //noinspection ForwardReference
-  val NodeType: InterfaceType[GraphQLContext, Node[_]] = InterfaceType(
+  val NodeType: InterfaceType[GraphQLContext, Node[_]] = InterfaceType[GraphQLContext, Node[_]](
     "Node",
     fields[GraphQLContext, Node[_]](
       Field("id", IDType, resolve = _.value.idString)
     ),
-  ).withPossibleTypes(() =>
+  ).withPossibleObjectTypes(() =>
     List(
       TransactionType,
       TemplateType,
@@ -132,7 +149,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field("module", StringType, resolve = _.value.id.qualifiedName.module.toString()),
       Field("name", StringType, resolve = _.value.id.qualifiedName.name.toString()),
     ),
-  ).withPossibleTypes(() =>
+  ).withPossibleObjectTypes(() =>
     List(
       DamlLfDefDataTypeType,
       TemplateType,
@@ -231,7 +248,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           resolve = context => Tag.unwrap[String, ApiTypes.WorkflowIdTag](context.value.workflowId),
         ),
       ),
-  ).withPossibleTypes(() => List(CreatedEventType, ExercisedEventType))
+  ).withPossibleObjectTypes(() => List(CreatedEventType, ExercisedEventType))
 
   //noinspection ForwardReference
   val CreatedEventType: ObjectType[GraphQLContext, ContractCreated] = ObjectType(
@@ -294,7 +311,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
   )
 
-  val TransactionType = ObjectType(
+  val TransactionType: ObjectType[GraphQLContext, Transaction] = ObjectType(
     "Transaction",
     interfaces[GraphQLContext, Transaction](NodeType),
     () =>
@@ -382,7 +399,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       fields[GraphQLContext, CommandStatus](
         Field("completed", BooleanType, resolve = _.value.isCompleted)
       ),
-  ).withPossibleTypes(() =>
+  ).withPossibleObjectTypes(() =>
     List(
       CommandStatusErrorType,
       CommandStatusWaitingType,
@@ -448,7 +465,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
               .getOrElse(CommandStatusUnknown()),
         ),
       ),
-  ).withPossibleTypes(() => List(CreateCommandType, ExerciseCommandType))
+  ).withPossibleObjectTypes(() => List(CreateCommandType, ExerciseCommandType))
 
   val CreateCommandType: ObjectType[GraphQLContext, CreateCommand] = ObjectType(
     "CreateCommand",
@@ -844,12 +861,14 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   def filterCriteria(arg: Seq[DefaultInput]): AndFilterCriterion =
     AndFilterCriterion(
-      arg.map(input =>
-        FilterCriterion(
-          input("field").toString,
-          input("value").toString,
+      arg.view
+        .map(input =>
+          FilterCriterion(
+            input("field").toString,
+            input("value").toString,
+          )
         )
-      )(collection.breakOut)
+        .toList
     )
 
   private def parseInstant(s: String): Either[Violation, Instant] = Try(Instant.parse(s)) match {

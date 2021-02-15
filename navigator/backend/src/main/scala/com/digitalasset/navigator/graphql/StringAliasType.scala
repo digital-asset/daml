@@ -19,11 +19,11 @@ object StringAliasType {
       coerceOutput = sangria.schema.valueOutput,
       coerceUserInput = {
         case s: String => Right(s)
-        case _ ⇒ Left(StringCoercionViolation)
+        case _ => Left(StringCoercionViolation)
       },
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(s)
-        case _ ⇒ Left(StringCoercionViolation)
+        case _ => Left(StringCoercionViolation)
       },
     )
 
@@ -34,11 +34,11 @@ object StringAliasType {
       coerceOutput = (value, _) => Tag.unwrap(value),
       coerceUserInput = {
         case s: String => Right(Tag.of[T](s))
-        case _ ⇒ Left(StringCoercionViolation)
+        case _ => Left(StringCoercionViolation)
       },
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(Tag.of[T](s))
-        case _ ⇒ Left(StringCoercionViolation)
+        case _ => Left(StringCoercionViolation)
       },
     )
 }

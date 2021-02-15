@@ -36,22 +36,22 @@ object SprayMarshallers {
 
     def arrayNode(values: Vector[JsValue]) = JsArray(values)
     def optionalArrayNodeValue(value: Option[JsValue]): JsValue = value match {
-      case Some(v) ⇒ v
-      case None ⇒ nullNode
+      case Some(v) => v
+      case None => nullNode
     }
 
     def scalarNode(value: Any, typeName: String, info: Set[ScalarValueInfo]): JsValue =
       value match {
-        case v: String ⇒ JsString(v)
-        case v: Boolean ⇒ JsBoolean(v)
-        case v: Int ⇒ JsNumber(v)
-        case v: Long ⇒ JsNumber(v)
-        case v: Float ⇒ JsNumber(v.toDouble)
-        case v: Double ⇒ JsNumber(v)
-        case v: BigInt ⇒ JsNumber(v)
-        case v: BigDecimal ⇒ JsNumber(v)
-        case v: JsValue ⇒ v
-        case v ⇒ throw new IllegalArgumentException("Unsupported scalar value: " + v.toString)
+        case v: String => JsString(v)
+        case v: Boolean => JsBoolean(v)
+        case v: Int => JsNumber(v)
+        case v: Long => JsNumber(v)
+        case v: Float => JsNumber(v.toDouble)
+        case v: Double => JsNumber(v)
+        case v: BigInt => JsNumber(v)
+        case v: BigDecimal => JsNumber(v)
+        case v: JsValue => v
+        case v => throw new IllegalArgumentException("Unsupported scalar value: " + v.toString)
       }
 
     def enumNode(value: String, typeName: String) = JsString(value)
@@ -80,10 +80,10 @@ object SprayMarshallers {
 
     def isDefined(node: JsValue): Boolean = node != JsNull
     def getScalarValue(node: JsValue): Any = node match {
-      case JsBoolean(b) ⇒ b
-      case JsNumber(d) ⇒ d.toBigIntExact getOrElse d
-      case JsString(s) ⇒ s
-      case n ⇒ n
+      case JsBoolean(b) => b
+      case JsNumber(d) => d.toBigIntExact getOrElse d
+      case JsString(s) => s
+      case n => n
     }
 
     def getScalaScalarValue(node: JsValue): Any = getScalarValue(node)
@@ -118,7 +118,7 @@ object SprayMarshallers {
   implicit def sprayJsonWriterToInput[T: JsonWriter]: ToInput[T, JsValue] =
     new ToInput[T, JsValue] {
       def toInput(value: T): (JsValue, CustomSprayJsonInputUnmarshaller.type) =
-        implicitly[JsonWriter[T]].write(value) → CustomSprayJsonInputUnmarshaller
+        implicitly[JsonWriter[T]].write(value) -> CustomSprayJsonInputUnmarshaller
     }
 
   implicit def sprayJsonReaderFromInput[T: JsonReader]: FromInput[T] =
@@ -127,7 +127,7 @@ object SprayMarshallers {
       def fromResult(node: marshaller.Node): T =
         try implicitly[JsonReader[T]].read(node)
         catch {
-          case e: DeserializationException ⇒ throw InputParsingError(Vector(e.msg))
+          case e: DeserializationException => throw InputParsingError(Vector(e.msg))
         }
     }
 

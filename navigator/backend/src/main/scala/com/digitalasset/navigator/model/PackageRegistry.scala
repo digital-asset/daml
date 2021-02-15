@@ -7,6 +7,7 @@ import com.daml.navigator.{model => Model}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.lf.{iface => DamlLfIface}
 import com.daml.lf.data.{Ref => DamlLfRef}
+import scala.collection.compat.immutable.LazyList
 
 /** Manages a set of known DAML-LF packages. */
 case class PackageRegistry(
@@ -74,8 +75,8 @@ case class PackageRegistry(
   def pack(id: DamlLfRef.PackageId): Option[DamlLfPackage] =
     packages.get(id)
 
-  def allPackages(): Stream[DamlLfPackage] =
-    packages.values.toStream
+  def allPackages(): LazyList[DamlLfPackage] =
+    packages.values.to(LazyList)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Templates
@@ -96,8 +97,8 @@ case class PackageRegistry(
   def templateCount: Int =
     templates.size
 
-  def allTemplates(): Stream[Template] =
-    templates.values.toStream
+  def allTemplates(): LazyList[Template] =
+    templates.values.to(LazyList)
 
   def templatesByName(topLevelDecl: String): Seq[Template] =
     templates.toList
