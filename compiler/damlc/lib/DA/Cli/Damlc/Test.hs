@@ -120,9 +120,9 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
       when getShowCoverage $ do
           putStrLn $
               unlines $
-              ["templates never created:"] <> map T.unpack (S.toList missingTemplates) <>
+              ["templates never created:"] <> map printFullTemplateName (S.toList missingTemplates) <>
               ["choices never executed:"] <>
-              [T.unpack t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
+              [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
   where
     templates = [(m, t) | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
     choices = [(m, t, n) | (m, t) <- templates, n <- NM.names $ LF.tplChoices t]
@@ -132,15 +132,19 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
     allScenarioNodes = [n | (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
     coveredTemplates =
         nubSort $
-        [ SS.contractInstanceTemplateId contractInstance
+        [ templateId
         | n <- allScenarioNodes
         , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
               [SS.nodeNode n]
         , Just contractInstance <- [node_CreateContractInstance]
+        , Just templateId <- [SS.contractInstanceTemplateId contractInstance]
         ]
     missingTemplates =
         S.fromList [fullTemplateName m t | (m, t) <- templates] `S.difference`
-        S.fromList [TL.toStrict $ SS.identifierName tId | Just tId <- coveredTemplates]
+        S.fromList
+            [ fullTemplateNameProto tId
+            | tId <- coveredTemplates
+            ]
     coveredChoices =
         nubSort $
         [ (templateId, node_ExerciseChoiceId)
@@ -152,14 +156,26 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         ]
     missingChoices =
         S.fromList [(fullTemplateName m t, LF.unChoiceName n) | (m, t, n) <- choices] `S.difference`
-        S.fromList [(TL.toStrict $ SS.identifierName t, TL.toStrict c) | (t, c) <- coveredChoices]
+        S.fromList
+            [ (fullTemplateNameProto t, TL.toStrict c)
+            | (t, c) <- coveredChoices
+            ]
     nrOfTemplates = length templates
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
     coveredNrOfTemplates = length coveredTemplates
+    printFullTemplateName (pIdM, name) = T.unpack $ maybe name (\pId -> pId <> ":" <> name) pIdM
     fullTemplateName m t =
-        (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-        (T.concat $ LF.unTypeConName $ LF.tplTypeCon t)
+        ( Nothing
+        , (LF.moduleNameString $ LF.moduleName m) <> ":" <>
+          (T.concat $ LF.unTypeConName $ LF.tplTypeCon t))
+    fullTemplateNameProto SS.Identifier {SS.identifierPackage, SS.identifierName} =
+        ( do pIdSumM <- identifierPackage
+             pIdSum <- SS.packageIdentifierSum pIdSumM
+             case pIdSum of
+                 SS.PackageIdentifierSumSelf _ -> Nothing
+                 SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
+        , TL.toStrict identifierName)
 
 printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
 printScenarioResults results color = do
