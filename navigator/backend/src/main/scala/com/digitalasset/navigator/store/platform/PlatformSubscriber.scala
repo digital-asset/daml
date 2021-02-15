@@ -111,10 +111,10 @@ class PlatformSubscriber(
       unstashAll()
 
     case GetPartyActorInfo =>
-      sender ! PartyActorStarting(party)
+      sender() ! PartyActorStarting(party)
 
     case _ =>
-      stash
+      stash()
   }
 
   def running(state: StateRunning): Receive = {
@@ -122,20 +122,20 @@ class PlatformSubscriber(
       log.debug("Resetting connection for '{}'", party.name)
       killSwitch.shutdown()
       context.stop(self)
-      sender ! ConnectionReset
+      sender() ! ConnectionReset
 
     case SubmitCommand(command, commandSender) =>
       // Submit command and reply to
       submitCommand(ledgerClient, state.commandTracker, party, command, commandSender)
 
     case GetPartyActorInfo =>
-      sender ! PartyActorStarted(party)
+      sender() ! PartyActorStarted(party)
   }
 
   // Permanently failed state
   def failed(error: Throwable): Receive = {
     case GetApplicationStateInfo =>
-      sender ! PartyActorFailed(party, error)
+      sender() ! PartyActorFailed(party, error)
 
     case _ => ()
   }

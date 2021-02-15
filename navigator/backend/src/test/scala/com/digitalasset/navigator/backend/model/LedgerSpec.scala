@@ -104,13 +104,16 @@ class LedgerSpec extends AnyWordSpec with Matchers {
       }
 
       "return the created contracts when traversing all contracts" in {
-        result.allContracts(templateRegistry) should contain allOf (contract("C1"), contract("C2"))
+        result.allContracts(templateRegistry) should contain.allOf(contract("C1"), contract("C2"))
       }
 
       "consider the created contracts to be active" in {
-        result.activeContracts(templateRegistry) should contain allOf (contract("C1"), contract(
-          "C2"
-        ))
+        result.activeContracts(templateRegistry) should contain.allOf(
+          contract("C1"),
+          contract(
+            "C2"
+          ),
+        )
       }
 
       "return the events by id" in {
@@ -247,7 +250,7 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         actingParties = List(party),
         consuming = true,
       )
-      val latest = transaction("Tx1").copy(events = List(exercisedEvent, createdEvent))
+      val latest = transaction("Tx1").copy(events = List[Event](exercisedEvent, createdEvent))
 
       val result = subject.withTransaction(latest, templateRegistry)
 

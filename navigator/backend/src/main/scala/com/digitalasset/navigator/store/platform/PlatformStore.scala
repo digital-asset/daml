@@ -136,7 +136,7 @@ class PlatformStore(
       context.become(
         connected(StateConnected(value.ledgerClient, state.parties, value.staticTime, value.time))
       )
-      unstashAll
+      unstashAll()
 
     case Connected(Failure(e)) =>
       // Connection failed even after several retries - not sure how to recover from this
@@ -147,7 +147,7 @@ class PlatformStore(
       context.become(failed(StateFailed(e)))
 
     case GetApplicationStateInfo =>
-      sender ! ApplicationStateConnecting(
+      sender() ! ApplicationStateConnecting(
         platformHost,
         platformPort,
         tlsConfig.exists(_.enabled),
@@ -155,7 +155,7 @@ class PlatformStore(
       )
 
     case _ =>
-      stash
+      stash()
   }
 
   def connected(state: StateConnected): Receive = {
@@ -192,16 +192,16 @@ class PlatformStore(
       }
 
     case CreateContract(party, templateId, value) =>
-      createContract(state.time.time.getCurrentTime, party, templateId, value, sender)
+      createContract(state.time.time.getCurrentTime, party, templateId, value, sender())
 
     case ExerciseChoice(party, contractId, choiceId, value) =>
-      exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender)
+      exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender())
 
     case ReportCurrentTime =>
-      sender ! Success(state.time)
+      sender() ! Success(state.time)
 
     case AdvanceTime(to) =>
-      advanceTime(state.staticTime, to, sender)
+      advanceTime(state.staticTime, to, sender())
 
     case ResetConnection =>
       // Wait for all children to stop, then initiate new connection
@@ -214,7 +214,7 @@ class PlatformStore(
       implicit val actorTimeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
       // Store the original sender (sender is mutable)
-      val snd = sender
+      val snd = sender()
 
       Future
         .traverse(state.parties.toList) {
@@ -262,7 +262,7 @@ class PlatformStore(
   // Permanently failed state
   def failed(state: StateFailed): Receive = {
     case GetApplicationStateInfo =>
-      sender ! ApplicationStateFailed(
+      sender() ! ApplicationStateFailed(
         platformHost,
         platformPort,
         tlsConfig.exists(_.enabled),

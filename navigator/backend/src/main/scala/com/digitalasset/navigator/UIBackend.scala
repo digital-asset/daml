@@ -305,7 +305,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       sys.addShutdownHook {
         // Stop the web server, then the Akka system consuming the ledger API
         stopServer()
-        partyRefresh.foreach(_.cancel)
+        partyRefresh.foreach(_.cancel())
         stopAkka()
         ()
       }

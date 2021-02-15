@@ -69,22 +69,22 @@ object JsonType {
     ScalarType[JsValue](
       name,
       description = description,
-      coerceOutput = (value, _) ⇒ value,
+      coerceOutput = (value, _) => value,
       coerceUserInput = {
-        case v: String ⇒ Right(JsString(v))
-        case v: Boolean ⇒ Right(JsBoolean(v))
-        case v: Int ⇒ Right(JsNumber(v))
-        case v: Long ⇒ Right(JsNumber(v))
-        case v: Float ⇒ Right(JsNumber(v.toDouble))
-        case v: Double ⇒ Right(JsNumber(v))
-        case v: BigInt ⇒ Right(JsNumber(v))
-        case v: BigDecimal ⇒ Right(JsNumber(v))
-        case v: JsValue ⇒ Right(v)
+        case v: String => Right(JsString(v): JsValue)
+        case v: Boolean => Right(JsBoolean(v))
+        case v: Int => Right(JsNumber(v))
+        case v: Long => Right(JsNumber(v))
+        case v: Float => Right(JsNumber(v.toDouble): JsValue)
+        case v: Double => Right(JsNumber(v): JsValue)
+        case v: BigInt => Right(JsNumber(v))
+        case v: BigDecimal => Right(JsNumber(v))
+        case v: JsValue => Right(v)
       },
       coerceInput = {
-        case ast.StringValue(jsonStr, _, _, _, _) ⇒
+        case ast.StringValue(jsonStr, _, _, _, _) =>
           Right(jsonStr.parseJson)
-        case _ ⇒
+        case _ =>
           Left(JsonCoercionViolation)
       },
     )
