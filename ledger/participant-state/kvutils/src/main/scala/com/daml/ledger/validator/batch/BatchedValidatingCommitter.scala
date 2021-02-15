@@ -57,7 +57,7 @@ class BatchedValidatingCommitter[LogResult](
 
   def commit(
       correlationId: String,
-      submissionEnvelope: Raw.Value,
+      submissionEnvelope: Raw.Envelope,
       submittingParticipantId: ParticipantId,
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {

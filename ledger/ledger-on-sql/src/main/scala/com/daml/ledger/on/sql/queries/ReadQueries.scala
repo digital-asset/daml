@@ -15,5 +15,7 @@ trait ReadQueries {
 
   def selectFromLog(start: Index, end: Index): Try[immutable.Seq[(Index, LedgerRecord)]]
 
-  def selectStateValuesByKeys(keys: Iterable[Raw.StateKey]): Try[immutable.Seq[Option[Raw.Value]]]
+  def selectStateValuesByKeys(
+      keys: Iterable[Raw.StateKey]
+  ): Try[immutable.Seq[Option[Raw.Envelope]]]
 }

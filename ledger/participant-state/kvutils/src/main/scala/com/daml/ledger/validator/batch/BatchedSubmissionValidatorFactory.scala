@@ -38,7 +38,7 @@ object BatchedSubmissionValidatorFactory {
       extends LedgerStateReader {
     override def read(
         keys: Iterable[Raw.StateKey]
-    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
+    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
       delegate.readState(keys)
   }
 

@@ -27,7 +27,7 @@ final class LogAppendingCommitStrategySpec
       when(
         mockLedgerStateOperations.appendToLog(
           any[Raw.LogEntryId],
-          any[Raw.Value],
+          any[Raw.Envelope],
         )(anyExecutionContext)
       ).thenReturn(Future.successful(expectedIndex))
       val instance =
@@ -40,7 +40,7 @@ final class LogAppendingCommitStrategySpec
         .commit(aParticipantId, "a correlation ID", aLogEntryId(), aLogEntry, Map.empty, Map.empty)
         .map { actualIndex =>
           verify(mockLedgerStateOperations, times(1))
-            .appendToLog(any[Raw.LogEntryId], any[Raw.Value])(anyExecutionContext)
+            .appendToLog(any[Raw.LogEntryId], any[Raw.Envelope])(anyExecutionContext)
           verify(mockLedgerStateOperations, times(0))
             .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
           actualIndex should be(expectedIndex)
@@ -56,7 +56,7 @@ final class LogAppendingCommitStrategySpec
       when(
         mockLedgerStateOperations.appendToLog(
           any[Raw.LogEntryId],
-          any[Raw.Value],
+          any[Raw.Envelope],
         )(anyExecutionContext)
       ).thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]

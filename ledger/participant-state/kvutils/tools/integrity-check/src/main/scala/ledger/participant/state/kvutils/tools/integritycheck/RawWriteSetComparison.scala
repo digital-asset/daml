@@ -88,8 +88,8 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
 
   private def explainDifference(
       key: Raw.Key,
-      expectedValue: Raw.Value,
-      actualValue: Raw.Value,
+      expectedValue: Raw.Envelope,
+      actualValue: Raw.Envelope,
   ): String =
     kvutils.Envelope
       .openStateValue(expectedValue)
@@ -105,8 +105,8 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
 
   private def explainMismatchingValue(
       logEntryId: Raw.Key,
-      expectedValue: Raw.Value,
-      actualValue: Raw.Value,
+      expectedValue: Raw.Envelope,
+      actualValue: Raw.Envelope,
   ): String = {
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
@@ -114,8 +114,11 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
       s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
   }
 
-  override def checkEntryIsReadable(rawKey: Raw.Key, rawValue: Raw.Value): Either[String, Unit] =
-    Envelope.open(rawValue) match {
+  override def checkEntryIsReadable(
+      rawKey: Raw.Key,
+      rawEnvelope: Raw.Envelope,
+  ): Either[String, Unit] =
+    Envelope.open(rawEnvelope) match {
       case Left(errorMessage) =>
         Left(s"Invalid value envelope: $errorMessage")
       case Right(Envelope.LogEntryMessage(logEntry)) =>

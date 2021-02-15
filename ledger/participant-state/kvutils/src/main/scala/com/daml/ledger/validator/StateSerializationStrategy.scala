@@ -15,8 +15,8 @@ final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrateg
 
   def serializeStateUpdates(
       state: Map[DamlStateKey, DamlStateValue]
-  ): SortedMap[Raw.StateKey, Raw.Value] =
-    implicitly[Factory[Raw.StateEntry, SortedMap[Raw.StateKey, Raw.Value]]]
+  ): SortedMap[Raw.StateKey, Raw.Envelope] =
+    implicitly[Factory[Raw.StateEntry, SortedMap[Raw.StateKey, Raw.Envelope]]]
       .fromSpecific(state.view.map { case (key, value) =>
         serializeState(key, value)
       })

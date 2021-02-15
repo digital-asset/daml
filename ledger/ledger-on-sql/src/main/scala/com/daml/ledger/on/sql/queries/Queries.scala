@@ -51,7 +51,7 @@ object Queries {
   implicit val rawStateKeyToStatement: ToStatement[Raw.StateKey] =
     byteStringToStatement.contramap(_.bytes)
 
-  implicit val rawValueToStatement: ToStatement[Raw.Value] =
+  implicit val rawEnvelopeToStatement: ToStatement[Raw.Envelope] =
     byteStringToStatement.contramap(_.bytes)
 
   private val columnToByteString: Column[ByteString] =
@@ -73,13 +73,13 @@ object Queries {
   implicit val columnToRawStateKey: Column[Raw.StateKey] =
     columnToByteString.map(Raw.StateKey.apply)
 
-  implicit val columnToRawValue: Column[Raw.Value] =
-    columnToByteString.map(Raw.Value.apply)
+  implicit val columnToRawEnvelope: Column[Raw.Envelope] =
+    columnToByteString.map(Raw.Envelope.apply)
 
   def rawLogEntryId(columnName: String): RowParser[Raw.LogEntryId] =
     SqlParser.get(columnName)(columnToRawLogEntryId)
 
-  def rawValue(columnName: String): RowParser[Raw.Value] =
-    SqlParser.get(columnName)(columnToRawValue)
+  def rawEnvelope(columnName: String): RowParser[Raw.Envelope] =
+    SqlParser.get(columnName)(columnToRawEnvelope)
 
 }

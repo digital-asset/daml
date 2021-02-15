@@ -76,7 +76,7 @@ class SubmissionValidatorSpec
       )
       instance
         .validate(
-          Raw.Value(ByteString.copyFrom(Array[Byte](1, 2, 3))),
+          Raw.Envelope(ByteString.copyFrom(Array[Byte](1, 2, 3))),
           "aCorrelationId",
           newRecordTime(),
           aParticipantId(),
@@ -119,7 +119,7 @@ class SubmissionValidatorSpec
       when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val logEntryIdCaptor = ArgCaptor[Raw.LogEntryId]
-      val logEntryValueCaptor = ArgCaptor[Raw.Value]
+      val logEntryValueCaptor = ArgCaptor[Raw.Envelope]
       when(
         mockStateOperations.appendToLog(logEntryIdCaptor.capture, logEntryValueCaptor.capture)(
           anyExecutionContext
@@ -159,7 +159,7 @@ class SubmissionValidatorSpec
       val writtenKeyValuesCaptor = ArgCaptor[Seq[Raw.StateEntry]]
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture)(anyExecutionContext))
         .thenReturn(Future.unit)
-      val logEntryCaptor = ArgCaptor[Raw.Value]
+      val logEntryCaptor = ArgCaptor[Raw.Envelope]
       when(
         mockStateOperations.appendToLog(
           any[Raw.LogEntryId],
@@ -199,7 +199,7 @@ class SubmissionValidatorSpec
       val writtenKeyValuesCaptor = ArgCaptor[Seq[Raw.StateEntry]]
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture)(anyExecutionContext))
         .thenReturn(Future.unit)
-      val logEntryCaptor = ArgCaptor[Raw.Value]
+      val logEntryCaptor = ArgCaptor[Raw.Envelope]
       when(
         mockStateOperations.appendToLog(
           any[Raw.LogEntryId],
@@ -285,7 +285,7 @@ class SubmissionValidatorSpec
       when(
         mockStateOperations.appendToLog(
           any[Raw.LogEntryId],
-          any[Raw.Value],
+          any[Raw.Envelope],
         )(anyExecutionContext)
       ).thenReturn(Future.successful(99))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
@@ -330,10 +330,10 @@ object SubmissionValidatorSpec {
     Map(key -> value)
   }
 
-  private def aStateValue(): Raw.Value =
-    SubmissionValidator.rawValue(DamlStateValue.getDefaultInstance)
+  private def aStateValue(): Raw.Envelope =
+    SubmissionValidator.rawEnvelope(DamlStateValue.getDefaultInstance)
 
-  private def anEnvelope(): Raw.Value = {
+  private def anEnvelope(): Raw.Envelope = {
     val submission = DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)

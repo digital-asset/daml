@@ -43,7 +43,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     */
   override def commit(
       correlationId: String,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     queueHandle.offer(

@@ -85,12 +85,22 @@ object Raw {
       Key.`Key Ordering`.on(identity)
   }
 
-  final case class Value(override val bytes: ByteString) extends Bytes
+  trait Value extends Bytes
 
-  object Value extends Companion[Value]
+  object Value extends Companion[Value] {
+    def apply(bytes: ByteString): Value =
+      Envelope(bytes)
+  }
 
-  type LogEntry = (LogEntryId, Value)
+  final case class Envelope(override val bytes: ByteString) extends Value
 
-  type StateEntry = (StateKey, Value)
+  object Envelope extends Companion[Envelope] {
+    def apply(envelope: DamlKvutils.Envelope): Envelope =
+      apply(envelope.toByteString)
+  }
+
+  type LogEntry = (LogEntryId, Envelope)
+
+  type StateEntry = (StateKey, Envelope)
 
 }

@@ -10,5 +10,5 @@ import com.daml.ledger.participant.state.kvutils.Raw
 case class RawKeyValuePairsWithLogEntry(
     state: Iterable[Raw.StateEntry],
     logEntryKey: Raw.LogEntryId,
-    logEntryValue: Raw.Value,
+    logEntryValue: Raw.Envelope,
 )

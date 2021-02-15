@@ -45,70 +45,67 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
     }
 
     "fail on an invalid envelope" in {
-      val value = Raw.Value(ByteString.copyFromUtf8("invalid envelope"))
-      inside(writeSetComparison.checkEntryIsReadable(noKey, value)) { case Left(message) =>
+      val envelope = Raw.Envelope(ByteString.copyFromUtf8("invalid envelope"))
+      inside(writeSetComparison.checkEntryIsReadable(noKey, envelope)) { case Left(message) =>
         message should startWith("Invalid value envelope:")
       }
     }
 
     "fail on an unknown entry" in {
-      val value = Raw.Value(
+      val envelope = Raw.Envelope(
         DamlKvutils.Envelope.newBuilder
           .setVersion(Version.version)
-          .build()
-          .toByteString
+          .build
       )
-      inside(writeSetComparison.checkEntryIsReadable(noKey, value)) { case Left(_) =>
+      inside(writeSetComparison.checkEntryIsReadable(noKey, envelope)) { case Left(_) =>
         succeed
       }
     }
 
     "fail on a submission entry" in {
-      val value = Raw.Value(
+      val envelope = Raw.Envelope(
         DamlKvutils.Envelope.newBuilder
           .setVersion(Version.version)
           .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
           .build
-          .toByteString
       )
-      inside(writeSetComparison.checkEntryIsReadable(noKey, value)) { case Left(message) =>
+      inside(writeSetComparison.checkEntryIsReadable(noKey, envelope)) { case Left(message) =>
         message should startWith("Unexpected submission message:")
       }
     }
 
     "fail on a submission batch entry" in {
-      val value = Raw.Value(
+      val envelope = Raw.Envelope(
         DamlKvutils.Envelope.newBuilder
           .setVersion(Version.version)
           .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
-          .build()
-          .toByteString
+          .build
       )
-      inside(writeSetComparison.checkEntryIsReadable(noKey, value)) { case Left(message) =>
+      inside(writeSetComparison.checkEntryIsReadable(noKey, envelope)) { case Left(message) =>
         message should startWith("Unexpected submission batch message:")
       }
     }
 
     "fail on a log entry with an invalid payload" in {
       val key = aValidLogEntryId
-      val value = Envelope.enclose(DamlLogEntry.newBuilder.build)
-      inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Left(message) =>
+      val envelope = Envelope.enclose(DamlLogEntry.newBuilder.build)
+      inside(writeSetComparison.checkEntryIsReadable(key, envelope)) { case Left(message) =>
         message should be("Log entry payload not set.")
       }
     }
 
     "fail on a state entry with an invalid key" in {
       val key = Raw.StateKey(DamlStateKey.newBuilder.build)
-      val value = aValidStateValue
-      inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Left(message) =>
+      val envelope = aValidStateValue
+      inside(writeSetComparison.checkEntryIsReadable(key, envelope)) { case Left(message) =>
         message should be("State key not set.")
       }
     }
 
-    "fail on a state entry with an invalid value" in {
+    "fail on a state entry with an invalid envelope" in {
       val key = aValidStateKey
-      val value = Envelope.enclose(DamlStateValue.newBuilder.build())
-      inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Left(message) =>
+      val envelope = Envelope.enclose(DamlStateValue.newBuilder.build())
+      inside(writeSetComparison.checkEntryIsReadable(key, envelope)) { case Left(message) =>
         message should be("State value not set.")
       }
     }
@@ -119,16 +116,16 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
 
     "unfortunately, allow a log entry ID with a state value" in {
       val key = aValidLogEntryId
-      val value = aValidStateValue
-      inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Right(()) =>
+      val envelope = aValidStateValue
+      inside(writeSetComparison.checkEntryIsReadable(key, envelope)) { case Right(()) =>
         succeed
       }
     }
 
     "unfortunately, allow a state key with a log entry" in {
       val key = aValidStateKey
-      val value = aValidLogEntry
-      inside(writeSetComparison.checkEntryIsReadable(key, value)) { case Right(()) =>
+      val envelope = aValidLogEntry
+      inside(writeSetComparison.checkEntryIsReadable(key, envelope)) { case Right(()) =>
         succeed
       }
     }
@@ -223,7 +220,7 @@ object RawWriteSetComparisonSpec {
         .build
     )
 
-  private val aValidLogEntry: Raw.Value =
+  private val aValidLogEntry: Raw.Envelope =
     Envelope.enclose(
       DamlLogEntry.newBuilder
         .setPartyAllocationEntry(DamlPartyAllocationEntry.newBuilder.setParty("Alice"))
@@ -239,7 +236,7 @@ object RawWriteSetComparisonSpec {
   private def aPartyAllocationStateKey(partyId: String): Raw.StateKey =
     Raw.StateKey(DamlStateKey.newBuilder.setParty(partyId).build)
 
-  private val aValidStateValue: Raw.Value =
+  private val aValidStateValue: Raw.Envelope =
     Envelope.enclose(aConfigurationStateValue(generation = 1))
 
   private def aPartyAllocationStateValue(displayName: String): DamlStateValue =

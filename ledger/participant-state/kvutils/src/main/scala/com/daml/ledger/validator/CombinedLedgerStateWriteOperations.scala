@@ -15,7 +15,7 @@ final class CombinedLedgerStateWriteOperations[ALogResult, BLogResult, LogResult
 
   override def writeState(
       key: Raw.StateKey,
-      value: Raw.Value,
+      value: Raw.Envelope,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     inParallel(a.writeState(key, value), b.writeState(key, value)).map(_ => ())
 
@@ -26,7 +26,7 @@ final class CombinedLedgerStateWriteOperations[ALogResult, BLogResult, LogResult
 
   override def appendToLog(
       key: Raw.LogEntryId,
-      value: Raw.Value,
+      value: Raw.Envelope,
   )(implicit executionContext: ExecutionContext): Future[LogResult] =
     inParallel(a.appendToLog(key, value), b.appendToLog(key, value)).map {
       case (aResult, bResult) => combineLogResults(aResult, bResult)

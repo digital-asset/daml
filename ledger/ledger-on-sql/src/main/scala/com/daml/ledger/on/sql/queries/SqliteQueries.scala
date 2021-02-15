@@ -24,7 +24,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
       .as(str("ledger_id").single)
   }
 
-  override def insertRecordIntoLog(key: Raw.LogEntryId, value: Raw.Value): Try[Index] =
+  override def insertRecordIntoLog(key: Raw.LogEntryId, value: Raw.Envelope): Try[Index] =
     Try {
       SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
         .executeInsert()

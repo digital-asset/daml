@@ -9,7 +9,6 @@ import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
-import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -42,14 +41,14 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 
 object InMemoryState {
   type ImmutableLog = collection.IndexedSeq[LedgerRecord]
-  type ImmutableState = collection.Map[Raw.StateKey, Raw.Value]
+  type ImmutableState = collection.Map[Raw.StateKey, Raw.Envelope]
 
   type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog
-  type MutableState = mutable.Map[Raw.StateKey, Raw.Value] with ImmutableState
+  type MutableState = mutable.Map[Raw.StateKey, Raw.Envelope] with ImmutableState
 
   // The first element will never be read because begin offsets are exclusive.
   private val Beginning =
-    LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Value(ByteString.EMPTY))
+    LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Envelope.empty)
 
   def empty =
     new InMemoryState(

@@ -30,7 +30,7 @@ trait CommonQueries extends Queries {
       endInclusive: Index,
   ): Try[immutable.Seq[(Index, LedgerRecord)]] = Try {
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $startExclusive AND sequence_no <= $endInclusive ORDER BY sequence_no"
-      .as((long("sequence_no") ~ rawLogEntryId("entry_id") ~ rawValue("envelope")).map {
+      .as((long("sequence_no") ~ rawLogEntryId("entry_id") ~ rawEnvelope("envelope")).map {
         case index ~ entryId ~ envelope =>
           index -> LedgerRecord(OffsetBuilder.fromLong(index), entryId, envelope)
       }.*)
@@ -38,12 +38,12 @@ trait CommonQueries extends Queries {
 
   override final def selectStateValuesByKeys(
       keys: Iterable[Raw.StateKey]
-  ): Try[immutable.Seq[Option[Raw.Value]]] =
+  ): Try[immutable.Seq[Option[Raw.Envelope]]] =
     Try {
       val results =
         SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.toSeq})"
-          .fold(Map.newBuilder[Raw.StateKey, Raw.Value], ColumnAliaser.empty) { (builder, row) =>
-            builder += row("key")(columnToRawStateKey) -> row("value")(columnToRawValue)
+          .fold(Map.newBuilder[Raw.StateKey, Raw.Envelope], ColumnAliaser.empty) { (builder, row) =>
+            builder += row("key")(columnToRawStateKey) -> row("value")(columnToRawEnvelope)
           }
           .fold(exceptions => throw exceptions.head, _.result())
       keys.view.map(results.get).to(immutable.Seq)

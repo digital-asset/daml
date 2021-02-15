@@ -42,14 +42,14 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
     SubmissionInfo(
       ParticipantId.assertFromString(entrySubmissionInfo.getParticipantId),
       entrySubmissionInfo.getCorrelationId,
-      Raw.Value(entrySubmissionInfo.getSubmissionEnvelope),
+      Raw.Envelope(entrySubmissionInfo.getSubmissionEnvelope),
       Conversions.parseInstant(entrySubmissionInfo.getRecordTime),
     )
   }
 
   private def parseWriteSet(entry: LedgerExportEntry): WriteSet =
     entry.getWriteSetList.asScala.view
-      .map(writeEntry => Raw.UnknownKey(writeEntry.getKey) -> Raw.Value(writeEntry.getValue))
+      .map(writeEntry => Raw.UnknownKey(writeEntry.getKey) -> Raw.Envelope(writeEntry.getValue))
       .toVector
 
 }

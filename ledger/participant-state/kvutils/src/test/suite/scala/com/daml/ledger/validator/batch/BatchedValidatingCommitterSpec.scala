@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.TestHelper.aParticipantId
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.ledger.validator.{CommitStrategy, LedgerStateOperations}
-import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.MockitoSugar
 import org.mockito.stubbing.ScalaFirstStubbing
@@ -37,7 +36,7 @@ class BatchedValidatingCommitterSpec
       instance
         .commit(
           correlationId = "",
-          submissionEnvelope = Raw.Value(ByteString.EMPTY),
+          submissionEnvelope = Raw.Envelope.empty,
           submittingParticipantId = aParticipantId,
           ledgerStateOperations = mock[LedgerStateOperations[Unit]],
         )
@@ -55,7 +54,7 @@ class BatchedValidatingCommitterSpec
       instance
         .commit(
           correlationId = "",
-          submissionEnvelope = Raw.Value(ByteString.EMPTY),
+          submissionEnvelope = Raw.Envelope.empty,
           submittingParticipantId = aParticipantId,
           ledgerStateOperations = mock[LedgerStateOperations[Unit]],
         )
@@ -70,7 +69,7 @@ class BatchedValidatingCommitterSpec
   ): ScalaFirstStubbing[Future[Unit]] =
     when(
       mockValidator.validateAndCommit(
-        any[Raw.Value](),
+        any[Raw.Envelope](),
         anyString(),
         any[Instant](),
         any[ParticipantId](),

@@ -11,6 +11,6 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 case class SubmissionInfo(
     participantId: ParticipantId,
     correlationId: CorrelationId,
-    submissionEnvelope: Raw.Value,
+    submissionEnvelope: Raw.Envelope,
     recordTimeInstant: Instant,
 )

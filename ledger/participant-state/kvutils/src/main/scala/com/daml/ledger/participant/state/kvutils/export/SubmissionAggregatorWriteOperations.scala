@@ -13,7 +13,7 @@ final class SubmissionAggregatorWriteOperations(builder: SubmissionAggregator.Wr
 
   override def writeState(
       key: Raw.StateKey,
-      value: Raw.Value,
+      value: Raw.Envelope,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future {
       builder += key -> value
@@ -28,7 +28,7 @@ final class SubmissionAggregatorWriteOperations(builder: SubmissionAggregator.Wr
 
   override def appendToLog(
       key: Raw.LogEntryId,
-      value: Raw.Value,
+      value: Raw.Envelope,
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future {
       builder += key -> value

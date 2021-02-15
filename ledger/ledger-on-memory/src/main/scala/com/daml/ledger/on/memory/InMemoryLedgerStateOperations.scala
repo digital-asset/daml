@@ -19,7 +19,7 @@ final class InMemoryLedgerStateOperations(
 
   override def readState(
       keys: Iterable[Raw.StateKey]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
     Future.successful(keys.view.map(state.get).toSeq)
 
   override def writeState(
@@ -31,7 +31,7 @@ final class InMemoryLedgerStateOperations(
 
   override def appendToLog(
       key: Raw.LogEntryId,
-      value: Raw.Value,
+      value: Raw.Envelope,
   )(implicit executionContext: ExecutionContext): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
 

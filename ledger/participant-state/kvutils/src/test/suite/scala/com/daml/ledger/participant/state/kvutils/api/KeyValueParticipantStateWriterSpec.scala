@@ -36,7 +36,7 @@ class KeyValueParticipantStateWriterSpec
     with ArgumentMatchersSugar {
   "participant state writer" should {
     "submit a transaction" in {
-      val transactionCaptor = ArgCaptor[Raw.Value]
+      val transactionCaptor = ArgCaptor[Raw.Envelope]
       val correlationIdCaptor = ArgCaptor[String]
       val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(transactionCaptor, metadataCaptor, correlationIdCaptor)
@@ -51,7 +51,7 @@ class KeyValueParticipantStateWriterSpec
         anInterpretationCost,
       )
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.value)(_.hasTransactionEntry)
       correlationIdCaptor.value should be(expectedCorrelationId)
       val actualCommitMetadata = metadataCaptor.value
@@ -61,14 +61,14 @@ class KeyValueParticipantStateWriterSpec
     }
 
     "upload a package" in {
-      val packageUploadCaptor = ArgCaptor[Raw.Value]
+      val packageUploadCaptor = ArgCaptor[Raw.Envelope]
       val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(packageUploadCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
       verifyEnvelope(packageUploadCaptor.value)(_.hasPackageUploadEntry)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -76,14 +76,14 @@ class KeyValueParticipantStateWriterSpec
     }
 
     "submit a configuration" in {
-      val configurationCaptor = ArgCaptor[Raw.Value]
+      val configurationCaptor = ArgCaptor[Raw.Envelope]
       val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(configurationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
       verifyEnvelope(configurationCaptor.value)(_.hasConfigurationSubmission)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -91,14 +91,14 @@ class KeyValueParticipantStateWriterSpec
     }
 
     "allocate a party without hint" in {
-      val partyAllocationCaptor = ArgCaptor[Raw.Value]
+      val partyAllocationCaptor = ArgCaptor[Raw.Envelope]
       val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(partyAllocationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
       verifyEnvelope(partyAllocationCaptor.value)(_.hasPartyAllocationEntry)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -106,7 +106,9 @@ class KeyValueParticipantStateWriterSpec
     }
   }
 
-  private def verifyEnvelope(written: Raw.Value)(assertion: DamlSubmission => Boolean): Assertion =
+  private def verifyEnvelope(
+      written: Raw.Envelope
+  )(assertion: DamlSubmission => Boolean): Assertion =
     Envelope.openSubmission(written) match {
       case Right(value) => assert(assertion(value) === true)
       case _ => fail()
@@ -134,7 +136,7 @@ object KeyValueParticipantStateWriterSpec {
     DefaultStateKeySerializationStrategy
 
   private def createWriter(
-      envelopeCaptor: Captor[Raw.Value],
+      envelopeCaptor: Captor[Raw.Envelope],
       metadataCaptor: Captor[CommitMetadata],
       correlationIdCaptor: Captor[String] = ArgCaptor[String],
   ): LedgerWriter = {
