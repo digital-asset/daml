@@ -11,7 +11,6 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 
 version_specific = {
     "2.12": [
-        "ai.x:diff_2.12:2.0.1",
         # Gatling does not cross-build so this is limited to Scala 2.12. Newer
         # versions of Gatling still don’t cross-build but they build against Scala 2.13
         # instead so we’ll have to switch over at that point.

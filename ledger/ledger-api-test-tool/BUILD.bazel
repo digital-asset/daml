@@ -154,7 +154,6 @@ EOF
                 "@maven//:com_softwaremill_diffx_diffx_core_2_12",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
-                "@maven//:org_cvogt_scala_extensions_2_12",
                 "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
                 "@maven//:org_slf4j_slf4j_api",
             ],
