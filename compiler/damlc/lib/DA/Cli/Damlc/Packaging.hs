@@ -211,7 +211,7 @@ dbNeedsReinitialization projectRoot allDeps sdkVersion damlLfVersion = do
     let depsFingerprint =
             fingerprintFingerprints $ sdkVersionFingerprint : damlLfFingerprint : fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
-    errOrmetaData <- try $ readMetadata projectRoot
+    errOrmetaData <- tryAny $ readMetadata projectRoot
     pure $
         case errOrmetaData of
             Left (_err :: SomeException)-> (True, depsFingerprint)
