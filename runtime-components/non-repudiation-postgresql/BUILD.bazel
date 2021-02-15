@@ -22,10 +22,8 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     deps = [
         "//runtime-components/non-repudiation",
         "@maven//:com_zaxxer_HikariCP",
