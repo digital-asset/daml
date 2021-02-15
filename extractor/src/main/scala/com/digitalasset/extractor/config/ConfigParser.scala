@@ -171,7 +171,8 @@ object ConfigParser {
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
 
-      opt[Int]("ledger-api-inbound-message-size-max").optional
+      opt[Int]("ledger-api-inbound-message-size-max")
+        .optional()
         .validate(x => Either.cond(x > 0, (), "Message size must be positive"))
         .action((x, c) => c.copy(ledgerInboundMessageSizeMax = x))
         .valueName("<bytes>")
@@ -267,7 +268,7 @@ object ConfigParser {
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-  def parse(args: Seq[String]): Option[(ExtractorConfig, Target)] = {
+  def parse(args: collection.Seq[String]): Option[(ExtractorConfig, Target)] = {
     configParser.parse(args, CliParams()).map { cliParams =>
       val from = cliParams.from.fold(
         LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
@@ -283,7 +284,7 @@ object ConfigParser {
 
       val tlsConfig = cliParams.tlsConfiguration
 
-      val config = ExtractorConfig(
+      val config: ExtractorConfig = ExtractorConfig(
         cliParams.ledgerHost,
         ledgerPort = cliParams.ledgerPort,
         ledgerInboundMessageSizeMax = cliParams.ledgerInboundMessageSizeMax,
@@ -295,7 +296,7 @@ object ConfigParser {
         cliParams.accessTokenFile,
       )
 
-      val target = cliParams.target match {
+      val target: Target = cliParams.target match {
         case SimpleText => TextPrintTarget
         case PrettyPrint => PrettyPrintTarget(cliParams.pprintWidth, cliParams.pprintHeight)
         case PostgreSQL =>

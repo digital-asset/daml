@@ -57,8 +57,8 @@ class ListsSpec
       """,
     ).traverse(parse)
 
-    expected should be('right) // That should only fail if this JSON^^ is ill-formatted
+    expected should be(Symbol("right")) // That should only fail if this JSON^^ is ill-formatted
 
-    contractsJson should contain theSameElementsAs expected.right.get
+    contractsJson should contain theSameElementsAs expected.toOption.get
   }
 }

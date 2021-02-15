@@ -185,6 +185,7 @@ jobs:
           //triggers/... \
           //daml-script/... \
           //navigator/... \
+          //extractor/... \
           -//ledger/ledger-api-test-tool/... \
           -//ledger/ledger-api-test-tool-on-canton/...
           # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
@@ -198,6 +199,7 @@ jobs:
           //daml-script/... \
           //triggers/... \
           //navigator/... \
+          //extractor/... \
           -//libs-scala/gatling-utils/... \
           -//ledger/ledger-api-test-tool/... \
           -//ledger/ledger-api-test-tool-on-canton/...

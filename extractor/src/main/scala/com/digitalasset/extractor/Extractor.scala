@@ -36,7 +36,6 @@ import scalaz.syntax.apply._
 import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
 
-import scala.collection.breakOut
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
@@ -46,7 +45,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 ) extends StrictLogging {
 
   private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-  private val parties: Set[String] = config.parties.toSet.map[String, Set[String]](identity)
+  private val parties: Set[String] = config.parties.toSet.map(identity)
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -116,7 +115,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
       shutdown()
     } recoverWith { case NonFatal(fail) =>
       logger.error(s"FAILURE:\n$fail.\nExiting...")
-      shutdown *> Future.failed(fail)
+      shutdown() *> Future.failed(fail)
     }
   }
 
@@ -153,7 +152,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     // Template filtration is not supported on GetTransactionTrees RPC
     // we will have to filter out templates on the client-side.
     val templateSelection = Filters.defaultInstance
-    TransactionFilter(parties.toList.map(_ -> templateSelection)(breakOut))
+    TransactionFilter(parties.toList.view.map(_ -> templateSelection).toMap)
   }
 
   private def streamTransactions(
