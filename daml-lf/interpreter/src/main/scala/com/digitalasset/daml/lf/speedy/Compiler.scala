@@ -7,6 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -261,6 +262,11 @@ private[lf] final class Compiler(
   ): Iterable[(SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(SDefinitionRef, SDefinition)]
 
+    module.exceptions.foreach { case (defName, GenDefException(message)) =>
+      val ref = ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
+      builder += (ref -> SDefinition(withLabel(ref, unsafeCompile(message))))
+    }
+
     module.definitions.foreach {
       case (defName, DValue(_, _, body, _)) =>
         val ref = LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
@@ -431,10 +437,26 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
-      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("exceptions not supported")
+      case EToAnyException(ty, e) =>
+        val messageFunction = compileExceptionType(ty)
+        SBToAnyException(ty, messageFunction)(compile(e))
+      case EFromAnyException(ty, e) =>
+        SBFromAnyException(ty)(compile(e))
+      case EThrow(_, ty, e) =>
+        val messageFunction = compileExceptionType(ty)
+        SBThrow(SBToAnyException(ty, messageFunction)(compile(e)))
     }
+
+  private def compileExceptionType(ty: Type): SExpr = {
+    ty match {
+      case TGeneralError | TArithmeticError | TContractError =>
+        SEBuiltin(SBBuiltinErrorMessage)
+      case TTyCon(tyCon) =>
+        SEVal(ExceptionMessageDefRef(tyCon))
+      case _ =>
+        throw CompilationError(s"compileExceptionType, unexpected type: $ty")
+    }
+  }
 
   @inline
   private[this] def compileBuiltin(bf: BuiltinFunction): SExpr =
@@ -549,11 +571,19 @@ private[lf] final class Compiler(
               BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
-          case BMakeGeneralError | BMakeArithmeticError | BMakeContractError |
-              BAnyExceptionMessage | BGeneralErrorMessage | BArithmeticErrorMessage |
-              BContractErrorMessage =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("exception not supported")
+
+          case BMakeGeneralError =>
+            SBMakeBuiltinError("GeneralError")
+          case BMakeArithmeticError =>
+            SBMakeBuiltinError("ArithmeticError")
+          case BMakeContractError =>
+            SBMakeBuiltinError("ContractError")
+
+          case BGeneralErrorMessage | BArithmeticErrorMessage | BContractErrorMessage =>
+            SBBuiltinErrorMessage
+
+          case BAnyExceptionMessage =>
+            SBAnyExceptionMessage
         })
     }
 
@@ -707,9 +737,18 @@ private[lf] final class Compiler(
         LookupByKeyDefRef(templateId)(compile(key))
       case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
         FetchByKeyDefRef(templateId)(compile(key))
-      case UpdateTryCatch(_, _, _, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("exceptions not supported")
+
+      case UpdateTryCatch(_, body, binder, handler) =>
+        unaryFunction { tokenPos =>
+          SETryCatch(
+            app(compile(body), svar(tokenPos)),
+            withEnv { _ =>
+              val binderPos = nextPosition()
+              addExprVar(binder, binderPos)
+              SBTryHandler(compile(handler), svar(binderPos), svar(tokenPos))
+            },
+          )
+        }
     }
 
   @tailrec
@@ -832,13 +871,17 @@ private[lf] final class Compiler(
       app(compile(expr), svar(tokenPos))
     }
 
-  private val SEDropSecondArgument = unaryFunction(firstPos => unaryFunction(_ => svar(firstPos)))
-
   private[this] def compilePure(body: Expr): SExpr =
     // pure <E>
     // =>
     // ((\x token -> x) <E>)
-    app(SEDropSecondArgument, compile(body))
+    withEnv { _ =>
+      let(compile(body)) { bodyPos =>
+        unaryFunction { tokenPos =>
+          SBSPure(svar(bodyPos), svar(tokenPos))
+        }
+      }
+    }
 
   private[this] def compileBlock(bindings: ImmArray[Binding], body: Expr): SExpr =
     // do
@@ -1133,6 +1176,12 @@ private[lf] final class Compiler(
           closureConvert(remaps, fin),
         )
 
+      case SETryCatch(body, handler) =>
+        SETryCatch(
+          closureConvert(remaps, body),
+          closureConvert(shift(remaps, 1), handler),
+        )
+
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
@@ -1219,6 +1268,9 @@ private[lf] final class Compiler(
           go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
+        case SETryCatch(body, handler) =>
+          go(body, bound, go(handler, 1 + bound, free))
+
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
         case x: SEImportValue =>
@@ -1253,6 +1305,8 @@ private[lf] final class Compiler(
         case SVariant(_, _, _, value) => goV(value)
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
+        case SAnyException(_, _, v) => goV(v)
+        case SBuiltinException(_, v) => goV(v)
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }
@@ -1317,6 +1371,10 @@ private[lf] final class Compiler(
           go(body)
         case SELabelClosure(_, expr) =>
           go(expr)
+        case SETryCatch(body, handler) =>
+          go(body)
+          goBody(maxS + 1, maxA, maxF)(handler)
+
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
         case x: SEImportValue =>
