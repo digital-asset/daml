@@ -8,7 +8,7 @@ module DA.Cli.Damlc.Packaging
   ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception.Safe (tryIO)
+import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
@@ -211,7 +211,7 @@ dbNeedsReinitialization projectRoot allDeps sdkVersion damlLfVersion = do
     let depsFingerprint =
             fingerprintFingerprints $ sdkVersionFingerprint : damlLfFingerprint : fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
-    errOrmetaData <- tryIO $ readMetadata projectRoot
+    errOrmetaData <- tryAny $ readMetadata projectRoot
     pure $
         case errOrmetaData of
             Left _err -> (True, depsFingerprint)
