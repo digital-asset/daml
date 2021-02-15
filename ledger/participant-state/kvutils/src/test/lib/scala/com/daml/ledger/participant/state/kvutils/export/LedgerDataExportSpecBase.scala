@@ -84,6 +84,6 @@ object LedgerDataExportSpecBase {
     recordTimeInstant = Instant.ofEpochSecond(123456, 123456789),
   )
 
-  private def keyValuePairOf(key: String, value: String): (Raw.Key, Raw.Value) =
+  private def keyValuePairOf(key: String, value: String): (Raw.Key, Raw.Envelope) =
     Raw.UnknownKey(ByteString.copyFromUtf8(key)) -> Raw.Envelope(ByteString.copyFromUtf8(value))
 }

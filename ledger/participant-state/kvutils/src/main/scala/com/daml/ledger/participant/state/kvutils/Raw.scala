@@ -21,11 +21,19 @@ object Raw {
     /** This implicit conversion exists to aid in migration.
       * It will be deprecated and subsequently removed in the future.
       */
+    @deprecated(
+      "Please use `Raw` directly. This will be removed in DAML SDK v1.12.",
+      since = "1.11",
+    )
     implicit def `ByteString to Raw.Bytes`(bytes: ByteString): Bytes = Unknown(bytes)
 
     /** This implicit conversion exists to aid in migration.
       * It will be deprecated and subsequently removed in the future.
       */
+    @deprecated(
+      "Please use `#bytes` directly. This will be removed in DAML SDK v1.12.",
+      since = "1.11",
+    )
     implicit def `Raw.Bytes to ByteString`(raw: Bytes): ByteString = raw.bytes
   }
 
@@ -38,25 +46,39 @@ object Raw {
     /** This implicit conversion exists to aid in migration.
       * It will be deprecated and subsequently removed in the future.
       */
+    @deprecated(
+      "Please use `Raw` directly. This will be removed in DAML SDK v1.12.",
+      since = "1.11",
+    )
     implicit def `ByteString to Self`(bytes: ByteString): Self = apply(bytes)
 
     /** This implicit conversion exists to aid in migration.
       * It will be deprecated and subsequently removed in the future.
       */
+    @deprecated(
+      "Please use `Raw` directly. This will be removed in DAML SDK v1.12.",
+      since = "1.11",
+    )
     implicit def `Raw.Bytes to Self`(rawBytes: Bytes): Self = apply(rawBytes.bytes)
 
   }
 
   /** This case class only exists to preserve some functionality of
     * [[com.daml.ledger.participant.state.kvutils.Bytes]].
-    *
-    * It will be removed in the future.
     */
+  @deprecated(
+    "Please migrate to another `Raw` type. This will be removed in DAML SDK v1.12.",
+    since = "1.11",
+  )
   private final case class Unknown(override val bytes: ByteString) extends Bytes
 
   trait Key extends Bytes
 
   object Key extends Companion[Key] {
+    @deprecated(
+      "Please migrate to one of `Raw.LogEntryId` or `Raw.StateKey`. This will be removed in DAML SDK v1.12.",
+      since = "1.11",
+    )
     def apply(bytes: ByteString): Key =
       UnknownKey(bytes)
 

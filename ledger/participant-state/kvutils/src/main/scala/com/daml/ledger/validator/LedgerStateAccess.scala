@@ -89,14 +89,18 @@ trait LedgerStateOperations[+LogResult]
 
 object LedgerStateOperations {
 
-  /** Alias for [[Raw.Key]] to aid in migration.
-    * It will be deprecated and subsequently removed in the future.
-    */
+  /** Alias for [[Raw.Key]] to aid in migration. */
+  @deprecated(
+    "Please migrate to one of `Raw.LogEntryId` or `Raw.StateKey`. This will be removed in DAML SDK v1.12.",
+    since = "1.11",
+  )
   type Key = Raw.Key
 
-  /** Alias for [[Raw.Envelope]] to aid in migration.
-    * It will be deprecated and subsequently removed in the future.
-    */
+  /** Alias for [[Raw.Envelope]] to aid in migration. */
+  @deprecated(
+    "Please migrate to `Raw.Envelope`. This will be removed in DAML SDK v1.12.",
+    since = "1.11",
+  )
   type Value = Raw.Envelope
 
 }
