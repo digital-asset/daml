@@ -26,8 +26,8 @@ da_scala_binary(
     name = "server",
     srcs = ["server.scala"],
     main_class = "com.daml.bazeltools.clientservertest.tests.Main",
-    deps = [
-        "@maven//:com_github_scopt_scopt_2_12",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
     ],
 )
 
