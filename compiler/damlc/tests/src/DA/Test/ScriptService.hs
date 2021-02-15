@@ -264,6 +264,7 @@ main =
                       [ "module Test where",
                         "import Daml.Script",
                         "import DA.Assert",
+                        "import DA.List",
                         "template T1",
                         "  with",
                         "    p : Party, v: Int",
@@ -281,6 +282,7 @@ main =
                         "  where",
                         "    signatory p1",
                         "    observer p2",
+                        "deriving instance Ord TShared",
                         "template Divulger",
                         "  with",
                         "    divulgee : Party",
@@ -325,14 +327,14 @@ main =
                         "  t1p2 <- query @T1 p2",
                         "  t1p2 === [(cidT1p2, T1 p2 23)]",
                         "  sharedp1 <- query @TShared p1",
-                        "  sharedp1 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]",
+                        "  sortOn snd sharedp1 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]",
                         "  sharedp2 <- query @TShared p2",
-                        "  sharedp2 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]"
+                        "  sortOn snd sharedp2 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]"
                       ]
                   expectScriptSuccess rs (vr "testQueryInactive") $ \r ->
-                    matchRegex r "Active contracts:  #2:0, #0:0\n\n"
+                    matchRegex r "Active contracts:  #0:0, #2:0\n\n"
                   expectScriptSuccess rs (vr "testQueryVisibility") $ \r ->
-                    matchRegex r "Active contracts:  #4:0, #3:0, #2:0, #0:0, #1:0\n\n"
+                    matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0, #4:0\n\n"
                   pure (),
               testCase "submitMustFail" $ do
                   rs <-
@@ -555,7 +557,7 @@ main =
                     , "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "testQueryContract") $ \r ->
-                  matchRegex r "Active contracts:  #2:0, #0:0, #1:0",
+                  matchRegex r "Active contracts:  #0:0, #1:0, #2:0",
               testCase "trace" $ do
                 rs <-
                   runScripts
