@@ -121,7 +121,7 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
               unlines $
               ["templates never created:"] <> map T.unpack missingTemplates <>
               ["choices never executed:"] <>
-              map T.unpack missingChoices
+              [T.unpack t <> ":" <> T.unpack c | (t, c) <- missingChoices]
   where
     templates = [(m, t) | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
     choices = [(m, t, n) | (m, t) <- templates, n <- NM.names $ LF.tplChoices t]
@@ -153,13 +153,12 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just templateId <- [node_ExerciseTemplateId]
         ]
     missingChoices =
-        [ (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-        (T.concat $ LF.unTypeConName $ LF.tplTypeCon t) <>
-        ":" <>
-        LF.unChoiceName n
+        [ ( (LF.moduleNameString $ LF.moduleName m) <> ":" <>
+            (T.concat $ LF.unTypeConName $ LF.tplTypeCon t)
+          , LF.unChoiceName n)
         | (m, t, n) <- choices
         ] \\
-        [TL.toStrict $ SS.identifierName t <> ":" <> c | (t, c) <- coveredChoices]
+        [(TL.toStrict $ SS.identifierName t, TL.toStrict c) | (t, c) <- coveredChoices]
     nrOfTemplates = length templates
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
