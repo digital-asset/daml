@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 package inner {
   case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)

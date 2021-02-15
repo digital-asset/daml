@@ -110,7 +110,7 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     lastLedgerEndRequest.set(request)
-    val promise = Promise[GetLedgerEndResponse]
+    val promise = Promise[GetLedgerEndResponse]()
     val result =
       ledgerContent
         .map[GetLedgerEndResponse](t =>

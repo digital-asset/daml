@@ -30,8 +30,8 @@ import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.Assertion
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 import java.util.Arrays.asList

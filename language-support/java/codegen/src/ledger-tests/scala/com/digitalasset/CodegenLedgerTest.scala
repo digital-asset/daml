@@ -16,7 +16,7 @@ import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
 import alltests.MultiParty
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import java.util.Arrays.asList
 
