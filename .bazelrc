@@ -87,7 +87,7 @@ build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 
 # Caching is currently disabled on Windows.
 # See: https://github.com/tweag/rules_haskell/issues/744 for details.
-build:windows --noremote_accept_cached
+build --noremote_accept_cached
 
 # We use a special windows configuration on CI: cache is enabled. The caching
 # is not totally reliable on Windows yet re. absolute paths, but it is not a
