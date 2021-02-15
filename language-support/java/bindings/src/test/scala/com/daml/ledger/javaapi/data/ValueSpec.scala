@@ -14,6 +14,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import scala.collection.compat._
 
 class ValueSpec
     extends AnyFlatSpec
@@ -64,7 +65,7 @@ class ValueSpec
   }
 
   def assertUnsuccessfulConversions(value: Value, excludedSumCase: SumCase): scala.Unit = {
-    for ((conversion, name) <- conversions.filterKeys(_ != excludedSumCase).values) {
+    for ((conversion, name) <- conversions.view.filterKeys(_ != excludedSumCase).toMap.values) {
       s"Value.$name()" should s" should return Optional.empty() for ${value.getClass.getSimpleName} instances" in {
         conversion(value) shouldEqual JOptional.empty()
       }

@@ -18,7 +18,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class TransactionsClientImplTest
     extends AnyFlatSpec

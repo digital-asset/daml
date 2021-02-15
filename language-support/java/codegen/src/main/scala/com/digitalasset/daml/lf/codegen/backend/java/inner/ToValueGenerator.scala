@@ -11,7 +11,7 @@ import com.daml.lf.iface._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Produces an overload of a method or constructor that uses unboxed
   * versions of DAML-LF primitives, if any is passed

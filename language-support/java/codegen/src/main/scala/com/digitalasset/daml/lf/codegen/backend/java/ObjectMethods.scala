@@ -70,7 +70,9 @@ private[codegen] object ObjectMethods extends StrictLogging {
       .addAnnotation(classOf[java.lang.Override])
       .returns(TypeName.INT)
 
-  @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
+  @SuppressWarnings(
+    Array("org.wartremover.warts.JavaSerializable", "org.wartremover.warts.Serializable")
+  )
   def generateHashCode(fieldNames: IndexedSeq[String]): MethodSpec =
     initHashCodeBuilder()
       .addStatement(
@@ -93,7 +95,9 @@ private[codegen] object ObjectMethods extends StrictLogging {
   ): String =
     s"${enclosingClassName.fold("")(n => s"$n.")}$className(${List.fill(fieldNames.size)("%s").mkString(", ")})"
 
-  @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
+  @SuppressWarnings(
+    Array("org.wartremover.warts.JavaSerializable", "org.wartremover.warts.Serializable")
+  )
   def generateToString(
       className: ClassName,
       fieldNames: IndexedSeq[String],

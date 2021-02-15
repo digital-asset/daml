@@ -8,7 +8,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[inner] object VariantRecordClass extends StrictLogging {
 

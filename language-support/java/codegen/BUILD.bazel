@@ -8,6 +8,7 @@ load(
     "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
+    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -42,8 +43,18 @@ da_scala_binary(
 da_scala_library(
     name = "lib",
     srcs = glob(["src/main/**/*.scala"]),
+    plugins = [silencer_plugin],
     resources = [
         "src/main/resources/logback.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -56,11 +67,8 @@ da_scala_library(
         "//language-support/java/bindings:bindings-java",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -74,6 +82,16 @@ da_scala_test(
     data = [":test-daml.dar"],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     deps = [
         ":lib",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -86,9 +104,6 @@ da_scala_test(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -292,7 +307,14 @@ da_scala_test(
     ],
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["exclusive"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
         ":ledger-tests-model.jar",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -315,8 +337,6 @@ da_scala_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

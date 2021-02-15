@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Generators {
 

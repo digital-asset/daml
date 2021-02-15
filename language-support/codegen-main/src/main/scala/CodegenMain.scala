@@ -71,10 +71,11 @@ object CodegenMain {
       }
     }
 
-  private def parseFrontEndConfig(args: Seq[String]): Option[FrontEndConfig] = args match {
-    case h +: _ => cliConfigParser.parse(Seq(h), FrontEndConfig(None))
-    case _ => None
-  }
+  private def parseFrontEndConfig(args: collection.Seq[String]): Option[FrontEndConfig] =
+    args match {
+      case h +: _ => cliConfigParser.parse(Seq(h), FrontEndConfig(None))
+      case _ => None
+    }
 
   private val cliConfigParser = new scopt.OptionParser[FrontEndConfig]("codegen-front-end") {
     head("Codegen front end")
