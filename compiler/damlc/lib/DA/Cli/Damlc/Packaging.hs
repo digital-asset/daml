@@ -214,7 +214,7 @@ dbNeedsReinitialization projectRoot allDeps sdkVersion damlLfVersion = do
     errOrmetaData <- tryAny $ readMetadata projectRoot
     pure $
         case errOrmetaData of
-            Left (_err :: SomeException)-> (True, depsFingerprint)
+            Left _err -> (True, depsFingerprint)
             Right metaData -> (fingerprintDependencies metaData /= depsFingerprint, depsFingerprint)
 
 disableScenarioService :: Options -> Options
