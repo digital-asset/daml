@@ -23,6 +23,7 @@ import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import Data.Maybe
 import qualified Data.NameMap as NM
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
@@ -119,9 +120,9 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
       when getShowCoverage $ do
           putStrLn $
               unlines $
-              ["templates never created:"] <> map T.unpack missingTemplates <>
+              ["templates never created:"] <> map T.unpack (S.toList missingTemplates) <>
               ["choices never executed:"] <>
-              [T.unpack t <> ":" <> T.unpack c | (t, c) <- missingChoices]
+              [T.unpack t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
   where
     templates = [(m, t) | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
     choices = [(m, t, n) | (m, t) <- templates, n <- NM.names $ LF.tplChoices t]
@@ -138,8 +139,8 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just contractInstance <- [node_CreateContractInstance]
         ]
     missingTemplates =
-        [fullTemplateName m t | (m, t) <- templates] \\
-        [TL.toStrict $ SS.identifierName tId | Just tId <- coveredTemplates]
+        S.fromList [fullTemplateName m t | (m, t) <- templates] `S.difference`
+        S.fromList [TL.toStrict $ SS.identifierName tId | Just tId <- coveredTemplates]
     coveredChoices =
         nubSort $
         [ (templateId, node_ExerciseChoiceId)
@@ -150,8 +151,8 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just templateId <- [node_ExerciseTemplateId]
         ]
     missingChoices =
-        [(fullTemplateName m t, LF.unChoiceName n) | (m, t, n) <- choices] \\
-        [(TL.toStrict $ SS.identifierName t, TL.toStrict c) | (t, c) <- coveredChoices]
+        S.fromList [(fullTemplateName m t, LF.unChoiceName n) | (m, t, n) <- choices] `S.difference`
+        S.fromList [(TL.toStrict $ SS.identifierName t, TL.toStrict c) | (t, c) <- coveredChoices]
     nrOfTemplates = length templates
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
