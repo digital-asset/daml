@@ -139,7 +139,7 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         ]
     missingTemplates =
         [ (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-        (T.concat $ LF.unTypeConName $ LF.tplTypeCon t)
+        (T.intercalate "." $ LF.unTypeConName $ LF.tplTypeCon t)
         | (m, t) <- templates
         ] \\
         [TL.toStrict $ SS.identifierName tId | Just tId <- coveredTemplates]
