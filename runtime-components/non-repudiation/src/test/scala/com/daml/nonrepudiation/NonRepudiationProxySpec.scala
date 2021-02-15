@@ -19,7 +19,6 @@ import sun.security.tools.keytool.CertAndKeyGen
 import sun.security.x509.X500Name
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.ExecutionContext
 
 final class NonRepudiationProxySpec
     extends AsyncFlatSpec
@@ -48,7 +47,6 @@ final class NonRepudiationProxySpec
         serverBuilder = proxyBuilder,
         certificateRepository = certificates,
         signedPayloadRepository = signedPayloads,
-        metricsReporterProvider = MetricsReporterOwner.noop[ExecutionContext],
         timestampProvider = timestampProvider,
         Health.Name,
       )
@@ -109,7 +107,6 @@ final class NonRepudiationProxySpec
         serverBuilder = proxyBuilder,
         certificateRepository = certificates,
         signedPayloadRepository = signatures,
-        metricsReporterProvider = MetricsReporterOwner.noop[ExecutionContext],
         timestampProvider = Clock.systemUTC(),
         Health.Name,
       )
@@ -135,7 +132,6 @@ final class NonRepudiationProxySpec
         proxyBuilder,
         certificates,
         signatures,
-        MetricsReporterOwner.noop[ExecutionContext],
         Clock.systemUTC(),
         Health.Name,
       )

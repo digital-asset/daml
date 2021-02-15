@@ -3,7 +3,7 @@
 
 package com.daml.nonrepudiation
 
-import com.codahale.metrics.{MetricRegistry, ScheduledReporter, Slf4jReporter}
+import com.codahale.metrics.{ScheduledReporter, Slf4jReporter}
 import com.daml.resources._
 
 import scala.concurrent.Future
@@ -16,19 +16,10 @@ sealed abstract class MetricsReporterOwner[Context: HasExecutionContext]
 
 object MetricsReporterOwner {
 
-  def noop[Context: HasExecutionContext](registry: MetricRegistry): MetricsReporterOwner[Context] =
-    new Noop(registry)
-
-  def slf4j[Context: HasExecutionContext](period: FiniteDuration)(
-      registry: MetricRegistry
+  def slf4j[Context: HasExecutionContext](
+      period: FiniteDuration
   ): MetricsReporterOwner[Context] =
-    new Scheduled(period, Slf4jReporter.forRegistry(registry).build())
-
-  private final class Noop[Context: HasExecutionContext](val _ignored: MetricRegistry)
-      extends MetricsReporterOwner[Context] {
-    override def acquire()(implicit context: Context): Resource[Context, Unit] =
-      PureResource(Future.successful(()))
-  }
+    new Scheduled(period, Slf4jReporter.forRegistry(Metrics.Registry).build())
 
   private final class Scheduled[Context: HasExecutionContext, Delegate <: ScheduledReporter](
       period: FiniteDuration,

@@ -77,6 +77,7 @@ final class NonRepudiationProxyConformance
           sandboxChannelBuilder,
           shutdownTimeout = 5.seconds,
         )
+        _ <- MetricsReporterOwner.slf4j[ResourceContext](period = 5.seconds)
         transactor <- managedHikariTransactor(postgresDatabase.url, maxPoolSize = 10)
         db = Tables.initialize(transactor)
         _ = db.certificates.put(certificate)
@@ -85,7 +86,6 @@ final class NonRepudiationProxyConformance
           proxyBuilder,
           db.certificates,
           db.signedPayloads,
-          MetricsReporterOwner.slf4j(period = 5.seconds),
           Clock.systemUTC(),
           CommandService.scalaDescriptor.fullName,
           CommandSubmissionService.scalaDescriptor.fullName,
