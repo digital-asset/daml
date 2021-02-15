@@ -138,10 +138,7 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just contractInstance <- [node_CreateContractInstance]
         ]
     missingTemplates =
-        [ (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-        (T.intercalate "." $ LF.unTypeConName $ LF.tplTypeCon t)
-        | (m, t) <- templates
-        ] \\
+        [fullTemplateName m t | (m, t) <- templates] \\
         [TL.toStrict $ SS.identifierName tId | Just tId <- coveredTemplates]
     coveredChoices =
         nubSort $
@@ -153,16 +150,15 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just templateId <- [node_ExerciseTemplateId]
         ]
     missingChoices =
-        [ ( (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-            (T.concat $ LF.unTypeConName $ LF.tplTypeCon t)
-          , LF.unChoiceName n)
-        | (m, t, n) <- choices
-        ] \\
+        [(fullTemplateName m t, LF.unChoiceName n) | (m, t, n) <- choices] \\
         [(TL.toStrict $ SS.identifierName t, TL.toStrict c) | (t, c) <- coveredChoices]
     nrOfTemplates = length templates
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
     coveredNrOfTemplates = length coveredTemplates
+    fullTemplateName m t =
+        (LF.moduleNameString $ LF.moduleName m) <> ":" <>
+        (T.concat $ LF.unTypeConName $ LF.tplTypeCon t)
 
 printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
 printScenarioResults results color = do
