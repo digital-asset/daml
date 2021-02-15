@@ -25,6 +25,8 @@ import scala.concurrent.{Await, ExecutionContext}
 trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Types {
   self: Suite =>
 
+  import Types._
+
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   protected val baseConfig: ExtractorConfig = ExtractorConfig(

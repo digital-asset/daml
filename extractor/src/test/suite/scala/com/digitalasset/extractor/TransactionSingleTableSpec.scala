@@ -30,6 +30,8 @@ class TransactionSingleTableSpec
     with Matchers
     with CustomMatchers {
 
+  import services.Types._
+
   override protected def darFile = new File(rlocation("extractor/TransactionExample.dar"))
 
   override def scenario: Option[String] = Some("TransactionExample:example")

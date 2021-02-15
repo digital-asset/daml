@@ -9,8 +9,7 @@ import com.daml.extractor.ledger.types.{Event, TransactionTree}
 import com.daml.extractor.writers.Writer.RefreshPackages
 
 import scala.concurrent.Future
-import scalaz._
-import Scalaz._
+import scalaz.{\/, \/-}
 
 trait PrinterFunctionWriter { self: Writer =>
 
@@ -42,7 +41,7 @@ trait PrinterFunctionWriter { self: Writer =>
     printer(s"Events:")
     transaction.events.map(_._2).foreach(printEvent)
 
-    Future.successful(().right)
+    Future.successful(\/-(()))
   }
 
   def getLastOffset: Future[Option[String]] = Future.successful(None)

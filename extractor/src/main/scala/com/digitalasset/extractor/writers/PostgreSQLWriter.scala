@@ -22,8 +22,10 @@ import cats.syntax.functor._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz._
-import Scalaz._
+import scalaz.{\/}
+import scalaz.std.list._
+import scalaz.std.scalaFuture._
+import scalaz.syntax.traverse._
 import com.daml.lf.iface.Record
 import com.typesafe.scalalogging.StrictLogging
 
