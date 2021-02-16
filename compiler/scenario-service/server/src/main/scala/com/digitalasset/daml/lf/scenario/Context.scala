@@ -219,7 +219,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       case Success(v) =>
         Success(
           Some(
-            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))
+            (
+              ledgerClient.scenarioRunner.ledger,
+              (clientMachine, ledgerClient.machine),
+              Right(v.mapContractId(ledgerClient.remapCidOnLedger)),
+            )
           )
         )
       case Failure(e: SError) =>
