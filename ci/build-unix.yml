@@ -5,6 +5,7 @@ parameters:
   is_release: ''
   name: ''
   release_tag: ''
+  scala_version: '2.12.12'
 
 steps:
   - bash: ci/dev-env-install.sh
@@ -35,6 +36,7 @@ steps:
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      DAML_SCALA_VERSION: ${{parameters.scala_version}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()
@@ -47,9 +49,15 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
 
-      ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
+      EXTRA_FLAGS=""
+      if [[ "$DAML_SCALA_VERSION" != "2.12.12" ]]; then
+        EXTRA_FLAGS="--only-scala"
+      fi
+
+      ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload $EXTRA_FLAGS
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      DAML_SCALA_VERSION: ${{parameters.scala_version}}
       GPG_KEY: $(gpg-code-signing)
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)

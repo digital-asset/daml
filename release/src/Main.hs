@@ -110,8 +110,9 @@ main = do
       forM_ mvnFiles $ \(_, (inp, outp)) ->
           copyToReleaseDir bazelLocations releaseDir inp outp
 
-      mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
-      validateMavenArtifacts releaseDir mvnUploadArtifacts
+      mvnUploadArtifacts <- concatMapM (mavenArtifactCoords optsOnlyScala) mvnArtifacts
+      unless (getOnlyScala optsOnlyScala) $
+        validateMavenArtifacts releaseDir mvnUploadArtifacts
 
       -- NPM packages we want to publish
       let npmPackages =
@@ -132,18 +133,19 @@ main = do
                   else
                     $logInfo "No artifacts to upload to Maven Central"
 
-              $logDebug "Uploading npm packages"
-              -- We can't put an .npmrc file in the root of the directory because other bazel npm
-              -- code picks it up and looks for the token which is not yet set before the release
-              -- phase.
-              let npmrcPath = ".npmrc"
-              liftIO $ bracket_
-                (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
-                (Dir.removeFile npmrcPath)
-                (forM_ npmPackages
-                  $ \rule -> liftIO $ callCommand $ unwords $
-                      ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
-                      [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
+              unless (getOnlyScala optsOnlyScala) $ do
+                $logDebug "Uploading npm packages"
+                -- We can't put an .npmrc file in the root of the directory because other bazel npm
+                -- code picks it up and looks for the token which is not yet set before the release
+                -- phase.
+                let npmrcPath = ".npmrc"
+                liftIO $ bracket_
+                  (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
+                  (Dir.removeFile npmrcPath)
+                  (forM_ npmPackages
+                    $ \rule -> liftIO $ callCommand $ unwords $
+                        ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
+                        [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
               pom <- generateAggregatePom bazelLocations mvnArtifacts
