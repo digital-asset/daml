@@ -484,7 +484,7 @@ private object OracleQueries extends Queries {
   protected[this] override def agreementTextType = sql"NVARCHAR2(100)"
 
   protected[this] override def jsonColumn(name: Fragment) =
-    name ++ sql" CLOB CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
+    name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
 
   protected[this] override def contractsTableSignatoriesObservers = sql""
 
