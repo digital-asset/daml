@@ -9,9 +9,8 @@
 # If exists "preview"'s value is guarantee to be different for all other values.
 lf_version_configuration = {
     "legacy": "1.8",
-    "stable": "1.8",
-    "latest": "1.11",
-    "preview": "1.12",
+    "stable": "1.11",
+    "latest": "1.12",
     "dev": "1.dev",
 }
 
