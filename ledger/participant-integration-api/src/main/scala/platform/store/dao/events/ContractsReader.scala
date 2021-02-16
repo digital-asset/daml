@@ -47,11 +47,69 @@ private[dao] sealed class ContractsReader(
   private def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
       contractId: ContractId,
-  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
+    val tree_event_witnessesWhere =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-        SQL"select participant_contracts.contract_id, template_id, create_argument, create_argument_compression from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
-          .as(contractRowParser.singleOpt)
+        SQL"""
+  WITH archival_event AS (
+         SELECT participant_events.*
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 20  -- consuming exercise
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere  -- only use visible archivals
+          LIMIT 1
+       ),
+       create_event AS (
+         SELECT contract_id, template_id, create_argument, create_argument_compression
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 10  -- create
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere
+          LIMIT 1 -- limit here to guide planner wrt expected number of results
+       ),
+       -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
+       create_event_unrestricted AS (
+         SELECT contract_id, template_id, create_argument, create_argument_compression
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 10  -- create
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+          LIMIT 1 -- limit here to guide planner wrt expected number of results
+       ),
+       divulged_contract AS (
+         SELECT divulgence_events.contract_id,
+                -- Note: the divulgance_event.template_id and .create_argument can be NULL
+                -- for certain integrations. For example, the KV integration exploits that
+                -- every participant node knows about all create events. The integration
+                -- therefore only communicates the change in visibility to the IndexDB, but
+                -- does not include a full divulgence event.
+                COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id),
+                COALESCE(divulgence_events.create_argument, create_event_unrestricted.create_argument),
+                COALESCE(divulgence_events.create_argument_compression, create_event_unrestricted.create_argument_compression)
+           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+                parameters
+          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
+            AND divulgence_events.event_kind = 0 -- divulgence
+            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere
+          ORDER BY divulgence_events.event_sequential_id
+            -- prudent engineering: make results more stable by preferring earlier divulgence events
+            -- Results might still change due to pruning.
+          LIMIT 1
+       ),
+       create_and_divulged_contracts AS (
+         (SELECT * FROM create_event)   -- prefer create over divulgance events
+         UNION ALL
+         (SELECT * FROM divulged_contract)
+       )
+  SELECT contract_id, template_id, create_argument, create_argument_compression
+    FROM create_and_divulged_contracts
+   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
+   LIMIT 1;""".as(contractRowParser.singleOpt)
       }
       .map(_.map { case (templateId, createArgument, createArgumentCompression) =>
         toContract(
@@ -64,17 +122,60 @@ private[dao] sealed class ContractsReader(
             metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
         )
       })
+  }
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
   private def lookupActiveContractWithCachedArgument(
       readers: Set[Party],
       contractId: ContractId,
       createArgument: Value,
-  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
+    val tree_event_witnessesWhere =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
         implicit connection =>
-          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
+          SQL"""
+  WITH archival_event AS (
+         SELECT participant_events.*
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 20  -- consuming exercise
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere  -- only use visible archivals
+          LIMIT 1
+       ),
+       create_event AS (
+         SELECT contract_id, template_id, create_argument
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 10  -- create
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere
+          LIMIT 1 -- limit here to guide planner wrt expected number of results
+       ),
+       divulged_contract AS (
+         SELECT contract_id, template_id, create_argument
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 0 -- divulgence
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere
+          ORDER BY event_sequential_id
+            -- prudent engineering: make results more stable by preferring earlier divulgence events
+            -- Results might still change due to pruning.
+          LIMIT 1
+       ),
+       create_and_divulged_contracts AS (
+         (SELECT * FROM create_event)   -- prefer create over divulgance events
+         UNION ALL
+         (SELECT * FROM divulged_contract)
+       )
+  SELECT contract_id, template_id
+    FROM create_and_divulged_contracts
+   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
+   LIMIT 1;
+           """
             .as(contractWithoutValueRowParser.singleOpt)
       }
       .map(
@@ -85,6 +186,7 @@ private[dao] sealed class ContractsReader(
           )
         )
       )
+  }
 
   override def lookupActiveContract(
       readers: Set[Party],
@@ -109,9 +211,32 @@ private[dao] sealed class ContractsReader(
     }
 
   private def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row] = {
-    val stakeholdersWhere =
-      sqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
-    SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
+    // TODO @simon@ here we make a switch from create_stakeholders to flat_event_witnesses. Is that ok?
+    def flat_event_witnessesWhere(columnPrefix: String) =
+      sqlFunctions.arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers)
+    SQL"""
+  WITH last_contract_key_create AS (
+         SELECT participant_events.*
+           FROM participant_events, parameters
+          WHERE event_kind = 10 -- create
+            AND create_key_hash = ${key.hash}
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+                -- do NOT check visibility here, as otherwise we do not abort the scan early
+          ORDER BY event_sequential_id DESC
+          LIMIT 1
+       )
+  SELECT contract_id
+    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+  WHERE #${flat_event_witnessesWhere("last_contract_key_create")} -- check visibility only here
+    AND NOT EXISTS       -- check no archival visible
+         (SELECT 1
+            FROM participant_events, parameters
+           WHERE event_kind = 20 -- consuming exercise
+             AND event_sequential_id <= parameters.ledger_end_sequential_id
+             AND #${flat_event_witnessesWhere("participant_events")}
+             AND contract_id = last_contract_key_create.contract_id
+         );
+       """
   }
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
@@ -144,8 +269,6 @@ private[dao] object ContractsReader {
       sqlFunctions = sqlFunctions,
     )
   }
-
-  private val contractsTable = "participant_contracts natural join participant_contract_witnesses"
 
   // The contracts table _does not_ store agreement texts as they are
   // unnecessary for interpretation and validation. The contracts returned

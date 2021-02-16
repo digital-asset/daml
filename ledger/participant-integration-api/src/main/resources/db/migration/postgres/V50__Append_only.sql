@@ -322,7 +322,15 @@ DROP TABLE participant_events CASCADE;
 -- TODO: reorder small fields to the end to avoid unnecessary padding.
 --
 CREATE TABLE participant_events (
+    ----- MARK removed:
+    -- create_consumed_at
+    -- exercise_consuming
+    ----- MARK added:
+    -- event_kind
+    -- create_key_hash
+
     -- * kinds of events
+    -- MARK plus
     event_kind smallint NOT NULL, -- Numbers allocated to leave some space for future additions.
                                   -- 0:  divulgence event
                                   -- 10: create event
@@ -330,7 +338,7 @@ CREATE TABLE participant_events (
                                   -- 25: non-consuming exercise event
 
     -- * event identification
-    event_sequential_id bigint NOT NULL,
+    event_sequential_id bigserial NOT NULL, -- TODO temporarily readding bigserial for original write paths
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
@@ -351,28 +359,25 @@ CREATE TABLE participant_events (
 
     -- * shared event information
     contract_id text NOT NULL,
-    template_id text NOT NULL,
+    template_id text,     -- TODO @simon@ with the new divulgance model supporting public pkv implementations: we need this to enable NULL-s. Do we need to make involved indexes partial?
     flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- stakeholders of create events and consuming exercise events
     tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
 
     -- * divulgence and create events
     create_argument bytea,
-    create_argument_compression smallint,
 
     -- * create events only
     create_signatories text[],
     create_observers text[],
     create_agreement_text text,
     create_key_value bytea,
-    create_key_value_compression smallint,
+    -- MARK plus
     create_key_hash bytea,   -- This field is newly added; and not present in the fields below. Populate for create events only
 
     -- * exercise events (consuming and non_consuming)
     exercise_choice text,
     exercise_argument bytea,
-    exercise_argument_compression smallint,
     exercise_result bytea,
-    exercise_result_compression smallint,
     exercise_actors text[],
     exercise_child_event_ids text[]
 

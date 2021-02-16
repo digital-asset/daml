@@ -217,12 +217,18 @@ private[platform] object Conversions {
 
   implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
 
+  implicit object IntArrayToStatement extends ToStatement[Array[Int]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Int]): Unit = {
+      s.setObject(index, v)
+    }
+  }
+
   implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
 
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
       val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
+      val ts = conn.createArrayOf("TIMESTAMP", v.map(i => if (i == null) null else java.sql.Timestamp.from(i)))
       s.setArray(index, ts)
     }
   }

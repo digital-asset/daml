@@ -26,7 +26,7 @@ private[dao] object SqlFunctions {
 
   object PostgresSqlFunctions extends SqlFunctions {
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
-      s"$arrayColumn && array[${format(parties)}]::varchar[]"
+      s"$arrayColumn::text[] && array[${format(parties)}]::text[]"
 
     def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"array(select unnest($arrayColumn) intersect select unnest(array[${format(parties)}]))"

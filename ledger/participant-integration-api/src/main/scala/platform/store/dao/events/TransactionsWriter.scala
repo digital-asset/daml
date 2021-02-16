@@ -79,7 +79,7 @@ private[platform] final class TransactionsWriter(
           lfValueTranslation,
           transactionId,
           indexing.events.events,
-          indexing.contracts.divulgedContracts,
+          divulgedContracts,
         ),
       )
 
@@ -94,7 +94,7 @@ private[platform] final class TransactionsWriter(
       )
 
     new TransactionsWriter.PreparedInsert(
-      eventsTable.toExecutables(indexing.transaction, indexing.events, compressed.events),
+      eventsTable.toExecutables(indexing.transaction, indexing.events, indexing.contracts, compressed.events)
     )
   }
 

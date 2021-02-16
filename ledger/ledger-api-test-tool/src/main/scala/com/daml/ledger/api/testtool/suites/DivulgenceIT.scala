@@ -12,6 +12,8 @@ import com.daml.ledger.test.model.Test.{Asset, Divulgence1, Divulgence2, Proposa
 import scalaz.Tag
 
 final class DivulgenceIT extends LedgerTestSuite {
+
+// TODO this one is a flake, at daml-on-sql it fails constantly in orchestration, but never in isolation, on ledger-on-memory it fails like 5% of the runs
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",

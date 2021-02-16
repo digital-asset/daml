@@ -88,23 +88,24 @@ private[events] object EventsTableFlatEvents {
       "create_key_value_compression",
     ).mkString(", ")
 
-  private val groupByColumns =
+  private val selectColumnsForACS =
     Seq(
-      "event_offset",
-      "transaction_id",
-      "ledger_effective_time",
-      "command_id",
-      "workflow_id",
-      "participant_events.event_id",
-      "contract_id",
-      "template_id",
-      "create_argument",
-      "create_argument_compression",
-      "create_signatories",
-      "create_observers",
-      "create_agreement_text",
-      "create_key_value",
-      "create_key_value_compression",
+      "active_cs.event_offset",
+      "active_cs.transaction_id",
+      "active_cs.node_index",
+      "active_cs.event_sequential_id",
+      "active_cs.ledger_effective_time",
+      "active_cs.workflow_id",
+      "active_cs.event_id",
+      "active_cs.contract_id",
+      "active_cs.template_id",
+      "active_cs.create_argument",
+      "active_cs.create_argument_compression",
+      "active_cs.create_signatories",
+      "active_cs.create_observers",
+      "active_cs.create_agreement_text",
+      "active_cs.create_key_value",
+      "active_cs.create_key_value_compression",
     ).mkString(", ")
 
   def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
@@ -121,14 +122,15 @@ private[events] object EventsTableFlatEvents {
       requestingParty: Party,
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
+      // TODO varchars are not texts according to postgreSQL - we need to do lot of casting. since these are primarlily the same I suggest for the final approach to pick either and aligne old and new code @simon@
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
+                 case when submitters = array[$requestingParty]::text[] then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
               and event_offset <= ledger_end
-          where transaction_id = $transactionId and #$witnessesWhereClause
+          where transaction_id = $transactionId and #$witnessesWhereClause and event_kind != 0 -- we do not want to fetch divulgence events
           order by event_sequential_id"""
   }
 
@@ -140,14 +142,14 @@ private[events] object EventsTableFlatEvents {
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
     val submittersInPartiesClause =
       sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
+    // TODO why groupby??? is it okay to remove?
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
               and event_offset <= ledger_end
-          where transaction_id = $transactionId and #$witnessesWhereClause
-          group by (#$groupByColumns)
+          where transaction_id = $transactionId and #$witnessesWhereClause and event_kind != 0 -- we do not want to fetch divulgence events
           order by event_sequential_id"""
   }
 
@@ -170,7 +172,7 @@ private[events] object EventsTableFlatEvents {
 
   private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
-      selectColumns = selectColumns,
+      selectColumns = selectColumnsForACS,
       sqlFunctions = sqlFunctions,
     )
 
