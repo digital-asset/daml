@@ -22,11 +22,10 @@ object ContractsTableH2 extends ContractsTable {
 
   override def toExecutables(
       info: TransactionIndexing.ContractsInfo,
-      tx: TransactionIndexing.TransactionInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
   ): ContractsTable.Executables = ContractsTable.Executables(
     deleteContracts = buildDeletes(info),
-    insertContracts = buildInserts(tx, info, serialized),
+    insertContracts = buildInserts(info, serialized),
   )
 
   private def insertContract(
@@ -49,18 +48,17 @@ object ContractsTableH2 extends ContractsTable {
     )
 
   def buildInserts(
-      tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
-  ): Executable = {
+  ): Option[Executable] = {
     val localInserts =
       for {
-        create <- info.netCreates.iterator
+        (create, timestamp) <- info.netCreates.iterator
       } yield insertContract(
         contractId = create.coid,
         templateId = create.templateId,
         createArgument = serialized.createArguments(create.coid),
-        ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
+        ledgerEffectiveTime = Some(timestamp),
         stakeholders = create.stakeholders,
         key = create.versionedKey.map(convert(create.templateId, _)),
         createArgumentCompression = serialized.createArgumentsCompression,
@@ -80,7 +78,8 @@ object ContractsTableH2 extends ContractsTable {
         )
       }
     val inserts = localInserts.toVector ++ divulgedInserts.toVector
-    new InsertContractsExecutable(batch(insertContractQuery, inserts))
+    // TODO Tudor Check against empty
+    Some(new InsertContractsExecutable(batch(insertContractQuery, inserts)))
   }
 
   private class InsertContractsExecutable(inserts: Option[BatchSql]) extends Executable {

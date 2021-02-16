@@ -33,8 +33,7 @@ import com.google.protobuf.timestamp.Timestamp
 private[events] abstract class EventsTable {
 
   def toExecutables(
-      tx: TransactionIndexing.TransactionInfo,
-      info: TransactionIndexing.EventsInfo,
+      batch: TransactionIndexing.EventsInfoBatch,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches
 

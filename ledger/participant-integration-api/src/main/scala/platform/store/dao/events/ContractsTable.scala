@@ -25,7 +25,6 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
 
   def toExecutables(
       info: TransactionIndexing.ContractsInfo,
-      tx: TransactionIndexing.TransactionInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
   ): ContractsTable.Executables
 
@@ -68,7 +67,10 @@ private[events] object ContractsTable {
     def execute()(implicit connection: Connection): Unit
   }
 
-  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Executable)
+  final case class Executables(
+      deleteContracts: Option[BatchSql],
+      insertContracts: Option[Executable],
+  )
 
   def apply(dbType: DbType): ContractsTable =
     dbType match {

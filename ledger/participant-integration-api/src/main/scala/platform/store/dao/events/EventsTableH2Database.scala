@@ -189,25 +189,28 @@ object EventsTableH2Database extends EventsTable {
     )
 
   def toExecutables(
-      tx: TransactionIndexing.TransactionInfo,
-      info: TransactionIndexing.EventsInfo,
+      eventsInfoBatch: TransactionIndexing.EventsInfoBatch,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches = {
 
-    val events = transaction(
-      offset = tx.offset,
-      transactionId = tx.transactionId,
-      workflowId = tx.workflowId,
-      ledgerEffectiveTime = tx.ledgerEffectiveTime,
-      submitterInfo = tx.submitterInfo,
-      events = info.events,
-      stakeholders = info.stakeholders,
-      disclosure = info.disclosure,
-      compressed = compressed,
-    )
+    val events = eventsInfoBatch.eventsInfo.iterator.flatMap { case (transactionId, info) =>
+      transaction(
+        offset = info.offset,
+        transactionId = transactionId,
+        workflowId = info.workflowId,
+        ledgerEffectiveTime = info.ledgerEffectiveTime,
+        submitterInfo = info.submitterInfo,
+        events = info.events,
+        stakeholders = info.stakeholders,
+        disclosure = info.disclosure,
+        compressed = compressed,
+      )
+    }.toVector
 
     val archivals =
-      info.archives.iterator.map(archive(tx.offset)).toList
+      eventsInfoBatch.eventsInfo.flatMap { case (_, info) =>
+        info.archives.iterator.map(archive(info.offset))
+      }.toVector
 
     new Batches(
       insertEvents = batch(insertEvent, events),

@@ -4,18 +4,10 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.{Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo,
-}
-import com.daml.ledger.{TransactionId, WorkflowId}
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.BlindingInfo
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.DbType
 
@@ -24,7 +16,15 @@ private[platform] object TransactionsWriter {
       eventsTableExecutables: EventsTable.Batches,
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
+      transactionCompletionTables: TransactionCompletionTables.Executables,
   ) {
+
+    def completeTransaction(metrics: Metrics)(implicit conn: Connection): Unit = {
+      import metrics.daml.index.db.storeTransactionDbMetrics._
+
+      Timed.value(eventsBatch, transactionCompletionTables.execute)
+    }
+
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       writeEvents(metrics)
       writeState(metrics)
@@ -49,13 +49,15 @@ private[platform] object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
-      Timed.value(insertContractsBatch, contractsTableExecutables.insertContracts.execute())
+      for (insertContracts <- contractsTableExecutables.insertContracts) {
+        Timed.value(insertContractsBatch, insertContracts.execute())
+      }
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
-      Timed.value(
+      val _ = Timed.value(
         insertContractWitnessesBatch,
         contractWitnessesTableExecutables.insertWitnesses.execute(),
       )
@@ -76,41 +78,44 @@ private[platform] final class TransactionsWriter(
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
-  def prepare(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-  ): TransactionsWriter.PreparedInsert = {
-
-    // Backwards-compatibility: blinding info was previously not pre-computed and saved by the committer
-    // but rather computed on the read path from Fetch and LookupByKey nodes (now trimmed just before
-    // commit, for storage reduction).
-    val blinding = blindingInfo.getOrElse(Blinding.blind(transaction))
-
+  def prepare(transactions: Seq[TransactionEntry]): TransactionsWriter.PreparedInsert = {
     val indexing =
-      TransactionIndexing.from(
-        blinding,
-        submitterInfo,
-        workflowId,
-        transactionId,
-        ledgerEffectiveTime,
-        offset,
-        transaction,
-        divulgedContracts,
-      )
+      transactions.iterator
+        .map {
+          case TransactionEntry(
+                submitterInfo,
+                workflowId,
+                transactionId,
+                ledgerEffectiveTime,
+                offset,
+                transaction,
+                divulgedContracts,
+                blindingInfo,
+              ) =>
+            // Backwards-compatibility: blinding info was previously not pre-computed and saved by the committer
+            // but rather computed on the read path from Fetch and LookupByKey nodes (now trimmed just before
+            // commit, for storage reduction).
+            val blinding = blindingInfo.getOrElse(Blinding.blind(transaction))
+
+            TransactionIndexing.from(
+              blinding,
+              submitterInfo,
+              workflowId,
+              transactionId,
+              ledgerEffectiveTime,
+              offset,
+              transaction,
+              divulgedContracts,
+            )
+        }
+        .reduce(TransactionIndexing.merge)
 
     val serialized =
       Timed.value(
         metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
         TransactionIndexing.serialize(
           lfValueTranslation,
-          transactionId,
-          indexing.events.events,
+          indexing.events.eventsInfo,
           indexing.contracts.divulgedContracts,
         ),
       )
@@ -126,13 +131,13 @@ private[platform] final class TransactionsWriter(
       )
 
     new TransactionsWriter.PreparedInsert(
-      eventsTable.toExecutables(indexing.transaction, indexing.events, compressed.events),
-      contractsTable.toExecutables(indexing.contracts, indexing.transaction, compressed.contracts),
+      eventsTable.toExecutables(indexing.events, compressed.events),
+      contractsTable.toExecutables(indexing.contracts, compressed.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
+      TransactionCompletionTables.toExecutables(transactions),
     )
   }
 
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
     EventsTableDelete.prepareEventsDelete(endInclusive)
-
 }

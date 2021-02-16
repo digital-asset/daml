@@ -37,24 +37,20 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     )
 
   override def toExecutables(
-      tx: TransactionIndexing.TransactionInfo,
-      info: TransactionIndexing.EventsInfo,
+      eventsBatch: TransactionIndexing.EventsInfoBatch,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches = {
-
-    val batchSize = info.events.size
+    val batchSize = eventsBatch.eventsInfo.iterator.map(_._2.events.size).sum
     val eventIds = Array.ofDim[String](batchSize)
-    val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
+    val eventOffsets = Array.ofDim[Array[Byte]](batchSize)
     val contractIds = Array.ofDim[String](batchSize)
-    val transactionIds = Array.fill(batchSize)(tx.transactionId.asInstanceOf[String])
-    val workflowIds = Array.fill(batchSize)(tx.workflowId.map(_.asInstanceOf[String]).orNull)
-    val ledgerEffectiveTimes = Array.fill(batchSize)(tx.ledgerEffectiveTime)
+    val transactionIds = Array.ofDim[String](batchSize)
+    val workflowIds = Array.ofDim[String](batchSize)
+    val ledgerEffectiveTimes = Array.ofDim[Instant](batchSize)
     val templateIds = Array.ofDim[String](batchSize)
     val nodeIndexes = Array.ofDim[java.lang.Integer](batchSize)
-    val commandIds =
-      Array.fill(batchSize)(tx.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
-    val applicationIds =
-      Array.fill(batchSize)(tx.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
+    val commandIds = Array.ofDim[String](batchSize)
+    val applicationIds = Array.ofDim[String](batchSize)
     val submitters = Array.ofDim[String](batchSize)
     val flatEventWitnesses = Array.ofDim[String](batchSize)
     val treeEventWitnesses = Array.ofDim[String](batchSize)
@@ -71,46 +67,69 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseActors = Array.ofDim[String](batchSize)
     val exerciseChildEventIds = Array.ofDim[String](batchSize)
 
-    val submittersValue = tx.submitterInfo.map(_.actAs.mkString("|")).orNull
+    var global = 0
 
-    for (((nodeId, node), i) <- info.events.zipWithIndex) {
-      node match {
-        case create: Create =>
-          submitters(i) = submittersValue
-          contractIds(i) = create.coid.coid
-          templateIds(i) = create.coinst.template.toString
-          eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
-          nodeIndexes(i) = nodeId.index
-          flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
-          treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-          createArguments(i) = compressed.createArguments(nodeId)
-          createSignatories(i) = create.signatories.mkString("|")
-          createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
-          if (create.coinst.agreementText.nonEmpty) {
-            createAgreementTexts(i) = create.coinst.agreementText
-          }
-          createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
-        case exercise: Exercise =>
-          submitters(i) = submittersValue
-          contractIds(i) = exercise.targetCoid.coid
-          templateIds(i) = exercise.templateId.toString
-          eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
-          nodeIndexes(i) = nodeId.index
-          flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
-          treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-          exerciseConsuming(i) = exercise.consuming
-          exerciseChoices(i) = exercise.choiceId
-          exerciseArguments(i) = compressed.exerciseArguments(nodeId)
-          exerciseResults(i) = compressed.exerciseResults.get(nodeId).orNull
-          exerciseActors(i) = exercise.actingParties.mkString("|")
-          exerciseChildEventIds(i) = exercise.children
-            .map(EventId(tx.transactionId, _).toLedgerString)
-            .iterator
-            .mkString("|")
-        case _ => throw new UnexpectedNodeException(nodeId, tx.transactionId)
+    eventsBatch.eventsInfo.foreach { case (transactionId, eventsInfo) =>
+      val events = eventsInfo.events
+      val submissionBatchSize = events.size
+      for (i <- global until global + submissionBatchSize) {
+        events(i - global) match {
+          case (nodeId, create: Create) =>
+            transactionIds(i) = transactionId.asInstanceOf[String]
+            workflowIds(i) = eventsInfo.workflowId.map(_.asInstanceOf[String]).orNull
+            ledgerEffectiveTimes(i) = eventsInfo.ledgerEffectiveTime
+            submitters(i) = eventsInfo.submitterInfo.map(_.actAs.mkString("|")).orNull
+            eventOffsets(i) = eventsInfo.offset.toByteArray
+            commandIds(i) = eventsInfo.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull
+            applicationIds(i) =
+              eventsInfo.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull
+
+            contractIds(i) = create.coid.coid
+            templateIds(i) = create.coinst.template.toString
+
+            eventIds(i) = EventId(transactionId, nodeId).toLedgerString
+            nodeIndexes(i) = nodeId.index
+            flatEventWitnesses(i) =
+              eventsInfo.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
+            treeEventWitnesses(i) = eventsInfo.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
+            createArguments(i) = compressed.createArguments(nodeId)
+            createSignatories(i) = create.signatories.mkString("|")
+            createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
+            if (create.coinst.agreementText.nonEmpty) {
+              createAgreementTexts(i) = create.coinst.agreementText
+            }
+            createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
+          case (nodeId, exercise: Exercise) =>
+            transactionIds(i) = transactionId.asInstanceOf[String]
+            workflowIds(i) = eventsInfo.workflowId.map(_.asInstanceOf[String]).orNull
+            ledgerEffectiveTimes(i) = eventsInfo.ledgerEffectiveTime
+            submitters(i) = eventsInfo.submitterInfo.map(_.actAs.mkString("|")).orNull
+            eventOffsets(i) = eventsInfo.offset.toByteArray
+            commandIds(i) = eventsInfo.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull
+            applicationIds(i) =
+              eventsInfo.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull
+
+            contractIds(i) = exercise.targetCoid.coid
+            templateIds(i) = exercise.templateId.toString
+            eventIds(i) = EventId(transactionId, nodeId).toLedgerString
+            nodeIndexes(i) = nodeId.index
+            flatEventWitnesses(i) =
+              eventsInfo.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
+            treeEventWitnesses(i) = eventsInfo.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
+            exerciseConsuming(i) = exercise.consuming
+            exerciseChoices(i) = exercise.choiceId
+            exerciseArguments(i) = compressed.exerciseArguments(nodeId)
+            exerciseResults(i) = compressed.exerciseResults.get(nodeId).orNull
+            exerciseActors(i) = exercise.actingParties.mkString("|")
+            exerciseChildEventIds(i) = exercise.children
+              .map(EventId(transactionId, _).toLedgerString)
+              .iterator
+              .mkString("|")
+          case _ =>
+        }
       }
+      global += submissionBatchSize
     }
-
     val inserts = insertEvents(
       eventIds,
       eventOffsets,
@@ -143,8 +162,12 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       exerciseResultCompression = eventIds.map(_ => compressed.exerciseResultsCompression.id),
     )
 
-    val archivals =
-      info.archives.iterator.map(archive(tx.offset)).toList
+    val archivals = {
+      for {
+        (_, eventInfo) <- eventsBatch.eventsInfo
+        archival <- eventInfo.archives
+      } yield archive(eventInfo.offset)(archival)
+    }.toVector
 
     new Batches(
       eventsInsertion = inserts,

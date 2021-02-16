@@ -27,6 +27,12 @@ object OffsetUpdate {
 
   private final case class OffsetUpdateImpl(offsetStep: OffsetStep, update: Update)
       extends OffsetUpdate
+
+  final case class BatchedTransactions(
+      offsetStep: OffsetStep,
+      update: TransactionAccepted,
+      batch: Seq[(Offset, TransactionAccepted)],
+  ) extends OffsetUpdate
 }
 
 sealed trait OffsetStep extends Product with Serializable {

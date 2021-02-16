@@ -36,7 +36,7 @@ import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.events.{LfValueTranslation, TransactionEntry}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
@@ -385,14 +385,18 @@ private final class SqlLedger(
             val blindingInfo = None
 
             val preparedInsert = ledgerDao.prepareTransactionInsert(
-              submitterInfo = Some(submitterInfo),
-              workflowId = transactionMeta.workflowId,
-              transactionId = transactionId,
-              ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offset = offset,
-              transaction = transactionCommitter.commitTransaction(transactionId, transaction),
-              divulgedContracts = divulgedContracts,
-              blindingInfo = blindingInfo,
+              Seq(
+                TransactionEntry(
+                  submitterInfo = Some(submitterInfo),
+                  workflowId = transactionMeta.workflowId,
+                  transactionId = transactionId,
+                  ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+                  offset = offset,
+                  transaction = transactionCommitter.commitTransaction(transactionId, transaction),
+                  divulgedContracts = divulgedContracts,
+                  blindingInfo = blindingInfo,
+                )
+              )
             )
             ledgerDao.storeTransaction(
               preparedInsert,

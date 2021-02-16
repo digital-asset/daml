@@ -24,7 +24,7 @@ import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.TransactionsWriter
+import com.daml.platform.store.dao.events.{TransactionEntry, TransactionsWriter}
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
 
@@ -80,14 +80,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   // On the other hand, *transactions* do not need to correspond to valid transactions that could be produced by the
   // above mentioned DAML code, e.g., signatories/stakeholders may not correspond to the contract/choice arguments.
   // This is because JdbcLedgerDao is only concerned with serialization, and does not verify the DAML ledger model.
-  private def testIdentifier(name: String) = Identifier(
+  protected def testIdentifier(name: String) = Identifier(
     testPackageId,
     Ref.QualifiedName(
       Ref.ModuleName.assertFromString("Test"),
       Ref.DottedName.assertFromString(name),
     ),
   )
+
   private def recordFieldName(name: String) = Some(Ref.Name.assertFromString(name))
+
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
   protected final val someValueText = LfValue.ValueText("some text")
   protected final val someValueInt = LfValue.ValueInt64(1)
@@ -133,6 +135,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   )
   protected final val someChoiceResult =
     LfValue.ValueContractId[ContractId](ContractId.V0.assertFromString("#1"))
+
   protected final def someContractKey(party: Party, value: String) = LfValue.ValueRecord(
     None,
     ImmArray(
@@ -140,6 +143,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       None -> LfValue.ValueText(value),
     ),
   )
+
   protected final val someContractInstance = ContractInst(
     someTemplateId,
     someContractArgument,
@@ -255,7 +259,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = actAs,
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -337,7 +341,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"just-divulged-${id.coid}"),
       transactionId = s"trId${id.coid}",
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List(divulgees.head),
       workflowId = None,
       ledgerEffectiveTime = Instant.now,
@@ -358,7 +362,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List("Alice"),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -379,7 +383,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List(alice, bob, charlie),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -400,7 +404,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List("Alice"),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -424,7 +428,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       List("Alice"),
       Some("workflowId"),
       let,
@@ -443,7 +447,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID().toString,
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List(alice),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -470,7 +474,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID.toString),
       transactionId = UUID.randomUUID().toString,
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List(alice),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -488,10 +492,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   /** Creates the following transaction
     *
     * Create A --> Exercise A
-    *              |        |
-    *              |        |
-    *              v        v
-    *           Create B  Create C
+    * |        |
+    * |        |
+    * v        v
+    * Create B  Create C
     *
     * A is visible to Charlie
     * B is visible to Alice and Charlie
@@ -524,7 +528,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID().toString,
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List(charlie),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
@@ -562,7 +566,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID.toString,
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       actAs = List(operator),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = Instant.now,
@@ -580,14 +584,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       blindingInfo: Option[BlindingInfo] = None,
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
-      submitterInfo,
-      tx.workflowId,
-      tx.transactionId,
-      tx.ledgerEffectiveTime,
-      offsetStep.offset,
-      tx.transaction,
-      divulgedContracts,
-      blindingInfo,
+      Seq(
+        TransactionEntry(
+          submitterInfo,
+          tx.workflowId,
+          tx.transactionId,
+          tx.ledgerEffectiveTime,
+          offsetStep.offset,
+          tx.transaction,
+          divulgedContracts,
+          blindingInfo,
+        )
+      )
     )
 
   protected final def store(

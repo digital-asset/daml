@@ -36,40 +36,36 @@ object ContractsTablePostgres extends ContractsTable {
 
   override def toExecutables(
       info: TransactionIndexing.ContractsInfo,
-      tx: TransactionIndexing.TransactionInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
-  ): ContractsTable.Executables = {
+  ): ContractsTable.Executables =
     ContractsTable.Executables(
       deleteContracts = buildDeletes(info),
-      insertContracts = buildInserts(tx, info, serialized),
+      insertContracts = buildInserts(info, serialized),
     )
-  }
 
   private def buildInserts(
-      tx: TransactionIndexing.TransactionInfo,
       contractsInfo: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
-  ): Executable = {
+  ): Option[Executable] = {
     import com.daml.platform.store.Conversions._
     import com.daml.platform.store.Conversions.IntToSmallIntConversions._
 
-    val netCreatesSize = contractsInfo.netCreates.size
+    val netCreates = contractsInfo.netCreates
+    val netCreatesSize = netCreates.size
     val divulgedSize = contractsInfo.divulgedContracts.size
     val batchSize = netCreatesSize + divulgedSize
 
-    val timestamp = java.sql.Timestamp.from(tx.ledgerEffectiveTime)
-    val timestamps = Array.fill[Timestamp](netCreatesSize)(timestamp) ++ Array.fill[Timestamp](
-      divulgedSize
-    )(null)
+    val timestamps = Array.fill[Timestamp](netCreatesSize + divulgedSize)(null)
 
     val contractIds, templateIds, stakeholders = Array.ofDim[String](batchSize)
     val createArgs, hashes = Array.ofDim[Array[Byte]](batchSize)
 
-    contractsInfo.netCreates.iterator.zipWithIndex.foreach { case (create, idx) =>
+    netCreates.iterator.zipWithIndex.foreach { case ((create, _), idx) =>
       contractIds(idx) = create.coid.coid
       templateIds(idx) = create.templateId.toString
       stakeholders(idx) = create.stakeholders.mkString("|")
       createArgs(idx) = serialized.createArguments(create.coid)
+      timestamps(idx) = Timestamp.from(netCreates(create))
       hashes(idx) = create.key
         .map(convertLfValueKey(create.templateId, _))
         .map(_.hash.bytes.toByteArray)
@@ -88,17 +84,20 @@ object ContractsTablePostgres extends ContractsTable {
     val createArgCompressions =
       Array.fill[Option[Int]](batchSize)(serialized.createArgumentsCompression.id)
 
-    val inserts = insertContractQuery.on(
-      Params.contractIds -> contractIds,
-      Params.templateIds -> templateIds,
-      Params.createArgs -> createArgs,
-      Params.timestamps -> timestamps,
-      Params.hashes -> hashes,
-      Params.stakeholders -> stakeholders,
-      Params.createArgCompression -> createArgCompressions,
-    )
-
-    new InsertExecutable(inserts)
+    if (batchSize > 0) Some {
+      new InsertExecutable(
+        insertContractQuery.on(
+          Params.contractIds -> contractIds,
+          Params.templateIds -> templateIds,
+          Params.createArgs -> createArgs,
+          Params.timestamps -> timestamps,
+          Params.hashes -> hashes,
+          Params.stakeholders -> stakeholders,
+          Params.createArgCompression -> createArgCompressions,
+        )
+      )
+    }
+    else None
   }
 
   private class InsertExecutable(insertQuery: SimpleSql[Row]) extends Executable {
@@ -107,4 +106,5 @@ object ContractsTablePostgres extends ContractsTable {
       ()
     }
   }
+
 }

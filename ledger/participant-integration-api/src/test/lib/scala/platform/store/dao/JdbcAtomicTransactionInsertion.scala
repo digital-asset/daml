@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.dao.events.TransactionEntry
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
 
@@ -22,14 +23,18 @@ trait JdbcAtomicTransactionInsertion {
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
-      submitterInfo,
-      tx.workflowId,
-      tx.transactionId,
-      tx.ledgerEffectiveTime,
-      offsetStep.offset,
-      tx.transaction,
-      divulgedContracts,
-      blindingInfo,
+      Seq(
+        TransactionEntry(
+          submitterInfo,
+          tx.workflowId,
+          tx.transactionId,
+          tx.ledgerEffectiveTime,
+          offsetStep.offset,
+          tx.transaction,
+          divulgedContracts,
+          blindingInfo,
+        )
+      )
     )
     for {
       _ <- ledgerDao.storeTransaction(

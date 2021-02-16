@@ -343,6 +343,8 @@ final class Metrics(val registry: MetricRegistry) {
         val storePackageEntry: Timer = registry.timer(Prefix :+ "store_package_entry")
 
         val storeTransaction: Timer = registry.timer(Prefix :+ "store_ledger_entry")
+        val storeTransactionBatchSize: Meter =
+          registry.meter(Prefix :+ "store_ledger_entry_batch_size")
         val storeTransactionEvents: Timer = registry.timer(Prefix :+ "store_ledger_entry_events")
         val storeTransactionState: Timer = registry.timer(Prefix :+ "store_ledger_entry_state")
         val storeTransactionCompletion: Timer =
@@ -401,6 +403,8 @@ final class Metrics(val registry: MetricRegistry) {
 
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
+          val transactionEventsBuffer: Counter = registry.counter(dbPrefix :+ "buffer")
+
           // outside of SQL transaction
           val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
 
