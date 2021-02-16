@@ -51,7 +51,7 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type TextMap[+V] <: imm.Map[String, V] with CollectionCompat.MapLike[String, V, TextMap[V]]
+  type TextMap[+V] <: imm.Map[String, V] with Compat.MapLike[String, V, TextMap[V]]
   val TextMap: TextMapApi
 
   @deprecated("Use TextMap", since = "0.13.40")

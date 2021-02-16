@@ -65,7 +65,7 @@ class BrowserTest(args: Arguments)
 
     // Don't log the actual command, it contains credentials
     logger.info("Running BrowserStackLocal...")
-    Process(commands).run
+    Process(commands).run()
   }
 
   implicit private val webDriver: WebDriver = getBrowserStackDriver() match {

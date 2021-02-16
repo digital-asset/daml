@@ -21,7 +21,9 @@ import com.daml.ledger.participant.state.v1.{
   WriteConfigService,
 }
 import com.daml.lf.data.Time
+import com.daml.platform.apiserver.services.logging
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.configuration.LedgerConfiguration
@@ -57,11 +59,13 @@ private[apiserver] final class ApiConfigManagementService private (
   override def bindService(): ServerServiceDefinition =
     ConfigManagementServiceGrpc.bindService(this, executionContext)
 
-  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] =
+  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] = {
+    logger.info("Getting time model")
     index
       .lookupConfiguration()
       .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
+  }
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
@@ -77,55 +81,58 @@ private[apiserver] final class ApiConfigManagementService private (
     )
   }
 
-  override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] = {
-    val response = for {
-      // Validate and convert the request parameters
-      params <- validateParameters(request).fold(Future.failed(_), Future.successful)
+  override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] =
+    withEnrichedLoggingContext(logging.submissionId(request.submissionId)) {
+      implicit loggingContext =>
+        logger.info("Setting time model")
+        val response = for {
+          // Validate and convert the request parameters
+          params <- validateParameters(request).fold(Future.failed(_), Future.successful)
 
-      // Lookup latest configuration to check generation and to extend it with the new time model.
-      optConfigAndOffset <- index.lookupConfiguration()
-      ledgerEndBeforeRequest = optConfigAndOffset.map(_._1)
-      currentConfig = optConfigAndOffset.map(_._2)
+          // Lookup latest configuration to check generation and to extend it with the new time model.
+          optConfigAndOffset <- index.lookupConfiguration()
+          ledgerEndBeforeRequest = optConfigAndOffset.map(_._1)
+          currentConfig = optConfigAndOffset.map(_._2)
 
-      // Verify that we're modifying the current configuration.
-      expectedGeneration = currentConfig
-        .map(_.generation)
-        .getOrElse(LedgerConfiguration.NoGeneration)
-      _ <-
-        if (request.configurationGeneration != expectedGeneration) {
-          Future.failed(
-            ErrorFactories.invalidArgument(
-              s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
-            )
+          // Verify that we're modifying the current configuration.
+          expectedGeneration = currentConfig
+            .map(_.generation)
+            .getOrElse(LedgerConfiguration.NoGeneration)
+          _ <-
+            if (request.configurationGeneration != expectedGeneration) {
+              Future.failed(
+                ErrorFactories.invalidArgument(
+                  s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                )
+              )
+            } else {
+              Future.unit
+            }
+
+          // Create the new extended configuration.
+          newConfig = currentConfig
+            .map(config => config.copy(generation = config.generation + 1))
+            .getOrElse(ledgerConfiguration.initialConfiguration)
+            .copy(timeModel = params.newTimeModel)
+
+          // Submit configuration to the ledger, and start polling for the result.
+          submissionId = SubmissionId.assertFromString(request.submissionId)
+          synchronousResponse = new SynchronousResponse(
+            new SynchronousResponseStrategy(
+              writeService,
+              index,
+              ledgerEndBeforeRequest,
+            ),
+            timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
           )
-        } else {
-          Future.unit
-        }
+          entry <- synchronousResponse.submitAndWait(
+            submissionId,
+            (params.maximumRecordTime, newConfig),
+          )(executionContext, materializer)
+        } yield SetTimeModelResponse(entry.configuration.generation)
 
-      // Create the new extended configuration.
-      newConfig = currentConfig
-        .map(config => config.copy(generation = config.generation + 1))
-        .getOrElse(ledgerConfiguration.initialConfiguration)
-        .copy(timeModel = params.newTimeModel)
-
-      // Submit configuration to the ledger, and start polling for the result.
-      submissionId = SubmissionId.assertFromString(request.submissionId)
-      synchronousResponse = new SynchronousResponse(
-        new SynchronousResponseStrategy(
-          writeService,
-          index,
-          ledgerEndBeforeRequest,
-        ),
-        timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
-      )
-      entry <- synchronousResponse.submitAndWait(
-        submissionId,
-        (params.maximumRecordTime, newConfig),
-      )(executionContext, materializer)
-    } yield SetTimeModelResponse(entry.configuration.generation)
-
-    response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
-  }
+        response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
+    }
 
   private case class SetTimeModelParameters(
       newTimeModel: v1.TimeModel,

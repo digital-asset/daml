@@ -12,7 +12,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[inner] object FromValueGenerator extends StrictLogging {
 
@@ -56,9 +56,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       )
       .endControlFlow()
 
-    fields.toIterator.zip(accessors).foreach {
-      case (FieldInfo(_, damlType, javaName, _), accessor) =>
-        method.addStatement(generateFieldExtractor(damlType, javaName, accessor, packagePrefixes))
+    fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
+      method.addStatement(generateFieldExtractor(damlType, javaName, accessor, packagePrefixes))
     }
 
     method

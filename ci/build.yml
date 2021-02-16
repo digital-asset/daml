@@ -176,33 +176,13 @@ jobs:
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
         bazel build --config scala_2_13 -- \
-          //libs-scala/... \
-          //daml-lf/... \
-          //language-support/scala/... \
-          //ledger-api/... \
-          //ledger/... \
-          //ledger-service/... \
-          //triggers/... \
-          //daml-script/... \
-          -//language-support/scala/examples/... \
-          -//language-support/scala/codegen-sample-app/... \
+          //... \
           -//ledger/ledger-api-test-tool/... \
-          -//ledger/ledger-api-test-tool-on-canton/...
-          # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
+          -//runtime-components/non-repudiation-postgresql:test
         bazel test --config scala_2_13 -- \
-          //libs-scala/... \
-          //daml-lf/... \
-          //language-support/scala/... \
-          //ledger-api/... \
-          //ledger/... \
-          //ledger-service/... \
-          //daml-script/... \
-          //triggers/... \
-          -//libs-scala/gatling-utils/... \
-          -//language-support/scala/examples/... \
-          -//language-support/scala/codegen-sample-app/... \
+          //... \
           -//ledger/ledger-api-test-tool/... \
-          -//ledger/ledger-api-test-tool-on-canton/...
+          -//runtime-components/non-repudiation-postgresql:test
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:

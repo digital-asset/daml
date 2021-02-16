@@ -139,7 +139,7 @@ object ApiCodecVerbose {
       case `tagVariant` => jsValueToApiVariant(value)
       case `tagEnum` => jsValueToApiEnum(value)
       case `tagList` =>
-        V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to[FrontStack])
+        V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to(FrontStack))
       case `tagText` => V.ValueText(strField(value, propValue, "ApiText"))
       case `tagInt64` => V.ValueInt64(strField(value, propValue, "ApiInt64").toLong)
       case `tagNumeric` =>
@@ -179,7 +179,7 @@ object ApiCodecVerbose {
           asObject(value, "ApiRecord").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
-          arrayField(value, propFields, "ApiRecord").map(jsValueToApiRecordField).to[ImmArray],
+          arrayField(value, propFields, "ApiRecord").map(jsValueToApiRecordField).to(ImmArray),
         )
       case t =>
         deserializationError(
@@ -265,5 +265,5 @@ object ApiCodecVerbose {
   }
 
   private[this] def assertDE[A](ea: Either[String, A]): A =
-    ea fold (deserializationError(_), identity)
+    ea.fold(deserializationError(_), identity)
 }

@@ -34,7 +34,7 @@ final case class TransactionTree(
 
 object TransactionTree {
   private val effectiveAtLens =
-    ReqFieldLens.create[api.transaction.TransactionTree, PTimeStamp]('effectiveAt)
+    ReqFieldLens.create[api.transaction.TransactionTree, PTimeStamp](Symbol("effectiveAt"))
 
   final implicit class ApiTransactionOps(val apiTransaction: api.transaction.TransactionTree)
       extends AnyVal {
@@ -48,7 +48,7 @@ object TransactionTree {
           events += ((id, ev))
         case _ =>
       }
-      events.result
+      events.result()
     }
     def convert(
         parties: Set[String],

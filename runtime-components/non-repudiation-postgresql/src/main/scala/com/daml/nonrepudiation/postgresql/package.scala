@@ -12,10 +12,10 @@ import scala.collection.compat.immutable.ArraySeq
 
 package object postgresql {
 
-  implicit def getBytes[Bytes <: ArraySeq[Byte]]: Get[Bytes] =
+  implicit def getBytes[Bytes <: ArraySeq.ofByte]: Get[Bytes] =
     Get[Array[Byte]].map(ArraySeq.unsafeWrapArray(_).asInstanceOf[Bytes])
 
-  implicit def putBytes[Bytes <: ArraySeq[Byte]]: Put[Bytes] =
+  implicit def putBytes[Bytes <: ArraySeq.ofByte]: Put[Bytes] =
     Put[Array[Byte]].contramap(_.unsafeArray)
 
   implicit val getAlgorithmString: Get[AlgorithmString] =

@@ -15,10 +15,10 @@ import com.daml.lf.value.{Value => V}
 
 object LedgerValue {
 
-  import scala.language.higherKinds
   type OfCid[F[+_]] = F[String]
 
-  private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
+  private val variantValueLens =
+    ReqFieldLens.create[api.value.Variant, api.value.Value](Symbol("value"))
 
   final implicit class ApiValueOps(val apiValue: api.value.Value) extends AnyVal {
     def convert: String \/ LedgerValue = apiValue.sum.convert

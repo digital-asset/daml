@@ -72,8 +72,30 @@ private[apiserver] final class ApiTransactionService private (
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+        .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
     }
+
+  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
+    s"Responding with transactions: ${transactions.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+
+  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
+    s"Responding with transaction trees: ${trees.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+
+  private def entityLoggable(
+      commandId: String,
+      transactionId: String,
+      workflowId: String,
+      offset: String,
+  ): Map[String, String] =
+    Map(
+      logging.commandId(commandId),
+      logging.transactionId(transactionId),
+      logging.workflowId(workflowId),
+      "offset" -> offset,
+    )
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
@@ -91,6 +113,7 @@ private[apiserver] final class ApiTransactionService private (
           TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
           request.verbose,
         )
+        .via(logger.debugStream(transactionTreesLoggable))
         .via(logger.logErrorsOnStream)
     }
 

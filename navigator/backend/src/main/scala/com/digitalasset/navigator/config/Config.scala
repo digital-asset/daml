@@ -27,7 +27,7 @@ final case class Config(users: Map[String, UserConfig] = Map.empty[String, UserC
 
   def userIds: Set[String] = users.keySet
 
-  def roles: Set[String] = users.values.flatMap(_.role.toList)(collection.breakOut)
+  def roles: Set[String] = users.values.view.flatMap(_.role.toList).toSet
 }
 
 sealed abstract class ConfigReadError extends Product with Serializable {

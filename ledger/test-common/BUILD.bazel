@@ -8,6 +8,7 @@ load(
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "silencer_plugin",
 )
 load(
     "//language-support/scala/codegen:codegen.bzl",
@@ -67,20 +68,25 @@ da_scala_library(
         da_scala_library(
             name = "%s-tests%s.scala" % (test_name, target_suffix),
             srcs = [":%s-tests%s.scala-codegen" % (test_name, target_suffix)],
+            plugins = [silencer_plugin],
+            scala_deps = extra_deps,
+            scalacopts = [
+                "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+            ],
             visibility = ["//visibility:public"],
             deps = [
                 "//language-support/scala/bindings",
-            ] + extra_deps,
-        ) if scala_major_version == "2.12" else None,
+            ],
+        ),
     ]
     for (test_name, extra_deps) in [
         (
             "model",
-            ["@maven//:org_scala_lang_modules_scala_collection_compat_2_12"],
+            ["@maven//:org_scala_lang_modules_scala_collection_compat"],
         ),
         (
             "semantic",
-            ["@maven//:org_scala_lang_modules_scala_collection_compat_2_12"],
+            ["@maven//:org_scala_lang_modules_scala_collection_compat"],
         ),
         ("performance", []),
     ]

@@ -7,6 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.data.DatabaseActions
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.collection.compat.immutable.LazyList
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */
@@ -274,28 +275,28 @@ case class Ledger(
     }
   }
 
-  def allContracts(types: PackageRegistry): Stream[Contract] = {
+  def allContracts(types: PackageRegistry): LazyList[Contract] = {
     if (useDatabase) {
-      logErrorAndDefaultTo(db.contracts(types), List.empty[Contract]).toStream
+      logErrorAndDefaultTo(db.contracts(types), List.empty[Contract]).to(LazyList)
     } else {
-      contractById.values.toStream
+      contractById.values.to(LazyList)
     }
   }
 
-  def activeContracts(types: PackageRegistry): Stream[Contract] = {
+  def activeContracts(types: PackageRegistry): LazyList[Contract] = {
     if (useDatabase) {
-      logErrorAndDefaultTo(db.activeContracts(types), List.empty[Contract]).toStream
+      logErrorAndDefaultTo(db.activeContracts(types), List.empty[Contract]).to(LazyList)
     } else {
-      activeContractById.values.toStream
+      activeContractById.values.to(LazyList)
     }
   }
 
-  def activeTemplateContractsOf(template: Template, types: PackageRegistry): Stream[Contract] = {
+  def activeTemplateContractsOf(template: Template, types: PackageRegistry): LazyList[Contract] = {
     if (useDatabase) {
       logErrorAndDefaultTo(
         db.activeContractsForTemplate(template.id, types),
         List.empty[Contract],
-      ).toStream
+      ).to(LazyList)
     } else {
       templateContractsOf(template, types).filter(contract =>
         activeContractById.contains(contract.id)
@@ -303,22 +304,22 @@ case class Ledger(
     }
   }
 
-  def templateContractsOf(template: Template, types: PackageRegistry): Stream[Contract] = {
+  def templateContractsOf(template: Template, types: PackageRegistry): LazyList[Contract] = {
     if (useDatabase) {
       logErrorAndDefaultTo(
         db.contractsForTemplate(template.id, types),
         List.empty[Contract],
-      ).toStream
+      ).to(LazyList)
     } else {
-      contractsByTemplateId.getOrElse(template.id, Set.empty).toStream
+      contractsByTemplateId.getOrElse(template.id, Set.empty).to(LazyList)
     }
   }
 
-  def allCommands(types: PackageRegistry): Stream[Command] = {
+  def allCommands(types: PackageRegistry): LazyList[Command] = {
     if (useDatabase) {
-      logErrorAndDefaultTo(db.allCommands(types), List.empty[Command]).toStream
+      logErrorAndDefaultTo(db.allCommands(types), List.empty[Command]).to(LazyList)
     } else {
-      commandById.values.toStream
+      commandById.values.to(LazyList)
     }
   }
 

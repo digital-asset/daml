@@ -36,13 +36,13 @@ final case class ExercisedEvent(
 
 object Event {
   private val createdTemplateIdLens =
-    ReqFieldLens.create[api.event.CreatedEvent, api.value.Identifier]('templateId)
+    ReqFieldLens.create[api.event.CreatedEvent, api.value.Identifier](Symbol("templateId"))
   private val createdArgumentsLens =
-    ReqFieldLens.create[api.event.CreatedEvent, api.value.Record]('createArguments)
+    ReqFieldLens.create[api.event.CreatedEvent, api.value.Record](Symbol("createArguments"))
   private val exercisedTemplateIdLens =
-    ReqFieldLens.create[api.event.ExercisedEvent, api.value.Identifier]('templateId)
+    ReqFieldLens.create[api.event.ExercisedEvent, api.value.Identifier](Symbol("templateId"))
   private val exercisedChoiceArgLens =
-    ReqFieldLens.create[api.event.ExercisedEvent, api.value.Value]('choiceArgument)
+    ReqFieldLens.create[api.event.ExercisedEvent, api.value.Value](Symbol("choiceArgument"))
 
   final implicit class ApiEventOps(val apiEvent: api.event.Event.Event) extends AnyVal {
     def convert: String \/ Event = apiEvent match {

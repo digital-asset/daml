@@ -20,7 +20,7 @@ import scala.reflect.runtime.universe._
   *  See the comments below for more details on what classes/methods/types are generated.
   */
 object DamlContractTemplateGen {
-  import LFUtil.rpcValueAlias
+  import LFUtil.{domainApiAlias, rpcValueAlias}
 
   private val logger: Logger = Logger(getClass)
 
@@ -88,7 +88,7 @@ object DamlContractTemplateGen {
     )
 
     def templateClassMembers = Seq(
-      q"protected[this] override def templateCompanion(implicit ` d`: _root_.scala.Predef.DummyImplicit) = ${TermName(templateName.name)}"
+      q"protected[this] override def templateCompanion(implicit ` d`: $domainApiAlias.Compat.DummyImplicit) = ${TermName(templateName.name)}"
     )
 
     DamlDataTypeGen.generate(

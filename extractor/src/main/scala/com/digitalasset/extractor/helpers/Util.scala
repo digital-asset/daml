@@ -6,6 +6,8 @@ package com.daml.extractor.helpers
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
 
+import scala.collection.compat.immutable.LazyList
+
 object Util {
 
   @annotation.varargs
@@ -20,12 +22,12 @@ object Util {
   private def cwd = Paths.get(".").toAbsolutePath
 
   def guessPath(filenames: Seq[String]): Path = {
-    def folders(from: Path): Stream[Path] =
-      if (from == null) Stream.empty else from #:: folders(from.getParent)
+    def folders(from: Path): LazyList[Path] =
+      if (from == null) LazyList.empty else from #:: folders(from.getParent)
 
-    def guess(from: Path): Stream[Path] =
+    def guess(from: Path): LazyList[Path] =
       folders(from).flatMap { d =>
-        filenames.toStream.map(d.resolve)
+        filenames.to(LazyList).map(d.resolve)
       }
 
     val guesses = guess(cwd)

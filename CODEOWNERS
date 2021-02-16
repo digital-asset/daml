@@ -47,6 +47,8 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA
 /ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA
 
+/runtime-components/    @stefanobaghino-da @cocreature
+
 # DAML-on-X
 /ledger/participant-state/kvutils/  @dajmaki @dasormeter @fabiotudone-da @gerolf-da @miklos-da @mziolekda @rautenrieth-da @SamirTalwar-DA
 

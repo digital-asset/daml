@@ -10,9 +10,8 @@ load(
 da_scala_library(
     name = "non-repudiation",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
+    scala_deps =
+        ["@maven//:org_scala_lang_modules_scala_collection_compat"],
     visibility = [
         "//:__subpackages__",
     ],
@@ -23,6 +22,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//runtime-components/non-repudiation-core",
         "@maven//:com_google_guava_guava",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

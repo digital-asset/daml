@@ -64,7 +64,7 @@ class DatabaseActions extends LazyLogging {
     Queries.createCommandTable.update.run *>
     Queries.commandIdIndex.update.run)
     .transact(xa)
-    .unsafeRunSync
+    .unsafeRunSync()
 
   def schema(): Try[String] = {
     Try(

@@ -3,11 +3,11 @@
 
 package com.daml.lf.codegen.backend.java
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import scala.jdk.CollectionConverters._
 
 final class ObjectMethodsSpec extends AnyFlatSpec with Matchers {
 

@@ -21,6 +21,7 @@ import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 
 import scala.annotation.tailrec
+import scala.collection.compat._
 import scalaz._
 import Scalaz._
 
@@ -63,15 +64,15 @@ class MultiTableDataFormat(
       // base case when there's nothing to merge into
 
       val takenNames = if (schemaPerPackage) {
-        state.templateToTable
+        state.templateToTable.view
           .filterKeys(_.packageId == id.packageId)
-          .values
-          .map(_.withOutSchema)
+          .map(_._2.withOutSchema)
+          .toSet
       } else {
-        state.templateToTable.values.map(_.withOutSchema)
+        state.templateToTable.values.view.map(_.withOutSchema).toSet
       }
 
-      val tableName = uniqueName(takenNames.toSet, baseName)
+      val tableName = uniqueName(takenNames, baseName)
 
       val schemaOrErr: String \/ Option[String] = if (schemaPerPackage) {
         state.packageIdToNameSpace.get(id.packageId) match {
@@ -129,7 +130,9 @@ class MultiTableDataFormat(
           }
         }
         .foldLeft(Map.empty[Identifier, Record.FWT])(_ ++ _)
+        .view
         .filterKeys(knownTemplateIds.contains)
+        .toMap
 
       val (thisId, thisParams) = currentTemplate
 

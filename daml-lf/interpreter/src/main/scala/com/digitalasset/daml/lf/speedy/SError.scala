@@ -41,6 +41,14 @@ object SError {
     */
   sealed abstract class SErrorDamlException extends SError
 
+  /** Unhandled exceptions */
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  // Have the unhandled-exception contain directly the original payload value & type
+  // as well as (or perhaps instead of) the computed message text
+  final case class DamlEUnhandledException(message: String) extends SErrorDamlException {
+    override def toString: String = message
+  }
+
   /** Arithmetic error such as division by zero */
   final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
     override def toString: String = message

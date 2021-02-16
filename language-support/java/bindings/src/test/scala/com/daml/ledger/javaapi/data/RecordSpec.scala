@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.ValueOuterClass
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class RecordSpec extends AnyFlatSpec with Matchers {
 
@@ -22,14 +22,6 @@ class RecordSpec extends AnyFlatSpec with Matchers {
     record.getFields shouldBe empty
     record.getFieldsMap shouldBe empty
   }
-
-  // XXX SC remove in 2.13; see notes in ConfSpec
-  import scala.collection.GenTraversable, org.scalatest.enablers.Aggregating
-  private[this] implicit def `fixed sig aggregatingNatureOfGenTraversable`[
-      E: org.scalactic.Equality,
-      TRAV,
-  ]: Aggregating[TRAV with GenTraversable[E]] =
-    Aggregating.aggregatingNatureOfGenTraversable[E, GenTraversable]
 
   it should "build a record with an empty field map if there are no labels" in {
     val fields = List(

@@ -55,7 +55,7 @@ class StakeholdersTest extends AsyncFlatSpec with Matchers with TestResourceCont
       val contract :: _ = readActiveContracts(MixedObservers.Contract.fromCreatedEvent)(client)
 
       contract.signatories should contain only mixedObservers.owner
-      contract.observers should contain only (mixedObservers.thirdParty1, mixedObservers.thirdParty2)
+      contract.observers should contain.only(mixedObservers.thirdParty1, mixedObservers.thirdParty2)
   }
 
 }

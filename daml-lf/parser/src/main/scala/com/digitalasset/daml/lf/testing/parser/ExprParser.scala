@@ -300,6 +300,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
     "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
     "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
+    "CONTRACT_ERROR_MESSAGE" -> BContractErrorMessage,
   )
 
   /* Scenarios */

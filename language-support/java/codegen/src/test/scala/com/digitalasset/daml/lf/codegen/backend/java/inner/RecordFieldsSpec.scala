@@ -11,7 +11,7 @@ import javax.lang.model.element.Modifier
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
 

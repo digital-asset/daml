@@ -87,6 +87,8 @@ final class Conversions(
         setCrash(reason)
       case SError.DamlEArithmeticError(reason) =>
         setCrash(reason)
+      case SError.DamlEUnhandledException(message) =>
+        setCrash(message)
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
 

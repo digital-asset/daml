@@ -3,15 +3,15 @@
 
 package com.daml.lf.codegen
 
-import com.daml.lf.data.Ref
 import com.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.daml.lf.iface.{Interface, InterfaceType}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
 private[codegen] sealed trait Node
 
@@ -71,8 +71,8 @@ private[codegen] final case class ModuleWithContext(
   override def childrenLineages: Iterable[NodeWithContext] = {
     val newModulesLineage = modulesLineage :+ (name -> module)
     module.modules.map { case (childName, childModule) =>
-      ModuleWithContext(interface, newModulesLineage, childName, childModule)
-    } ++ [NodeWithContext, Iterable[NodeWithContext]] typesLineages
+      ModuleWithContext(interface, newModulesLineage, childName, childModule): NodeWithContext
+    } ++ typesLineages
   }
 
   override def typesLineages: Iterable[TypeWithContext] = module.types.map {
@@ -138,7 +138,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
       types: mutable.HashMap[String, TypeBuilder],
   ) extends NodeBuilder {
     def build(): Module =
-      Module(modules.mapValues(_.build()).toMap, types.mapValues(_.build()).toMap)
+      Module(modules.view.mapValues(_.build()).toMap, types.view.mapValues(_.build()).toMap)
 
     @tailrec
     def insert(module: ImmArray[String], name: ImmArray[String], `type`: InterfaceType): Unit = {
@@ -170,7 +170,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
         // we allow TypeBuilder nodes with no InterfaceType if they have children nodes
         case None if children.isEmpty =>
           throw new IllegalStateException(s"Found a Type node without a type at build() time")
-        case definedTypeOpt => Type(definedTypeOpt, children.mapValues(_.build()).toMap)
+        case definedTypeOpt => Type(definedTypeOpt, children.view.mapValues(_.build()).toMap)
       }
     }
     @tailrec
@@ -208,7 +208,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
   ) {
 
     def build(interface: Interface): InterfaceTree =
-      InterfaceTree(children.mapValues(_.build()).toMap, interface)
+      InterfaceTree(children.view.mapValues(_.build()).toMap, interface)
 
     def insert(qualifiedName: Ref.QualifiedName, `type`: InterfaceType): Unit = {
       children
@@ -228,5 +228,5 @@ private[codegen] final case class InterfaceTrees(interfaceTrees: List[InterfaceT
 private[codegen] object InterfaceTrees extends StrictLogging {
 
   def fromInterfaces(interfaces: Seq[Interface]): InterfaceTrees =
-    InterfaceTrees(interfaces.map(InterfaceTree.fromInterface)(collection.breakOut))
+    InterfaceTrees(interfaces.view.map(InterfaceTree.fromInterface).toList)
 }

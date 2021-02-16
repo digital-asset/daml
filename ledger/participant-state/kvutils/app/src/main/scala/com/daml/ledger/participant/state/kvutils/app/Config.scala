@@ -117,7 +117,7 @@ object Config {
               "port-file, " +
               "server-jdbc-url, " +
               "api-server-connection-pool-size" +
-              "indexer-server-connection-pool-size" +
+              "indexer-connection-pool-size" +
               "max-commands-in-flight, " +
               "management-service-timeout, " +
               "run-mode, " +
