@@ -219,6 +219,22 @@ Version: 1.11
 
   + **Add** choice observers.
 
+
+Version: 1.12
+.............
+
+* Introduction date:
+
+     2021-01-2
+
+* Description:
+
+  + Drop type constructor in serialized variant and enumeration
+    values. Drop type constructor and field names in serialized record
+    values. See value version 12 in value specification for more
+    details
+
+
 Version: 1.dev (development)
 ............................
 
