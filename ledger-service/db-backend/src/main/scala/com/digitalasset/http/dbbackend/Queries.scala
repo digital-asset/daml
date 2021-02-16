@@ -481,6 +481,7 @@ private object OracleQueries extends Queries {
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
     bigIntType ++ sql" GENERATED ALWAYS AS IDENTITY"
+  // TODO SC refine the string formats chosen here and for jsonColumn
   protected[this] override def textType = sql"NVARCHAR2(100)"
   protected[this] override def agreementTextType = sql"NVARCHAR2(100)"
 
