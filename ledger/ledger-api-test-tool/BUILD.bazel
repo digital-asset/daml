@@ -132,6 +132,7 @@ EOF
         ),
         da_scala_library_suite(
             name = "ledger-api-test-tool-test-suites%s" % lf_version_suffix,
+            scaladoc = False,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/suites/**/*.scala"]),
             visibility = [
                 "//:__subpackages__",
