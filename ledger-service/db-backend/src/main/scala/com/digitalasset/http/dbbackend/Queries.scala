@@ -197,6 +197,7 @@ sealed abstract class Queries {
       concatFragment(OneAnd(when, whens))
     } ++ fr"ELSE NULL END"
 
+  // different databases encode contract keys in different formats
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
 
