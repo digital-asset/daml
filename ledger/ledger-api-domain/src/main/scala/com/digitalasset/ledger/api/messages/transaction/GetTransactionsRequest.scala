@@ -13,4 +13,5 @@ final case class GetTransactionsRequest(
     filter: TransactionFilter,
     verbose: Boolean,
     traceContext: Option[TraceContext],
+    includeNonConsuming: Boolean,
 )

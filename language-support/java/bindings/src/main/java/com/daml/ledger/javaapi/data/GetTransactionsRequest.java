@@ -24,7 +24,8 @@ public class GetTransactionsRequest {
       @NonNull LedgerOffset begin,
       @NonNull LedgerOffset end,
       @NonNull TransactionFilter filter,
-      boolean verbose) {
+      boolean verbose,
+      boolean includeNonConsuming) {
     this.ledgerId = ledgerId;
     this.begin = begin;
     this.end = Optional.of(end);

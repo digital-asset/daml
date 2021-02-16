@@ -115,6 +115,9 @@ message GetTransactionsRequest {
   // Optional
   TraceContext trace_context = 1000;
 
+  // Optional
+  bool include_non_consuming = 6;
+
 }
 
 message GetTransactionsResponse {

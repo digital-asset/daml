@@ -72,7 +72,7 @@ message TransactionTree {
 message TreeEvent {
     oneof kind {
         CreatedEvent created = 1;
-        ExercisedEvent exercised = 2;
+        ExercisedEvent exercised = 2; // should be introduced into transactions without children; needs modification
     }
 }
 
