@@ -35,7 +35,7 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, NoOpLedger, SandboxOffset}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -118,7 +118,10 @@ private[sandbox] object SqlLedger {
           dispatcher,
           persistenceQueue,
         ).acquire()
-      } yield ledger
+      } yield startMode match {
+        case SqlStartMode.MigrateOnly => new NoOpLedger()
+        case _ => ledger
+      }
 
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
