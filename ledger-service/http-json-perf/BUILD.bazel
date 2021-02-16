@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "lf_scalacopts",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -55,7 +55,7 @@ da_scala_library(
         "@maven//:io_gatling_gatling_http_client",
         "@maven//:org_slf4j_slf4j_api",
     ],
-)
+) if scala_major_version == "2.12" else None
 
 da_scala_binary(
     name = "http-json-perf-binary",
@@ -103,6 +103,6 @@ da_scala_binary(
         "@maven//:io_gatling_gatling_http_client",
         "@maven//:org_slf4j_slf4j_api",
     ],
-)
+) if scala_major_version == "2.12" else None
 
 exports_files(["release/json-api-perf-logback.xml"])

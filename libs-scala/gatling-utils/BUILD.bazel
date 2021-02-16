@@ -7,7 +7,7 @@ load(
     "da_scala_test",
     "lf_scalacopts",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 load("//bazel_tools:scala.bzl", "silencer_plugin")
 
 scalacopts = lf_scalacopts + [
@@ -41,7 +41,7 @@ da_scala_library(
         "@maven//:io_gatling_gatling_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
-)
+) if scala_major_version == "2.12" else None
 
 filegroup(
     name = "test-simulation-logs",
@@ -71,4 +71,4 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//libs-scala/scalatest-utils",
     ],
-)
+) if scala_major_version == "2.12" else None

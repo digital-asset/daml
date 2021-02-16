@@ -291,7 +291,10 @@ scaladoc_jar(
         silencer_plugin,
     ],
     root_content = "rootdoc.txt",
-    scalacopts = ["-P:silencer:checkUnused"],
+    scalacopts = [
+        "-P:silencer:checkUnused",
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -301,7 +304,7 @@ scaladoc_jar(
             "{}_{}".format(d, scala_major_version_suffix)
             for d in scala_compile_deps + ["@maven//:org_scala_lang_modules_scala_collection_compat"]
         ],
-) if (not is_windows and scala_major_version_suffix == "2_12") else None
+) if not is_windows else None
 
 filegroup(
     name = "sources",

@@ -179,12 +179,10 @@ jobs:
           //... \
           -//ledger/ledger-api-test-tool/... \
           -//runtime-components/non-repudiation-postgresql:test
-        # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
         bazel test --config scala_2_13 -- \
           //... \
           -//ledger/ledger-api-test-tool/... \
-          -//runtime-components/non-repudiation-postgresql:test \
-          -//libs-scala/gatling-utils/...
+          -//runtime-components/non-repudiation-postgresql:test
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:

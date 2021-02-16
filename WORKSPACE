@@ -587,10 +587,12 @@ dev_env_tool(
     win_tool = "nsis-3.04",
 ) if is_windows else None
 
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
+
 # Scaladoc
 nixpkgs_package(
     name = "scala_nix",
-    attribute_path = "scala",
+    attribute_path = "scala_{}".format(scala_major_version_suffix),
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output

@@ -29,7 +29,22 @@ let shared = rec {
     zip
     ;
 
-    scala = (pkgs.scala_2_12.override { }).overrideAttrs (attrs: {
+    scala_2_12 = (pkgs.scala_2_12.override { }).overrideAttrs (attrs: {
+      # Something appears to be broken in nixpkgs' fixpoint which results in the
+      # test not having the version number we overwrite so it fails
+      # with a mismatch between the version in nixpkgs and the one we
+      # overwrite.
+      installCheckPhase = "";
+      buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
+      installPhase = attrs.installPhase + ''
+        wrapProgram $out/bin/scala    --add-flags "-nobootcp"
+        wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
+        wrapProgram $out/bin/scaladoc --add-flags "-nobootcp"
+        wrapProgram $out/bin/scalap   --add-flags "-nobootcp"
+      '';
+    });
+
+    scala_2_13 = (pkgs.scala_2_13.override { }).overrideAttrs (attrs: {
       # Something appears to be broken in nixpkgs' fixpoint which results in the
       # test not having the version number we overwrite so it fails
       # with a mismatch between the version in nixpkgs and the one we
