@@ -533,9 +533,7 @@ def da_scala_library(name, **kwargs):
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
 
-    # We get scaladoc from nix in version 2.12 atm.
-    if scala_major_version == "2.12":
-        _create_scaladoc_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:
