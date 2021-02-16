@@ -13,7 +13,8 @@ import scalaz.Tag
 
 final class DivulgenceIT extends LedgerTestSuite {
 
-// TODO this one is a flake, at daml-on-sql it fails constantly in orchestration, but never in isolation, on ledger-on-memory it fails like 5% of the runs
+  // TODO this one is a flake, at daml-on-sql it fails constantly in orchestration, but never in isolation, on ledger-on-memory it fails like 5% of the runs
+  // TODO for PoC purposes: suggestion to omit this failure, since probably no relation to broken functionality
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",

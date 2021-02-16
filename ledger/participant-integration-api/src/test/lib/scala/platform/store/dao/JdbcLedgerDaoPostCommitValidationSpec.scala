@@ -127,7 +127,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     }
   }
 
-  // TODO it seems as this test would be based on flawed assumptions (a pure divulgance without create contract having a ledger_effective_time)
+  // TODO as discussed With @Stefano this test tests an impossible combination of divulgence and post-commit-validation
   ignore should "be able to use divulged contract in later transaction" in {
 
     val divulgedContractId =

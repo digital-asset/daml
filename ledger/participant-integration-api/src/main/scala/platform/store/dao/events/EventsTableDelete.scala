@@ -13,18 +13,24 @@ object EventsTableDelete {
     * - archive events before or at specified offset and
     * - create events that have been archived before or at the specific offset.
     */
+  // TODO @simon@ please review
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
     SQL"""
           delete from participant_events as delete_events
           where
             delete_events.event_offset <= $endInclusive and
-            (delete_events.event_kind != 10 or NOT EXISTS (
+            delete_events.event_kind in (10, 0) and
+            exists (
               SELECT 1 FROM participant_events as archive_events
               WHERE
                 archive_events.event_offset <= $endInclusive AND
                 archive_events.event_kind = 20 AND -- consuming
                 archive_events.contract_id = delete_events.contract_id
-            ))
+            );
+          delete from participant_events as delete_events
+          where
+            delete_events.event_offset <= $endInclusive and
+            delete_events.event_kind in (20, 25);
        """
 
 }

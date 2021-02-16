@@ -142,7 +142,6 @@ private[events] object EventsTableFlatEvents {
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
     val submittersInPartiesClause =
       sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
-    // TODO why groupby??? is it okay to remove?
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
