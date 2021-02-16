@@ -135,6 +135,9 @@ final class IT
           ledgerHost = "localhost",
           ledgerPort = serverPort.value,
           parties = parties,
+          start =
+            LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
+          end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
           outputPath = tmpDir,
           damlScriptLib = damlScriptLib.toString,
           sdkVersion = SdkVersion.sdkVersion,

@@ -3,10 +3,12 @@
 
 package com.daml.script.dump
 
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.lf.language.Graphs
 import scalaz.std.option._
 import scalaz.std.list._
 import scalaz.std.set._
@@ -14,6 +16,21 @@ import scalaz.syntax.foldable._
 
 object TreeUtils {
   final case class Selector(i: Int)
+
+  /** Sort the active contract set topologically,
+    *  such that a contract at a given position in the list
+    *  is only referenced by other contracts later in the list.
+    */
+  def topoSortAcs(acs: Map[String, CreatedEvent]): List[CreatedEvent] = {
+    val graph: Graphs.Graph[String] = acs.mapValues(createdReferencedCids)
+    Graphs
+      .topoSort(graph)
+      .left
+      .map(msg => new RuntimeException(s"Encountered cyclic contract dependencies: $msg"))
+      .toTry
+      .get
+      .map(cid => acs.get(cid).get)
+  }
 
   def traverseTree(tree: TransactionTree)(f: (List[Selector], TreeEvent.Kind) => Unit): Unit = {
     def traverseEv(ev: TreeEvent.Kind, f: (List[Selector], TreeEvent.Kind) => Unit): Unit =
@@ -31,6 +48,14 @@ object TreeUtils {
     tree.rootEventIds.map(tree.eventsById(_)).zipWithIndex.foreach { case (ev, i) =>
       traverseEv(ev.kind, { case (path, ev) => f(Selector(i) :: path, ev) })
     }
+  }
+
+  def partiesInContracts(contracts: Iterable[CreatedEvent]): Set[String] = {
+    var parties: Set[String] = Set()
+    contracts.foreach { value =>
+      parties = parties.union(valueParties(Value.Sum.Record(value.getCreateArguments)))
+    }
+    parties
   }
 
   def partiesInTree(tree: TransactionTree): Set[String] = {
@@ -103,13 +128,14 @@ object TreeUtils {
           cids += value.contractId
           cids ++= value.choiceArgument.foldMap(arg => valueCids(arg.sum))
         case Kind.Created(value) =>
-          cids ++= value.createArguments.foldMap(args =>
-            args.fields.toList.foldMap(f => valueCids(f.getValue.sum))
-          )
+          cids ++= createdReferencedCids(value)
       }
     }
     cids
   }
+
+  def createdReferencedCids(ev: CreatedEvent): Set[String] =
+    ev.createArguments.foldMap(args => args.fields.toList.foldMap(f => valueCids(f.getValue.sum)))
 
   def evParties(ev: TreeEvent.Kind): Seq[String] = ev match {
     case TreeEvent.Kind.Created(create) => create.signatories

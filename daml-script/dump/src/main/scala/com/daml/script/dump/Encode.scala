@@ -6,6 +6,7 @@ package com.daml.script.dump
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
@@ -18,13 +19,34 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 private[dump] object Encode {
-  def encodeTransactionTreeStream(trees: Seq[TransactionTree]): Doc = {
-    val parties = trees.toList.foldMap(partiesInTree(_))
+  def encodeTransactionTreeStream(
+      acs: Map[String, CreatedEvent],
+      trees: Seq[TransactionTree],
+  ): Doc = {
+    val parties = partiesInContracts(acs.values) ++ trees.toList.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
-    val cids = trees.map(treeCreatedCids(_))
-    val cidRefs = trees.toList.foldMap(treeReferencedCids(_))
-    val cidMap = cidMapping(cids, cidRefs)
-    val refs = trees.toList.foldMap(treeRefs(_))
+
+    val acsCidRefs = acs.values.toList.foldMap(createdReferencedCids)
+    val treeCidRefs = trees.toList.foldMap(treeReferencedCids)
+    val cidRefs = acsCidRefs ++ treeCidRefs
+
+    val archivedCidRefs = acsCidRefs -- acs.keySet
+    if (archivedCidRefs.nonEmpty) {
+      // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
+      //   Be it archived or divulged contracts.
+      throw new RuntimeException(
+        s"Encountered archived contracts referenced by active contracts: ${archivedCidRefs.mkString(", ")}"
+      )
+    }
+
+    val sortedAcs = topoSortAcs(acs)
+    val acsCids = sortedAcs.map(ev => CreatedContract(ev.contractId, ev.getTemplateId, Nil))
+    val treeCids = trees.map(treeCreatedCids(_))
+    val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
+
+    val refs = acs.values.toList.foldMap(ev =>
+      valueRefs(Sum.Record(ev.getCreateArguments))
+    ) ++ trees.toList.foldMap(treeRefs(_))
     val moduleRefs = refs.map(_.moduleName).toSet
     Doc.text("module Dump where") /
       Doc.text("import Daml.Script") /
@@ -41,7 +63,12 @@ private[dump] object Encode {
       Doc.hardLine +
       Doc.text("dump : Parties -> Script ()") /
       (Doc.text("dump Parties{..} = do") /
-        Doc.stack(trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))) /
+        Doc.stack(
+          sortedAcs.map(createdEvent =>
+            encodeCreatedEvent(partyMap, cidMap, cidRefs, createdEvent)
+          ) ++
+            trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
+        ) /
         Doc.text("pure ()")).hang(2)
   }
 
@@ -194,6 +221,23 @@ private[dump] object Encode {
         Doc.text(", "),
         c.path.map(encodeSelector(_)),
       ) + Doc.text("] tree")
+  }
+
+  private[dump] def encodeCreatedEvent(
+      partyMap: Map[String, String],
+      cidMap: Map[String, String],
+      cidRefs: Set[String],
+      createdEvent: CreatedEvent,
+  ): Doc = {
+    val createCmd =
+      Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
+    val cid = createdEvent.contractId
+    val bind = if (cidRefs.contains(cid)) { Doc.text(cidMap(cid)) + Doc.text(" <- ") }
+    else { Doc.empty }
+    val submitters = createdEvent.signatories
+    (bind + Doc.text("submitMulti ") + encodeParties(partyMap, submitters) + Doc.text(
+      " [] do"
+    ) / createCmd).hang(2)
   }
 
   private[dump] def encodeTree(
