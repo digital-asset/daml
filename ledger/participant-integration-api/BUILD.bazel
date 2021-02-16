@@ -56,6 +56,7 @@ compile_deps = [
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:io_opentelemetry_opentelemetry_api",
+    "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
 ]
 
