@@ -314,7 +314,8 @@ object LFUtil {
       .collect {
         case (id, ci) if ci.consuming => id
       }
-    q"override val consumingChoices: Set[$domainApiAlias.Primitive.ChoiceId] = $domainApiAlias.Primitive.ChoiceId.subst(Set(..$consumingChoicesIds))"
+    q"""override val consumingChoices: $stdSetType[$domainApiAlias.Primitive.ChoiceId] =
+       $domainApiAlias.Primitive.ChoiceId.subst($stdSetCompanion(..$consumingChoicesIds))"""
   }
 
   final case class TupleNesting[A](run: NonEmptyList[A \/ TupleNesting[A]])
@@ -384,6 +385,8 @@ object LFUtil {
   val primitiveObject: Tree = q"$domainApiAlias.Primitive"
   val stdMapType = tq"_root_.scala.collection.immutable.Map"
   val stdMapCompanion = q"_root_.scala.collection.immutable.Map"
+  private val stdSetType = tq"_root_.scala.collection.immutable.Set"
+  private val stdSetCompanion = q"_root_.scala.collection.immutable.Set"
   val stdVectorType = tq"_root_.scala.collection.immutable.Vector"
   val stdSeqCompanion = q"_root_.scala.collection.immutable.Seq"
   val nothingType = q"_root_.scala.Nothing"
