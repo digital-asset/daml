@@ -544,7 +544,7 @@ def da_scala_library(name, **kwargs):
                 )
                 break
 
-def da_scala_library_suite(name, **kwargs):
+def da_scala_library_suite(name, scaladoc = True, **kwargs):
     """
     Define a suite of Scala libraries as a single target.
 
@@ -559,7 +559,8 @@ def da_scala_library_suite(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library_suite, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-    _create_scaladoc_jar(name = name, **arguments)
+    if scaladoc == True:
+        _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

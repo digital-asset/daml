@@ -119,7 +119,7 @@ EOF
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",
                 "//libs-scala/timer-utils",
-                "@maven//:ai_x_diff_2_12",
+                "@maven//:com_softwaremill_diffx_diffx_core_2_12",
                 "@maven//:com_typesafe_akka_akka_actor_2_12",
                 "@maven//:com_typesafe_akka_akka_stream_2_12",
                 "@maven//:com_typesafe_config",
@@ -133,6 +133,7 @@ EOF
         da_scala_library_suite(
             name = "ledger-api-test-tool-test-suites%s" % lf_version_suffix,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/suites/**/*.scala"]),
+            scaladoc = False,
             visibility = [
                 "//:__subpackages__",
             ],
@@ -148,11 +149,12 @@ EOF
                 "//ledger/test-common:semantic-tests%s.scala" % lf_version_suffix,
                 "//libs-scala/grpc-utils",
                 "//libs-scala/timer-utils",
-                "@maven//:ai_x_diff_2_12",
                 "@maven//:com_chuusai_shapeless_2_12",
+                "@maven//:com_propensive_magnolia_2_12",  # transitive dependency of diffx
+                "@maven//:com_propensive_mercator_2_12",  # transitive dependency of diffx
+                "@maven//:com_softwaremill_diffx_diffx_core_2_12",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
-                "@maven//:org_cvogt_scala_extensions_2_12",
                 "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
                 "@maven//:org_slf4j_slf4j_api",
             ],
