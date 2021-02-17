@@ -14,6 +14,7 @@ import io.grpc.Status
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
+import scala.collection.compat._
 import scala.util.Random
 
 final class PartyManagementServiceIT extends LedgerTestSuite {
@@ -135,7 +136,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
     for {
       parties <- ledger.allocateParties(100)
     } yield {
-      val nonUniqueNames = parties.groupBy(Tag.unwrap).mapValues(_.size).filter(_._2 > 1)
+      val nonUniqueNames = parties.groupBy(Tag.unwrap).view.mapValues(_.size).filter(_._2 > 1).toMap
       assert(
         nonUniqueNames.isEmpty,
         s"There are non-unique party names: ${nonUniqueNames

@@ -15,6 +15,7 @@ import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
+import scala.collection.compat._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -126,7 +127,11 @@ object LedgerApiTestTool {
     }
 
     val performanceTestsToRun =
-      Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
+      Tests
+        .performanceTests(config.performanceTestsReport)
+        .view
+        .filterKeys(config.performanceTests)
+        .toMap
 
     if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
       println("Either regular or performance tests can be run, but not both.")

@@ -10,7 +10,7 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import io.grpc.Status
 
 import scala.concurrent.Future
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
 import scala.util.control.NonFatal
 
 object Assertions extends DiffExtensions {
