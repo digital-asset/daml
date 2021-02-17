@@ -382,6 +382,17 @@ object SExpr {
     }
   }
 
+  /** Exercise scope (begin..end) */
+  final case class SEScopeExercise(
+      body: SExpr,
+      end_templateId: TypeConName,
+  ) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KCloseExercise(machine, end_templateId))
+      machine.ctrl = body
+    }
+  }
+
   /** Case patterns */
   sealed trait SCasePat
 
