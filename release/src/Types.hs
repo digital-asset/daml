@@ -13,6 +13,7 @@ module Types (
     MavenCoords(..),
     MavenUploadConfig(..),
     MonadCI,
+    OnlyScala(..),
     OS(..),
     PerformUpload(..),
     (#),
@@ -106,6 +107,9 @@ data OS =
 type GitRev = Text
 
 newtype PerformUpload = PerformUpload{getPerformUpload :: Bool}
+    deriving (Eq, Show)
+
+newtype OnlyScala = OnlyScala{getOnlyScala :: Bool}
     deriving (Eq, Show)
 
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
