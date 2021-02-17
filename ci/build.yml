@@ -82,7 +82,7 @@ jobs:
     # The easiest option seems to be to still run the Scala 2.13 job but
     # pretend it’s not a release build and thereby just run it against main
     # so that’s what we do here.
-    is_release: $[ and(dependencies.check_for_release.outputs['out.is_release'], eq(dependencies.check_for_release.outputs['out.scala_2_13'], 'true')) ]
+    is_release: $[ and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'), eq(dependencies.check_for_release.outputs['out.scala_2_13'], 'true')) ]
     scala_2_13: $[ dependencies.check_for_release.outputs['out.scala_2_13'] ]
   timeoutInMinutes: 360
   pool:
@@ -109,7 +109,8 @@ jobs:
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       env:
-        DAML_SCALA_VERSION: ${{parameters.scala_version}}
+        DAML_SCALA_VERSION: "2.13.3"
+      name: maven_check
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
     - template: tell-slack-failed.yml
       parameters:
