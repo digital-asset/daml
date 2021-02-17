@@ -115,6 +115,9 @@ message GetTransactionsRequest {
   // Optional
   TraceContext trace_context = 1000;
 
+  // If set to True, the flat transactions stream events will contain exercised events matching given filters.
+  // Optional
+  bool include_non_consuming_exercise_events = 6;
 }
 
 message GetTransactionsResponse {
