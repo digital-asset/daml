@@ -1,0 +1,90 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@scala_version//:index.bzl", "scala_version_suffix")
+
+hj_scalacopts = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
+string_flag(
+    name = "oracle_testing",
+    build_setting_default = "no",
+)
+
+config_setting(
+    name = "oracle_available",
+    flag_values = {
+        ":oracle_testing": "yes",
+    },
+)
+
+config_setting(
+    name = "oracle_unavailable",
+    flag_values = {
+        ":oracle_testing": "no",
+    },
+)
+
+# ERROR: .../daml/ledger-service/http-json-oracle/BUILD.bazel:33:14: no such target
+# '@platforms//:incompatible': target 'incompatible' not declared in package '' defined by
+# /private/var/tmp/.../85ba8c006f4674ac1f1213a18c0df36a/external/platforms/BUILD and
+# referenced by '//ledger-service/http-json-oracle:integration-tests'
+constraint_setting(name = "incompatible_setting")
+
+constraint_value(
+    name = "incompatible",
+    constraint_setting = ":incompatible_setting",
+)
+
+da_scala_test(
+    name = "integration-tests",
+    size = "large",
+    srcs = glob(["src/it/scala/**/*.scala"]),
+    data = [
+        "//docs:quickstart-model.dar",
+        "//ledger-service/http-json:Account.dar",
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = hj_scalacopts,
+    target_compatible_with = select({
+        ":oracle_available": [],
+        "//conditions:default": [":incompatible"],
+    }),
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/http-json",
+        "//ledger-service/http-json:integration-tests-lib",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//ledger-service/utils",
+        "//ledger/ledger-api-common",
+    ],
+)

@@ -72,7 +72,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
-  this: AsyncFreeSpec with Matchers with Inside with StrictLogging =>
+  this: AsyncTestSuite with Matchers with Inside =>
   import AbstractHttpServiceIntegrationTestFuns._
   import json.JsonProtocol._
   import HttpServiceTestFixture._
@@ -475,6 +475,52 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     val command = accountCreateCommand(domain.Party("Alice"), "abc123")
     postCreateCommand(command, encoder, serviceUri)
   }
+
+  protected def jsObject(s: String): JsObject = {
+    val r: JsonError \/ JsObject = for {
+      jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))
+      jsObj <- SprayJson.mustBeJsObject(jsVal)
+    } yield jsObj
+    r.valueOr(e => fail(e.shows))
+  }
+
+  protected def searchExpectOk(
+      commands: List[domain.CreateCommand[v.Record]],
+      query: JsObject,
+      uri: Uri,
+      encoder: DomainJsonEncoder,
+      headers: List[HttpHeader] = headersWithAuth,
+  ): Future[List[domain.ActiveContract[JsValue]]] = {
+    search(commands, query, uri, encoder, headers).map(expectOk(_))
+  }
+
+  protected def search(
+      commands: List[domain.CreateCommand[v.Record]],
+      query: JsObject,
+      uri: Uri,
+      encoder: DomainJsonEncoder,
+      headers: List[HttpHeader] = headersWithAuth,
+  ): Future[
+    domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
+  ] = {
+    commands.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
+      rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
+      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query, headers).flatMap {
+        case (_, output) =>
+          FutureUtil
+            .toFuture(decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
+      }
+    }
+  }
+
+  private[http] def expectOk[R](resp: domain.SyncResponse[R]): R = resp match {
+    case ok: domain.OkResponse[_] =>
+      ok.status shouldBe StatusCodes.OK
+      ok.warnings shouldBe empty
+      ok.result
+    case err: domain.ErrorResponse =>
+      fail(s"Expected OK response, got: $err")
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -715,52 +761,6 @@ abstract class AbstractHttpServiceIntegrationTest
         status shouldBe StatusCodes.BadRequest
         assertStatus(output, StatusCodes.BadRequest)
       }: Future[Assertion]
-  }
-
-  protected def jsObject(s: String): JsObject = {
-    val r: JsonError \/ JsObject = for {
-      jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))
-      jsObj <- SprayJson.mustBeJsObject(jsVal)
-    } yield jsObj
-    r.valueOr(e => fail(e.shows))
-  }
-
-  private def expectOk[R](resp: domain.SyncResponse[R]): R = resp match {
-    case ok: domain.OkResponse[_] =>
-      ok.status shouldBe StatusCodes.OK
-      ok.warnings shouldBe empty
-      ok.result
-    case err: domain.ErrorResponse =>
-      fail(s"Expected OK response, got: $err")
-  }
-
-  protected def searchExpectOk(
-      commands: List[domain.CreateCommand[v.Record]],
-      query: JsObject,
-      uri: Uri,
-      encoder: DomainJsonEncoder,
-      headers: List[HttpHeader] = headersWithAuth,
-  ): Future[List[domain.ActiveContract[JsValue]]] = {
-    search(commands, query, uri, encoder, headers).map(expectOk(_))
-  }
-
-  protected def search(
-      commands: List[domain.CreateCommand[v.Record]],
-      query: JsObject,
-      uri: Uri,
-      encoder: DomainJsonEncoder,
-      headers: List[HttpHeader] = headersWithAuth,
-  ): Future[
-    domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
-  ] = {
-    commands.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
-      rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
-      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query, headers).flatMap {
-        case (_, output) =>
-          FutureUtil
-            .toFuture(decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
-      }
-    }
   }
 
   protected def searchAllExpectOk(
