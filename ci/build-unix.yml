@@ -5,7 +5,7 @@ parameters:
   is_release: ''
   name: ''
   release_tag: ''
-  scala_version: '2.12.12'
+  scala_version: ''
 
 steps:
   - bash: ci/dev-env-install.sh
@@ -50,7 +50,7 @@ steps:
       eval "$(./dev-env/bin/dade-assist)"
 
       EXTRA_FLAGS=""
-      if [[ "$DAML_SCALA_VERSION" != "2.12.12" ]]; then
+      if [[ -n "$DAML_SCALA_VERSION" ]]; then
         EXTRA_FLAGS="--only-scala"
       fi
 
