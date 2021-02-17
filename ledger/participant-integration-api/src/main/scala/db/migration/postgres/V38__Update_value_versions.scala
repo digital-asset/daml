@@ -20,7 +20,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
 
   private[this] type Value = lf.value.Value.VersionedValue[ContractId]
 
-  private[this] val batchSize = 1000
+  private[this] val BATCH_SIZE = 1000
 
   private[this] val stableValueVersion = lf.transaction.TransactionVersion.V10
   private[this] val stableValueVersionAsInt = stableValueVersion.protoValue.toInt
@@ -105,21 +105,26 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
       rowType: String,
       rowKeyLabel: String,
       valueLabels: List[String],
-  )(implicit connection: Connection): LazyList[List[NamedParameter]] = {
-    val rows: ResultSet = connection.createStatement().executeQuery(sqlQuery)
-    def updates: LazyList[List[NamedParameter]] =
-      if (rows.next())
-        readAndUpdate(rows, rowType, rowKeyLabel, valueLabels) #:: updates
-      else
-        LazyList.empty
+  )(implicit connection: Connection): Iterator[List[NamedParameter]] = {
+    val stat = connection.createStatement()
+    stat.setFetchSize(BATCH_SIZE)
+    val rows: ResultSet = stat.executeQuery(sqlQuery)
+    def updates: Iterator[List[NamedParameter]] = new Iterator[List[NamedParameter]] {
+      override def hasNext: Boolean = {
+        rows.next()
+      }
+
+      override def next(): List[NamedParameter] =
+        readAndUpdate(rows, rowType, rowKeyLabel, valueLabels)
+    }
     updates.filter(_.nonEmpty)
   }
 
   private[this] def save(
       sqlUpdate: String,
-      statements: LazyList[List[NamedParameter]],
+      parameters: Iterator[List[NamedParameter]],
   )(implicit connection: Connection): Unit =
-    statements.grouped(batchSize).foreach { batch =>
+    parameters.grouped(BATCH_SIZE).foreach { case batch =>
       BatchSql(
         sqlUpdate,
         batch.head,

@@ -21,6 +21,8 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
   private val UPDATE_PARTICIPANT_CONTRACTS =
     "update participant_contracts set create_argument = ?, template_id = ? where contract_id = ?"
 
+  private val BATCH_SIZE = 500
+
   override def migrate(context: Context): Unit = {
     val conn = context.getConnection
     var loadContracts: java.sql.Statement = null
@@ -29,6 +31,7 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
     try {
       updateParticipantContracts = conn.prepareStatement(UPDATE_PARTICIPANT_CONTRACTS)
       loadContracts = conn.createStatement()
+      loadContracts.setFetchSize(BATCH_SIZE)
       rows = loadContracts.executeQuery(SELECT_CONTRACT_DATA)
 
       while (rows.next()) {
