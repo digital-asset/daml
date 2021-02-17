@@ -196,6 +196,7 @@ EOF
                 ":DarsResourceNames%s.scala" % lf_version_suffix,
             ],
             main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+            plugins = [silencer_plugin],
             resources = [
                 "src/main/resources/logback.xml",
                 ":PackageManagementTest.dar",
@@ -204,6 +205,9 @@ EOF
             scala_deps = [
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
                 "@maven//:com_github_scopt_scopt",
+            ],
+            scalacopts = [
+                "-P:silencer:lineContentFilters=import scala.collection.compat._",
             ],
             tags = [
                 "maven_coordinates=com.daml:ledger-api-test-tool%s:__VERSION__" % lf_version_suffix,
