@@ -10,8 +10,6 @@ import java.sql.{Connection, ResultSet}
 import anorm.{BatchSql, NamedParameter}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-import scala.collection.compat.immutable.LazyList
-
 private[migration] final class V38__Update_value_versions extends BaseJavaMigration {
 
   import com.daml.lf

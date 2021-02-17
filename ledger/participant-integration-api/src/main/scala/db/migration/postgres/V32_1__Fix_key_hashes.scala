@@ -27,7 +27,7 @@ private[migration] final class V32_1__Fix_key_hashes extends BaseJavaMigration {
       fixHash = conn.prepareStatement(FIX_HASH)
 
       selectKeys = conn.createStatement()
-      conn.setFetchSize(BATCH_SIZE)
+      selectKeys.setFetchSize(BATCH_SIZE)
       keysRows = selectKeys.executeQuery(SELECT_KEYS)
 
       var currentBatchSize = 0
