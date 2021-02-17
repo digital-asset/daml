@@ -1271,15 +1271,7 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    val envSize = machine.env.size
-
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
-
     def execute(exerciseResult: SValue) = {
-      machine.restoreBase(savedBase);
-      machine.restoreFrameAndActuals(frame, actuals)
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
         checkAborted(onLedger.ptx)
