@@ -239,6 +239,12 @@ Version: 1.dev (development)
 ............................
 
   + **Add** exception handling.
+  + **Add** BigDecimal type.
+
+    - add `BigDecimal` primitive type
+    - Add `bigdecimal` primitive literal
+    - add `MathContext` primitive type
+    - add `RoundingMode` primitive type
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -459,14 +465,17 @@ Literals
 
 We now define all the literals that a program can handle::
 
-  Nat type literals:                                -- LitNatType
+  Nat type literals:                                 -- LitNatType
        n ∈  \d+
 
   64-bit integer literals:
         LitInt64  ∈  (-?)\d+                         -- LitInt64
 
   Numeric literals:
-      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
+      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*         -- LitNumeric
+
+  BigDecimal literals:
+      LitBigDecimal  ∈  ([+-]?)([1-9]\d+|0).\d*      -- LitBigDecimal
 
   Date literals:
          LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
@@ -495,6 +504,10 @@ The literals represent actual Daml-LF values:
   significant digits on the right of the decimal point) between ``0``
   and ``37`` (bounds inclusive). In the following, we will use
   ``scale(LitNumeric)`` to denote the scale of the decimal number.
+* A ``LitBigDecimal`` represents a signed number that can be represented
+  in base-10 without loss of precision in the form ``unscaledValue * 10^{-scale}``
+  where ``unscaledValue`` is an arbitrary precision signed integer value
+  and scale is a 32bit signed integer value.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -516,7 +529,7 @@ The literals represent actual Daml-LF values:
    valid ``LitDate`` because there are only 12 months in a year.
 
 Number-like literals (``LitNatTyp``, ``LitInt64``,
-``LitNumeric``,``LitDate``, ``LitTimestamp``) are ordered by natural
+``LitNumeric``, ``LitBigDecimal``, ``LitDate``, ``LitTimestamp``) are ordered by natural
 ordering. Text-like literals (``LitText``, ``LitParty``, and
 ``Contract ID``) are ordered lexicographically. Note that in the ASCII
 encoding, the character ``#`` comes before digits, meaning V0 Contract
@@ -551,6 +564,9 @@ Then we can define our kinds, types, and expressions::
       ::= 'TArrow'                                  -- BTArrow: Arrow type
        |  'Int64'                                   -- BTyInt64: 64-bit integer
        |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 37
+       |  'BigDecimal'                              -- BTyBigDecimal: arbitrary precision decimal with a 32bit scale
+       |  'MathContext'                             -- BTyMathContext: math context to control BigDecimal operations.
+       |  'RoundingMode'                            -- BTyRoundingMode: rounding mode to control BigDecimal operations.
        |  'Text'                                    -- BTyText: UTF-8 string
        |  'Date'                                    -- BTyDate
        |  'Timestamp'                               -- BTyTime: UTC timestamp
@@ -596,12 +612,23 @@ Then we can define our kinds, types, and expressions::
        |  'False'                                   -- ExpFalse
        |  LitInt64                                  -- ExpLitInt64: 64-bit integer literal
        |  LitNumeric                                -- ExpLitNumeric: Numeric literal
+       |  LitBigDecimal                             -- ExpLitBigDecimal: BigDecimal literal
        |  t                                         -- ExpLitText: UTF-8 string literal
        |  LitDate                                   -- ExpLitDate: Date literal
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
        |  cid                                       -- ExpLitContractId: Contract identifiers
        |  F                                         -- ExpBuiltin: Builtin function
+       |  'MATHCTX_UNLIMITED'                       -- ExpMathCtxUnlimited: Math context with unlimited precision
+       |  'MATHCTX_BOUNDED' r p                     -- ExpMathCtxBouded: Math context with precision p and rounding mode r
+       |  'ROUNDING_CEILING'                        -- ExpRoundingModeCeiling
+       |  'ROUNDING_FLOOR'                          -- ExpRoundingModeFloor
+       |  'ROUNDING_DOWN'                           -- ExpRoundingModeDown
+       |  'ROUNDING_UP'                             -- ExpRoundingModeUp
+       |  'ROUNDING_HALF_DOWN'                      -- ExpRoundingModeHalf_Down
+       |  'ROUNDING_HALF_EVEN'                      -- ExpRoundingModeHalf_Even
+       |  'ROUNDING_HALF_UP'                        -- ExpRoundingModeHalf_Up
+       |  'ROUNDING_UNNECESSARY'                    -- ExpRoundingModeUnnecessary
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
        |  Mod:T @τ₁ … @τₙ {f} e                     -- ExpRecProj: Record projection
@@ -891,6 +918,15 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyNumeric
      Γ  ⊢  'Numeric' : 'nat' → ⋆
 
+   ————————————————————————————————————————————— TyBigDecimal
+     Γ  ⊢  'BigDecimal' : ⋆
+
+   ————————————————————————————————————————————— TyMathContext
+     Γ  ⊢  'MathContext' : ⋆
+
+   ————————————————————————————————————————————— TyRoundingMode
+     Γ  ⊢  'RoundingMode' : ⋆
+
    ————————————————————————————————————————————— TyText
      Γ  ⊢  'Text' : ⋆
 
@@ -1083,6 +1119,41 @@ Then we define *well-formed expressions*. ::
       n = scale(LitNumeric)
     ——————————————————————————————————————————————————————————————— ExpLitNumeric
       Γ  ⊢  LitNumeric  :  'Numeric' n
+
+    ——————————————————————————————————————————————————————————————— ExpBigDecimal
+      Γ  ⊢  LitBigDecimal  :  'BigDecimal'
+
+    ——————————————————————————————————————————————————————————————— ExpMathContextUnlimited
+      Γ  ⊢  'MATHCTX_UNLIMITED'  :  'MathContext'
+
+      Γ  ⊢  r : 'RoundingMode'
+      Γ  ⊢  p : 'Int64'
+    ——————————————————————————————————————————————————————————————— ExpMathContextBounded
+      Γ  ⊢  'MATHCTX_BOUNDED' r p  :  'MathContext'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeCeiling
+      Γ  ⊢  'ROUNDING_CEILING'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeFloor
+      Γ  ⊢  'ROUNDING_FLOOR'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeDown
+      Γ  ⊢  'ROUNDING_DOWN'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeUp
+      Γ  ⊢  'ROUNDING_UP'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeHalf_Down
+      Γ  ⊢  'ROUNDING_HALF_DOWN'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeHalf_Even
+      Γ  ⊢  'ROUNDING_HALF_EVEN'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeHalf_Up
+      Γ  ⊢  'ROUNDING_HALF_UP'  :  'RoundingMode'
+
+    ——————————————————————————————————————————————————————————————— ExpRoundingModeUnnecessary
+      Γ  ⊢  'ROUNDING_UNNECESSARY'  :  'RoundingMode'
 
     ——————————————————————————————————————————————————————————————— ExpLitText
       Γ  ⊢  t  :  'Text'
@@ -1796,6 +1867,9 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpLitNumeric
      ⊢ᵥ  LitNumeric
 
+   ——————————————————————————————————————————————————— ValExpLitBigDecimal
+     ⊢ᵥ  LitBigDecimal
+
    ——————————————————————————————————————————————————— ValExpLitText
      ⊢ᵥ  t
 
@@ -1897,6 +1971,38 @@ need to be evaluated further. ::
      ⊢ᵥₛ  s
    ——————————————————————————————————————————————————— ValScenario
      ⊢ᵥ  s
+
+   ——————————————————————————————————————————————————— ValMathCtxUnlimited
+     ⊢ᵥ  'MATHCTX_UNLIMITED'
+
+     ⊢ᵥ  r
+     ⊢ᵥ  p
+   ——————————————————————————————————————————————————— ValMathCtxBounded
+     ⊢ᵥ  'MATHCTX_BOUNDED' r p
+
+   ——————————————————————————————————————————————————— ValRoundingModeCeiling
+     ⊢ᵥ  'ROUNDING_CEILING'
+
+   ——————————————————————————————————————————————————— ValRoundingModeFloor
+     ⊢ᵥ  'ROUNDING_FLOOR'
+
+   ——————————————————————————————————————————————————— ValRoundingModeDown
+     ⊢ᵥ  'ROUNDING_DOWN'
+
+   ——————————————————————————————————————————————————— ValRoundingModeUp
+     ⊢ᵥ  'ROUNDING_UP'
+
+   ——————————————————————————————————————————————————— ValRoundingModeHalf_Down
+     ⊢ᵥ  'ROUNDING_HALF_DOWN'
+
+   ——————————————————————————————————————————————————— ValRoundingModeHalf_Even
+     ⊢ᵥ  'ROUNDING_HALF_EVEN'
+
+   ——————————————————————————————————————————————————— ValRoundingModeHalf_Up
+     ⊢ᵥ  'ROUNDING_HALF_UP'
+
+   ——————————————————————————————————————————————————— ValRoundingModeHalf_Unnecessary
+     ⊢ᵥ  'ROUNDING_HALF_UNNECESSARY'
 
 
                            ┌────────┐
@@ -2136,8 +2242,17 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
     'ArithmeticError' <ₜ 'ContractError'
 
-  —————————————————————————————————————————————————— TypeOrderContractErrorTyCon
-    'ContractError' <ₜ Mod:T
+  ——————————————————————————————————————————————————— TypeOrderContractErrorBigDecimal
+    'ContractError' <ₜ 'BigDecimal'
+
+  ——————————————————————————————————————————————————— TypeOrderBigDecimalMathContext
+    'BigDecimal' <ₜ 'MathContext'
+
+  ——————————————————————————————————————————————————— TypeOrderMathContextRoundingMode
+    'MathContext' <ₜ 'RoundingMode'
+
+  ——————————————————————————————————————————————————— TypeOrderRoundingModeTyCon
+    'RoundingMode' <ₜ Mod:T
 
     PkgId₁ comes lexicographically before PkgId₂
   ——————————————————————————————————————————————————— TypeOrderTyConPackageId
@@ -3317,6 +3432,29 @@ updates.
     —————————————————————————————————————————————————————————————————————— EvLessEqNumeric
       𝕆('LESS_EQ' @σ LitNumeric₁ LitNumeric₂) =
           Ok (LitNumeric₁ ≤ₗ LitNumeric₂)
+
+    —————————————————————————————————————————————————————————————————————— EvLessEqBigDecimal
+      𝕆('LESS_EQ' @σ LitBigDecimal₁ LitBigDecimal₂) =
+          Ok (LitBigDecimal₁ ≤ₗ LitBigDecimal₂)
+
+    —————————————————————————————————————————————————————————————————————— EvLessEqMathCtxUnlimitedAny
+      𝕆('LESS_EQ' @σ 'MATHCTX_UNLIMITED'  v) = Ok 'True'
+
+    —————————————————————————————————————————————————————————————————————— EvLessEqMathCtxBoundedUnlimited
+      𝕆('LESS_EQ' @σ ('MATHCTX_BOUNDED' r' p') 'MATHCTX_UNLIMITED') = Ok 'False'
+
+      𝕆('LESS_EQ' @@⟨ r:'RoundingMode', p: 'Int64' ⟩
+                     ⟨ r = r,  p = p ⟩
+                     ⟨ r = r',  p = p' ⟩) = r
+
+    —————————————————————————————————————————————————————————————————————— EvLessEqMathCtxBoundedBounded
+      𝕆('LESS_EQ' @σ ('MATHCTX_BOUNDED' r p)  ('MATHCTX_BOUNDED' r' p')) = Ok r
+
+      roundingModeRank(r1) = i
+      roundingModeRank(r1) = j
+    —————————————————————————————————————————————————————————————————————— EvLessEqRoundingMode
+      𝕆('LESS_EQ' @σ r1  r2) = OK (i ≤ j)
+
     —————————————————————————————————————————————————————————————————————— EvLessEqContractId
       𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
@@ -3452,6 +3590,20 @@ updates.
   FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs
 
+Rounding Mode Rank
+..................
+
+To simplify the definition of rounding mode ordering, we define an auxiliary definion that maps them to integers:
+
+
+* ``roundingModeRank('ROUNDING_CEILING') = 0``
+* ``roundingModeRank('ROUNDING_FLOOR') = 1``
+* ``roundingModeRank('ROUNDING_DOWN') = 2``
+* ``roundingModeRank('ROUNDING_UP') = 3``
+* ``roundingModeRank('ROUNDING_HALF_DOWN') = 4``
+* ``roundingModeRank('ROUNDING_HALF_EVEN') = 5``
+* ``roundingModeRank('ROUNDING_HALF_UP') = 6``
+* ``roundingModeRank('ROUNDING_HALF_UNNECESSARY') = 7``
 
 * ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
 
@@ -3692,6 +3844,109 @@ Numeric functions
   be mapped into a decimal without loss of precision, returns
   ``None``.  The scale of the output is given by the type parameter
   `α`.
+
+BigDecimal functions
+~~~~~~~~~~~~~~~~~~~~
+
+All operations behave as if they first calculate an exact
+math intermediate result and then round this result as specified by
+the ``MathContext``. For an ``UNLIMITED`` math context, all operations
+are exact. If the result cannot be resulted as a ``BigDecimal`` they
+throw an ``ArithmeticError``
+(TODO: https://github.com/digital-asset/daml/issues/8020). For a
+``MATHCTX_BOUNDED roundingMode precision`` math context, the result is exact if it can
+be represented at with at most ``precision`` digits at some scale. If
+the result cannot be represented exactly in at most ``precision``
+digits, the ``precision`` digits in the result are selected according
+to ``roundingMode``.
+
+* ``ADD_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal'  → 'BigDecimal'``
+
+  Adds the two decimals by the second one rounding the result
+  according to the given ``MathContext``.
+
+* ``SUB_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal' → 'BigDecimal'``
+
+  Subtracts the second big decimal from the first one by the second one rounding the result
+  according to the given ``MathContext``.
+
+* ``MUL_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal' → 'BigDecimal'``
+
+  Multiplies the two numerics by the second one rounding the result
+  according to the given ``MathContext``.
+
+* ``DIV_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal' → 'BigDecimal'``
+
+  Divides the first big decimal by the second one rounding the result
+  according to the given ``MathContext``.
+
+* ``ROUND_BIGDECIMAL : 'MathContext' -> 'BigDecimal' -> 'BigDecimal'``
+
+  Round the big decimal according to the given ``MathContext``.
+
+* ``TO_TEXT_BIGDECIMAL : 'BigDecimal' → 'Text'``
+
+  Returns the numeric string representation of the bigdecimal. The result
+  will be returned at the smallest precision that can represent the result exactly, i.e.,
+  without any trailing zeroes.
+
+* ``FROM_TEXT_BIGDECIMAL : 'Text' → 'Optional' 'BigDecimal'``
+
+  Given a string representation of a numeric returns the numeric
+  wrapped in ``Some``. If the input does not match the regexp
+  ``[+-]?\d+(\.d+)?`` or if the result of the conversion cannot
+  be mapped into a ``BigDecimal`` without loss of precision, returns
+  ``None``.
+
+* ``TO_TEXT_BIGDECIMAL : 'BigDecimal' → 'Text'``
+
+  Returns the numeric string representation of the bigdecimal. The result
+  will be returned at the smallest precision that can represent the result exactly, i.e.,
+  without any trailing zeroes.
+
+* ``TO_NUMERIC_BIGDECIMAL : ∀ (α : nat). 'RoundingMode' → 'BigDecimal'  → 'Numeric' α``
+
+  Convert the ``BigDecimal`` to a ``Numeric`` value with precision ``α`` according to the given
+  ``RoundingMode``.
+
+* ``TO_BIGDECIMAL_NUMERIC : ∀ (α : nat). 'MathContext' → 'Numeric' α  → 'BigDecimal'``
+
+  Convert the ``Numeric`` to a ``BigDecimal`` according to the given ``MathContext``.
+
+Rounding Behavior
+~~~~~~~~~~~~~~~~~
+
+* ``ROUNDING_CEILING``
+
+  Round towards positive infinity.
+
+* ``ROUNDING_FLOOR``
+
+  Round towards negative infinity
+
+* ``ROUNDING_DOWN``
+
+  Round towards towards zero
+
+* ``ROUNDING_UP``
+
+  Round towards away from zero
+
+* ``ROUNDING_HALF_DOWN``
+
+  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards zero.
+
+* ``ROUNDING_HALF_EVEN``
+
+  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards the even neighbor.
+
+* ``ROUNDING_HALF_UP``
+
+  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round away from zero.
+
+* ``ROUNDING_UNNECESSARY``
+
+  Throw if the exact result cannot be represented.
 
 String functions
 ~~~~~~~~~~~~~~~~
