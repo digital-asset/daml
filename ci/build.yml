@@ -384,10 +384,10 @@ jobs:
             setvar is_release false
         fi
 
-        ret=0
         # This is the last snapshot that does not support Scala 2.13.
-        semver compare "$RELEASE_TAG" "1.11.0-snapshot.20210212.6300.0.ad161d7f" || ret=$?
-        if [[ $ret -eq 1 || "$RELEASE_TAG" == "0.0.0" ]]; then
+        CMP="$(semver compare "$RELEASE_TAG" "1.11.0-snapshot.20210212.6300.0.ad161d7f")"
+
+        if [[ $CMP == "1" || "$RELEASE_TAG" == "0.0.0" ]]; then
             setvar scala_2_13 true
         else
             setvar scala_2_13 false
