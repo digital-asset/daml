@@ -34,17 +34,6 @@ config_setting(
     },
 )
 
-# ERROR: .../daml/ledger-service/http-json-oracle/BUILD.bazel:33:14: no such target
-# '@platforms//:incompatible': target 'incompatible' not declared in package '' defined by
-# /private/var/tmp/.../85ba8c006f4674ac1f1213a18c0df36a/external/platforms/BUILD and
-# referenced by '//ledger-service/http-json-oracle:integration-tests'
-constraint_setting(name = "incompatible_setting")
-
-constraint_value(
-    name = "incompatible",
-    constraint_setting = ":incompatible_setting",
-)
-
 da_scala_test(
     name = "integration-tests",
     size = "large",
@@ -69,7 +58,7 @@ da_scala_test(
     scalacopts = hj_scalacopts,
     target_compatible_with = select({
         ":oracle_available": [],
-        "//conditions:default": [":incompatible"],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
