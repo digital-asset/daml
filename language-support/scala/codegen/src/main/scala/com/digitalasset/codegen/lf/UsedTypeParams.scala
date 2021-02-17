@@ -4,9 +4,12 @@
 package com.daml.codegen.lf
 
 import com.daml.codegen.lf.DamlDataTypeGen.{DataType, VariantField}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.iface
 import scalaz.Monoid
 import scalaz.std.list._
+import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
@@ -26,10 +29,53 @@ object UsedTypeParams {
       .foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }
 
-  private def collectTypeParams(field: iface.Type): Set[String] = field match {
+  private[this] def collectTypeParams[S >: Ref.Name](field: iface.Type): Set[S] = field match {
     case iface.TypeVar(x) => Set(x)
     case iface.TypePrim(_, xs) => xs.toSet.flatMap(collectTypeParams)
     case iface.TypeCon(_, xs) => xs.toSet.flatMap(collectTypeParams)
     case iface.TypeNumeric(_) => Set.empty
+  }
+
+  /** Variance of `sdt.typeVars` in order. */
+  def covariantVars[RF <: iface.Type, VF <: iface.Type](
+      sdt: ScopedDataType.DT[RF, VF]
+  ): ImmArraySeq[Variance] = {
+    import iface._, Variance._
+    def goType(typ: iface.Type): Map[Ref.Name, Variance] = typ match {
+      case TypeVar(name) => Map(name -> Covariant)
+      case TypePrim(pt, typArgs) =>
+        import PrimType._
+        pt match {
+          case GenMap =>
+            val Seq(kt, vt) = typArgs
+            goType(vt) |+| collectTypeParams(kt).view.map((_, Invariant)).toMap
+          case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
+              Optional | TextMap =>
+            typArgs foldMap goType
+        }
+      case TypeCon(tcName, typArgs) => sys.error(s"TODO $tcName $typArgs")
+      case TypeNumeric(_) => Map.empty
+    }
+
+    val vLookup: Map[Ref.Name, Variance] = sdt.dataType match {
+      case Record(fields) => fields foldMap { case (_, typ) => goType(typ) }
+      case Variant(fields) => fields foldMap { case (_, typ) => goType(typ) }
+      case Enum(_) => Map.empty
+    }
+    sdt.typeVars map (vLookup.getOrElse(_, Covariant))
+  }
+
+  sealed abstract class Variance extends Product with Serializable
+  object Variance {
+    case object Covariant extends Variance
+    case object Invariant extends Variance
+
+    implicit val `variance conjunction monoid`: Monoid[Variance] = Monoid.instance(
+      {
+        case (Covariant, Covariant) => Covariant
+        case _ => Invariant
+      },
+      Covariant,
+    )
   }
 }
