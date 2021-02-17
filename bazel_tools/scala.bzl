@@ -412,8 +412,9 @@ def _scaladoc_jar_impl(ctx):
         args = ctx.actions.args()
         args.add_all(["-d", outdir.path])
         args.add_all("-doc-root-content", root_content)
-        args.add("-classpath")
-        args.add_joined(classpath, join_with = ":")
+        if classpath != []:
+            args.add("-classpath")
+            args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
         args.add_all(common_scalacopts)
         args.add_all(ctx.attr.scalacopts)
