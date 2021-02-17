@@ -1268,8 +1268,7 @@ private[lf] object Speedy {
   private[speedy] final case class KCloseExercise(
       machine: Machine,
       end_templateId: TypeConName,
-  ) extends Kont
-      with SomeArrayEquals {
+  ) extends Kont {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
