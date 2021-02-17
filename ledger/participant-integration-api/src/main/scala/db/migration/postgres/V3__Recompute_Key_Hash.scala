@@ -43,7 +43,9 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
       |  contracts.key is not null
     """.stripMargin
 
-    val rows: ResultSet = connection.createStatement().executeQuery(SQL_SELECT_CONTRACT_KEYS)
+    val statement = connection.createStatement()
+    statement.setFetchSize(batchSize)
+    val rows: ResultSet = statement.executeQuery(SQL_SELECT_CONTRACT_KEYS)
 
     new Iterator[(ContractId, GlobalKey)] {
 
