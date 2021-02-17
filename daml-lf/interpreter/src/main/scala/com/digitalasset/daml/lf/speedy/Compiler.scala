@@ -4,23 +4,24 @@
 package com.daml.lf
 package speedy
 
+import java.util
+
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.Anf.flattenToAnf
+import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Anf.flattenToAnf
-import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
+import com.github.ghik.silencer.silent
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import java.util
-
-import com.github.ghik.silencer.silent
+import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -108,6 +109,17 @@ private[lf] object Compiler {
       case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
       case e: ValidationError => Left(e.pretty)
     }
+  }
+
+  // Hand-implemented `map` uses less stack.
+  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): Array[B] = {
+    val output = Array.ofDim[B](input.length)
+    var i = 0
+    input.foreach { value =>
+      output(i) = f(value)
+      i += 1
+    }
+    output
   }
 
 }
@@ -382,7 +394,7 @@ private[lf] final class Compiler(
           Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
         SEApp(
           SEBuiltin(SBStructCon(fieldsInputOrder)),
-          fields.iterator.map { case (_, e) => compile(e) }.toArray,
+          mapToArray(fields) { case (_, e) => compile(e) },
         )
       case structProj: EStructProj =>
         structProj.fieldIndex match {
@@ -653,7 +665,7 @@ private[lf] final class Compiler(
   private[this] def compileECase(scrut: Expr, alts: ImmArray[CaseAlt]): SExpr =
     SECase(
       compile(scrut),
-      alts.iterator.map { case CaseAlt(pat, expr) =>
+      mapToArray(alts) { case CaseAlt(pat, expr) =>
         pat match {
           case CPVariant(tycon, variant, binder) =>
             val variantDef =
@@ -695,8 +707,9 @@ private[lf] final class Compiler(
           case CPDefault =>
             SCaseAlt(SCPDefault, compile(expr))
         }
-      }.toArray,
+      },
     )
+
   @inline
   private[this] def compileELet(elet: ELet) =
     withEnv { _ =>

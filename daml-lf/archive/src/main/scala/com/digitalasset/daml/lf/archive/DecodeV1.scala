@@ -6,25 +6,25 @@ package archive
 
 import java.util
 
+import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
-import ImmArray.ImmArraySeq
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
-import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection
 import scala.collection.compat._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
 
-  import Decode._, DecodeV1._
+  import Decode._
+  import DecodeV1._
 
   private val languageVersion = LV(LV.Major.V1, minor)
 
@@ -934,9 +934,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
           assertNonEmpty(args, "args")
-          (args foldLeft decodeExpr(app.getFun, definition))((e, arg) =>
-            EApp(e, decodeExpr(arg, definition))
-          )
+          // We use a `foreach` instead of `foldLeft` to reduce the stack size.
+          var expr = decodeExpr(app.getFun, definition)
+          for (arg <- args) {
+            expr = EApp(expr, decodeExpr(arg, definition))
+          }
+          expr
 
         case PLF.Expr.SumCase.ABS =>
           val lfAbs = lfExpr.getAbs
@@ -1432,7 +1435,8 @@ private[lf] object DecodeV1 {
   }
 
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
-    import PLF.PrimType._, LV.Features._
+    import LV.Features._
+    import PLF.PrimType._
     // DECIMAL is not there and should be handled in an ad-hoc way.
     List(
       BuiltinTypeInfo(UNIT, BTUnit),
@@ -1476,7 +1480,8 @@ private[lf] object DecodeV1 {
   }
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
-    import PLF.BuiltinFunction._, LV.Features._
+    import LV.Features._
+    import PLF.BuiltinFunction._
     List(
       BuiltinFunctionInfo(
         ADD_DECIMAL,
