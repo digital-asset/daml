@@ -11,8 +11,8 @@ import com.daml.ledger.validator.ValidationFailed.{MissingInputState, Validation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.newLoggingContext
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 /** Orchestrates committing to a ledger after validating the submission.
   * Example usage, assuming a [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]] sends the submission over
@@ -46,7 +46,7 @@ class ValidatingCommitter[LogResult](
 ) {
   def commit(
       correlationId: String,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       submittingParticipantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>

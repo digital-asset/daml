@@ -10,7 +10,7 @@ trait WriteSetComparison {
 
   def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Option[String]
 
-  def checkEntryIsReadable(rawKey: Raw.Key, rawValue: Raw.Value): Either[String, Unit]
+  def checkEntryIsReadable(rawKey: Raw.Key, rawEnvelope: Raw.Envelope): Either[String, Unit]
 
 }
 

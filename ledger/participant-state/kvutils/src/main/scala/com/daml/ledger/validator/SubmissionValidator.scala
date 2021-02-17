@@ -51,7 +51,7 @@ class SubmissionValidator[LogResult] private[validator] (
   private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
 
   def validate(
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -68,7 +68,7 @@ class SubmissionValidator[LogResult] private[validator] (
     }
 
   def validateAndCommit(
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -78,7 +78,7 @@ class SubmissionValidator[LogResult] private[validator] (
     }
 
   private[validator] def validateAndCommitWithContext(
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -96,7 +96,7 @@ class SubmissionValidator[LogResult] private[validator] (
     )
 
   def validateAndTransform[U](
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -126,8 +126,7 @@ class SubmissionValidator[LogResult] private[validator] (
       stateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
-    val eventualLogResult =
-      stateOperations.appendToLog(Raw.Key(logEntryId.toByteString), rawLogEntry)
+    val eventualLogResult = stateOperations.appendToLog(Raw.LogEntryId(logEntryId), rawLogEntry)
     val eventualStateResult =
       if (rawStateUpdates.nonEmpty)
         stateOperations.writeState(rawStateUpdates)
@@ -141,7 +140,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
   @tailrec
   private def runValidation[T](
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -166,7 +165,7 @@ class SubmissionValidator[LogResult] private[validator] (
         batch.getSubmissionsList.asScala.toList match {
           case correlatedSubmission :: Nil =>
             runValidation(
-              Raw.Value(correlatedSubmission.getSubmission),
+              Raw.Envelope(correlatedSubmission.getSubmission),
               correlatedSubmission.getCorrelationId,
               recordTime,
               participantId,
@@ -306,8 +305,6 @@ class SubmissionValidator[LogResult] private[validator] (
 
 object SubmissionValidator {
 
-  type RawKeyValuePairs = Seq[Raw.KeyValuePair]
-
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
@@ -383,25 +380,25 @@ object SubmissionValidator {
 
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState
-  ): (Raw.Value, RawKeyValuePairs) = {
+  ): (Raw.Envelope, Seq[Raw.StateEntry]) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
     val rawStateUpdates =
       damlStateUpdates
         .map { case (key, value) =>
-          rawKey(key) -> rawValue(value)
+          rawKey(key) -> rawEnvelope(value)
         }
         .toSeq
         .sortBy(_._1)
     (Envelope.enclose(logEntry), rawStateUpdates)
   }
 
-  private[validator] def rawKey(damlStateKey: DamlStateKey): Raw.Key =
-    Raw.Key(damlStateKey.toByteString)
+  private[validator] def rawKey(damlStateKey: DamlStateKey): Raw.StateKey =
+    Raw.StateKey(damlStateKey)
 
-  private[validator] def rawValue(value: DamlStateValue): Raw.Value =
+  private[validator] def rawEnvelope(value: DamlStateValue): Raw.Envelope =
     Envelope.enclose(value)
 
-  private[validator] def stateValueFromRaw(value: Raw.Value): DamlStateValue =
+  private[validator] def stateValueFromRaw(value: Raw.Envelope): DamlStateValue =
     Envelope
       .openStateValue(value)
       .fold(message => throw new IllegalStateException(message), identity)

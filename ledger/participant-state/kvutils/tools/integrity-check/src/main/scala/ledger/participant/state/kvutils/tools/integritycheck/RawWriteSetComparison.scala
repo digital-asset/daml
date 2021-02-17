@@ -41,11 +41,15 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
   private def writeSetToStrings(writeSet: WriteSet): Seq[String] =
     writeSet.view.map((writeItemToString _).tupled).toVector
 
-  private def writeItemToString(key: Raw.Key, value: Raw.Value): String = {
-    val keyString = stateKeySerializationStrategy.deserializeStateKey(key)
-    val valueString = kvutils.Envelope.open(value)
-    s"$keyString -> $valueString"
-  }
+  private def writeItemToString(rawKey: Raw.Key, rawEnvelope: Raw.Envelope): String =
+    parsePair(rawKey, rawEnvelope) match {
+      case Left(errorMessage) =>
+        throw new IllegalArgumentException(errorMessage)
+      case Right(Left((logEntryId, logEntry))) =>
+        s"$logEntryId -> $logEntry"
+      case Right(Right((key, value))) =>
+        s"$key -> $value"
+    }
 
   private def compareSameSizeWriteSets(
       expectedWriteSet: WriteSet,
@@ -54,7 +58,10 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
     val differencesExplained = expectedWriteSet
       .zip(actualWriteSet)
       .map { case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
-        if (expectedKey == actualKey && expectedValue != actualValue) {
+        // We need to compare `.bytes` because the type will be different.
+        // Unfortunately, the export format doesn't differentiate between log and state entries.
+        // We don't want to change this because it will break backwards-compatibility.
+        if (expectedKey.bytes == actualKey.bytes && expectedValue != actualValue) {
           Some(
             Seq(
               s"expected value:    ${rawHexString(expectedValue)}",
@@ -62,7 +69,7 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
               explainDifference(expectedKey, expectedValue, actualValue),
             )
           )
-        } else if (expectedKey != actualKey) {
+        } else if (expectedKey.bytes != actualKey.bytes) {
           Some(
             Seq(
               s"expected key:    ${rawHexString(expectedKey)}",
@@ -85,14 +92,14 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
 
   private def explainDifference(
       key: Raw.Key,
-      expectedValue: Raw.Value,
-      actualValue: Raw.Value,
+      expectedValue: Raw.Envelope,
+      actualValue: Raw.Envelope,
   ): String =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
       .map { expectedStateValue =>
-        val stateKey = stateKeySerializationStrategy.deserializeStateKey(key)
+        val stateKey = stateKeySerializationStrategy.deserializeStateKey(Raw.StateKey(key.bytes))
         val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
         s"""|State key: $stateKey
             |Expected: $expectedStateValue
@@ -102,8 +109,8 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
 
   private def explainMismatchingValue(
       logEntryId: Raw.Key,
-      expectedValue: Raw.Value,
-      actualValue: Raw.Value,
+      expectedValue: Raw.Envelope,
+      actualValue: Raw.Envelope,
   ): String = {
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
@@ -111,24 +118,36 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
       s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
   }
 
-  override def checkEntryIsReadable(rawKey: Raw.Key, rawValue: Raw.Value): Either[String, Unit] =
-    Envelope.open(rawValue) match {
+  override def checkEntryIsReadable(
+      rawKey: Raw.Key,
+      rawEnvelope: Raw.Envelope,
+  ): Either[String, Unit] =
+    parsePair(rawKey, rawEnvelope).map(_ => ())
+
+  private def parsePair(
+      rawKey: Raw.Key,
+      rawEnvelope: Raw.Envelope,
+  ): Either[String, Either[
+    (DamlKvutils.DamlLogEntryId, DamlKvutils.DamlLogEntry),
+    (DamlKvutils.DamlStateKey, DamlKvutils.DamlStateValue),
+  ]] =
+    Envelope.open(rawEnvelope) match {
       case Left(errorMessage) =>
         Left(s"Invalid value envelope: $errorMessage")
       case Right(Envelope.LogEntryMessage(logEntry)) =>
-        val _ = DamlKvutils.DamlLogEntryId.parseFrom(rawKey.bytes)
+        val logEntryId = DamlKvutils.DamlLogEntryId.parseFrom(rawKey.bytes)
         if (logEntry.getPayloadCase == DamlKvutils.DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET)
           Left("Log entry payload not set.")
         else
-          Right(())
+          Right(Left(logEntryId -> logEntry))
       case Right(Envelope.StateValueMessage(value)) =>
-        val key = stateKeySerializationStrategy.deserializeStateKey(rawKey)
+        val key = stateKeySerializationStrategy.deserializeStateKey(Raw.StateKey(rawKey.bytes))
         if (key.getKeyCase == DamlKvutils.DamlStateKey.KeyCase.KEY_NOT_SET)
           Left("State key not set.")
         else if (value.getValueCase == DamlKvutils.DamlStateValue.ValueCase.VALUE_NOT_SET)
           Left("State value not set.")
         else
-          Right(())
+          Right(Right(key -> value))
       case Right(Envelope.SubmissionMessage(submission)) =>
         Left(s"Unexpected submission message: $submission")
       case Right(Envelope.SubmissionBatchMessage(batch)) =>

@@ -35,7 +35,7 @@ class InMemoryLedgerWriterSpec
         mockCommitter.commit(
           any[ParticipantId],
           any[String],
-          any[Raw.Value],
+          any[Raw.Envelope],
           any[Instant],
           any[LedgerStateAccess[Any]],
         )(any[ExecutionContext])
@@ -56,7 +56,7 @@ class InMemoryLedgerWriterSpec
       instance
         .commit(
           "correlation ID",
-          Raw.Value(ByteString.copyFromUtf8("some bytes")),
+          Raw.Envelope(ByteString.copyFromUtf8("some bytes")),
           CommitMetadata.Empty,
         )
         .map { actual =>

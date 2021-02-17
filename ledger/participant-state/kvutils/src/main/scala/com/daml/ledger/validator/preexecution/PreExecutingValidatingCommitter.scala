@@ -58,7 +58,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
   def commit(
       submittingParticipantId: ParticipantId,
       correlationId: String,
-      submissionEnvelope: Raw.Value,
+      submissionEnvelope: Raw.Envelope,
       exportRecordTime: Instant,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =

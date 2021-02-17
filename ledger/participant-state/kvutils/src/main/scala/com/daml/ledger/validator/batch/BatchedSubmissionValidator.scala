@@ -66,7 +66,7 @@ object BatchedSubmissionValidator {
   // instead and remove the whole concept of log entry identifiers.
   // For now this implementation uses a sha256 hash of the submission envelope in order to generate
   // deterministic log entry IDs.
-  private[validator] def rawToLogEntryId(value: Raw.Value): DamlLogEntryId = {
+  private[validator] def rawToLogEntryId(value: Raw.Envelope): DamlLogEntryId = {
     val messageDigest = MessageDigest
       .getInstance("SHA-256")
     messageDigest.update(value.bytes.asReadOnlyByteBuffer())
@@ -115,7 +115,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     * been committed. It is up to the caller to discard, or not to, a partially successful batch.
     */
   def validateAndCommit(
-      submissionEnvelope: Raw.Value,
+      submissionEnvelope: Raw.Envelope,
       correlationId: CorrelationId,
       recordTimeInstant: Instant,
       participantId: ParticipantId,
@@ -176,7 +176,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     }
 
   private def singleSubmissionSource(
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       submission: DamlSubmission,
       correlationId: CorrelationId,
   ): Source[Inputs, NotUsed] = {
@@ -201,7 +201,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             metrics.decode,
             metrics.decodeRunning,
             Future {
-              val rawEnvelope = Raw.Value(submissionEnvelope)
+              val rawEnvelope = Raw.Envelope(submissionEnvelope)
               val submission = Envelope
                 .openSubmission(rawEnvelope)
                 .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
