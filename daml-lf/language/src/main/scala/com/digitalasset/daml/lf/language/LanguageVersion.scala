@@ -24,7 +24,7 @@ object LanguageVersion {
 
   private[lf] val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
-  private[lf] val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_dev) = All
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_dev) = All
 
   object Features {
     val default = v1_6
