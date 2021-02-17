@@ -126,7 +126,11 @@ object LedgerApiTestTool {
     }
 
     val performanceTestsToRun =
-      Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
+      Tests
+        .performanceTests(config.performanceTestsReport)
+        .view
+        .filterKeys(config.performanceTests)
+        .toMap
 
     if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
       println("Either regular or performance tests can be run, but not both.")

@@ -59,7 +59,7 @@ final class LedgerTestCasesRunner(
   private def start(test: LedgerTestCase, session: LedgerSession)(implicit
       executionContext: ExecutionContext
   ): Future[Duration] = {
-    val execution = Promise[Duration]
+    val execution = Promise[Duration]()
     val scaledTimeout = DefaultTimeout * timeoutScaleFactor * test.timeoutScale
 
     val startedTest =

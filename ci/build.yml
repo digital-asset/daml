@@ -175,14 +175,8 @@ jobs:
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
-        bazel build --config scala_2_13 -- \
-          //... \
-          -//ledger/ledger-api-test-tool/... \
-          -//runtime-components/non-repudiation-postgresql:test
-        bazel test --config scala_2_13 -- \
-          //... \
-          -//ledger/ledger-api-test-tool/... \
-          -//runtime-components/non-repudiation-postgresql:test
+        bazel build --config scala_2_13 //...
+        bazel test --config scala_2_13 //...
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:

@@ -34,7 +34,7 @@ def conformance_test(
             "exclusive",
         ] + tags,
         flaky = flaky,
-    ) if not is_windows and scala_major_version == "2.12" else None
+    ) if not is_windows else None
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False):
     for server_name, server in servers.items():

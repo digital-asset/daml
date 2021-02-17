@@ -235,4 +235,4 @@ integrity_test(
     name = "%s-integrity-test" % REFERENCE_LEDGER_EXPORT_NAME,
     checker = "//ledger/participant-state/kvutils/tools:integrity-check",
     dump = ":%s" % REFERENCE_LEDGER_EXPORT_NAME,
-) if not is_windows and scala_major_version == "2.12" else None
+) if not is_windows else None
