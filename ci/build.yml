@@ -110,7 +110,7 @@ jobs:
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       env:
         DAML_SCALA_VERSION: "2.13.3"
-      name: Maven check
+      name: maven_check
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
     - template: tell-slack-failed.yml
       parameters:
