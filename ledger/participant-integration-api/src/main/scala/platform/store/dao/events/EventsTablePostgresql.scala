@@ -6,7 +6,8 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter, Row, SimpleSql}
+import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.TransactionId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
@@ -18,19 +19,19 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     * faster than using JDBC batches.
     */
   final class Batches(
-      eventsInsertion: SimpleSql[Row],
-      archivesUpdate: Option[BatchSql],
+      insertEvents: BatchSql,
+      updateArchives: Option[BatchSql],
   ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
-      eventsInsertion.execute()
-      archivesUpdate.foreach(_.execute())
+      insertEvents.execute()
+      updateArchives.foreach(_.execute())
     }
   }
 
   private val updateArchived =
     """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
 
-  private def archive(consumedAt: Offset)(contractId: ContractId): Vector[NamedParameter] =
+  private def archive(consumedAt: Offset, contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter](
       "consumed_at" -> consumedAt,
       "contract_id" -> contractId.coid,
@@ -40,17 +41,39 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       eventsBatch: TransactionIndexing.EventsInfoBatch,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches = {
-    val batchSize = eventsBatch.eventsInfo.iterator.map(_._2.events.size).sum
+    val archives =
+      eventsBatch.eventsInfo.flatMap(pre => pre._2.archives.map(cId => cId -> pre._2.offset)).toMap
+
+    new Batches(
+      insertEvents = {
+        val preparedBatches = eventsBatch.eventsInfo.map { case (transactionId, info) =>
+          prepareBatch(transactionId, info, compressed)
+        }
+        BatchSql(insertStmt, preparedBatches.head, preparedBatches.tail: _*)
+      },
+      updateArchives =
+        batch(updateArchived, archives.map { case (id, offset) => archive(offset, id) }.toVector),
+    )
+  }
+
+  private def prepareBatch(
+      transactionId: TransactionId,
+      info: TransactionIndexing.EventsInfo,
+      compressed: TransactionIndexing.Compressed.Events,
+  ): Seq[NamedParameter] = {
+    val batchSize = info.events.size
     val eventIds = Array.ofDim[String](batchSize)
-    val eventOffsets = Array.ofDim[Array[Byte]](batchSize)
+    val eventOffsets = Array.fill(batchSize)(info.offset.toByteArray)
     val contractIds = Array.ofDim[String](batchSize)
-    val transactionIds = Array.ofDim[String](batchSize)
-    val workflowIds = Array.ofDim[String](batchSize)
-    val ledgerEffectiveTimes = Array.ofDim[Instant](batchSize)
+    val transactionIds = Array.fill(batchSize)(transactionId.asInstanceOf[String])
+    val workflowIds = Array.fill(batchSize)(info.workflowId.map(_.asInstanceOf[String]).orNull)
+    val ledgerEffectiveTimes = Array.fill(batchSize)(info.ledgerEffectiveTime)
     val templateIds = Array.ofDim[String](batchSize)
     val nodeIndexes = Array.ofDim[java.lang.Integer](batchSize)
-    val commandIds = Array.ofDim[String](batchSize)
-    val applicationIds = Array.ofDim[String](batchSize)
+    val commandIds =
+      Array.fill(batchSize)(info.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
+    val applicationIds =
+      Array.fill(batchSize)(info.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
     val submitters = Array.ofDim[String](batchSize)
     val flatEventWitnesses = Array.ofDim[String](batchSize)
     val treeEventWitnesses = Array.ofDim[String](batchSize)
@@ -67,70 +90,48 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseActors = Array.ofDim[String](batchSize)
     val exerciseChildEventIds = Array.ofDim[String](batchSize)
 
-    var global = 0
+    val submittersValue = info.submitterInfo.map(_.actAs.mkString("|")).orNull
 
-    eventsBatch.eventsInfo.foreach { case (transactionId, eventsInfo) =>
-      val events = eventsInfo.events
-      val submissionBatchSize = events.size
-      for (i <- global until global + submissionBatchSize) {
-        events(i - global) match {
-          case (nodeId, create: Create) =>
-            transactionIds(i) = transactionId.asInstanceOf[String]
-            workflowIds(i) = eventsInfo.workflowId.map(_.asInstanceOf[String]).orNull
-            ledgerEffectiveTimes(i) = eventsInfo.ledgerEffectiveTime
-            submitters(i) = eventsInfo.submitterInfo.map(_.actAs.mkString("|")).orNull
-            eventOffsets(i) = eventsInfo.offset.toByteArray
-            commandIds(i) = eventsInfo.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull
-            applicationIds(i) =
-              eventsInfo.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull
-
-            contractIds(i) = create.coid.coid
-            templateIds(i) = create.coinst.template.toString
-
-            eventIds(i) = EventId(transactionId, nodeId).toLedgerString
-            nodeIndexes(i) = nodeId.index
-            flatEventWitnesses(i) =
-              eventsInfo.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
-            treeEventWitnesses(i) = eventsInfo.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-            createArguments(i) = compressed.createArguments(nodeId)
-            createSignatories(i) = create.signatories.mkString("|")
-            createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
-            if (create.coinst.agreementText.nonEmpty) {
-              createAgreementTexts(i) = create.coinst.agreementText
-            }
-            createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
-          case (nodeId, exercise: Exercise) =>
-            transactionIds(i) = transactionId.asInstanceOf[String]
-            workflowIds(i) = eventsInfo.workflowId.map(_.asInstanceOf[String]).orNull
-            ledgerEffectiveTimes(i) = eventsInfo.ledgerEffectiveTime
-            submitters(i) = eventsInfo.submitterInfo.map(_.actAs.mkString("|")).orNull
-            eventOffsets(i) = eventsInfo.offset.toByteArray
-            commandIds(i) = eventsInfo.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull
-            applicationIds(i) =
-              eventsInfo.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull
-
-            contractIds(i) = exercise.targetCoid.coid
-            templateIds(i) = exercise.templateId.toString
-            eventIds(i) = EventId(transactionId, nodeId).toLedgerString
-            nodeIndexes(i) = nodeId.index
-            flatEventWitnesses(i) =
-              eventsInfo.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
-            treeEventWitnesses(i) = eventsInfo.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-            exerciseConsuming(i) = exercise.consuming
-            exerciseChoices(i) = exercise.choiceId
-            exerciseArguments(i) = compressed.exerciseArguments(nodeId)
-            exerciseResults(i) = compressed.exerciseResults.get(nodeId).orNull
-            exerciseActors(i) = exercise.actingParties.mkString("|")
-            exerciseChildEventIds(i) = exercise.children
-              .map(EventId(transactionId, _).toLedgerString)
-              .iterator
-              .mkString("|")
-          case _ =>
-        }
+    for (((nodeId, node), i) <- info.events.zipWithIndex) {
+      node match {
+        case create: Create =>
+          val contractId = create.coid
+          submitters(i) = submittersValue
+          contractIds(i) = contractId.coid
+          templateIds(i) = create.coinst.template.toString
+          eventIds(i) = EventId(transactionId, nodeId).toLedgerString
+          nodeIndexes(i) = nodeId.index
+          flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
+          treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
+          createArguments(i) = compressed.createArguments(transactionId -> nodeId)
+          createSignatories(i) = create.signatories.mkString("|")
+          createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
+          if (create.coinst.agreementText.nonEmpty) {
+            createAgreementTexts(i) = create.coinst.agreementText
+          }
+          createKeyValues(i) = compressed.createKeyValues.get(transactionId -> nodeId).orNull
+        case exercise: Exercise =>
+          submitters(i) = submittersValue
+          val contractId = exercise.targetCoid
+          contractIds(i) = contractId.coid
+          templateIds(i) = exercise.templateId.toString
+          eventIds(i) = EventId(transactionId, nodeId).toLedgerString
+          nodeIndexes(i) = nodeId.index
+          flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
+          treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
+          exerciseConsuming(i) = exercise.consuming
+          exerciseChoices(i) = exercise.choiceId
+          exerciseArguments(i) = compressed.exerciseArguments(transactionId -> nodeId)
+          exerciseResults(i) = compressed.exerciseResults.get(transactionId -> nodeId).orNull
+          exerciseActors(i) = exercise.actingParties.mkString("|")
+          exerciseChildEventIds(i) = exercise.children
+            .map(EventId(transactionId, _).toLedgerString)
+            .iterator
+            .mkString("|")
+        case _ => throw new UnexpectedNodeException(nodeId, transactionId)
       }
-      global += submissionBatchSize
     }
-    val inserts = insertEvents(
+    prepareEventsBatch(
       eventIds,
       eventOffsets,
       contractIds,
@@ -160,18 +161,6 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       createKeyValueCompression = eventIds.map(_ => compressed.createKeyValueCompression.id),
       exerciseArgumentCompression = eventIds.map(_ => compressed.exerciseArgumentsCompression.id),
       exerciseResultCompression = eventIds.map(_ => compressed.exerciseResultsCompression.id),
-    )
-
-    val archivals = {
-      for {
-        (_, eventInfo) <- eventsBatch.eventsInfo
-        archival <- eventInfo.archives
-      } yield archive(eventInfo.offset)(archival)
-    }.toVector
-
-    new Batches(
-      eventsInsertion = inserts,
-      archivesUpdate = batch(updateArchived, archivals),
     )
   }
 
@@ -246,7 +235,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
        """
   }
 
-  private def insertEvents(
+  private def prepareEventsBatch(
       eventIds: Array[String],
       eventOffsets: Array[Array[Byte]],
       contractIds: Array[String],
@@ -276,40 +265,39 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       createKeyValueCompression: Array[Option[Int]],
       exerciseArgumentCompression: Array[Option[Int]],
       exerciseResultCompression: Array[Option[Int]],
-  ): SimpleSql[Row] = {
+  ): Vector[NamedParameter] = {
     import com.daml.platform.store.Conversions.IntToSmallIntConversions._
-    anorm
-      .SQL(insertStmt)
-      .on(
-        Params.eventIds -> eventIds,
-        Params.eventOffsets -> eventOffsets,
-        Params.contractIds -> contractIds,
-        Params.transactionIds -> transactionIds,
-        Params.workflowIds -> workflowIds,
-        Params.ledgerEffectiveTimes -> ledgerEffectiveTimes,
-        Params.templateIds -> templateIds,
-        Params.nodeIndexes -> nodeIndexes,
-        Params.commandIds -> commandIds,
-        Params.applicationIds -> applicationIds,
-        Params.submitters -> submitters,
-        Params.flatEventWitnesses -> flatEventWitnesses,
-        Params.treeEventWitnesses -> treeEventWitnesses,
-        Params.createArguments -> createArguments,
-        Params.createSignatories -> createSignatories,
-        Params.createObservers -> createObservers,
-        Params.createAgreementTexts -> createAgreementTexts,
-        Params.createConsumedAt -> createConsumedAt,
-        Params.createKeyValues -> createKeyValues,
-        Params.exerciseConsuming -> exerciseConsuming,
-        Params.exerciseChoices -> exerciseChoices,
-        Params.exerciseArguments -> exerciseArguments,
-        Params.exerciseResults -> exerciseResults,
-        Params.exerciseActors -> exerciseActors,
-        Params.exerciseChildEventIds -> exerciseChildEventIds,
-        Params.exerciseResultCompression -> exerciseResultCompression,
-        Params.exerciseArgumentCompression -> exerciseArgumentCompression,
-        Params.createArgumentsCompression -> createArgumentsCompression,
-        Params.createKeyValueCompression -> createKeyValueCompression,
-      )
+
+    Vector[NamedParameter](
+      Params.eventIds -> eventIds,
+      Params.eventOffsets -> eventOffsets,
+      Params.contractIds -> contractIds,
+      Params.transactionIds -> transactionIds,
+      Params.workflowIds -> workflowIds,
+      Params.ledgerEffectiveTimes -> ledgerEffectiveTimes,
+      Params.templateIds -> templateIds,
+      Params.nodeIndexes -> nodeIndexes,
+      Params.commandIds -> commandIds,
+      Params.applicationIds -> applicationIds,
+      Params.submitters -> submitters,
+      Params.flatEventWitnesses -> flatEventWitnesses,
+      Params.treeEventWitnesses -> treeEventWitnesses,
+      Params.createArguments -> createArguments,
+      Params.createSignatories -> createSignatories,
+      Params.createObservers -> createObservers,
+      Params.createAgreementTexts -> createAgreementTexts,
+      Params.createConsumedAt -> createConsumedAt,
+      Params.createKeyValues -> createKeyValues,
+      Params.exerciseConsuming -> exerciseConsuming,
+      Params.exerciseChoices -> exerciseChoices,
+      Params.exerciseArguments -> exerciseArguments,
+      Params.exerciseResults -> exerciseResults,
+      Params.exerciseActors -> exerciseActors,
+      Params.exerciseChildEventIds -> exerciseChildEventIds,
+      Params.exerciseResultCompression -> exerciseResultCompression,
+      Params.exerciseArgumentCompression -> exerciseArgumentCompression,
+      Params.createArgumentsCompression -> createArgumentsCompression,
+      Params.createKeyValueCompression -> createKeyValueCompression,
+    )
   }
 }

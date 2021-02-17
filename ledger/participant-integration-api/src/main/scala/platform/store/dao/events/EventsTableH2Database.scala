@@ -91,7 +91,7 @@ object EventsTableH2Database extends EventsTable {
         val eventSpecificColumns =
           node match {
             case event: Create =>
-              val (argument, keyValue) = compressed.assertCreate(nodeId)
+              val (argument, keyValue) = compressed.assertCreate(transactionId, nodeId)
               create(
                 event = event,
                 argument = argument,
@@ -100,7 +100,7 @@ object EventsTableH2Database extends EventsTable {
                 keyCompression = compressed.createKeyValueCompression.id,
               )
             case event: Exercise =>
-              val (argument, result) = compressed.assertExercise(nodeId)
+              val (argument, result) = compressed.assertExercise(transactionId, nodeId)
               exercise(
                 event = event,
                 transactionId = transactionId,

@@ -194,7 +194,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ),
     )
 
-  def prepareTransactionInsert(transactionBatch: Seq[TransactionEntry]): PreparedInsert =
+  def prepareTransactionInsert(transactionBatch: List[TransactionEntry]): PreparedInsert =
     ledgerDao.prepareTransactionInsert(transactionBatch)
 
   override def storeRejection(

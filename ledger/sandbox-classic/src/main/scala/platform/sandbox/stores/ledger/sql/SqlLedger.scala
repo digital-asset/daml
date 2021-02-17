@@ -385,13 +385,13 @@ private final class SqlLedger(
             val blindingInfo = None
 
             val preparedInsert = ledgerDao.prepareTransactionInsert(
-              Seq(
+              List(
                 TransactionEntry(
                   submitterInfo = Some(submitterInfo),
                   workflowId = transactionMeta.workflowId,
                   transactionId = transactionId,
                   ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-                  offset = offset,
+                  offsetStep = CurrentOffset(offset),
                   transaction = transactionCommitter.commitTransaction(transactionId, transaction),
                   divulgedContracts = divulgedContracts,
                   blindingInfo = blindingInfo,

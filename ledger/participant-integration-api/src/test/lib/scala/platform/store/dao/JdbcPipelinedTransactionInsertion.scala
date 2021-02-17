@@ -40,7 +40,7 @@ trait JdbcPipelinedTransactionInsertion {
         entry.workflowId,
         entry.transactionId,
         entry.ledgerEffectiveTime,
-        offsetStep.offset,
+        offsetStep,
         entry.transaction,
         divulgedContracts,
         blindingInfo,

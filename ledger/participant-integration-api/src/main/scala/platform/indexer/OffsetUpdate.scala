@@ -7,33 +7,28 @@ import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 
-sealed trait OffsetUpdate extends Product with Serializable {
-  def offsetStep: OffsetStep
-  def update: Update
-}
+sealed trait OffsetUpdate extends Product with Serializable
 
 object OffsetUpdate {
-  def unapply(offsetUpdate: OffsetUpdate): Option[(OffsetStep, Update)] =
+  def unapply(offsetUpdate: OffsetUpdateImpl): Option[(OffsetStep, Update)] =
     Some((offsetUpdate.offsetStep, offsetUpdate.update))
 
   def apply(offsetStep: OffsetStep, update: Update): OffsetUpdate =
     OffsetUpdateImpl(offsetStep, update)
 
-  final case class PreparedTransactionInsert(
-      offsetStep: OffsetStep,
-      update: TransactionAccepted,
-      preparedInsert: PreparedInsert,
-  ) extends OffsetUpdate
-
-  private final case class OffsetUpdateImpl(offsetStep: OffsetStep, update: Update)
+  final case class OffsetUpdateImpl(offsetStep: OffsetStep, update: Update)
       extends OffsetUpdate
+      with InsertionStageUpdate
 
   final case class BatchedTransactions(
-      offsetStep: OffsetStep,
-      update: TransactionAccepted,
-      batch: Seq[(Offset, TransactionAccepted)],
+      batch: Seq[(OffsetStep, TransactionAccepted)]
   ) extends OffsetUpdate
 }
+
+sealed trait InsertionStageUpdate extends Product with Serializable
+
+final case class PreparedTransactionInsert(preparedInsert: PreparedInsert, batchSize: Int)
+    extends InsertionStageUpdate
 
 sealed trait OffsetStep extends Product with Serializable {
   def offset: Offset

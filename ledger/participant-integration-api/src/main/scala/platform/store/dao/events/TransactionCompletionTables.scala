@@ -2,29 +2,32 @@ package com.daml.platform.store.dao.events
 
 import java.sql.{Connection, PreparedStatement}
 
-// Revisit this one!!
+import com.daml.platform.store.dao.ParametersTable
+
+// TODO Tudor Revisit this one!!
 private[events] object TransactionCompletionTables {
+
   final case class Executables(
       insertCompletions: Connection => PreparedStatement,
-      updateLedgerEnd: Connection => PreparedStatement,
+      updateLedgerEnd: Connection => Unit,
   ) {
     def execute(implicit connection: Connection): Unit = {
-      updateLedgerEnd(connection).execute()
+      updateLedgerEnd(connection)
       val _ = insertCompletions(connection).executeBatch()
     }
   }
 
   def toExecutables(
-      transactionEntries: Seq[TransactionEntry]
+      transactionEntries: List[TransactionEntry]
   ): TransactionCompletionTables.Executables =
     Executables(
       insertCompletions = (conn: Connection) => {
         transactionEntries.foldLeft(conn.prepareStatement(completionsQuery)) {
-          case (preparedStatement, preparedRawEntry) =>
-            val maybeSubmitterInfo = preparedRawEntry.submitterInfo
-            val offset = preparedRawEntry.offset
-            val transactionId = preparedRawEntry.transactionId
-            val recordTime = preparedRawEntry.ledgerEffectiveTime
+          case (preparedStatement, transactionEntry) =>
+            val maybeSubmitterInfo = transactionEntry.submitterInfo
+            val offset = transactionEntry.offsetStep.offset
+            val transactionId = transactionEntry.transactionId
+            val recordTime = transactionEntry.ledgerEffectiveTime
             maybeSubmitterInfo
               .map { submitterInfo =>
                 preparedStatement.setObject(1, Array(offset.toByteArray))
@@ -51,12 +54,15 @@ private[events] object TransactionCompletionTables {
         }
       },
       updateLedgerEnd = (conn: Connection) => {
-        val preparedStatement = conn.prepareStatement(ledgerEndUpdateQuery)
-        // Offset step update!!
-        val latestOffset = transactionEntries.maxBy(_.offset).offset.toByteArray
-        preparedStatement.setBytes(1, latestOffset)
-        preparedStatement.setBytes(2, latestOffset)
-        preparedStatement
+        val batchOffsetStep = transactionEntries match {
+          case Nil =>
+            // TODO Tudor logger.warn
+            throw new RuntimeException("Should not get here")
+          case singleTransaction :: Nil => singleTransaction.offsetStep
+          case multipleTransactions =>
+            multipleTransactions.last.offsetStep // TODO Tudor
+        }
+        ParametersTable.updateLedgerEnd(batchOffsetStep)(conn)
       },
     )
 
@@ -65,7 +71,4 @@ private[events] object TransactionCompletionTables {
          select completion_offset, record_time, application_id, string_to_array(submitters,'|'), command_id, transaction_id
          from unnest(?, ?, ?, ?, ?, ?) as t(completion_offset, record_time, application_id, submitters, command_id, transaction_id);
     """
-
-  private val ledgerEndUpdateQuery =
-    "update parameters set ledger_end = ? where (ledger_end is null or ledger_end < ?);"
 }

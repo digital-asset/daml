@@ -177,7 +177,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       loggingContext: LoggingContext
   ): Future[Unit]
 
-  def prepareTransactionInsert(transactionBatch: Seq[TransactionEntry]): PreparedInsert
+  def prepareTransactionInsert(transactionBatch: List[TransactionEntry]): PreparedInsert
 
   def storeTransaction(
       preparedInsert: PreparedInsert,

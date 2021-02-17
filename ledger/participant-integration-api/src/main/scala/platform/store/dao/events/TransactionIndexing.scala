@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.serialization.Compression
 
 import scala.collection.compat._
@@ -25,24 +26,27 @@ final case class TransactionIndexing(
 )
 
 object TransactionIndexing {
-  def merge(left: TransactionIndexing, right: TransactionIndexing): TransactionIndexing =
-    TransactionIndexing(
-      events = EventsInfoBatch.merge(left.events, right.events),
-      contracts = ContractsInfo.merge(left.contracts, right.contracts),
-      contractWitnesses =
-        ContractWitnessesInfo.merge(left.contractWitnesses, right.contractWitnesses),
-    )
+  type Merge[T] = (T, T) => T
+
+  val merge: Merge[TransactionIndexing] =
+    (left, right) =>
+      TransactionIndexing(
+        events = EventsInfoBatch.merge(left.events, right.events),
+        contracts = ContractsInfo.merge(left.contracts, right.contracts),
+        contractWitnesses =
+          ContractWitnessesInfo.merge(left.contractWitnesses, right.contractWitnesses),
+      )
 
   def serialize(
       translation: LfValueTranslation,
-      eventsBatchInfo: Map[TransactionId, EventsInfo],
+      eventsBatchInfo: List[(TransactionId, EventsInfo)],
       divulgence: Iterable[DivulgedContract],
   ): Serialized = {
-    val createArguments = Vector.newBuilder[(NodeId, ContractId, Array[Byte])]
+    val createArguments = Vector.newBuilder[(TransactionId, NodeId, ContractId, Array[Byte])]
     val divulgedContracts = Vector.newBuilder[(ContractId, Array[Byte])]
-    val createKeyValues = Vector.newBuilder[(NodeId, Array[Byte])]
-    val exerciseArguments = Vector.newBuilder[(NodeId, Array[Byte])]
-    val exerciseResults = Vector.newBuilder[(NodeId, Array[Byte])]
+    val createKeyValues = Vector.newBuilder[(TransactionId, NodeId, Array[Byte])]
+    val exerciseArguments = Vector.newBuilder[(TransactionId, NodeId, Array[Byte])]
+    val exerciseResults = Vector.newBuilder[(TransactionId, NodeId, Array[Byte])]
 
     for {
       (transactionId, info) <- eventsBatchInfo
@@ -52,12 +56,12 @@ object TransactionIndexing {
       event match {
         case create: Create =>
           val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-          createArguments += ((nodeId, create.coid, createArgument))
-          createKeyValue.foreach(key => createKeyValues += ((nodeId, key)))
+          createArguments += ((transactionId, nodeId, create.coid, createArgument))
+          createKeyValue.foreach(key => createKeyValues += ((transactionId, nodeId, key)))
         case exercise: Exercise =>
           val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
-          exerciseArguments += ((nodeId, exerciseArgument))
-          exerciseResult.foreach(result => exerciseResults += ((nodeId, result)))
+          exerciseArguments += ((transactionId, nodeId, exerciseArgument))
+          exerciseResult.foreach(result => exerciseResults += ((transactionId, nodeId, result)))
         case _ => throw new UnexpectedNodeException(nodeId, transactionId)
       }
     }
@@ -84,10 +88,10 @@ object TransactionIndexing {
   ): Compressed = {
 
     val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
-    val createArguments = Map.newBuilder[NodeId, Array[Byte]]
-    val createKeyValues = Map.newBuilder[NodeId, Array[Byte]]
-    val exerciseArguments = Map.newBuilder[NodeId, Array[Byte]]
-    val exerciseResults = Map.newBuilder[NodeId, Array[Byte]]
+    val createArguments = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
+    val createKeyValues = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
+    val exerciseArguments = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
+    val exerciseResults = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
 
     for ((contractId, argument) <- serialized.divulgedContracts) {
       val compressedArgument =
@@ -96,29 +100,29 @@ object TransactionIndexing {
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
-    for ((nodeId, contractId, argument) <- serialized.createArguments) {
+    for ((transactionId, nodeId, contractId, argument) <- serialized.createArguments) {
       val compressedArgument = compressionStrategy.createArgumentCompression
         .compress(argument, compressionMetrics.createArgument)
-      createArguments += ((nodeId, compressedArgument))
+      createArguments += ((transactionId, nodeId) -> compressedArgument)
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
-    for ((nodeId, key) <- serialized.createKeyValues) {
+    for ((transactionId, nodeId, key) <- serialized.createKeyValues) {
       val compressedKey = compressionStrategy.createKeyValueCompression
         .compress(key, compressionMetrics.createKeyValue)
-      createKeyValues += ((nodeId, compressedKey))
+      createKeyValues += ((transactionId, nodeId) -> compressedKey)
     }
 
-    for ((nodeId, argument) <- serialized.exerciseArguments) {
+    for ((transactionId, nodeId, argument) <- serialized.exerciseArguments) {
       val compressedArgument = compressionStrategy.exerciseArgumentCompression
         .compress(argument, compressionMetrics.exerciseArgument)
-      exerciseArguments += ((nodeId, compressedArgument))
+      exerciseArguments += ((transactionId, nodeId) -> compressedArgument)
     }
 
-    for ((nodeId, result) <- serialized.exerciseResults) {
+    for ((transactionId, nodeId, result) <- serialized.exerciseResults) {
       val compressedResult = compressionStrategy.exerciseResultCompression
         .compress(result, compressionMetrics.exerciseResult)
-      exerciseResults += ((nodeId, compressedResult))
+      exerciseResults += ((transactionId, nodeId) -> compressedResult)
     }
 
     Compressed(
@@ -207,7 +211,7 @@ object TransactionIndexing {
         workflowId: Option[WorkflowId],
         transactionId: TransactionId,
         ledgerEffectiveTime: Instant,
-        offset: Offset,
+        offsetStep: OffsetStep,
         divulgedContracts: Iterable[DivulgedContract],
     ): TransactionIndexing = {
       val created = creates.result()
@@ -222,12 +226,12 @@ object TransactionIndexing {
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         events = EventsInfoBatch(
-          Map(
+          List(
             transactionId -> EventsInfo(
               submitterInfo = submitterInfo,
               workflowId = workflowId,
               ledgerEffectiveTime = ledgerEffectiveTime,
-              offset = offset,
+              offset = offsetStep.offset,
               events = events.result(),
               archives = archived,
               stakeholders = stakeholders.result(),
@@ -259,13 +263,12 @@ object TransactionIndexing {
       disclosure: WitnessRelation[NodeId],
   )
 
-  final case class EventsInfoBatch(eventsInfo: Map[TransactionId, EventsInfo])
+  final case class EventsInfoBatch(eventsInfo: List[(TransactionId, EventsInfo)])
 
   object EventsInfoBatch {
-    val empty: EventsInfoBatch = EventsInfoBatch(Map.empty)
-
-    def merge(left: EventsInfoBatch, right: EventsInfoBatch): EventsInfoBatch =
-      EventsInfoBatch(left.eventsInfo ++ right.eventsInfo)
+    val empty: EventsInfoBatch = EventsInfoBatch(List.empty)
+    val merge: Merge[EventsInfoBatch] = (left, right) =>
+      EventsInfoBatch(left.eventsInfo ::: right.eventsInfo)
   }
 
   final case class ContractsInfo(
@@ -277,7 +280,7 @@ object TransactionIndexing {
   object ContractsInfo {
     val empty: ContractsInfo = ContractsInfo(Map.empty, Set.empty, Iterable.empty)
 
-    def merge(left: ContractsInfo, right: ContractsInfo): ContractsInfo = {
+    val merge: Merge[ContractsInfo] = (left, right) => {
       val archives = left.netArchives ++ right.netArchives
       val creates = left.netCreates ++ right.netCreates
       val netCreates = creates.filterNot { case (create, _) =>
@@ -304,7 +307,9 @@ object TransactionIndexing {
   )
 
   object ContractWitnessesInfo {
-    def merge(left: ContractWitnessesInfo, right: ContractWitnessesInfo): ContractWitnessesInfo = {
+    val empty: ContractWitnessesInfo = ContractWitnessesInfo(Set.empty, Map.empty)
+
+    val merge: Merge[ContractWitnessesInfo] = (left, right) => {
       val visibility = Relation.union(left.netVisibility, right.netVisibility)
       val archives = left.netArchives ++ right.netArchives
       val netVisibility = visibility.filterKeys(!archives(_))
@@ -315,19 +320,17 @@ object TransactionIndexing {
         netVisibility = netVisibility,
       )
     }
-
-    val empty: ContractWitnessesInfo = ContractWitnessesInfo(Set.empty, Map.empty)
   }
 
   final case class Serialized(
-      createArguments: Vector[(NodeId, ContractId, Array[Byte])],
+      createArguments: Vector[(TransactionId, NodeId, ContractId, Array[Byte])],
       divulgedContracts: Vector[(ContractId, Array[Byte])],
-      createKeyValues: Vector[(NodeId, Array[Byte])],
-      exerciseArguments: Vector[(NodeId, Array[Byte])],
-      exerciseResults: Vector[(NodeId, Array[Byte])],
+      createKeyValues: Vector[(TransactionId, NodeId, Array[Byte])],
+      exerciseArguments: Vector[(TransactionId, NodeId, Array[Byte])],
+      exerciseResults: Vector[(TransactionId, NodeId, Array[Byte])],
   ) {
     val createArgumentsByContract: Map[ContractId, Array[Byte]] = createArguments.map {
-      case (_, contractId, arg) =>
+      case (_, _, contractId, arg) =>
         contractId -> arg
     }.toMap
   }
@@ -340,40 +343,50 @@ object TransactionIndexing {
     )
 
     final case class Events(
-        createArguments: Map[NodeId, Array[Byte]],
+        createArguments: Map[(TransactionId, NodeId), Array[Byte]],
         createArgumentsCompression: Compression.Algorithm,
-        createKeyValues: Map[NodeId, Array[Byte]],
+        createKeyValues: Map[(TransactionId, NodeId), Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
-        exerciseArguments: Map[NodeId, Array[Byte]],
+        exerciseArguments: Map[(TransactionId, NodeId), Array[Byte]],
         exerciseArgumentsCompression: Compression.Algorithm,
-        exerciseResults: Map[NodeId, Array[Byte]],
+        exerciseResults: Map[(TransactionId, NodeId), Array[Byte]],
         exerciseResultsCompression: Compression.Algorithm,
     ) {
-      def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
-        assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")
-        (createArguments(nodeId), createKeyValues.get(nodeId))
+      def assertCreate(
+          transactionId: TransactionId,
+          nodeId: NodeId,
+      ): (Array[Byte], Option[Array[Byte]]) = {
+        assert(
+          createArguments.contains(transactionId -> nodeId),
+          s"Node $nodeId is not a create event",
+        )
+        (createArguments(transactionId -> nodeId), createKeyValues.get(transactionId -> nodeId))
       }
 
-      def assertExercise(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
-        assert(exerciseArguments.contains(nodeId), s"Node $nodeId is not an exercise event")
-        (exerciseArguments(nodeId), exerciseResults.get(nodeId))
+      def assertExercise(
+          transactionId: TransactionId,
+          nodeId: NodeId,
+      ): (Array[Byte], Option[Array[Byte]]) = {
+        assert(
+          exerciseArguments.contains(transactionId -> nodeId),
+          s"Node $nodeId is not an exercise event",
+        )
+        (exerciseArguments(transactionId -> nodeId), exerciseResults.get(transactionId -> nodeId))
       }
     }
-
   }
 
   final case class Compressed(
       contracts: Compressed.Contracts,
       events: Compressed.Events,
   )
-
   def from(
       blindingInfo: BlindingInfo,
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offset: OffsetStep,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
   ): TransactionIndexing =

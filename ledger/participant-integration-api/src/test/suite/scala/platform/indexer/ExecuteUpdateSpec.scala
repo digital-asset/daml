@@ -5,7 +5,7 @@ package com.daml.platform.indexer
 
 import java.time.Instant
 
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -21,10 +21,8 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
-import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
 import com.daml.platform.store.DbType
-import com.daml.platform.store.dao.events.TransactionsWriter
+import com.daml.platform.store.dao.events.{TransactionEntry, TransactionsWriter}
 import com.daml.platform.store.dao.{LedgerDao, PersistenceResponse}
 import com.daml.platform.store.entries.PackageLedgerEntry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -32,7 +30,8 @@ import org.scalatest.OneInstancePerTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.Future
 
 final class ExecuteUpdateSpec
     extends AsyncWordSpec
@@ -43,8 +42,6 @@ final class ExecuteUpdateSpec
     with TestResourceContext
     with AkkaBeforeAndAfterAll {
   private val loggingContext = LoggingContext.ForTesting
-
-  private val noOpUpdateFlow = Flow[OffsetUpdate].map(_ => ())
 
   private val mockedPreparedInsert = mock[TransactionsWriter.PreparedInsert]
   private val offset = Offset(Bytes.assertFromString("01"))
@@ -77,6 +74,8 @@ final class ExecuteUpdateSpec
 
   private val currentOffset = CurrentOffset(offset = offset)
   private val transactionAcceptedOffsetPair = OffsetUpdate(currentOffset, txAccepted)
+  private val txEntry = TransactionEntry(currentOffset, txAccepted)
+
   private val packageUploadRejected = PublicPackageUploadRejected(
     submissionId = submissionId,
     recordTime = Time.Timestamp(ledgerEffectiveTime.toEpochMilli),
@@ -88,16 +87,7 @@ final class ExecuteUpdateSpec
     val dao = mock[LedgerDao]
 
     when(
-      dao.prepareTransactionInsert(
-        submitterInfo = None,
-        workflowId = None,
-        transactionId = txId,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
-        transaction = txMock,
-        divulgedContracts = List.empty[DivulgedContract],
-        blindingInfo = None,
-      )
+      dao.prepareTransactionInsert(List(txEntry))
     ).thenReturn(mockedPreparedInsert)
 
     when(dao.storeTransactionState(mockedPreparedInsert)(loggingContext))
@@ -105,14 +95,8 @@ final class ExecuteUpdateSpec
     when(dao.storeTransactionEvents(mockedPreparedInsert)(loggingContext))
       .thenReturn(Future.successful(PersistenceResponse.Ok))
     when(
-      dao.completeTransaction(
-        eqTo(Option.empty[SubmitterInfo]),
-        eqTo(txId),
-        eqTo(ledgerEffectiveTime),
-        eqTo(CurrentOffset(offset)),
-      )(any[LoggingContext])
-    )
-      .thenReturn(Future.successful(PersistenceResponse.Ok))
+      dao.completeTransaction(eqTo(mockedPreparedInsert))(any[LoggingContext])
+    ).thenReturn(Future.successful(PersistenceResponse.Ok))
     when(
       dao.storePackageEntry(
         eqTo(currentOffset),
@@ -135,25 +119,6 @@ final class ExecuteUpdateSpec
     dao
   }
 
-  private class ExecuteUpdateMock(
-      val ledgerDao: LedgerDao,
-      val participantId: ParticipantId,
-      val metrics: Metrics,
-      val loggingContext: LoggingContext,
-      val executionContext: ExecutionContext,
-      val flow: ExecuteUpdateFlow,
-      private[indexer] val updatePreparationParallelism: Int = prepareUpdateParallelism,
-  ) extends ExecuteUpdate
-
-  private val executeUpdate = new ExecuteUpdateMock(
-    ledgerDaoMock,
-    someParticipantId,
-    someMetrics,
-    loggingContext,
-    materializer.executionContext,
-    noOpUpdateFlow,
-  )
-
   s"${classOf[ExecuteUpdate].getSimpleName}.owner" when {
     def executeUpdateOwner(dbType: DbType) = ExecuteUpdate.owner(
       dbType,
@@ -166,7 +131,6 @@ final class ExecuteUpdateSpec
     )
 
     "called with H2Database type" should {
-
       s"return a ${classOf[AtomicExecuteUpdate]}" in {
         executeUpdateOwner(DbType.H2Database).use {
           case _: AtomicExecuteUpdate => succeed
@@ -185,91 +149,48 @@ final class ExecuteUpdateSpec
     }
   }
 
-  "prepareUpdate" when {
-    "receives a TransactionAccepted" should {
-      "prepare a transaction insert" in {
-
-        val eventualPreparedUpdate = executeUpdate.prepareUpdate(transactionAcceptedOffsetPair)
-
-        eventualPreparedUpdate.map {
-          case OffsetUpdate.PreparedTransactionInsert(offsetStep, update, preparedInsert) =>
-            offsetStep shouldBe currentOffset
-            update shouldBe txAccepted
-            preparedInsert shouldBe mockedPreparedInsert
-          case _ => fail(s"Should be a ${classOf[PreparedTransactionInsert].getSimpleName}")
-        }
-      }
-    }
-
-    "receives a MetadataUpdate" should {
-      "return a MetadataUpdateStep" in {
-        val someMetadataUpdate = mock[Update]
-        val offsetStepUpdatePair = OffsetUpdate(currentOffset, someMetadataUpdate)
-        executeUpdate
-          .prepareUpdate(offsetStepUpdatePair)
-          .map(_ shouldBe OffsetUpdate(currentOffset, someMetadataUpdate))
-      }
-    }
-  }
-
   classOf[PipelinedExecuteUpdate].getSimpleName when {
     "receives multiple updates including a transaction accepted" should {
       "process the pipelined stages in the correct order" in {
-        PipelinedExecuteUpdate
-          .owner(
-            ledgerDaoMock,
-            someMetrics,
-            someParticipantId,
-            prepareUpdateParallelism,
-            executionContext,
-            loggingContext,
-          )
-          .use { executeUpdate =>
-            Source
-              .fromIterator(() => Iterator(transactionAcceptedOffsetPair, metadataUpdateOffsetPair))
-              .via(executeUpdate.flow)
-              .run()
-              .map { _ =>
-                val orderedEvents = inOrder(ledgerDaoMock)
+        val pipelinedUpdateFlow = new PipelinedExecuteUpdate(
+          ledgerDaoMock,
+          someMetrics,
+          someParticipantId,
+          prepareUpdateParallelism,
+          maximumBatchWindowDuration = 1.hour,
+          maximumBatchSize = 3,
+        )(executionContext, loggingContext)
+        Source
+          .fromIterator(() => Iterator(transactionAcceptedOffsetPair, metadataUpdateOffsetPair))
+          .via(pipelinedUpdateFlow.flow)
+          .run()
+          .map { _ =>
+            val orderedEvents = inOrder(ledgerDaoMock)
 
-                orderedEvents
-                  .verify(ledgerDaoMock)
-                  .prepareTransactionInsert(
-                    submitterInfo = None,
-                    workflowId = None,
-                    transactionId = txId,
-                    ledgerEffectiveTime = ledgerEffectiveTime,
-                    offset = offset,
-                    transaction = txMock,
-                    divulgedContracts = List.empty[DivulgedContract],
-                    blindingInfo = None,
-                  )
-                orderedEvents
-                  .verify(ledgerDaoMock)
-                  .storeTransactionState(eqTo(mockedPreparedInsert))(any[LoggingContext])
-                orderedEvents
-                  .verify(ledgerDaoMock)
-                  .storeTransactionEvents(eqTo(mockedPreparedInsert))(any[LoggingContext])
-                orderedEvents
-                  .verify(ledgerDaoMock)
-                  .completeTransaction(
-                    eqTo(Option.empty[SubmitterInfo]),
-                    eqTo(txId),
-                    eqTo(ledgerEffectiveTime),
-                    eqTo(CurrentOffset(offset)),
-                  )(any[LoggingContext])
-                orderedEvents
-                  .verify(ledgerDaoMock)
-                  .storePackageEntry(
-                    eqTo(currentOffset),
-                    eqTo(List.empty),
-                    eqTo(Some(packageUploadRejectedEntry)),
-                  )(any[LoggingContext])
+            orderedEvents
+              .verify(ledgerDaoMock)
+              .prepareTransactionInsert(List(txEntry))
 
-                verifyNoMoreInteractions(ledgerDaoMock)
+            orderedEvents
+              .verify(ledgerDaoMock)
+              .storeTransactionState(eqTo(mockedPreparedInsert))(any[LoggingContext])
+            orderedEvents
+              .verify(ledgerDaoMock)
+              .storeTransactionEvents(eqTo(mockedPreparedInsert))(any[LoggingContext])
+            orderedEvents
+              .verify(ledgerDaoMock)
+              .completeTransaction(eqTo(mockedPreparedInsert))(any[LoggingContext])
+            orderedEvents
+              .verify(ledgerDaoMock)
+              .storePackageEntry(
+                eqTo(currentOffset),
+                eqTo(List.empty),
+                eqTo(Some(packageUploadRejectedEntry)),
+              )(any[LoggingContext])
 
-                succeed
-              }
+            verifyNoMoreInteractions(ledgerDaoMock)
+
+            succeed
           }
       }
     }
@@ -297,16 +218,7 @@ final class ExecuteUpdateSpec
 
                 orderedEvents
                   .verify(ledgerDaoMock)
-                  .prepareTransactionInsert(
-                    submitterInfo = None,
-                    workflowId = None,
-                    transactionId = txId,
-                    ledgerEffectiveTime = ledgerEffectiveTime,
-                    offset = offset,
-                    transaction = txMock,
-                    divulgedContracts = List.empty[DivulgedContract],
-                    blindingInfo = None,
-                  )
+                  .prepareTransactionInsert(List(txEntry))
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .storeTransaction(

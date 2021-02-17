@@ -418,7 +418,7 @@ private class JdbcLedgerDao(
   ): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(forParties, key)
 
-  override def prepareTransactionInsert(transactionBatch: Seq[TransactionEntry]): PreparedInsert =
+  override def prepareTransactionInsert(transactionBatch: List[TransactionEntry]): PreparedInsert =
     transactionsWriter.prepare(transactionBatch)
 
   private def handleError(
@@ -475,7 +475,7 @@ private class JdbcLedgerDao(
           case None =>
             preparedInsert.writeState(metrics)
             preparedInsert.writeEvents(metrics)
-            insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
+            preparedInsert.completeTransaction(metrics)
           case Some(error) =>
             submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
         }
@@ -498,18 +498,19 @@ private class JdbcLedgerDao(
       ),
     )
 
-  private def insertCompletions(
-      submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
-      recordTime: Instant,
-      offsetStep: OffsetStep,
-  )(implicit connection: Connection): Unit =
-    Timed.value(
-      metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
-      submitterInfo
-        .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
-        .foreach(_.execute()),
-    )
+  // TODO Tudor - check why it remained unused
+//  private def insertCompletions(
+//      submitterInfo: Option[SubmitterInfo],
+//      transactionId: TransactionId,
+//      recordTime: Instant,
+//      offsetStep: OffsetStep,
+//  )(implicit connection: Connection): Unit =
+//    Timed.value(
+//      metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
+//      submitterInfo
+//        .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
+//        .foreach(_.execute()),
+//    )
 
   private def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
     Timed.value(
@@ -549,13 +550,13 @@ private class JdbcLedgerDao(
                 )
                   yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
               prepareTransactionInsert(
-                Seq(
+                List(
                   TransactionEntry(
                     submitterInfo = submitterInfo,
                     workflowId = tx.workflowId,
                     transactionId = tx.transactionId,
                     ledgerEffectiveTime = tx.ledgerEffectiveTime,
-                    offset = offset,
+                    offsetStep = CurrentOffset(offset),
                     transaction = tx.transaction,
                     divulgedContracts = Nil,
                     blindingInfo = None,

@@ -20,8 +20,8 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
-import com.daml.platform.indexer.OffsetUpdate.{BatchedTransactions, PreparedTransactionInsert}
-import com.daml.platform.indexer.PipelinedExecuteUpdate.{PipelinedUpdateWithTimer, `enriched flow`}
+import com.daml.platform.indexer.OffsetUpdate.{BatchedTransactions, OffsetUpdateImpl}
+import com.daml.platform.indexer.PipelinedExecuteUpdate.`enriched flow`
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.events.TransactionEntry
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
@@ -89,37 +89,9 @@ trait ExecuteUpdate {
 
   private[indexer] def flow: ExecuteUpdateFlow
 
-  private[indexer] def prepareUpdate(
-      offsetStepPair: OffsetUpdate
-  ): Future[OffsetUpdate] =
-    offsetStepPair.update match {
-      case tx: TransactionAccepted =>
-        Timed.future(
-          metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
-          Future {
-            val preparedInsert = ledgerDao
-              .prepareTransactionInsert(
-                Seq(
-                  TransactionEntry(
-                    offset = offsetStepPair.offsetStep.offset,
-                    transactionAccepted = tx,
-                  )
-                )
-              )
-            OffsetUpdate.PreparedTransactionInsert(
-              offsetStep = offsetStepPair.offsetStep,
-              update = tx,
-              preparedInsert = preparedInsert,
-            )
-          },
-        )
-      case metadataUpdate =>
-        Future.successful(OffsetUpdate(offsetStepPair.offsetStep, metadataUpdate))
-    }
-
   private[indexer] def updateMetadata(
       metadataUpdateStep: OffsetUpdate
-  ): Future[PersistenceResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     val OffsetUpdate(offsetStep, update) = metadataUpdateStep
     update match {
       case PartyAddedToParticipant(
@@ -199,7 +171,7 @@ trait ExecuteUpdate {
             |Recomputing PreparedInsert..""".stripMargin
         )
         val preparedInsert =
-          ledgerDao.prepareTransactionInsert(Seq(TransactionEntry(offsetStep.offset, tx)))
+          ledgerDao.prepareTransactionInsert(List(TransactionEntry(offsetStep, tx)))
         ledgerDao.storeTransaction(
           preparedInsert = preparedInsert,
           submitterInfo = optSubmitterInfo,
@@ -220,6 +192,27 @@ trait ExecuteUpdate {
     loggingContextFor(update)
       .updated("updateRecordTime", update.recordTime.toInstant.toString)
       .updated("updateOffset", offset.toHexString)
+
+  // TODO Tudor
+//  private def loggingContextForTransactionBatch(batch: List[TransactionEntry]): Map[String, String] = {
+  //    val lastTransactionInBatch = batch.last
+  //    Map(
+  //      "updateTransactionIds" -> batch.map(_.transactionId).mkString(","),
+  //      "updateLedgerTime" -> lastTransactionInBatch.ledgerEffectiveTime.toString,
+  //      "updateWorkflowIds" -> batch.map(_.workflowId.getOrElse("")).mkString(","),
+  //      "updateSubmissionTimes" -> batch.map(_.).submissionTime.toInstant.toString,
+  //    ) ++ optSubmitterInfo
+  //      .map(info =>
+  //        Map(
+  //          "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
+  //          "updateApplicationId" -> info.applicationId,
+  //          "updateCommandId" -> info.commandId,
+  //          "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
+  //        )
+  //      )
+  //      .getOrElse(Map.empty)
+//    ???
+//  }
 
   private def loggingContextFor(update: Update): Map[String, String] =
     update match {
@@ -302,119 +295,127 @@ class PipelinedExecuteUpdate(
     private[indexer] val metrics: Metrics,
     private[indexer] val participantId: v1.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
+    private[indexer] val maximumBatchWindowDuration: FiniteDuration = 100.millis,
+    private[indexer] val maximumBatchSize: Int = 50,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
+
+  private[indexer] val flow: ExecuteUpdateFlow =
+    Flow[OffsetUpdate]
+      .groupedWithin(maximumBatchSize, maximumBatchWindowDuration)
+      .map(delimitBatches)
+      .flatMapConcat(batches => Source.fromIterator(() => batches.iterator))
+      .mapAsync(updatePreparationParallelism)(prepareInsertion)
+      .mapAsync(1)(insertTransactionState)
+      .backPressuredInstrumentedBuffer(
+        updatePreparationParallelism,
+        metrics.daml.index.db.storeTransactionDbMetrics.transactionEventsBuffer,
+      )
+      .mapAsync(1)(insertTransactionEvents)
+      .mapAsync(1)(completeInsertion)
+      .map(_ => ())
 
   private def delimitBatches(seq: Seq[OffsetUpdate]): Seq[OffsetUpdate] =
     seq
       .foldLeft(List.empty[OffsetUpdate]) {
-        case (Nil, OffsetUpdate(offset, tx: TransactionAccepted)) =>
-          BatchedTransactions(offset, tx, Vector((offset.offset, tx))) :: Nil
+        case (Nil, OffsetUpdate(offsetStep, tx: TransactionAccepted)) =>
+          BatchedTransactions(Vector((offsetStep, tx))) :: Nil
         case (Nil, offsetUpdate) => offsetUpdate :: Nil
         case (
-              BatchedTransactions(_, _, batch) :: tl,
-              OffsetUpdate(offset, tx: TransactionAccepted),
+              BatchedTransactions(batch) :: tl,
+              OffsetUpdate(offsetStep, tx: TransactionAccepted),
             ) =>
-          BatchedTransactions(offset, tx, batch :+ (offset.offset -> tx)) :: tl
-        case (batches, OffsetUpdate(offset, tx: TransactionAccepted)) =>
-          BatchedTransactions(offset, tx, Vector((offset.offset, tx))) :: batches
+          BatchedTransactions(batch :+ (offsetStep -> tx)) :: tl
+        case (batches, OffsetUpdate(offsetStep, tx: TransactionAccepted)) =>
+          BatchedTransactions(Vector((offsetStep, tx))) :: batches
         case (batches, offsetUpdate) => offsetUpdate :: batches
       }
       .reverse
       .toVector
 
+  private def prepareInsertion(offsetUpdate: OffsetUpdate): Future[InsertionStageUpdate] =
+    offsetUpdate match {
+      case BatchedTransactions(batch) =>
+        Timed
+          .future(
+            metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
+            Future {
+              metrics.daml.index.db.storeTransactionBatchSize.mark(batch.size.toLong)
+              ledgerDao.prepareTransactionInsert(batch.map { case (offsetStep, tx) =>
+                TransactionEntry(offsetStep, tx)
+              }.toList)
+            },
+          )
+          .map(PreparedTransactionInsert(_, batch.size))
+      case offsetUpdate: OffsetUpdateImpl => Future(offsetUpdate)
+    }
+
   private def insertTransactionState(
-      timedPipelinedUpdate: PipelinedUpdateWithTimer
-  ): Future[PipelinedUpdateWithTimer] = timedPipelinedUpdate.preparedUpdate match {
-    case PreparedTransactionInsert(_, _, preparedInsert) =>
-      futureBatch(
-        metrics.daml.index.db.storeTransactionState,
-        ledgerDao.storeTransactionState(preparedInsert).map(_ => timedPipelinedUpdate),
-        timedPipelinedUpdate.batchSize,
-      )
-    case _ => Future.successful(timedPipelinedUpdate)
-  }
+      insertionStageUpdate: InsertionStageUpdate
+  ): Future[InsertionStageUpdate] =
+    insertionStageUpdate match {
+      case PreparedTransactionInsert(preparedInsert, batchSize) =>
+        normalizedTimed(
+          metrics.daml.index.db.storeTransactionState,
+          ledgerDao.storeTransactionState(preparedInsert).map(_ => insertionStageUpdate),
+          batchSize,
+        )
+      case _ => Future.successful(insertionStageUpdate)
+    }
 
   private def insertTransactionEvents(
-      timedPipelinedUpdate: PipelinedUpdateWithTimer
-  ): Future[PipelinedUpdateWithTimer] = timedPipelinedUpdate.preparedUpdate match {
-    case PreparedTransactionInsert(_, _, preparedInsert) =>
-      futureBatch(
-        metrics.daml.index.db.storeTransactionEvents,
-        ledgerDao
-          .storeTransactionEvents(preparedInsert)
-          .map(_ => timedPipelinedUpdate),
-        batchSize = timedPipelinedUpdate.batchSize,
-      )
-    case _ => Future.successful(timedPipelinedUpdate)
-  }
+      insertionStageUpdate: InsertionStageUpdate
+  ): Future[InsertionStageUpdate] =
+    insertionStageUpdate match {
+      case PreparedTransactionInsert(preparedInsert, batchSize) =>
+        normalizedTimed(
+          metrics.daml.index.db.storeTransactionEvents,
+          ledgerDao
+            .storeTransactionEvents(preparedInsert)
+            .map(_ => insertionStageUpdate),
+          batchSize = batchSize,
+        )
+      case _ => Future.successful(insertionStageUpdate)
+    }
 
   private def completeInsertion(
-      timedPipelinedUpdate: PipelinedUpdateWithTimer
-  ): Future[PersistenceResponse] = {
-    val pipelinedUpdate = timedPipelinedUpdate.preparedUpdate
-    withEnrichedLoggingContext(
-      loggingContextFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
-    ) { implicit loggingContext =>
-      Timed.future(
-        metrics.daml.indexer.stateUpdateProcessing, {
-          pipelinedUpdate match {
-            case OffsetUpdate.PreparedTransactionInsert(_, _, preparedInsert) =>
-              completeTransactionInsertion(preparedInsert, timedPipelinedUpdate.batchSize)
-            case metadataUpdate => updateMetadata(metadataUpdate)
-          }
-        },
-      )
-    }
-  }
+      insertionStageUpdate: InsertionStageUpdate
+  ): Future[PersistenceResponse] =
+    Timed.future(
+      metrics.daml.indexer.stateUpdateProcessing, {
+        insertionStageUpdate match {
+          case PreparedTransactionInsert(preparedInsert, batchSize) =>
+            // TODO Tudor fix logging context
+            withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
+              completeTransactionInsertion(preparedInsert, batchSize)
+            }
+          case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
+            withEnrichedLoggingContext(
+              loggingContextFor(offsetStep.offset, update)
+            ) { implicit loggingContext =>
+              updateMetadata(offsetUpdate)
+            }
+        }
+      },
+    )
 
   private def completeTransactionInsertion(
       preparedInsert: PreparedInsert,
       batchSize: Int,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    futureBatch(
+    normalizedTimed(
       metrics.daml.index.db.storeTransactionCompletion,
       ledgerDao.completeTransaction(preparedInsert),
       batchSize,
     )
 
-  def futureBatch[T](timer: Timer, future: => Future[T], batchSize: Int): Future[T] = {
+  def normalizedTimed[T](timer: Timer, future: => Future[T], batchSize: Int): Future[T] = {
     val start = System.nanoTime()
     val result = future
     result.onComplete(_ =>
       timer.update((System.nanoTime() - start) / batchSize, TimeUnit.NANOSECONDS)
     )(com.daml.dec.DirectExecutionContext)
     result
-  }
-
-  private[indexer] val flow: ExecuteUpdateFlow = {
-    import metrics.daml.index.db.storeTransactionDbMetrics
-    Flow[OffsetUpdate]
-      .groupedWithin(25, 25.millis)
-      .map(delimitBatches)
-      .flatMapConcat(batches => Source.fromIterator(() => batches.iterator))
-      .mapAsync(4) {
-        case pb @ BatchedTransactions(offsetStep, update, _) =>
-          Future {
-            metrics.daml.index.db.storeTransactionBatchSize.mark(pb.batch.size.toLong)
-            ledgerDao.prepareTransactionInsert(pb.batch.map { case (offset, tx) =>
-              TransactionEntry(offset, tx)
-            })
-          }
-            .map(preparedInsert =>
-              PipelinedUpdateWithTimer(
-                PreparedTransactionInsert(offsetStep, update, preparedInsert),
-                pb.batch.size,
-              )
-            )
-        case offsetUpdate =>
-          Future.successful(PipelinedUpdateWithTimer(offsetUpdate, 0))
-      }
-      .mapAsync(1)(insertTransactionState)
-      .backPressuredInstrumentedBuffer(4, storeTransactionDbMetrics.transactionEventsBuffer)
-      .mapAsync(1)(insertTransactionEvents)
-      .mapAsync(1)(completeInsertion)
-      .map(_ => ())
   }
 }
 
@@ -447,12 +448,6 @@ object PipelinedExecuteUpdate {
         loggingContext,
       )
     )
-
-  private case class PipelinedUpdateWithTimer(
-      preparedUpdate: OffsetUpdate,
-      batchSize: Int,
-  )
-
 }
 
 class AtomicExecuteUpdate(
@@ -467,7 +462,6 @@ class AtomicExecuteUpdate(
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
-      .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
         withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
           implicit loggingContext =>
@@ -480,37 +474,37 @@ class AtomicExecuteUpdate(
       .map(_ => ())
 
   private def executeUpdate(
-      preparedUpdate: OffsetUpdate
+      offsetUpdate: OffsetUpdate
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    preparedUpdate match {
-      case PreparedTransactionInsert(
-            offsetStep,
-            TransactionAccepted(
-              optSubmitterInfo,
-              transactionMeta,
-              transaction,
-              transactionId,
-              recordTime,
-              divulgedContracts,
-              _,
+    offsetUpdate match {
+      case OffsetUpdateImpl(offsetStep, transactionAccepted: TransactionAccepted) =>
+        val preparedInsert =
+          Timed.value(
+            metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
+            ledgerDao.prepareTransactionInsert(
+              List(TransactionEntry(offsetStep, transactionAccepted))
             ),
-            preparedInsert,
-          ) =>
+          )
         Timed.future(
           metrics.daml.index.db.storeTransaction,
           ledgerDao.storeTransaction(
             preparedInsert,
-            submitterInfo = optSubmitterInfo,
-            transactionId = transactionId,
-            recordTime = recordTime.toInstant,
-            ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+            submitterInfo = transactionAccepted.optSubmitterInfo,
+            transactionId = transactionAccepted.transactionId,
+            recordTime = transactionAccepted.recordTime.toInstant,
+            ledgerEffectiveTime = transactionAccepted.transactionMeta.ledgerEffectiveTime.toInstant,
             offsetStep = offsetStep,
-            transaction = transaction,
-            divulged = divulgedContracts,
+            transaction = transactionAccepted.transaction,
+            divulged = transactionAccepted.divulgedContracts,
           ),
         )
-
-      case metadataUpdate => updateMetadata(metadataUpdate)
+      case metadataUpdate: OffsetUpdateImpl => updateMetadata(metadataUpdate)
+      case _: BatchedTransactions =>
+        Future.failed[PersistenceResponse](
+          new Exception(
+            "This is likely an error. Batch transactions are not supported for atomic updates."
+          )
+        )
     }
 }
 

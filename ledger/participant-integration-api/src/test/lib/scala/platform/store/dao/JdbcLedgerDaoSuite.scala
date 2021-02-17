@@ -584,13 +584,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       blindingInfo: Option[BlindingInfo] = None,
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
-      Seq(
+      List(
         TransactionEntry(
           submitterInfo,
           tx.workflowId,
           tx.transactionId,
           tx.ledgerEffectiveTime,
-          offsetStep.offset,
+          offsetStep,
           tx.transaction,
           divulgedContracts,
           blindingInfo,

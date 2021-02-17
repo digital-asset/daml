@@ -78,7 +78,7 @@ private[platform] final class TransactionsWriter(
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
-  def prepare(transactions: Seq[TransactionEntry]): TransactionsWriter.PreparedInsert = {
+  def prepare(transactions: List[TransactionEntry]): TransactionsWriter.PreparedInsert = {
     val indexing =
       transactions.iterator
         .map {
