@@ -67,7 +67,7 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
+                   or(eq('${{parameters.name}}', 'linux'), eq('${{parameters.name}}', 'linux-scala-2.13')))
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib
