@@ -619,16 +619,6 @@ Then we can define our kinds, types, and expressions::
        |  LitParty                                  -- ExpLitParty: Party literal
        |  cid                                       -- ExpLitContractId: Contract identifiers
        |  F                                         -- ExpBuiltin: Builtin function
-       |  'MATHCTX_UNLIMITED'                       -- ExpMathCtxUnlimited: Math context with unlimited precision
-       |  'MATHCTX_BOUNDED' r p                     -- ExpMathCtxBouded: Math context with precision p and rounding mode r
-       |  'ROUNDING_CEILING'                        -- ExpRoundingModeCeiling
-       |  'ROUNDING_FLOOR'                          -- ExpRoundingModeFloor
-       |  'ROUNDING_DOWN'                           -- ExpRoundingModeDown
-       |  'ROUNDING_UP'                             -- ExpRoundingModeUp
-       |  'ROUNDING_HALF_DOWN'                      -- ExpRoundingModeHalf_Down
-       |  'ROUNDING_HALF_EVEN'                      -- ExpRoundingModeHalf_Even
-       |  'ROUNDING_HALF_UP'                        -- ExpRoundingModeHalf_Up
-       |  'ROUNDING_UNNECESSARY'                    -- ExpRoundingModeUnnecessary
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
        |  Mod:T @τ₁ … @τₙ {f} e                     -- ExpRecProj: Record projection
@@ -1122,38 +1112,6 @@ Then we define *well-formed expressions*. ::
 
     ——————————————————————————————————————————————————————————————— ExpBigDecimal
       Γ  ⊢  LitBigDecimal  :  'BigDecimal'
-
-    ——————————————————————————————————————————————————————————————— ExpMathContextUnlimited
-      Γ  ⊢  'MATHCTX_UNLIMITED'  :  'MathContext'
-
-      Γ  ⊢  r : 'RoundingMode'
-      Γ  ⊢  p : 'Int64'
-    ——————————————————————————————————————————————————————————————— ExpMathContextBounded
-      Γ  ⊢  'MATHCTX_BOUNDED' r p  :  'MathContext'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeCeiling
-      Γ  ⊢  'ROUNDING_CEILING'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeFloor
-      Γ  ⊢  'ROUNDING_FLOOR'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeDown
-      Γ  ⊢  'ROUNDING_DOWN'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeUp
-      Γ  ⊢  'ROUNDING_UP'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeHalf_Down
-      Γ  ⊢  'ROUNDING_HALF_DOWN'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeHalf_Even
-      Γ  ⊢  'ROUNDING_HALF_EVEN'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeHalf_Up
-      Γ  ⊢  'ROUNDING_HALF_UP'  :  'RoundingMode'
-
-    ——————————————————————————————————————————————————————————————— ExpRoundingModeUnnecessary
-      Γ  ⊢  'ROUNDING_UNNECESSARY'  :  'RoundingMode'
 
     ——————————————————————————————————————————————————————————————— ExpLitText
       Γ  ⊢  t  :  'Text'
@@ -3845,6 +3803,52 @@ Numeric functions
   ``None``.  The scale of the output is given by the type parameter
   `α`.
 
+MathContext functions
+~~~~~~~~~~~~~~~~~~~~~
+
+*  ``'MATHCTX_UNLIMITED' : RoundingMode``
+
+   Unlimited precision
+
+* ``MATHCTX_BOUNDED' : RoundingMode -> Int64 -> RoundingMode``
+
+  Round to the given precision using the given rounding mode. Throws if the precision is not between 0 and 2³¹-1
+
+RoundingMode functions
+~~~~~~~~~~~~~~~~~~~~~~
+
+* ``'ROUNDING_CEILING' : RoundingMode``
+
+  Round towards positive infinity.
+
+* ``'ROUNDING_FLOOR' : RoundingMode``
+
+  Round towards negative infinity
+
+* ``'ROUNDING_DOWN' : RoundingMode``
+
+  Round towards towards zero
+
+* ``'ROUNDING_UP' : RoundingMode``
+
+  Round towards away from zero
+
+* ``'ROUNDING_HALF_DOWN' : RoundingMode``
+
+  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards zero.
+
+* ``'ROUNDING_HALF_EVEN' : RoundingMode``
+
+  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards the even neighbor.
+
+* ``'ROUNDING_HALF_UP' : RoundingMode``
+
+  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round away from zero.
+
+* ``'ROUNDING_UNNECESSARY' : RoundingMode``
+
+  Throw if the exact result cannot be represented.
+
 BigDecimal functions
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -3912,41 +3916,6 @@ to ``roundingMode``.
 * ``TO_BIGDECIMAL_NUMERIC : ∀ (α : nat). 'MathContext' → 'Numeric' α  → 'BigDecimal'``
 
   Convert the ``Numeric`` to a ``BigDecimal`` according to the given ``MathContext``.
-
-Rounding Behavior
-~~~~~~~~~~~~~~~~~
-
-* ``ROUNDING_CEILING``
-
-  Round towards positive infinity.
-
-* ``ROUNDING_FLOOR``
-
-  Round towards negative infinity
-
-* ``ROUNDING_DOWN``
-
-  Round towards towards zero
-
-* ``ROUNDING_UP``
-
-  Round towards away from zero
-
-* ``ROUNDING_HALF_DOWN``
-
-  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards zero.
-
-* ``ROUNDING_HALF_EVEN``
-
-  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards the even neighbor.
-
-* ``ROUNDING_HALF_UP``
-
-  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round away from zero.
-
-* ``ROUNDING_UNNECESSARY``
-
-  Throw if the exact result cannot be represented.
 
 String functions
 ~~~~~~~~~~~~~~~~
