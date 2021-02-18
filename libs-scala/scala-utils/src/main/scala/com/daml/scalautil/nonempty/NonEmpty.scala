@@ -90,12 +90,13 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def ++(that: Iterable[A]): NonEmpty[Set[A]] = un((self: ESelf) ++ that)
   }
 
-  implicit final class NEPreservingOps[A, CC[_], C](
-      private val self: NonEmpty[IterableOps[A, CC, C with sci.Iterable[A]]]
+  implicit final class NEPreservingOps[A, C](
+      private val self: NonEmpty[IterableOps[A, sci.Iterable, C with sci.Iterable[A]]]
   ) {
     import NonEmpty.{unsafeNarrow => un}
-    private type ESelf = IterableOps[A, CC, C with sci.Iterable[A]]
+    private type ESelf = IterableOps[A, sci.Iterable, C with sci.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
+    def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
   }
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =

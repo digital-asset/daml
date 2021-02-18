@@ -6,6 +6,7 @@ package com.daml.http.dbbackend
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import scala.collection.immutable.Seq
 
 class QueriesSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   "uniqueSets" should {
