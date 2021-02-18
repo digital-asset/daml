@@ -3888,12 +3888,6 @@ to ``roundingMode``.
 
   Round the big decimal according to the given ``MathContext``.
 
-* ``TO_TEXT_BIGDECIMAL : 'BigDecimal' → 'Text'``
-
-  Returns the numeric string representation of the bigdecimal. The result
-  will be returned at the smallest precision that can represent the result exactly, i.e.,
-  without any trailing zeroes.
-
 * ``FROM_TEXT_BIGDECIMAL : 'Text' → 'Optional' 'BigDecimal'``
 
   Given a string representation of a numeric returns the numeric
