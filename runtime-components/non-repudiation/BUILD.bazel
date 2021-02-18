@@ -32,8 +32,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/ledger-api-test-tool:PackageManagementTest.dar",
-        "//ledger/test-common:dar-files",
+        "//ledger/test-common:test-dars-stable",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],

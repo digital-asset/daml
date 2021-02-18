@@ -52,11 +52,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
-  private val reader = DarReader { (_, stream) =>
-    Try(DamlLf.Archive.parseFrom(stream))
+  private[this] val Success(dar) = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    reader.readArchiveFromFile(fileName)
   }
-  private val Success(dar) =
-    reader.readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
+
   private val now = Instant.now()
 
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =

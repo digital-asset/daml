@@ -51,7 +51,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 
-  private[http] val dar3 = requiredResource("ledger/test-common/model-tests.dar")
+  private[http] val dar3 = requiredResource(com.daml.ledger.test_common.TestDars.fileNames("model"))
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest

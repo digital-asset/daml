@@ -3,7 +3,7 @@
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
-import java.nio.file.Paths
+import java.io.File
 import java.time.Instant
 
 import ch.qos.logback.classic.Level
@@ -318,10 +318,9 @@ object SqlLedgerSpec {
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
-  private val testArchivePath = rlocation(Paths.get("ledger/test-common/model-tests.dar"))
-  private val darReader = DarReader { (_, stream) =>
-    Try(DamlLf.Archive.parseFrom(stream))
+  private val Success(testDar) = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    reader.readArchiveFromFile(fileName)
   }
-  private lazy val Success(testDar) =
-    darReader.readArchiveFromFile(testArchivePath.toFile)
 }

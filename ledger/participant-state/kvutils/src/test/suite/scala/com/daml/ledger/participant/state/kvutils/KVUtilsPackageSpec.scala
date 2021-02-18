@@ -16,20 +16,18 @@ import com.daml.lf.data.Ref
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
   import KVTest._
   import TestHelpers._
 
-  private val darReader = DarReader[DamlLf.Archive] { case (_, is) =>
-    Try(DamlLf.Archive.parseFrom(is))
+  private[this] val Success(testStablePackages) = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    reader.readArchiveFromFile(fileName)
   }
-
-  private def darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
-
-  private val testStablePackages = darReader.readArchiveFromFile(darFile).get
 
   private val simplePackage = new SimplePackage("Party")
   private val simpleArchive = simplePackage.archive

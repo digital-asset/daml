@@ -55,10 +55,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
   private var rt: Timestamp = _
 
-  // This can be overriden by tests for ledgers that don't start at 0.
+  // This can be overridden by tests for ledgers that don't start at 0.
   protected val startIndex: Long = 0
 
-  // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
+  // This can be overridden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
@@ -713,11 +713,12 @@ object ParticipantStateIntegrationSpecBase {
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  private val darReader = DarReader[DamlLf.Archive] { case (_, is) =>
-    Try(DamlLf.Archive.parseFrom(is))
+  val archives = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    val Success(testDar) = reader.readArchiveFromFile(fileName)
+    testDar.all
   }
-  private val darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
-  private val archives = darReader.readArchiveFromFile(darFile).get.all
 
   // 2 self consistent archives
   protected val List(anArchive, anotherArchive) =

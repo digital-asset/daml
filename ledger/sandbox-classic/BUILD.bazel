@@ -207,6 +207,7 @@ test_deps = [
     "//ledger/sandbox-common",
     "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
     "//ledger/test-common",
+    "//ledger/test-common:test-dars-stable-lib",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
     "//libs-scala/grpc-utils",
@@ -245,7 +246,7 @@ da_scala_test_suite(
     data = [
         "//daml-lf/encoder:testing-dar-dev",
         "//daml-lf/encoder:testing-dar-latest",
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
         "//ledger/test-common/test-certificates",
     ] + [
         "//daml-lf/encoder:testing-dar-preview"

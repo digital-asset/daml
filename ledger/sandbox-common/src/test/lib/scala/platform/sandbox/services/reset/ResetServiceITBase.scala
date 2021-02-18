@@ -88,7 +88,7 @@ abstract class ResetServiceITBase
   protected implicit val ec: ExecutionContext = ExecutionContext.global
 
   override protected def darFile: File =
-    new File(rlocation("ledger/test-common/model-tests.dar"))
+    new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
 
   protected def timeIsStatic: Boolean =
     config.timeProviderType.getOrElse(

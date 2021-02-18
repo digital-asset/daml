@@ -117,6 +117,7 @@ da_scala_library(
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/test-common:test-dars-stable-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -132,7 +133,7 @@ da_scala_test_suite(
     timeout = "moderate",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
     ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
@@ -173,6 +174,7 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/test-common:test-dars-stable-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -217,7 +219,7 @@ client_server_build(
         "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
     ],
     data = [
-        "//ledger/test-common:dar-files",
+        "//ledger/test-common:test-dars-stable",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     runner = "@//bazel_tools/client_server/runner_with_port_check:runner",

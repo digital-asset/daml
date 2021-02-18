@@ -249,7 +249,7 @@ abstract class CommonCliSpecBase(
 
 object CommonCliSpecBase {
 
-  private val archive = rlocation("ledger/test-common/model-tests.dar")
+  private val archive = rlocation(com.daml.ledger.test_common.TestDars.fileNames("model"))
   private val nonExistentArchive = "whatever.dar"
   private val invalidArchive = {
     val tempFile = Files.createTempFile("invalid-archive", ".dar.tmp")

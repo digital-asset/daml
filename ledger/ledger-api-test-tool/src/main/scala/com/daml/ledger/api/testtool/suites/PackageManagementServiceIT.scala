@@ -6,8 +6,8 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.packagemanagementtest.PackageManagementTest.PackageManagementTestTemplate
-import com.daml.ledger.packagemanagementtest.PackageManagementTest.PackageManagementTestTemplate._
+import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate
+import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate._
 import com.google.protobuf.ByteString
 import io.grpc.Status
 
@@ -16,11 +16,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class PackageManagementServiceIT extends LedgerTestSuite {
   private[this] val testPackageResourcePath =
-    "/ledger/ledger-api-test-tool/PackageManagementTest.dar"
+    com.daml.ledger.test_common.TestDars.fileNames("package_management")
 
   private def loadTestPackage()(implicit ec: ExecutionContext): Future[ByteString] = {
     val testPackage = Future {
-      val in = getClass.getResourceAsStream(testPackageResourcePath)
+      val in = getClass.getClassLoader.getResourceAsStream(testPackageResourcePath)
       assert(in != null, s"Unable to load test package resource at '$testPackageResourcePath'")
       in
     }

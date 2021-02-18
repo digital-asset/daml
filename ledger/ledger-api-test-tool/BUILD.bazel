@@ -30,86 +30,55 @@ load(
     ":conformance.bzl",
     "conformance_test",
 )
+load("//ledger/test-common:test-common.bzl", "test_common_configurations", "test_common_lf_targets")
 
-daml_compile(
-    name = "PackageManagementTest",
-    srcs = ["src/main/daml/PackageManagementTest.daml"],
-    target = lf_stable_version,
-    visibility = [
-        "//:__subpackages__",
+# we release ledger-api-test-tool-stable as ledger-api-test-tool
+da_scala_binary(
+    name = "ledger-api-test-tool",
+    srcs = [],
+    main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+    resources = [
+        "src/main/resources/logback.xml",
     ],
+    tags = [
+        "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",
+        # We release this as a fat jar so this tag ensures that the dependencies in the generated
+        # POM file are set correctly.
+        "fat_jar",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [":ledger-api-test-tool-stable"],
 )
 
-dar_to_scala(
-    name = "PackageManagementTest.scala-codegen",
-    srcs = [
-        ":PackageManagementTest.dar",
-    ],
-    package_prefix = "com.daml.ledger.packagemanagementtest",
-    srcjar_out = "PackageManagementTest.scala.srcjar",
-    verbosity = 2,
-)
-
-da_scala_library(
-    name = "PackageManagementTest.scala",
-    srcs = [":PackageManagementTest.scala-codegen"],
-    plugins = [silencer_plugin],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
-    ],
-    deps = [
-        "//language-support/scala/bindings",
-    ],
-)
-
-# Targets defined in //ledger/test-common
-daml_lf_targets = [
-    "-latest",
-    "-dev",
-] + [
-    "-preview"
-    for _ in lf_preview_version
-]
-
-# The ledger API test tool has compile time dependencies on the compiled DAML code,
-# through the Scala codegen. The compiled DAR files are also bundled with the test tool binary.
-#
-# In order to allow running the ledger API test tool with the same DAML code compiled with
-# different compiler versions, the following block duplicates the entire build pipeline:
-# (Daml source code) -> (DAR files + codegen source files) -> (test tool binary)
 [
     [
-        genrule(
-            name = "ledger-api-test-tool-dar-file-names%s" % lf_version_suffix,
-            outs = ["DarsResourceNames%s.scala" % lf_version_suffix],
-            cmd = """
-cat > $@ <<EOF
-package com.daml.ledger.api.testtool.infrastructure
-
-import scala.collection.immutable
-
-object DarsResourceNames {
-  private[this] val suffix: String = \"%s\"
-  val resources: immutable.Seq[String] = immutable.Seq(
-    s\"/ledger/test-common/model-tests\\$$suffix.dar\",
-    s\"/ledger/test-common/performance-tests\\$$suffix.dar\",
-    s\"/ledger/test-common/semantic-tests\\$$suffix.dar\",
-  )
-}
-EOF
-            """ % lf_version_suffix,
+        alias(
+            name = "ledger-api-test-tool-%s%s" % (name, target_suffix),
+            actual = ":ledger-api-test-tool-%s%s" % (
+                test_common_lf_targets.get(lf_target),
+                target_suffix,
+            ),
+            visibility = ["//visibility:public"],
         ),
+    ]
+    for target_suffix in [
+        "",
+        "-lib",
+        "-tests",
+        "-test-suites",
+    ]
+    for (name, lf_target) in test_common_configurations.items()
+]
+
+[
+    [
         da_scala_library(
-            name = "ledger-api-test-tool-lib%s" % lf_version_suffix,
-            srcs = glob([
-                "src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala",
-            ]) + [
-                ":DarsResourceNames%s.scala" % lf_version_suffix,
-            ],
-            # generated_srcs is required for scaladoc
-            generated_srcs = [
-                ":DarsResourceNames%s.scala" % lf_version_suffix,
-            ],
+            name = "ledger-api-test-tool-%s-lib" % lf_version_suffix,
+            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
             scala_deps = [
                 "@maven//:com_softwaremill_diffx_diffx_core",
                 "@maven//:com_typesafe_akka_akka_actor",
@@ -117,15 +86,14 @@ EOF
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
                 "@maven//:org_scala_lang_modules_scala_java8_compat",
             ],
-            visibility = [
-                "//:__subpackages__",
-            ],
+            visibility = ["//:__subpackages__"],
             deps = [
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
                 "//ledger/ledger-api-common",
                 "//ledger/test-common",
-                "//ledger/test-common:model-tests%s.scala" % lf_version_suffix,
+                "//ledger/test-common:model-tests-%s.scala" % lf_version_suffix,
+                "//ledger/test-common:test-dars-%s-lib" % lf_version_suffix,
                 "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",
@@ -138,7 +106,7 @@ EOF
             ],
         ),
         da_scala_library_suite(
-            name = "ledger-api-test-tool-test-suites%s" % lf_version_suffix,
+            name = "ledger-api-test-tool-%s-test-suites" % lf_version_suffix,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/suites/**/*.scala"]),
             plugins = [silencer_plugin],
             scala_deps = [
@@ -156,16 +124,16 @@ EOF
                 "//:__subpackages__",
             ],
             deps = [
-                ":PackageManagementTest.scala",
-                ":ledger-api-test-tool-lib%s" % lf_version_suffix,
+                ":ledger-api-test-tool-%s-lib" % lf_version_suffix,
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
                 "//ledger/ledger-api-common",
                 "//ledger/test-common",
-                "//ledger/test-common:model-tests%s.scala" % lf_version_suffix,
-                "//ledger/test-common:performance-tests%s.scala" % lf_version_suffix,
-                "//ledger/test-common:semantic-tests%s.scala" % lf_version_suffix,
-                "//libs-scala/grpc-utils",
+                "//ledger/test-common:package_management-tests-%s.scala" % lf_version_suffix,
+                "//ledger/test-common:model-tests-%s.scala" % lf_version_suffix,
+                "//ledger/test-common:performance-tests-%s.scala" % lf_version_suffix,
+                "//ledger/test-common:semantic-tests-%s.scala" % lf_version_suffix,
+                "//ledger/test-common:test-dars-%s-lib" % lf_version_suffix,
                 "//libs-scala/timer-utils",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
@@ -173,34 +141,22 @@ EOF
             ],
         ),
         da_scala_library(
-            name = "ledger-api-test-tool-tests%s" % lf_version_suffix,
+            name = "ledger-api-test-tool-%s-tests" % lf_version_suffix,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
-            visibility = [
-                "//:__subpackages__",
-            ],
+            visibility = ["//:__subpackages__"],
             deps = [
-                ":ledger-api-test-tool-lib%s" % lf_version_suffix,
-                ":ledger-api-test-tool-test-suites%s" % lf_version_suffix,
+                ":ledger-api-test-tool-%s-lib" % lf_version_suffix,
+                ":ledger-api-test-tool-%s-test-suites" % lf_version_suffix,
                 "//ledger/ledger-api-common",
             ],
         ),
         da_scala_binary(
-            name = "ledger-api-test-tool%s" % lf_version_suffix,
-            srcs = glob([
-                "src/main/scala/com/daml/ledger/api/testtool/*.scala",
-            ]) + [
-                ":DarsResourceNames%s.scala" % lf_version_suffix,
-            ],
-            # generated_srcs is required for scaladoc
-            generated_srcs = [
-                ":DarsResourceNames%s.scala" % lf_version_suffix,
-            ],
+            name = "ledger-api-test-tool-%s" % lf_version_suffix,
+            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/*.scala"]),
             main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
             plugins = [silencer_plugin],
             resources = [
                 "src/main/resources/logback.xml",
-                ":PackageManagementTest.dar",
-                "//ledger/test-common:dar-files%s" % lf_version_suffix,
             ],
             scala_deps = [
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -209,20 +165,13 @@ EOF
             scalacopts = [
                 "-P:silencer:lineContentFilters=import scala.collection.compat._",
             ],
-            tags = [
-                "maven_coordinates=com.daml:ledger-api-test-tool%s:__VERSION__" % lf_version_suffix,
-                # We release this as a fat jar so this tag ensures that the dependencies in the generated
-                # POM file are set correctly.
-                "fat_jar",
-                "no_scala_version_suffix",
-            ],
             visibility = ["//visibility:public"],
             runtime_deps = [
                 "@maven//:ch_qos_logback_logback_classic",
             ],
             deps = [
-                ":ledger-api-test-tool-lib%s" % lf_version_suffix,
-                ":ledger-api-test-tool-tests%s" % lf_version_suffix,
+                ":ledger-api-test-tool-%s-lib" % lf_version_suffix,
+                ":ledger-api-test-tool-%s-tests" % lf_version_suffix,
                 "//ledger/ledger-api-common",
                 "//libs-scala/build-info",
                 "//libs-scala/resources",
@@ -236,7 +185,7 @@ EOF
             ],
         ),
     ]
-    for lf_version_suffix in [""] + daml_lf_targets
+    for (_, lf_version_suffix) in test_common_lf_targets.items()
 ]
 
 conformance_test(
@@ -318,8 +267,8 @@ conformance_test(
 [
     [
         conformance_test(
-            name = "conformance-test-lf-version%s" % daml_lf_target,
-            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool%s" % daml_lf_target,
+            name = "conformance-test-lf-version-%s" % lf_version_suffix,
+            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version_suffix,
             server = "//ledger/ledger-on-memory:app",
             server_args = [
                 "--daml-lf-dev-mode-unsafe",  # Enables the use of all known compiler versions
@@ -331,5 +280,5 @@ conformance_test(
             ],
         ),
     ]
-    for daml_lf_target in daml_lf_targets
+    for (_, lf_version_suffix) in test_common_lf_targets.items()
 ]

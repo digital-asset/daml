@@ -34,17 +34,17 @@ class DeduplicatingPackageLoaderSpec
   private[this] val metricRegistry = new MetricRegistry
   private[this] val metric = metricRegistry.timer("test-metric")
 
-  private[this] val reader = DarReader { (_, stream) =>
-    Try(DamlLf.Archive.parseFrom(stream))
+  private[this] val Success(dar) = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    reader.readArchiveFromFile(fileName)
   }
-  private[this] val Success(archive) =
-    reader.readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
 
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
     akka.pattern.after(duration, scheduler) {
-      Future.successful(Some(archive.main))
+      Future.successful(Some(dar.main))
     }
   }
 

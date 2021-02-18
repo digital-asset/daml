@@ -63,7 +63,7 @@ da_scala_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/test-common:dar-files",
+        "//ledger/test-common:test-dars-stable",
     ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [

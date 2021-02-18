@@ -80,7 +80,7 @@ da_scala_test(
     name = "daml-on-sql-tests",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",

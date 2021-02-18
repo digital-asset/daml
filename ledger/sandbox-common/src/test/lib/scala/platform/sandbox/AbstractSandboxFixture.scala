@@ -39,7 +39,8 @@ import scala.util.Try
 trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
+  protected def darFile =
+    new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
 
   protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(

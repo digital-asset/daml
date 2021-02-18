@@ -245,6 +245,7 @@ def daml_compile(
         srcs,
         version = _default_project_version,
         target = None,
+        project_name = None,
         **kwargs):
     "Build a DAML project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -252,7 +253,7 @@ def daml_compile(
     daml_yaml = name + ".yaml"
     _daml_configure(
         name = name + ".configure",
-        project_name = name,
+        project_name = project_name or name,
         project_version = version,
         daml_yaml = daml_yaml,
         target = target,
