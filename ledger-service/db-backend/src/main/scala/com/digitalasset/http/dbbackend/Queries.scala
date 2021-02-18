@@ -9,6 +9,7 @@ import nonempty.NonEmptyColl.RefinedOps._
 
 import doobie._
 import doobie.implicits._
+import scala.collection.immutable.{Iterable, Seq => ISeq}
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
@@ -235,7 +236,7 @@ sealed abstract class Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
-    selectContractsMultiTemplate(parties, Seq((tpid, predicate)), MatchedQueryMarker.Unused)
+    selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
       .map(_ copy (templateId = ()))
 
   /** Make the smallest number of queries from `queries` that still indicates
@@ -248,7 +249,7 @@ sealed abstract class Queries {
     */
   private[http] def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      queries: Seq[(SurrogateTpId, Fragment)],
+      queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
@@ -422,7 +423,7 @@ private object PostgresQueries extends Queries {
 
   private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      queries: Seq[(SurrogateTpId, Fragment)],
+      queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
@@ -568,7 +569,7 @@ private object OracleQueries extends Queries {
 
   private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      queries: Seq[(SurrogateTpId, Fragment)],
+      queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
