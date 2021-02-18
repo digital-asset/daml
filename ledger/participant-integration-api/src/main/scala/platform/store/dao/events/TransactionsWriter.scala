@@ -9,6 +9,7 @@ import anorm.{Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.engine.Blinding
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.DbType
 
 private[platform] object TransactionsWriter {
@@ -78,7 +79,10 @@ private[platform] final class TransactionsWriter(
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
-  def prepare(transactions: List[TransactionEntry]): TransactionsWriter.PreparedInsert = {
+  def prepare(
+      offsetStep: OffsetStep,
+      transactions: Seq[TransactionEntry],
+  ): TransactionsWriter.PreparedInsert = {
     val indexing =
       transactions.iterator
         .map {
@@ -108,7 +112,7 @@ private[platform] final class TransactionsWriter(
               divulgedContracts,
             )
         }
-        .reduce(TransactionIndexing.merge)
+        .reduce(TransactionIndexing.combine)
 
     val serialized =
       Timed.value(
@@ -134,7 +138,7 @@ private[platform] final class TransactionsWriter(
       eventsTable.toExecutables(indexing.events, compressed.events),
       contractsTable.toExecutables(indexing.contracts, compressed.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
-      TransactionCompletionTables.toExecutables(transactions),
+      TransactionCompletionTables.toExecutables(offsetStep, transactions),
     )
   }
 

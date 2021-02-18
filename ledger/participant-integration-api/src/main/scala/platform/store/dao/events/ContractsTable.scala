@@ -29,7 +29,7 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
   ): ContractsTable.Executables
 
   protected def buildDeletes(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {
-    val deletes = info.netArchives.iterator.map(deleteContract).toSeq
+    val deletes = info.archives.iterator.map(deleteContract).toSeq
     batch(deleteContractQuery, deletes)
   }
 

@@ -584,6 +584,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       blindingInfo: Option[BlindingInfo] = None,
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
+      offsetStep,
       List(
         TransactionEntry(
           submitterInfo,
@@ -595,7 +596,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
           divulgedContracts,
           blindingInfo,
         )
-      )
+      ),
     )
 
   protected final def store(

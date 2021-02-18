@@ -385,7 +385,8 @@ private final class SqlLedger(
             val blindingInfo = None
 
             val preparedInsert = ledgerDao.prepareTransactionInsert(
-              List(
+              CurrentOffset(offset),
+              Seq(
                 TransactionEntry(
                   submitterInfo = Some(submitterInfo),
                   workflowId = transactionMeta.workflowId,
@@ -396,7 +397,7 @@ private final class SqlLedger(
                   divulgedContracts = divulgedContracts,
                   blindingInfo = blindingInfo,
                 )
-              )
+              ),
             )
             ledgerDao.storeTransaction(
               preparedInsert,

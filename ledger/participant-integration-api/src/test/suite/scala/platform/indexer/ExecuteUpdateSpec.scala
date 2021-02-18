@@ -87,7 +87,7 @@ final class ExecuteUpdateSpec
     val dao = mock[LedgerDao]
 
     when(
-      dao.prepareTransactionInsert(List(txEntry))
+      dao.prepareTransactionInsert(currentOffset, List(txEntry))
     ).thenReturn(mockedPreparedInsert)
 
     when(dao.storeTransactionState(mockedPreparedInsert)(loggingContext))
@@ -169,7 +169,7 @@ final class ExecuteUpdateSpec
 
             orderedEvents
               .verify(ledgerDaoMock)
-              .prepareTransactionInsert(List(txEntry))
+              .prepareTransactionInsert(currentOffset, List(txEntry))
 
             orderedEvents
               .verify(ledgerDaoMock)
@@ -218,7 +218,7 @@ final class ExecuteUpdateSpec
 
                 orderedEvents
                   .verify(ledgerDaoMock)
-                  .prepareTransactionInsert(List(txEntry))
+                  .prepareTransactionInsert(currentOffset, List(txEntry))
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .storeTransaction(

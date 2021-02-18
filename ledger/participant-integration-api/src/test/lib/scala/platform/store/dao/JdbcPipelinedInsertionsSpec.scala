@@ -33,7 +33,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
   private val ok = io.grpc.Status.Code.OK.value()
   behavior of "Pipelined JdbcLedgerDao (on PostgreSQL)"
 
-  it should "match the results of lookupFlatTransactionById" in {
+  it should "match the results of lookupTransaction (flat and trees)" in {
     for {
       (from, to, transactions) <- storeTestFixture()
       flatTxs <- lookupFlatTxsIndividually(transactions, Set(alice, bob, charlie))
@@ -115,17 +115,21 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
 
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] = {
     val (offset1, t1) = singleCreate
+    val offsetStep1 = nextOffsetStep(offset1)
     val (offset2, t2) = singleCreate
+    val offsetStep2 = nextOffsetStep(offset2)
     val (offset3, t3) = singleExercise(nonTransient(t2).loneElement)
+    val offsetStep3 = nextOffsetStep(offset3)
     val (offset4, t4) = fullyTransient
+    val offsetStep4 = nextOffsetStep(offset4)
     for {
       from <- ledgerDao.lookupLedgerEnd()
       _ <- storeBatch(
         List(
-          txEntry(CurrentOffset(offset1), t1, Map.empty),
-          txEntry(CurrentOffset(offset2), t2, Map.empty),
-          txEntry(CurrentOffset(offset3), t3, Map.empty),
-          txEntry(CurrentOffset(offset4), t4, Map.empty),
+          txEntry(offsetStep1, t1, Map.empty),
+          txEntry(offsetStep2, t2, Map.empty),
+          txEntry(offsetStep3, t3, Map.empty),
+          txEntry(offsetStep4, t4, Map.empty),
         )
       )
       to <- ledgerDao.lookupLedgerEnd()
@@ -149,12 +153,14 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (offset1, create) = singleCreate
+      offsetStep1 = nextOffsetStep(offset1)
       firstContractId = nonTransient(create).loneElement
       (offset2, exercise) = exerciseWithChild(firstContractId)
+      offsetStep2 = nextOffsetStep(offset2)
       _ <- storeBatch(
         List(
-          txEntry(CurrentOffset(offset1), create, Map.empty),
-          txEntry(CurrentOffset(offset2), exercise, Map.empty),
+          txEntry(offsetStep1, create, Map.empty),
+          txEntry(offsetStep2, exercise, Map.empty),
         )
       )
       result <- ledgerDao.transactionsReader
@@ -194,27 +200,35 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
       // TX1: create a single contract that will stay active
       templateId = testIdentifier("NonTransientContract")
       (offset1, tx1) = singleCreate(create(_, Set(alice), templateId), List(alice))
+      offsetStep1 = nextOffsetStep(offset1)
       contractId = nonTransient(tx1).loneElement
       // TX2: create a single contract that will be archived within the same batch
       (offset2, tx2) = singleCreate
+      offsetStep2 = nextOffsetStep(offset2)
+
       transientContractId = nonTransient(tx2).loneElement
       // TX3: archive contract created in TX2
       (offset3, tx3) = singleExercise(transientContractId)
+      offsetStep3 = nextOffsetStep(offset3)
+
       // TX4: divulge a contract
       (offset4, tx4) = emptyTransaction(alice)
+      offsetStep4 = nextOffsetStep(offset4)
+
       // TX5: archive previously divulged contract
       (offset5, tx5) = singleExercise(divulgedContractId)
+      offsetStep5 = nextOffsetStep(offset5)
       _ <- storeBatch(
         List(
-          txEntry(CurrentOffset(offset1), tx1, Map.empty),
-          txEntry(CurrentOffset(offset2), tx2, Map.empty, Option.empty[BlindingInfo]),
-          txEntry(CurrentOffset(offset3), tx3, Map.empty, Option.empty[BlindingInfo]),
+          txEntry(offsetStep1, tx1, Map.empty),
+          txEntry(offsetStep2, tx2, Map.empty, Option.empty[BlindingInfo]),
+          txEntry(offsetStep3, tx3, Map.empty, Option.empty[BlindingInfo]),
           txEntry(
-            CurrentOffset(offset4),
+            offsetStep4,
             tx4,
             Map((divulgedContractId, someVersionedContractInstance) -> Set(charlie)),
           ),
-          txEntry(CurrentOffset(offset5), tx5, Map.empty, Option.empty[BlindingInfo]),
+          txEntry(offsetStep5, tx5, Map.empty, Option.empty[BlindingInfo]),
         )
       )
       completions <- getCompletions(from, offset5, defaultAppId, Set(alice))
@@ -240,7 +254,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
     val key = "some-key"
     val create @ (offset, tx) = txCreateContractWithKey(alice, key, Some("1337"))
     val maybeSubmitterInfo = submitterInfo(tx)
-    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
+    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, nextOffsetStep(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       // Assume the indexer restarts after events insertion

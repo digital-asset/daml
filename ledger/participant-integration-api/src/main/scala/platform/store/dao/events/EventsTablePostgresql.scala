@@ -93,6 +93,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val submittersValue = info.submitterInfo.map(_.actAs.mkString("|")).orNull
 
     for (((nodeId, node), i) <- info.events.zipWithIndex) {
+      val eventId = EventId(transactionId, nodeId)
       node match {
         case create: Create =>
           val contractId = create.coid
@@ -103,13 +104,13 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-          createArguments(i) = compressed.createArguments(transactionId -> nodeId)
+          createArguments(i) = compressed.createArguments(eventId)
           createSignatories(i) = create.signatories.mkString("|")
           createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
           if (create.coinst.agreementText.nonEmpty) {
             createAgreementTexts(i) = create.coinst.agreementText
           }
-          createKeyValues(i) = compressed.createKeyValues.get(transactionId -> nodeId).orNull
+          createKeyValues(i) = compressed.createKeyValues.get(eventId).orNull
         case exercise: Exercise =>
           submitters(i) = submittersValue
           val contractId = exercise.targetCoid
@@ -121,8 +122,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
           exerciseConsuming(i) = exercise.consuming
           exerciseChoices(i) = exercise.choiceId
-          exerciseArguments(i) = compressed.exerciseArguments(transactionId -> nodeId)
-          exerciseResults(i) = compressed.exerciseResults.get(transactionId -> nodeId).orNull
+          exerciseArguments(i) = compressed.exerciseArguments(eventId)
+          exerciseResults(i) = compressed.exerciseResults.get(eventId).orNull
           exerciseActors(i) = exercise.actingParties.mkString("|")
           exerciseChildEventIds(i) = exercise.children
             .map(EventId(transactionId, _).toLedgerString)

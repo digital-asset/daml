@@ -171,7 +171,7 @@ trait ExecuteUpdate {
             |Recomputing PreparedInsert..""".stripMargin
         )
         val preparedInsert =
-          ledgerDao.prepareTransactionInsert(List(TransactionEntry(offsetStep, tx)))
+          ledgerDao.prepareTransactionInsert(offsetStep, Seq(TransactionEntry(offsetStep, tx)))
         ledgerDao.storeTransaction(
           preparedInsert = preparedInsert,
           submitterInfo = optSubmitterInfo,
@@ -193,25 +193,14 @@ trait ExecuteUpdate {
       .updated("updateRecordTime", update.recordTime.toInstant.toString)
       .updated("updateOffset", offset.toHexString)
 
-  // TODO Tudor
-//  private def loggingContextForTransactionBatch(batch: List[TransactionEntry]): Map[String, String] = {
-  //    val lastTransactionInBatch = batch.last
-  //    Map(
-  //      "updateTransactionIds" -> batch.map(_.transactionId).mkString(","),
-  //      "updateLedgerTime" -> lastTransactionInBatch.ledgerEffectiveTime.toString,
-  //      "updateWorkflowIds" -> batch.map(_.workflowId.getOrElse("")).mkString(","),
-  //      "updateSubmissionTimes" -> batch.map(_.).submissionTime.toInstant.toString,
-  //    ) ++ optSubmitterInfo
-  //      .map(info =>
-  //        Map(
-  //          "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
-  //          "updateApplicationId" -> info.applicationId,
-  //          "updateCommandId" -> info.commandId,
-  //          "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
-  //        )
-  //      )
-  //      .getOrElse(Map.empty)
-//    ???
+  // TODO Tudor - figure out how to bring logging on par with non-batched insert
+//  private def loggingContextForTransactionBatch(batch: Seq[TransactionEntry]): Map[String, String] = {
+//      val lastTransactionInBatch = batch.last
+//      Map(
+//        "updateTransactionIds" -> batch.map(_.transactionId).mkString(","),
+//        "updateLedgerTime" -> lastTransactionInBatch.ledgerEffectiveTime.toString,
+//        "updateWorkflowIds" -> batch.map(_.workflowId.getOrElse("")).mkString(","),
+//      )
 //  }
 
   private def loggingContextFor(update: Update): Map[String, String] =
@@ -341,13 +330,35 @@ class PipelinedExecuteUpdate(
             metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
             Future {
               metrics.daml.index.db.storeTransactionBatchSize.mark(batch.size.toLong)
-              ledgerDao.prepareTransactionInsert(batch.map { case (offsetStep, tx) =>
-                TransactionEntry(offsetStep, tx)
-              }.toList)
+              ledgerDao.prepareTransactionInsert(
+                batchOffsetStep(batch),
+                batch.map { case (offsetStep, tx) =>
+                  TransactionEntry(offsetStep, tx)
+                },
+              )
             },
           )
           .map(PreparedTransactionInsert(_, batch.size))
       case offsetUpdate: OffsetUpdateImpl => Future(offsetUpdate)
+    }
+
+  private def batchOffsetStep[T](updates: Seq[(OffsetStep, T)]): OffsetStep =
+    updates match {
+      case Seq() => throw new RuntimeException("TransactionAccepted batch cannot be empty")
+      case Seq((offsetStep, _)) => offsetStep
+      case multipleUpdates =>
+        (multipleUpdates.head._1, multipleUpdates.last._1) match {
+          case (_: CurrentOffset, IncrementalOffsetStep(_, lastOffset)) => CurrentOffset(lastOffset)
+          case (
+                IncrementalOffsetStep(lastUpdatedOffset, _),
+                IncrementalOffsetStep(_, lastOffset),
+              ) =>
+            IncrementalOffsetStep(lastUpdatedOffset, lastOffset)
+          case invalidOffsetCombination =>
+            throw new RuntimeException(
+              s"Invalid batch offset combination encountered when constructing batch offset step: $invalidOffsetCombination"
+            )
+        }
     }
 
   private def insertTransactionState(
@@ -482,7 +493,8 @@ class AtomicExecuteUpdate(
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
             ledgerDao.prepareTransactionInsert(
-              List(TransactionEntry(offsetStep, transactionAccepted))
+              offsetStep,
+              Seq(TransactionEntry(offsetStep, transactionAccepted)),
             ),
           )
         Timed.future(

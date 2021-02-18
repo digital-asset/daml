@@ -23,7 +23,7 @@ object ContractWitnessesTablePostgres extends ContractWitnessesTable {
       info: TransactionIndexing.ContractWitnessesInfo
   ): ContractWitnessesTable.Executables =
     ContractWitnessesTable.Executables(
-      deleteWitnesses = prepareBatchDelete(info.netArchives.toList),
+      deleteWitnesses = prepareBatchDelete(info.archives.toList),
       insertWitnesses = buildInsertExecutable(info),
     )
 

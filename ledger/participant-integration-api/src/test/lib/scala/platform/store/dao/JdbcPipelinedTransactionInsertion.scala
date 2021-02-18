@@ -5,7 +5,7 @@ package com.daml.platform.store.dao
 
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.dao.events.TransactionEntry
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -47,11 +47,32 @@ trait JdbcPipelinedTransactionInsertion {
       )
     }
 
-    val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(daoEntries)
+    val preparedTransactionInsert =
+      ledgerDao.prepareTransactionInsert(batchOffsetStep(entries.map(_._1._1)), daoEntries)
     for {
       _ <- ledgerDao.storeTransactionState(preparedTransactionInsert)
       _ <- ledgerDao.storeTransactionEvents(preparedTransactionInsert)
       _ <- ledgerDao.completeTransaction(preparedTransactionInsert)
     } yield ()
   }
+
+  // TODO Tudor - duplicated (search for method name)
+  private def batchOffsetStep(updates: Seq[OffsetStep]): OffsetStep =
+    updates match {
+      case Seq() => throw new RuntimeException("TransactionAccepted batch cannot be empty")
+      case Seq(offsetStep) => offsetStep
+      case multipleUpdates =>
+        (multipleUpdates.head, multipleUpdates.last) match {
+          case (_: CurrentOffset, IncrementalOffsetStep(_, lastOffset)) => CurrentOffset(lastOffset)
+          case (
+                IncrementalOffsetStep(lastUpdatedOffset, _),
+                IncrementalOffsetStep(_, lastOffset),
+              ) =>
+            IncrementalOffsetStep(lastUpdatedOffset, lastOffset)
+          case invalidOffsetCombination =>
+            throw new RuntimeException(
+              s"Invalid batch offset combination encountered when constructing batch offset step: $invalidOffsetCombination"
+            )
+        }
+    }
 }

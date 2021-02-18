@@ -20,7 +20,7 @@ object ContractWitnessesTableH2 extends ContractWitnessesTable {
       info: TransactionIndexing.ContractWitnessesInfo
   ): ContractWitnessesTable.Executables =
     ContractWitnessesTable.Executables(
-      deleteWitnesses = prepareBatchDelete(info.netArchives.toList),
+      deleteWitnesses = prepareBatchDelete(info.archives.toList),
       insertWitnesses = prepareInserts(info.netVisibility),
     )
 

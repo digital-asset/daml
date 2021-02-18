@@ -26,15 +26,15 @@ final case class TransactionIndexing(
 )
 
 object TransactionIndexing {
-  type Merge[T] = (T, T) => T
+  type Combine[T] = (T, T) => T
 
-  val merge: Merge[TransactionIndexing] =
+  val combine: Combine[TransactionIndexing] =
     (left, right) =>
       TransactionIndexing(
-        events = EventsInfoBatch.merge(left.events, right.events),
-        contracts = ContractsInfo.merge(left.contracts, right.contracts),
+        events = EventsInfoBatch.combine(left.events, right.events),
+        contracts = ContractsInfo.combine(left.contracts, right.contracts),
         contractWitnesses =
-          ContractWitnessesInfo.merge(left.contractWitnesses, right.contractWitnesses),
+          ContractWitnessesInfo.combine(left.contractWitnesses, right.contractWitnesses),
       )
 
   def serialize(
@@ -88,10 +88,10 @@ object TransactionIndexing {
   ): Compressed = {
 
     val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
-    val createArguments = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
-    val createKeyValues = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
-    val exerciseArguments = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
-    val exerciseResults = Map.newBuilder[(TransactionId, NodeId), Array[Byte]]
+    val createArguments = Map.newBuilder[EventId, Array[Byte]]
+    val createKeyValues = Map.newBuilder[EventId, Array[Byte]]
+    val exerciseArguments = Map.newBuilder[EventId, Array[Byte]]
+    val exerciseResults = Map.newBuilder[EventId, Array[Byte]]
 
     for ((contractId, argument) <- serialized.divulgedContracts) {
       val compressedArgument =
@@ -103,26 +103,26 @@ object TransactionIndexing {
     for ((transactionId, nodeId, contractId, argument) <- serialized.createArguments) {
       val compressedArgument = compressionStrategy.createArgumentCompression
         .compress(argument, compressionMetrics.createArgument)
-      createArguments += ((transactionId, nodeId) -> compressedArgument)
+      createArguments += (EventId(transactionId, nodeId) -> compressedArgument)
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
     for ((transactionId, nodeId, key) <- serialized.createKeyValues) {
       val compressedKey = compressionStrategy.createKeyValueCompression
         .compress(key, compressionMetrics.createKeyValue)
-      createKeyValues += ((transactionId, nodeId) -> compressedKey)
+      createKeyValues += (EventId(transactionId, nodeId) -> compressedKey)
     }
 
     for ((transactionId, nodeId, argument) <- serialized.exerciseArguments) {
       val compressedArgument = compressionStrategy.exerciseArgumentCompression
         .compress(argument, compressionMetrics.exerciseArgument)
-      exerciseArguments += ((transactionId, nodeId) -> compressedArgument)
+      exerciseArguments += (EventId(transactionId, nodeId) -> compressedArgument)
     }
 
     for ((transactionId, nodeId, result) <- serialized.exerciseResults) {
       val compressedResult = compressionStrategy.exerciseResultCompression
         .compress(result, compressionMetrics.exerciseResult)
-      exerciseResults += ((transactionId, nodeId) -> compressedResult)
+      exerciseResults += (EventId(transactionId, nodeId) -> compressedResult)
     }
 
     Compressed(
@@ -241,18 +241,18 @@ object TransactionIndexing {
         ),
         contracts = ContractsInfo(
           netCreates = netCreates,
-          netArchives = netArchives,
+          archives = netArchives,
           divulgedContracts = netDivulgedContracts,
         ),
         contractWitnesses = ContractWitnessesInfo(
-          netArchives = netArchives,
+          archives = netArchives,
           netVisibility = netVisibility,
         ),
       )
     }
   }
 
-  final case class EventsInfo(
+  case class EventsInfo(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
@@ -267,26 +267,25 @@ object TransactionIndexing {
 
   object EventsInfoBatch {
     val empty: EventsInfoBatch = EventsInfoBatch(List.empty)
-    val merge: Merge[EventsInfoBatch] = (left, right) =>
+    val combine: Combine[EventsInfoBatch] = (left, right) =>
       EventsInfoBatch(left.eventsInfo ::: right.eventsInfo)
   }
 
-  final case class ContractsInfo(
+  case class ContractsInfo(
       netCreates: Map[Create, Instant],
-      netArchives: Set[ContractId],
+      archives: Set[ContractId],
       divulgedContracts: Iterable[DivulgedContract],
   )
 
   object ContractsInfo {
     val empty: ContractsInfo = ContractsInfo(Map.empty, Set.empty, Iterable.empty)
 
-    val merge: Merge[ContractsInfo] = (left, right) => {
-      val archives = left.netArchives ++ right.netArchives
+    val combine: Combine[ContractsInfo] = (left, right) => {
+      val archives = left.archives ++ right.archives
       val creates = left.netCreates ++ right.netCreates
       val netCreates = creates.filterNot { case (create, _) =>
         archives(create.coid)
       }
-      val netArchives = archives diff netCreates.keys.map(_.coid).toSet
       val netDivulged =
         (left.divulgedContracts ++ right.divulgedContracts)
           .filterNot { divulged =>
@@ -295,28 +294,26 @@ object TransactionIndexing {
 
       ContractsInfo(
         netCreates = netCreates,
-        netArchives = netArchives,
+        archives = archives,
         divulgedContracts = netDivulged,
       )
     }
   }
 
-  final case class ContractWitnessesInfo(
-      netArchives: Set[ContractId],
+  case class ContractWitnessesInfo(
+      archives: Set[ContractId],
       netVisibility: WitnessRelation[ContractId],
   )
 
   object ContractWitnessesInfo {
     val empty: ContractWitnessesInfo = ContractWitnessesInfo(Set.empty, Map.empty)
 
-    val merge: Merge[ContractWitnessesInfo] = (left, right) => {
+    val combine: Combine[ContractWitnessesInfo] = (left, right) => {
       val visibility = Relation.union(left.netVisibility, right.netVisibility)
-      val archives = left.netArchives ++ right.netArchives
+      val archives = left.archives ++ right.archives
       val netVisibility = visibility.filterKeys(!archives(_))
-      val netVisibilityKeySet = netVisibility.keySet
-      val netArchives = archives diff netVisibilityKeySet
       ContractWitnessesInfo(
-        netArchives = netArchives,
+        archives = archives,
         netVisibility = netVisibility,
       )
     }
@@ -337,46 +334,40 @@ object TransactionIndexing {
 
   object Compressed {
 
-    final case class Contracts(
+    case class Contracts(
         createArguments: Map[ContractId, Array[Byte]],
         createArgumentsCompression: Compression.Algorithm,
     )
 
-    final case class Events(
-        createArguments: Map[(TransactionId, NodeId), Array[Byte]],
+    case class Events(
+        createArguments: Map[EventId, Array[Byte]],
         createArgumentsCompression: Compression.Algorithm,
-        createKeyValues: Map[(TransactionId, NodeId), Array[Byte]],
+        createKeyValues: Map[EventId, Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
-        exerciseArguments: Map[(TransactionId, NodeId), Array[Byte]],
+        exerciseArguments: Map[EventId, Array[Byte]],
         exerciseArgumentsCompression: Compression.Algorithm,
-        exerciseResults: Map[(TransactionId, NodeId), Array[Byte]],
+        exerciseResults: Map[EventId, Array[Byte]],
         exerciseResultsCompression: Compression.Algorithm,
     ) {
-      def assertCreate(
-          transactionId: TransactionId,
-          nodeId: NodeId,
-      ): (Array[Byte], Option[Array[Byte]]) = {
+      def assertCreate(eventId: EventId): (Array[Byte], Option[Array[Byte]]) = {
         assert(
-          createArguments.contains(transactionId -> nodeId),
-          s"Node $nodeId is not a create event",
+          createArguments.contains(eventId),
+          s"event $eventId is not a create event",
         )
-        (createArguments(transactionId -> nodeId), createKeyValues.get(transactionId -> nodeId))
+        (createArguments(eventId), createKeyValues.get(eventId))
       }
 
-      def assertExercise(
-          transactionId: TransactionId,
-          nodeId: NodeId,
-      ): (Array[Byte], Option[Array[Byte]]) = {
+      def assertExercise(eventId: EventId): (Array[Byte], Option[Array[Byte]]) = {
         assert(
-          exerciseArguments.contains(transactionId -> nodeId),
-          s"Node $nodeId is not an exercise event",
+          exerciseArguments.contains(eventId),
+          s"Node $eventId is not an exercise event",
         )
-        (exerciseArguments(transactionId -> nodeId), exerciseResults.get(transactionId -> nodeId))
+        (exerciseArguments(eventId), exerciseResults.get(eventId))
       }
     }
   }
 
-  final case class Compressed(
+  case class Compressed(
       contracts: Compressed.Contracts,
       events: Compressed.Events,
   )

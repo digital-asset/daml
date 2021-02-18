@@ -23,6 +23,7 @@ trait JdbcAtomicTransactionInsertion {
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
+      offsetStep,
       List(
         TransactionEntry(
           submitterInfo,
@@ -34,7 +35,7 @@ trait JdbcAtomicTransactionInsertion {
           divulgedContracts,
           blindingInfo,
         )
-      )
+      ),
     )
     for {
       _ <- ledgerDao.storeTransaction(

@@ -2,6 +2,7 @@ package com.daml.platform.store.dao.events
 
 import java.sql.{Connection, PreparedStatement}
 
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.dao.ParametersTable
 
 // TODO Tudor Revisit this one!!
@@ -18,7 +19,8 @@ private[events] object TransactionCompletionTables {
   }
 
   def toExecutables(
-      transactionEntries: List[TransactionEntry]
+      offsetStep: OffsetStep,
+      transactionEntries: Seq[TransactionEntry],
   ): TransactionCompletionTables.Executables =
     Executables(
       insertCompletions = (conn: Connection) => {
@@ -53,17 +55,7 @@ private[events] object TransactionCompletionTables {
             preparedStatement
         }
       },
-      updateLedgerEnd = (conn: Connection) => {
-        val batchOffsetStep = transactionEntries match {
-          case Nil =>
-            // TODO Tudor logger.warn
-            throw new RuntimeException("Should not get here")
-          case singleTransaction :: Nil => singleTransaction.offsetStep
-          case multipleTransactions =>
-            multipleTransactions.last.offsetStep // TODO Tudor
-        }
-        ParametersTable.updateLedgerEnd(batchOffsetStep)(conn)
-      },
+      updateLedgerEnd = ParametersTable.updateLedgerEnd(offsetStep)(_),
     )
 
   private val completionsQuery =
