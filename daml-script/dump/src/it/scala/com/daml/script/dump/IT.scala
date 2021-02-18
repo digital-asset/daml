@@ -118,58 +118,72 @@ final class IT
       )
       .runWith(Sink.seq)
 
+  private def allocateParties(client: LedgerClient, numParties: Int): Future[List[Ref.Party]] =
+    List
+      .range(0, numParties)
+      .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
+
+  private def createScriptDump(parties: List[Ref.Party]): Future[Dar[(PackageId, Package)]] = for {
+    // build script dump
+    _ <- Main.run(
+      Config(
+        ledgerHost = "localhost",
+        ledgerPort = serverPort.value,
+        parties = parties,
+        start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
+        end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+        outputPath = tmpDir,
+        damlScriptLib = damlScriptLib.toString,
+        sdkVersion = SdkVersion.sdkVersion,
+      )
+    )
+    // compile script dump
+    _ = Seq[String](
+      damlc.toString,
+      "build",
+      "--project-root",
+      tmpDir.toString,
+      "-o",
+      tmpDir.resolve("dump.dar").toString,
+    ).! shouldBe 0
+    // load DAR
+    encodedDar = DarReader().readArchiveFromFile(tmpDir.resolve("dump.dar").toFile).get
+    dar = encodedDar.map { case (pkgId, pkgArchive) =>
+      Decode.readArchivePayload(pkgId, pkgArchive)
+    }
+  } yield dar
+
+  private def runScriptDump(
+      client: LedgerClient,
+      parties: List[Ref.Party],
+      dar: Dar[(PackageId, Package)],
+  ): Future[Unit] = for {
+    _ <- Runner.run(
+      dar,
+      Ref.Identifier(dar.main._1, Ref.QualifiedName.assertFromString("Dump:dump")),
+      inputValue = Some(JsArray(parties.map(JsString(_)).toVector)),
+      timeMode = ScriptTimeMode.WallClock,
+      initialClients = Participants(
+        default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
+        participants = Map.empty,
+        party_participants = Map.empty,
+      ),
+    )
+  } yield ()
+
   private def test(
       numParties: Int
   )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
     for {
       client <- LedgerClient(channel, clientConfiguration)
-      parties <- List
-        .range(0, numParties)
-        .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
+      parties <- allocateParties(client, numParties)
       // setup
       _ <- f(client, parties)
       before <- collectTrees(client, parties)
-      // build script dump
-      _ <- Main.run(
-        Config(
-          ledgerHost = "localhost",
-          ledgerPort = serverPort.value,
-          parties = parties,
-          start =
-            LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
-          end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-          outputPath = tmpDir,
-          damlScriptLib = damlScriptLib.toString,
-          sdkVersion = SdkVersion.sdkVersion,
-        )
-      )
-      // compile script dump
-      _ = Seq[String](
-        damlc.toString,
-        "build",
-        "--project-root",
-        tmpDir.toString,
-        "-o",
-        tmpDir.resolve("dump.dar").toString,
-      ).! shouldBe 0
-      // run script dump
-      newParties <- List
-        .range(0, numParties)
-        .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
-      encodedDar = DarReader().readArchiveFromFile(tmpDir.resolve("dump.dar").toFile).get
-      dar: Dar[(PackageId, Package)] = encodedDar
-        .map { case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive) }
-      _ <- Runner.run(
-        dar,
-        Ref.Identifier(dar.main._1, Ref.QualifiedName.assertFromString("Dump:dump")),
-        inputValue = Some(JsArray(newParties.map(JsString(_)).toVector)),
-        timeMode = ScriptTimeMode.WallClock,
-        initialClients = Participants(
-          default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
-          participants = Map.empty,
-          party_participants = Map.empty,
-        ),
-      )
+      // reproduce from dump
+      dar <- createScriptDump(parties)
+      newParties <- allocateParties(client, numParties)
+      _ <- runScriptDump(client, newParties, dar)
       // check that the new transaction trees are the same
       after <- collectTrees(client, newParties)
     } yield {
