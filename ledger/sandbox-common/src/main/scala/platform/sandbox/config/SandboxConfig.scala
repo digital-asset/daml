@@ -48,6 +48,7 @@ final case class SandboxConfig(
     stackTraces: Boolean,
     engineMode: SandboxConfig.EngineMode,
     managementServiceTimeout: Duration,
+    sqlStartMode: PostgresStartupMode = PostgresStartupMode.MigrateOnly,
 )
 
 object SandboxConfig {

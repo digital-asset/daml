@@ -17,5 +17,16 @@ object Main {
   }
 
   private[sql] def run(config: SandboxConfig): Unit =
+//    config.sqlStartMode match {
+//      case PostgresStartupMode.MigrateOnly => {
+//
+//        newLoggingContext(logging.participantId(config.participantId)) {
+//          implicit loggingContext =>
+//            config.jdbcUrl.map(url => Resource.fromFuture(new FlywayMigrations(url).migrate()))
+//        }
+//      }
+//      case _ =>
     new ProgramResource(SandboxServer.owner(Name, config)).run(ResourceContext.apply)
+//    }
+
 }

@@ -39,7 +39,7 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
-import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
+import com.daml.platform.sandbox.config.{LedgerName, PostgresStartupMode, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -47,6 +47,7 @@ import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import scalaz.syntax.tag._
@@ -98,7 +99,17 @@ object SandboxServer {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
           // We use the Future rather than the Resource to avoid holding onto the API server.
           // Otherwise, we cause a memory leak upon reset.
-          Resource.fromFuture(server.apiServer.map(_ => ()))
+          if (
+            config.sqlStartMode == PostgresStartupMode.MigrateAndStart || config.sqlStartMode == PostgresStartupMode.ValidateAndStart
+          )
+            Resource.fromFuture(server.apiServer.map(_ => ()))
+          else {
+            newLoggingContext(logging.participantId(config.participantId)) {
+              implicit loggingContext =>
+                logger.info("just running migration scripts")
+                Resource.fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
+            }
+          }
       }
     } yield server
 
