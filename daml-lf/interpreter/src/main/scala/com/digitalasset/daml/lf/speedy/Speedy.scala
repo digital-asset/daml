@@ -16,6 +16,7 @@ import com.daml.lf.speedy.PartialTransaction.ExercisesContextInfo
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SBuiltin.checkAborted
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
@@ -1260,6 +1261,21 @@ private[lf] object Speedy {
     }
   }
 
+  /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
+    * (1) by 'endExercise' if this continuation is entered normally, or
+    * (2) by 'abortExercise' if we unwind the stack through this continuation (TODO 8020)
+    */
+  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
+
+    def execute(exerciseResult: SValue) = {
+      machine.withOnLedger("KCloseExercise") { onLedger =>
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
+        checkAborted(onLedger.ptx)
+        machine.returnValue = exerciseResult
+      }
+    }
+  }
+
   /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
     * the continuation is entered normally, the environment is restored but the handler is
     * not executed.  When a throw is executed, the kont-stack is unwound to the nearest
@@ -1328,6 +1344,8 @@ private[lf] object Speedy {
     * producing a text message.
     */
   private[speedy] def unwindToHandler(machine: Machine, payload: SValue): Unit = {
+    // TODO https://github.com/digital-asset/daml/issues/8020
+    // Support unwinding through KCloseExercise, aborting the open-exercise
     val catchIndex =
       machine.kontStack.asScala.lastIndexWhere(_.isInstanceOf[KTryCatchHandler])
     if (catchIndex >= 0) {

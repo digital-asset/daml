@@ -956,32 +956,30 @@ private[lf] final class Compiler(
   ) =
     let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
-      let(
-        SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
-          svar(choiceArgPos),
-          svar(cidPos),
-          compile(tmpl.signatories),
-          compile(tmpl.observers), //
-          {
-            addExprVar(choice.argBinder._1, choiceArgPos)
-            compile(choice.controllers)
-          }, //
-          {
-            choice.choiceObservers match {
-              case Some(observers) => compile(observers)
-              case None => SEValue.EmptyList
-            }
-          },
-          mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
-        )
-      ) { _ =>
-        addExprVar(choice.selfBinder, cidPos)
-        let(app(compile(choice.update), svar(tokenPos))) { retValuePos =>
-          let(SBUEndExercise(tmplId)(svar(retValuePos))) { _ =>
-            svar(retValuePos)
-          }
+      SEScopeExercise(
+        let(
+          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
+            svar(choiceArgPos),
+            svar(cidPos),
+            compile(tmpl.signatories),
+            compile(tmpl.observers), //
+            {
+              addExprVar(choice.argBinder._1, choiceArgPos)
+              compile(choice.controllers)
+            }, //
+            {
+              choice.choiceObservers match {
+                case Some(observers) => compile(observers)
+                case None => SEValue.EmptyList
+              }
+            },
+            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
+          )
+        ) { _ =>
+          addExprVar(choice.selfBinder, cidPos)
+          app(compile(choice.update), svar(tokenPos))
         }
-      }
+      )
     }
 
   private[this] def compileChoice(
@@ -1195,6 +1193,9 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, 1), handler),
         )
 
+      case SEScopeExercise(body) =>
+        SEScopeExercise(closureConvert(remaps, body))
+
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
@@ -1283,6 +1284,8 @@ private[lf] final class Compiler(
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
+        case SEScopeExercise(body) =>
+          go(body, bound, free)
 
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
@@ -1387,6 +1390,8 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
+        case SEScopeExercise(body) =>
+          go(body)
 
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
