@@ -965,8 +965,7 @@ private[lf] final class Compiler(
         ) { _ =>
           addExprVar(choice.selfBinder, cidPos)
           app(compile(choice.update), svar(tokenPos))
-        },
-        tmplId,
+        }
       )
     }
 
@@ -1181,8 +1180,8 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, 1), handler),
         )
 
-      case SEScopeExercise(body, tmplId) =>
-        SEScopeExercise(closureConvert(remaps, body), tmplId)
+      case SEScopeExercise(body) =>
+        SEScopeExercise(closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
@@ -1272,7 +1271,7 @@ private[lf] final class Compiler(
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
-        case SEScopeExercise(body, _) =>
+        case SEScopeExercise(body) =>
           go(body, bound, free)
 
         case x: SEDamlException =>
@@ -1378,7 +1377,7 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
-        case SEScopeExercise(body, _) =>
+        case SEScopeExercise(body) =>
           go(body)
 
         case x: SEDamlException =>

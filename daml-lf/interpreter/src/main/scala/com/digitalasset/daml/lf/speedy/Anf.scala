@@ -375,9 +375,9 @@ private[lf] object Anf {
           ).bounce
         Bounce(() => transform(depth, SETryCatch(body, handler), k))
 
-      case SEScopeExercise(body0, end) =>
+      case SEScopeExercise(body0) =>
         val body: SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
-        Bounce(() => transform(depth, SEScopeExercise(body, end), k))
+        Bounce(() => transform(depth, SEScopeExercise(body), k))
 
       case x: SEAbs => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEDamlException => throw CompilationError(s"flatten: unexpected: $x")

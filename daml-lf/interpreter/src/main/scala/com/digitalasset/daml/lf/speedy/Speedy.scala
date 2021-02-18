@@ -1265,10 +1265,7 @@ private[lf] object Speedy {
     * (1) by 'endExercise' if this continuation is entered normally, or
     * (2) by 'abortExercise' if we unwind the stack through this continuation (TODO 8020)
     */
-  private[speedy] final case class KCloseExercise(
-      machine: Machine,
-      end_templateId: TypeConName,
-  ) extends Kont {
+  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
