@@ -34,6 +34,9 @@ da_scala_library(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
+    deps = [
+        "//libs-scala/scala-utils",
+    ],
 )
 
 da_scala_test(

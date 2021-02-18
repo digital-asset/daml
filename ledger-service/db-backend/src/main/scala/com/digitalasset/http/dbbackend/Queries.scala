@@ -3,6 +3,10 @@
 
 package com.daml.http.dbbackend
 
+import com.daml.scalautil.nonempty
+import nonempty.{NonEmpty, +-:}
+import nonempty.NonEmptyColl.RefinedOps._
+
 import doobie._
 import doobie.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
@@ -356,14 +360,17 @@ object Queries {
   // Like groupBy but split into n maps where n is the longest list under groupBy.
   // Invariant: every element of the result is non-empty
   private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
-    unfold(iter.groupBy(_._1).transform((_, i) => i.toList): Map[A, List[(_, B)]]) { m =>
-      // invariant: every value of m is non-empty
+    unfold(
+      iter
+        .groupBy1(_._1)
+        .transform((_, i) => i.toList): Map[A, NonEmpty[List[(_, B)]]]
+    ) { m =>
       m.nonEmpty option {
         val hd = m transform { (_, abs) =>
-          val (_, b) +: _ = abs
+          val (_, b) +-: _ = abs
           b
         }
-        val tl = m collect { case (a, _ +: (tl @ (_ +: _))) => (a, tl) }
+        val tl = m collect { case (a, _ +-: NonEmpty(tl)) => (a, tl) }
         (hd, tl)
       }
     }

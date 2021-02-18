@@ -4,6 +4,7 @@
 package com.daml.scalautil.nonempty
 
 import scala.collection.{immutable => sci}, sci.Map, sci.Set
+import scalaz.Id.Id
 import scalaz.{Foldable, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
@@ -14,6 +15,7 @@ sealed abstract class NonEmptyColl {
   type NonEmptyF[F[_], A] <: NonEmpty[F[A]]
 
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
+  private[nonempty] def subst[F[_[_]]](tf: F[Id]): F[NonEmpty]
   private[nonempty] def unsafeNarrow[Self](self: Self with sci.Iterable[_]): NonEmpty[Self]
 
   /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
@@ -47,6 +49,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
     type NonEmpty[+A] = A
     type NonEmptyF[F[_], A] = F[A]
     private[nonempty] override def substF[T[_[_]], F[_]](tf: T[F]) = tf
+    private[nonempty] override def subst[F[_[_]]](tf: F[Id]) = tf
     override def subtype[A] = Liskov.refl[A]
     override def equiv[F[_], A] = Leibniz.refl
 
@@ -87,6 +90,14 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def ++(that: Iterable[A]): NonEmpty[Set[A]] = un((self: ESelf) ++ that)
   }
 
+  implicit final class NEPreservingOps[A, CC[_], C](
+      private val self: NonEmpty[IterableOps[A, CC, C with sci.Iterable[A]]]
+  ) {
+    import NonEmpty.{unsafeNarrow => un}
+    private type ESelf = IterableOps[A, CC, C with sci.Iterable[A]]
+    def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
+  }
+
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
 
@@ -94,7 +105,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     implicit final class `NE Map Ops`[A, CC[_], C](
         private val self: IterableOps[A, CC, C with sci.Iterable[A]]
     ) {
-      // def groupBy1(f: A => K): Map[
+      def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
+        NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
     }
   }
 }
