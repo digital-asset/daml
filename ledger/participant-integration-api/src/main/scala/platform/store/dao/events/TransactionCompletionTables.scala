@@ -1,20 +1,18 @@
 package com.daml.platform.store.dao.events
 
-import java.sql.{Connection, PreparedStatement}
+import java.sql.Connection
 
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.ParametersTable
+import com.daml.platform.store.dao.{CommandCompletionsTable, ParametersTable}
 
-// TODO Tudor Revisit this one!!
 private[events] object TransactionCompletionTables {
-
   final case class Executables(
-      insertCompletions: Connection => PreparedStatement,
+      insertCompletions: Connection => Unit,
       updateLedgerEnd: Connection => Unit,
   ) {
     def execute(implicit connection: Connection): Unit = {
       updateLedgerEnd(connection)
-      val _ = insertCompletions(connection).executeBatch()
+      insertCompletions(connection)
     }
   }
 
@@ -24,43 +22,23 @@ private[events] object TransactionCompletionTables {
   ): TransactionCompletionTables.Executables =
     Executables(
       insertCompletions = (conn: Connection) => {
-        transactionEntries.foldLeft(conn.prepareStatement(completionsQuery)) {
-          case (preparedStatement, transactionEntry) =>
-            val maybeSubmitterInfo = transactionEntry.submitterInfo
-            val offset = transactionEntry.offsetStep.offset
-            val transactionId = transactionEntry.transactionId
-            val recordTime = transactionEntry.ledgerEffectiveTime
-            maybeSubmitterInfo
-              .map { submitterInfo =>
-                preparedStatement.setObject(1, Array(offset.toByteArray))
-                preparedStatement.setArray(
-                  2,
-                  conn.createArrayOf("TIMESTAMP", Array(java.sql.Timestamp.from(recordTime))),
-                )
-                preparedStatement.setObject(3, Array[String](submitterInfo.applicationId))
-                preparedStatement
-                  .setObject(4, Array[String](submitterInfo.actAs.toArray[String].mkString("|")))
-                preparedStatement.setObject(5, Array[String](submitterInfo.commandId))
-                preparedStatement.setObject(6, Array[String](transactionId))
-              }
-              .getOrElse {
-                preparedStatement.setObject(1, Array.empty[Array[Byte]])
-                preparedStatement.setArray(2, conn.createArrayOf("TIMESTAMP", Array.empty[AnyRef]))
-                preparedStatement.setObject(3, Array.empty[String])
-                preparedStatement.setArray(4, conn.createArrayOf("ARRAY", Array.empty[AnyRef]))
-                preparedStatement.setObject(5, Array.empty[String])
-                preparedStatement.setObject(6, Array.empty[String])
-              }
-            preparedStatement.addBatch()
-            preparedStatement
+        transactionEntries.foreach { transactionEntry =>
+          val maybeSubmitterInfo = transactionEntry.submitterInfo
+          val offset = transactionEntry.offsetStep.offset
+          val transactionId = transactionEntry.transactionId
+          val recordTime = transactionEntry.ledgerEffectiveTime
+          maybeSubmitterInfo
+            .map(
+              CommandCompletionsTable.prepareCompletionInsert(
+                _,
+                offset = offset,
+                transactionId = transactionId,
+                recordTime = recordTime,
+              )
+            )
+            .foreach(_.execute()(conn))
         }
       },
       updateLedgerEnd = ParametersTable.updateLedgerEnd(offsetStep)(_),
     )
-
-  private val completionsQuery =
-    """insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id)
-         select completion_offset, record_time, application_id, string_to_array(submitters,'|'), command_id, transaction_id
-         from unnest(?, ?, ?, ?, ?, ?) as t(completion_offset, record_time, application_id, submitters, command_id, transaction_id);
-    """
 }

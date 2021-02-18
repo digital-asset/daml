@@ -481,9 +481,8 @@ private class JdbcLedgerDao(
             preparedInsert.completeTransaction(metrics)
           case Some(error) =>
             submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
+            ParametersTable.updateLedgerEnd(offsetStep)
         }
-
-        updateLedgerEnd(offsetStep)
         Ok
       }
 
@@ -501,11 +500,12 @@ private class JdbcLedgerDao(
       ),
     )
 
-  private def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
-    Timed.value(
-      metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-      ParametersTable.updateLedgerEnd(offsetStep),
-    )
+//  private def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
+//    Timed.value(
+//      // TODO Tudor - time ledger end update
+//      metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
+//      ParametersTable.updateLedgerEnd(offsetStep),
+//    )
 
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],

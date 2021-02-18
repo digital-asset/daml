@@ -63,12 +63,13 @@ trait JdbcPipelinedTransactionInsertion {
       case Seq(offsetStep) => offsetStep
       case multipleUpdates =>
         (multipleUpdates.head, multipleUpdates.last) match {
-          case (_: CurrentOffset, IncrementalOffsetStep(_, lastOffset)) => CurrentOffset(lastOffset)
           case (
                 IncrementalOffsetStep(lastUpdatedOffset, _),
                 IncrementalOffsetStep(_, lastOffset),
               ) =>
             IncrementalOffsetStep(lastUpdatedOffset, lastOffset)
+          case (_, IncrementalOffsetStep(_, lastOffset)) =>
+            CurrentOffset(lastOffset)
           case invalidOffsetCombination =>
             throw new RuntimeException(
               s"Invalid batch offset combination encountered when constructing batch offset step: $invalidOffsetCombination"

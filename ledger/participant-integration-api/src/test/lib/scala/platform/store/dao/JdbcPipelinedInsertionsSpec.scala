@@ -20,7 +20,7 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.ApiOffset
-import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -57,12 +57,12 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
           )
       )
     } yield {
-      comparableFlatTxs(
-        flatTransactionsResult
-      ) should contain theSameElementsInOrderAs comparableFlatTxs(flatTxs)
       comparableTreeTxs(
         transactionTreesResult
       ) should contain theSameElementsInOrderAs comparableTreeTxs(treeTxs)
+      comparableFlatTxs(
+        flatTransactionsResult
+      ) should contain theSameElementsInOrderAs comparableFlatTxs(flatTxs)
     }
   }
 
@@ -106,6 +106,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
   // - witnesses do not have to appear in a specific order
   private def comparableTreeTxs(txs: Seq[TransactionTree]): Seq[TransactionTree] = {
     import com.daml.platform.api.v1.event.EventOps._
+
     import scala.collection.compat._
 
     txs.map(tx =>
@@ -252,16 +253,23 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
 
   it should "allow idempotent transaction insertions" in {
     val key = "some-key"
-    val create @ (offset, tx) = txCreateContractWithKey(alice, key, Some("1337"))
+    val (offset, tx) = txCreateContractWithKey(alice, key, Some("1337"))
     val maybeSubmitterInfo = submitterInfo(tx)
-    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, nextOffsetStep(offset))
+    val offsetStep = nextOffsetStep(offset)
+    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, offsetStep)
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       // Assume the indexer restarts after events insertion
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       _ <- ledgerDao.storeTransactionState(preparedInsert)
       // Assume the indexer restarts after state insertion
-      _ <- store(create) // The whole transaction insertion succeeds
+      _ <- store(
+        submitterInfo(tx),
+        tx,
+        offsetStep,
+        List.empty,
+        None,
+      ) // The whole transaction insertion succeeds
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
@@ -315,7 +323,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
   ): Future[Assertion] = {
     val (offset, tx) = offsetTx
     val maybeSubmitterInfo = submitterInfo(tx)
-    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
+    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, nextOffsetStep(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       _ <- ledgerDao.storeTransactionState(preparedInsert)

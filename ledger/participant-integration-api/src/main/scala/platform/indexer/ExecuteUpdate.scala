@@ -285,7 +285,7 @@ class PipelinedExecuteUpdate(
     private[indexer] val participantId: v1.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
     private[indexer] val maximumBatchWindowDuration: FiniteDuration = 100.millis,
-    private[indexer] val maximumBatchSize: Int = 50,
+    private[indexer] val maximumBatchSize: Int = 100,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
 

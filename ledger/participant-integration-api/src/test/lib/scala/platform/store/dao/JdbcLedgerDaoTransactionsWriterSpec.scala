@@ -5,11 +5,13 @@ package com.daml.platform.store.dao
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, NodeId}
-import org.scalatest.LoneElement
+import org.scalatest.{LoneElement, Succeeded}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.platform.indexer.IncrementalOffsetStep
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
+
+import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -73,10 +75,20 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
     val (offset, tx) = singleCreate
     recoverToSucceededIf[LedgerEndUpdateError](
       storeOffsetStepAndTx(
-        offsetStepAndTx = IncrementalOffsetStep(nextOffset(), offset) -> tx,
+        offsetStepAndTx = IncrementalOffsetStep(offset, offset) -> tx,
         blindingInfo = None,
         divulgedContracts = Map.empty,
       )
-    )
+    ).flatMap {
+      case Succeeded =>
+        // Now we must succeed in order to update the ledger end for the
+        // already persisted events and state from the previous failure.
+        storeOffsetStepAndTx(
+          offsetStepAndTx = nextOffsetStep(offset) -> tx,
+          blindingInfo = None,
+          divulgedContracts = Map.empty,
+        ).map(_ => Succeeded)
+      case other => Future.successful(other)
+    }
   }
 }
