@@ -195,7 +195,7 @@ object Replay {
 
   private[this] def decodeEnvelope(
       participantId: Ref.ParticipantId,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
   ): LazyList[TxEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
@@ -205,7 +205,7 @@ object Replay {
           .to(LazyList)
           .map(_.getSubmission)
           .flatMap(submissionEnvelope =>
-            decodeEnvelope(participantId, Raw.Value(submissionEnvelope))
+            decodeEnvelope(participantId, Raw.Envelope(submissionEnvelope))
           )
       case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
         LazyList.empty

@@ -63,7 +63,7 @@ final class RawPreExecutingCommitStrategySpec
   "generateWriteSets" should {
     "serialize keys according to strategy" in {
       val logEntryId = aLogEntryId()
-      val expectedLogEntryKey = Raw.Key(logEntryId.toByteString)
+      val expectedLogEntryKey = Raw.LogEntryId(logEntryId)
       val preExecutionResult = PreExecutionResult(
         readSet = Set.empty,
         successfulLogEntry = aLogEntry,
@@ -96,7 +96,7 @@ final class RawPreExecutingCommitStrategySpec
     val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
     when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
       .thenAnswer((invocation: InvocationOnMock) =>
-        Raw.Key(invocation.getArgument[DamlStateKey](0).getContractIdBytes)
+        Raw.StateKey(invocation.getArgument[DamlStateKey](0).getContractIdBytes)
       )
     mockStateKeySerializationStrategy
   }

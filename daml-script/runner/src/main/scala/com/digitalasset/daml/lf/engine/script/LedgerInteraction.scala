@@ -581,7 +581,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
-    Either[StatusRuntimeException, (RichTransaction, Seq[ScriptLedgerClient.CommandResult])]
+    Either[StatusRuntimeException, RichTransaction]
   ] =
     Future {
       // Clear state at the beginning like in SBSBeginCommit for scenarios.
@@ -593,7 +593,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
       machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
       onLedger.committers = actAs.toSet
-      var result: (RichTransaction, Seq[ScriptLedgerClient.CommandResult]) = null
+      var result: RichTransaction = null
       while (result == null) {
         machine.run() match {
           case SResultNeedContract(coid, tid @ _, committers @ _, cbMissing, cbPresent) =>
@@ -606,21 +606,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
           case SResultFinalValue(SUnit) =>
             onLedger.ptx.finish match {
               case PartialTransaction.CompleteTransaction(tx) =>
-                val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
-                  tx.nodes(n) match {
-                    case create: NodeCreate[ContractId] =>
-                      ScriptLedgerClient.CreateResult(create.coid)
-                    case exercise: NodeExercises[_, ContractId] =>
-                      ScriptLedgerClient.ExerciseResult(
-                        exercise.templateId,
-                        exercise.choiceId,
-                        exercise.exerciseResult.get,
-                      )
-                    case n =>
-                      // Root nodes can only be creates and exercises.
-                      throw new RuntimeException(s"Unexpected node: $n")
-                  }
-                }
                 ScenarioLedger.commitTransaction(
                   actAs = actAs.toSet,
                   readAs = readAs,
@@ -635,7 +620,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   case Right(commitResult) =>
                     scenarioRunner.ledger = commitResult.newLedger
                     // Capture the result and exit.
-                    result = (commitResult.richTransaction, results.toSeq)
+                    result = commitResult.richTransaction
                 }
               case PartialTransaction.IncompleteTransaction(ptx) =>
                 throw new RuntimeException(s"Unexpected abort: $ptx")
@@ -685,10 +670,22 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case Right(x) =>
+      case Right(richTransaction) =>
+        val transaction = richTransaction.transaction
         // Expected successful commit so clear.
         machine.clearCommit
-        Right(x._2)
+        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = transaction.nodes
+          .getOrElse(id, throw new IllegalArgumentException(s"Unknown root node id $id")) match {
+          case create: NodeCreate[ContractId] => ScriptLedgerClient.CreateResult(create.coid)
+          case exercise: NodeExercises[NodeId, ContractId] =>
+            ScriptLedgerClient.ExerciseResult(
+              exercise.templateId,
+              exercise.choiceId,
+              exercise.exerciseResult.get,
+            )
+          case n => throw new IllegalArgumentException(s"Unexpected root node: $n")
+        }
+        Right(transaction.roots.toSeq.map(convRootEvent(_)))
       case Left(err) =>
         // Unexpected failure, do not clear so we can display the partial
         // transaction.
@@ -725,27 +722,30 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case Right(x) =>
+      case Right(richTransaction) =>
         // Expected successful commit so clear.
         machine.clearCommit
-        val y = x._1.transaction
-        def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] = y.nodes(id) match {
-          case create: NodeCreate[ContractId] =>
-            Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
-          case exercise: NodeExercises[NodeId, ContractId] =>
-            Some(
-              ScriptLedgerClient.Exercised(
-                exercise.templateId,
-                exercise.targetCoid,
-                exercise.choiceId,
-                exercise.chosenValue,
-                exercise.children.collect(Function.unlift(convEvent(_))).toList,
+        val transaction = richTransaction.transaction
+        def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
+          transaction.nodes(id) match {
+            case create: NodeCreate[ContractId] =>
+              Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
+            case exercise: NodeExercises[NodeId, ContractId] =>
+              Some(
+                ScriptLedgerClient.Exercised(
+                  exercise.templateId,
+                  exercise.targetCoid,
+                  exercise.choiceId,
+                  exercise.chosenValue,
+                  exercise.children.collect(Function.unlift(convEvent(_))).toList,
+                )
               )
-            )
-          case _: NodeFetch[ContractId] => None
-          case _: NodeLookupByKey[ContractId] => None
-        }
-        ScriptLedgerClient.TransactionTree(y.roots.collect(Function.unlift(convEvent(_))).toList)
+            case _: NodeFetch[ContractId] => None
+            case _: NodeLookupByKey[ContractId] => None
+          }
+        ScriptLedgerClient.TransactionTree(
+          transaction.roots.collect(Function.unlift(convEvent(_))).toList
+        )
       case Left(err) => throw new IllegalStateException(err)
     }
   }

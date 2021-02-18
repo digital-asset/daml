@@ -75,7 +75,7 @@ final class SqlLedgerReaderWriter(
 
   override def commit(
       correlationId: String,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       metadata: CommitMetadata,
   ): sc.Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)(committerExecutionContext)
@@ -210,18 +210,18 @@ object SqlLedgerReaderWriter {
   private final class SqlLedgerStateOperations(queries: Queries)
       extends BatchingLedgerStateOperations[Index] {
     override def readState(
-        keys: Iterable[Raw.Key]
-    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Raw.Value]]] =
+        keys: Iterable[Raw.StateKey]
+    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Raw.Envelope]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
-        keyValuePairs: Iterable[Raw.KeyValuePair]
+        keyValuePairs: Iterable[Raw.StateEntry]
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 
     override def appendToLog(
-        key: Raw.Key,
-        value: Raw.Value,
+        key: Raw.LogEntryId,
+        value: Raw.Envelope,
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value)).removeExecutionContext
   }

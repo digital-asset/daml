@@ -1,6 +1,8 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+default_scala_version = "2.12.12"
+
 def _impl(ctx):
     # Generates an empty BUILD file, because we do not need to build anything.
     ctx.file(
@@ -9,7 +11,9 @@ def _impl(ctx):
         executable = False,
     )
 
-    version = ctx.os.environ.get("DAML_SCALA_VERSION", default = "2.12.12")
+    version = ctx.os.environ.get("DAML_SCALA_VERSION", default = default_scala_version)
+    if version == "":
+        version = default_scala_version
     suffix = version.replace(".", "_")
 
     major = version[:version.rfind(".")]

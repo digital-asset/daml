@@ -33,7 +33,7 @@ final class InterpretationCostBasedLedgerWriterChooser(
 
   override def commit(
       correlationId: String,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] = {
     val estimatedInterpretationCost = metadata.estimatedInterpretationCost.getOrElse(0L)

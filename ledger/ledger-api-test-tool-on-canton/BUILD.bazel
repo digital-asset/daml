@@ -132,9 +132,12 @@ conformance_test(
     ],
     runner = "@//bazel_tools/client_server/runner:runner",
     server = ":canton-test-runner-with-dependencies",
+    tags = [
+        "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
+    ],
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
         "--exclude=ParticipantPruningIT:PRFailPruneByOutOfBoundsOffset",  # on behalf of bug not yet fixed in canton 0.19.0
     ],
-) if False else None  # if not is_windows else None
+) if not is_windows else None

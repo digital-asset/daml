@@ -10,9 +10,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerStateOperationsReaderAdapter[LogResult](
     operations: LedgerStateOperations[LogResult]
-) extends StateReader[Raw.Key, Option[Raw.Value]] {
+) extends StateReader[Raw.StateKey, Option[Raw.Envelope]] {
   override def read(
-      keys: Iterable[Raw.Key]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
+      keys: Iterable[Raw.StateKey]
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
     operations.readState(keys)
 }

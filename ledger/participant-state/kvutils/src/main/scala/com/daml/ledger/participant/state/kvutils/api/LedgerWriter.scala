@@ -30,7 +30,7 @@ trait LedgerWriter extends ReportsHealth {
     */
   def commit(
       correlationId: String,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       metadata: CommitMetadata,
   ): Future[SubmissionResult]
 }

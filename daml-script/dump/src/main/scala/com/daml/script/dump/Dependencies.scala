@@ -11,7 +11,7 @@ import com.daml.lf.archive.{Dar, DarWriter, Decode}
 import com.daml.lf.archive.Reader.damlLfCodedInputStreamFromBytes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -47,6 +47,15 @@ object Dependencies {
       }
     go(references, Map.empty)
   }
+
+  def targetLfVersion(dependencies: Seq[Dar[LanguageVersion]]): Option[LanguageVersion] = {
+    val dalfs = dependencies.flatMap(_.all)
+    if (dalfs.isEmpty) { None }
+    else { Some(dalfs.max) }
+  }
+
+  def targetFlag(v: LanguageVersion): String =
+    s"--target=${v.pretty}"
 
   def writeDar(
       sdkVersion: String,

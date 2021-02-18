@@ -70,6 +70,53 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
+- job: Linux_scala_2_13
+  dependsOn:
+    - da_ghc_lib
+    - check_for_release
+  variables:
+    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    # We still need to be able to run builds for releases that don’t yet support Scala 2.13
+    # The easiest option seems to be to still run the Scala 2.13 job but
+    # pretend it’s not a release build and thereby just run it against main
+    # so that’s what we do here.
+    is_release: $[ and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'), eq(dependencies.check_for_release.outputs['out.scala_2_13'], 'true')) ]
+    scala_2_13: $[ dependencies.check_for_release.outputs['out.scala_2_13'] ]
+  timeoutInMinutes: 360
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+      condition: eq(variables.is_release, 'true')
+    - template: clean-up.yml
+    - template: build-unix.yml
+      parameters:
+        release_tag: $(release_tag)
+        name: 'linux-scala-2.13'
+        is_release: variables.is_release
+        scala_version: "2.13.3"
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+        bazel build //release:release
+        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+      env:
+        DAML_SCALA_VERSION: "2.13.3"
+      name: maven_check
+      condition: and(succeeded(), ne(variables['is_release'], 'true'))
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml
+
 - job: macOS
   dependsOn:
     - da_ghc_lib
@@ -143,52 +190,6 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- job: Linux_scala_2_13
-  dependsOn:
-    - da_ghc_lib
-  timeoutInMinutes: 360
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - checkout: self
-    - bash: ci/dev-env-install.sh
-      displayName: 'Build/Install the Developer Environment'
-    - template: clean-up.yml
-    - bash: |
-        source dev-env/lib/ensure-nix
-        ci/dev-env-push.py
-      displayName: 'Push Developer Environment build results'
-      condition: eq(variables['System.PullRequest.IsFork'], 'False')
-      env:
-        # to upload to the Nix cache
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
-
-    - bash: ci/configure-bazel.sh
-      displayName: 'Configure Bazel'
-      env:
-        IS_FORK: $(System.PullRequest.IsFork)
-        # to upload to the bazel cache
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-    - bash: |
-        set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
-        bazel build --config scala_2_13 -- \
-          //... \
-          -//ledger/ledger-api-test-tool/... \
-          -//runtime-components/non-repudiation-postgresql:test
-        bazel test --config scala_2_13 -- \
-          //... \
-          -//ledger/ledger-api-test-tool/... \
-          -//runtime-components/non-repudiation-postgresql:test
-      displayName: 'Build'
-    - template: tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
-    - template: report-end.yml
-
 - job: Linux_oracle
   dependsOn:
     - da_ghc_lib
@@ -240,7 +241,10 @@ jobs:
           echo "Could not connect to Oracle, trying again..."
           sleep 1
         done
-        # TODO Actually run some tests once we have them.
+        # Actually run some tests
+        bazel test --//ledger-service/http-json-oracle:oracle_testing=yes \
+          --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
+          //ledger-service/http-json-oracle/...
       env:
         ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
         ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
@@ -344,6 +348,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
         ./release.sh check
@@ -369,13 +374,24 @@ jobs:
                 setvar is_release true
                 setvar trigger_sha $(branch_sha)
                 setvar release_sha "$(added_line | awk '{print $1}')"
-                setvar release_tag "$(added_line | awk '{print $2}')"
+                RELEASE_TAG="$(added_line | awk '{print $2}')"
+                setvar release_tag "$RELEASE_TAG"
             else
                 echo "Release commit should only add one version."
                 exit 1
             fi
         else
+            RELEASE_TAG="0.0.0"
             setvar is_release false
+        fi
+
+        # This is the last snapshot that does not support Scala 2.13.
+        CMP="$(semver compare "$RELEASE_TAG" '1.11.0-snapshot.20210212.6300.0.ad161d7f')"
+
+        if [[ $CMP == '1' || "$RELEASE_TAG" == '0.0.0' ]]; then
+            setvar scala_2_13 true
+        else
+            setvar scala_2_13 false
         fi
       name: out
 
@@ -383,6 +399,7 @@ jobs:
   condition: always()
   dependsOn:
     - Linux
+    - Linux_scala_2_13
     - macOS
     - Windows
     - release
@@ -390,7 +407,6 @@ jobs:
     - compatibility_macos
     - compatibility_linux
     - compatibility_windows
-    - Linux_scala_2_13
   pool:
     name: "ubuntu_20_04"
     demands: assignment -equals default
@@ -399,6 +415,10 @@ jobs:
     Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
     Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
     Linux.status: $[ dependencies.Linux.result ]
+    Linux_scala_2_13.start: $[ dependencies.Linux_scala_2_13.outputs['start.time'] ]
+    Linux_scala_2_13.machine: $[ dependencies.Linux_scala_2_13.outputs['start.machine'] ]
+    Linux_scala_2_13.end: $[ dependencies.Linux_scala_2_13.outputs['end.time'] ]
+    Linux_scala_2_13.status: $[ dependencies.Linux_scala_2_13.result ]
     macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
     macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
     macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
@@ -407,10 +427,6 @@ jobs:
     Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
     Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
     Windows.status: $[ dependencies.Windows.result ]
-    Linux_scala_2_13.start: $[ dependencies.Linux_scala_2_13.outputs['start.time'] ]
-    Linux_scala_2_13.machine: $[ dependencies.Linux_scala_2_13.outputs['start.machine'] ]
-    Linux_scala_2_13.end: $[ dependencies.Linux_scala_2_13.outputs['end.time'] ]
-    Linux_scala_2_13.status: $[ dependencies.Linux_scala_2_13.result ]
     release.start: $[ dependencies.release.outputs['start.time'] ]
     release.machine: $[ dependencies.release.outputs['start.machine'] ]
     release.end: $[ dependencies.release.outputs['end.time'] ]
@@ -531,4 +547,3 @@ jobs:
         # value or empty string, but not $(Azure.Variable.Name)).
         PR_NUM: $(pr.num)
         PR_BRANCH: $(pr.branch)
-

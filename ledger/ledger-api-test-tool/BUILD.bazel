@@ -24,6 +24,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
 load(
     ":conformance.bzl",
@@ -52,6 +53,10 @@ dar_to_scala(
 da_scala_library(
     name = "PackageManagementTest.scala",
     srcs = [":PackageManagementTest.scala-codegen"],
+    plugins = [silencer_plugin],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+    ],
     deps = [
         "//language-support/scala/bindings",
     ],
@@ -105,6 +110,13 @@ EOF
             generated_srcs = [
                 ":DarsResourceNames%s.scala" % lf_version_suffix,
             ],
+            scala_deps = [
+                "@maven//:com_softwaremill_diffx_diffx_core",
+                "@maven//:com_typesafe_akka_akka_actor",
+                "@maven//:com_typesafe_akka_akka_stream",
+                "@maven//:org_scala_lang_modules_scala_collection_compat",
+                "@maven//:org_scala_lang_modules_scala_java8_compat",
+            ],
             visibility = [
                 "//:__subpackages__",
             ],
@@ -119,20 +131,27 @@ EOF
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",
                 "//libs-scala/timer-utils",
-                "@maven//:ai_x_diff_2_12",
-                "@maven//:com_typesafe_akka_akka_actor_2_12",
-                "@maven//:com_typesafe_akka_akka_stream_2_12",
                 "@maven//:com_typesafe_config",
                 "@maven//:io_netty_netty_common",
                 "@maven//:io_netty_netty_transport",
-                "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
-                "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),
         da_scala_library_suite(
             name = "ledger-api-test-tool-test-suites%s" % lf_version_suffix,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/suites/**/*.scala"]),
+            plugins = [silencer_plugin],
+            scala_deps = [
+                "@maven//:com_chuusai_shapeless",
+                "@maven//:com_propensive_magnolia",  # transitive dependency of diffx
+                "@maven//:com_propensive_mercator",  # transitive dependency of diffx
+                "@maven//:com_softwaremill_diffx_diffx_core",
+                "@maven//:org_scala_lang_modules_scala_collection_compat",
+            ],
+            scalacopts = [
+                "-P:silencer:lineContentFilters=import scala.collection.compat._",
+            ],
+            scaladoc = False,
             visibility = [
                 "//:__subpackages__",
             ],
@@ -148,12 +167,8 @@ EOF
                 "//ledger/test-common:semantic-tests%s.scala" % lf_version_suffix,
                 "//libs-scala/grpc-utils",
                 "//libs-scala/timer-utils",
-                "@maven//:ai_x_diff_2_12",
-                "@maven//:com_chuusai_shapeless_2_12",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
-                "@maven//:org_cvogt_scala_extensions_2_12",
-                "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),
@@ -181,6 +196,7 @@ EOF
                 ":DarsResourceNames%s.scala" % lf_version_suffix,
             ],
             main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+            plugins = [silencer_plugin],
             resources = [
                 "src/main/resources/logback.xml",
                 ":PackageManagementTest.dar",
@@ -188,6 +204,10 @@ EOF
             ],
             scala_deps = [
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
+                "@maven//:com_github_scopt_scopt",
+            ],
+            scalacopts = [
+                "-P:silencer:lineContentFilters=import scala.collection.compat._",
             ],
             tags = [
                 "maven_coordinates=com.daml:ledger-api-test-tool%s:__VERSION__" % lf_version_suffix,
@@ -208,7 +228,6 @@ EOF
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",
-                "@maven//:com_github_scopt_scopt_2_12",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_core",
                 "@maven//:io_grpc_grpc_netty",

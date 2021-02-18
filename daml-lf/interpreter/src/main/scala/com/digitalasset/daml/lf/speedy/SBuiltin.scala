@@ -981,23 +981,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $endExercise[T]
-    *    :: Value   (result of the exercise)
-    *    -> ()
-    */
-  final case class SBUEndExercise(templateId: TypeConName) extends OnLedgerBuiltin(1) {
-    override protected final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Unit = {
-      val exerciseResult = args.get(0).toValue
-      onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
-      checkAborted(onLedger.ptx)
-      machine.returnValue = SUnit
-    }
-  }
-
   /** $fetch[T]
     *    :: ContractId a
     *    -> a
@@ -1687,7 +1670,7 @@ private[lf] object SBuiltin {
     * throw if so. The partial transaction abort status must be
     * checked after every operation on it.
     */
-  private[this] def checkAborted(ptx: PartialTransaction): Unit =
+  private[speedy] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
       case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
         throw DamlEFailedAuthorization(nid, fa)

@@ -45,7 +45,9 @@ da_scala_test(
     visibility = ["//visibility:public"],
     deps = [
         ":dump",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//language-support/scala/bindings",
     ],
 )

@@ -123,6 +123,7 @@ da_scala_binary(
 daml_compile(
     name = "Account",
     srcs = ["src/it/daml/Account.daml"],
+    visibility = ["//ledger-service:__subpackages__"],
 )
 
 da_scala_test(
@@ -169,6 +170,38 @@ da_scala_test(
     ],
 )
 
+da_scala_library(
+    name = "integration-tests-lib",
+    srcs = glob(["src/itlib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    silent_annotations = True,
+    visibility = ["//ledger-service:__subpackages__"],
+    deps = [
+        ":http-json",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//ledger-service/utils",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//libs-scala/ports",
+    ],
+)
+
 da_scala_test(
     name = "integration-tests",
     size = "large",
@@ -199,9 +232,9 @@ da_scala_test(
         "@maven//:org_typelevel_cats_free",
     ],
     scalacopts = hj_scalacopts,
-    silent_annotations = True,
     deps = [
         ":http-json",
+        ":integration-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/interface",

@@ -30,7 +30,7 @@ import doobie.hikari.HikariTransactor
 import doobie.util.log.LogHandler
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.NettyChannelBuilder
-import org.scalatest.EitherValues
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sun.security.tools.keytool.CertAndKeyGen
@@ -42,7 +42,7 @@ import scala.concurrent.duration.DurationInt
 final class NonRepudiationProxyConformance
     extends AsyncFlatSpec
     with Matchers
-    with EitherValues
+    with OptionValues
     with PostgresAroundAll {
 
   import NonRepudiationProxyConformance._
@@ -104,7 +104,7 @@ final class NonRepudiationProxyConformance
       runner.runTests.map { summaries =>
         summaries.foldLeft(succeed) { case (_, LedgerTestSummary(_, name, description, result)) =>
           withClue(s"$name: $description") {
-            result.right.value shouldBe a[Result.Succeeded]
+            result.toOption.value shouldBe a[Result.Succeeded]
           }
         }
       }
