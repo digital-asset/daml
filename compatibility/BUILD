@@ -52,13 +52,27 @@ config_setting(
     for sdk_version in sdk_versions
 ]
 
+# Instead of testing the full cartesian product of all SDK versions with
+# all platform (~= Sandbox/JSON API) versions, we test the latest version of
+# each with all versions of the other. This gives us a reasonable feedback
+# with regards to maintaining backwards-compatibility without causing the
+# test runs to grow quadratically.
+head = "0.0.0"
+
 [
     sdk_platform_test(
         platform_version = platform_version,
+        sdk_version = head,
+    )
+    for platform_version in platform_versions
+]
+
+[
+    sdk_platform_test(
+        platform_version = head,
         sdk_version = sdk_version,
     )
     for sdk_version in sdk_versions
-    for platform_version in platform_versions
 ]
 
 [
