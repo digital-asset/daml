@@ -131,7 +131,8 @@ Such witnessed events are included in the transaction tree stream as a convenien
 They relieve the painter from computing the consequences of the choice and enable him to check that the action conforms to the Daml model.
 
 Similarly, being an actor of an **Exercise** action induces order with respect to other uses of the contract only if the actor is a contract stakeholder.
-This is because non-stakeholder actors of an **Exercise** action merely authorize the action, but they do not track whether the contract is active; this is what signatories and observers are for.
+This is because non-stakeholder actors of an **Exercise** action merely authorize the action, but they do not track whether the contract is active; this is what signatories and contract observers are for.
+Analogously, choice observers of an **Exercise** action benefit from the ordering guarantees only if they are contract stakeholders.
 
 .. _causality-example-depend-on-party:
 
@@ -343,8 +344,14 @@ Local ledgers
 As explained in the Daml Ledger Model, parties see only a :ref:`projection <da-model-projections>` of the shared ledger for privacy reasons.
 Like consistency, projection extends to causality graphs as follows.
 
+Definition »Stakeholder informee«
+  A party `P` is a **stakeholder informee** of an action `act` if `P` is an informee of `act` and, if `act` is an action on a contract then `P` is a stakeholder of the contract.
+
+An **Exercise** and **Fetch** action acts on the input contract, a **Create** action on the created contract, and a **NoSuchKey** action does not act on a contract.
+So for a **NoSuchKey** action, the stakeholder informees are the key maintainers.
+
 Definition »Causal consistency for a party«
-  A causality graph `G` is **consistent for a party** `P` (`P`-consistent) if `G` is consistent on all the actions that `P` is an informee of.
+  A causality graph `G` is **consistent for a party** `P` (`P`\ -consistent) if `G` is consistent on all the actions that `P` is a stakeholder informee of.
 
 The notions of `X`\ -minimality and `X`\ -reduction extend to parties accordingly.
 
