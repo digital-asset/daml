@@ -19,7 +19,7 @@ import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(
   Array(
@@ -263,8 +263,9 @@ object TransactionGenerator {
   )
 
   val eventGen: Gen[(Event, data.Event)] =
-    Gen.oneOf(createdEventGen, archivedEventGen).map { case (scalaEvent, javaEvent) =>
-      (Event(scalaEvent), javaEvent)
+    Gen.oneOf[(Event.Event, data.Event)](createdEventGen, archivedEventGen).map {
+      case (scalaEvent, javaEvent) =>
+        (Event(scalaEvent), javaEvent)
     }
 
   def eventsGen: Gen[(List[Event], util.List[data.Event])] = eventGen.map {

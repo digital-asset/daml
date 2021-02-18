@@ -465,10 +465,12 @@ case object LedgerApiV1 {
     final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
     // this is 100% cheating as Value should have Traverse instead
     try Right(value mapContractId { coid =>
-      ContractId fromString coid fold (
-        e => throw new NotACoid(e),
-        identity
-      )
+      ContractId
+        .fromString(coid)
+        .fold(
+          e => throw new NotACoid(e),
+          identity,
+        )
     })
     catch { case e: NotACoid => Left(GenericConversionError(e.getMessage)) }
   }

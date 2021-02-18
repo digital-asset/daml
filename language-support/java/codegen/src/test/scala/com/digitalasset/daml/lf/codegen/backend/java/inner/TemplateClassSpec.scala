@@ -12,14 +12,14 @@ import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValues with TryValues {
 
   behavior of "TemplateClass.generateFromIdAndRecord"
 
   it should "generate a public static method" in {
-    fromIdAndRecord.modifiers.asScala should contain only (Modifier.STATIC, Modifier.PUBLIC)
+    fromIdAndRecord.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
   }
 
   it should "generate a method returning the class itself" in {

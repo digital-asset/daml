@@ -374,6 +374,14 @@ object SExpr {
     }
   }
 
+  /** Exception handler */
+  final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KTryCatchHandler(machine, handler))
+      machine.ctrl = body
+    }
+  }
+
   /** Case patterns */
   sealed trait SCasePat
 
@@ -422,6 +430,7 @@ object SExpr {
   final case class FetchDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive

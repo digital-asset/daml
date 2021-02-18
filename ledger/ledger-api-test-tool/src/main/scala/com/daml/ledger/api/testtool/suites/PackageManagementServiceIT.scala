@@ -11,6 +11,7 @@ import com.daml.ledger.packagemanagementtest.PackageManagementTest.PackageManage
 import com.google.protobuf.ByteString
 import io.grpc.Status
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class PackageManagementServiceIT extends LedgerTestSuite {
@@ -59,7 +60,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       acsAfter <- ledger.activeContracts(party)
     } yield {
       val duplicatePackageIds =
-        knownPackages.groupBy(_.packageId).mapValues(_.size).filter(_._2 > 1)
+        knownPackages.groupBy(_.packageId).view.mapValues(_.size).filter(_._2 > 1).toMap
       assert(
         duplicatePackageIds.isEmpty,
         s"There are duplicate package identifiers: ${duplicatePackageIds

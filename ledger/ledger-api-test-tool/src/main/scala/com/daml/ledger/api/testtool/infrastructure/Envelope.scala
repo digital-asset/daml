@@ -9,7 +9,7 @@ import scala.collection.immutable
 import scala.concurrent.duration.Duration
 
 sealed abstract class Envelope(val name: String) extends Product with Serializable {
-  def this(names: Vector[String]) {
+  def this(names: Vector[String]) = {
     this(names.mkString(Envelope.Separator))
   }
 }

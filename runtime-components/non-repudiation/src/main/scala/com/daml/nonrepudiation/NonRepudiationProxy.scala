@@ -11,7 +11,7 @@ import io.grpc.{Channel, Server, ServerBuilder}
 
 object NonRepudiationProxy {
 
-  def owner[Context: HasExecutionContext](
+  def owner[Context](
       participant: Channel,
       serverBuilder: ServerBuilder[_],
       certificateRepository: CertificateRepository.Read,
@@ -19,13 +19,15 @@ object NonRepudiationProxy {
       timestampProvider: Clock,
       serviceName: String,
       serviceNames: String*
-  ): AbstractResourceOwner[Context, Server] = {
+  )(implicit context: HasExecutionContext[Context]): AbstractResourceOwner[Context, Server] = {
+
     val signatureVerification =
       new SignatureVerificationInterceptor(
         certificateRepository,
         signedPayloadRepository,
         timestampProvider,
       )
+
     ReverseProxy.owner(
       backend = participant,
       serverBuilder = serverBuilder,
@@ -33,6 +35,7 @@ object NonRepudiationProxy {
         .map(service => service -> Seq(signatureVerification))
         .toMap,
     )
+
   }
 
 }

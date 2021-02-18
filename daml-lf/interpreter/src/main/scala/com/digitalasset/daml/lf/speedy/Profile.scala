@@ -204,6 +204,7 @@ object Profile {
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
+      implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
       implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
       implicit val str: Allowed[String] = allowAll
 
@@ -221,6 +222,7 @@ object Profile {
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"
           case FetchByKeyDefRef(tmplRef) => s"fetchByKey @${tmplRef.qualifiedName}"
           case LookupByKeyDefRef(tmplRef) => s"lookupByKey @${tmplRef.qualifiedName}"
+          case ExceptionMessageDefRef(typeId) => s"message @${typeId.qualifiedName}"
           case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
           case str: String => str
           case any => s"<unknown ${any}>"

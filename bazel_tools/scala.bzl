@@ -412,8 +412,9 @@ def _scaladoc_jar_impl(ctx):
         args = ctx.actions.args()
         args.add_all(["-d", outdir.path])
         args.add_all("-doc-root-content", root_content)
-        args.add("-classpath")
-        args.add_joined(classpath, join_with = ":")
+        if classpath != []:
+            args.add("-classpath")
+            args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
         args.add_all(common_scalacopts)
         args.add_all(ctx.attr.scalacopts)
@@ -533,9 +534,7 @@ def da_scala_library(name, **kwargs):
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
 
-    # We get scaladoc from nix in version 2.12 atm.
-    if scala_major_version == "2.12":
-        _create_scaladoc_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:
@@ -546,7 +545,7 @@ def da_scala_library(name, **kwargs):
                 )
                 break
 
-def da_scala_library_suite(name, **kwargs):
+def da_scala_library_suite(name, scaladoc = True, **kwargs):
     """
     Define a suite of Scala libraries as a single target.
 
@@ -561,7 +560,8 @@ def da_scala_library_suite(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library_suite, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-    _create_scaladoc_jar(name = name, **arguments)
+    if scaladoc == True:
+        _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

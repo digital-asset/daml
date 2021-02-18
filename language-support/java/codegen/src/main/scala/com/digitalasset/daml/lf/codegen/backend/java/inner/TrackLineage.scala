@@ -7,7 +7,7 @@ import java.util.{ArrayDeque, Deque}
 
 import org.slf4j.MDC
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 /** This object uses the loan pattern to generate a scope within which
   * the entity lineage can be tracked on a per-thread basis, meaning

@@ -41,7 +41,7 @@ private[validator] object TestHelper {
       .setSubmissionDedup(DamlSubmissionDedupKey.newBuilder.setSubmissionId("a submission ID")),
   ).map(_.build)
 
-  lazy val anInvalidEnvelope: Raw.Value = Raw.Value(ByteString.copyFromUtf8("invalid data"))
+  lazy val anInvalidEnvelope: Raw.Envelope = Raw.Envelope(ByteString.copyFromUtf8("invalid data"))
 
   def makePartySubmission(party: String): DamlSubmission = {
     val builder = DamlSubmission.newBuilder

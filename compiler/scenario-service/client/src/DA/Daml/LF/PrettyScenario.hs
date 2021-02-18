@@ -114,9 +114,11 @@ lookupModule world mbPkgId modName = do
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
-    fmap (fromMaybe 0 . readMaybe . TL.unpack)
+    fmap (fromMaybe 0 . readMaybe . dropHash . TL.unpack)
   . TL.splitOn ":"
   . nodeIdId
+  where
+    dropHash s = fromMaybe s $ stripPrefix "#" s
 
 prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
@@ -125,7 +127,7 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
       isActive Node{..} = case nodeNode of
         Just NodeNodeCreate{} -> isNothing nodeConsumedBy
         _ -> False
-      sortNodeIds = sortBy (\a b -> compare (parseNodeId a) (parseNodeId b))
+      sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
         $ map prettyNodeIdLink

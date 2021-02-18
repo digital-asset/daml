@@ -13,6 +13,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.MDC
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[codegen] object JavaBackend extends Backend with StrictLogging {
@@ -57,7 +58,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
       conf: Conf,
       packagePrefixes: Map[PackageId, String],
   )(implicit ec: ExecutionContext): Future[Unit] = {
-    val prefixes = packagePrefixes.mapValues(_.stripSuffix("."))
+    val prefixes = packagePrefixes.view.mapValues(_.stripSuffix(".")).toMap
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext if moduleWithContext.module.types.nonEmpty =>
         // this is a DAML module that contains type declarations => the codegen will create one file

@@ -3,6 +3,7 @@
 
 package com.daml.nonrepudiation
 
+import com.codahale.metrics.Timer
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
 
 object SignedPayloadRepository {
@@ -28,6 +29,11 @@ object SignedPayloadRepository {
 
   trait Write {
     def put(signedPayload: SignedPayload): Unit
+  }
+
+  final class Timed(timer: Timer, delegate: Write) extends Write {
+    override def put(signedPayload: SignedPayload): Unit =
+      timer.time[Unit](() => delegate.put(signedPayload))
   }
 
 }

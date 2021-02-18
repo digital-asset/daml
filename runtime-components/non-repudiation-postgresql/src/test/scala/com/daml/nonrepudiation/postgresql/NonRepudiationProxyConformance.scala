@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.nonrepudiation.client.SigningInterceptor
-import com.daml.nonrepudiation.{AlgorithmString, NonRepudiationProxy}
+import com.daml.nonrepudiation.{AlgorithmString, MetricsReporterOwner, NonRepudiationProxy}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.{Runner => Sandbox}
 import com.daml.ports.Port
@@ -30,7 +30,7 @@ import doobie.hikari.HikariTransactor
 import doobie.util.log.LogHandler
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.NettyChannelBuilder
-import org.scalatest.EitherValues
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sun.security.tools.keytool.CertAndKeyGen
@@ -42,7 +42,7 @@ import scala.concurrent.duration.DurationInt
 final class NonRepudiationProxyConformance
     extends AsyncFlatSpec
     with Matchers
-    with EitherValues
+    with OptionValues
     with PostgresAroundAll {
 
   import NonRepudiationProxyConformance._
@@ -77,6 +77,7 @@ final class NonRepudiationProxyConformance
           sandboxChannelBuilder,
           shutdownTimeout = 5.seconds,
         )
+        _ <- MetricsReporterOwner.slf4j[ResourceContext](period = 5.seconds)
         transactor <- managedHikariTransactor(postgresDatabase.url, maxPoolSize = 10)
         db = Tables.initialize(transactor)
         _ = db.certificates.put(certificate)
@@ -103,7 +104,7 @@ final class NonRepudiationProxyConformance
       runner.runTests.map { summaries =>
         summaries.foldLeft(succeed) { case (_, LedgerTestSummary(_, name, description, result)) =>
           withClue(s"$name: $description") {
-            result.right.value shouldBe a[Result.Succeeded]
+            result.toOption.value shouldBe a[Result.Succeeded]
           }
         }
       }

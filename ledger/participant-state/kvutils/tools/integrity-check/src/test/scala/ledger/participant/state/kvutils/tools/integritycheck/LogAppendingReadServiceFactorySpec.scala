@@ -96,6 +96,6 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
     None,
   )
 
-  private lazy val aSerializedLogEntryId = Raw.Key(aLogEntryId.toByteString)
+  private lazy val aSerializedLogEntryId = Raw.LogEntryId(aLogEntryId)
   private lazy val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 }

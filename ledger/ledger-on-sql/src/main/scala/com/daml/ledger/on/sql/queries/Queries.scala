@@ -45,10 +45,13 @@ object Queries {
     (s: PreparedStatement, index: Int, v: ByteString) =>
       s.setBinaryStream(index, v.newInput(), v.size())
 
-  implicit val rawKeyToStatement: ToStatement[Raw.Key] =
+  implicit val rawLogEntryIdToStatement: ToStatement[Raw.LogEntryId] =
     byteStringToStatement.contramap(_.bytes)
 
-  implicit val rawValueToStatement: ToStatement[Raw.Value] =
+  implicit val rawStateKeyToStatement: ToStatement[Raw.StateKey] =
+    byteStringToStatement.contramap(_.bytes)
+
+  implicit val rawEnvelopeToStatement: ToStatement[Raw.Envelope] =
     byteStringToStatement.contramap(_.bytes)
 
   private val columnToByteString: Column[ByteString] =
@@ -64,16 +67,19 @@ object Queries {
       }
     }
 
-  implicit val columnToRawKey: Column[Raw.Key] =
-    columnToByteString.map(Raw.Key.apply)
+  implicit val columnToRawLogEntryId: Column[Raw.LogEntryId] =
+    columnToByteString.map(Raw.LogEntryId.apply)
 
-  implicit val columnToRawValue: Column[Raw.Value] =
-    columnToByteString.map(Raw.Value.apply)
+  implicit val columnToRawStateKey: Column[Raw.StateKey] =
+    columnToByteString.map(Raw.StateKey.apply)
 
-  def rawKey(columnName: String): RowParser[Raw.Key] =
-    SqlParser.get(columnName)(columnToRawKey)
+  implicit val columnToRawEnvelope: Column[Raw.Envelope] =
+    columnToByteString.map(Raw.Envelope.apply)
 
-  def rawValue(columnName: String): RowParser[Raw.Value] =
-    SqlParser.get(columnName)(columnToRawValue)
+  def rawLogEntryId(columnName: String): RowParser[Raw.LogEntryId] =
+    SqlParser.get(columnName)(columnToRawLogEntryId)
+
+  def rawEnvelope(columnName: String): RowParser[Raw.Envelope] =
+    SqlParser.get(columnName)(columnToRawEnvelope)
 
 }

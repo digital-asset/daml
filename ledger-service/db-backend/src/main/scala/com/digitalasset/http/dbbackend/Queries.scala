@@ -3,8 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import com.github.ghik.silencer.silent
-
 import doobie._
 import doobie.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
@@ -23,79 +21,87 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 
 sealed abstract class Queries {
-  import Queries._
+  import Queries._, InitDdl._
   import Implicits._
 
-  def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
+  protected[this] def dropTableIfExists(table: String): Fragment
 
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"payload"
 
-  private[this] val dropContractsTable: Fragment = dropTableIfExists("contract")
-
-  private[this] val createContractsTable: Fragment = sql"""
+  private[this] val createContractsTable = CreateTable(
+    "contract",
+    sql"""
       CREATE TABLE
         contract
-        (contract_id TEXT NOT NULL PRIMARY KEY
-        ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
-        ,key JSONB NOT NULL
-        ,payload JSONB NOT NULL
-        ,signatories TEXT ARRAY NOT NULL
-        ,observers TEXT ARRAY NOT NULL
-        ,agreement_text TEXT NOT NULL
+        (contract_id """ ++ textType ++ sql""" NOT NULL PRIMARY KEY
+        ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
+        ,""" ++ jsonColumn(sql"key") ++ sql"""
+        ,""" ++ jsonColumn(contractColumnName) ++
+      contractsTableSignatoriesObservers ++ sql"""
+        ,agreement_text """ ++ agreementTextType ++ sql"""
         )
-    """
+    """,
+  )
 
-  val indexContractsTable: Fragment = sql"""
+  protected[this] def contractsTableSignatoriesObservers: Fragment
+
+  private[this] val indexContractsTable = CreateIndex(sql"""
       CREATE INDEX contract_tpid_idx ON contract (tpid)
-    """
+    """)
 
-  private[this] val indexContractsKeys: Fragment = sql"""
-      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
-  """
-
-  private[this] val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
-
-  private[this] val createOffsetTable: Fragment = sql"""
+  private[this] val createOffsetTable = CreateTable(
+    "ledger_offset",
+    sql"""
       CREATE TABLE
         ledger_offset
-        (party TEXT NOT NULL
-        ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
-        ,last_offset TEXT NOT NULL
+        (party """ ++ textType ++ sql""" NOT NULL
+        ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
+        ,last_offset """ ++ textType ++ sql""" NOT NULL
         ,PRIMARY KEY (party, tpid)
         )
-    """
+    """,
+  )
 
-  private[this] val dropTemplateIdsTable: Fragment = dropTableIfExists("template_id")
+  protected[this] def bigIntType: Fragment // must match bigserial
+  protected[this] def bigSerialType: Fragment
+  protected[this] def textType: Fragment
+  protected[this] def agreementTextType: Fragment
 
-  private[this] val createTemplateIdsTable: Fragment = sql"""
+  protected[this] def jsonColumn(name: Fragment): Fragment
+
+  private[this] val createTemplateIdsTable = CreateTable(
+    "template_id",
+    sql"""
       CREATE TABLE
         template_id
-        (tpid BIGSERIAL NOT NULL PRIMARY KEY
-        ,package_id TEXT NOT NULL
-        ,template_module_name TEXT NOT NULL
-        ,template_entity_name TEXT NOT NULL
+        (tpid """ ++ bigSerialType ++ sql""" NOT NULL PRIMARY KEY
+        ,package_id """ ++ textType ++ sql""" NOT NULL
+        ,template_module_name """ ++ textType ++ sql""" NOT NULL
+        ,template_entity_name """ ++ textType ++ sql""" NOT NULL
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
-    """
+    """,
+  )
 
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] =
-    (dropContractsTable.update.run
-      *> dropOffsetTable.update.run
-      *> dropTemplateIdsTable.update.run).void
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdls.reverse
+      .collect { case CreateTable(name, _) => dropTableIfExists(name) }
+      .traverse_(_.update.run)
+  }
 
-  private[this] def initDatabaseDdls: Vector[Fragment] =
+  protected[this] def initDatabaseDdls: Vector[InitDdl] =
     Vector(
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
       indexContractsTable,
-      indexContractsKeys,
     )
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls.traverse_(_.update.run)
+    initDatabaseDdls.traverse_(_.create.update.run)
   }
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
@@ -114,13 +120,15 @@ sealed abstract class Queries {
       )
     }
 
-  def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
-      log: LogHandler,
-      pls: Put[Vector[String]],
+  final def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
+      log: LogHandler
   ): ConnectionIO[Map[String, String]] = {
-    val partyVector = parties.toVector
-    sql"""SELECT party, last_offset FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
-      .query[(String, String)]
+    val partyVector =
+      cats.data.OneAnd(parties.head, parties.tail.toList)
+    val q = sql"""
+      SELECT party, last_offset FROM ledger_offset WHERE tpid = $tpid AND
+    """ ++ Fragments.in(fr"party", partyVector)
+    q.query[(String, String)]
       .to[Vector]
       .map(_.toMap)
   }
@@ -145,8 +153,7 @@ sealed abstract class Queries {
       tpid: SurrogateTpId,
       newOffset: String,
       lastOffsets: Map[String, String],
-  )(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
-    import spray.json.DefaultJsonProtocol._
+  )(implicit log: LogHandler): ConnectionIO[Int] = {
     val (existingParties, newParties) = {
       import cats.syntax.foldable._
       parties.toList.partition(p => lastOffsets.contains(p))
@@ -158,36 +165,52 @@ sealed abstract class Queries {
     )
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
-    val update =
-      sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+    val update = existingParties match {
+      case hdP +: tlP =>
+        Some(
+          sql"""UPDATE ledger_offset SET last_offset = $newOffset
+            WHERE """ ++ Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP)) ++
+            sql""" AND tpid = $tpid
+                   AND last_offset = """ ++ caseLookup(
+              lastOffsets.filter { case (k, _) => existingParties contains k },
+              fr"party",
+            )
+        )
+      case _ => None
+    }
     for {
       inserted <-
         if (newParties.isEmpty) { Applicative[ConnectionIO].pure(0) }
         else {
           insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
         }
-      updated <-
-        if (existingParties.isEmpty) { Applicative[ConnectionIO].pure(0) }
-        else {
-          update.update.run
-        }
+      updated <- update.cata(_.update.run, Applicative[ConnectionIO].pure(0))
     } yield { inserted + updated }
   }
 
-  @silent(" pas .* never used")
-  def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
+  private[this] def caseLookup(m: Map[String, String], selector: Fragment): Fragment =
+    fr"CASE" ++ {
+      assert(m.nonEmpty, "existing offsets must be non-empty")
+      val when +: whens = m.iterator.map { case (k, v) =>
+        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
+      }.toVector
+      concatFragment(OneAnd(when, whens))
+    } ++ fr"ELSE NULL END"
+
+  // different databases encode contract keys in different formats
+  protected[this] type DBContractKey
+  protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
+
+  final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
-    Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
-      """
-        INSERT INTO contract
-        VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
-        ON CONFLICT (contract_id) DO NOTHING
-      """,
-      logHandler0 = log,
-    ).updateMany(dbcs.map(_.mapKeyPayloadParties(_.toJson, _.toJson, _.toArray)))
+    primInsertContracts(dbcs.map(_.mapKeyPayloadParties(toDBContractKey(_), _.toJson, _.toArray)))
 
-  def deleteContracts[F[_]: Foldable](
+  protected[this] def primInsertContracts[F[_]: cats.Foldable: Functor](
+      dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int]
+
+  final def deleteContracts[F[_]: Foldable](
       cids: F[String]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     cids.toVector match {
@@ -199,8 +222,7 @@ sealed abstract class Queries {
     }
   }
 
-  @silent(" gvs .* never used")
-  private[http] def selectContracts(
+  private[http] final def selectContracts(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
       predicate: Fragment,
@@ -208,25 +230,9 @@ sealed abstract class Queries {
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
-    val partyVector = parties.toVector
-    val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
-                  FROM contract
-                  WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                   AND tpid = $tpid AND (""" ++ predicate ++ sql")"
-    q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
-      case (cid, key, payload, signatories, observers, agreement) =>
-        DBContract(
-          contractId = cid,
-          templateId = (),
-          key = key,
-          payload = payload,
-          signatories = signatories,
-          observers = observers,
-          agreementText = agreement,
-        )
-    }
-  }
+  ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
+    selectContractsMultiTemplate(parties, Seq((tpid, predicate)), MatchedQueryMarker.Unused)
+      .map(_ copy (templateId = ()))
 
   /** Make the smallest number of queries from `queries` that still indicates
     * which query or queries produced each contract.
@@ -236,7 +242,6 @@ sealed abstract class Queries {
     * `templateId` of the resulting [[DBContract]] is actually the 0-based index
     * into the `queries` argument that produced the contract.
     */
-  @silent(" gvs .* never used")
   private[http] def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
       queries: Seq[(SurrogateTpId, Fragment)],
@@ -245,50 +250,9 @@ sealed abstract class Queries {
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
-  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
-    val partyVector = parties.toVector
-    def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
-      val assocedPreds = preds.map { case (tpid, predicate) =>
-        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
-      }
-      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
-      val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
-                      FROM contract AS c
-                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                       AND (""" ++ unionPred ++ sql")"
-      q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
-        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
-          DBContract(
-            contractId = cid,
-            templateId = findMark(tpid),
-            key = key,
-            payload = payload,
-            signatories = signatories,
-            observers = observers,
-            agreementText = agreement,
-          )
-        }
-    }
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]]
 
-    trackMatchIndices match {
-      case MatchedQueryMarker.ByInt =>
-        type Ix = Int
-        uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
-          preds: Map[SurrogateTpId, (Fragment, Ix)] =>
-            val predHd +: predTl = preds.toVector
-            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
-              (tpid, predicate)
-            }
-            query(predsList, tpid => preds(tpid)._2)
-        }
-
-      case MatchedQueryMarker.Unused =>
-        val predHd +: predTl = queries.toVector
-        query(OneAnd(predHd, predTl), identity)
-    }
-  }
-
-  private[http] def fetchById(
+  private[http] final def fetchById(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
       contractId: String,
@@ -349,6 +313,15 @@ object Queries {
       )
   }
 
+  private[dbbackend] sealed abstract class InitDdl extends Product with Serializable {
+    def create: Fragment
+  }
+
+  private[dbbackend] object InitDdl {
+    final case class CreateTable(name: String, create: Fragment) extends InitDdl
+    final case class CreateIndex(create: Fragment) extends InitDdl
+  }
+
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
     * and whether it may compute >1 query to run.
     *
@@ -396,6 +369,226 @@ object Queries {
     }
 
   private[http] val Postgres: Queries = PostgresQueries
+  private[http] val Oracle: Queries = OracleQueries
 }
 
-private object PostgresQueries extends Queries
+private object PostgresQueries extends Queries {
+  import Queries._, Queries.InitDdl.CreateIndex
+  import Implicits._
+
+  protected[this] override def dropTableIfExists(table: String) =
+    Fragment.const(s"DROP TABLE IF EXISTS ${table}")
+
+  protected[this] override def bigIntType = sql"BIGINT"
+  protected[this] override def bigSerialType = sql"BIGSERIAL"
+  protected[this] override def textType = sql"TEXT"
+  protected[this] override def agreementTextType = sql"TEXT NOT NULL"
+
+  protected[this] override def jsonColumn(name: Fragment) = name ++ sql" JSONB NOT NULL"
+
+  private[this] val indexContractsKeys = CreateIndex(sql"""
+      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
+  """)
+
+  protected[this] override def initDatabaseDdls = super.initDatabaseDdls :+ indexContractsKeys
+
+  protected[this] override def contractsTableSignatoriesObservers = sql"""
+    ,signatories TEXT ARRAY NOT NULL
+    ,observers TEXT ARRAY NOT NULL
+  """
+
+  protected[this] type DBContractKey = JsValue
+
+  protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) = x.toJson
+
+  protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
+      dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
+    Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
+      """
+        INSERT INTO contract
+        VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
+        ON CONFLICT (contract_id) DO NOTHING
+      """,
+      logHandler0 = log,
+    ).updateMany(dbcs)
+
+  private[http] override def selectContractsMultiTemplate[T[_], Mark](
+      parties: OneAnd[Set, String],
+      queries: Seq[(SurrogateTpId, Fragment)],
+      trackMatchIndices: MatchedQueryMarker[T, Mark],
+  )(implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+    val partyVector = parties.toVector
+    def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
+      val assocedPreds = preds.map { case (tpid, predicate) =>
+        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
+      }
+      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
+      val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
+                      FROM contract AS c
+                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                       AND (""" ++ unionPred ++ sql")"
+      q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
+        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
+          DBContract(
+            contractId = cid,
+            templateId = findMark(tpid),
+            key = key,
+            payload = payload,
+            signatories = signatories,
+            observers = observers,
+            agreementText = agreement,
+          )
+        }
+    }
+
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt =>
+        type Ix = Int
+        uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
+          preds: Map[SurrogateTpId, (Fragment, Ix)] =>
+            val predHd +: predTl = preds.toVector
+            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
+              (tpid, predicate)
+            }
+            query(predsList, tpid => preds(tpid)._2)
+        }
+
+      case MatchedQueryMarker.Unused =>
+        val predHd +: predTl = queries.toVector
+        query(OneAnd(predHd, predTl), identity)
+    }
+  }
+}
+
+private object OracleQueries extends Queries {
+  import Queries.{DBContract, MatchedQueryMarker, SurrogateTpId}, Queries.InitDdl.CreateTable
+  import Implicits._
+
+  protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
+      EXECUTE IMMEDIATE 'DROP TABLE ' || $table;
+    EXCEPTION
+      WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+          RAISE;
+        END IF;
+    END;"""
+
+  protected[this] override def bigIntType = sql"NUMBER(19,0)"
+  protected[this] override def bigSerialType =
+    bigIntType ++ sql" GENERATED ALWAYS AS IDENTITY"
+  // TODO SC refine the string formats chosen here and for jsonColumn
+  protected[this] override def textType = sql"NVARCHAR2(100)"
+  protected[this] override def agreementTextType = sql"NVARCHAR2(100)"
+
+  protected[this] override def jsonColumn(name: Fragment) =
+    name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
+
+  protected[this] override def contractsTableSignatoriesObservers = sql""
+
+  private val createSignatoriesTable = CreateTable(
+    "signatories",
+    sql"""
+      CREATE TABLE
+        signatories
+          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
+          ,party NVARCHAR2(100) NOT NULL
+          ,UNIQUE (contract_id, party)
+          )
+    """,
+  )
+
+  private val createObserversTable = CreateTable(
+    "observers",
+    sql"""
+      CREATE TABLE
+        observers
+          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
+          ,party NVARCHAR2(100) NOT NULL
+          ,UNIQUE (contract_id, party)
+          )
+    """,
+  )
+
+  protected[this] override def initDatabaseDdls =
+    super.initDatabaseDdls ++ Seq(createSignatoriesTable, createObserversTable)
+
+  protected[this] type DBContractKey = JsValue
+
+  protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) =
+    JsObject(Map("key" -> x.toJson))
+
+  protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
+      dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
+  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
+    println("insert contracts")
+    println(dbcs)
+    val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
+      """
+        INSERT INTO contract(contract_id, tpid, key, payload, agreement_text)
+        VALUES (?, ?, ?, ?, ?)
+      """,
+      logHandler0 = log,
+    ).updateMany(
+      dbcs
+        .map { c =>
+//          println(c)
+          (c.contractId, c.templateId, c.key, c.payload, c.agreementText)
+        }
+    )
+    println("inserted")
+    import cats.syntax.foldable._, cats.instances.vector._
+    val r2 = Update[(String, String)](
+      """
+        INSERT INTO signatories(contract_id, party)
+        VALUES (?, ?)
+      """,
+      logHandler0 = log,
+    ).updateMany(dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s)).toVector))
+    val r3 = Update[(String, String)](
+      """
+        INSERT INTO observers(contract_id, party)
+        VALUES (?, ?)
+      """,
+      logHandler0 = log,
+    ).updateMany(dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s)).toVector))
+    r *> r2 *> r3
+  }
+
+  private[http] override def selectContractsMultiTemplate[T[_], Mark](
+      parties: OneAnd[Set, String],
+      queries: Seq[(SurrogateTpId, Fragment)],
+      trackMatchIndices: MatchedQueryMarker[T, Mark],
+  )(implicit
+      log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]],
+  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+    val Seq((tpid, predicate @ _)) = queries // TODO SC handle more than one
+    val _ = parties
+    println("selecting")
+    val q = sql"""SELECT contract_id, key, payload, agreement_text
+                  FROM contract
+                  WHERE tpid = $tpid""" // TODO SC AND (""" ++ predicate ++ sql")"
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
+      case MatchedQueryMarker.Unused =>
+        q.query[(String, JsValue, JsValue, Option[String])].map {
+          case (cid, key, payload, agreement) =>
+            DBContract(
+              contractId = cid,
+              templateId = tpid,
+              key = key,
+              payload = payload,
+              signatories = Vector(),
+              observers = Vector(),
+              agreementText = agreement getOrElse "",
+            )
+        }
+    }
+  }
+}

@@ -38,6 +38,14 @@ let
         sha256 = "3520cd1f3c9efff62baee75f32e52d1e5dc120be2ccf340649e470e48f527e2b";
       };
     });
+    scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
+      version = "2.13.3";
+      name = "scala-2.13.3";
+      src = pkgs.fetchurl {
+        url = "https://www.scala-lang.org/files/archive/${name}.tgz";
+        sha256 = "0zv9w9f6g2cfydsvp8mqcfgv2v3487xp4ca1qndg6v7jrhdp7wy9";
+      };
+    });
    haskell = pkgs.haskell // {
      packages = pkgs.haskell.packages // {
        integer-simple = pkgs.haskell.packages.integer-simple // {

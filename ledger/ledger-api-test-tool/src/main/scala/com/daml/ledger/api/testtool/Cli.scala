@@ -12,6 +12,7 @@ import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.{OptionParser, Read}
 
+import scala.collection.compat.immutable.LazyList
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
@@ -231,7 +232,8 @@ object Cli {
 
   private def oneOfRead[T](readersHead: Read[T], readersTail: Read[T]*): Read[T] = Read.reads {
     str =>
-      val results = (readersHead #:: Stream(readersTail: _*)).map(reader => Try(reader.reads(str)))
+      val results =
+        (readersHead #:: LazyList(readersTail: _*)).map(reader => Try(reader.reads(str)))
       results.find(_.isSuccess) match {
         case Some(value) => value.get
         case None => results.head.get // throw the first failure

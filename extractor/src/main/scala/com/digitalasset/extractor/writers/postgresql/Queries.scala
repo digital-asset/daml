@@ -206,9 +206,11 @@ object Queries {
 
   object MultiTable {
     def createContractTable(table: String, columns: List[(String, String)]): Fragment = {
-      val columnDefs = columns.map { case (name, typeDef) =>
-        s"$name $typeDef"
-      } mkString (", ", ", \n", "")
+      val columnDefs = columns
+        .map { case (name, typeDef) =>
+          s"$name $typeDef"
+        }
+        .mkString(", ", ", \n", "")
 
       val query =
         s"""CREATE TABLE

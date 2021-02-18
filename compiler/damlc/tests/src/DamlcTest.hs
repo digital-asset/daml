@@ -188,8 +188,37 @@ testsForDamlcTest damlc = testGroup "damlc test" $
               ]
             (exitCode, stdout, _stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             exitCode @?= ExitSuccess
-            assertBool "test coverage is reported correctly"
+            assertBool ("test coverage is reported correctly: " <> stdout)
                        ("test coverage: templates 50%, choices 33%\n" `isSuffixOf` stdout)
+    , testCase "Full test coverage report" $ do
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
+              [ "module Foo where"
+              , "template S with p : Party where"
+              , "  signatory p"
+              , "template T with p : Party where"
+              , "  signatory p"
+              , "  choice X : () with controller p"
+              , "    do pure ()"
+              , "x = scenario do"
+              , "      alice <- getParty \"Alice\""
+              , "      c <- submit alice $ create T with p = alice"
+              , "      submit alice $ exercise c X with"
+              ]
+            (exitCode, stdout, _stderr) <-
+              readProcessWithExitCode damlc ["test", "--show-coverage", "--files", file] ""
+            exitCode @?= ExitSuccess
+            assertBool
+                ("test coverage is reported correctly: " <> stdout)
+                (unlines
+                     [ "templates never created:"
+                     , "Foo:S"
+                     , "choices never executed:"
+                     , "Foo:S:Archive"
+                     , "Foo:T:Archive\n"
+                     ] `isSuffixOf`
+                 stdout)
     , testCase "File with failing scenario" $ do
         withTempDir $ \dir -> do
             let file = dir </> "Foo.daml"

@@ -114,7 +114,7 @@ package dotnot {
       * @param delegate the dotnot handler for `e`
       */
     def onElements[E](getName: E => String, delegate: OnTreeReady[E, R, C])(implicit
-        ev: T <:< Traversable[E]
+        ev: T <:< Iterable[E]
     ): OnTreeReady[T, R, C] = {
       val action: (T, PropertyCursor, String, C) => Either[DotNotFailure, R] =
         (t: T, cursor: PropertyCursor, value: String, context: C) => {
@@ -222,7 +222,7 @@ package dotnot {
     def perform[K](f: (T, K) => R)(implicit readK: Read[K]): OnLeafReady[T, R, C] = {
       val action: Action[T, R, C] = (t: T, cursor: PropertyCursor, value: String, _: C) => {
         if (cursor.isLast) {
-          Right(f(t, readK.from(value).right.get))
+          Right(f(t, readK.from(value).toOption.get))
         } else {
           Left(MustBeLastPart(onLeaf.onTreeOld.target, cursor, value))
         }

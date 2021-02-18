@@ -8,7 +8,7 @@ case object Converter {
   /** Returns the sequence of values, or the last error encountered */
   def sequence[E, T](xs: Seq[Either[E, T]]): Either[E, List[T]] =
     xs.foldRight(Right(Nil): Either[E, List[T]]) { (e, acc) =>
-      for (xs <- acc.right; x <- e.right) yield x :: xs
+      for (xs <- acc; x <- e) yield x :: xs
     }
 
   /** Returns the value of a required protobuf3 field, or RequiredFieldDoesNotExistError if it doesn't exist. */

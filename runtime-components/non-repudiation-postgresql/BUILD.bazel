@@ -22,10 +22,8 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     deps = [
         "//runtime-components/non-repudiation",
         "@maven//:com_zaxxer_HikariCP",
@@ -47,10 +45,8 @@ da_scala_test(
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -80,5 +76,6 @@ da_scala_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )

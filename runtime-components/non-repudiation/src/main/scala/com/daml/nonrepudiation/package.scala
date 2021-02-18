@@ -53,7 +53,7 @@ package object nonrepudiation {
       fromPayload(payload).get
   }
 
-  type FingerprintBytes <: ArraySeq[Byte]
+  type FingerprintBytes <: ArraySeq.ofByte
 
   object FingerprintBytes {
     def wrap(bytes: Array[Byte]): FingerprintBytes =
@@ -62,23 +62,23 @@ package object nonrepudiation {
       wrap(Fingerprints.compute(certificate))
   }
 
-  type PayloadBytes <: ArraySeq[Byte]
+  type PayloadBytes <: ArraySeq.ofByte
 
   object PayloadBytes {
     def wrap(bytes: Array[Byte]): PayloadBytes =
-      ArraySeq.unsafeWrapArray(bytes).asInstanceOf[PayloadBytes]
+      new ArraySeq.ofByte(bytes).asInstanceOf[PayloadBytes]
   }
 
-  type SignatureBytes <: ArraySeq[Byte]
+  type SignatureBytes <: ArraySeq.ofByte
 
   object SignatureBytes {
     def wrap(bytes: Array[Byte]): SignatureBytes =
-      ArraySeq.unsafeWrapArray(bytes).asInstanceOf[SignatureBytes]
+      new ArraySeq.ofByte(bytes).asInstanceOf[SignatureBytes]
     def sign(algorithm: AlgorithmString, key: PrivateKey, payload: PayloadBytes): SignatureBytes =
       wrap(Signatures.sign(algorithm, key, payload.unsafeArray))
   }
 
-  implicit final class BytesToBase64[Bytes <: ArraySeq[Byte]](val bytes: Bytes) extends AnyVal {
+  implicit final class BytesToBase64[Bytes <: ArraySeq.ofByte](val bytes: Bytes) extends AnyVal {
     def base64: String = BaseEncoding.base64().encode(bytes.unsafeArray)
   }
 

@@ -18,8 +18,8 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 class BatchingLedgerWriterSpec
     extends AsyncWordSpec
@@ -51,7 +51,7 @@ class BatchingLedgerWriterSpec
     }
 
     "construct batch correctly" in {
-      val batchCaptor = ArgCaptor[Raw.Value]
+      val batchCaptor = ArgCaptor[Raw.Envelope]
       val mockWriter = createMockWriter(captor = Some(batchCaptor))
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit loggingContext =>
@@ -82,7 +82,7 @@ class BatchingLedgerWriterSpec
         result2 <- batchingWriter.commit("test2", aSubmission, someCommitMetadata)
         result3 <- batchingWriter.commit("test3", aSubmission, someCommitMetadata)
       } yield {
-        verify(mockWriter, times(3)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+        verify(mockWriter, times(3)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
         batchingWriter.currentHealth() should be(HealthStatus.healthy)
       }
@@ -94,7 +94,7 @@ class BatchingLedgerWriterSpec
 
 object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar {
   private val aCorrelationId = "aCorrelationId"
-  private val aSubmission = Raw.Value(ByteString.copyFromUtf8("a submission"))
+  private val aSubmission = Raw.Envelope(ByteString.copyFromUtf8("a submission"))
 
   def immediateBatchingQueue()(implicit executionContext: ExecutionContext): BatchingQueue =
     new BatchingQueue {
@@ -116,7 +116,7 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
         }
     }
 
-  private def createMockWriter(captor: Option[Captor[Raw.Value]]): LedgerWriter = {
+  private def createMockWriter(captor: Option[Captor[Raw.Envelope]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(writer.commit(any[String], captor.map(_.capture).getOrElse(any), any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
@@ -125,7 +125,7 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
     writer
   }
 
-  private def createExpectedBatch(correlatedSubmissions: (String, Raw.Value)*): Raw.Value =
+  private def createExpectedBatch(correlatedSubmissions: (String, Raw.Envelope)*): Raw.Envelope =
     Envelope
       .enclose(
         DamlSubmissionBatch.newBuilder

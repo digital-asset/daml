@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait DataLayerHelpers {
 

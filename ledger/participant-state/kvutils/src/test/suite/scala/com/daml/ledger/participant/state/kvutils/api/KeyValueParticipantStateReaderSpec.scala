@@ -158,7 +158,7 @@ class KeyValueParticipantStateReaderSpec
     }
 
     "throw in case of an invalid log entry received" in {
-      val anInvalidEnvelope = Raw.Value(ByteString.copyFrom(Array[Byte](0, 1, 2)))
+      val anInvalidEnvelope = Raw.Envelope(ByteString.copyFrom(Array[Byte](0, 1, 2)))
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope),
@@ -261,12 +261,11 @@ object KeyValueParticipantStateReaderSpec {
         recordTime,
       )
 
-  private def aLogEntryId(index: Int): Raw.Key =
-    Raw.Key(
+  private def aLogEntryId(index: Int): Raw.LogEntryId =
+    Raw.LogEntryId(
       DamlLogEntryId.newBuilder
         .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
         .build
-        .toByteString
     )
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {

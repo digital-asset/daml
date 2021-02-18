@@ -64,6 +64,12 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
+      case SAnyException(_, _, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SAnyException")
+      case SBuiltinException(_, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        // builtin exceptions values are serializable, so this should work
+        throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
       case STypeRep(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STypeRep")
       case STNat(_) =>
@@ -103,6 +109,10 @@ sealed trait SValue {
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
+      case SAnyException(ty, sel, value) =>
+        SAnyException(ty, sel, value.mapContractId(f))
+      case SBuiltinException(tag, value) =>
+        SBuiltinException(tag, value.mapContractId(f))
     }
 }
 
@@ -187,6 +197,10 @@ object SValue {
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
+  final case class SAnyException(ty: Type, messageFunction: SExpr, value: SValue) extends SValue
+
+  // A value of one of the builtin exception types: GeneralError, ArithmeticError, ContractError
+  final case class SBuiltinException(tag: String, value: SValue) extends SValue
 
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the

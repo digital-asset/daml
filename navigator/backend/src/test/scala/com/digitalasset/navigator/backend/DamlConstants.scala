@@ -350,7 +350,7 @@ case object DamlConstants {
   private[navigator] def record(fields: (String, ApiValue)*): ApiRecord =
     V.ValueRecord(
       None,
-      fields.iterator.map { case (label, value) => Some(name(label)) -> value }.to[ImmArray],
+      fields.iterator.map { case (label, value) => Some(name(label)) -> value }.to(ImmArray),
     )
 
 }

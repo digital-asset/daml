@@ -19,11 +19,9 @@ import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 
-class ContractDao(xa: Connection.T) {
+class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
 
   implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
-
-  implicit val jdbcDriver: SupportedJdbcDriver = SupportedJdbcDriver.Postgres
 
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
@@ -33,10 +31,25 @@ class ContractDao(xa: Connection.T) {
 }
 
 object ContractDao {
+  private[this] val supportedJdbcDrivers = Map(
+    "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
+    "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
+  )
+
+  lazy val supportedJdbcDriverNames = supportedJdbcDrivers.keySet filter { d =>
+    scala.util.Try(Class forName d).isSuccess
+  }
+
   def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
       ec: ExecutionContext
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
+    implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
+      jdbcDriver,
+      throw new IllegalArgumentException(
+        s"JDBC driver $jdbcDriver is not one of ${supportedJdbcDrivers.keySet}"
+      ),
+    )
     new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
   }
 

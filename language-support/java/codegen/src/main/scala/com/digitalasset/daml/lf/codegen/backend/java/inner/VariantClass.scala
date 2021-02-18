@@ -13,7 +13,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters.{asJavaIterableConverter, iterableAsScalaIterableConverter}
+import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[inner] object VariantClass extends StrictLogging {

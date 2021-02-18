@@ -5,7 +5,9 @@ package com.daml.ledger.client.binding
 
 import scala.collection.immutable
 
-private[binding] object CollectionCompat {
-  type MapLike[K, +V, +C <: immutable.MapOps[K, V, immutable.Map, C]] =
+object Compat {
+  private[binding] type MapLike[K, +V, +C <: immutable.MapOps[K, V, immutable.Map, C]] =
     immutable.MapOps[K, V, immutable.Map, C]
+
+  type DummyImplicit = scala.DummyImplicit
 }

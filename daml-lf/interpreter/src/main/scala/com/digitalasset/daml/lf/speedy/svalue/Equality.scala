@@ -60,10 +60,16 @@ private[lf] object Equality {
         case (SAny(xType, x), SAny(yType, y)) =>
           push(Iterator.single(x), Iterator.single(y))
           success = xType == yType
+        case (SAnyException(xType, _, x), SAnyException(yType, _, y)) =>
+          push(Iterator.single(x), Iterator.single(y))
+          success = xType == yType
+        case (SBuiltinException(xTag, x), SBuiltinException(yTag, y)) =>
+          push(Iterator.single(x), Iterator.single(y))
+          success = xTag == yTag
         case (STypeRep(xType), STypeRep(yType)) =>
           success = xType == yType
-        case _ =>
-          throw SErrorCrash("trying to compare incomparable types")
+        case (x, y) =>
+          throw SErrorCrash(s"trying to compare incomparable types:\n- $x\n- $y")
       }
 
     while (success && stackX.nonEmpty) {

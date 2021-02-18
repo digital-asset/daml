@@ -1318,6 +1318,17 @@ private[lf] object SBuiltin {
       }
   }
 
+  /** $pure :: a -> Token -> a */
+  final case object SBSPure extends SBuiltin(2) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      checkToken(args.get(1))
+      machine.returnValue = args.get(0)
+    }
+  }
+
   /** $pass :: Int64 -> Token -> Timestamp */
   final case object SBSPass extends SBuiltin(2) {
     override private[speedy] final def execute(
@@ -1377,6 +1388,90 @@ private[lf] object SBuiltin {
   final case object SBError extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       throw DamlEUserError(args.get(0).asInstanceOf[SText].value)
+  }
+
+  /** $throw :: AnyException -> a */
+  final case object SBThrow extends SBuiltin(1) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val payload: SValue = args.get(0)
+      unwindToHandler(machine, payload)
+    }
+  }
+
+  /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
+  final case object SBTryHandler extends SBuiltin(3) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val payload = args.get(1)
+      val token = args.get(2)
+      checkToken(token)
+      args.get(0) match {
+        case SOptional(opt) =>
+          opt match {
+            case None =>
+              unwindToHandler(machine, payload) //re-throw
+            case Some(handler) =>
+              machine.enterApplication(handler, Array(SEValue(token)))
+          }
+        case v =>
+          crash(s"invalid argument to SBTryHandler (expected SOptional): $v")
+      }
+    }
+  }
+
+  /** $make-builtin-error :: Text -> BuiltinError */
+  final case class SBMakeBuiltinError(tag: String) extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      SBuiltinException(tag, args.get(0))
+    }
+  }
+
+  /** $builtin-error-message :: BuiltinError -> Text */
+  final case object SBBuiltinErrorMessage extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SBuiltinException(_, value) => value
+        case v => crash(s"invalid argument to SBBuiltinErrorMessage: $v")
+      }
+    }
+  }
+
+  /** $to-any-exception :: exception-type -> AnyException */
+  final case class SBToAnyException(ty: Ast.Type, messageFunction: SExpr) extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      SAnyException(ty, messageFunction, args.get(0))
+    }
+  }
+
+  /** $from-any-exception :: AnyException -> any-exception */
+  final case class SBFromAnyException(expectedTy: Ast.Type) extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SAnyException(actualTy, _, v) =>
+          SOptional(if (actualTy == expectedTy) Some(v) else None)
+        case v => crash(s"FromAnyException applied to non-AnyException: $v")
+      }
+    }
+  }
+
+  /** $any-exception-message :: AnyException -> Text */
+  final case object SBAnyExceptionMessage extends SBuiltin(1) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      args.get(0) match {
+        case SAnyException(_, messageFunction, innerValue) =>
+          machine.ctrl = SEApp(messageFunction, Array(SEValue(innerValue)))
+        case v =>
+          crash(s"AnyExceptionMessage applied to non-AnyException: $v")
+      }
+    }
   }
 
   /** $to_any

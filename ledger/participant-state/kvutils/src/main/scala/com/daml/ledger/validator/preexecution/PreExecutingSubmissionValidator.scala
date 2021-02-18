@@ -40,7 +40,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
-      submissionEnvelope: Raw.Value,
+      submissionEnvelope: Raw.Envelope,
       submittingParticipantId: ParticipantId,
       ledgerStateReader: StateReader[DamlStateKey, StateValue],
   )(implicit
@@ -82,7 +82,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
       },
     )
 
-  private def decodeSubmission(submissionEnvelope: Raw.Value)(implicit
+  private def decodeSubmission(submissionEnvelope: Raw.Envelope)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[DamlSubmission] =

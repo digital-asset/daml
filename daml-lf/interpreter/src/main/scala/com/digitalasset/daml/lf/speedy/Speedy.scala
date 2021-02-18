@@ -193,7 +193,7 @@ private[lf] object Speedy {
     // And made explicit by a specifc speedy expression node: SELocS/SELocA/SELocF
     // At runtime these different location-node execute by calling the corresponding `getEnv*` function
 
-    // Variables which reside on the stack. Indexed by relative offset from the top of the stack
+    // Variables which reside on the stack. Indexed (from 1) by relative offset from the top of the stack (1 is top!)
     @inline
     private[speedy] def getEnvStack(i: Int): SValue = env.get(env.size - i)
 
@@ -1085,7 +1085,8 @@ private[lf] object Speedy {
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SGenMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
-          SValue.STNat(_) | _: SValue.SPAP | SValue.SToken =>
+          SValue.STNat(_) | _: SValue.SPAP | SValue.SToken | SValue.SBuiltinException(_, _) |
+          SValue.SAnyException(_, _, _) =>
         crash("Match on non-matchable value")
     }
 
@@ -1256,6 +1257,91 @@ private[lf] object Speedy {
       v.setCached(sv, stack_trace)
       defn.setCached(sv, stack_trace)
       machine.returnValue = sv
+    }
+  }
+
+  /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
+    * the continuation is entered normally, the environment is restored but the handler is
+    * not executed.  When a throw is executed, the kont-stack is unwound to the nearest
+    * enclosing KTryCatchHandler (if there is one), and the code for the handler executed.
+    */
+  private[speedy] final case class KTryCatchHandler(
+      machine: Machine,
+      handler: SExpr,
+  ) extends Kont
+      with SomeArrayEquals {
+
+    val envSize = machine.env.size
+
+    private val savedBase = machine.markBase()
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    // we must restore when catching a throw, or for normal execution
+    def restore() = {
+      machine.restoreBase(savedBase);
+      machine.restoreFrameAndActuals(frame, actuals)
+    }
+
+    def execute(v: SValue) = {
+      restore();
+      machine.returnValue = v
+    }
+  }
+
+  /** If unwinding the kont-stack fails to find a KTryCatchHandler, we initiate evaluation
+    * of the messageFunction contained in the exception payload to produce a text
+    * message, after first pushing a KUnhandledException continuation which will
+    * actually throw the scala exception DamlEUnhandledException containing the message.
+    */
+  private[speedy] final case class KUnhandledException(
+      machine: Machine
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(payload: SValue) = {
+      payload match {
+        case SValue.SText(message) =>
+          throw DamlEUnhandledException(message)
+        case x =>
+          throw SErrorCrash(s"KUnhandledException, expected Text got $x")
+      }
+    }
+  }
+
+  private[speedy] def throwUnhandledException(machine: Machine, payload: SValue) = {
+    payload match {
+      case SValue.SAnyException(_, messageFunction, innerValue) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        // If the evaluation of message function throws (again),
+        // perhaps the constructed message should still refer to the original exception
+        machine.pushKont(KUnhandledException(machine))
+        machine.ctrl = SEApp(messageFunction, Array(SEValue(innerValue)))
+      case v =>
+        crash(s"throwUnhandledException, applied to non-AnyException: $v")
+    }
+  }
+
+  /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
+    * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
+    * execution of the handler code (which might decide to re-throw). Otherwise we call
+    * throwUnhandledException to apply the message function to the exception payload,
+    * producing a text message.
+    */
+  private[speedy] def unwindToHandler(machine: Machine, payload: SValue): Unit = {
+    val catchIndex =
+      machine.kontStack.asScala.lastIndexWhere(_.isInstanceOf[KTryCatchHandler])
+    if (catchIndex >= 0) {
+      val kh = machine.kontStack.get(catchIndex).asInstanceOf[KTryCatchHandler]
+      machine.kontStack.subList(catchIndex, machine.kontStack.size).clear()
+      kh.restore()
+      machine.popTempStackToBase()
+      machine.ctrl = kh.handler
+      machine.pushEnv(payload) // payload on stack where handler expects it
+    } else {
+      machine.kontStack.clear()
+      machine.env.clear()
+      machine.envBase = 0
+      throwUnhandledException(machine, payload)
     }
   }
 
