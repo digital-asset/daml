@@ -523,10 +523,8 @@ private[lf] object Pretty {
             text("-> ")
           prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
 
-        case SECatchSubmitMustFail(body, handler, fin) =>
-          text("catch-submit-must-fail") + char('(') + prettySExpr(index)(body) + text(", ") +
-            prettySExpr(index)(handler) + text(", ") +
-            prettySExpr(index)(fin) + char(')')
+        case SECatchSubmitMustFail(body) =>
+          text("catch-submit-must-fail") + char('(') + prettySExpr(index)(body) + text(")")
 
         case SELocation(loc @ _, body) =>
           prettySExpr(index)(body)

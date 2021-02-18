@@ -421,7 +421,7 @@ private[lf] object Speedy {
 
     /** Try to handle a DAML exception by looking for
       * the catch handler. Returns true if the exception
-      * was catched.
+      * was caught.
       */
     private[speedy] def tryHandleSubmitMustFail(): Boolean = {
       val catchIndex =
@@ -429,9 +429,8 @@ private[lf] object Speedy {
       if (catchIndex >= 0) {
         val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatchSubmitMustFail]
         kontStack.subList(catchIndex, kontStack.size).clear()
-        env.subList(kcatch.envSize, env.size).clear()
-        ctrl = kcatch.handler
-        envBase = env.size
+        restoreBase(kcatch.envSize)
+        returnValue = SValue.SValue.True
         true
       } else
         false
@@ -923,9 +922,9 @@ private[lf] object Speedy {
       extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(vfun: SValue) = {
       machine.restoreBase(savedBase);
@@ -941,9 +940,9 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(vfun: SValue) = {
       machine.restoreBase(savedBase);
@@ -960,7 +959,7 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
+    private[this] val savedBase = machine.markBase()
 
     def execute(v: SValue) = {
       actuals.add(v)
@@ -986,7 +985,7 @@ private[lf] object Speedy {
       actuals: util.ArrayList[SValue],
   ) extends Kont {
 
-    private val savedBase = machine.markBase()
+    private[this] val savedBase = machine.markBase()
 
     def execute(v: SValue) = {
       actuals.add(v)
@@ -1100,9 +1099,9 @@ private[lf] object Speedy {
       extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(v: SValue) = {
       machine.restoreBase(savedBase);
@@ -1124,9 +1123,9 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(v: SValue) = {
       machine.restoreBase(savedBase);
@@ -1143,8 +1142,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(acc: SValue) = {
       list.pop match {
@@ -1169,8 +1168,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(acc: SValue) = {
       if (lastIndex > 0) {
@@ -1197,8 +1196,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(closure: SValue) = {
       revClosures = closure +: revClosures
@@ -1223,8 +1222,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(acc: SValue) = {
       revClosures.pop match {
@@ -1287,20 +1286,18 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    val envSize = machine.env.size
-
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     // we must restore when catching a throw, or for normal execution
     def restore() = {
-      machine.restoreBase(savedBase);
+      machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
     def execute(v: SValue) = {
-      restore();
+      restore()
       machine.returnValue = v
     }
   }
@@ -1365,30 +1362,15 @@ private[lf] object Speedy {
 
   /** A catch frame marks the point to which an exception (of type 'SErrorDamlException')
     * is unwound. The 'envSize' specifies the size to which the environment must be pruned.
-    * If an exception is raised and 'KCatchSubmitMustFail' is found from kont-stack, then 'handler' is
-    * evaluated. If 'KCatchSubmitMustFail' is encountered naturally, then 'fin' is evaluated.
+    * If an exception is raised and 'KCatchSubmitMustFail' is found from kont-stack, then 'True' is
+    * returned. If 'KCatchSubmitMustFail' is entered normally, then 'False' is returned.
     */
-  private[speedy] final case class KCatchSubmitMustFail(
-      machine: Machine,
-      handler: SExpr,
-      fin: SExpr,
-  ) extends Kont
-      with SomeArrayEquals {
+  private[speedy] final case class KCatchSubmitMustFail(machine: Machine) extends Kont {
 
-    // We call [markBase] (as standard) so the continuation may access its temporaries.
-    // In addition [env.size] is recorded for use in [tryHandleSubmitMustFail] to allow the
-    // env-stack to be unwound correctly when an exception is thrown.
-
-    val envSize = machine.env.size
-
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[Speedy] val envSize = machine.env.size // used by: tryHandleSubmitMustFail
 
     def execute(v: SValue) = {
-      machine.restoreBase(savedBase);
-      machine.restoreFrameAndActuals(frame, actuals)
-      machine.ctrl = fin
+      machine.returnValue = SValue.SValue.False
     }
   }
 
