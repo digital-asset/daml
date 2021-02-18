@@ -331,14 +331,13 @@ object SExpr {
 
   /** catch-submit-must-fail. This is used internally solely for the purpose of implementing
     * mustFailAt. If the evaluation of 'body' causes an exception of type 'DamlException'
-    * (see SError), then the environment and continuation stacks are reset and 'handler'
-    * is executed. If the evaluation is successful, then the 'fin' expression is evaluated.
-    * This is on purpose very limited, with no mechanism to inspect the exception, nor a way
-    * to access the value returned from 'body'.
+    * (see SError), then 'True' is returned. If the evaluation is successful, then 'False'
+    * is returned.  This is on purpose very limited, with no mechanism to inspect the
+    * exception, nor a way to access the value returned from 'body'.
     */
-  final case class SECatchSubmitMustFail(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
+  final case class SECatchSubmitMustFail(body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KCatchSubmitMustFail(machine, handler, fin))
+      machine.pushKont(KCatchSubmitMustFail(machine))
       machine.ctrl = body
     }
   }
