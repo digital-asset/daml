@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import shapeless.test.illTyped
 
 class NonEmptySpec extends AnyWordSpec with Matchers {
-  import scala.{collection => col}, col.{immutable => imm}
+  import scala.{collection => col}, col.{mutable => mut}, col.{immutable => imm}
 
   "unapply" should {
     "compile on immutable maps" in {
@@ -69,6 +69,17 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
         "col.Seq(1) groupBy1 identity",
         "(?s).*?groupBy1 is not a member of (scala.collection.)?Seq.*",
       )
+    }
+  }
+
+  // why we don't allow `scala.collection` types
+  "scala.collection.Seq" must {
+    "accept that its non-emptiness is emphemeral" in {
+      val ms = mut.Buffer(1)
+      val cs: col.Seq[Int] = ms
+      val csIsNonEmpty = cs.nonEmpty
+      ms.clear()
+      (csIsNonEmpty, cs) should ===((true, col.Seq.empty))
     }
   }
 }
