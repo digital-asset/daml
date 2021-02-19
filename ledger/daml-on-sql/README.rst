@@ -46,8 +46,8 @@ can leverage the combination of the connection string specifying the account to 
 and the ``--sql-start-mode <value>`` parameter specifying the mode to run the driver.
 
 The possible modes available are
-``MigrateOnly`` - Create database schema but do not start the driver
-``MigrateAndStart`` - Create database schema and start the driver.  If the database already exists, this will simply validate and start.  This is the default mode
+``migrate-only`` - Create database schema but do not start the driver
+``migrate-and-start`` - Create database schema and start the driver.  If the database already exists, this will simply validate and start.  This is the default mode
 
 You will also need to provide a ledger ID with the ``--ledgerid`` flag, which
 must be the same upon restart. This value is expected in many API endpoints, to
