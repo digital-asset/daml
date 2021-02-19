@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.{GrpcLedgerClient, Participants, Runner, ScriptTimeMode}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundEach}
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -49,7 +49,8 @@ final class IT
     extends AsyncFreeSpec
     with Matchers
     with AkkaBeforeAndAfterAll
-    with SuiteResourceManagementAroundEach
+    with BeforeAndAfterEach
+    with SuiteResourceManagementAroundAll
     with SandboxNextFixture
     with TestCommands {
   private val appId = domain.ApplicationId("script-dump")
@@ -63,15 +64,19 @@ final class IT
   val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
   val exe = if (isWindows) { ".exe" }
   else ""
-  private val tmpDir = Files.createTempDirectory("script_dump")
+  private var tmpDir: Path = null
   private val damlc =
     BazelRunfiles.requiredResource(s"compiler/damlc/damlc$exe")
   private val damlScriptLib = BazelRunfiles.requiredResource("daml-script/daml/daml-script.dar")
   private def iouId(s: String) =
     api.Identifier(packageId, moduleName = "Iou", s)
 
-  override protected def afterAll(): Unit = {
-    super.afterAll()
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    tmpDir = Files.createTempDirectory("script_dump")
+  }
+  override protected def afterEach(): Unit = {
+    super.afterEach()
     deleteRecursively(tmpDir)
   }
 
