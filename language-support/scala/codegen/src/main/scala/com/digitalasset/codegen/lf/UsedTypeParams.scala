@@ -15,6 +15,7 @@ import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
+import scalaz.syntax.std.map._
 
 object UsedTypeParams {
 
@@ -46,17 +47,19 @@ object UsedTypeParams {
       lookupType: LookupType[RF, VF],
   ): ImmArraySeq[Variance] = {
     import iface._, Variance._
-    def goType(typ: iface.Type): Map[Ref.Name, Variance] = typ match {
-      case TypeVar(name) => Map(name -> Covariant)
+    def goType(typ: iface.Type): VarianceConstraint = typ match {
+      case TypeVar(name) => VarianceConstraint.base(Map(sdt.name -> Map(name -> Covariant)))
 
       case TypePrim(pt, typArgs) =>
-        import PrimType._
+        import PrimType.{Map => _, _}
         pt match {
           case GenMap =>
             val Seq(kt, vt) = typArgs
             // we don't need to inspect `kt` any further than enumerating it;
             // every occurrence therein is invariant
-            goType(vt) |+| collectTypeParams(kt).view.map((_, Invariant)).toMap
+            goType(vt) |+| VarianceConstraint.base(
+              Map(sdt.name -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
+            )
           case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
               Optional | TextMap =>
             typArgs foldMap goType
@@ -70,11 +73,14 @@ object UsedTypeParams {
           val aPositions = goType(aContents)
           pVariance match {
             case Covariant => aPositions
-            case Invariant => aPositions.transform((_, _) => Invariant)
+            case Invariant =>
+              aPositions.copy(resolutions =
+                aPositions.resolutions.transform((_, m) => m.transform((_, _) => Invariant))
+              )
           }
         }
 
-      case TypeNumeric(_) => Map.empty
+      case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
     }
 
     def goSdt(sdt: ScopedDataType.DT[RF, VF]): ImmArraySeq[Variance] = {
@@ -87,6 +93,32 @@ object UsedTypeParams {
     }
 
     goSdt(sdt)
+  }
+
+  // an implementation tool for covariantVars
+  import VarianceConstraint.BaseResolution
+  private[this] final case class VarianceConstraint(
+      resolutions: BaseResolution,
+      delayedConstraints: Map[ScopedDataType.Name, ImmArraySeq[BaseResolution]],
+  )
+  private[this] object VarianceConstraint {
+    type BaseResolution = Map[ScopedDataType.Name, Map[Ref.Name, Variance]]
+
+    def base(base: BaseResolution) = VarianceConstraint(base, Map.empty)
+
+    implicit val `constraint unifier monoid`: Monoid[VarianceConstraint] = Monoid.instance(
+      { case (VarianceConstraint(r0, d0), VarianceConstraint(r1, d1)) =>
+        VarianceConstraint(
+          r0 |+| r1,
+          d0.unionWithKey(d1) { (name, sr0, sr1) =>
+            if (sr0.length == sr1.length)
+              sys.error(s"type $name yielded different arities; this should never happen")
+            (sr0 zip sr1) map { case (c0, c1) => c0 |+| c1 }
+          },
+        )
+      },
+      VarianceConstraint(Map.empty, Map.empty),
+    )
   }
 
   sealed abstract class Variance extends Product with Serializable
