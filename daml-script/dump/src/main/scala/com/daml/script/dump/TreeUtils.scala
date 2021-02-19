@@ -52,11 +52,7 @@ object TreeUtils {
   }
 
   def partiesInContracts(contracts: Iterable[CreatedEvent]): Set[String] = {
-    var parties: Set[String] = Set()
-    contracts.foreach { value =>
-      parties = parties.union(valueParties(Value.Sum.Record(value.getCreateArguments)))
-    }
-    parties
+    contracts.toList.foldMap(ev => valueParties(Value.Sum.Record(ev.getCreateArguments)))
   }
 
   def partiesInTree(tree: TransactionTree): Set[String] = {
