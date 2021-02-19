@@ -3869,14 +3869,14 @@ to ``roundingMode``.
   will be returned at the smallest precision that can represent the result exactly, i.e.,
   without any trailing zeroes.
 
-* ``TO_NUMERIC_BIGDECIMAL : ∀ (α : nat). 'RoundingMode' → 'BigDecimal'  → 'Numeric' α``
+* ``TO_NUMERIC_BIGDECIMAL : ∀ (α : nat). 'BigDecimal'  → 'Numeric' α``
 
-  Convert the ``BigDecimal`` to a ``Numeric`` value with precision ``α`` according to the given
-  ``RoundingMode``.
+  Convert the ``BigDecimal`` to a ``Numeric`` value with precision ``α``. If the value
+  cannot be represented exactly, an ``ArithmeticError`` is thrown (TODO: https://github.com/digital-asset/daml/issues/8020).
 
 * ``TO_BIGDECIMAL_NUMERIC : ∀ (α : nat). 'MathContext' → 'Numeric' α  → 'BigDecimal'``
 
-  Convert the ``Numeric`` to a ``BigDecimal`` according to the given ``MathContext``.
+  Convert the ``Numeric`` to a ``BigDecimal``. This is always exact.
 
 String functions
 ~~~~~~~~~~~~~~~~
