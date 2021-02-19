@@ -78,7 +78,11 @@ private[sql] final class Cli(
         Right(())
     )
     parser.checkConfig(config =>
-      if (config.sqlStartMode.map(startMode => PostgresStartupMode.fromString(startMode.toString)).isEmpty)
+      if (
+        config.sqlStartMode
+          .map(startMode => PostgresStartupMode.fromString(startMode.toString))
+          .isEmpty
+      )
         Left(
           s"The sql-startup-mode specified is invalid.  " +
             s"Possible values are ${PostgresStartupMode.MigrateOnly} ${PostgresStartupMode.MigrateAndStart} and ${PostgresStartupMode.ValidateAndStart}"

@@ -17,7 +17,6 @@ object Main {
   }
 
   private[sql] def run(config: SandboxConfig): Unit =
-
     config.sqlStartMode.foreach {
       case PostgresStartupMode.MigrateOnly =>
         new ProgramResource(SandboxServer.migrateOnly(config)).run(ResourceContext.apply)

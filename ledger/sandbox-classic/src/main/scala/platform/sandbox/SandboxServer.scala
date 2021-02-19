@@ -106,8 +106,8 @@ object SandboxServer {
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-        // We use the Future rather than the Resource to avoid holding onto the API server.
-        // Otherwise, we cause a memory leak upon reset.
+          // We use the Future rather than the Resource to avoid holding onto the API server.
+          // Otherwise, we cause a memory leak upon reset.
           Resource.fromFuture(server.apiServer.map(_ => ()))
       }
     } yield server
