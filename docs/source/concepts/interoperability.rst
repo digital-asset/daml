@@ -403,7 +403,7 @@ Definition »Projection for transfer actions«
 
 Definition »Multi-Ledger consistency for a party«
   An multi-ledger causality graph `G` is **consistent for a party** `P` on a set of ledgers `Y` (`P`\ -**consistent** on `Y`)
-  if `G` is multi-ledger consistent on the set of `Y`\ -labelled actions in `G` of which `P` is an informee.
+  if `G` is multi-ledger consistent on the set of `Y`\ -labelled actions in `G` of which `P` is a stakeholder informee.
 
 The notions of `X`-minimality and `X`-reduction extend to a party `P` on a set `Y` of ledgers accordingly.
 
