@@ -3551,7 +3551,7 @@ updates.
 Rounding Mode Rank
 ..................
 
-To simplify the definition of rounding mode ordering, we define an auxiliary definion that maps them to integers:
+To simplify the definition of rounding mode ordering, we define an auxiliary definion that maps them to integers. Note that this is purely an internal definition. No guarantees on stability are made. We only guarantee that the resulting ordering is stable.
 
 
 * ``roundingModeRank('ROUNDING_CEILING') = 0``
