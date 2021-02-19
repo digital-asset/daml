@@ -9,12 +9,12 @@ object PostgresStartupMode {
   def fromString(value: String): Option[PostgresStartupMode] = {
     Vector(MigrateOnly, MigrateAndStart).find(_.toString == value)
   }
-  case object MigrateOnly extends PostgresStartupMode{
-    override def toString() = "migrate-only"
+  case object MigrateOnly extends PostgresStartupMode {
+    override def toString = "migrate-only"
   }
 
-  case object MigrateAndStart extends PostgresStartupMode{
-    override def toString() = "migrate-and-start"
+  case object MigrateAndStart extends PostgresStartupMode {
+    override def toString = "migrate-and-start"
   }
 
 }
