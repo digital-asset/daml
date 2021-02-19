@@ -110,6 +110,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
+    // ideas for extension: safe head/tail (not valuable unless also using
+    // wartremover to disable partial Seq ops)
   }
 
   // Why not `map`?  Because it's a little tricky to do portably.  I suggest

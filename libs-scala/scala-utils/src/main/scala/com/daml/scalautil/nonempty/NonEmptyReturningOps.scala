@@ -18,6 +18,6 @@ object NonEmptyReturningOps {
     def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
       NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
 
-    // +-: and :-+ operators go here
+    // ideas for extension: +-: and :-+ operators
   }
 }
