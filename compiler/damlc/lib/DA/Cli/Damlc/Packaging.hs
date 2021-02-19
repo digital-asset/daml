@@ -7,7 +7,7 @@ module DA.Cli.Damlc.Packaging
   , getUnitId
   ) where
 
-import DA.Cli.Damlc.GhcPkg (recache, Flag(..), Verbosity(..))
+import DA.Cli.Damlc.GhcPkg (recache, Verbosity(..))
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (tryAny)
@@ -302,12 +302,8 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     recachePkgDb dbPath
 
 recachePkgDb :: FilePath -> IO ()
-recachePkgDb dbPath = do
-    recache
-      Silent
-      [ FlagGlobalConfig (dbPath </> "package.conf.d")
-      , FlagExpandPkgroot
-      ]
+recachePkgDb dbPath =
+    recache Silent (dbPath </> "package.conf.d")
 
 -- TODO We should generate the list of stable packages automatically here.
 baseImports :: [PackageFlag]

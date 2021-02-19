@@ -51,14 +51,11 @@ import qualified Control.Exception as Exception
 import Data.Maybe
 
 import Control.Monad
-import System.Directory ( doesDirectoryExist, getDirectoryContents,
-                          doesFileExist, removeFile,
+import System.Directory ( getDirectoryContents,
+                          removeFile,
                           getCurrentDirectory )
 import System.Exit ( exitWith, ExitCode(..) )
 import System.Environment ( getProgName )
-#if defined(darwin_HOST_OS) || defined(linux_HOST_OS) || defined(mingw32_HOST_OS)
-import System.Environment ( getExecutablePath )
-#endif
 import System.IO
 import System.IO.Error
 import Data.List
@@ -87,26 +84,7 @@ anyM p (x:xs) = do
 -- Command-line syntax
 
 data Flag
-  = FlagUser
-  | FlagGlobal
-  | FlagHelp
-  | FlagVersion
-  | FlagConfig FilePath
-  | FlagGlobalConfig FilePath
-  | FlagUserConfig FilePath
-  | FlagForce
-  | FlagForceFiles
-  | FlagMultiInstance
-  | FlagExpandEnvVars
-  | FlagExpandPkgroot
-  | FlagNoExpandPkgroot
-  | FlagSimpleOutput
-  | FlagNamesOnly
-  | FlagIgnoreCase
-  | FlagNoUserDb
-  | FlagVerbosity (Maybe String)
-  | FlagUnitId
-  | FlagShowUnitIds
+  = FlagGlobalConfig FilePath
   deriving Eq
 
 data Verbosity = Silent | Normal | Verbose
@@ -194,7 +172,7 @@ getPkgDatabases :: Verbosity
                 -> GhcPkg.DbOpenMode mode DbModifySelector
                 -> Bool    -- read caches, if available
                 -> Bool    -- expand vars, like ${pkgroot} and $topdir
-                -> [Flag]
+                -> FilePath
                 -> IO (PackageDBStack,
                           -- the real package DB stack: [global,user] ++
                           -- DBs specified on the command line with -f.
@@ -206,24 +184,7 @@ getPkgDatabases :: Verbosity
                           -- is used as the list of package DBs for
                           -- commands that just read the DB, such as 'list'.
 
-getPkgDatabases verbosity mode use_cache expand_vars my_flags = do
-  -- first we determine the location of the global package config.  On Windows,
-  -- this is found relative to the ghc-pkg.exe binary, whereas on Unix the
-  -- location is passed to the binary using the --global-package-db flag by the
-  -- wrapper script.
-  let err_msg = "missing --global-package-db option, location of global package database unknown\n"
-  global_conf <-
-     case [ f | FlagGlobalConfig f <- my_flags ] of
-        [] -> do mb_dir <- getLibDir
-                 case mb_dir of
-                   Nothing  -> die err_msg
-                   Just dir -> do
-                     r <- lookForPackageDBIn dir
-                     case r of
-                       Nothing -> die ("Can't find package database in " ++ dir)
-                       Just path -> return path
-        fs -> return (last fs)
-
+getPkgDatabases verbosity mode use_cache expand_vars global_conf = do
   -- The value of the $topdir variable used in some package descriptions
   -- Note that the way we calculate this is slightly different to how it
   -- is done in ghc itself. We rely on the convention that the global
@@ -247,9 +208,7 @@ getPkgDatabases verbosity mode use_cache expand_vars my_flags = do
   -- -f flags on the command line add to the database
   -- stack, unless any of them are present in the stack
   -- already.
-  let final_stack = filter (`notElem` env_stack)
-                     [ f | FlagConfig f <- reverse my_flags ]
-                     ++ env_stack
+  let final_stack = env_stack
 
       top_db = global_conf
 
@@ -360,15 +319,6 @@ getPkgDatabases verbosity mode use_cache expand_vars my_flags = do
       (a, s')   <- m s
       (as, s'') <- stateSequence s' ms
       return (a : as, s'')
-
-lookForPackageDBIn :: FilePath -> IO (Maybe FilePath)
-lookForPackageDBIn dir = do
-  let path_dir = dir </> "package.conf.d"
-  exists_dir <- doesDirectoryExist path_dir
-  if exists_dir then return (Just path_dir) else do
-    let path_file = dir </> "package.conf"
-    exists_file <- doesFileExist path_file
-    if exists_file then return (Just path_file) else return Nothing
 
 readParseDatabase :: forall mode t. Verbosity
                   -> GhcPkg.DbOpenMode mode t
@@ -794,12 +744,12 @@ instance GhcPkg.DbUnitIdModuleRep UnitId ComponentId OpenUnitId ModuleName OpenM
     = GhcPkg.DbInstalledUnitId (unDefUnitId def_uid)
 
 
-recache :: Verbosity -> [Flag] -> IO ()
-recache _verbosity my_flags = do
+recache :: Verbosity -> FilePath -> IO ()
+recache _verbosity globalPkgDb = do
   let verbosity = Verbose
   (_db_stack, GhcPkg.DbOpenReadWrite db_to_operate_on, _flag_dbs) <-
     getPkgDatabases verbosity (GhcPkg.DbOpenReadWrite TopOne)
-      False{-no cache-} False{-expand vars-} my_flags
+      False{-no cache-} False{-expand vars-} globalPkgDb
   changeDB verbosity [] db_to_operate_on _db_stack
 
 findPackage :: PackageArg -> [InstalledPackageInfo] -> [InstalledPackageInfo]
@@ -871,17 +821,6 @@ infoLn = putStrLn
 
 reportError :: String -> IO ()
 reportError s = do hFlush stdout; hPutStrLn stderr s
-
------------------------------------------
--- Cut and pasted from ghc/compiler/main/SysTools
-
-getLibDir :: IO (Maybe String)
-
-#if defined(mingw32_HOST_OS) || defined(darwin_HOST_OS) || defined(linux_HOST_OS)
-getLibDir = Just . (\p -> p </> "lib") . takeDirectory . takeDirectory <$> getExecutablePath
-#else
-getLibDir = return Nothing
-#endif
 
 catchIO :: IO a -> (Exception.IOException -> IO a) -> IO a
 catchIO = Exception.catch

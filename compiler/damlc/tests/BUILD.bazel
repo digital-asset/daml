@@ -7,7 +7,6 @@ load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_latest_version")
-load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -611,7 +610,6 @@ da_haskell_test(
     data = [
         ":repl-test.dar",
         ":repl-test-two.dar",
-        ghc_pkg,
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
@@ -835,7 +833,6 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
-        ghc_pkg,
     ],
     hackage_deps = [
         "base",
