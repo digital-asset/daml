@@ -233,6 +233,7 @@ object Hash {
     val ContractKey = Purpose(2)
     val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
+    val ContractInstance = Purpose(5)
   }
 
   // package private for testing purpose.
@@ -316,6 +317,23 @@ object Hash {
       key: Value[Value.ContractId],
   ): Either[String, Hash] =
     handleError(assertHashContractKey(templateId, key))
+
+  // This function assumes that `arg` is well typed, i.e. :
+  // 1 - `templateId` is the identifier for a template with a contract argument of type τ
+  // 2 - `arg` is a value of type τ
+  // The hash is not stable under suffixing of contract IDs
+  @throws[HashingError]
+  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value[Value.ContractId]): Hash =
+    builder(Purpose.ContractInstance, aCid2Bytes)
+      .addIdentifier(templateId)
+      .addTypedValue(arg)
+      .build
+
+  def hashContractInstnce(
+      templateId: Ref.Identifier,
+      arg: Value[Value.ContractId],
+  ): Either[String, Hash] =
+    handleError(assertHashContractInstance(templateId, arg))
 
   def deriveSubmissionSeed(
       nonce: Hash,
