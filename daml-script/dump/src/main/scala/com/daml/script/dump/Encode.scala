@@ -30,12 +30,12 @@ private[dump] object Encode {
     val treeCidRefs = trees.toList.foldMap(treeReferencedCids)
     val cidRefs = acsCidRefs ++ treeCidRefs
 
-    val archivedCidRefs = acsCidRefs -- acs.keySet
-    if (archivedCidRefs.nonEmpty) {
+    val unknownCidRefs = acsCidRefs -- acs.keySet
+    if (unknownCidRefs.nonEmpty) {
       // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
       //   Be it archived or divulged contracts.
       throw new RuntimeException(
-        s"Encountered archived contracts referenced by active contracts: ${archivedCidRefs.mkString(", ")}"
+        s"Encountered archived contracts referenced by active contracts: ${unknownCidRefs.mkString(", ")}"
       )
     }
 
