@@ -48,7 +48,10 @@ object UsedTypeParams {
   ): ImmArraySeq[Variance] = {
     import iface._, Variance._
     def goType(typ: iface.Type): VarianceConstraint = typ match {
-      case TypeVar(name) => VarianceConstraint.base(Map(sdt.name -> Map(name -> Covariant)))
+      case TypeVar(name) =>
+        // while we default to Covariant at a later step,
+        // absence *does not* mean set-to-Covariant at this step
+        VarianceConstraint.base(Map(sdt.name -> Map(name -> Covariant)))
 
       case TypePrim(pt, typArgs) =>
         import PrimType.{Map => _, _}
