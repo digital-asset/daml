@@ -85,7 +85,7 @@ private[sql] final class Cli(
       )
         Left(
           s"The sql-startup-mode specified is invalid.  " +
-            s"Possible values are ${PostgresStartupMode.MigrateOnly} ${PostgresStartupMode.MigrateAndStart}"
+            s"Possible values are ${PostgresStartupMode.MigrateOnly} or ${PostgresStartupMode.MigrateAndStart}"
         )
       else
         Right(())

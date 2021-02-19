@@ -20,6 +20,7 @@ object Main {
     config.sqlStartMode.foreach {
       case PostgresStartupMode.MigrateOnly =>
         new ProgramResource(SandboxServer.migrateOnly(config)).run(ResourceContext.apply)
+        sys.exit()
 
       case _ =>
         new ProgramResource(SandboxServer.owner(Name, config)).run(ResourceContext.apply)
