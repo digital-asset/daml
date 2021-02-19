@@ -22,16 +22,15 @@ object TreeUtils {
   /** Sort the active contract set topologically,
     *  such that a contract at a given position in the list
     *  is only referenced by other contracts later in the list.
+    *
+    * Throws [[IllegalArgumentException]] if it encounters cyclic dependencies.
     */
   def topoSortAcs(acs: Map[String, CreatedEvent]): List[CreatedEvent] = {
     val graph: Graphs.Graph[String] = acs.view.mapValues(createdReferencedCids).toMap
-    Graphs
-      .topoSort(graph)
-      .left
-      .map(msg => new RuntimeException(s"Encountered cyclic contract dependencies: $msg"))
-      .toTry
-      .get
-      .map(cid => acs.get(cid).get)
+    Graphs.topoSort(graph) match {
+      case Left(cycle) => throw new IllegalArgumentException(s"Encountered cyclic contract dependencies: $cycle")
+      case Right(sorted) => sorted.map(cid => acs.get(cid).get)
+    }
   }
 
   def traverseTree(tree: TransactionTree)(f: (List[Selector], TreeEvent.Kind) => Unit): Unit = {
