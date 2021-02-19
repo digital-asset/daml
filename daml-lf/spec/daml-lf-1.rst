@@ -3855,14 +3855,6 @@ to ``roundingMode``.
 
   Round the big decimal according to the given ``MathContext``.
 
-* ``FROM_TEXT_BIGDECIMAL : 'Text' → 'Optional' 'BigDecimal'``
-
-  Given a string representation of a numeric returns the numeric
-  wrapped in ``Some``. If the input does not match the regexp
-  ``[+-]?\d+(\.d+)?`` or if the result of the conversion cannot
-  be mapped into a ``BigDecimal`` without loss of precision, returns
-  ``None``.
-
 * ``TO_TEXT_BIGDECIMAL : 'BigDecimal' → 'Text'``
 
   Returns the numeric string representation of the bigdecimal. The result
