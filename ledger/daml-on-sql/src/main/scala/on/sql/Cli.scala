@@ -47,9 +47,10 @@ private[sql] final class Cli(
       .opt[String]("sql-start-mode")
       .optional()
       .text(
-        s"The mode under which the schema SQL script will be run.  Defaults to ${DefaultConfig.sqlStartMode}.  Possible values are :" +
-          s"${PostgresStartupMode.MigrateOnly} : Run schema migration scripts and exit" +
-          s"${PostgresStartupMode.MigrateAndStart} : Run schema migration scripts and start service.  If the database schema already exists this will validate and start"
+        s"The mode under which the schema SQL script will be run. Possible values are \n\n" +
+          s"${PostgresStartupMode.MigrateOnly} - Run schema migration scripts and exit \n" +
+          s"${PostgresStartupMode.MigrateAndStart} - Run schema migration scripts and start service.  If the database schema already exists this will validate and start \n" +
+          s"Defaults to ${DefaultConfig.sqlStartMode.get} if not specified"
       )
       .action((mode, config) => config.copy(sqlStartMode = PostgresStartupMode.fromString(mode)))
 
