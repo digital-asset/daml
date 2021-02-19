@@ -39,7 +39,7 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
-import com.daml.platform.sandbox.config.{LedgerName, PostgresStartupMode, SandboxConfig}
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -83,15 +83,6 @@ object SandboxServer {
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     owner(DefaultName, config)
 
-  def migrateOnly(config: SandboxConfig): ResourceOwner[Unit] =
-    new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-        newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
-          logger.info("Running only schema migration scripts")
-          Resource.fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
-        }
-    }
-
   def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
       metrics <- new MetricsReporting(
@@ -111,6 +102,16 @@ object SandboxServer {
           Resource.fromFuture(server.apiServer.map(_ => ()))
       }
     } yield server
+
+  // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
+  def migrateOnly(config: SandboxConfig): ResourceOwner[Unit] =
+    new ResourceOwner[Unit] {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+        newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+          logger.info("Running only schema migration scripts")
+          Resource.fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
+        }
+    }
 
   final class SandboxState(
       materializer: Materializer,
