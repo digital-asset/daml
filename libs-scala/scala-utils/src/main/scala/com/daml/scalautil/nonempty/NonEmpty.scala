@@ -112,6 +112,11 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
   }
 
+  // Why not `map`?  Because it's a little tricky to do portably.  I suggest
+  // importing the appropriate Scalaz instances and using `.toF.map` if you need
+  // it; we can add collection-like `map` later if it seems to be really
+  // important.
+
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
 }
@@ -121,6 +126,13 @@ sealed abstract class NonEmptyCollInstances {
     NonEmpty.substF(F)
 
   import scala.language.implicitConversions
+
+  /** This adds the rest of the `A` API to `na`.  However, because it is in the
+    * most distant parent class from `object NonEmptyColl`, it is tried last
+    * during method resolution.  That's why our custom `+`, `transform`,
+    * `toList`, and other such methods win; their implicit conversions are
+    * defined '''in a subclass''' of this one.
+    */
   implicit def widen[A](na: NonEmpty[A]): A = NonEmpty.subtype[A](na)
   implicit def widenF[F[+_], A](na: F[NonEmpty[A]]): F[A] =
     Liskov.co[F, NonEmpty[A], A](NonEmpty.subtype)(na)
