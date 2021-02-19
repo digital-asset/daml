@@ -31,7 +31,7 @@ class LogAppendingCommitStrategy[Index](
       outputState: Map[DamlStateKey, DamlStateValue],
       writeSetBuilder: Option[SubmissionAggregator.WriteSetBuilder] = None,
   ): Future[Index] = {
-    val logEntryKey = Raw.Key(entryId.toByteString)
+    val rawLogEntryId = Raw.LogEntryId(entryId)
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(
         Future(stateSerializationStrategy.serializeStateUpdates(outputState)),
@@ -46,10 +46,10 @@ class LogAppendingCommitStrategy[Index](
         Future {
           writeSetBuilder.foreach { builder =>
             builder ++= serializedKeyValuePairs
-            builder += logEntryKey -> envelopedLogEntry
+            builder += rawLogEntryId -> envelopedLogEntry
           }
         },
-        ledgerStateOperations.appendToLog(logEntryKey, envelopedLogEntry),
+        ledgerStateOperations.appendToLog(rawLogEntryId, envelopedLogEntry),
       )
     } yield index
   }

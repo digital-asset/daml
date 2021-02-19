@@ -45,7 +45,7 @@ final class InMemoryLedgerWriter private[memory] (
 ) extends LedgerWriter {
   override def commit(
       correlationId: String,
-      envelope: Raw.Value,
+      envelope: Raw.Envelope,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     committer

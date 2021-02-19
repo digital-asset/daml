@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.Raw
 
 package object reading {
 
-  type LedgerStateReader = StateReader[Raw.Key, Option[Raw.Value]]
+  type LedgerStateReader = StateReader[Raw.StateKey, Option[Raw.Envelope]]
 
   type DamlLedgerStateReader = StateReader[DamlStateKey, Option[DamlStateValue]]
 

@@ -4,23 +4,24 @@
 package com.daml.lf
 package speedy
 
+import java.util
+
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.Anf.flattenToAnf
+import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Anf.flattenToAnf
-import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
+import com.github.ghik.silencer.silent
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import java.util
-
-import com.github.ghik.silencer.silent
+import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -108,6 +109,17 @@ private[lf] object Compiler {
       case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
       case e: ValidationError => Left(e.pretty)
     }
+  }
+
+  // Hand-implemented `map` uses less stack.
+  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): Array[B] = {
+    val output = Array.ofDim[B](input.length)
+    var i = 0
+    input.foreach { value =>
+      output(i) = f(value)
+      i += 1
+    }
+    output
   }
 
 }
@@ -382,7 +394,7 @@ private[lf] final class Compiler(
           Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
         SEApp(
           SEBuiltin(SBStructCon(fieldsInputOrder)),
-          fields.iterator.map { case (_, e) => compile(e) }.toArray,
+          mapToArray(fields) { case (_, e) => compile(e) },
         )
       case structProj: EStructProj =>
         structProj.fieldIndex match {
@@ -653,7 +665,7 @@ private[lf] final class Compiler(
   private[this] def compileECase(scrut: Expr, alts: ImmArray[CaseAlt]): SExpr =
     SECase(
       compile(scrut),
-      alts.iterator.map { case CaseAlt(pat, expr) =>
+      mapToArray(alts) { case CaseAlt(pat, expr) =>
         pat match {
           case CPVariant(tycon, variant, binder) =>
             val variantDef =
@@ -695,8 +707,9 @@ private[lf] final class Compiler(
           case CPDefault =>
             SCaseAlt(SCPDefault, compile(expr))
         }
-      }.toArray,
+      },
     )
+
   @inline
   private[this] def compileELet(elet: ELet) =
     withEnv { _ =>
@@ -841,7 +854,7 @@ private[lf] final class Compiler(
       labeledUnaryFunction("submitMustFail") { tokenPos =>
         let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
           let(
-            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)), SEValue.True, SEValue.False)
+            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
           ) { resultPos =>
             SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
           }
@@ -943,32 +956,30 @@ private[lf] final class Compiler(
   ) =
     let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
-      let(
-        SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
-          svar(choiceArgPos),
-          svar(cidPos),
-          compile(tmpl.signatories),
-          compile(tmpl.observers), //
-          {
-            addExprVar(choice.argBinder._1, choiceArgPos)
-            compile(choice.controllers)
-          }, //
-          {
-            choice.choiceObservers match {
-              case Some(observers) => compile(observers)
-              case None => SEValue.EmptyList
-            }
-          },
-          mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
-        )
-      ) { _ =>
-        addExprVar(choice.selfBinder, cidPos)
-        let(app(compile(choice.update), svar(tokenPos))) { retValuePos =>
-          let(SBUEndExercise(tmplId)(svar(retValuePos))) { _ =>
-            svar(retValuePos)
-          }
+      SEScopeExercise(
+        let(
+          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
+            svar(choiceArgPos),
+            svar(cidPos),
+            compile(tmpl.signatories),
+            compile(tmpl.observers), //
+            {
+              addExprVar(choice.argBinder._1, choiceArgPos)
+              compile(choice.controllers)
+            }, //
+            {
+              choice.choiceObservers match {
+                case Some(observers) => compile(observers)
+                case None => SEValue.EmptyList
+              }
+            },
+            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
+          )
+        ) { _ =>
+          addExprVar(choice.selfBinder, cidPos)
+          app(compile(choice.update), svar(tokenPos))
         }
-      }
+      )
     }
 
   private[this] def compileChoice(
@@ -1169,11 +1180,9 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case SECatchSubmitMustFail(body, handler, fin) =>
+      case SECatchSubmitMustFail(body) =>
         SECatchSubmitMustFail(
-          closureConvert(remaps, body),
-          closureConvert(remaps, handler),
-          closureConvert(remaps, fin),
+          closureConvert(remaps, body)
         )
 
       case SETryCatch(body, handler) =>
@@ -1181,6 +1190,9 @@ private[lf] final class Compiler(
           closureConvert(remaps, body),
           closureConvert(shift(remaps, 1), handler),
         )
+
+      case SEScopeExercise(body) =>
+        SEScopeExercise(closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
@@ -1264,12 +1276,14 @@ private[lf] final class Compiler(
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatchSubmitMustFail(body, handler, fin) =>
-          go(body, bound, go(handler, bound, go(fin, bound, free)))
+        case SECatchSubmitMustFail(body) =>
+          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
+        case SEScopeExercise(body) =>
+          go(body, bound, free)
 
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
@@ -1363,10 +1377,8 @@ private[lf] final class Compiler(
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
-        case SECatchSubmitMustFail(body, handler, fin) =>
+        case SECatchSubmitMustFail(body) =>
           go(body)
-          go(handler)
-          go(fin)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>
@@ -1374,6 +1386,8 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
+        case SEScopeExercise(body) =>
+          go(body)
 
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")

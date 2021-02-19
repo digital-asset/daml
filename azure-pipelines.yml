@@ -44,7 +44,7 @@ jobs:
     displayName: check perf changes
 
 - job: release
-  dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
+  dependsOn: [ "check_for_release", "Linux", "Linux_scala_2_13", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                  eq(variables['Build.SourceBranchName'], 'main'))

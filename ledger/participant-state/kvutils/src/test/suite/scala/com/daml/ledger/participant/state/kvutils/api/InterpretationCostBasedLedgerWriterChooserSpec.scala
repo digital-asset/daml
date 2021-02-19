@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.SubmissionResult.Acknowledged
-import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -22,13 +21,14 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to cheap writer in case of no estimated interpretation cost" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = None)
       val mockWriterCheap = mock[LedgerWriter]
-      when(mockWriterCheap.commit(any[String], any[Raw.Value], any[CommitMetadata]))
+      when(mockWriterCheap.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(1L, mockWriterCheap, mock[LedgerWriter])
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
-        verify(mockWriterCheap, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+        verify(mockWriterCheap, times(1))
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
         succeed
       }
     }
@@ -36,13 +36,14 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to cheap writer in case estimated interpretation cost is below threshold" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = Some(1))
       val mockWriterCheap = mock[LedgerWriter]
-      when(mockWriterCheap.commit(any[String], any[Raw.Value], any[CommitMetadata]))
+      when(mockWriterCheap.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(2L, mockWriterCheap, mock[LedgerWriter])
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
-        verify(mockWriterCheap, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
+        verify(mockWriterCheap, times(1))
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
         succeed
       }
     }
@@ -50,14 +51,14 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to expensive writer in case estimated interpretation cost reaches the threshold" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = Some(1))
       val mockWriterExpensive = mock[LedgerWriter]
-      when(mockWriterExpensive.commit(any[String], any[Raw.Value], any[CommitMetadata]))
+      when(mockWriterExpensive.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(1L, mock[LedgerWriter], mockWriterExpensive)
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterExpensive, times(1))
-          .commit(any[String], any[Raw.Value], any[CommitMetadata])
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
         succeed
       }
     }
@@ -65,14 +66,14 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to expensive writer in case threshold is 0" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = None)
       val mockWriterExpensive = mock[LedgerWriter]
-      when(mockWriterExpensive.commit(any[String], any[Raw.Value], any[CommitMetadata]))
+      when(mockWriterExpensive.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(0L, mock[LedgerWriter], mockWriterExpensive)
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterExpensive, times(1))
-          .commit(any[String], any[Raw.Value], any[CommitMetadata])
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
         succeed
       }
     }
@@ -95,9 +96,9 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     }
   }
 
-  private def aCorrelationId = ""
+  private def aCorrelationId: String = ""
 
-  private def anEnvelope = Raw.Value(ByteString.EMPTY)
+  private def anEnvelope: Raw.Envelope = Raw.Envelope.empty
 
   private def simpleCommitMetadata(estimatedInterpretationCost: Option[Long]): CommitMetadata = {
     val mockCommitMetadata = mock[CommitMetadata]

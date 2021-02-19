@@ -4,13 +4,12 @@
 package com.daml.http
 
 import com.daml.testing.postgresql.PostgresAroundAll
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.Inside
-import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.AsyncTestSuite
 import org.scalatest.matchers.should.Matchers
 
 trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with PostgresAroundAll {
-  this: AsyncFreeSpec with Matchers with Inside with StrictLogging =>
+  this: AsyncTestSuite with Matchers with Inside =>
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 

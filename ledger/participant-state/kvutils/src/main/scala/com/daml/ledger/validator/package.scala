@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 package object validator {
   type SubmittingParticipantId = ParticipantId
 
-  type StateValueCache = ConcurrentCache[Raw.Value, DamlStateValue]
+  type StateValueCache = ConcurrentCache[Raw.Envelope, DamlStateValue]
 
   // At some point, someone much smarter than the author of this code will reimplement the usages of
   // `inParallel` using Cats or Scalaz.

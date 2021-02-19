@@ -62,7 +62,18 @@ davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae1
 daml_cheat_sheet_version = "9d44b550de6c5d23096116da37ccb2fb4a90f7af"  # 2020-06-30
 daml_cheat_sheet_sha256 = "6429b73e33a7a937048c3d1316182bff0cb34b6aed30e2915875da698ee4d5c9"
 
+platforms_version = "0.0.3"
+platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
+
 def daml_deps():
+    if "platforms" not in native.existing_rules():
+        http_archive(
+            name = "platforms",
+            sha256 = platforms_sha256,
+            strip_prefix = "platforms-{}".format(platforms_version),
+            urls = ["https://github.com/bazelbuild/platforms/archive/{version}.tar.gz".format(version = platforms_version)],
+        )
+
     if "rules_haskell" not in native.existing_rules():
         http_archive(
             name = "rules_haskell",

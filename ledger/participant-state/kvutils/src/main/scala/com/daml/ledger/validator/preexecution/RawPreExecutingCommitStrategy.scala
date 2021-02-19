@@ -48,18 +48,16 @@ final class RawPreExecutingCommitStrategy(
   )(implicit
       executionContext: ExecutionContext
   ): Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] = {
+    val rawLogEntryId = Raw.LogEntryId(logEntryId)
     for {
       (
         serializedSuccessKeyValuePairs,
-        (serializedSuccessLogEntryPair, serializedOutOfTimeBoundsLogEntryPair),
+        serializedSuccessLogEntryPair,
+        serializedOutOfTimeBoundsLogEntryPair,
       ) <- inParallel(
         Future(stateSerializationStrategy.serializeStateUpdates(preExecutionResult.stateUpdates)),
-        Future(Raw.Key(logEntryId.toByteString)).flatMap(serializedId =>
-          inParallel(
-            logEntryToKeyValuePairs(serializedId, preExecutionResult.successfulLogEntry),
-            logEntryToKeyValuePairs(serializedId, preExecutionResult.outOfTimeBoundsLogEntry),
-          )
-        ),
+        logEntryToKeyValuePairs(rawLogEntryId, preExecutionResult.successfulLogEntry),
+        logEntryToKeyValuePairs(rawLogEntryId, preExecutionResult.outOfTimeBoundsLogEntry),
       )
     } yield PreExecutionCommitResult(
       successWriteSet = RawKeyValuePairsWithLogEntry(
@@ -79,9 +77,9 @@ final class RawPreExecutingCommitStrategy(
   }
 
   private def logEntryToKeyValuePairs(
-      logEntryId: Raw.Key,
+      logEntryId: Raw.LogEntryId,
       logEntry: DamlLogEntry,
-  )(implicit executionContext: ExecutionContext): Future[Raw.KeyValuePair] =
+  )(implicit executionContext: ExecutionContext): Future[Raw.LogEntry] =
     Future(logEntryId -> Envelope.enclose(logEntry))
 }
 

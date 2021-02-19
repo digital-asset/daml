@@ -19,6 +19,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.google.protobuf.ByteString
@@ -93,18 +94,24 @@ object Main {
       pkgRefs: Set[PackageId],
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
   ) = {
+    // Needed for map on Dar
+    import scalaz.syntax.traverse._
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Dump.daml"),
       Encode.encodeTransactionTreeStream(trees).render(80).getBytes(StandardCharsets.UTF_8),
     )
-    val dars = pkgRefs.collect(Function.unlift(Dependencies.toDar(_, pkgs)))
+    val dars: Seq[Dar[(PackageId, ByteString, Ast.Package)]] =
+      pkgRefs.view.collect(Function.unlift(Dependencies.toDar(_, pkgs))).toSeq
     val deps = Files.createDirectory(dir.resolve("deps"))
     val depFiles = dars.zipWithIndex.map { case (dar, i) =>
       val file = deps.resolve(dar.main._3.metadata.fold(i.toString)(_.name) + ".dar")
       Dependencies.writeDar(sdkVersion, file, dar)
       file
     }
+    val lfTarget = Dependencies.targetLfVersion(dars.view.map(_.map(_._3.languageVersion)).toSeq)
+    val targetFlag = lfTarget.fold("")(Dependencies.targetFlag(_))
+
     Files.write(
       dir.resolve("daml.yaml"),
       s"""sdk-version: $sdkVersion
@@ -113,6 +120,7 @@ object Main {
          |source: .
          |dependencies: [daml-stdlib, daml-prim, $damlScriptLib]
          |data-dependencies: [${depFiles.mkString(",")}]
+         |build-options: [$targetFlag]
          |""".stripMargin.getBytes(StandardCharsets.UTF_8),
     )
   }

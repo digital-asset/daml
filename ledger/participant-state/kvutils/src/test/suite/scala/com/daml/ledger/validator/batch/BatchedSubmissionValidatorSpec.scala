@@ -350,7 +350,7 @@ object BatchedSubmissionValidatorSpec {
 
   private def createBatchSubmissionOf(
       nSubmissions: Int
-  ): (Seq[DamlSubmission], DamlSubmissionBatch, Raw.Value) = {
+  ): (Seq[DamlSubmission], DamlSubmissionBatch, Raw.Envelope) = {
     val submissions = (1 to nSubmissions).map { n =>
       makePartySubmission(s"party-$n")
     }

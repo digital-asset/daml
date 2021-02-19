@@ -19,9 +19,9 @@ sealed trait CommitMetadata {
     */
   def estimatedInterpretationCost: Option[Long]
 
-  def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Raw.Key]
+  def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Raw.StateKey]
 
-  def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Raw.Key]
+  def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Raw.StateKey]
 }
 
 object CommitMetadata {
@@ -31,11 +31,11 @@ object CommitMetadata {
 
       override def inputKeys(
           serializationStrategy: StateKeySerializationStrategy
-      ): Iterable[Raw.Key] = Iterable.empty
+      ): Iterable[Raw.StateKey] = Iterable.empty
 
       override def outputKeys(
           serializationStrategy: StateKeySerializationStrategy
-      ): Iterable[Raw.Key] = Iterable.empty
+      ): Iterable[Raw.StateKey] = Iterable.empty
     }
 
   def apply(
@@ -46,7 +46,7 @@ object CommitMetadata {
 
     override def inputKeys(
         serializationStrategy: StateKeySerializationStrategy
-    ): Iterable[Raw.Key] =
+    ): Iterable[Raw.StateKey] =
       submission.getInputDamlStateList.asScala
         .map(serializationStrategy.serializeStateKey)
 
@@ -54,7 +54,7 @@ object CommitMetadata {
 
     override def outputKeys(
         serializationStrategy: StateKeySerializationStrategy
-    ): Iterable[Raw.Key] =
+    ): Iterable[Raw.StateKey] =
       submissionOutputs.map(serializationStrategy.serializeStateKey)
   }
 }

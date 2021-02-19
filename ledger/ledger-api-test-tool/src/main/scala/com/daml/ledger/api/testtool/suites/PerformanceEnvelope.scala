@@ -132,7 +132,7 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
           val finished = Instant.now
           (
             Duration.between(started, finished),
-            timings.values.flatMap(_.right.toOption.toList).toList,
+            timings.values.flatMap(_.toOption.toList).toList,
           )
       }
     }

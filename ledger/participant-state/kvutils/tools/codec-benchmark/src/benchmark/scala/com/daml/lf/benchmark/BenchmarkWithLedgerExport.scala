@@ -37,7 +37,7 @@ abstract class BenchmarkWithLedgerExport {
 
     val builder = Submissions.newBuilder()
 
-    def decodeEnvelope(envelope: Raw.Value): Unit =
+    def decodeEnvelope(envelope: Raw.Envelope): Unit =
       Envelope.open(envelope).fold(sys.error, identity) match {
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
@@ -49,7 +49,7 @@ abstract class BenchmarkWithLedgerExport {
           builder += submission.getTransactionEntry.getTransaction
         case Envelope.SubmissionBatchMessage(batch) =>
           for (submission <- batch.getSubmissionsList.asScala) {
-            decodeEnvelope(Raw.Value(submission.getSubmission))
+            decodeEnvelope(Raw.Envelope(submission.getSubmission))
           }
         case _ =>
           ()

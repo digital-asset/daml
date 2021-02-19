@@ -61,13 +61,13 @@ class RawPreExecutingCommitStrategySupportSpec
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         )
         writeSetA.map(_._1) should contain(
-          Raw.Key(DamlStateKey.newBuilder.setParty("Alice").build().toByteString)
+          Raw.StateKey(DamlStateKey.newBuilder.setParty("Alice").build)
         )
         extractLogEntry(writeSetB).getPayloadCase should be(
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         )
         writeSetB.map(_._1) should contain(
-          Raw.Key(DamlStateKey.newBuilder.setParty("Bob").build().toByteString)
+          Raw.StateKey(DamlStateKey.newBuilder.setParty("Bob").build)
         )
       }
     }
@@ -108,9 +108,7 @@ class RawPreExecutingCommitStrategySupportSpec
         writeSet2 <- support.commit(updateConfigurationWithInvalidMrt)
       } yield {
         writeSet1.map(_._1) should contain(
-          Raw.Key(
-            DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build().toByteString
-          )
+          Raw.StateKey(DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build)
         )
         extractLogEntry(writeSet1).getPayloadCase should be(
           DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY

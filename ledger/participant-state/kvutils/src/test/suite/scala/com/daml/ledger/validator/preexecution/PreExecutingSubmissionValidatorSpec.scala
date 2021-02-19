@@ -155,7 +155,7 @@ object PreExecutingSubmissionValidatorSpec {
 
   private final case class TestWriteSet(value: String)
 
-  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Value = {
+  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Envelope = {
     val submission = DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)
