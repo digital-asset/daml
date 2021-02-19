@@ -72,6 +72,31 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "toF" should {
+    "destructure the Set type" in {
+      val NonEmpty(s) = imm.Set(1)
+      val g = Set(s.toF)
+      g: Set[NonEmptyF[imm.Set, Int]]
+    }
+
+    "destructure the Map type" in {
+      val NonEmpty(m) = Map(1 -> 2)
+      val g = Set(m.toF)
+      g: Set[NonEmptyF[Map[Int, *], Int]]
+    }
+
+    "allow underlying NonEmpty operations" in {
+      val NonEmpty(s) = imm.Set(1)
+      ((s.toF incl 2): NonEmpty[imm.Set[Int]]) should ===(imm.Set(1, 2))
+    }
+
+    "allow access to Scalaz methods" in {
+      import scalaz.syntax.functor._, scalaz.std.map._
+      val NonEmpty(m) = imm.Map(1 -> 2)
+      (m.toF.map((3, _)): NonEmptyF[imm.Map[Int, *], (Int, Int)]) should ===(imm.Map(1 -> ((3, 2))))
+    }
+  }
+
   // why we don't allow `scala.collection` types
   "scala.collection.Seq" must {
     "accept that its non-emptiness is emphemeral" in {

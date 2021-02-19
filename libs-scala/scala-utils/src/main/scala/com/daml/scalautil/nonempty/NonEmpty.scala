@@ -82,11 +82,11 @@ object NonEmptyColl extends NonEmptyCollInstances {
   /** Operations that can ''return'' new maps.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
-  implicit final class MapOps[Self, K, V](private val self: Self with NonEmpty[Map[K, V]])
-      extends AnyVal {
+  implicit final class MapOps[K, V](private val self: NonEmpty[Map[K, V]]) extends AnyVal {
     private type ESelf = Map[K, V]
     import NonEmpty.{unsafeNarrow => un}
-    def +(kv: (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf) + kv)
+    // You can't have + because of the dumb string-converting thing in stdlib
+    def updated(key: K, value: V): NonEmpty[Map[K, V]] = un((self: ESelf).updated(key, value))
     def ++(xs: Iterable[(K, V)]): NonEmpty[Map[K, V]] = un((self: ESelf) ++ xs)
     def keySet: NonEmpty[Set[K]] = un((self: ESelf).keySet)
     def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = un((self: ESelf) transform f)
@@ -95,11 +95,11 @@ object NonEmptyColl extends NonEmptyCollInstances {
   /** Operations that can ''return'' new sets.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
-  implicit final class SetOps[Self, A](private val self: Self with NonEmpty[Set[A]])
-      extends AnyVal {
+  implicit final class SetOps[A](private val self: NonEmpty[Set[A]]) extends AnyVal {
     private type ESelf = Set[A]
     import NonEmpty.{unsafeNarrow => un}
-    def +(elem: A): NonEmpty[Set[A]] = un((self: ESelf) + elem)
+    // You can't have + because of the dumb string-converting thing in stdlib
+    def incl(elem: A): NonEmpty[Set[A]] = un((self: ESelf) + elem)
     def ++(that: Iterable[A]): NonEmpty[Set[A]] = un((self: ESelf) ++ that)
   }
 
