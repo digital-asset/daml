@@ -88,20 +88,13 @@ private[sandbox] object SqlLedger {
 
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
+        _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
-          case SqlStartMode.MigrateOnly =>
-            //NO OP -- if we ran migration only we have not initialized ledger api server or gotten to this point
-            Resource.unit
-          case SqlStartMode.MigrateAndStart =>
-            Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
           case SqlStartMode.ResetAndStart =>
-            Resource
-              .fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-              .map(_ => dao.reset())
-              .map(_ => logger.debug("Resetting database."))
-          case SqlStartMode.ValidateAndStart =>
-            Resource.fromFuture(new FlywayMigrations(jdbcUrl).validate())
+            Resource.fromFuture(dao.reset())
+          case SqlStartMode.MigrateAndStart =>
+            Resource.unit
         }
         retrievedLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         ledgerId <- Resource.fromFuture(retrievedLedgerId.fold(initialize(dao))(resume))

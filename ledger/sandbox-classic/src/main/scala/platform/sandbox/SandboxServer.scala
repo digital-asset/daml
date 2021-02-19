@@ -109,7 +109,9 @@ object SandboxServer {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] =
         newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
           logger.info("Running only schema migration scripts")
-          Resource.fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
+          Resource
+            .fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
+            .map(_ => logger.info("Schema migration completed successfully"))
         }
     }
 

@@ -7,12 +7,10 @@ sealed trait PostgresStartupMode extends Product with Serializable
 
 object PostgresStartupMode {
   def fromString(value: String): Option[PostgresStartupMode] = {
-    Vector(MigrateOnly, MigrateAndStart, ValidateAndStart).find(_.toString == value)
+    Vector(MigrateOnly, MigrateAndStart).find(_.toString == value)
   }
   case object MigrateOnly extends PostgresStartupMode
 
   case object MigrateAndStart extends PostgresStartupMode
-
-  case object ValidateAndStart extends PostgresStartupMode
 
 }

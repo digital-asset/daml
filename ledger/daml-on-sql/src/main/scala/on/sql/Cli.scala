@@ -49,8 +49,7 @@ private[sql] final class Cli(
       .text(
         s"The mode under which the schema SQL script will be run.  Defaults to ${DefaultConfig.sqlStartMode}.  Possible values are :" +
           s"${PostgresStartupMode.MigrateOnly} : Run schema migration scripts and exit" +
-          s"${PostgresStartupMode.MigrateAndStart} : Run schema migration scripts and start service" +
-          s"${PostgresStartupMode.ValidateAndStart} : Validate schema migration scripts and start service"
+          s"${PostgresStartupMode.MigrateAndStart} : Run schema migration scripts and start service.  If the database schema already exists this will validate and start"
       )
       .action((mode, config) => config.copy(sqlStartMode = PostgresStartupMode.fromString(mode)))
 
@@ -85,7 +84,7 @@ private[sql] final class Cli(
       )
         Left(
           s"The sql-startup-mode specified is invalid.  " +
-            s"Possible values are ${PostgresStartupMode.MigrateOnly} ${PostgresStartupMode.MigrateAndStart} and ${PostgresStartupMode.ValidateAndStart}"
+            s"Possible values are ${PostgresStartupMode.MigrateOnly} ${PostgresStartupMode.MigrateAndStart}"
         )
       else
         Right(())
