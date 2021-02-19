@@ -6,7 +6,7 @@ package com.daml.on.sql
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{PostgresStartupMode, SandboxConfig}
 import scopt.OptionParser
 
 private[sql] final class Cli(
@@ -51,6 +51,17 @@ private[sql] final class Cli(
       )
       .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
 
+    parser
+      .opt[String]("sql-start-mode")
+      .optional()
+      .text(
+        s"The mode under which the schema SQL script will be run. Possible values are \n\n" +
+          s"${PostgresStartupMode.MigrateOnly} - Run schema migration scripts and exit \n" +
+          s"${PostgresStartupMode.MigrateAndStart} - Run schema migration scripts and start service.  If the database schema already exists this will validate and start \n" +
+          s"Defaults to ${DefaultConfig.sqlStartMode.get} if not specified"
+      )
+      .action((mode, config) => config.copy(sqlStartMode = PostgresStartupMode.fromString(mode)))
+
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the
     // configuration afterwards.
@@ -71,6 +82,19 @@ private[sql] final class Cli(
     parser.checkConfig(config =>
       if (config.jdbcUrl.exists(!_.startsWith("jdbc:postgresql://")))
         Left(s"The JDBC URL is invalid. $Name only supports PostgreSQL.")
+      else
+        Right(())
+    )
+    parser.checkConfig(config =>
+      if (
+        config.sqlStartMode
+          .map(startMode => PostgresStartupMode.fromString(startMode.toString))
+          .isEmpty
+      )
+        Left(
+          s"The sql-startup-mode specified is invalid.  " +
+            s"Possible values are ${PostgresStartupMode.MigrateOnly} or ${PostgresStartupMode.MigrateAndStart}"
+        )
       else
         Right(())
     )

@@ -47,6 +47,7 @@ import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import scalaz.syntax.tag._
@@ -101,6 +102,17 @@ object SandboxServer {
           Resource.fromFuture(server.apiServer.map(_ => ()))
       }
     } yield server
+
+  // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
+  def migrateOnly(
+      config: SandboxConfig
+  )(implicit resourceContext: ResourceContext): Future[Unit] = {
+
+    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+      logger.info("Running only schema migration scripts")
+      new FlywayMigrations(config.jdbcUrl.get).migrate()
+    }
+  }
 
   final class SandboxState(
       materializer: Materializer,
@@ -204,7 +216,7 @@ final class SandboxServer(
           materializer = materializer,
           metrics = metrics,
           packageStore = packageStore,
-          startMode = SqlStartMode.AlwaysReset,
+          startMode = SqlStartMode.ResetAndStart,
           currentPort = Some(port),
         )
       )
@@ -435,7 +447,9 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode.ContinueIfExists,
+        SqlStartMode
+          .fromString(config.sqlStartMode.toString)
+          .getOrElse(SqlStartMode.MigrateAndStart),
         currentPort = None,
       )
       Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))
