@@ -5,7 +5,7 @@ package com.daml.http.dbbackend
 
 import com.daml.scalautil.nonempty
 import nonempty.{NonEmpty, +-:}
-import nonempty.NonEmptyColl.RefinedOps._
+import nonempty.NonEmptyReturningOps._
 
 import doobie._
 import doobie.implicits._

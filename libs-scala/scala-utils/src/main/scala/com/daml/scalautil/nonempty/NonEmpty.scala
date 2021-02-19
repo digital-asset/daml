@@ -54,6 +54,9 @@ sealed abstract class NonEmptyColl {
   def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
 }
 
+/** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
+  * settings are probably wrong.
+  */
 object NonEmptyColl extends NonEmptyCollInstances {
   private[nonempty] object Instance extends NonEmptyColl {
     type NonEmpty[+A] = A
@@ -111,15 +114,6 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
-
-  object RefinedOps /* extends RefinedOpsUnportable */ {
-    implicit final class `NE Map Ops`[A, CC[_], C](
-        private val self: IterableOps[A, CC, C with imm.Iterable[A]]
-    ) {
-      def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
-        NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
-    }
-  }
 }
 
 sealed abstract class NonEmptyCollInstances {

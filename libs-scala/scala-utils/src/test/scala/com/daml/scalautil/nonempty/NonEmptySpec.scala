@@ -38,7 +38,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
   }
 
   "groupBy1" should {
-    import NonEmptyColl.RefinedOps._
+    import NonEmptyReturningOps._
 
     // wrapping with Set in a variable is a nice trick to disable subtyping and
     // implicit conversion (strong and weak conformance, SLS §3.5.2-3), so you
