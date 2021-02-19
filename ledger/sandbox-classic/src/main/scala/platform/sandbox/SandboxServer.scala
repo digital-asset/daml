@@ -104,16 +104,13 @@ object SandboxServer {
     } yield server
 
   // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
-  def migrateOnly(config: SandboxConfig): ResourceOwner[Unit] =
-    new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-        newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
-          logger.info("Running only schema migration scripts")
-          Resource
-            .fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
-            .map(_ => logger.info("Schema migration completed successfully"))
-        }
+  def migrateOnly(config: SandboxConfig)(implicit resourceContext: ResourceContext): Future[Unit] = {
+
+    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+      logger.info("Running only schema migration scripts")
+      new FlywayMigrations(config.jdbcUrl.get).migrate()
     }
+  }
 
   final class SandboxState(
       materializer: Materializer,
