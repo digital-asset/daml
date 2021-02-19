@@ -4,7 +4,7 @@
 package com.daml.script.dump
 
 import java.io.IOException
-import java.nio.file.{Files, FileVisitResult, Path, SimpleFileVisitor}
+import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.UUID
 
@@ -128,15 +128,26 @@ final class IT
       .range(0, numParties)
       .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
 
-  private def createScriptDump(parties: List[Ref.Party]): Future[Dar[(PackageId, Package)]] = for {
+  private val ledgerBegin = LedgerOffset(
+    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+  )
+  private val ledgerEnd = LedgerOffset(
+    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+  )
+  private def ledgerOffset(offset: String) = LedgerOffset(LedgerOffset.Value.Absolute(offset))
+
+  private def createScriptDump(
+      parties: List[Ref.Party],
+      offset: LedgerOffset,
+  ): Future[Dar[(PackageId, Package)]] = for {
     // build script dump
     _ <- Main.run(
       Config(
         ledgerHost = "localhost",
         ledgerPort = serverPort.value,
         parties = parties,
-        start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
-        end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+        start = offset,
+        end = ledgerEnd,
         outputPath = tmpDir,
         damlScriptLib = damlScriptLib.toString,
         sdkVersion = SdkVersion.sdkVersion,
@@ -176,8 +187,9 @@ final class IT
     )
   } yield ()
 
-  private def test(
-      numParties: Int
+  private def testOffset(
+      numParties: Int,
+      skip: Int,
   )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
     for {
       client <- LedgerClient(channel, clientConfiguration)
@@ -185,18 +197,24 @@ final class IT
       // setup
       _ <- f(client, parties)
       before <- collectTrees(client, parties)
+      // Reproduce ACS up to offset and transaction trees after offset.
+      offset =
+        if (skip == 0) { ledgerBegin }
+        else { ledgerOffset(before(skip - 1).offset) }
+      beforeCmp = before.drop(skip)
       // reproduce from dump
-      dar <- createScriptDump(parties)
+      dar <- createScriptDump(parties, offset)
       newParties <- allocateParties(client, numParties)
       _ <- runScriptDump(client, newParties, dar)
       // check that the new transaction trees are the same
       after <- collectTrees(client, newParties)
+      afterCmp = after.drop(after.length - beforeCmp.length)
     } yield {
-      TransactionEq.equivalent(before, after).fold(fail(_), _ => succeed)
+      TransactionEq.equivalent(beforeCmp, afterCmp).fold(fail(_), _ => succeed)
     }
 
-  "Generated dump for IOU transfer compiles" in {
-    test(2) { case (client, Seq(p1, p2)) =>
+  private def testIou: (LedgerClient, Seq[Ref.Party]) => Future[Unit] = {
+    case (client, Seq(p1, p2)) =>
       for {
         t0 <- submit(
           client,
@@ -275,7 +293,12 @@ final class IT
           ),
         )
       } yield ()
-    }
+  }
+
+  "Generated dump for IOU transfer compiles" - {
+    "offset 0 - empty ACS" in { testOffset(2, 0)(testIou) }
+    "offset 2 - skip split" in { testOffset(2, 2)(testIou) }
+    "offset 4 - no trees" in { testOffset(2, 4)(testIou) }
   }
 
   private def transactionFilter(ps: Ref.Party*) =
