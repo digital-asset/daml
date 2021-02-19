@@ -24,9 +24,9 @@ object Main {
   private[sql] def run(config: SandboxConfig): Unit =
     config.sqlStartMode.foreach {
       case PostgresStartupMode.MigrateOnly =>
-
         val cachedThreadPool = Executors.newCachedThreadPool()
-        implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(cachedThreadPool)
+        implicit val executionContext: ExecutionContext =
+          ExecutionContext.fromExecutorService(cachedThreadPool)
         implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
         SandboxServer.migrateOnly(config).onComplete {
