@@ -83,6 +83,15 @@ object SandboxServer {
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     owner(DefaultName, config)
 
+  def migrateOnly(config: SandboxConfig): ResourceOwner[Unit] =
+    new ResourceOwner[Unit] {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+        newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+          logger.info("Running only schema migration scripts")
+          Resource.fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
+        }
+    }
+
   def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
       metrics <- new MetricsReporting(
@@ -97,19 +106,9 @@ object SandboxServer {
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-          // We use the Future rather than the Resource to avoid holding onto the API server.
-          // Otherwise, we cause a memory leak upon reset.
-          if (
-            config.sqlStartMode == PostgresStartupMode.MigrateAndStart || config.sqlStartMode == PostgresStartupMode.ValidateAndStart
-          )
-            Resource.fromFuture(server.apiServer.map(_ => ()))
-          else {
-            newLoggingContext(logging.participantId(config.participantId)) {
-              implicit loggingContext =>
-                logger.info("just running migration scripts")
-                Resource.fromFuture(new FlywayMigrations(config.jdbcUrl.get).migrate())
-            }
-          }
+        // We use the Future rather than the Resource to avoid holding onto the API server.
+        // Otherwise, we cause a memory leak upon reset.
+          Resource.fromFuture(server.apiServer.map(_ => ()))
       }
     } yield server
 
@@ -445,7 +444,9 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode.MigrateAndStart,
+        SqlStartMode
+          .fromString(config.sqlStartMode.toString)
+          .getOrElse(SqlStartMode.MigrateAndStart),
         currentPort = None,
       )
       Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))

@@ -35,7 +35,7 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, NoOpLedger, SandboxOffset}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -74,7 +74,7 @@ private[sandbox] object SqlLedger {
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       transactionCommitter: TransactionCommitter,
-      startMode: SqlStartMode = SqlStartMode.MigrateOnly,
+      startMode: SqlStartMode,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -91,7 +91,8 @@ private[sandbox] object SqlLedger {
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
           case SqlStartMode.MigrateOnly =>
-            Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
+            //NO OP -- if we ran migration only we have not initialized ledger api server or gotten to this point
+            Resource.unit
           case SqlStartMode.MigrateAndStart =>
             Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
           case SqlStartMode.ResetAndStart =>
@@ -118,10 +119,7 @@ private[sandbox] object SqlLedger {
           dispatcher,
           persistenceQueue,
         ).acquire()
-      } yield startMode match {
-        case SqlStartMode.MigrateOnly => new NoOpLedger()
-        case _ => ledger
-      }
+      } yield ledger
 
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.

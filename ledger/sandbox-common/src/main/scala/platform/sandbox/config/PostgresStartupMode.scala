@@ -3,10 +3,12 @@
 
 package com.daml.platform.sandbox.config
 
-sealed trait PostgresStartupMode
+sealed trait PostgresStartupMode extends Product with Serializable
 
 object PostgresStartupMode {
-
+  def fromString(value: String): Option[PostgresStartupMode] = {
+    Vector(MigrateOnly, MigrateAndStart, ValidateAndStart).find(_.toString == value)
+  }
   case object MigrateOnly extends PostgresStartupMode
 
   case object MigrateAndStart extends PostgresStartupMode

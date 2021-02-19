@@ -4,7 +4,7 @@
 package com.daml.on.sql
 
 import com.daml.ledger.resources.ResourceContext
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{PostgresStartupMode, SandboxConfig}
 import com.daml.platform.sandbox.{GlobalLogLevel, SandboxServer}
 import com.daml.resources.ProgramResource
 
@@ -17,16 +17,12 @@ object Main {
   }
 
   private[sql] def run(config: SandboxConfig): Unit =
-//    config.sqlStartMode match {
-//      case PostgresStartupMode.MigrateOnly => {
-//
-//        newLoggingContext(logging.participantId(config.participantId)) {
-//          implicit loggingContext =>
-//            config.jdbcUrl.map(url => Resource.fromFuture(new FlywayMigrations(url).migrate()))
-//        }
-//      }
-//      case _ =>
-    new ProgramResource(SandboxServer.owner(Name, config)).run(ResourceContext.apply)
-//    }
 
+    config.sqlStartMode.foreach {
+      case PostgresStartupMode.MigrateOnly =>
+        new ProgramResource(SandboxServer.migrateOnly(config)).run(ResourceContext.apply)
+
+      case _ =>
+        new ProgramResource(SandboxServer.owner(Name, config)).run(ResourceContext.apply)
+    }
 }
