@@ -3,11 +3,7 @@
 
 package com.daml.scalautil.nonempty
 
-import scala.collection.{immutable => imm}, imm.Map, imm.Set
-import scalaz.Id.Id
-import scalaz.{Foldable, Traverse}
-import scalaz.Leibniz, Leibniz.===
-import scalaz.Liskov, Liskov.<~<
+import scala.collection.{immutable => imm}, imm.Map
 import NonEmptyCollCompat._
 
 /** Functions where ''the receiver'' is non-empty can be found implicitly with
