@@ -3,7 +3,7 @@
 
 package com.daml.scalautil.nonempty
 
-import scala.collection.{immutable => sci}, sci.Map, sci.Set
+import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Traverse}
 import scalaz.Leibniz, Leibniz.===
@@ -23,7 +23,7 @@ sealed abstract class NonEmptyColl {
 
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
   private[nonempty] def subst[F[_[_]]](tf: F[Id]): F[NonEmpty]
-  private[nonempty] def unsafeNarrow[Self](self: Self with sci.Iterable[_]): NonEmpty[Self]
+  private[nonempty] def unsafeNarrow[Self](self: Self with imm.Iterable[_]): NonEmpty[Self]
 
   /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
     * this in an upper-bound, because that would prevent us from adding implicit
@@ -39,10 +39,10 @@ sealed abstract class NonEmptyColl {
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
   /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
-  def apply[Self](self: Self with sci.Iterable[_]): Option[NonEmpty[Self]]
+  def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
 
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
-    * [[sci.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
+    * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
     * to `ne` if the pattern matches.
     *
     * You will get an unchecked warning if the selector is not statically of an
@@ -51,7 +51,7 @@ sealed abstract class NonEmptyColl {
     * The type-checker will not permit you to apply this to a value that already
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
-  def unapply[Self](self: Self with sci.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
+  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
 }
 
 object NonEmptyColl extends NonEmptyCollInstances {
@@ -63,9 +63,9 @@ object NonEmptyColl extends NonEmptyCollInstances {
     override def subtype[A] = Liskov.refl[A]
     override def equiv[F[_], A] = Leibniz.refl
 
-    override def apply[Self](self: Self with sci.Iterable[_]) =
+    override def apply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
-    private[nonempty] override def unsafeNarrow[Self](self: Self with sci.Iterable[_]) = self
+    private[nonempty] override def unsafeNarrow[Self](self: Self with imm.Iterable[_]) = self
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
@@ -101,10 +101,10 @@ object NonEmptyColl extends NonEmptyCollInstances {
   }
 
   implicit final class NEPreservingOps[A, C](
-      private val self: NonEmpty[IterableOps[A, sci.Iterable, C with sci.Iterable[A]]]
+      private val self: NonEmpty[IterableOps[A, imm.Iterable, C with imm.Iterable[A]]]
   ) {
     import NonEmpty.{unsafeNarrow => un}
-    private type ESelf = IterableOps[A, sci.Iterable, C with sci.Iterable[A]]
+    private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
   }
@@ -114,7 +114,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   object RefinedOps /* extends RefinedOpsUnportable */ {
     implicit final class `NE Map Ops`[A, CC[_], C](
-        private val self: IterableOps[A, CC, C with sci.Iterable[A]]
+        private val self: IterableOps[A, CC, C with imm.Iterable[A]]
     ) {
       def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
         NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
