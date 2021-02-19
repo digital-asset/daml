@@ -214,7 +214,7 @@ da_scala_test_suite(
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",
         "//extractor:VeryLargeArchive.dar",
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:dar-files",
         "//ledger/test-common/test-certificates",
     ],
     plugins = [silencer_plugin],

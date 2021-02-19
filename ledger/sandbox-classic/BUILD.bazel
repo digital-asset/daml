@@ -207,7 +207,7 @@ test_deps = [
     "//ledger/sandbox-common",
     "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
     "//ledger/test-common",
-    "//ledger/test-common:test-dars-stable-lib",
+    "//ledger/test-common:dar-files-stable-lib",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
     "//libs-scala/grpc-utils",

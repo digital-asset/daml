@@ -90,7 +90,7 @@ da_scala_test_suite(
     name = "ledger-api-client-integration-tests",
     srcs = glob(["src/it/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:dar-files",
     ],
     resources = [
         "src/it/resources/logback-test.xml",

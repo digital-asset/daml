@@ -18,8 +18,19 @@ load("@scala_version//:index.bzl", "scala_major_version")
 load("@scala_version//:index.bzl", "scala_major_version")
 load(":test-common.bzl", "test_common_configurations", "test_common_lf_targets")
 
+alias(
+    name = "dar-files",
+    actual = "dar-files-stable",
+    visibility = ["//visibility:public"],
+)
+
 [
     [
+        # alias model-tests-KEYWORD.dar, dar-files-KEYWORD, and dar-files-KEYWORD-lib
+        # to model-tests-TAG.dar, dar-files-TAG, and dar-files-TAG-lib
+        # where : KEYWORD is a keyword like stable, latest, or dev
+        #         TAG is a (java friendly) version TAG like 1_8
+        #         The mapping KEYWORD -> TAG is defined by test_common_configurations
         alias(
             name = "%s-%s%s" % (target_prefix, name, target_suffix),
             actual = ":%s-%s%s" % (
@@ -32,8 +43,8 @@ load(":test-common.bzl", "test_common_configurations", "test_common_lf_targets")
     ]
     for (target_prefix, target_suffix) in [
         ("model-tests", ".dar"),
-        ("test-dars", ""),
-        ("test-dars", "-lib"),
+        ("dar-files", ""),
+        ("dar-files", "-lib"),
     ]
     for (name, lf_target) in test_common_configurations.items()
 ]
@@ -104,7 +115,7 @@ da_scala_library(
 [
     [
         genrule(
-            name = "test-dars-lookup-%s.scala" % target_suffix,
+            name = "dar-files-lookup-%s.scala" % target_suffix,
             outs = ["Dars-%s.scala" % target_suffix],
             cmd = """
 cat > $@ <<EOF
@@ -124,15 +135,15 @@ EOF
 """ % target_suffix,
         ),
         da_scala_library(
-            name = "test-dars-%s-lib" % target_suffix,
-            srcs = [":test-dars-lookup-%s.scala" % target_suffix],
+            name = "dar-files-%s-lib" % target_suffix,
+            srcs = [":dar-files-lookup-%s.scala" % target_suffix],
             generated_srcs = [":dar-file-names-scala-%s" % target_suffix],
             # generated_srcs is required for scaladoc
-            resources = ["test-dars-%s" % target_suffix],
+            resources = ["dar-files-%s" % target_suffix],
             visibility = ["//ledger:__subpackages__"],
         ),
         filegroup(
-            name = "test-dars-%s" % target_suffix,
+            name = "dar-files-%s" % target_suffix,
             srcs = [
                 ":model-tests-%s.dar" % target_suffix,
                 ":performance-tests-%s.dar" % target_suffix,

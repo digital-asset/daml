@@ -36,7 +36,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/test-common:test-dars-stable",
+        "//ledger/test-common:dar-files-stable",
     ],
     scala_deps = [
         "@maven//:org_tpolecat_doobie_core",
