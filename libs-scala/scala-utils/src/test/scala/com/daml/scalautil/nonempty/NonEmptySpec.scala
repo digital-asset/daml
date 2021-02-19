@@ -97,9 +97,23 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "+-:" should {
+    val NonEmpty(s) = Vector(1, 2)
+
+    "preserve its tail type" in {
+      val h +-: t = s
+      ((h, t): (Int, Vector[Int])) should ===((1, Vector(2)))
+    }
+
+    "have ±: alias" in {
+      val h ±: t = s
+      ((h, t): (Int, Vector[Int])) should ===((1, Vector(2)))
+    }
+  }
+
   // why we don't allow `scala.collection` types
   "scala.collection.Seq" must {
-    "accept that its non-emptiness is emphemeral" in {
+    "accept that its non-emptiness is ephemeral" in {
       val ms = mut.Buffer(1)
       val cs: col.Seq[Int] = ms
       val csIsNonEmpty = cs.nonEmpty
