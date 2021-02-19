@@ -10,9 +10,12 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -57,6 +60,50 @@ object Main {
     ()
   }
 
+  private def getACS(
+      client: LedgerClient,
+      parties: List[String],
+      offset: LedgerOffset,
+  )(implicit
+      mat: Materializer
+  ): Future[Map[String, CreatedEvent]] = {
+    val ledgerBegin = LedgerOffset(
+      LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+    )
+    if (offset == ledgerBegin) {
+      Future.successful(Map.empty)
+    } else {
+      client.transactionClient
+        .getTransactions(ledgerBegin, Some(offset), filter(parties), verbose = true)
+        .runFold(Map.empty[String, CreatedEvent]) { case (acs, tx) =>
+          tx.events.foldLeft(acs) { case (acs, ev) =>
+            ev.event match {
+              case Event.Empty => acs
+              case Event.Created(value) => acs + (value.contractId -> value)
+              case Event.Archived(value) => acs - value.contractId
+            }
+          }
+        }
+    }
+  }
+
+  private def getTransactionTrees(
+      client: LedgerClient,
+      parties: List[String],
+      start: LedgerOffset,
+      end: LedgerOffset,
+  )(implicit
+      mat: Materializer
+  ): Future[Seq[TransactionTree]] = {
+    if (start == end) {
+      Future.successful(Seq.empty)
+    } else {
+      client.transactionClient
+        .getTransactionTrees(start, Some(end), filter(parties), verbose = true)
+        .runWith(Sink.seq)
+    }
+  }
+
   def run(config: Config)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -64,22 +111,21 @@ object Main {
   ): Future[Unit] =
     for {
       client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
-      trees <- client.transactionClient
-        .getTransactionTrees(
-          LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
-          Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))),
-          filter(config.parties),
-          verbose = true,
-        )
-        .runWith(Sink.seq)
-      pkgRefs: Set[PackageId] = trees.toList
+      acs <- getACS(client, config.parties, config.start)
+      trees <- getTransactionTrees(client, config.parties, config.start, config.end)
+      acsPkgRefs = acs.values.toList
+        .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+        .map(i => PackageId.assertFromString(i.packageId))
+      treePkgRefs = trees.toList
         .foldMap(treeRefs(_))
         .map(i => PackageId.assertFromString(i.packageId))
+      pkgRefs = acsPkgRefs ++ treePkgRefs
       pkgs <- Dependencies.fetchPackages(client, pkgRefs.toList)
       _ = writeDump(
         config.sdkVersion,
         config.damlScriptLib,
         config.outputPath,
+        acs,
         trees,
         pkgRefs,
         pkgs,
@@ -90,6 +136,7 @@ object Main {
       sdkVersion: String,
       damlScriptLib: String,
       targetDir: Path,
+      acs: Map[String, CreatedEvent],
       trees: Seq[TransactionTree],
       pkgRefs: Set[PackageId],
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
@@ -99,7 +146,7 @@ object Main {
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Dump.daml"),
-      Encode.encodeTransactionTreeStream(trees).render(80).getBytes(StandardCharsets.UTF_8),
+      Encode.encodeTransactionTreeStream(acs, trees).render(80).getBytes(StandardCharsets.UTF_8),
     )
     val dars: Seq[Dar[(PackageId, ByteString, Ast.Package)]] =
       pkgRefs.view.collect(Function.unlift(Dependencies.toDar(_, pkgs))).toSeq

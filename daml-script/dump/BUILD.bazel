@@ -6,18 +6,23 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "silencer_plugin",
 )
 
 da_scala_binary(
     name = "dump",
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.script.dump.Main",
+    plugins = [silencer_plugin],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat.",
     ],
     visibility = ["//visibility:public"],
     deps = [
