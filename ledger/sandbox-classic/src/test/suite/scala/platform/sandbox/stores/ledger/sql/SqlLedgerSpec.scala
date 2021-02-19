@@ -300,7 +300,7 @@ final class SqlLedgerSpec
         initialLedgerEntries = ImmArray.empty,
         queueDepth = queueDepth,
         transactionCommitter = LegacyTransactionCommitter,
-        startMode = SqlStartMode.ContinueIfExists,
+        startMode = SqlStartMode.MigrateAndStart,
         eventsPageSize = 100,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),

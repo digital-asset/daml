@@ -75,7 +75,7 @@ private[sandbox] object SqlLedger {
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       transactionCommitter: TransactionCommitter,
-      startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
+      startMode: SqlStartMode,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -92,9 +92,9 @@ private[sandbox] object SqlLedger {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
-          case SqlStartMode.AlwaysReset =>
+          case SqlStartMode.ResetAndStart =>
             Resource.fromFuture(dao.reset())
-          case SqlStartMode.ContinueIfExists =>
+          case SqlStartMode.MigrateAndStart =>
             Resource.unit
         }
         retrievedLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
