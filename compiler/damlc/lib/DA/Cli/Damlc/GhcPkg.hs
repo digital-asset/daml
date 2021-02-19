@@ -39,7 +39,6 @@ import Distribution.Types.LibraryName (libraryNameString)
 import Distribution.Simple.Utils (fromUTF8BS, toUTF8BS, writeUTF8File, readUTF8File)
 import qualified Data.Version as Version
 import System.FilePath as FilePath
-import qualified System.FilePath.Posix as FilePath.Posix
 import System.Directory ( createDirectoryIfMissing,
                           getModificationTime )
 
@@ -145,74 +144,26 @@ stackUpTo to_modify = dropWhile ((/= to_modify) . location)
 
 getPkgDatabases :: Verbosity
                 -> Bool    -- read caches, if available
-                -> Bool    -- expand vars, like ${pkgroot} and $topdir
                 -> FilePath
-                -> IO (PackageDBStack,
-                          -- the real package DB stack: [global,user] ++
-                          -- DBs specified on the command line with -f.
-                       PackageDB 'GhcPkg.DbReadWrite,
-                          -- which one to modify, if any
-                       PackageDBStack)
-                          -- the package DBs specified on the command
-                          -- line, or [global,user] otherwise.  This
-                          -- is used as the list of package DBs for
-                          -- commands that just read the DB, such as 'list'.
+                -> IO (PackageDB 'GhcPkg.DbReadOnly, PackageDB 'GhcPkg.DbReadWrite)
+getPkgDatabases verbosity use_cache global_conf = do
+  let top_db = global_conf
 
-getPkgDatabases verbosity use_cache expand_vars global_conf = do
-  -- The value of the $topdir variable used in some package descriptions
-  -- Note that the way we calculate this is slightly different to how it
-  -- is done in ghc itself. We rely on the convention that the global
-  -- package db lives in ghc's libdir.
-  top_dir <- absolutePath (takeDirectory global_conf)
-
-  -- If the user database exists, and for "use_user" commands (which includes
-  -- "ghc-pkg check" and all commands that modify the db) we will attempt to
-  -- use the user db.
-  let sys_databases = [global_conf]
-
-  let env_stack = sys_databases
-
-  let flag_db_names = env_stack
-
-  -- For a "modify" command, treat all the databases as
-  -- a stack, where we are modifying the top one, but it
-  -- can refer to packages in databases further down the
-  -- stack.
-
-  -- -f flags on the command line add to the database
-  -- stack, unless any of them are present in the stack
-  -- already.
-  let final_stack = env_stack
-
-      top_db = global_conf
-
-  (db_stack, db_to_operate_on) <- getDatabases top_dir
-                                               final_stack top_db
-
-  let flag_db_stack = [ db | db_name <- flag_db_names,
-                        db <- db_stack, location db == db_name ]
+  (db_stack, db_to_operate_on) <- getDatabases top_db
 
   when (verbosity > Normal) $ do
-    infoLn ("db stack: " ++ show (map location db_stack))
+    infoLn ("db stack: " ++ show (location db_stack))
     infoLn ("modifying: " ++ (location db_to_operate_on))
-    infoLn ("flag db stack: " ++ show (map location flag_db_stack))
 
-  return (db_stack, db_to_operate_on, flag_db_stack)
+  return (db_stack, db_to_operate_on)
   where
-    getDatabases top_dir
-                 final_stack top_db = do
-        (db_stack, mto_modify) <- stateSequence Nothing
-          [ \case
-              to_modify@(Just _) -> (, to_modify) <$> readDatabase db_path
-              Nothing -> if db_path /= top_db
-                then (, Nothing) <$> readDatabase db_path
-                else do
+    getDatabases top_db = do
+        (db_stack, mto_modify) <- do
                   db <- readParseDatabase verbosity
-                                          (GhcPkg.DbOpenReadWrite TopOne) use_cache db_path
-                    `Exception.catch` couldntOpenDbForModification db_path
+                                          (GhcPkg.DbOpenReadWrite TopOne) use_cache top_db
+                    `Exception.catch` couldntOpenDbForModification top_db
                   let ro_db = db { packageDbLock = GhcPkg.DbOpenReadOnly }
                   return (ro_db, Just db)
-          | db_path <- final_stack ]
 
         to_modify <- case mto_modify of
           Just db -> return db
@@ -223,22 +174,6 @@ getPkgDatabases verbosity use_cache expand_vars global_conf = do
         couldntOpenDbForModification :: FilePath -> IOError -> IO a
         couldntOpenDbForModification db_path e = die $ "Couldn't open database "
           ++ db_path ++ " for modification: " ++ show e
-
-        -- Parse package db in read-only mode.
-        readDatabase :: FilePath -> IO (PackageDB 'GhcPkg.DbReadOnly)
-        readDatabase db_path = do
-          db <- readParseDatabase verbosity
-                                  GhcPkg.DbOpenReadOnly use_cache db_path
-          if expand_vars
-            then return $ mungePackageDBPaths top_dir db
-            else return db
-
-    stateSequence :: Monad m => s -> [s -> m (a, s)] -> m ([a], s)
-    stateSequence s []     = return ([], s)
-    stateSequence s (m:ms) = do
-      (a, s')   <- m s
-      (as, s'') <- stateSequence s' ms
-      return (a : as, s'')
 
 readParseDatabase :: forall mode t. Verbosity
                   -> GhcPkg.DbOpenMode mode t
@@ -339,67 +274,6 @@ parseSingletonPackageConf verbosity file = do
 
 cachefilename :: FilePath
 cachefilename = "package.cache"
-
-mungePackageDBPaths :: FilePath -> PackageDB mode -> PackageDB mode
-mungePackageDBPaths top_dir db@PackageDB { packages = pkgs } =
-    db { packages = map (mungePackagePaths top_dir pkgroot) pkgs }
-  where
-    pkgroot = takeDirectory $ dropTrailingPathSeparator (locationAbsolute db)
-    -- It so happens that for both styles of package db ("package.conf"
-    -- files and "package.conf.d" dirs) the pkgroot is the parent directory
-    -- ${pkgroot}/package.conf  or  ${pkgroot}/package.conf.d/
-
--- TODO: This code is duplicated in compiler/main/Packages.hs
-mungePackagePaths :: FilePath -> FilePath
-                  -> InstalledPackageInfo -> InstalledPackageInfo
--- Perform path/URL variable substitution as per the Cabal ${pkgroot} spec
--- (http://www.haskell.org/pipermail/libraries/2009-May/011772.html)
--- Paths/URLs can be relative to ${pkgroot} or ${pkgrooturl}.
--- The "pkgroot" is the directory containing the package database.
---
--- Also perform a similar substitution for the older GHC-specific
--- "$topdir" variable. The "topdir" is the location of the ghc
--- installation (obtained from the -B option).
-mungePackagePaths top_dir pkgroot pkg =
-    pkg {
-      importDirs  = munge_paths (importDirs pkg),
-      includeDirs = munge_paths (includeDirs pkg),
-      libraryDirs = munge_paths (libraryDirs pkg),
-      libraryDynDirs = munge_paths (libraryDynDirs pkg),
-      frameworkDirs = munge_paths (frameworkDirs pkg),
-      haddockInterfaces = munge_paths (haddockInterfaces pkg),
-                     -- haddock-html is allowed to be either a URL or a file
-      haddockHTMLs = munge_paths (munge_urls (haddockHTMLs pkg))
-    }
-  where
-    munge_paths = map munge_path
-    munge_urls  = map munge_url
-
-    munge_path p
-      | Just p' <- stripVarPrefix "${pkgroot}" p = pkgroot ++ p'
-      | Just p' <- stripVarPrefix "$topdir"    p = top_dir ++ p'
-      | otherwise                                = p
-
-    munge_url p
-      | Just p' <- stripVarPrefix "${pkgrooturl}" p = toUrlPath pkgroot p'
-      | Just p' <- stripVarPrefix "$httptopdir"   p = toUrlPath top_dir p'
-      | otherwise                                   = p
-
-    toUrlPath r p = "file:///"
-                 -- URLs always use posix style '/' separators:
-                 ++ FilePath.Posix.joinPath
-                        (r : -- We need to drop a leading "/" or "\\"
-                             -- if there is one:
-                             dropWhile (all isPathSeparator)
-                                       (FilePath.splitDirectories p))
-
-    -- We could drop the separator here, and then use </> above. However,
-    -- by leaving it in and using ++ we keep the same path separator
-    -- rather than letting FilePath change it to use \ as the separator
-    stripVarPrefix var path = case stripPrefix var path of
-                              Just [] -> Just []
-                              Just cs@(c : _) | isPathSeparator c -> Just cs
-                              _ -> Nothing
 
 -- -----------------------------------------------------------------------------
 -- Creating a new package DB
@@ -667,10 +541,9 @@ instance GhcPkg.DbUnitIdModuleRep UnitId ComponentId OpenUnitId ModuleName OpenM
 recache :: Verbosity -> FilePath -> IO ()
 recache _verbosity globalPkgDb = do
   let verbosity = Verbose
-  (_db_stack, db_to_operate_on, _flag_dbs) <-
-    getPkgDatabases verbosity
-      False{-no cache-} False{-expand vars-} globalPkgDb
-  changeDB verbosity [] db_to_operate_on _db_stack
+  (_db_stack, db_to_operate_on) <- getPkgDatabases verbosity
+      False{-no cache-} globalPkgDb
+  changeDB verbosity [] db_to_operate_on [_db_stack]
 
 -----------------------------------------------------------------------------
 -- Sanity-check a new package config, and automatically build GHCi libs
