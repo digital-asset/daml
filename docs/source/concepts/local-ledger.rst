@@ -345,7 +345,10 @@ As explained in the Daml Ledger Model, parties see only a :ref:`projection <da-m
 Like consistency, projection extends to causality graphs as follows.
 
 Definition »Stakeholder informee«
-  A party `P` is a **stakeholder informee** of an action `act` if `P` is an informee of `act` and, if `act` is an action on a contract then `P` is a stakeholder of the contract.
+  A party `P` is a **stakeholder informee** of an action `act` if all of the following holds:
+
+  - `P` is an informee of `act`.
+  - If `act` is an action on a contract then `P` is a stakeholder of the contract.
 
 An **Exercise** and **Fetch** action acts on the input contract, a **Create** action on the created contract, and a **NoSuchKey** action does not act on a contract.
 So for a **NoSuchKey** action, the stakeholder informees are the key maintainers.
@@ -355,7 +358,7 @@ Definition »Causal consistency for a party«
 
 The notions of `X`\ -minimality and `X`\ -reduction extend to parties accordingly.
 
-For example, the :ref:`split counteroffer causality graph without the edge tx2 -> tx4 <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is an informee of exactly the highlighted actions.
+For example, the :ref:`split counteroffer causality graph without the edge tx2 -> tx4 <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is a stakeholder informee of exactly the highlighted actions.
 It is also minimal Bank-consistent and the Bank-reduction of the :ref:`original split counteroffer causality graph <causality-graph-counteroffer-split>`.
   
 Definition »Projection of a consistent causality graph«
