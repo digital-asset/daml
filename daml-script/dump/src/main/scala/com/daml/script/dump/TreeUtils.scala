@@ -28,7 +28,8 @@ object TreeUtils {
   def topoSortAcs(acs: Map[String, CreatedEvent]): List[CreatedEvent] = {
     val graph: Graphs.Graph[String] = acs.view.mapValues(createdReferencedCids).toMap
     Graphs.topoSort(graph) match {
-      case Left(cycle) => throw new IllegalArgumentException(s"Encountered cyclic contract dependencies: $cycle")
+      case Left(cycle) =>
+        throw new IllegalArgumentException(s"Encountered cyclic contract dependencies: $cycle")
       case Right(sorted) => sorted.map(cid => acs.get(cid).get)
     }
   }
