@@ -49,6 +49,12 @@ da_scala_library(
     ],
 )
 
+daml_compile(
+     name = "tests-18-abc",
+     srcs = glob(["src/main/daml/model/*.daml"]),
+     visibility = ["//visibility:public"],
+)
+
 [
     [
         daml_compile(

@@ -35,15 +35,16 @@ import GHC.PackageDb (BinaryStringRep(..))
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Distribution.ModuleName as ModuleName
 import Distribution.ModuleName (ModuleName)
-import Distribution.InstalledPackageInfo as Cabal
+import Distribution.Types.InstalledPackageInfo (InstalledPackageInfo(..), AbiDependency(..), ExposedModule(..))
+import Distribution.InstalledPackageInfo (parseInstalledPackageInfo, showInstalledPackageInfo, installedComponentId)
 import Distribution.Package hiding (installedUnitId)
-import Distribution.Text
-import Distribution.Version
-import Distribution.Backpack
-import Distribution.Types.UnqualComponentName
-import Distribution.Types.LibraryName
-import Distribution.Types.MungedPackageName
-import Distribution.Types.MungedPackageId
+import Distribution.Text (display, simpleParse)
+import Distribution.Version (versionNumbers, nullVersion)
+import Distribution.Backpack (OpenUnitId(..), OpenModule(..))
+import Distribution.Types.UnqualComponentName (unUnqualComponentName)
+import Distribution.Types.LibraryName (libraryNameString)
+import Distribution.Types.MungedPackageName (MungedPackageName)
+import Distribution.Types.MungedPackageId (MungedPackageId, mungedName, mungedVersion)
 import Distribution.Simple.Utils (fromUTF8BS, toUTF8BS, writeUTF8File, readUTF8File)
 import qualified Data.Version as Version
 import System.FilePath as FilePath
@@ -900,7 +901,8 @@ instance GhcPkg.DbUnitIdModuleRep UnitId ComponentId OpenUnitId ModuleName OpenM
 
 
 recache :: Verbosity -> [Flag] -> IO ()
-recache verbosity my_flags = do
+recache _verbosity my_flags = do
+  let verbosity = Verbose
   (_db_stack, GhcPkg.DbOpenReadWrite db_to_operate_on, _flag_dbs) <-
     getPkgDatabases verbosity (GhcPkg.DbOpenReadWrite TopOne)
       False{-no cache-} False{-expand vars-} my_flags

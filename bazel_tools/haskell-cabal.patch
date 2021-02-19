@@ -1,0 +1,52 @@
+diff --git a/Cabal/Distribution/Parsec.hs b/Cabal/Distribution/Parsec.hs
+index 0df02ffa0..4263ca22e 100644
+--- a/Cabal/Distribution/Parsec.hs
++++ b/Cabal/Distribution/Parsec.hs
+@@ -409,7 +409,7 @@ parsecUnqualComponentName = state0 DList.empty where
+     state0 acc = do
+         c <- ch -- <|> fail ("Invalid component, after " ++ DList.toList acc)
+         case () of
+-            _ | isDigit c    -> state0 (DList.snoc acc c)
++            _ | isDigit c    -> state1 (DList.snoc acc c)
+               | isAlphaNum c -> state1 (DList.snoc acc c)
+               | c == '-'     -> fail ("Empty component, after " ++ DList.toList acc)
+               | otherwise    -> fail ("Internal error, after " ++ DList.toList acc)
+@@ -426,7 +426,7 @@ parsecUnqualComponentName = state0 DList.empty where
+               | otherwise    -> fail ("Internal error, after " ++ DList.toList acc)
+ 
+     ch :: m Char
+-    !ch = P.satisfy (\c -> isAlphaNum c || c == '-')
++    !ch = P.satisfy (\c -> isAlphaNum c || c == '-' || c == '.')
+ 
+     alt :: m String -> m String -> m String
+     !alt = (<|>)
+diff --git a/Cabal/Distribution/Simple/Utils.hs b/Cabal/Distribution/Simple/Utils.hs
+index 26c727b46..202918449 100644
+--- a/Cabal/Distribution/Simple/Utils.hs
++++ b/Cabal/Distribution/Simple/Utils.hs
+@@ -204,10 +204,6 @@ import Distribution.Types.PackageId
+ #endif
+ #endif
+ 
+-#ifdef BOOTSTRAPPED_CABAL
+-import qualified Paths_Cabal (version)
+-#endif
+-
+ import Distribution.Pretty
+ import Distribution.Parsec
+ 
+@@ -247,13 +243,7 @@ import qualified Text.PrettyPrint as Disp
+ 
+ -- We only get our own version number when we're building with ourselves
+ cabalVersion :: Version
+-#if defined(BOOTSTRAPPED_CABAL)
+-cabalVersion = mkVersion' Paths_Cabal.version
+-#elif defined(CABAL_VERSION)
+-cabalVersion = mkVersion [CABAL_VERSION]
+-#else
+-cabalVersion = mkVersion [3,0]  --used when bootstrapping
+-#endif
++cabalVersion = mkVersion [3,4,0,0]  --used when bootstrapping
+ 
+ -- ----------------------------------------------------------------------------
+ -- Exception and logging utils

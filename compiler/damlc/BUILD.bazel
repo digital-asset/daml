@@ -123,7 +123,7 @@ da_haskell_library(
         "extra",
         "file-embed",
         "filepath",
-        "Cabal",
+#        "Cabal",
         "ghc-lib",
         "ghc-lib-parser",
         "ghcide",
@@ -161,6 +161,7 @@ da_haskell_library(
     src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
+        "@cabal-daml-parser//:cabal-daml-parser",
         "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",

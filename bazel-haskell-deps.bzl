@@ -387,6 +387,46 @@ haskell_cabal_library(
         urls = ["http://hackage.haskell.org/package/zip-{version}/zip-{version}.tar.gz".format(version = ZIP_VERSION)],
     )
 
+    # ghc-lib based ghcide - injected into `@stackage` and used for DAML IDE.
+    http_archive(
+        name = "cabal-daml-parser",
+        build_file_content = """
+load("@rules_haskell//haskell:defs.bzl", "haskell_library")
+haskell_library(
+    name = "cabal-daml-parser",
+    version = "3.4.0.0",
+    srcs = glob(["Distribution/**/*.hs", "Language/**/*.hs"]),
+    visibility = ["//visibility:public"],
+    deps = [
+      "@stackage//:array",
+      "@stackage//:base",
+      "@stackage//:binary",
+      "@stackage//:bytestring",
+      "@stackage//:containers",
+      "@stackage//:deepseq",
+      "@stackage//:directory",
+      "@stackage//:filepath",
+      "@stackage//:mtl",
+      "@stackage//:parsec",
+      "@stackage//:pretty",
+      "@stackage//:process",
+      "@stackage//:text",
+      "@stackage//:time",
+      "@stackage//:transformers",
+      "@stackage//:unix",
+    ],
+    compiler_flags = ["-j8"],
+)
+""",
+        strip_prefix = "Cabal-3.4.0.0",
+        sha256 = "b879998a96763b30fd8a1a5f4e94923dcefa73c4da700813f2884f47026541fd",
+        urls = ["https://hackage.haskell.org/package/Cabal-3.4.0.0/Cabal-3.4.0.0.tar.gz"],
+        patch_args = ["-p2"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-cabal.patch",
+        ],
+    )
+
     #
     # Stack binary
     #
