@@ -854,7 +854,7 @@ private[lf] final class Compiler(
       labeledUnaryFunction("submitMustFail") { tokenPos =>
         let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
           let(
-            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)), SEValue.True, SEValue.False)
+            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
           ) { resultPos =>
             SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
           }
@@ -956,32 +956,30 @@ private[lf] final class Compiler(
   ) =
     let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
-      let(
-        SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
-          svar(choiceArgPos),
-          svar(cidPos),
-          compile(tmpl.signatories),
-          compile(tmpl.observers), //
-          {
-            addExprVar(choice.argBinder._1, choiceArgPos)
-            compile(choice.controllers)
-          }, //
-          {
-            choice.choiceObservers match {
-              case Some(observers) => compile(observers)
-              case None => SEValue.EmptyList
-            }
-          },
-          mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
-        )
-      ) { _ =>
-        addExprVar(choice.selfBinder, cidPos)
-        let(app(compile(choice.update), svar(tokenPos))) { retValuePos =>
-          let(SBUEndExercise(tmplId)(svar(retValuePos))) { _ =>
-            svar(retValuePos)
-          }
+      SEScopeExercise(
+        let(
+          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
+            svar(choiceArgPos),
+            svar(cidPos),
+            compile(tmpl.signatories),
+            compile(tmpl.observers), //
+            {
+              addExprVar(choice.argBinder._1, choiceArgPos)
+              compile(choice.controllers)
+            }, //
+            {
+              choice.choiceObservers match {
+                case Some(observers) => compile(observers)
+                case None => SEValue.EmptyList
+              }
+            },
+            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
+          )
+        ) { _ =>
+          addExprVar(choice.selfBinder, cidPos)
+          app(compile(choice.update), svar(tokenPos))
         }
-      }
+      )
     }
 
   private[this] def compileChoice(
@@ -1182,11 +1180,9 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case SECatchSubmitMustFail(body, handler, fin) =>
+      case SECatchSubmitMustFail(body) =>
         SECatchSubmitMustFail(
-          closureConvert(remaps, body),
-          closureConvert(remaps, handler),
-          closureConvert(remaps, fin),
+          closureConvert(remaps, body)
         )
 
       case SETryCatch(body, handler) =>
@@ -1194,6 +1190,9 @@ private[lf] final class Compiler(
           closureConvert(remaps, body),
           closureConvert(shift(remaps, 1), handler),
         )
+
+      case SEScopeExercise(body) =>
+        SEScopeExercise(closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
@@ -1277,12 +1276,14 @@ private[lf] final class Compiler(
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatchSubmitMustFail(body, handler, fin) =>
-          go(body, bound, go(handler, bound, go(fin, bound, free)))
+        case SECatchSubmitMustFail(body) =>
+          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
+        case SEScopeExercise(body) =>
+          go(body, bound, free)
 
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
@@ -1376,10 +1377,8 @@ private[lf] final class Compiler(
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
-        case SECatchSubmitMustFail(body, handler, fin) =>
+        case SECatchSubmitMustFail(body) =>
           go(body)
-          go(handler)
-          go(fin)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>
@@ -1387,6 +1386,8 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
+        case SEScopeExercise(body) =>
+          go(body)
 
         case x: SEDamlException =>
           throw CompilationError(s"unexpected SEDamlException: $x")
