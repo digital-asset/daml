@@ -3806,11 +3806,11 @@ Numeric functions
 MathContext functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-*  ``'MATHCTX_UNLIMITED' : RoundingMode``
+*  ``'MATHCTX_UNLIMITED' : MathContext``
 
    Unlimited precision
 
-* ``MATHCTX_BOUNDED' : RoundingMode -> Int64 -> RoundingMode``
+* ``MATHCTX_BOUNDED' : RoundingMode -> Int64 -> MathContext``
 
   Round to the given precision using the given rounding mode. Throws if the precision is not between 0 and 2³¹-1
 
