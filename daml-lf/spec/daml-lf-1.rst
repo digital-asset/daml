@@ -3395,24 +3395,6 @@ updates.
       𝕆('LESS_EQ' @σ LitBigDecimal₁ LitBigDecimal₂) =
           Ok (LitBigDecimal₁ ≤ₗ LitBigDecimal₂)
 
-    —————————————————————————————————————————————————————————————————————— EvLessEqMathCtxUnlimitedAny
-      𝕆('LESS_EQ' @σ 'MATHCTX_UNLIMITED'  v) = Ok 'True'
-
-    —————————————————————————————————————————————————————————————————————— EvLessEqMathCtxBoundedUnlimited
-      𝕆('LESS_EQ' @σ ('MATHCTX_BOUNDED' r' p') 'MATHCTX_UNLIMITED') = Ok 'False'
-
-      𝕆('LESS_EQ' @@⟨ r:'RoundingMode', p: 'Int64' ⟩
-                     ⟨ r = r,  p = p ⟩
-                     ⟨ r = r',  p = p' ⟩) = r
-
-    —————————————————————————————————————————————————————————————————————— EvLessEqMathCtxBoundedBounded
-      𝕆('LESS_EQ' @σ ('MATHCTX_BOUNDED' r p)  ('MATHCTX_BOUNDED' r' p')) = Ok r
-
-      roundingModeRank(r1) = i
-      roundingModeRank(r1) = j
-    —————————————————————————————————————————————————————————————————————— EvLessEqRoundingMode
-      𝕆('LESS_EQ' @σ r1  r2) = OK (i ≤ j)
-
     —————————————————————————————————————————————————————————————————————— EvLessEqContractId
       𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
@@ -3547,21 +3529,6 @@ updates.
 ..
   FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs
-
-Rounding Mode Rank
-..................
-
-To simplify the definition of rounding mode ordering, we define an auxiliary definion that maps them to integers. Note that this is purely an internal definition. No guarantees on stability are made. We only guarantee that the resulting ordering is stable.
-
-
-* ``roundingModeRank('ROUNDING_CEILING') = 0``
-* ``roundingModeRank('ROUNDING_FLOOR') = 1``
-* ``roundingModeRank('ROUNDING_DOWN') = 2``
-* ``roundingModeRank('ROUNDING_UP') = 3``
-* ``roundingModeRank('ROUNDING_HALF_DOWN') = 4``
-* ``roundingModeRank('ROUNDING_HALF_EVEN') = 5``
-* ``roundingModeRank('ROUNDING_HALF_UP') = 6``
-* ``roundingModeRank('ROUNDING_HALF_UNNECESSARY') = 7``
 
 * ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
 
