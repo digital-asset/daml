@@ -474,10 +474,7 @@ We now define all the literals that a program can handle::
   Numeric literals:
       LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*         -- LitNumeric
 
-  BigDecimal literals:
-      LitBigDecimal  ∈  ([+-]?)([1-9]\d+|0).\d*      -- LitBigDecimal
-
-  Date literals:
+   Date literals:
          LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
 
   UTC timestamp literals:
@@ -492,6 +489,17 @@ We now define all the literals that a program can handle::
   Contract ID literals:
         cid   ::= cidV0 | cidV1                      -- LitCid
 
+  Rounding Mode Literals:
+        LitRoundingMode ::=
+          | 'RoundingCeiling'
+          | 'RoundingFloor'
+          | 'RoundingDown'
+          | 'RoundingUp'
+          | 'RoundingHalfDown'
+          | 'RoundingHalfEven'
+          | 'RoundingHalfUp'
+          | 'RoundingHalfUnnecessary'
+
 The literals represent actual Daml-LF values:
 
 * A ``LitNatType`` represents a natural number between ``0`` and
@@ -500,14 +508,24 @@ The literals represent actual Daml-LF values:
   between ``−2⁶³`` to ``2⁶³−1``).
 * A ``LitNumeric`` represents a signed number that can be represented
   in base-10 without loss of precision with at most 38 digits
-  (ignoring possible leading 0 and with a scale (the number of
+  (ignoring possible leading 0) and with a scale (the number of
   significant digits on the right of the decimal point) between ``0``
   and ``37`` (bounds inclusive). In the following, we will use
   ``scale(LitNumeric)`` to denote the scale of the decimal number.
-* A ``LitBigDecimal`` represents a signed number that can be represented
-  in base-10 without loss of precision in the form ``unscaledValue * 10^{-scale}``
-  where ``unscaledValue`` is an arbitrary precision signed integer value
-  and scale is a 32bit signed integer value.
+
+* A ``LitBigNumeric`` represents a signed number that can be represented
+  as a product `i * 10^-s` where `i` (the *unscaled value* of the number) is a
+  integer not divisible by ten and `s` (the *scale* of the number) is a arbitrary integer.
+  The *precision* of such number is the number of digit in base-10 of its
+  unscaled value. By convention the scale and the precision of zero are 0.
+
+.. TODO specify when a numeric is valid.
+   For now we assume there is some predicate `valid` that checks a number
+   is within a subset of all the possible BiNumeric numbers and that:
+   - java BigDecimal operation never underflow/overflow
+   - It is not too expensive to create any of those number for actual testing.
+
+
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -529,7 +547,7 @@ The literals represent actual Daml-LF values:
    valid ``LitDate`` because there are only 12 months in a year.
 
 Number-like literals (``LitNatTyp``, ``LitInt64``,
-``LitNumeric``, ``LitBigDecimal``, ``LitDate``, ``LitTimestamp``) are ordered by natural
+``LitNumeric``, ``LitBigNumeric``, ``LitDate``, ``LitTimestamp``) are ordered by natural
 ordering. Text-like literals (``LitText``, ``LitParty``, and
 ``Contract ID``) are ordered lexicographically. Note that in the ASCII
 encoding, the character ``#`` comes before digits, meaning V0 Contract
@@ -564,9 +582,8 @@ Then we can define our kinds, types, and expressions::
       ::= 'TArrow'                                  -- BTArrow: Arrow type
        |  'Int64'                                   -- BTyInt64: 64-bit integer
        |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 37
-       |  'BigDecimal'                              -- BTyBigDecimal: arbitrary precision decimal with a 32bit scale
-       |  'MathContext'                             -- BTyMathContext: math context to control BigDecimal operations.
-       |  'RoundingMode'                            -- BTyRoundingMode: rounding mode to control BigDecimal operations.
+       |  'BigNumeric'                              -- BTyBigNumeric: arbitrary precision decimal
+       |  'RoundingMode'                            -- BTyRoundingMode: rounding mode to control BigNumeric operations.
        |  'Text'                                    -- BTyText: UTF-8 string
        |  'Date'                                    -- BTyDate
        |  'Timestamp'                               -- BTyTime: UTC timestamp
@@ -612,12 +629,13 @@ Then we can define our kinds, types, and expressions::
        |  'False'                                   -- ExpFalse
        |  LitInt64                                  -- ExpLitInt64: 64-bit integer literal
        |  LitNumeric                                -- ExpLitNumeric: Numeric literal
-       |  LitBigDecimal                             -- ExpLitBigDecimal: BigDecimal literal
+       |  LitBigNumeric                             -- ExpLitBigNumeric: BigNumeric literal
        |  t                                         -- ExpLitText: UTF-8 string literal
        |  LitDate                                   -- ExpLitDate: Date literal
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
        |  cid                                       -- ExpLitContractId: Contract identifiers
+       |  LitRoundingMode                           -- ExpLitRoundingMode: Rounding Mode
        |  F                                         -- ExpBuiltin: Builtin function
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
@@ -908,11 +926,8 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyNumeric
      Γ  ⊢  'Numeric' : 'nat' → ⋆
 
-   ————————————————————————————————————————————— TyBigDecimal
-     Γ  ⊢  'BigDecimal' : ⋆
-
-   ————————————————————————————————————————————— TyMathContext
-     Γ  ⊢  'MathContext' : ⋆
+   ————————————————————————————————————————————— TyBigNumeric
+     Γ  ⊢  'BigNumeric' : ⋆
 
    ————————————————————————————————————————————— TyRoundingMode
      Γ  ⊢  'RoundingMode' : ⋆
@@ -1110,8 +1125,8 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpLitNumeric
       Γ  ⊢  LitNumeric  :  'Numeric' n
 
-    ——————————————————————————————————————————————————————————————— ExpBigDecimal
-      Γ  ⊢  LitBigDecimal  :  'BigDecimal'
+    ——————————————————————————————————————————————————————————————— ExpBigNumeric
+      Γ  ⊢  LitBigNumeric  :  'BigNumeric'
 
     ——————————————————————————————————————————————————————————————— ExpLitText
       Γ  ⊢  t  :  'Text'
@@ -1128,6 +1143,9 @@ Then we define *well-formed expressions*. ::
       'tpl' (x : T) ↦ { … }  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpLitContractId
       Γ  ⊢  cid  :  'ContractId' Mod:T
+
+    ——————————————————————————————————————————————————————————————— ExpLitRoundingMode
+      Γ  ⊢  LitRoundingMode  :  'RoundingMode'
 
       τ  ↠  τ'      'val' W : τ ↦ …  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpVal
@@ -1825,7 +1843,7 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpLitNumeric
      ⊢ᵥ  LitNumeric
 
-   ——————————————————————————————————————————————————— ValExpLitBigDecimal
+   ——————————————————————————————————————————————————— ValExpLitBigNumeric
      ⊢ᵥ  LitBigDecimal
 
    ——————————————————————————————————————————————————— ValExpLitText
@@ -1930,37 +1948,8 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValScenario
      ⊢ᵥ  s
 
-   ——————————————————————————————————————————————————— ValMathCtxUnlimited
-     ⊢ᵥ  'MATHCTX_UNLIMITED'
-
-     ⊢ᵥ  r
-     ⊢ᵥ  p
-   ——————————————————————————————————————————————————— ValMathCtxBounded
-     ⊢ᵥ  'MATHCTX_BOUNDED' r p
-
-   ——————————————————————————————————————————————————— ValRoundingModeCeiling
-     ⊢ᵥ  'ROUNDING_CEILING'
-
-   ——————————————————————————————————————————————————— ValRoundingModeFloor
-     ⊢ᵥ  'ROUNDING_FLOOR'
-
-   ——————————————————————————————————————————————————— ValRoundingModeDown
-     ⊢ᵥ  'ROUNDING_DOWN'
-
-   ——————————————————————————————————————————————————— ValRoundingModeUp
-     ⊢ᵥ  'ROUNDING_UP'
-
-   ——————————————————————————————————————————————————— ValRoundingModeHalf_Down
-     ⊢ᵥ  'ROUNDING_HALF_DOWN'
-
-   ——————————————————————————————————————————————————— ValRoundingModeHalf_Even
-     ⊢ᵥ  'ROUNDING_HALF_EVEN'
-
-   ——————————————————————————————————————————————————— ValRoundingModeHalf_Up
-     ⊢ᵥ  'ROUNDING_HALF_UP'
-
-   ——————————————————————————————————————————————————— ValRoundingModeHalf_Unnecessary
-     ⊢ᵥ  'ROUNDING_HALF_UNNECESSARY'
+   ——————————————————————————————————————————————————— ValUnBondedMathContext
+     ⊢ᵥ  LitRoundingMode
 
 
                            ┌────────┐
@@ -2200,14 +2189,11 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
     'ArithmeticError' <ₜ 'ContractError'
 
-  ——————————————————————————————————————————————————— TypeOrderContractErrorBigDecimal
-    'ContractError' <ₜ 'BigDecimal'
+  ——————————————————————————————————————————————————— TypeOrderContractErrorBigNumeric
+    'ContractError' <ₜ 'BigNumeric'
 
-  ——————————————————————————————————————————————————— TypeOrderBigDecimalMathContext
-    'BigDecimal' <ₜ 'MathContext'
-
-  ——————————————————————————————————————————————————— TypeOrderMathContextRoundingMode
-    'MathContext' <ₜ 'RoundingMode'
+  ——————————————————————————————————————————————————— TypeOrderBigNumericRoundingMode
+    'BigNumeric' <ₜ 'RoundingMode'
 
   ——————————————————————————————————————————————————— TypeOrderRoundingModeTyCon
     'RoundingMode' <ₜ Mod:T
@@ -3391,9 +3377,9 @@ updates.
       𝕆('LESS_EQ' @σ LitNumeric₁ LitNumeric₂) =
           Ok (LitNumeric₁ ≤ₗ LitNumeric₂)
 
-    —————————————————————————————————————————————————————————————————————— EvLessEqBigDecimal
-      𝕆('LESS_EQ' @σ LitBigDecimal₁ LitBigDecimal₂) =
-          Ok (LitBigDecimal₁ ≤ₗ LitBigDecimal₂)
+    —————————————————————————————————————————————————————————————————————— EvLessEqBigNumeric
+      𝕆('LESS_EQ' @σ LitBigNumeric₁ LitBigNumeric₂) =
+          Ok (LitBigNumeric₁ ≤ₗ LitBigNumeric₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqContractId
       𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
@@ -3711,7 +3697,6 @@ Numeric functions
   `α₂`, `α` define the scale of the first input, the second input, and
   the output, respectively. Throws an error in case of overflow.
 
-
 * ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
@@ -3770,110 +3755,71 @@ Numeric functions
   ``None``.  The scale of the output is given by the type parameter
   `α`.
 
-MathContext functions
-~~~~~~~~~~~~~~~~~~~~~
-
-*  ``'MATHCTX_UNLIMITED' : MathContext``
-
-   Unlimited precision
-
-* ``MATHCTX_BOUNDED' : RoundingMode -> Int64 -> MathContext``
-
-  Round to the given precision using the given rounding mode. Throws if the precision is not between 0 and 2³¹-1
-
-RoundingMode functions
-~~~~~~~~~~~~~~~~~~~~~~
-
-* ``'ROUNDING_CEILING' : RoundingMode``
-
-  Round towards positive infinity.
-
-* ``'ROUNDING_FLOOR' : RoundingMode``
-
-  Round towards negative infinity
-
-* ``'ROUNDING_DOWN' : RoundingMode``
-
-  Round towards towards zero
-
-* ``'ROUNDING_UP' : RoundingMode``
-
-  Round towards away from zero
-
-* ``'ROUNDING_HALF_DOWN' : RoundingMode``
-
-  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards zero.
-
-* ``'ROUNDING_HALF_EVEN' : RoundingMode``
-
-  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round towards the even neighbor.
-
-* ``'ROUNDING_HALF_UP' : RoundingMode``
-
-  Round towards the nearest neighbor unless both neighbors are equidistant, in which case round away from zero.
-
-* ``'ROUNDING_UNNECESSARY' : RoundingMode``
-
-  Throw if the exact result cannot be represented.
-
-BigDecimal functions
+BigNumeric functions
 ~~~~~~~~~~~~~~~~~~~~
 
-All operations behave as if they first calculate an exact
-math intermediate result and then round this result as specified by
-the ``MathContext``. For an ``UNLIMITED`` math context, all operations
-are exact. If the result cannot be resulted as a ``BigDecimal`` they
-throw an ``ArithmeticError``
-(TODO: https://github.com/digital-asset/daml/issues/8020). For a
-``MATHCTX_BOUNDED roundingMode precision`` math context, the result is exact if it can
-be represented at with at most ``precision`` digits at some scale. If
-the result cannot be represented exactly in at most ``precision``
-digits, the ``precision`` digits in the result are selected according
-to ``roundingMode``.
+* ``ADD_BIGNUMERIC : 'BigNumeric' → 'BigNumeric'  → 'BigNumeric'``
 
-* ``ADD_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal'  → 'BigDecimal'``
+  Adds the two decimals. Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
 
-  Adds the two decimals by the second one rounding the result
-  according to the given ``MathContext``.
+* ``SUB_BIGDECIMAL : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
-* ``SUB_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal' → 'BigDecimal'``
+  Subtracts the two decimals. Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
 
-  Subtracts the second big decimal from the first one by the second one rounding the result
-  according to the given ``MathContext``.
+* ``MUL_BIGDECIMAL : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
-* ``MUL_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal' → 'BigDecimal'``
+  Multiplies the two numerics. Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
 
-  Multiplies the two numerics by the second one rounding the result
-  according to the given ``MathContext``.
+* ``DIV_BIGDECIMAL : 'RoundingMode' → 'Int' → 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
-* ``DIV_BIGDECIMAL : 'MathContext' → 'BigDecimal' → 'BigDecimal' → 'BigDecimal'``
+  Divides the first decimal by the second one and rounds the result according the rounding mode.
+  The scale of the output is given by the second argument.
+  If the result cannot be represented exactly in at most ``precision`` digits, the result is
+  rounded to ``precision`` accordingly the ``roundingMode`` as follows:
 
-  Divides the first big decimal by the second one rounding the result
-  according to the given ``MathContext``.
+  - ``'RoundingCeiling'`` : Rounds towards positive infinity.
 
-* ``ROUND_BIGDECIMAL : 'MathContext' -> 'BigDecimal' -> 'BigDecimal'``
+  - ``'RoundingFloor'`` : Rounds towards negative infinity
 
-  Round the big decimal according to the given ``MathContext``.
+  - ``'RoundingDown'`` : Rounds towards towards zero
 
-* ``SET_SCALE_BIGDECIMAL : 'RoundingMode' -> 'Int' -> 'BigDecimal' -> 'BigDecimal'``
+  - ``'RoundingUp'`` : Round towards away from zero
 
-  Change the scale of the given ``BigDecimal`` while keeping the
-  numerical value equal. If the value cannot be represented exactly at
-  the given scale, it will be rounded according to the given
-  ``RoundingMode``. This can only happen if the scale is decreased.
+  - ``'RoundingHalfDown'`` : Round towards the nearest neighbor unless
+    both neighbors are equidistant, in which case round towards zero.
 
-* ``TO_TEXT_BIGDECIMAL : 'BigDecimal' → 'Text'``
+  - ``'RoundingHalfEven'`` : Rounds towards the nearest neighbor unless
+    both neighbors are equidistant, in which case round towards the even
+    neighbor.
 
-  Returns the numeric string representation of the bigdecimal. The result
+  - ``'RoundingHalfUp'`` : Round towards the nearest neighbor unless
+    both neighbors are equidistant, in which case round away from zero.
+
+  - ``'RoundingUnnecessary'`` : Throw if the exact result cannot be
+    represented.
+
+  Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
+
+* ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
+
+  return the scale of the BigNumeric
+
+* ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
+
+  return the precision of the BigNumeric
+
+* ``TO_TEXT_BIGNUMERIC : 'BigNumeric' → 'Text'``
+
+  Returns the numeric string representation of the BigNumeric. The result
   will be returned at the smallest precision that can represent the result exactly, i.e.,
   without any trailing zeroes.
 
-* ``TO_NUMERIC_BIGDECIMAL : ∀ (α : nat). 'BigDecimal'  → 'Numeric' α``
+* ``'TO_NUMERIC_BIGNUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
 
-  Convert the ``BigDecimal`` to a ``Numeric`` value with precision ``α``. If the value
-  cannot be represented exactly, an ``ArithmeticError`` is thrown (TODO: https://github.com/digital-asset/daml/issues/8020).
+  Convert the ``BigNumeric`` to a ``Numeric α`` value with scale ``α``.
+  Throws an ``ArithmeticError`` in case the result cannot be represented without loss of precision.
 
-* ``TO_BIGDECIMAL_NUMERIC : ∀ (α : nat). 'MathContext' → 'Numeric' α  → 'BigDecimal'``
+* ``'TO_BIGNUMERIC_NUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
 
   Convert the ``Numeric`` to a ``BigDecimal``. This is always exact.
 
@@ -4846,6 +4792,22 @@ program exception using
   ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
   ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
   ``ARITHMETIC_ERROR_MESSAGE`.
+
+BigDecimal
+..........
+
+Daml-LF 1.7 is the first version that supports BigDecimal.
+
+The program serialization format does not provide any direct way to
+encode `MathContext`. Daml-LF programs can create such
+objects only dynamically using the `MathContext functions`_.
+
+The deserialization process will reject any Daml-LF 1.11 (or earlier)
+program exception using:
+
+.. TODO https://github.com/digital-asset/daml/issues/8719
+
+
 
 
 
