@@ -41,6 +41,8 @@ object UsedTypeParams {
       run: iface.TypeConName => Option[(ScopedDataType.DT[RF, VF], LookupType[RF, VF])]
   )
 
+  import VarianceConstraint.{BaseResolution, DelayedResolution}
+
   /** Variance of `sdt.typeVars` in order. */
   def covariantVars[RF <: iface.Type, VF <: iface.Type](
       sdt: ScopedDataType.DT[RF, VF],
@@ -86,26 +88,29 @@ object UsedTypeParams {
       case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
     }
 
-    def goSdt(sdt: ScopedDataType.DT[RF, VF]): ImmArraySeq[Variance] = {
-      val vLookup: Map[Ref.Name, Variance] = sdt.dataType match {
+    def goSdt(sdt: ScopedDataType.DT[RF, VF]): DelayedResolution = {
+      val vLookup = sdt.dataType match {
         case Record(fields) => fields foldMap { case (_, typ) => goType(typ) }
         case Variant(fields) => fields foldMap { case (_, typ) => goType(typ) }
-        case Enum(_) => Map.empty
+        case Enum(_) => mzero[VarianceConstraint]
       }
-      sdt.typeVars map (vLookup.getOrElse(_, Covariant))
+      Map(sdt.name -> (sdt.typeVars, vLookup))
     }
 
     goSdt(sdt)
   }
 
   // an implementation tool for covariantVars
-  import VarianceConstraint.BaseResolution
   private[this] final case class VarianceConstraint(
       resolutions: BaseResolution,
-      delayedConstraints: Map[ScopedDataType.Name, ImmArraySeq[BaseResolution]],
-  )
+      delayedConstraints: DelayedResolution,
+  ) {
+    def solve: BaseResolution = ???
+  }
+
   private[this] object VarianceConstraint {
     type BaseResolution = Map[ScopedDataType.Name, Map[Ref.Name, Variance]]
+    type DelayedResolution = Map[ScopedDataType.Name, (ImmArraySeq[Ref.Name], VarianceConstraint)]
 
     def base(base: BaseResolution) = VarianceConstraint(base, Map.empty)
 
@@ -114,9 +119,17 @@ object UsedTypeParams {
         VarianceConstraint(
           r0 |+| r1,
           d0.unionWithKey(d1) { (name, sr0, sr1) =>
-            if (sr0.length == sr1.length)
-              sys.error(s"type $name yielded different arities; this should never happen")
-            (sr0 zip sr1) map { case (c0, c1) => c0 |+| c1 }
+            assert(
+              sr0.length == sr1.length,
+              s"type $name yielded different arities; this should never happen",
+            )
+            (sr0 zip sr1) map { case ((v0, c0), (v1, c1)) =>
+              assert(
+                v0 == v1,
+                s"type $name had different parameter names $v0, $v1; this should never happen",
+              )
+              (v0, c0 |+| c1)
+            }
           },
         )
       },
