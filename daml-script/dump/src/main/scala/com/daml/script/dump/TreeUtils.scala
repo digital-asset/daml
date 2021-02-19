@@ -14,6 +14,8 @@ import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
+import scala.collection.compat._
+
 object TreeUtils {
   final case class Selector(i: Int)
 
@@ -22,7 +24,7 @@ object TreeUtils {
     *  is only referenced by other contracts later in the list.
     */
   def topoSortAcs(acs: Map[String, CreatedEvent]): List[CreatedEvent] = {
-    val graph: Graphs.Graph[String] = acs.mapValues(createdReferencedCids)
+    val graph: Graphs.Graph[String] = acs.view.mapValues(createdReferencedCids).toMap
     Graphs
       .topoSort(graph)
       .left
