@@ -25,7 +25,7 @@ object Config {
 
   private def parseLedgerOffset(s: String): LedgerOffset = LedgerOffset {
     s match {
-      case s if s == "start" =>
+      case s if s == "begin" =>
         LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
       case s if s == "end" => LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)
       case s => LedgerOffset.Value.Absolute(s)
