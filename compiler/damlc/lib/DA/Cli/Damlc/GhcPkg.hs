@@ -32,12 +32,10 @@ import Distribution.Types.InstalledPackageInfo (InstalledPackageInfo(..), AbiDep
 import Distribution.InstalledPackageInfo (parseInstalledPackageInfo, showInstalledPackageInfo, installedComponentId)
 import Distribution.Package hiding (installedUnitId)
 import Distribution.Text (display, simpleParse)
-import Distribution.Version (versionNumbers, nullVersion)
+import Distribution.Version (versionNumbers)
 import Distribution.Backpack (OpenUnitId(..), OpenModule(..))
 import Distribution.Types.UnqualComponentName (unUnqualComponentName)
 import Distribution.Types.LibraryName (libraryNameString)
-import Distribution.Types.MungedPackageName (MungedPackageName)
-import Distribution.Types.MungedPackageId (MungedPackageId, mungedName, mungedVersion)
 import Distribution.Simple.Utils (fromUTF8BS, toUTF8BS, writeUTF8File, readUTF8File)
 import qualified Data.Version as Version
 import System.FilePath as FilePath
@@ -96,29 +94,6 @@ data Verbosity = Silent | Normal | Verbose
 data Force = NoForce | ForceFiles | ForceAll | CannotForce
   deriving (Eq,Ord)
 
--- | Represents how a package may be specified by a user on the command line.
-data PackageArg
-    -- | A package identifier foo-0.1, or a glob foo-*
-    = Id GlobPackageIdentifier
-    -- | An installed package ID foo-0.1-HASH.  This is guaranteed to uniquely
-    -- match a single entry in the package database.
-    | IUId UnitId
-    -- | A glob against the package name.  The first string is the literal
-    -- glob, the second is a function which returns @True@ if the argument
-    -- matches.
-    | Substring String (String->Bool)
-
-
--- | Either an exact 'PackageIdentifier', or a glob for all packages
--- matching 'PackageName'.
-data GlobPackageIdentifier
-    = ExactPackageIdentifier MungedPackageId
-    | GlobPackageIdentifier  MungedPackageName
-
-displayGlobPkgId :: GlobPackageIdentifier -> String
-displayGlobPkgId (ExactPackageIdentifier pid) = display pid
-displayGlobPkgId (GlobPackageIdentifier pn) = display pn ++ "-*"
-
 -- -----------------------------------------------------------------------------
 -- Package databases
 
@@ -154,7 +129,7 @@ type PackageDBStack = [PackageDB 'GhcPkg.DbReadOnly]
 -- | Selector for picking the right package DB to modify as 'register' and
 -- 'recache' operate on the database on top of the stack, whereas 'modify'
 -- changes the first database that contains a specific package.
-data DbModifySelector = TopOne | ContainsPkg PackageArg
+data DbModifySelector = TopOne
 
 allPackagesInStack :: PackageDBStack -> [InstalledPackageInfo]
 allPackagesInStack = concatMap packages
@@ -169,14 +144,13 @@ stackUpTo :: FilePath -> PackageDBStack -> PackageDBStack
 stackUpTo to_modify = dropWhile ((/= to_modify) . location)
 
 getPkgDatabases :: Verbosity
-                -> GhcPkg.DbOpenMode mode DbModifySelector
                 -> Bool    -- read caches, if available
                 -> Bool    -- expand vars, like ${pkgroot} and $topdir
                 -> FilePath
                 -> IO (PackageDBStack,
                           -- the real package DB stack: [global,user] ++
                           -- DBs specified on the command line with -f.
-                       GhcPkg.DbOpenMode mode (PackageDB mode),
+                       PackageDB 'GhcPkg.DbReadWrite,
                           -- which one to modify, if any
                        PackageDBStack)
                           -- the package DBs specified on the command
@@ -184,7 +158,7 @@ getPkgDatabases :: Verbosity
                           -- is used as the list of package DBs for
                           -- commands that just read the DB, such as 'list'.
 
-getPkgDatabases verbosity mode use_cache expand_vars global_conf = do
+getPkgDatabases verbosity use_cache expand_vars global_conf = do
   -- The value of the $topdir variable used in some package descriptions
   -- Note that the way we calculate this is slightly different to how it
   -- is done in ghc itself. We rely on the convention that the global
@@ -213,29 +187,20 @@ getPkgDatabases verbosity mode use_cache expand_vars global_conf = do
       top_db = global_conf
 
   (db_stack, db_to_operate_on) <- getDatabases top_dir
-                                               flag_db_names final_stack top_db
+                                               final_stack top_db
 
   let flag_db_stack = [ db | db_name <- flag_db_names,
                         db <- db_stack, location db == db_name ]
 
   when (verbosity > Normal) $ do
     infoLn ("db stack: " ++ show (map location db_stack))
-    F.forM_ db_to_operate_on $ \db ->
-      infoLn ("modifying: " ++ (location db))
+    infoLn ("modifying: " ++ (location db_to_operate_on))
     infoLn ("flag db stack: " ++ show (map location flag_db_stack))
 
   return (db_stack, db_to_operate_on, flag_db_stack)
   where
-    getDatabases top_dir flag_db_names
-                 final_stack top_db = case mode of
-      -- When we open in read only mode, we simply read all of the databases/
-      GhcPkg.DbOpenReadOnly -> do
-        db_stack <- mapM readDatabase final_stack
-        return (db_stack, GhcPkg.DbOpenReadOnly)
-
-      -- The only package db we open in read write mode is the one on the top of
-      -- the stack.
-      GhcPkg.DbOpenReadWrite TopOne -> do
+    getDatabases top_dir
+                 final_stack top_db = do
         (db_stack, mto_modify) <- stateSequence Nothing
           [ \case
               to_modify@(Just _) -> (, to_modify) <$> readDatabase db_path
@@ -243,7 +208,7 @@ getPkgDatabases verbosity mode use_cache expand_vars global_conf = do
                 then (, Nothing) <$> readDatabase db_path
                 else do
                   db <- readParseDatabase verbosity
-                                          mode use_cache db_path
+                                          (GhcPkg.DbOpenReadWrite TopOne) use_cache db_path
                     `Exception.catch` couldntOpenDbForModification db_path
                   let ro_db = db { packageDbLock = GhcPkg.DbOpenReadOnly }
                   return (ro_db, Just db)
@@ -253,52 +218,7 @@ getPkgDatabases verbosity mode use_cache expand_vars global_conf = do
           Just db -> return db
           Nothing -> die "no database selected for modification"
 
-        return (db_stack, GhcPkg.DbOpenReadWrite to_modify)
-
-      -- The package db we open in read write mode is the first one included in
-      -- flag_db_names that contains specified package. Therefore we need to
-      -- open each one in read/write mode first and decide whether it's for
-      -- modification based on its contents.
-      GhcPkg.DbOpenReadWrite (ContainsPkg pkgarg) -> do
-        (db_stack, mto_modify) <- stateSequence Nothing
-          [ \case
-              to_modify@(Just _) -> (, to_modify) <$> readDatabase db_path
-              Nothing -> if db_path `notElem` flag_db_names
-                then (, Nothing) <$> readDatabase db_path
-                else do
-                  let hasPkg :: PackageDB mode -> Bool
-                      hasPkg = not . null . findPackage pkgarg . packages
-
-                      openRo (e::IOError) = do
-                        db <- readDatabase db_path
-                        if hasPkg db
-                          then couldntOpenDbForModification db_path e
-                          else return (db, Nothing)
-
-                  -- If we fail to open the database in read/write mode, we need
-                  -- to check if it's for modification first before throwing an
-                  -- error, so we attempt to open it in read only mode.
-                  Exception.handle openRo $ do
-                    db <- readParseDatabase verbosity
-                                            mode use_cache db_path
-                    let ro_db = db { packageDbLock = GhcPkg.DbOpenReadOnly }
-                    if hasPkg db
-                      then return (ro_db, Just db)
-                      else do
-                        -- If the database is not for modification after all,
-                        -- drop the write lock as we are already finished with
-                        -- the database.
-                        case packageDbLock db of
-                          GhcPkg.DbOpenReadWrite lock ->
-                            GhcPkg.unlockPackageDb lock
-                        return (ro_db, Nothing)
-          | db_path <- final_stack ]
-
-        to_modify <- case mto_modify of
-          Just db -> return db
-          Nothing -> cannotFindPackage pkgarg Nothing
-
-        return (db_stack, GhcPkg.DbOpenReadWrite to_modify)
+        return (db_stack, to_modify)
       where
         couldntOpenDbForModification :: FilePath -> IOError -> IO a
         couldntOpenDbForModification db_path e = die $ "Couldn't open database "
@@ -747,33 +667,10 @@ instance GhcPkg.DbUnitIdModuleRep UnitId ComponentId OpenUnitId ModuleName OpenM
 recache :: Verbosity -> FilePath -> IO ()
 recache _verbosity globalPkgDb = do
   let verbosity = Verbose
-  (_db_stack, GhcPkg.DbOpenReadWrite db_to_operate_on, _flag_dbs) <-
-    getPkgDatabases verbosity (GhcPkg.DbOpenReadWrite TopOne)
+  (_db_stack, db_to_operate_on, _flag_dbs) <-
+    getPkgDatabases verbosity
       False{-no cache-} False{-expand vars-} globalPkgDb
   changeDB verbosity [] db_to_operate_on _db_stack
-
-findPackage :: PackageArg -> [InstalledPackageInfo] -> [InstalledPackageInfo]
-findPackage pkgarg pkgs = filter (pkgarg `matchesPkg`) pkgs
-
-cannotFindPackage :: PackageArg -> Maybe (PackageDB mode) -> IO a
-cannotFindPackage pkgarg mdb = die $ "cannot find package " ++ pkg_msg pkgarg
-  ++ maybe "" (\db -> " in " ++ location db) mdb
-  where
-    pkg_msg (Id pkgid)           = displayGlobPkgId pkgid
-    pkg_msg (IUId ipid)          = display ipid
-    pkg_msg (Substring pkgpat _) = "matching " ++ pkgpat
-
-matches :: GlobPackageIdentifier -> MungedPackageId -> Bool
-GlobPackageIdentifier pn `matches` pid'
-  = (pn == mungedName pid')
-ExactPackageIdentifier pid `matches` pid'
-  = mungedName pid == mungedName pid' &&
-    (mungedVersion pid == mungedVersion pid' || mungedVersion pid == nullVersion)
-
-matchesPkg :: PackageArg -> InstalledPackageInfo -> Bool
-(Id pid)        `matchesPkg` pkg = pid `matches` mungedId pkg
-(IUId ipid)     `matchesPkg` pkg = ipid == installedUnitId pkg
-(Substring _ m) `matchesPkg` pkg = m (display (mungedId pkg))
 
 -----------------------------------------------------------------------------
 -- Sanity-check a new package config, and automatically build GHCi libs
