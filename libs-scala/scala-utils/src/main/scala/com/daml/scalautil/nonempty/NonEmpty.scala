@@ -10,8 +10,15 @@ import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import NonEmptyCollCompat._
 
+/** The visible interface of [[NonEmpty]]; use that value to access
+  * these members.
+  */
 sealed abstract class NonEmptyColl {
+
+  /** Use its alias [[com.daml.scalautil.nonempty.NonEmpty]]. */
   type NonEmpty[+A]
+
+  /** Use its alias [[com.daml.scalautil.nonempty.NonEmptyF]]. */
   type NonEmptyF[F[_], A] <: NonEmpty[F[A]]
 
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
@@ -37,6 +44,9 @@ sealed abstract class NonEmptyColl {
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[sci.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
     * to `ne` if the pattern matches.
+    *
+    * You will get an unchecked warning if the selector is not statically of an
+    * immutable type.  So [[scala.collection.Seq]] will not work.
     *
     * The type-checker will not permit you to apply this to a value that already
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
