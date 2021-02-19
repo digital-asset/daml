@@ -95,9 +95,13 @@ object Main {
   )(implicit
       mat: Materializer
   ): Future[Seq[TransactionTree]] = {
-    client.transactionClient
-      .getTransactionTrees(start, Some(end), filter(parties), verbose = true)
-      .runWith(Sink.seq)
+    if (start == end) {
+      Future.successful(Seq.empty)
+    } else {
+      client.transactionClient
+        .getTransactionTrees(start, Some(end), filter(parties), verbose = true)
+        .runWith(Sink.seq)
+    }
   }
 
   def run(config: Config)(implicit
