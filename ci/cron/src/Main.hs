@@ -24,7 +24,7 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
@@ -336,7 +336,7 @@ download_assets tmp release = do
         retryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
         retryHandler status =
           logRetries
-            (\(_ :: IOException) -> pure True) -- Don’t try to be clever, just retry
+            (\e -> pure $ isJust (fromException @IOException e) || isJust (fromException @HTTP.HttpException e)) -- Don’t try to be clever, just retry
             (\shouldRetry err status -> IO.hPutStrLn IO.stderr $ defaultLogMsg shouldRetry err status)
             status
         downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
