@@ -344,9 +344,9 @@ download_assets tmp release = do
             IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode $ \handle -> do
                 while (readFrom body) (writeTo handle)
 
-verify_signatures :: FilePath -> FilePath -> String -> IO String
+verify_signatures :: FilePath -> FilePath -> String -> IO ()
 verify_signatures bash_lib tmp version_tag = do
-    shell $ unlines ["bash -c '",
+    System.callCommand $ unlines ["bash -c '",
         "set -euo pipefail",
         "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
@@ -420,7 +420,7 @@ check_releases gcp_credentials bash_lib max_releases = do
         putStrLn $ "Checking release " <> v <> " ..."
         IO.withTempDir $ \temp_dir -> do
             download_assets temp_dir release
-            verify_signatures bash_lib temp_dir v >>= putStrLn
+            verify_signatures bash_lib temp_dir v
             Control.Monad.Extra.whenJust gcp_credentials $ \gcred ->
                 Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
                   let local_github = temp_dir </> f
