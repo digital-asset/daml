@@ -4,8 +4,8 @@
 # Stable and latest refers to the versions used by the compiler.
 # If we make a new LF release, we bump latest and once we make it the default
 # we bump stable.
-# always defined for "legacy", "stable", "latest", "dev", may contain "preview"
-# is a preview version is available.
+# The following dictionary is always defined for "legacy", "stable", "latest",
+# and "dev". It contains "preview" iff a preview version is available.
 lf_version_configuration = {
     "legacy": "1.8",
     "stable": "1.8",
