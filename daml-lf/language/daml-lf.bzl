@@ -4,13 +4,25 @@
 # Stable and latest refers to the versions used by the compiler.
 # If we make a new LF release, we bump latest and once we make it the default
 # we bump stable.
-lf_stable_version = "1.8"
-lf_latest_version = "1.11"
+# always defined for "legacy", "stable", "latest", "dev", may contain "preview"
+# is a preview version is available.
+lf_version_configuration = {
+    "legacy": "1.8",
+    "stable": "1.8",
+    "latest": "1.11",
+    "preview": "1.12",
+    "dev": "1.dev",
+}
 
-# lf_preview_version is non empty if a preview version is available
-# contains at most one version
-lf_preview_version = ["1.12"]
-lf_dev_version = "1.dev"
+lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
+
+# aggregate a list of version keywords and version:
+# - convert keyword in version
+# - remove "preview" if no preview version is available.
+# - remove duplicates
+def lf_versions_aggregate(versions):
+    lf_versions = [lf_version_configuration.get(version, version) for version in versions]
+    return depset([lf_version for lf_version in lf_versions if lf_version != "preview"]).to_list()
 
 # We generate docs for the latest preview version since releasing
 # preview versions without docs for them is a bit annoying.
@@ -18,7 +30,7 @@ lf_dev_version = "1.dev"
 # have to come up with something more clever here to make
 # sure that we don’t remove docs for a module that is still supported
 # in a stable LF version.
-lf_docs_version = lf_preview_version[0] if lf_preview_version != [] else lf_latest_version
+lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
 # All LF versions for which we have protobufs.
 LF_VERSIONS = [
@@ -46,3 +58,6 @@ def lf_version_package(version):
     return LF_VERSION_PACKAGE_DIGITALASSET.get(version, "daml")
 
 LF_MAJOR_VERSIONS = ["1"]
+
+def mangle_for_java(name):
+    return name.replace(".", "_")

@@ -3,6 +3,7 @@
 
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 
 java_binary(
     name = "canton",
@@ -47,97 +48,117 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 ) if not is_windows else None
 
-conformance_test(
-    name = "conformance-test",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton",
-        ":canton.conf",
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-    ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner:runner",
-    server = ":canton-test-runner-with-dependencies",
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        # The following three contract key tests require uniqueness and are tested in conformance-test-contract-keys below
-        "--exclude=ContractKeysIT,ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
-        ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
-        ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
-        ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-        # The following tests fail because Canton raises a different error (see https://github.com/digital-asset/daml/pull/8642)
-        ",PartyManagementServiceIT:PMRejectLongPartyHints,PartyManagementServiceIT:PMRejectInvalidPartyHints",
-    ],
-) if not is_windows else None
+[
+    conformance_test(
+        name = "conformance-test-%s" % lf_version,
+        client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+        # Ideally these would be part of the script definition above, but that doesn't seem to work.
+        extra_data = [
+            ":bootstrap.canton",
+            ":canton",
+            ":canton.conf",
+            ":logback-debug.xml",
+            "@coreutils_nix//:bin/base64",
+            "@curl_nix//:bin/curl",
+            "@grpcurl_nix//:bin/grpcurl",
+            "@jq_dev_env//:jq",
+        ],
+        ports = [
+            5011,
+            5021,
+            5031,
+            5041,
+        ],
+        runner = "@//bazel_tools/client_server/runner:runner",
+        server = ":canton-test-runner-with-dependencies",
+        test_tool_args = [
+            "--verbose",
+            "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+            # The following three contract key tests require uniqueness and are tested in conformance-test-contract-keys below
+            "--exclude=ContractKeysIT,ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
+            ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
+            ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
+            ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+            # The following tests fail because Canton raises a different error (see https://github.com/digital-asset/daml/pull/8642)
+            ",PartyManagementServiceIT:PMRejectLongPartyHints,PartyManagementServiceIT:PMRejectInvalidPartyHints",
+        ],
+    )
+    for lf_version in lf_versions_aggregate([
+        # TODO: uncomment the following line and drop the "legacy" as soon canton-test-runner support LF 1.11 and newers
+        # "stable", "latest", "preview",
+        "legacy",
+    ])
+    if not is_windows
+]
 
-conformance_test(
-    name = "conformance-test-contract-keys",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton",
-        ":canton.conf",
-        ":unique-contract-keys.conf",  # needed to pass all contract keys conformance tests
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-    ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner:runner",
-    server = ":canton-test-runner-with-dependencies",
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--include=ContractKeysIT",
-    ],
-) if not is_windows else None
-
-conformance_test(
-    name = "conformance-test-participant-pruning",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton",
-        ":canton.conf",
-        ":enable-faster-pruning.conf",  # needed to prevent timing out on prune requests
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-    ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner:runner",
-    server = ":canton-test-runner-with-dependencies",
-    tags = [
-        "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-        "--exclude=ParticipantPruningIT:PRFailPruneByOutOfBoundsOffset",  # on behalf of bug not yet fixed in canton 0.19.0
-    ],
-) if not is_windows else None
+[
+    [
+        conformance_test(
+            name = "conformance-test-contract-keys-%s" % lf_version,
+            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+            # Ideally these would be part of the script definition above, but that doesn't seem to work.
+            extra_data = [
+                ":bootstrap.canton",
+                ":canton",
+                ":canton.conf",
+                ":unique-contract-keys.conf",  # needed to pass all contract keys conformance tests
+                ":logback-debug.xml",
+                "@coreutils_nix//:bin/base64",
+                "@curl_nix//:bin/curl",
+                "@grpcurl_nix//:bin/grpcurl",
+                "@jq_dev_env//:jq",
+            ],
+            ports = [
+                5011,
+                5021,
+                5031,
+                5041,
+            ],
+            runner = "@//bazel_tools/client_server/runner:runner",
+            server = ":canton-test-runner-with-dependencies",
+            test_tool_args = [
+                "--verbose",
+                "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+                "--include=ContractKeysIT",
+            ],
+        ),
+        conformance_test(
+            name = "conformance-test-participant-pruning-%s" % lf_version,
+            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+            # Ideally these would be part of the script definition above, but that doesn't seem to work.
+            extra_data = [
+                ":bootstrap.canton",
+                ":canton",
+                ":canton.conf",
+                ":enable-faster-pruning.conf",  # needed to prevent timing out on prune requests
+                ":logback-debug.xml",
+                "@coreutils_nix//:bin/base64",
+                "@curl_nix//:bin/curl",
+                "@grpcurl_nix//:bin/grpcurl",
+                "@jq_dev_env//:jq",
+            ],
+            ports = [
+                5011,
+                5021,
+                5031,
+                5041,
+            ],
+            runner = "@//bazel_tools/client_server/runner:runner",
+            server = ":canton-test-runner-with-dependencies",
+            tags = [
+                "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
+            ],
+            test_tool_args = [
+                "--verbose",
+                "--include=ParticipantPruningIT",
+                "--exclude=ParticipantPruningIT:PRFailPruneByOutOfBoundsOffset",  # on behalf of bug not yet fixed in canton 0.19.0
+            ],
+        ),
+    ]
+    for lf_version in lf_versions_aggregate([
+        # TODO: uncomment the following line and drop the "legacy" as soon canton-test-runner support LF 1.11 and newers
+        # "stable"
+        "legacy",
+    ])
+    if not is_windows
+]
