@@ -8,13 +8,9 @@ import java.nio.file.{Files, Path}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.event.Event.Event
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -60,50 +56,6 @@ object Main {
     ()
   }
 
-  private def getACS(
-      client: LedgerClient,
-      parties: List[String],
-      offset: LedgerOffset,
-  )(implicit
-      mat: Materializer
-  ): Future[Map[String, CreatedEvent]] = {
-    val ledgerBegin = LedgerOffset(
-      LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-    )
-    if (offset == ledgerBegin) {
-      Future.successful(Map.empty)
-    } else {
-      client.transactionClient
-        .getTransactions(ledgerBegin, Some(offset), filter(parties), verbose = true)
-        .runFold(Map.empty[String, CreatedEvent]) { case (acs, tx) =>
-          tx.events.foldLeft(acs) { case (acs, ev) =>
-            ev.event match {
-              case Event.Empty => acs
-              case Event.Created(value) => acs + (value.contractId -> value)
-              case Event.Archived(value) => acs - value.contractId
-            }
-          }
-        }
-    }
-  }
-
-  private def getTransactionTrees(
-      client: LedgerClient,
-      parties: List[String],
-      start: LedgerOffset,
-      end: LedgerOffset,
-  )(implicit
-      mat: Materializer
-  ): Future[Seq[TransactionTree]] = {
-    if (start == end) {
-      Future.successful(Seq.empty)
-    } else {
-      client.transactionClient
-        .getTransactionTrees(start, Some(end), filter(parties), verbose = true)
-        .runWith(Sink.seq)
-    }
-  }
-
   def run(config: Config)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -111,8 +63,8 @@ object Main {
   ): Future[Unit] =
     for {
       client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
-      acs <- getACS(client, config.parties, config.start)
-      trees <- getTransactionTrees(client, config.parties, config.start, config.end)
+      acs <- LedgerUtils.getACS(client, config.parties, config.start)
+      trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
       acsPkgRefs = acs.values.toList
         .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
         .map(i => PackageId.assertFromString(i.packageId))
@@ -171,9 +123,6 @@ object Main {
          |""".stripMargin.getBytes(StandardCharsets.UTF_8),
     )
   }
-
-  def filter(parties: List[String]): TransactionFilter =
-    TransactionFilter(parties.map(p => p -> Filters()).toMap)
 
   val clientConfig: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = "script-dump",
