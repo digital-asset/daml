@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class PackageManagementServiceIT extends LedgerTestSuite {
   private[this] val testPackageResourcePath =
-    com.daml.ledger.test_common.TestDars.fileNames("package_management")
+    com.daml.ledger.test.TestDars.fileNames("package_management")
 
   private def loadTestPackage()(implicit ec: ExecutionContext): Future[ByteString] = {
     val testPackage = Future {

@@ -40,7 +40,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   self: Suite =>
 
   protected def darFile =
-    new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
 
   protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(

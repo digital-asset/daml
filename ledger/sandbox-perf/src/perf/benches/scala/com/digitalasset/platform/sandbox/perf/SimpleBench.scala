@@ -14,7 +14,7 @@ class SimpleBenchState extends PerfBenchState with DummyCommands with InfAwait
 class SimpleBench extends DummyCommands with InfAwait {
 
   override protected def darFile: File =
-    new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
 
   @Benchmark
   def ingest10kCommands(state: SimpleBenchState): Unit = {

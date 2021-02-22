@@ -119,7 +119,7 @@ da_scala_library(
             outs = ["Dars-%s.scala" % target_suffix],
             cmd = """
 cat > $@ <<EOF
-package com.daml.ledger.test_common
+package com.daml.ledger.test
 object TestDars {
     val fileNames: Map[String, String] =
       List(

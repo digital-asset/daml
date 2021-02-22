@@ -320,7 +320,7 @@ object SqlLedgerSpec {
 
   private val Success(testDar) = {
     val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(com.daml.ledger.test_common.TestDars.fileNames("model")))
+    val fileName = new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
     reader.readArchiveFromFile(fileName)
   }
 }
