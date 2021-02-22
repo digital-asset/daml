@@ -16,10 +16,10 @@ lf_version_configuration = {
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
 
-# aggregate a list of version keywords and version:
-# - convert keyword in version
-# - remove "preview" if no preview version is available.
-# - remove duplicates
+# aggregates a list of version keywords and versions:
+# 1. converts keyword in version
+# 2. removes "preview" if no preview version is available.
+# 3. removes duplicates
 def lf_versions_aggregate(versions):
     lf_versions = [lf_version_configuration.get(version, version) for version in versions]
     return depset([lf_version for lf_version in lf_versions if lf_version != "preview"]).to_list()

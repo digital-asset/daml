@@ -244,7 +244,6 @@ NEXT_SERVERS = {
 
 server_conformance_test(
     name = "next-conformance-test-static-time",
-    lf_versions = ["stable"],
     server_args = [
         "--static-time",
     ],
@@ -256,7 +255,8 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "next-conformance-test",
+    name = "next-conformance-test-wall-clock",
+    lf_versions = ["stable"],
     server_args = [
         "--wall-clock-time",
     ],

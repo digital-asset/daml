@@ -9,7 +9,6 @@ load(
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 
 da_scala_library(
     name = "ledger-on-memory",
@@ -129,29 +128,22 @@ da_scala_binary(
     ],
 )
 
-[
-    conformance_test(
-        name = "conformance-test-%s" % lf_version,
-        client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
-        ports = [6865],
-        server = ":app",
-        server_args = [
-            "--contract-id-seeding=testing-weak",
-            "--participant=participant-id=example,port=6865",
-        ],
-        test_tool_args = [
-            "--verbose",
-        ],
-    )
-    for lf_version in lf_versions_aggregate([
-        "stable",
-        "latest",
-        "preview",
-    ])
-]
+conformance_test(
+    name = "conformance-test",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
 
 conformance_test(
     name = "conformance-test-multi-participant",
+    lf_versions = ["stable"],
     ports = [
         6865,
         6866,
@@ -170,6 +162,7 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-split-participant",
+    lf_versions = ["stable"],
     ports = [
         6865,
     ],
@@ -187,6 +180,7 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-participant-pruning",
+    lf_versions = ["stable"],
     ports = [6865],
     server = ":app",
     server_args = [
@@ -201,6 +195,7 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-multi-party-submission",
+    lf_versions = ["stable"],
     ports = [6865],
     server = ":app",
     server_args = [
@@ -215,6 +210,7 @@ conformance_test(
 
 conformance_test(
     name = "benchmark-performance-envelope",
+    lf_versions = ["stable"],
     ports = [6865],
     server = ":app",
     server_args = [

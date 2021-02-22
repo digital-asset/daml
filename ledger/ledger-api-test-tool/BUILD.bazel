@@ -198,6 +198,7 @@ conformance_test(
         "//ledger/test-common/test-certificates:server.pem",
         "//ledger/test-common/test-certificates:ca.crt",
     ],
+    lf_versions = ["stable"],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
@@ -219,6 +220,7 @@ conformance_test(
 # Retired tests will be eventually removed
 conformance_test(
     name = "retired-tests",
+    lf_versions = ["stable"],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
@@ -236,6 +238,7 @@ conformance_test(
 # Deprecated CLI options will be eventually removed
 conformance_test(
     name = "deprecated-cli-options",
+    lf_versions = ["stable"],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
@@ -253,6 +256,7 @@ conformance_test(
 # are supported.
 conformance_test(
     name = "test-name-syntax",
+    lf_versions = ["stable"],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
@@ -265,21 +269,16 @@ conformance_test(
 )
 
 # Test that runs the whole ledger API test suite once for each listed compiler version
-[
-    [
-        conformance_test(
-            name = "conformance-test-lf-version-%s" % lf_version,
-            client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
-            server = "//ledger/ledger-on-memory:app",
-            server_args = [
-                "--daml-lf-dev-mode-unsafe",  # Enables the use of all known compiler versions
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=conformance-test-dev-mode,port=6865",
-            ],
-            test_tool_args = [
-                "--verbose",
-            ],
-        ),
-    ]
-    for lf_version in lf_version_configuration_versions
-]
+conformance_test(
+    name = "conformance-test-lf-version",
+    lf_versions = lf_version_configuration_versions,
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--daml-lf-dev-mode-unsafe",  # Enables the use of all known compiler versions
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test-dev-mode,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+    ],
+)

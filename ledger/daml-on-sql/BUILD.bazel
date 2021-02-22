@@ -100,26 +100,19 @@ da_scala_test(
     ],
 )
 
-[
-    conformance_test(
-        name = "conformance-test-%s" % lf_version,
-        client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
-        server = ":daml-on-sql-ephemeral-postgresql",
-        server_args = [
-            "--ledgerid=conformance-test",
-            "--port=6865",
-            "--eager-package-loading",
-        ],
-    )
-    for lf_version in lf_versions_aggregate([
-        "stable",
-        "latest",
-        "preview",
-    ])
-]
+conformance_test(
+    name = "conformance-test",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+    ],
+)
 
 conformance_test(
     name = "conformance-test-multi-party-submissions",
+    lf_versions = ["stable"],
     server = ":daml-on-sql-ephemeral-postgresql",
     server_args = [
         "--ledgerid=conformance-test",
