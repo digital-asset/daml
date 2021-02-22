@@ -8,9 +8,10 @@ import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Graphs
 import scalaz.std.option._
-import scalaz.std.list._
+import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
@@ -18,6 +19,18 @@ import scala.collection.compat._
 
 object TreeUtils {
   final case class Selector(i: Int)
+
+  def contractsReferences(contracts: Iterable[CreatedEvent]): Set[PackageId] = {
+    contracts
+      .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+      .map(i => PackageId.assertFromString(i.packageId))
+  }
+
+  def treesReferences(transactions: Iterable[TransactionTree]): Set[PackageId] = {
+    transactions
+      .foldMap(treeRefs(_))
+      .map(i => PackageId.assertFromString(i.packageId))
+  }
 
   /** Sort the active contract set topologically,
     *  such that a contract at a given position in the list
@@ -53,7 +66,7 @@ object TreeUtils {
   }
 
   def partiesInContracts(contracts: Iterable[CreatedEvent]): Set[String] = {
-    contracts.toList.foldMap(ev => valueParties(Value.Sum.Record(ev.getCreateArguments)))
+    contracts.foldMap(ev => valueParties(Value.Sum.Record(ev.getCreateArguments)))
   }
 
   def partiesInTree(tree: TransactionTree): Set[String] = {
@@ -133,7 +146,7 @@ object TreeUtils {
   }
 
   def createdReferencedCids(ev: CreatedEvent): Set[String] =
-    ev.createArguments.foldMap(args => args.fields.toList.foldMap(f => valueCids(f.getValue.sum)))
+    ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
 
   def evParties(ev: TreeEvent.Kind): Seq[String] = ev match {
     case TreeEvent.Kind.Created(create) => create.signatories
@@ -142,7 +155,7 @@ object TreeUtils {
   }
 
   def treeRefs(t: TransactionTree): Set[Identifier] =
-    t.eventsById.values.toList.foldMap(e => evRefs(e.kind))
+    t.eventsById.values.foldMap(e => evRefs(e.kind))
 
   def evRefs(e: TreeEvent.Kind): Set[Identifier] = e match {
     case Kind.Empty => Set()
@@ -153,10 +166,10 @@ object TreeUtils {
   def valueRefs(v: Value.Sum): Set[Identifier] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
-      Set(value.getRecordId).union(value.fields.toList.foldMap(f => valueRefs(f.getValue.sum)))
+      Set(value.getRecordId).union(value.fields.foldMap(f => valueRefs(f.getValue.sum)))
     case Sum.Variant(value) => Set(value.getVariantId).union(valueRefs(value.getValue.sum))
     case Sum.ContractId(_) => Set()
-    case Sum.List(value) => value.elements.toList.foldMap(v => valueRefs(v.sum))
+    case Sum.List(value) => value.elements.foldMap(v => valueRefs(v.sum))
     case Sum.Int64(_) => Set()
     case Sum.Numeric(_) => Set()
     case Sum.Text(_) => Set()
@@ -166,18 +179,18 @@ object TreeUtils {
     case Sum.Unit(_) => Set()
     case Sum.Date(_) => Set()
     case Sum.Optional(value) => value.value.foldMap(v => valueRefs(v.sum))
-    case Sum.Map(value) => value.entries.toList.foldMap(e => valueRefs(e.getValue.sum))
+    case Sum.Map(value) => value.entries.foldMap(e => valueRefs(e.getValue.sum))
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
-      value.entries.toList.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
+      value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
   }
 
   def valueCids(v: Value.Sum): Set[String] = v match {
     case Sum.Empty => Set()
-    case Sum.Record(value) => value.fields.toList.foldMap(f => valueCids(f.getValue.sum))
+    case Sum.Record(value) => value.fields.foldMap(f => valueCids(f.getValue.sum))
     case Sum.Variant(value) => valueCids(value.getValue.sum)
     case Sum.ContractId(cid) => Set(cid)
-    case Sum.List(value) => value.elements.toList.foldMap(v => valueCids(v.sum))
+    case Sum.List(value) => value.elements.foldMap(v => valueCids(v.sum))
     case Sum.Int64(_) => Set()
     case Sum.Numeric(_) => Set()
     case Sum.Text(_) => Set()
@@ -187,10 +200,10 @@ object TreeUtils {
     case Sum.Unit(_) => Set()
     case Sum.Date(_) => Set()
     case Sum.Optional(value) => value.value.foldMap(v => valueCids(v.sum))
-    case Sum.Map(value) => value.entries.toList.foldMap(e => valueCids(e.getValue.sum))
+    case Sum.Map(value) => value.entries.foldMap(e => valueCids(e.getValue.sum))
     case Sum.Enum(_) => Set()
     case Sum.GenMap(value) =>
-      value.entries.toList.foldMap(e => valueCids(e.getKey.sum).union(valueCids(e.getValue.sum)))
+      value.entries.foldMap(e => valueCids(e.getKey.sum).union(valueCids(e.getValue.sum)))
   }
 
 }
