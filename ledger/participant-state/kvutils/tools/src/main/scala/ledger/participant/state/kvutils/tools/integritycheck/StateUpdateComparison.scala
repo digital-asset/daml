@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, Update}
+import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,7 +63,7 @@ object ReadServiceStateUpdateComparison {
       Future.unit
     }
 
-  private def compareUpdates(expectedUpdate: Update, normalizedUpdate: Update): Future[Unit] = {
+  private[integritycheck] def compareUpdates(expectedUpdate: Update, normalizedUpdate: Update): Future[Unit] = {
     val expectedNormalizedUpdate = normalizeUpdate(expectedUpdate)
     // We ignore the record time set later by post-execution because it's unimportant.
     // We only care about the update type and content.
@@ -107,6 +107,8 @@ object ReadServiceStateUpdateComparison {
         submitterInfo,
         discardRejectionReasonDescription(rejectionReason),
       )
+    case transactionAccepted: Update.TransactionAccepted =>
+      transactionAccepted.copy(transactionId = TransactionId.assertFromString("ignored"), blindingInfo = None)
     case _ => update
   }
 
