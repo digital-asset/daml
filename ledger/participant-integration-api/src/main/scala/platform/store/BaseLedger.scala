@@ -86,15 +86,16 @@ private[platform] abstract class BaseLedger(
 
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = dispatcher.getHead()
 
+
   override def completions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Party], // TODO should we do it at this level?
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
+      RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)), // here
       endInclusive,
     )
 

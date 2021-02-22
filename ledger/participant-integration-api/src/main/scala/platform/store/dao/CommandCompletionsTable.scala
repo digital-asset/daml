@@ -43,6 +43,8 @@ private[platform] object CommandCompletionsTable {
         )
     }
 
+  case class CompletionStreamResponseWithParties(completion: CompletionStreamResponse, parties: Set[Ref.Party], applicationId: ApplicationId)
+
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
 
   def prepareGet(
@@ -56,6 +58,15 @@ private[platform] object CommandCompletionsTable {
       sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
     SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and #$submittersInPartiesClause order by completion_offset asc"
   }
+
+  def prepareGetForAllParties(
+                  startExclusive: Offset,
+                  endInclusive: Offset,
+                ): SimpleSql[Row] =
+    SQL"""select completion_offset, record_time, command_id, transaction_id, status_code, status_message, submitters, application_id
+         from participant_command_completions
+         where completion_offset > $startExclusive and completion_offset <= $endInclusive
+         order by completion_offset asc"""
 
   def prepareCompletionInsert(
       submitterInfo: SubmitterInfo,

@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
+import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 import com.daml.platform.store.dao.events.{QueryNonPruned, SqlFunctions}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,7 +45,7 @@ private[dao] final class CommandCompletionsReader(
       parties = parties,
       sqlFunctions = sqlFunctions,
     )
-    Source
+    Source // here
       .future(
         dispatcher
           .executeSql(metrics.daml.index.db.getCompletions) { implicit connection =>
@@ -58,6 +59,28 @@ private[dao] final class CommandCompletionsReader(
           .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
       )
       .mapConcat(_.map(response => offsetFor(response) -> response))
+  }
+
+  def getAllCommandCompletions(
+                             startExclusive: Offset,
+                             endInclusive: Offset,
+                           )(implicit
+                             loggingContext: LoggingContext
+                           ): Future[List[(Offset, CompletionStreamResponseWithParties)]] = {
+    val query = CommandCompletionsTable.prepareGetForAllParties(
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+    )
+        dispatcher
+          .executeSql(metrics.daml.index.db.getCompletions) { implicit connection => // TODO incorrect metric?
+            QueryNonPruned.executeSql[List[CompletionStreamResponse]](
+              query.as(CommandCompletionsTable.parser.*), // TODO fix parser
+              startExclusive,
+              pruned =>
+                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
+            )
+          }
+          .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
   }
 
 }
