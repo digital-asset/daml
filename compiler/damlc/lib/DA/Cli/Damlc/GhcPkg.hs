@@ -39,8 +39,7 @@ import Distribution.Types.LibraryName (libraryNameString)
 import Distribution.Simple.Utils (fromUTF8BS, toUTF8BS, writeUTF8File, readUTF8File)
 import qualified Data.Version as Version
 import System.FilePath as FilePath
-import System.Directory ( createDirectoryIfMissing,
-                          getModificationTime )
+import System.Directory ( createDirectoryIfMissing )
 
 import Prelude
 
@@ -67,15 +66,6 @@ import GHC.ConsoleHandler
 #if defined(GLOB)
 import qualified System.Info(os)
 #endif
-
--- | Short-circuit 'any' with a \"monadic predicate\".
-anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
-anyM _ [] = return False
-anyM p (x:xs) = do
-  b <- p x
-  if b
-    then return True
-    else anyM p xs
 
 -- -----------------------------------------------------------------------------
 -- Command-line syntax
@@ -143,10 +133,9 @@ stackUpTo :: FilePath -> PackageDBStack -> PackageDBStack
 stackUpTo to_modify = dropWhile ((/= to_modify) . location)
 
 getPkgDatabases :: Verbosity
-                -> Bool    -- read caches, if available
                 -> FilePath
                 -> IO (PackageDB 'GhcPkg.DbReadOnly, PackageDB 'GhcPkg.DbReadWrite)
-getPkgDatabases verbosity use_cache global_conf = do
+getPkgDatabases verbosity global_conf = do
   let top_db = global_conf
 
   (db_stack, db_to_operate_on) <- getDatabases top_db
@@ -159,8 +148,7 @@ getPkgDatabases verbosity use_cache global_conf = do
   where
     getDatabases top_db = do
         (db_stack, mto_modify) <- do
-                  db <- readParseDatabase verbosity
-                                          (GhcPkg.DbOpenReadWrite TopOne) use_cache top_db
+                  db <- readParseDatabase verbosity (GhcPkg.DbOpenReadWrite TopOne) top_db
                     `Exception.catch` couldntOpenDbForModification top_db
                   let ro_db = db { packageDbLock = GhcPkg.DbOpenReadOnly }
                   return (ro_db, Just db)
@@ -177,60 +165,14 @@ getPkgDatabases verbosity use_cache global_conf = do
 
 readParseDatabase :: forall mode t. Verbosity
                   -> GhcPkg.DbOpenMode mode t
-                  -> Bool -- use cache
                   -> FilePath
                   -> IO (PackageDB mode)
-readParseDatabase verbosity mode use_cache path
+readParseDatabase verbosity mode path
   | otherwise
   = do e <- tryIO $ getDirectoryContents path
        case e of
          Left err -> ioError err
-         Right fs
-           | not use_cache -> ignore_cache (const $ return ())
-           | otherwise -> do
-              e_tcache <- tryIO $ getModificationTime cache
-              case e_tcache of
-                Left ex -> do
-                  whenReportCacheErrors $
-                    if isDoesNotExistError ex
-                      then
-                        -- It's fine if the cache is not there as long as the
-                        -- database is empty.
-                        when (not $ null confs) $ do
-                            warn ("WARNING: cache does not exist: " ++ cache)
-                            warn ("ghc will fail to read this package db. " ++
-                                  recacheAdvice)
-                      else do
-                        warn ("WARNING: cache cannot be read: " ++ show ex)
-                        warn "ghc will fail to read this package db."
-                  ignore_cache (const $ return ())
-                Right tcache -> do
-                  when (verbosity >= Verbose) $ do
-                      warn ("Timestamp " ++ show tcache ++ " for " ++ cache)
-                  -- If any of the .conf files is newer than package.cache, we
-                  -- assume that cache is out of date.
-                  cache_outdated <- (`anyM` confs) $ \conf ->
-                    (tcache <) <$> getModificationTime conf
-                  if not cache_outdated
-                      then do
-                          when (verbosity > Normal) $
-                             infoLn ("using cache: " ++ cache)
-                          GhcPkg.readPackageDbForGhcPkg cache mode
-                            >>= uncurry mkPackageDB
-                      else do
-                          whenReportCacheErrors $ do
-                              warn ("WARNING: cache is out of date: " ++ cache)
-                              warn ("ghc will see an old view of this " ++
-                                    "package db. " ++ recacheAdvice)
-                          ignore_cache $ \file -> do
-                            when (verbosity >= Verbose) $ do
-                              tFile <- getModificationTime file
-                              let rel = case tcache `compare` tFile of
-                                    LT -> " (NEWER than cache)"
-                                    GT -> " (older than cache)"
-                                    EQ -> " (same as cache)"
-                              warn ("Timestamp " ++ show tFile
-                                ++ " for " ++ file ++ rel)
+         Right fs -> ignore_cache (const $ return ())
             where
                  confs = map (path </>) $ filter (".conf" `isSuffixOf`) fs
 
@@ -244,16 +186,8 @@ readParseDatabase verbosity mode use_cache path
                                        parseSingletonPackageConf verbosity f
                      pkgs <- mapM doFile confs
                      mkPackageDB pkgs lock
-
-                 -- We normally report cache errors for read-only commands,
-                 -- since modify commands will usually fix the cache.
-                 whenReportCacheErrors = when $ verbosity > Normal
-                   || verbosity >= Normal && GhcPkg.isDbOpenReadMode mode
   where
     cache = path </> cachefilename
-
-    recacheAdvice
-      = "Use 'ghc-pkg recache' to fix."
 
     mkPackageDB :: [InstalledPackageInfo]
                 -> GhcPkg.DbOpenMode mode GhcPkg.PackageDbLock
@@ -541,8 +475,7 @@ instance GhcPkg.DbUnitIdModuleRep UnitId ComponentId OpenUnitId ModuleName OpenM
 recache :: Verbosity -> FilePath -> IO ()
 recache _verbosity globalPkgDb = do
   let verbosity = Verbose
-  (_db_stack, db_to_operate_on) <- getPkgDatabases verbosity
-      False{-no cache-} globalPkgDb
+  (_db_stack, db_to_operate_on) <- getPkgDatabases verbosity globalPkgDb
   changeDB verbosity [] db_to_operate_on [_db_stack]
 
 -----------------------------------------------------------------------------
