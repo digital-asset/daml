@@ -7,6 +7,7 @@ load(
     "da_scala_test",
     "lf_scalacopts",
 )
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -14,7 +15,15 @@ scalacopts = lf_scalacopts + [
 
 da_scala_library(
     name = "scala-utils",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]) + glob([
+        "src/main/{}/**/*.scala".format(scala_major_version),
+    ]),
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
     visibility = [
@@ -27,7 +36,11 @@ da_scala_library(
 da_scala_test(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
     scala_deps = [
+        "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,

@@ -3,13 +3,17 @@
 
 package com.daml.http.dbbackend
 
+import com.daml.scalautil.nonempty
+import nonempty.{NonEmpty, +-:}
+import nonempty.NonEmptyReturningOps._
+
 import doobie._
 import doobie.implicits._
+import scala.collection.immutable.{Iterable, Seq => ISeq}
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
-import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.std.stream.unfold
 import scalaz.std.AllInstances._
@@ -231,7 +235,7 @@ sealed abstract class Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
-    selectContractsMultiTemplate(parties, Seq((tpid, predicate)), MatchedQueryMarker.Unused)
+    selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
       .map(_ copy (templateId = ()))
 
   /** Make the smallest number of queries from `queries` that still indicates
@@ -244,7 +248,7 @@ sealed abstract class Queries {
     */
   private[http] def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      queries: Seq[(SurrogateTpId, Fragment)],
+      queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
@@ -354,18 +358,22 @@ object Queries {
     oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
 
   // Like groupBy but split into n maps where n is the longest list under groupBy.
-  // Invariant: every element of the result is non-empty
-  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
-    unfold(iter.groupBy(_._1).transform((_, i) => i.toList): Map[A, List[(_, B)]]) { m =>
-      // invariant: every value of m is non-empty
-      m.nonEmpty option {
-        val hd = m transform { (_, abs) =>
-          val (_, b) +: _ = abs
-          b
+  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[NonEmpty[Map[A, B]]] =
+    unfold(
+      iter
+        .groupBy1(_._1)
+        .transform((_, i) => i.toList): Map[A, NonEmpty[List[(_, B)]]]
+    ) {
+      case NonEmpty(m) =>
+        Some {
+          val hd = m transform { (_, abs) =>
+            val (_, b) +-: _ = abs
+            b
+          }
+          val tl = m collect { case (a, _ +-: NonEmpty(tl)) => (a, tl) }
+          (hd, tl)
         }
-        val tl = m collect { case (a, _ +: (tl @ (_ +: _))) => (a, tl) }
-        (hd, tl)
-      }
+      case _ => None
     }
 
   private[http] val Postgres: Queries = PostgresQueries
@@ -415,7 +423,7 @@ private object PostgresQueries extends Queries {
 
   private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      queries: Seq[(SurrogateTpId, Fragment)],
+      queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
@@ -450,8 +458,8 @@ private object PostgresQueries extends Queries {
       case MatchedQueryMarker.ByInt =>
         type Ix = Int
         uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
-          preds: Map[SurrogateTpId, (Fragment, Ix)] =>
-            val predHd +: predTl = preds.toVector
+          preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
+            val predHd +-: predTl = preds.toVector
             val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
               (tpid, predicate)
             }
@@ -561,7 +569,7 @@ private object OracleQueries extends Queries {
 
   private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
-      queries: Seq[(SurrogateTpId, Fragment)],
+      queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,

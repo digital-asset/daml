@@ -34,6 +34,9 @@ da_scala_library(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
+    deps = [
+        "//libs-scala/scala-utils",
+    ],
 )
 
 da_scala_test(
@@ -44,10 +47,12 @@ da_scala_test(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
+        "//libs-scala/scala-utils",
     ],
 )
