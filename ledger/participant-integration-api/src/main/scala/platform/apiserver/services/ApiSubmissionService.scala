@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.v1.{
   WriteService,
 }
 import com.daml.lf.crypto
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -88,7 +89,7 @@ private[apiserver] object ApiSubmissionService {
 
 }
 
-private[apiserver] final class ApiSubmissionService private (
+private[apiserver] final class ApiSubmissionService private[services] (
     writeService: WriteService,
     submissionService: IndexSubmissionService,
     partyManagementService: IndexPartyManagementService,
@@ -193,41 +194,33 @@ private[apiserver] final class ApiSubmissionService private (
     } yield submissionResult
 
   // Takes the whole transaction to ensure to traverse it only if necessary
-  private def allocateMissingInformees(
+  private[services] def allocateMissingInformees(
       transaction: SubmittedTransaction
   )(implicit loggingContext: LoggingContext): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
-      val partiesInTransaction = transaction.nodes.valuesIterator.flatMap(_.informeesOfNode).toSeq
-      partyManagementService.getParties(partiesInTransaction).flatMap { partyDetails =>
-        val knownParties = partyDetails.iterator.map(_.party).toSet
-        val missingParties = partiesInTransaction.filterNot(knownParties)
-        if (missingParties.nonEmpty) {
-          Future.sequence(
-            missingParties
-              .map(name => {
-                val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
-                withEnrichedLoggingContext(
-                  logging.party(name),
-                  logging.submissionId(submissionId),
-                ) { implicit loggingContext =>
-                  logger.info("Implicit party allocation")
-                  writeService
-                    .allocateParty(
-                      hint = Some(name),
-                      displayName = Some(name),
-                      submissionId = submissionId,
-                    )
-                    .toScala
-                }
-              })
+      val partiesInTransaction =
+        transaction.nodes.valuesIterator.flatMap(_.informeesOfNode).toSeq.distinct
+      for {
+        fetchedParties <- partyManagementService.getParties(partiesInTransaction)
+        knownParties = fetchedParties.iterator.map(_.party).toSet
+        missingParties = partiesInTransaction.filterNot(knownParties)
+        submissionResults <- Future.sequence(missingParties.map(allocateParty))
+      } yield submissionResults
+    } else Future.successful(Seq.empty)
+
+  private def allocateParty(name: Party) = {
+    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+    withEnrichedLoggingContext(logging.party(name), logging.submissionId(submissionId)) {
+      implicit loggingContext =>
+        logger.info("Implicit party allocation")
+        writeService
+          .allocateParty(
+            hint = Some(name),
+            displayName = Some(name),
+            submissionId = submissionId,
           )
-        } else {
-          Future.successful(Seq.empty)
-        }
-      }
-    } else {
-      Future.successful(Seq.empty)
     }
+  }.toScala
 
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,
