@@ -18,8 +18,8 @@ def conformance_test(
         test_tool_args = [],
         tags = [],
         runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-        flaky = False,
-        lf_versions = ["stable", "latest", "preview"]):
+        lf_versions = ["stable", "latest", "preview"],
+        flaky = False):
     for lf_version in lf_versions_aggregate(lf_versions):
         if not is_windows:
             client_server_test(
@@ -48,5 +48,6 @@ def server_conformance_test(name, servers, server_args = [], test_tool_args = []
             server = server["binary"],
             server_args = server.get("server_args", []) + server_args,
             test_tool_args = server.get("test_tool_args", []) + test_tool_args,
+            lf_versions = lf_versions,
             flaky = flaky,
         )

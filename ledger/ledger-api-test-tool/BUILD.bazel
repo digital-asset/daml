@@ -30,11 +30,6 @@ load(
     ":conformance.bzl",
     "conformance_test",
 )
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-    "mangle_for_java",
-)
 
 # we release ledger-api-test-tool-stable as ledger-api-test-tool
 da_scala_binary(
