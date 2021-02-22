@@ -45,7 +45,7 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
     ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
