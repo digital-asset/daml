@@ -283,7 +283,11 @@ SERVERS = {
 
 server_conformance_test(
     name = "conformance-test-static-time",
-    lf_versions = ["stable"],
+    lf_versions = [
+        "stable",
+        "stable",
+        "preview",
+    ],
     server_args = [
         "--static-time",
         "--contract-id-seeding=testing-weak",
@@ -296,7 +300,7 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test",
+    name = "conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",

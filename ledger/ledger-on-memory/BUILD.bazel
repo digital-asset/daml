@@ -136,14 +136,10 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
     ],
-    test_tool_args = [
-        "--verbose",
-    ],
 )
 
 conformance_test(
     name = "conformance-test-multi-participant",
-    lf_versions = ["stable"],
     ports = [
         6865,
         6866,
@@ -162,7 +158,6 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-split-participant",
-    lf_versions = ["stable"],
     ports = [
         6865,
     ],
@@ -180,7 +175,6 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-participant-pruning",
-    lf_versions = ["stable"],
     ports = [6865],
     server = ":app",
     server_args = [
@@ -195,7 +189,6 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-multi-party-submission",
-    lf_versions = ["stable"],
     ports = [6865],
     server = ":app",
     server_args = [
@@ -210,7 +203,6 @@ conformance_test(
 
 conformance_test(
     name = "benchmark-performance-envelope",
-    lf_versions = ["stable"],
     ports = [6865],
     server = ":app",
     server_args = [

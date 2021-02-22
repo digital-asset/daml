@@ -246,7 +246,11 @@ da_scala_test_suite(
 [
     conformance_test(
         name = "conformance-test-{}".format(db["name"]),
-        lf_versions = ["stable"],
+        lf_versions = [
+            "stable",
+            "latest",
+            "preview",
+        ],
         ports = [6865],
         server = ":conformance-test-{}-bin".format(db["name"]),
         server_args = [
@@ -275,7 +279,6 @@ da_scala_test_suite(
         ),
         conformance_test(
             name = "conformance-test-participant-pruning-{}".format(db["name"]),
-            lf_versions = ["stable"],
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [
@@ -290,7 +293,6 @@ da_scala_test_suite(
         ),
         conformance_test(
             name = "conformance-test-multi-party-submission-{}".format(db["name"]),
-            lf_versions = ["stable"],
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [
@@ -305,7 +307,6 @@ da_scala_test_suite(
         ),
         conformance_test(
             name = "benchmark-performance-envelope-{}".format(db["name"]),
-            lf_versions = ["stable"],
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [

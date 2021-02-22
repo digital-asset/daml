@@ -6,6 +6,7 @@
 # we bump stable.
 # The following dictionary is always defined for "legacy", "stable", "latest",
 # and "dev". It contains "preview" iff a preview version is available.
+# If exists "preview"'s value is guarantee to be different for all other values.
 lf_version_configuration = {
     "legacy": "1.8",
     "stable": "1.8",

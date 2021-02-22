@@ -112,7 +112,6 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-multi-party-submissions",
-    lf_versions = ["stable"],
     server = ":daml-on-sql-ephemeral-postgresql",
     server_args = [
         "--ledgerid=conformance-test",
