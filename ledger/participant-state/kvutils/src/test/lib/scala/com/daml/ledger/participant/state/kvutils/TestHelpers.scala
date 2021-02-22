@@ -8,7 +8,6 @@ import java.util.UUID
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.committer.CommitContext
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
@@ -125,10 +124,4 @@ object TestHelpers {
   def randomLedgerString: Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
-  def createCommitContext(
-      recordTime: Option[Timestamp],
-      inputs: DamlStateMap = Map.empty,
-      participantId: Int = 0,
-  ): CommitContext =
-    CommitContext(inputs, recordTime, mkParticipantId(participantId))
 }
