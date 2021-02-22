@@ -14,9 +14,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_dev_version",
-    "lf_latest_version",
-    "lf_stable_version",
+    "lf_version_configuration",
 )
 
 TEST_DARS = [
@@ -29,7 +27,7 @@ TEST_DARS = [
     daml_compile(
         name = darmod,
         srcs = ["src/test/resources/damls/%s.daml" % darmod],
-        target = lf_latest_version,
+        target = lf_version_configuration.get("stable"),
     )
     for darmod in TEST_DARS
 ]

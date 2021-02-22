@@ -9,6 +9,7 @@ load(
     "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 
 supported_databases = [
     {
@@ -244,6 +245,32 @@ da_scala_test_suite(
 )
 
 [
+    conformance_test(
+        name = "conformance-test-{}-{}".format(
+            db["name"],
+            lf_version,
+        ),
+        client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+        ports = [6865],
+        server = ":conformance-test-{}-bin".format(db["name"]),
+        server_args = [
+            "--contract-id-seeding=testing-weak",
+            "--participant participant-id=conformance-test,port=6865",
+        ] + db.get("conformance_test_server_args", []),
+        tags = db.get("conformance_test_tags", []),
+        test_tool_args = db.get("conformance_test_tool_args", []) + [
+            "--verbose",
+        ],
+    )
+    for db in supported_databases
+    for lf_version in lf_versions_aggregate([
+        "stable",
+        "latest",
+        "preview",
+    ])
+]
+
+[
     (
         da_scala_binary(
             name = "conformance-test-{}-bin".format(db["name"]),
@@ -253,19 +280,6 @@ da_scala_test_suite(
             deps = [
                 ":ledger-on-sql",
                 ":ledger-on-sql-test-lib",
-            ],
-        ),
-        conformance_test(
-            name = "conformance-test-{}".format(db["name"]),
-            ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
-            server_args = [
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=conformance-test,port=6865",
-            ] + db.get("conformance_test_server_args", []),
-            tags = db.get("conformance_test_tags", []),
-            test_tool_args = db.get("conformance_test_tool_args", []) + [
-                "--verbose",
             ],
         ),
         conformance_test(

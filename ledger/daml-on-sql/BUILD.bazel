@@ -5,6 +5,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 
 da_scala_library(
     name = "daml-on-sql",
@@ -99,15 +100,23 @@ da_scala_test(
     ],
 )
 
-conformance_test(
-    name = "conformance-test",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--eager-package-loading",
-    ],
-)
+[
+    conformance_test(
+        name = "conformance-test-%s" % lf_version,
+        client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+        server = ":daml-on-sql-ephemeral-postgresql",
+        server_args = [
+            "--ledgerid=conformance-test",
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    )
+    for lf_version in lf_versions_aggregate([
+        "stable",
+        "latest",
+        "preview",
+    ])
+]
 
 conformance_test(
     name = "conformance-test-multi-party-submissions",

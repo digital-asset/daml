@@ -23,8 +23,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
     "LF_VERSIONS",
-    "lf_latest_version",
-    "lf_stable_version",
+    "lf_version_configuration",
 )
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -291,7 +290,7 @@ daml_compile(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    target = lf_stable_version,
+    target = lf_version_configuration.get("stable"),
 )
 
 dar_to_java(
