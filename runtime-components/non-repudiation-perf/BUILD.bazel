@@ -1,0 +1,43 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+)
+load(
+    "@scala_version//:index.bzl",
+    "scala_major_version_suffix",
+)
+
+da_scala_benchmark_jmh(
+    name = "non-repudiation-perf",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    max_heap_size = "4g",
+    resources = ["src/main/resources/logback.xml"],
+    tags = ["manual"],
+    deps = [
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//libs-scala/doobie-slf4j",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/resources-grpc",
+        "//runtime-components/non-repudiation",
+        "//runtime-components/non-repudiation-client",
+        "//runtime-components/non-repudiation-postgresql",
+        "//runtime-components/non-repudiation-resources",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:io_grpc_grpc_services",
+        "@maven//:org_postgresql_postgresql",
+        "@maven//:com_chuusai_shapeless_{}".format(scala_major_version_suffix),
+        "@maven//:com_lihaoyi_sourcecode_{}".format(scala_major_version_suffix),
+        "@maven//:org_scala_lang_modules_scala_collection_compat_{}".format(scala_major_version_suffix),
+        "@maven//:org_tpolecat_doobie_core_{}".format(scala_major_version_suffix),
+        "@maven//:org_tpolecat_doobie_free_{}".format(scala_major_version_suffix),
+        "@maven//:org_tpolecat_doobie_hikari_{}".format(scala_major_version_suffix),
+        "@maven//:org_typelevel_cats_core_{}".format(scala_major_version_suffix),
+        "@maven//:org_typelevel_cats_effect_{}".format(scala_major_version_suffix),
+        "@maven//:org_typelevel_cats_free_{}".format(scala_major_version_suffix),
+        "@maven//:org_typelevel_cats_kernel_{}".format(scala_major_version_suffix),
+    ],
+)

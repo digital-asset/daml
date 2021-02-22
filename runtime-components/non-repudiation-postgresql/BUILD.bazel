@@ -24,6 +24,9 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
+    visibility = [
+        "//:__subpackages__",
+    ],
     deps = [
         "//runtime-components/non-repudiation",
         "@maven//:com_zaxxer_HikariCP",
