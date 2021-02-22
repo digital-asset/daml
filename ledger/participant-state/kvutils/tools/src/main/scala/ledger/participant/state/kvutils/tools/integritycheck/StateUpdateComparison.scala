@@ -63,7 +63,10 @@ object ReadServiceStateUpdateComparison {
       Future.unit
     }
 
-  private[integritycheck] def compareUpdates(expectedUpdate: Update, normalizedUpdate: Update): Future[Unit] = {
+  private[integritycheck] def compareUpdates(
+      expectedUpdate: Update,
+      normalizedUpdate: Update,
+  ): Future[Unit] = {
     val expectedNormalizedUpdate = normalizeUpdate(expectedUpdate)
     // We ignore the record time set later by post-execution because it's unimportant.
     // We only care about the update type and content.
@@ -108,7 +111,10 @@ object ReadServiceStateUpdateComparison {
         discardRejectionReasonDescription(rejectionReason),
       )
     case transactionAccepted: Update.TransactionAccepted =>
-      transactionAccepted.copy(transactionId = TransactionId.assertFromString("ignored"), blindingInfo = None)
+      transactionAccepted.copy(
+        transactionId = TransactionId.assertFromString("ignored"),
+        blindingInfo = None,
+      )
     case _ => update
   }
 

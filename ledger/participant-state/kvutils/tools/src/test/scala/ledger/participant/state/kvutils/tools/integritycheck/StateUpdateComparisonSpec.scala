@@ -5,7 +5,11 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.{Duration, Instant}
 
-import com.daml.ledger.participant.state.v1.Update.{CommandRejected, ConfigurationChangeRejected, TransactionAccepted}
+import com.daml.ledger.participant.state.v1.Update.{
+  CommandRejected,
+  ConfigurationChangeRejected,
+  TransactionAccepted,
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
 import com.daml.lf.data.Relation.Relation
@@ -16,7 +20,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class StateUpdateComparisonSpec extends AsyncWordSpec with TableDrivenPropertyChecks with Matchers {
+final class StateUpdateComparisonSpec
+    extends AsyncWordSpec
+    with TableDrivenPropertyChecks
+    with Matchers {
   "compareUpdates" should {
     "ignore rejection reason for ConfigurationChangeRejected updates" in {
       val left = aConfigurationChangeRejected.copy(rejectionReason = "one reason")
@@ -35,13 +42,15 @@ final class StateUpdateComparisonSpec extends AsyncWordSpec with TableDrivenProp
         RejectionReason.InvalidLedgerTime("a") -> RejectionReason.InvalidLedgerTime("b"),
         RejectionReason.PartyNotKnownOnLedger("a") -> RejectionReason.PartyNotKnownOnLedger("b"),
         RejectionReason.ResourcesExhausted("a") -> RejectionReason.ResourcesExhausted("b"),
-        RejectionReason.SubmitterCannotActViaParticipant("a") -> RejectionReason.SubmitterCannotActViaParticipant("b"),
+        RejectionReason.SubmitterCannotActViaParticipant("a") -> RejectionReason
+          .SubmitterCannotActViaParticipant("b"),
       )
       forAll(rejectionReasons) { case (left, right) =>
         ReadServiceStateUpdateComparison
           .compareUpdates(
             aCommandRejectedUpdate.copy(reason = left),
-            aCommandRejectedUpdate.copy(reason = right))
+            aCommandRejectedUpdate.copy(reason = right),
+          )
           .map(_ => succeed)
       }
     }
@@ -49,8 +58,7 @@ final class StateUpdateComparisonSpec extends AsyncWordSpec with TableDrivenProp
     "ignore blinding info for TransactionAccepted updates" in {
       val left = aTransactionAcceptedUpdate.copy(blindingInfo = None)
       val blindingInfo = BlindingInfo(
-        disclosure = Relation.from(
-          Seq(NodeId(0) -> Set(Ref.Party.assertFromString("a party")))),
+        disclosure = Relation.from(Seq(NodeId(0) -> Set(Ref.Party.assertFromString("a party")))),
         divulgence = Map.empty,
       )
       val right =
@@ -62,8 +70,12 @@ final class StateUpdateComparisonSpec extends AsyncWordSpec with TableDrivenProp
     }
 
     "ignore transaction ID for TransactionAccepted updates" in {
-      val left = aTransactionAcceptedUpdate.copy(transactionId = TransactionId.assertFromString("a transaction ID"))
-      val right = aTransactionAcceptedUpdate.copy(transactionId = TransactionId.assertFromString("another transaction ID"))
+      val left = aTransactionAcceptedUpdate.copy(transactionId =
+        TransactionId.assertFromString("a transaction ID")
+      )
+      val right = aTransactionAcceptedUpdate.copy(transactionId =
+        TransactionId.assertFromString("another transaction ID")
+      )
 
       ReadServiceStateUpdateComparison
         .compareUpdates(left, right)
