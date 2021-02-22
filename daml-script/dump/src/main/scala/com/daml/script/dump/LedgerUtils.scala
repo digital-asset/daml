@@ -5,6 +5,7 @@ package com.daml.script.dump
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -27,7 +28,7 @@ object LedgerUtils {
       offset: LedgerOffset,
   )(implicit
       mat: Materializer
-  ): Future[Map[String, CreatedEvent]] = {
+  ): Future[Map[ContractId, CreatedEvent]] = {
     val ledgerBegin = LedgerOffset(
       LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
     )
@@ -36,12 +37,12 @@ object LedgerUtils {
     } else {
       client.transactionClient
         .getTransactions(ledgerBegin, Some(offset), filter(parties), verbose = true)
-        .runFold(Map.empty[String, CreatedEvent]) { case (acs, tx) =>
+        .runFold(Map.empty[ContractId, CreatedEvent]) { case (acs, tx) =>
           tx.events.foldLeft(acs) { case (acs, ev) =>
             ev.event match {
               case Event.Empty => acs
-              case Event.Created(value) => acs + (value.contractId -> value)
-              case Event.Archived(value) => acs - value.contractId
+              case Event.Created(value) => acs + (ContractId(value.contractId) -> value)
+              case Event.Archived(value) => acs - ContractId(value.contractId)
             }
           }
         }

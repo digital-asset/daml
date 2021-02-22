@@ -7,6 +7,7 @@ import com.daml.ledger.api.v1.{value => v}
 import java.time.{Instant, LocalDate, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
 
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.google.protobuf.empty.Empty
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -57,7 +58,7 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
     }
     "contract id" in {
       val cid = v.Value().withContractId("my-contract-id")
-      encodeValue(Map.empty, Map("my-contract-id" -> "mapped_cid"), cid.sum)
+      encodeValue(Map.empty, Map(ContractId("my-contract-id") -> "mapped_cid"), cid.sum)
         .render(80) shouldBe "mapped_cid"
     }
     "list" in {
@@ -76,7 +77,7 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
         .render(80) shouldBe "\"abc\\\"def\""
     }
     "party" in {
-      encodeValue(Map("unmapped" -> "mapped"), Map.empty, v.Value.Sum.Party("unmapped"))
+      encodeValue(Map(Party("unmapped") -> "mapped"), Map.empty, v.Value.Sum.Party("unmapped"))
         .render(80) shouldBe "mapped"
     }
     "bool" in {

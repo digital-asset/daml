@@ -6,6 +6,7 @@ package com.daml.script.dump
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
+import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.lf.archive.Dar
@@ -19,7 +20,7 @@ object Dump {
       sdkVersion: String,
       damlScriptLib: String,
       targetDir: Path,
-      acs: Map[String, CreatedEvent],
+      acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
       pkgRefs: Set[PackageId],
       pkgs: Map[PackageId, (ByteString, Ast.Package)],

@@ -6,6 +6,7 @@ package com.daml.script.dump
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
@@ -20,7 +21,7 @@ import scalaz.syntax.foldable._
 
 private[dump] object Encode {
   def encodeTransactionTreeStream(
-      acs: Map[String, CreatedEvent],
+      acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
   ): Doc = {
     val parties = partiesInContracts(acs.values) ++ trees.toList.foldMap(partiesInTree(_))
@@ -40,7 +41,8 @@ private[dump] object Encode {
     }
 
     val sortedAcs = topoSortAcs(acs)
-    val acsCids = sortedAcs.map(ev => CreatedContract(ev.contractId, ev.getTemplateId, Nil))
+    val acsCids =
+      sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
@@ -72,15 +74,17 @@ private[dump] object Encode {
         Doc.text("pure ()")).hang(2)
   }
 
-  private def encodeAllocateParties(partyMap: Map[String, String]): Doc =
+  private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
     Doc.text("allocateParties : Script Parties") /
       (Doc.text("allocateParties = do") /
         Doc.stack(partyMap.map { case (k, v) =>
-          Doc.text(v) + Doc.text(" <- allocateParty \"") + Doc.text(k) + Doc.text("\"")
+          Doc.text(v) + Doc.text(" <- allocateParty \"") + Doc.text(Party.unwrap(k)) + Doc.text(
+            "\""
+          )
         }) /
         Doc.text("pure Parties{..}")).hang(2)
 
-  private def encodePartyType(partyMap: Map[String, String]): Doc =
+  private def encodePartyType(partyMap: Map[Party, String]): Doc =
     (Doc.text("data Parties = Parties with") /
       Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
 
@@ -90,8 +94,8 @@ private[dump] object Encode {
   }
 
   private[dump] def encodeValue(
-      partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
     def go(v: Value.Sum): Doc =
@@ -104,7 +108,7 @@ private[dump] object Encode {
             qualifyId(value.getVariantId.copy(entityName = value.constructor)) +
               Doc.text(" ") + go(value.getValue.sum)
           )
-        case Sum.ContractId(c) => encodeCid(cidMap, c)
+        case Sum.ContractId(c) => encodeCid(cidMap, ContractId(c))
         case Sum.List(value) =>
           list(value.elements.map(v => go(v.sum)))
         case Sum.Int64(i) => Doc.str(i)
@@ -112,7 +116,7 @@ private[dump] object Encode {
         case Sum.Text(t) =>
           // Java-escaping rules should at least be reasonably close to Daml/Haskell.
           Doc.text("\"") + Doc.text(StringEscapeUtils.escapeJava(t)) + Doc.text("\"")
-        case Sum.Party(p) => encodeParty(partyMap, p)
+        case Sum.Party(p) => encodeParty(partyMap, Party(p))
         case Sum.Bool(b) =>
           Doc.text(if (b) {
             "True"
@@ -165,8 +169,8 @@ private[dump] object Encode {
     parens(v1 + Doc.text(", ") + v2)
 
   private def encodeRecord(
-      partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
       r: Record,
   ): Doc = {
     if (r.fields.isEmpty) {
@@ -178,20 +182,20 @@ private[dump] object Encode {
   }
 
   private def encodeField(
-      partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
       field: RecordField,
   ): Doc =
     Doc.text(field.label) + Doc.text(" = ") + encodeValue(partyMap, cidMap, field.getValue.sum)
 
-  private def encodeParty(partyMap: Map[String, String], s: String): Doc = Doc.text(partyMap(s))
+  private def encodeParty(partyMap: Map[Party, String], s: Party): Doc = Doc.text(partyMap(s))
 
-  private def encodeParties(partyMap: Map[String, String], ps: Iterable[String]): Doc =
+  private def encodeParties(partyMap: Map[Party, String], ps: Iterable[Party]): Doc =
     Doc.text("[") +
       Doc.intercalate(Doc.text(", "), ps.map(encodeParty(partyMap, _))) +
       Doc.text("]")
 
-  private def encodeCid(cidMap: Map[String, String], cid: String): Doc = {
+  private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
     Doc.text(cidMap(cid))
   }
@@ -200,14 +204,17 @@ private[dump] object Encode {
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
   private def encodeEv(
-      partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
       ev: TreeEvent.Kind,
   ): Doc = ev match {
     case TreeEvent.Kind.Created(created) =>
       Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
     case TreeEvent.Kind.Exercised(exercised @ _) =>
-      Doc.text("exerciseCmd ") + encodeCid(cidMap, exercised.contractId) + Doc.space + encodeValue(
+      Doc.text("exerciseCmd ") + encodeCid(
+        cidMap,
+        ContractId(exercised.contractId),
+      ) + Doc.space + encodeValue(
         partyMap,
         cidMap,
         exercised.getChoiceArgument.sum,
@@ -215,7 +222,7 @@ private[dump] object Encode {
     case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
   }
 
-  private def bindCid(cidMap: Map[String, String], c: CreatedContract): Doc = {
+  private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     Doc.text("let ") + encodeCid(cidMap, c.cid) + Doc.text(" = createdCid @") +
       qualifyId(c.tplId) + Doc.text(" [") + Doc.intercalate(
         Doc.text(", "),
@@ -224,26 +231,26 @@ private[dump] object Encode {
   }
 
   private[dump] def encodeCreatedEvent(
-      partyMap: Map[String, String],
-      cidMap: Map[String, String],
-      cidRefs: Set[String],
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
       createdEvent: CreatedEvent,
   ): Doc = {
     val createCmd =
       Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
-    val cid = createdEvent.contractId
+    val cid = ContractId(createdEvent.contractId)
     val bind = if (cidRefs.contains(cid)) { Doc.text(cidMap(cid)) + Doc.text(" <- ") }
     else { Doc.empty }
-    val submitters = createdEvent.signatories
+    val submitters = Party.subst(createdEvent.signatories)
     (bind + Doc.text("submitMulti ") + encodeParties(partyMap, submitters) + Doc.text(
       " [] do"
     ) / createCmd).hang(2)
   }
 
   private[dump] def encodeTree(
-      partyMap: Map[String, String],
-      cidMap: Map[String, String],
-      cidRefs: Set[String],
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
@@ -262,16 +269,16 @@ private[dump] object Encode {
   private def encodeImport(moduleName: String) =
     Doc.text("import qualified ") + Doc.text(moduleName)
 
-  private def partyMapping(parties: Set[String]): Map[String, String] = {
+  private def partyMapping(parties: Set[Party]): Map[Party, String] = {
     // - PartyIdStrings are strings that match the regexp ``[A-Za-z0-9:\-_ ]+``.
     def safeParty(p: String) =
       Seq(":", "-", "_", " ").foldLeft(p) { case (p, x) => p.replace(x, "") }.toLowerCase
     // Map from original party id to Daml identifier
-    var partyMap: Map[String, String] = Map.empty
+    var partyMap: Map[Party, String] = Map.empty
     // Number of times we’ve gotten the same result from safeParty, we resolve collisions with a suffix.
     var usedParties: Map[String, Int] = Map.empty
     parties.foreach { p =>
-      val r = safeParty(p)
+      val r = safeParty(Party.unwrap(p))
       usedParties.get(r) match {
         case None =>
           partyMap += p -> s"${r}_0"
@@ -286,8 +293,8 @@ private[dump] object Encode {
 
   private def cidMapping(
       cids: Seq[Seq[CreatedContract]],
-      cidRefs: Set[String],
-  ): Map[String, String] = {
+      cidRefs: Set[ContractId],
+  ): Map[ContractId, String] = {
     def lowerFirst(s: String) =
       if (s.isEmpty) {
         s
