@@ -3,7 +3,7 @@
 
 package com.daml.script.dump
 
-import com.daml.ledger.api.refinements.ApiTypes.ContractId
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
@@ -66,12 +66,12 @@ object TreeUtils {
     }
   }
 
-  def partiesInContracts(contracts: Iterable[CreatedEvent]): Set[String] = {
+  def partiesInContracts(contracts: Iterable[CreatedEvent]): Set[Party] = {
     contracts.foldMap(ev => valueParties(Value.Sum.Record(ev.getCreateArguments)))
   }
 
-  def partiesInTree(tree: TransactionTree): Set[String] = {
-    var parties: Set[String] = Set()
+  def partiesInTree(tree: TransactionTree): Set[Party] = {
+    var parties: Set[Party] = Set()
     traverseTree(tree) { case (_, ev) =>
       ev match {
         case Kind.Empty =>
@@ -84,34 +84,34 @@ object TreeUtils {
     parties
   }
 
-  private def valueParties(v: Value.Sum): Set[String] = v match {
+  private def valueParties(v: Value.Sum): Set[Party] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
-      value.fields.map(v => valueParties(v.getValue.sum)).foldLeft(Set[String]()) { case (x, xs) =>
+      value.fields.map(v => valueParties(v.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
         x.union(xs)
       }
     case Sum.Variant(value) => valueParties(value.getValue.sum)
     case Sum.ContractId(_) => Set()
     case Sum.List(value) =>
-      value.elements.map(v => valueParties(v.sum)).foldLeft(Set[String]()) { case (x, xs) =>
+      value.elements.map(v => valueParties(v.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
         x.union(xs)
       }
     case Sum.Int64(_) => Set()
     case Sum.Numeric(_) => Set()
     case Sum.Text(_) => Set()
     case Sum.Timestamp(_) => Set()
-    case Sum.Party(value) => Set(value)
+    case Sum.Party(value) => Set(Party(value))
     case Sum.Bool(_) => Set()
     case Sum.Unit(_) => Set()
     case Sum.Date(_) => Set()
-    case Sum.Optional(value) => value.value.fold(Set[String]())(v => valueParties(v.sum))
+    case Sum.Optional(value) => value.value.fold(Set[Party]())(v => valueParties(v.sum))
     case Sum.Map(value) =>
-      value.entries.map(e => valueParties(e.getValue.sum)).foldLeft(Set[String]()) { case (x, xs) =>
+      value.entries.map(e => valueParties(e.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
         x.union(xs)
       }
-    case Sum.Enum(_) => Set[String]()
+    case Sum.Enum(_) => Set[Party]()
     case Sum.GenMap(value) =>
-      value.entries.map(e => valueParties(e.getValue.sum)).foldLeft(Set[String]()) { case (x, xs) =>
+      value.entries.map(e => valueParties(e.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
         x.union(xs)
       }
   }
@@ -151,9 +151,9 @@ object TreeUtils {
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
 
-  def evParties(ev: TreeEvent.Kind): Seq[String] = ev match {
-    case TreeEvent.Kind.Created(create) => create.signatories
-    case TreeEvent.Kind.Exercised(exercised) => exercised.actingParties
+  def evParties(ev: TreeEvent.Kind): Seq[Party] = ev match {
+    case TreeEvent.Kind.Created(create) => Party.subst(create.signatories)
+    case TreeEvent.Kind.Exercised(exercised) => Party.subst(exercised.actingParties)
     case TreeEvent.Kind.Empty => Seq()
   }
 

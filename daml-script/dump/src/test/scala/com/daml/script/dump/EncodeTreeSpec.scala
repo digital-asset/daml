@@ -3,7 +3,7 @@
 
 package com.daml.script.dump
 
-import com.daml.ledger.api.refinements.ApiTypes.ContractId
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.{Identifier, Record}
@@ -15,7 +15,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
   "encodeTree" - {
     "contract id bindings" - {
       "unreferenced" in {
-        val parties = Map("Alice" -> "alice_0")
+        val parties = Map(Party("Alice") -> "alice_0")
         val cidMap = Map(ContractId("cid") -> "contract_0_0")
         val cidRefs = Set.empty[ContractId]
         val tree = TransactionTree(
@@ -50,7 +50,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
       "referenced" in {
-        val parties = Map("Alice" -> "alice_0")
+        val parties = Map(Party("Alice") -> "alice_0")
         val cidMap = Map(ContractId("cid") -> "contract_0_0")
         val cidRefs = Set(ContractId("cid"))
         val tree = TransactionTree(
