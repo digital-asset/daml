@@ -6,19 +6,37 @@ package com.daml.script.dump
 import java.nio.file.Path
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.v1.transaction.TransactionTree
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.archive.{Dar, DarWriter, Decode}
 import com.daml.lf.archive.Reader.damlLfCodedInputStreamFromBytes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.script.dump.TreeUtils.{treeRefs, valueRefs}
 import com.google.protobuf.ByteString
+import scalaz.std.iterable._
+import scalaz.std.set._
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.traverse._
 
 object Dependencies {
+
+  def contractsReferences(contracts: Iterable[CreatedEvent]): Set[PackageId] = {
+    contracts
+      .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+      .map(i => PackageId.assertFromString(i.packageId))
+  }
+
+  def treesReferences(transactions: Iterable[TransactionTree]): Set[PackageId] = {
+    transactions
+      .foldMap(treeRefs(_))
+      .map(i => PackageId.assertFromString(i.packageId))
+  }
 
   // Given a list of root package ids, download all packages transitively referenced by those roots.
   def fetchPackages(client: LedgerClient, references: List[PackageId])(implicit

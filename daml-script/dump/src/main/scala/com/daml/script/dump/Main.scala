@@ -11,7 +11,6 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -22,17 +21,12 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.google.protobuf.ByteString
-import scalaz.std.list._
-import scalaz.std.set._
-import scalaz.syntax.foldable._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object Main {
-  import TreeUtils._
-
   def main(args: Array[String]): Unit = {
     Config.parse(args) match {
       case None => sys.exit(1)
@@ -65,12 +59,8 @@ object Main {
       client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
       acs <- LedgerUtils.getACS(client, config.parties, config.start)
       trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
-      acsPkgRefs = acs.values.toList
-        .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
-        .map(i => PackageId.assertFromString(i.packageId))
-      treePkgRefs = trees.toList
-        .foldMap(treeRefs(_))
-        .map(i => PackageId.assertFromString(i.packageId))
+      acsPkgRefs = Dependencies.contractsReferences(acs.values)
+      treePkgRefs = Dependencies.treesReferences(trees)
       pkgRefs = acsPkgRefs ++ treePkgRefs
       pkgs <- Dependencies.fetchPackages(client, pkgRefs.toList)
       _ = writeDump(
