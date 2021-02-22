@@ -85,7 +85,7 @@ sh_test(
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
-        "$(location //ledger/test-common:model-tests.dar)",
+        "$(location //ledger/test-common:model-tests-stable.dar)",
     ],
     data = [
         "//:java",
@@ -94,7 +94,7 @@ sh_test(
         "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
     ] + glob(

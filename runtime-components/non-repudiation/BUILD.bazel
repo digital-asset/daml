@@ -32,7 +32,6 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/ledger-api-test-tool:PackageManagementTest.dar",
         "//ledger/test-common:dar-files",
     ],
     versioned_scala_deps = {

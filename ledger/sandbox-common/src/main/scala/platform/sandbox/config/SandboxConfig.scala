@@ -49,6 +49,7 @@ final case class SandboxConfig(
     stackTraces: Boolean,
     engineMode: SandboxConfig.EngineMode,
     managementServiceTimeout: Duration,
+    sqlStartMode: Option[PostgresStartupMode],
 )
 
 object SandboxConfig {
@@ -69,6 +70,8 @@ object SandboxConfig {
     v1.ParticipantId.assertFromString("sandbox-participant")
 
   val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
+
+  val DefaultSqlStartupMode: PostgresStartupMode = PostgresStartupMode.MigrateAndStart
 
   lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
@@ -100,6 +103,7 @@ object SandboxConfig {
       stackTraces = true,
       engineMode = EngineMode.Stable,
       managementServiceTimeout = DefaultManagementServiceTimeout,
+      sqlStartMode = Some(DefaultSqlStartupMode),
     )
 
   sealed abstract class EngineMode extends Product with Serializable

@@ -85,7 +85,7 @@ private[sandbox] object LedgerResource {
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,
           transactionCommitter = StandardTransactionCommitter,
-          startMode = SqlStartMode.AlwaysReset,
+          startMode = SqlStartMode.ResetAndStart,
           eventsPageSize = 100,
           servicesExecutionContext = servicesExecutionContext,
           metrics = new Metrics(metrics),

@@ -31,6 +31,24 @@ To specify the PostgreSQL instance you wish to connect, use the
 valid JDBC URL containing the username, password and database name to connect
 to (for example, ``jdbc:postgresql://localhost/test?user=fred&password=secret``).
 
+If you do not want to pass the jdbc credentials on the command line, you can also
+define them in an environment variable and then specify the environment variable to
+use through the  ``--sql-backend-jdbcurl-env <environment-variable>`` option where
+``<environment-variable>`` is the name of the environment variable where the connection
+string string has been specified.  The connection string you store in the environment
+variable should be of the same form as mentioned above (for example,
+``jdbc:postgresql://localhost/test?user=fred&password=secret``).
+
+If you want to setup the database schema for the *Daml Driver for PostgreSQL* with a
+more highly permissioned database service account that is able to create database schemas
+and tables but only run your application with an account with lesser permissions, you
+can leverage the combination of the connection string specifying the account to use
+and the ``--sql-start-mode <value>`` parameter specifying the mode to run the driver.
+
+The possible modes available are
+``migrate-only`` - Create database schema but do not start the driver
+``migrate-and-start`` - Create database schema and start the driver.  If the database already exists, this will simply validate and start.  This is the default mode
+
 You will also need to provide a ledger ID with the ``--ledgerid`` flag, which
 must be the same upon restart. This value is expected in many API endpoints, to
 ensure ledger clients are connecting to the correct ledger.
