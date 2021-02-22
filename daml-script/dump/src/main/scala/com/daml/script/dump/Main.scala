@@ -50,8 +50,8 @@ object Main {
       client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
       acs <- LedgerUtils.getACS(client, config.parties, config.start)
       trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
-      acsPkgRefs = Dependencies.contractsReferences(acs.values)
-      treePkgRefs = Dependencies.treesReferences(trees)
+      acsPkgRefs = TreeUtils.contractsReferences(acs.values)
+      treePkgRefs = TreeUtils.treesReferences(trees)
       pkgRefs = acsPkgRefs ++ treePkgRefs
       pkgs <- Dependencies.fetchPackages(client, pkgRefs.toList)
       _ = Dump.writeDump(
