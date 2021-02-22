@@ -6,6 +6,7 @@ package com.daml.script.dump
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
+import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
@@ -20,7 +21,7 @@ import scalaz.syntax.foldable._
 
 private[dump] object Encode {
   def encodeTransactionTreeStream(
-      acs: Map[String, CreatedEvent],
+      acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
   ): Doc = {
     val parties = partiesInContracts(acs.values) ++ trees.toList.foldMap(partiesInTree(_))
@@ -40,7 +41,8 @@ private[dump] object Encode {
     }
 
     val sortedAcs = topoSortAcs(acs)
-    val acsCids = sortedAcs.map(ev => CreatedContract(ev.contractId, ev.getTemplateId, Nil))
+    val acsCids =
+      sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
@@ -91,7 +93,7 @@ private[dump] object Encode {
 
   private[dump] def encodeValue(
       partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
     def go(v: Value.Sum): Doc =
@@ -104,7 +106,7 @@ private[dump] object Encode {
             qualifyId(value.getVariantId.copy(entityName = value.constructor)) +
               Doc.text(" ") + go(value.getValue.sum)
           )
-        case Sum.ContractId(c) => encodeCid(cidMap, c)
+        case Sum.ContractId(c) => encodeCid(cidMap, ContractId(c))
         case Sum.List(value) =>
           list(value.elements.map(v => go(v.sum)))
         case Sum.Int64(i) => Doc.str(i)
@@ -166,7 +168,7 @@ private[dump] object Encode {
 
   private def encodeRecord(
       partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      cidMap: Map[ContractId, String],
       r: Record,
   ): Doc = {
     if (r.fields.isEmpty) {
@@ -179,7 +181,7 @@ private[dump] object Encode {
 
   private def encodeField(
       partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      cidMap: Map[ContractId, String],
       field: RecordField,
   ): Doc =
     Doc.text(field.label) + Doc.text(" = ") + encodeValue(partyMap, cidMap, field.getValue.sum)
@@ -191,7 +193,7 @@ private[dump] object Encode {
       Doc.intercalate(Doc.text(", "), ps.map(encodeParty(partyMap, _))) +
       Doc.text("]")
 
-  private def encodeCid(cidMap: Map[String, String], cid: String): Doc = {
+  private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
     Doc.text(cidMap(cid))
   }
@@ -201,13 +203,16 @@ private[dump] object Encode {
 
   private def encodeEv(
       partyMap: Map[String, String],
-      cidMap: Map[String, String],
+      cidMap: Map[ContractId, String],
       ev: TreeEvent.Kind,
   ): Doc = ev match {
     case TreeEvent.Kind.Created(created) =>
       Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
     case TreeEvent.Kind.Exercised(exercised @ _) =>
-      Doc.text("exerciseCmd ") + encodeCid(cidMap, exercised.contractId) + Doc.space + encodeValue(
+      Doc.text("exerciseCmd ") + encodeCid(
+        cidMap,
+        ContractId(exercised.contractId),
+      ) + Doc.space + encodeValue(
         partyMap,
         cidMap,
         exercised.getChoiceArgument.sum,
@@ -215,7 +220,7 @@ private[dump] object Encode {
     case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
   }
 
-  private def bindCid(cidMap: Map[String, String], c: CreatedContract): Doc = {
+  private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     Doc.text("let ") + encodeCid(cidMap, c.cid) + Doc.text(" = createdCid @") +
       qualifyId(c.tplId) + Doc.text(" [") + Doc.intercalate(
         Doc.text(", "),
@@ -225,13 +230,13 @@ private[dump] object Encode {
 
   private[dump] def encodeCreatedEvent(
       partyMap: Map[String, String],
-      cidMap: Map[String, String],
-      cidRefs: Set[String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
       createdEvent: CreatedEvent,
   ): Doc = {
     val createCmd =
       Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
-    val cid = createdEvent.contractId
+    val cid = ContractId(createdEvent.contractId)
     val bind = if (cidRefs.contains(cid)) { Doc.text(cidMap(cid)) + Doc.text(" <- ") }
     else { Doc.empty }
     val submitters = createdEvent.signatories
@@ -242,8 +247,8 @@ private[dump] object Encode {
 
   private[dump] def encodeTree(
       partyMap: Map[String, String],
-      cidMap: Map[String, String],
-      cidRefs: Set[String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
@@ -286,8 +291,8 @@ private[dump] object Encode {
 
   private def cidMapping(
       cids: Seq[Seq[CreatedContract]],
-      cidRefs: Set[String],
-  ): Map[String, String] = {
+      cidRefs: Set[ContractId],
+  ): Map[ContractId, String] = {
     def lowerFirst(s: String) =
       if (s.isEmpty) {
         s

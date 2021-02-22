@@ -3,6 +3,7 @@
 
 package com.daml.script.dump
 
+import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
@@ -38,8 +39,8 @@ object TreeUtils {
     *
     * Throws [[IllegalArgumentException]] if it encounters cyclic dependencies.
     */
-  def topoSortAcs(acs: Map[String, CreatedEvent]): List[CreatedEvent] = {
-    val graph: Graphs.Graph[String] = acs.view.mapValues(createdReferencedCids).toMap
+  def topoSortAcs(acs: Map[ContractId, CreatedEvent]): List[CreatedEvent] = {
+    val graph: Graphs.Graph[ContractId] = acs.view.mapValues(createdReferencedCids).toMap
     Graphs.topoSort(graph) match {
       case Left(cycle) =>
         throw new IllegalArgumentException(s"Encountered cyclic contract dependencies: $cycle")
@@ -115,7 +116,7 @@ object TreeUtils {
       }
   }
 
-  case class CreatedContract(cid: String, tplId: Identifier, path: List[Selector])
+  case class CreatedContract(cid: ContractId, tplId: Identifier, path: List[Selector])
 
   def treeCreatedCids(tree: TransactionTree): Seq[CreatedContract] = {
     var cids: Seq[CreatedContract] = Seq()
@@ -124,19 +125,21 @@ object TreeUtils {
         case Kind.Empty =>
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
-          cids ++= Seq(CreatedContract(value.contractId, value.getTemplateId, selectors))
+          cids ++= Seq(
+            CreatedContract(ContractId(value.contractId), value.getTemplateId, selectors)
+          )
       }
     }
     cids
   }
 
-  def treeReferencedCids(tree: TransactionTree): Set[String] = {
-    var cids: Set[String] = Set.empty
+  def treeReferencedCids(tree: TransactionTree): Set[ContractId] = {
+    var cids: Set[ContractId] = Set.empty
     traverseTree(tree) { case (_, kind) =>
       kind match {
         case Kind.Empty =>
         case Kind.Exercised(value) =>
-          cids += value.contractId
+          cids += ContractId(value.contractId)
           cids ++= value.choiceArgument.foldMap(arg => valueCids(arg.sum))
         case Kind.Created(value) =>
           cids ++= createdReferencedCids(value)
@@ -145,7 +148,7 @@ object TreeUtils {
     cids
   }
 
-  def createdReferencedCids(ev: CreatedEvent): Set[String] =
+  def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
 
   def evParties(ev: TreeEvent.Kind): Seq[String] = ev match {
@@ -185,11 +188,11 @@ object TreeUtils {
       value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
   }
 
-  def valueCids(v: Value.Sum): Set[String] = v match {
+  def valueCids(v: Value.Sum): Set[ContractId] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) => value.fields.foldMap(f => valueCids(f.getValue.sum))
     case Sum.Variant(value) => valueCids(value.getValue.sum)
-    case Sum.ContractId(cid) => Set(cid)
+    case Sum.ContractId(cid) => Set(ContractId(cid))
     case Sum.List(value) => value.elements.foldMap(v => valueCids(v.sum))
     case Sum.Int64(_) => Set()
     case Sum.Numeric(_) => Set()

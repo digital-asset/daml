@@ -3,6 +3,7 @@
 
 package com.daml.script.dump
 
+import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import org.scalatest.freespec.AnyFreeSpec
@@ -14,8 +15,8 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
     "contract id bindings" - {
       "unreferenced" in {
         val parties = Map("Alice" -> "alice_0")
-        val cidMap = Map("cid" -> "contract_0_0")
-        val cidRefs = Set.empty[String]
+        val cidMap = Map(ContractId("cid") -> "contract_0_0")
+        val cidRefs = Set.empty[ContractId]
         val created = CreatedEvent(
           eventId = "create",
           templateId = Some(Identifier("package", "Module", "Template")),
@@ -34,8 +35,8 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
       }
       "referenced" in {
         val parties = Map("Alice" -> "alice_0")
-        val cidMap = Map("cid" -> "contract_0_0")
-        val cidRefs = Set("cid")
+        val cidMap = Map(ContractId("cid") -> "contract_0_0")
+        val cidRefs = Set(ContractId("cid"))
         val created = CreatedEvent(
           eventId = "create",
           templateId = Some(Identifier("package", "Module", "Template")),
