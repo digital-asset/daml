@@ -3855,6 +3855,13 @@ to ``roundingMode``.
 
   Round the big decimal according to the given ``MathContext``.
 
+* ``SET_SCALE_BIGDECIMAL : 'RoundingMode' -> 'Int' -> 'BigDecimal' -> 'BigDecimal'``
+
+  Change the scale of the given ``BigDecimal`` while keeping the
+  numerical value equal. If the value cannot be represented exactly at
+  the given scale, it will be rounded according to the given
+  ``RoundingMode``. This can only happen if the scale is decreased.
+
 * ``TO_TEXT_BIGDECIMAL : 'BigDecimal' → 'Text'``
 
   Returns the numeric string representation of the bigdecimal. The result
