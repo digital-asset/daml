@@ -94,5 +94,5 @@ withSandbox assistant jdbcUrl f =
   where
     sandboxConfig = defaultSandboxConf
         { sandboxBinary = assistant
-        , sandboxArgs = ["sandbox-classic", "--jdbcurl=" <> T.unpack jdbcUrl]
+        , sandboxArgs = ["sandbox-classic", "--jdbcurl=" <> T.unpack jdbcUrl, "--contract-id-seeding=testing-weak"]
         }
