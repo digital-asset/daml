@@ -398,7 +398,7 @@ def sdk_platform_test(sdk_version, platform_version):
     # if the CI machine does not have enough entropy.
     sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
 
-    sandbox_classic_args = ["sandbox-classic"]
+    sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     json_api_args = ["json-api"]
 
