@@ -44,6 +44,7 @@ object TestUtil {
       testCode: Channel => Assertion
   )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
+      seeding = Some(com.daml.ledger.participant.state.v1.SeedService.Seeding.Weak),
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),

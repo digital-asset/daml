@@ -14,21 +14,20 @@ load(
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_dev_version",
-    "lf_latest_version",
+    "lf_version_configuration",
 )
 load("@scala_version//:index.bzl", "scala_version_suffix")
 
 daml_compile(
     name = "MyMain",
     srcs = ["src/main/daml/MyMain.daml"],
-    target = lf_latest_version,
+    target = lf_version_configuration.get("latest"),
 )
 
 daml_compile(
     name = "MySecondMain",
     srcs = ["src/main/daml/MySecondMain.daml"],
-    target = lf_latest_version,
+    target = lf_version_configuration.get("latest"),
 )
 
 dar_to_scala(

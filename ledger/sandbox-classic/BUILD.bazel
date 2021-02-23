@@ -7,7 +7,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_preview_version",
+    "lf_version_configuration",
 )
 
 da_scala_library(
@@ -248,10 +248,7 @@ da_scala_test_suite(
         "//daml-lf/encoder:testing-dar-latest",
         "//ledger/test-common:model-tests-stable.dar",
         "//ledger/test-common/test-certificates",
-    ] + [
-        "//daml-lf/encoder:testing-dar-preview"
-        for v in lf_preview_version
-    ],
+    ] + ["//daml-lf/encoder:testing-dar-preview"] if lf_version_configuration.get("preview") != None else [],
     resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     scala_deps = scala_test_deps,
     deps = test_deps,
@@ -286,8 +283,14 @@ SERVERS = {
 
 server_conformance_test(
     name = "conformance-test-static-time",
+    lf_versions = [
+        "stable",
+        "stable",
+        "preview",
+    ],
     server_args = [
         "--static-time",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -300,6 +303,7 @@ server_conformance_test(
     name = "conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -309,10 +313,11 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-contract-id-seeding",
+    name = "conformance-test-legacy-cid",
+    lf_versions = ["legacy"],
     server_args = [
         "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
+        "--contract-id-seeding=no",
     ],
     servers = SERVERS,
     test_tool_args = [
