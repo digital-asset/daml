@@ -476,7 +476,7 @@ def sdk_platform_test(sdk_version, platform_version):
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = ":sandbox-with-postgres-{}".format(platform_version),
-        server_args = [platform_version, "sandbox-classic"],
+        server_args = [platform_version] + sandbox_classic_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
