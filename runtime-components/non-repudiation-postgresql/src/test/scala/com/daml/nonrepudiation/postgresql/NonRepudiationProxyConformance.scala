@@ -4,10 +4,8 @@
 package com.daml.nonrepudiation.postgresql
 
 import java.time.Clock
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
 
-import cats.effect.{Blocker, ContextShift, IO}
+import cats.effect.{ContextShift, IO}
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCasesRunner,
@@ -20,13 +18,12 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.nonrepudiation.client.SigningInterceptor
+import com.daml.nonrepudiation.resources.HikariTransactorResourceOwner
 import com.daml.nonrepudiation.{AlgorithmString, MetricsReporterOwner, NonRepudiationProxy}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.{Runner => Sandbox}
 import com.daml.ports.Port
 import com.daml.testing.postgresql.PostgresAroundAll
-import com.zaxxer.hikari.HikariDataSource
-import doobie.hikari.HikariTransactor
 import doobie.util.log.LogHandler
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.NettyChannelBuilder
@@ -78,7 +75,7 @@ final class NonRepudiationProxyConformance
           shutdownTimeout = 5.seconds,
         )
         _ <- MetricsReporterOwner.slf4j[ResourceContext](period = 5.seconds)
-        transactor <- managedHikariTransactor(postgresDatabase.url, maxPoolSize = 10)
+        transactor <- ownTransactor(postgresDatabase.url, maxPoolSize = 10)
         db = Tables.initialize(transactor)
         _ = db.certificates.put(certificate)
         proxy <- NonRepudiationProxy.owner[ResourceContext](
@@ -124,56 +121,7 @@ object NonRepudiationProxyConformance {
       }
       .flatMap(_.tests)
 
-  object NamedThreadFactory {
-
-    def cachedThreadPool(threadNamePrefix: String): ExecutorService =
-      Executors.newCachedThreadPool(new NamedThreadFactory(threadNamePrefix))
-
-    def fixedThreadPool(size: Int, threadNamePrefix: String): ExecutorService =
-      Executors.newFixedThreadPool(size, new NamedThreadFactory(threadNamePrefix))
-
-  }
-
-  private final class NamedThreadFactory(threadNamePrefix: String) extends ThreadFactory {
-
-    require(threadNamePrefix.nonEmpty, "The thread name prefix cannot be empty")
-
-    private val threadCounter = new AtomicInteger(0)
-
-    def newThread(r: Runnable): Thread = {
-      val t = new Thread(r, s"$threadNamePrefix-${threadCounter.getAndIncrement()}")
-      t.setDaemon(true)
-      t
-    }
-
-  }
-
-  def managedBlocker(threadNamePrefix: String): ResourceOwner[Blocker] =
-    ResourceOwner
-      .forExecutorService(() => NamedThreadFactory.cachedThreadPool(threadNamePrefix))
-      .map(Blocker.liftExecutorService)
-
-  def managedConnector(size: Int, threadNamePrefix: String): ResourceOwner[ExecutionContext] =
-    ResourceOwner
-      .forExecutorService(() => NamedThreadFactory.fixedThreadPool(size, threadNamePrefix))
-      .map(ExecutionContext.fromExecutorService)
-
-  def managedHikariDataSource(jdbcUrl: String, maxPoolSize: Int): ResourceOwner[HikariDataSource] =
-    ResourceOwner.forCloseable { () =>
-      val pool = new HikariDataSource()
-      pool.setAutoCommit(false)
-      pool.setJdbcUrl(jdbcUrl)
-      pool.setMaximumPoolSize(maxPoolSize)
-      pool
-    }
-
-  def managedHikariTransactor(jdbcUrl: String, maxPoolSize: Int)(implicit
-      cs: ContextShift[IO]
-  ): ResourceOwner[HikariTransactor[IO]] =
-    for {
-      blocker <- managedBlocker("transactor-blocker-pool")
-      connector <- managedConnector(size = maxPoolSize, "transactor-connector-pool")
-      dataSource <- managedHikariDataSource(jdbcUrl, maxPoolSize)
-    } yield HikariTransactor[IO](dataSource, connector, blocker)
+  private def ownTransactor(jdbcUrl: String, maxPoolSize: Int)(implicit cs: ContextShift[IO]) =
+    HikariTransactorResourceOwner(ResourceOwner)(jdbcUrl, maxPoolSize)
 
 }
