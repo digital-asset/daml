@@ -52,4 +52,4 @@ $DAMLC package $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL $DEVFLAG test Test:run $TESTDAR | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
-$DIFF -u --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger
+$DIFF -u --strip-trailing-cr ${TESTDIR}/EXPECTED.ledger ${TESTDIR}/ACTUAL.ledger
