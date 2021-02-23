@@ -14,47 +14,47 @@ package object events {
   type SqlSequence[A] = SqlSequence.T[A]
 
   import com.daml.lf.value.{Value => lfval}
-  private[events] type ContractId = lfval.ContractId
-  private[events] val ContractId = com.daml.lf.value.Value.ContractId
-  private[events] type Value = lfval.VersionedValue[ContractId]
-  private[events] type Contract = lfval.ContractInst[Value]
-  private[events] val Contract = lfval.ContractInst
+  type ContractId = lfval.ContractId
+  val ContractId = com.daml.lf.value.Value.ContractId
+  type Value = lfval.VersionedValue[ContractId]
+  type Contract = lfval.ContractInst[Value]
+  val Contract = lfval.ContractInst
 
   import com.daml.lf.{transaction => lftx}
-  private[events] type NodeId = lftx.NodeId
-  private[events] type Node = lftx.Node.GenNode[NodeId, ContractId]
-  private[events] type Create = lftx.Node.NodeCreate[ContractId]
-  private[events] type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
-  private[events] type Fetch = lftx.Node.NodeFetch[ContractId]
-  private[events] type LookupByKey = lftx.Node.NodeLookupByKey[ContractId]
-  private[events] type Key = lftx.GlobalKey
-  private[events] val Key = lftx.GlobalKey
+  type NodeId = lftx.NodeId
+  type Node = lftx.Node.GenNode[NodeId, ContractId]
+  type Create = lftx.Node.NodeCreate[ContractId]
+  type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
+  type Fetch = lftx.Node.NodeFetch[ContractId]
+  type LookupByKey = lftx.Node.NodeLookupByKey[ContractId]
+  type Key = lftx.GlobalKey
+  val Key = lftx.GlobalKey
 
   import com.daml.lf.{data => lfdata}
-  private[events] type Party = lfdata.Ref.Party
-  private[events] val Party = lfdata.Ref.Party
-  private[events] type Identifier = lfdata.Ref.Identifier
-  private[events] val Identifier = lfdata.Ref.Identifier
-  private[events] type QualifiedName = lfdata.Ref.QualifiedName
-  private[events] val QualifiedName = lfdata.Ref.QualifiedName
-  private[events] type DottedName = lfdata.Ref.DottedName
-  private[events] val DottedName = lfdata.Ref.DottedName
-  private[events] type ModuleName = lfdata.Ref.ModuleName
-  private[events] val ModuleName = lfdata.Ref.ModuleName
-  private[events] type LedgerString = lfdata.Ref.LedgerString
-  private[events] val LedgerString = lfdata.Ref.LedgerString
-  private[events] type ChoiceName = lfdata.Ref.ChoiceName
-  private[events] val ChoiceName = lfdata.Ref.ChoiceName
-  private[events] type PackageId = lfdata.Ref.PackageId
-  private[events] val PackageId = lfdata.Ref.PackageId
-  private[events] type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
-  private[events] type DisclosureRelation = WitnessRelation[NodeId]
-  private[events] type DivulgenceRelation = WitnessRelation[ContractId]
+  type Party = lfdata.Ref.Party
+  val Party = lfdata.Ref.Party
+  type Identifier = lfdata.Ref.Identifier
+  val Identifier = lfdata.Ref.Identifier
+  type QualifiedName = lfdata.Ref.QualifiedName
+  val QualifiedName = lfdata.Ref.QualifiedName
+  type DottedName = lfdata.Ref.DottedName
+  val DottedName = lfdata.Ref.DottedName
+  type ModuleName = lfdata.Ref.ModuleName
+  val ModuleName = lfdata.Ref.ModuleName
+  type LedgerString = lfdata.Ref.LedgerString
+  val LedgerString = lfdata.Ref.LedgerString
+  type ChoiceName = lfdata.Ref.ChoiceName
+  val ChoiceName = lfdata.Ref.ChoiceName
+  type PackageId = lfdata.Ref.PackageId
+  val PackageId = lfdata.Ref.PackageId
+  type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
+  type DisclosureRelation = WitnessRelation[NodeId]
+  type DivulgenceRelation = WitnessRelation[ContractId]
   private[dao] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
-  private[events] val Relation = lfdata.Relation.Relation
+  val Relation = lfdata.Relation.Relation
 
   import com.daml.lf.crypto
-  private[events] type Hash = crypto.Hash
+  type Hash = crypto.Hash
 
   /** Groups together items of type [[A]] that share an attribute [[K]] over a
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by
@@ -67,7 +67,7 @@ package object events {
     *
     * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
     */
-  private[events] def groupContiguous[A, K, Mat](
+  def groupContiguous[A, K, Mat](
       source: Source[A, Mat]
   )(by: A => K): Source[Vector[A], Mat] =
     source
@@ -89,7 +89,7 @@ package object events {
   // This is mostly designed to route requests to queries specialized for single/multi-party subs
   // Callers should ensure that the set is not empty, which in the usage this
   // is designed for should be provided by the Ledger API validation layer
-  private[events] def route[A, B](
+  def route[A, B](
       set: Set[A]
   )(single: A => B, multi: Set[A] => B): B = {
     assume(set.nonEmpty, "Empty set, unable to dispatch to single/multi implementation")
@@ -99,16 +99,16 @@ package object events {
     }
   }
 
-  private[events] def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
+  def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
     Key.assertBuild(template, key.key.value)
 
-  private[events] def convertLfValueKey(
+  def convertLfValueKey(
       template: Identifier,
       key: KeyWithMaintainers[lfval[ContractId]],
   ) =
     Key.assertBuild(template, key.key)
 
-  private[events] def batch(query: String, parameters: Seq[Seq[NamedParameter]]): Option[BatchSql] =
+  def batch(query: String, parameters: Seq[Seq[NamedParameter]]): Option[BatchSql] =
     if (parameters.isEmpty) None else Some(BatchSql(query, parameters.head, parameters.tail: _*))
 
 }

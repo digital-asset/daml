@@ -21,7 +21,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
+import com.daml.platform.indexer.{Indexer, IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.dao.events.LfValueTranslation
 
 import scala.concurrent.duration.Duration
@@ -234,7 +234,7 @@ class IntegrityChecker[LogResult](
       resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[JdbcIndexer] =
+  ): ResourceOwner[Indexer] =
     for {
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())

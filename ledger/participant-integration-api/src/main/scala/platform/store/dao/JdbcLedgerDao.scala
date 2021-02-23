@@ -151,9 +151,6 @@ private class JdbcLedgerDao(
       ParametersTable.getLedgerEndAndConfiguration
     )
 
-  private val acceptType = "accept"
-  private val rejectType = "reject"
-
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
       str("typ") ~
@@ -824,18 +821,6 @@ private class JdbcLedgerDao(
       "deduplicate_until"
     )
 
-  private def deduplicationKey(
-      commandId: domain.CommandId,
-      submitters: List[Ref.Party],
-  ): String = {
-    val submitterPart =
-      if (submitters.length == 1)
-        submitters.head
-      else
-        submitters.sorted(Ordering.String).distinct.mkString("%")
-    commandId.unwrap + "%" + submitterPart
-  }
-
   override def deduplicateCommand(
       commandId: domain.CommandId,
       submitters: List[Ref.Party],
@@ -1237,4 +1222,19 @@ private[platform] object JdbcLedgerDao {
         conn: Connection
     ): Unit = ()
   }
+
+  def deduplicationKey(
+                                commandId: domain.CommandId,
+                                submitters: List[Ref.Party],
+                              ): String = {
+    val submitterPart =
+      if (submitters.length == 1)
+        submitters.head
+      else
+        submitters.sorted(Ordering.String).distinct.mkString("%")
+    commandId.unwrap + "%" + submitterPart
+  }
+
+  val acceptType = "accept"
+  val rejectType = "reject"
 }

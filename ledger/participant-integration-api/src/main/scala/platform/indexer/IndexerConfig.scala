@@ -18,6 +18,11 @@ case class IndexerConfig(
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
+    inputMappingParallelism: Int = 1,
+    ingestionParallelism: Int = 1,
+    submissionBatchSize: Long = 1L,
+    tailingRateLimitPerSecond: Int = 100,
+    batchWithinMillis: Long = 10,
 )
 
 object IndexerConfig {

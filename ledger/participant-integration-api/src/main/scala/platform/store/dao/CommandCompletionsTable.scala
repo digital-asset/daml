@@ -77,7 +77,7 @@ private[platform] object CommandCompletionsTable {
       .toArray[String]}, ${submitterInfo.commandId}, $code, $message)"
   }
 
-  private def toStatus(rejection: RejectionReason): (Int, String) = {
+  def toStatus(rejection: RejectionReason): (Int, String) = {
     rejection match {
       case _: Inconsistent | _: Disputed | _: PartyNotKnownOnLedger =>
         Code.INVALID_ARGUMENT.value() -> rejection.description
