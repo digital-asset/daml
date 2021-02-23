@@ -5,6 +5,10 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.ReadServiceStateUpdateComparison.{
+  DefaultNormalizationSettings,
+  NormalizationSettings,
+}
 import com.daml.ledger.participant.state.v1.Update.{
   CommandRejected,
   ConfigurationChangeRejected,
@@ -30,7 +34,7 @@ final class StateUpdateComparisonSpec
       val right = aConfigurationChangeRejected.copy(rejectionReason = "another reason")
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right)
+        .compareUpdates(left, right, DefaultNormalizationSettings)
         .map(_ => succeed)
     }
 
@@ -50,6 +54,7 @@ final class StateUpdateComparisonSpec
           .compareUpdates(
             aCommandRejectedUpdate.copy(reason = left),
             aCommandRejectedUpdate.copy(reason = right),
+            DefaultNormalizationSettings,
           )
           .map(_ => succeed)
       }
@@ -65,7 +70,7 @@ final class StateUpdateComparisonSpec
         aTransactionAcceptedUpdate.copy(blindingInfo = Some(blindingInfo))
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right)
+        .compareUpdates(left, right, NormalizationSettings(ignoreBlindingInfo = true))
         .map(_ => succeed)
     }
 
@@ -78,7 +83,7 @@ final class StateUpdateComparisonSpec
       )
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right)
+        .compareUpdates(left, right, NormalizationSettings(ignoreTransactionId = true))
         .map(_ => succeed)
     }
   }
