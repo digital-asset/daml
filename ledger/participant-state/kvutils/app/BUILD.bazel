@@ -7,7 +7,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
 da_scala_library(
     name = "app",

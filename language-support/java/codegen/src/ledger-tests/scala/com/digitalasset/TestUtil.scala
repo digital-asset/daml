@@ -11,12 +11,9 @@ import java.util.{Optional, UUID}
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
-  GetLedgerEndRequest,
-  GetTransactionsResponse,
-}
-import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
+import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.resources.ResourceContext
@@ -47,6 +44,7 @@ object TestUtil {
       testCode: Channel => Assertion
   )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
+      seeding = Some(com.daml.ledger.participant.state.v1.SeedService.Seeding.Weak),
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
@@ -129,39 +127,29 @@ object TestUtil {
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel
   ): List[C] = {
-    val txService = TransactionServiceGrpc.newBlockingStub(channel)
-    val end = txService.getLedgerEnd(GetLedgerEndRequest.newBuilder().setLedgerId(LedgerID).build)
-    val txs = txService.getTransactions(
-      new GetTransactionsRequest(
+    // Relies on ordering of ACS endpoint. This isn’t documented but currently
+    // the ledger guarantees this.
+    val txService = ActiveContractsServiceGrpc.newBlockingStub(channel)
+    val txs = txService.getActiveContracts(
+      new GetActiveContractsRequest(
         LedgerID,
-        LedgerOffset.LedgerBegin.getInstance(),
-        LedgerOffset.fromProto(end.getOffset),
         allTemplates,
         true,
       ).toProto
     )
-    val iterable: java.lang.Iterable[GetTransactionsResponse] = () => txs
+    val iterable: java.lang.Iterable[GetActiveContractsResponse] = () => txs
     StreamSupport
       .stream(iterable.spliterator(), false)
-      .flatMap[Transaction]((r: GetTransactionsResponse) =>
-        data.GetTransactionsResponse
+      .flatMap[CreatedEvent]((r: GetActiveContractsResponse) =>
+        data.GetActiveContractsResponse
           .fromProto(r)
-          .getTransactions
+          .getCreatedEvents
           .stream()
       )
-      .flatMap[Event]((t: Transaction) => t.getEvents.stream)
-      .collect(Collectors.toList[Event])
+      .map[C]((e: CreatedEvent) => fromCreatedEvent(e))
+      .collect(Collectors.toList[C])
       .asScala
-      .foldLeft(Map[String, C]())((acc, event) =>
-        event match {
-          case e: CreatedEvent =>
-            acc + (e.getContractId -> fromCreatedEvent(e))
-          case a: ArchivedEvent => acc - a.getContractId
-        }
-      )
       .toList
-      .sortBy(_._1)
-      .map(_._2)
   }
 
 }

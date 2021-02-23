@@ -18,7 +18,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_stable_version",
+    "lf_version_configuration",
 )
 
 da_java_library(
@@ -129,7 +129,7 @@ da_scala_test_suite(
 daml_compile(
     name = "bindings-integration-tests-model-latest",
     srcs = ["src/main/daml/TemplateUtils.daml"],
-    target = lf_stable_version,
+    target = lf_version_configuration.get("latest"),
 )
 
 dar_to_java(

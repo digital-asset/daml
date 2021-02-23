@@ -5,6 +5,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 
 da_scala_library(
     name = "daml-on-sql",

@@ -49,7 +49,6 @@ sh_binary(
 
 conformance_test(
     name = "conformance-test",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
     extra_data = [
         ":bootstrap.canton",
         ":canton",
@@ -60,6 +59,10 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
+    # Ideally these would be part of the script definition above, but that doesn't seem to work.
+    # FIXME: drop the following line once canton-test-runner supports LF 1.11 or newer
+    lf_versions = ["legacy"],
+    # lf_versions = ["stable", "latest"]
     ports = [
         5011,
         5021,
@@ -95,6 +98,8 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
+    # FIXME: drop the following line once canton-test-runner supports LF 1.11 or newer
+    lf_versions = ["legacy"],
     ports = [
         5011,
         5021,
@@ -124,6 +129,8 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
+    # FIXME: drop the following line once canton-test-runner supports LF 1.11 or newer
+    lf_versions = ["legacy"],
     ports = [
         5011,
         5021,

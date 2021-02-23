@@ -6,9 +6,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_latest_version")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
-load("//ledger/test-common:test-common.bzl", "test_common_configurations", "test_common_lf_targets")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -193,8 +192,14 @@ da_haskell_library(
         ],
     )
     for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
-        (lf_latest_version, True),
-        ("1.dev", True),
+        (
+            lf_version_configuration.get("stable"),
+            True,
+        ),
+        (
+            lf_version_configuration.get("dev"),
+            True,
+        ),
     ]
 ]
 

@@ -24,7 +24,7 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
@@ -336,7 +336,7 @@ download_assets tmp release = do
         retryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
         retryHandler status =
           logRetries
-            (\(_ :: IOException) -> pure True) -- Don’t try to be clever, just retry
+            (\e -> pure $ isJust (fromException @IOException e) || isJust (fromException @HTTP.HttpException e)) -- Don’t try to be clever, just retry
             (\shouldRetry err status -> IO.hPutStrLn IO.stderr $ defaultLogMsg shouldRetry err status)
             status
         downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
@@ -344,9 +344,9 @@ download_assets tmp release = do
             IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode $ \handle -> do
                 while (readFrom body) (writeTo handle)
 
-verify_signatures :: FilePath -> FilePath -> String -> IO String
+verify_signatures :: FilePath -> FilePath -> String -> IO ()
 verify_signatures bash_lib tmp version_tag = do
-    shell $ unlines ["bash -c '",
+    System.callCommand $ unlines ["bash -c '",
         "set -euo pipefail",
         "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
@@ -420,7 +420,7 @@ check_releases gcp_credentials bash_lib max_releases = do
         putStrLn $ "Checking release " <> v <> " ..."
         IO.withTempDir $ \temp_dir -> do
             download_assets temp_dir release
-            verify_signatures bash_lib temp_dir v >>= putStrLn
+            verify_signatures bash_lib temp_dir v
             Control.Monad.Extra.whenJust gcp_credentials $ \gcred ->
                 Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
                   let local_github = temp_dir </> f
