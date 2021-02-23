@@ -26,7 +26,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
-import io.opentelemetry.trace.Span
+import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -126,7 +126,10 @@ private[dao] final class TransactionsReader(
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
-            span.addEvent(daml.metrics.Event("transaction", TraceIdentifiers.fromTransaction(txn)))
+            Spans.addEventToSpan(
+              daml.metrics.Event("transaction", TraceIdentifiers.fromTransaction(txn)),
+              span,
+            )
           )
       })
       .watchTermination()(endSpanOnTermination(span))
@@ -213,8 +216,9 @@ private[dao] final class TransactionsReader(
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
-            span.addEvent(
-              daml.metrics.Event("transaction", TraceIdentifiers.fromTransactionTree(txn))
+            Spans.addEventToSpan(
+              daml.metrics.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
+              span,
             )
           )
       })
@@ -291,8 +295,9 @@ private[dao] final class TransactionsReader(
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
-        span.addEvent(
-          com.daml.metrics.Event("contract", Map((SpanAttribute.Offset.key, response.offset)))
+        Spans.addEventToSpan(
+          com.daml.metrics.Event("contract", Map((SpanAttribute.Offset, response.offset))),
+          span,
         )
       })
       .watchTermination()(endSpanOnTermination(span))

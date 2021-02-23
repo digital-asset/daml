@@ -10,10 +10,10 @@ import org.scalatest.matchers.should.Matchers._
 
 class TraceIdentifiersTest extends AnyWordSpec {
   val expected = Map(
-    (SpanAttribute.TransactionId.key, "transaction-id"),
-    (SpanAttribute.CommandId.key, "command-id"),
-    (SpanAttribute.WorkflowId.key, "workflow-id"),
-    (SpanAttribute.Offset.key, "offset"),
+    (SpanAttribute.TransactionId, "transaction-id"),
+    (SpanAttribute.CommandId, "command-id"),
+    (SpanAttribute.WorkflowId, "workflow-id"),
+    (SpanAttribute.Offset, "offset"),
   )
 
   "extract identifiers from Transaction" should {

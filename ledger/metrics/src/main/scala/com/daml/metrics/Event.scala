@@ -3,17 +3,15 @@
 
 package com.daml.metrics
 
-import io.opentelemetry.common.Attributes
+import io.opentelemetry.api.common.Attributes
 
-/** Wraps [[io.opentelemetry.trace.Event]].
+/** Event object for com.daml.metrics.Spans.
   */
-final case class Event(name: String, attributeMap: Map[String, String])
-    extends io.opentelemetry.trace.Event {
-  override val getName: String = name
+final case class Event(name: String, attributeMap: Map[SpanAttribute, String]) {
 
-  override lazy val getAttributes: Attributes = {
-    val attributes = Attributes.newBuilder()
-    attributeMap.foreach { case (k, v) => if (!v.isEmpty) attributes.setAttribute(k, v) }
+  lazy val getAttributes: Attributes = {
+    val attributes = Attributes.builder()
+    attributeMap.foreach { case (k, v) => if (!v.isEmpty) attributes.put(k.key, v) }
     attributes.build
   }
 }
