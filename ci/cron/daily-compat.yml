@@ -209,7 +209,8 @@ jobs:
     timeoutInMinutes: 1200
       #condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
-      vmImage: "ubuntu-20.04"
+      name: ubuntu_20_04
+      demands: assignment -equals default
     steps:
       - checkout: self
         persistCredentials: true
@@ -289,19 +290,34 @@ jobs:
           tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
           if git diff --exit-code -- NOTICES; then
               echo "NOTICES file already up-to-date."
+              setvar need_to_build false
           else
               git add NOTICES
               open_pr "$branch" "update NOTICES file"
+              setvar need_to_build true
           fi
-
-          az extension add --name azure-devops
-          echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-          az pipelines build queue --branch "$branch" \
-                                   --definition-name "PRs" \
-                                   --org "https://dev.azure.com/digitalasset" \
-                                   --project daml
-
         displayName: open PR
+        name: out
         condition: and(succeeded(),
                        eq(variables['Build.SourceBranchName'], 'main'))
       - template: ../daily_tell_slack.yml
+
+  - job: run_notices_pr_build
+    timeoutInMinutes: 60
+    dependsOn: ["blackduck_scan"]
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    variables:
+      need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
+    steps:
+      - bash: |
+          if [ "$(need_to_build)" == "true" ]; then
+              branch="notices-update-$(Build.BuildId)"
+              az extension add --name azure-devops
+              echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+              az pipelines build queue --branch "$branch" \
+                                       --definition-name "PRs" \
+                                       --org "https://dev.azure.com/digitalasset" \
+                                       --project daml
+          fi
