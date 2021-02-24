@@ -3,7 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("@os_info//:os_info.bzl",  "is_darwin")
+load("@os_info//:os_info.bzl", "is_darwin")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -110,4 +110,4 @@ da_haskell_repl(
         "//language-support/hs/bindings/examples/chat",
         "//language-support/hs/bindings/examples/nim",
     ],
-)
+) if not is_darwin else None
