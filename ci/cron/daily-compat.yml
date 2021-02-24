@@ -306,8 +306,7 @@ jobs:
     timeoutInMinutes: 60
     dependsOn: ["blackduck_scan"]
     pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
