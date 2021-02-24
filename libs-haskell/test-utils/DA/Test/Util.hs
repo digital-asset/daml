@@ -19,6 +19,8 @@ module DA.Test.Util (
 ) where
 
 import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Exception.Safe
 import Data.List.Extra (isInfixOf)
 import qualified Data.Text as T
@@ -28,6 +30,7 @@ import System.Info.Extra
 import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified UnliftIO.Exception as Unlift
 
 standardizeQuotes :: T.Text -> T.Text
 standardizeQuotes msg = let
@@ -76,8 +79,8 @@ withDevNull a = withTempFile $ \f -> withFile f WriteMode a
 -- Avoids System.Environment.setEnv because it treats empty strings as
 -- "delete environment variable", unlike main-tester's withEnv which
 -- consequently conflates (Just "") with Nothing.
-withEnv :: [(String, Maybe String)] -> IO t -> IO t
-withEnv vs m = bracket pushEnv popEnv (const m)
+withEnv :: MonadUnliftIO m => [(String, Maybe String)] -> m t -> m t
+withEnv vs m = Unlift.bracket (liftIO pushEnv) (liftIO . popEnv) (const m)
     where
         pushEnv :: IO [(String, Maybe String)]
         pushEnv = replaceEnv vs

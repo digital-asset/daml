@@ -55,6 +55,7 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux'
         is_release: variables.is_release
+        scala_version: ''
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
@@ -103,15 +104,6 @@ jobs:
         name: 'linux-scala-2.13'
         is_release: variables.is_release
         scala_version: "2.13.3"
-    - bash: |
-        set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
-        bazel build //release:release
-        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
-      env:
-        DAML_SCALA_VERSION: "2.13.3"
-      name: maven_check
-      condition: and(succeeded(), ne(variables['is_release'], 'true'))
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -145,6 +137,7 @@ jobs:
         release_tag: $(release_tag)
         name: macos
         is_release: variables.is_release
+        scala_version: ''
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
