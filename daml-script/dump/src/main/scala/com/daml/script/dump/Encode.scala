@@ -15,7 +15,7 @@ import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.script.dump.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
-import scalaz.std.list._
+import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
@@ -24,11 +24,11 @@ private[dump] object Encode {
       acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
   ): Doc = {
-    val parties = partiesInContracts(acs.values) ++ trees.toList.foldMap(partiesInTree(_))
+    val parties = partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
 
-    val acsCidRefs = acs.values.toList.foldMap(createdReferencedCids)
-    val treeCidRefs = trees.toList.foldMap(treeReferencedCids)
+    val acsCidRefs = acs.values.foldMap(createdReferencedCids)
+    val treeCidRefs = trees.foldMap(treeReferencedCids)
     val cidRefs = acsCidRefs ++ treeCidRefs
 
     val unknownCidRefs = acsCidRefs -- acs.keySet
@@ -46,9 +46,10 @@ private[dump] object Encode {
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
-    val refs = acs.values.toList.foldMap(ev =>
-      valueRefs(Sum.Record(ev.getCreateArguments))
-    ) ++ trees.toList.foldMap(treeRefs(_))
+    val refs =
+      acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
+        treeRefs(_)
+      )
     val moduleRefs = refs.map(_.moduleName).toSet
     Doc.text("module Dump where") /
       Doc.text("import Daml.Script") /
