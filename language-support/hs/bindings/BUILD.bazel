@@ -3,7 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl",  "is_darwin")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -98,7 +98,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
-)
+) if not is_darwin else None
 
 da_haskell_repl(
     name = "repl",
