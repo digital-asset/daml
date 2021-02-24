@@ -249,6 +249,7 @@ jobs:
         ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
         ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       displayName: 'Build'
+      condition: eq(variables['System.PullRequest.IsFork'], 'False')
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

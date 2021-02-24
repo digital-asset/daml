@@ -131,7 +131,10 @@ jobs:
         tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"
 
 - job: notify_user
-  condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
+  # No Slack tokens on forks
+  condition: and(eq(variables['Build.Reason'], 'PullRequest'),
+                 not(canceled()),
+                 eq(variables['System.PullRequest.IsFork'], 'False'))
   dependsOn:
     - git_sha
     - collect_build_data
