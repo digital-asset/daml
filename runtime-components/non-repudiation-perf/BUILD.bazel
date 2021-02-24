@@ -26,6 +26,7 @@ da_scala_benchmark_jmh(
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-grpc",
@@ -34,6 +35,7 @@ da_scala_benchmark_jmh(
         "//runtime-components/non-repudiation-postgresql",
         "//runtime-components/non-repudiation-resources",
         "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_services",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_slf4j_slf4j_api",

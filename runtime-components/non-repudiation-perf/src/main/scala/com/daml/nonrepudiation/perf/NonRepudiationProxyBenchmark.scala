@@ -3,30 +3,22 @@
 
 package com.daml.nonrepudiation.perf
 
-import java.time.Clock
 import java.util.UUID
 
 import cats.effect.{ContextShift, IO}
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceBlockingStub
-import com.daml.ledger.api.v1.command_submission_service.{
-  CommandSubmissionServiceGrpc,
-  SubmitRequest,
-}
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.nonrepudiation.client.SigningInterceptor
+import com.daml.nonrepudiation.AlgorithmString
 import com.daml.nonrepudiation.postgresql.Tables
 import com.daml.nonrepudiation.resources.HikariTransactorResourceOwner
-import com.daml.nonrepudiation.{AlgorithmString, NonRepudiationProxy}
 import com.daml.resources.Resource
 import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
 import com.daml.testing.postgresql.{PostgresAround, PostgresDatabase}
 import com.google.protobuf.duration.Duration
 import doobie.util.log.LogHandler
-import io.grpc.Server
-import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.protobuf.services.ProtoReflectionService
 import org.openjdk.jmh.annotations._
 import sun.security.tools.keytool.CertAndKeyGen
 import sun.security.x509.X500Name
@@ -42,8 +34,11 @@ class NonRepudiationProxyBenchmark extends PostgresAround {
   @Param(Array("100000"))
   var commandPayloadSize: Int = _
 
+  @Param(Array("false"))
+  var useNetworkStack: Boolean = _
+
+  private var stubResource: Resource[ExecutionContext, CommandSubmissionServiceBlockingStub] = _
   private var stub: CommandSubmissionServiceBlockingStub = _
-  private var proxy: Resource[ExecutionContext, Server] = _
   private var database: PostgresDatabase = _
   private var payload: String = _
 
@@ -72,46 +67,29 @@ class NonRepudiationProxyBenchmark extends PostgresAround {
       1.hour.toSeconds,
     )
 
-    val service = DummyCommandSubmissionService.bind(executionContext)
-
-    val participantName = InProcessServerBuilder.generateName()
-    val participantBuilder = InProcessServerBuilder
-      .forName(participantName)
-      .addService(service)
-      .addService(ProtoReflectionService.newInstance())
-    val participantChannel = InProcessChannelBuilder.forName(participantName)
-
-    val proxyName = InProcessServerBuilder.generateName()
-    val proxyBuilder = InProcessServerBuilder.forName(proxyName)
-    val proxyChannel = InProcessChannelBuilder.forName(proxyName)
-
-    val proxyOwner =
+    val stubOwner =
       for {
-        _ <- Resources.forServer(participantBuilder, 5.seconds)
-        participant <- Resources.forChannel(participantChannel, 5.seconds)
         transactor <- ownTransactor(database.url, maxPoolSize = 10)
         db = Tables.initialize(transactor)
         _ = db.certificates.put(certificate)
-        proxy <- NonRepudiationProxy.owner(
-          participant = participant,
-          serverBuilder = proxyBuilder,
-          certificateRepository = db.certificates,
-          signedPayloadRepository = db.signedPayloads,
-          timestampProvider = Clock.systemUTC(),
-          serviceName = CommandSubmissionServiceGrpc.SERVICE.getName,
+        stub <- StubOwner(
+          useNetworkStack = useNetworkStack,
+          key = key,
+          certificate = certificate,
+          certificates = db.certificates,
+          signedPayloads = db.signedPayloads,
+          serviceExecutionContext = executionContext,
         )
-      } yield proxy
-    proxy = proxyOwner.acquire()
-    Await.ready(proxy.asFuture, atMost = 10.seconds)
-    stub = CommandSubmissionServiceGrpc
-      .blockingStub(proxyChannel.build())
-      .withInterceptors(new SigningInterceptor(key, certificate))
+      } yield stub
+
+    stubResource = stubOwner.acquire()
+    stub = Await.result(stubResource.asFuture, atMost = 10.seconds)
     payload = "e" * commandPayloadSize
   }
 
   @TearDown
   def tearDown(): Unit = {
-    Await.result(proxy.release(), atMost = 10.seconds)
+    Await.ready(stubResource.release(), atMost = 10.seconds)
     dropDatabase(database)
     disconnectFromPostgresqlServer()
   }
