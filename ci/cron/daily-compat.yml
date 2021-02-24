@@ -275,6 +275,7 @@ jobs:
           --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.timeout=4500
         displayName: 'Blackduck Scan'
+        condition: false
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - template: ../bash-lib.yml
@@ -287,7 +288,8 @@ jobs:
 
           branch="notices-update-$(Build.BuildId)"
 
-          tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
+          #tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
+          echo "changed" > NOTICES
           if git diff --exit-code -- NOTICES; then
               echo "NOTICES file already up-to-date."
               setvar need_to_build false
