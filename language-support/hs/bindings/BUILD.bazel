@@ -88,7 +88,7 @@ da_haskell_test(
     src_strip_prefix = "test",
     # We spin up Sandbox as a separate process, so
     # try not to overload the machine.
-    tags = ["cpu:2"],
+    tags = ["cpu:2"] + (["manual"] if is_darwin else []),
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
@@ -98,7 +98,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
-) if not is_darwin else None
+)
 
 da_haskell_repl(
     name = "repl",
@@ -110,4 +110,4 @@ da_haskell_repl(
         "//language-support/hs/bindings/examples/chat",
         "//language-support/hs/bindings/examples/nim",
     ],
-) if not is_darwin else None
+)
