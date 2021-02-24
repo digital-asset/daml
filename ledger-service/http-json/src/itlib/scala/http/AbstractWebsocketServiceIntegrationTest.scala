@@ -588,47 +588,47 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } yield {
         assert(r._1.isSuccess)
       }
+    def resp(kill: UniqueKillSwitch): Sink[JsValue, Future[Assertion]] = {
+      val dslSyntax = Consume.syntax[JsValue]
+      import dslSyntax._
+      Consume.interpret(
+        for {
+          ContractDelta(Vector(), Vector(), Some(liveStartOffset)) <- readOne
+          cid1 <- liftF(create("abc123"))
+          ContractDelta(Vector((cid, _)), Vector(), Some(_)) <- readOne
+          _ = cid shouldBe cid1
+          _ <- liftF(create("abc124"))
+          _ <- liftF(create("abc125"))
+          cid2 <- liftF(create("def456"))
+          ContractDelta(Vector((cid, _)), Vector(), Some(_)) <- readOne
+          _ = cid shouldBe cid2
+          _ <- liftF(archive(cid2))
+          ContractDelta(Vector(), Vector(cid), Some(_)) <- readOne
+          _ = cid.contractId shouldBe cid2
+          _ <- liftF(archive(cid1))
+          ContractDelta(Vector(), Vector(cid), Some(_)) <- readOne
+          _ = cid.contractId shouldBe cid1
+          _ = kill.shutdown()
+          heartbeats <- drain
+          _ = heartbeats.foreach { d =>
+            inside(d) { case ContractDelta(Vector(), Vector(), Some(_)) =>
+              succeed
+            }
+          }
+        } yield succeed
+      )
+    }
     val req =
       """
           |[{"templateId": "Account:Account", "key": ["Alice", "abc123"]},
           | {"templateId": "Account:Account", "key": ["Alice", "def456"]}]
           |""".stripMargin
-    val futureResults =
-      singleClientFetchStream(jwt, uri, req)
-        .via(parseResp)
-        .filterNot(isOffsetTick)
-        .take(4)
-        .runWith(Sink.seq[JsValue])
 
-    for {
-      cid1 <- create("abc123")
-      _ <- create("abc124")
-      _ <- create("abc125")
-      cid2 <- create("def456")
-      _ <- archive(cid2)
-      _ <- archive(cid1)
-      results <- futureResults
-    } yield {
-      val expected: Seq[JsValue] = {
-        import spray.json._
-        Seq(
-          """
-            |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"created":{"payload":{"number":"def456"}}}]}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"archived":{}}]}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"archived":{}}]}
-            |""".stripMargin.parseJson,
-        )
-      }
-      results should matchJsValues(expected)
+    val (kill, source) = singleClientFetchStream(jwt, uri, req)
+      .viaMat(KillSwitches.single)(Keep.right)
+      .preMaterialize()
 
-    }
+    source.via(parseResp).runWith(resp(kill))
   }
 
   "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
