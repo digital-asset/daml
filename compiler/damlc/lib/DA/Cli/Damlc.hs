@@ -266,11 +266,7 @@ cmdRepl numProcessors =
   where
     cmd =
         execRepl
-            <$> projectOpts "daml build"
-            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
-            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
-            -- This is useful for tests and `bazel run`.
-            <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
+            <$> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> many packageImport
             <*> optional
                   ((,) <$> strOption (long "ledger-host" <> help "Host of the ledger API")
@@ -291,6 +287,11 @@ cmdRepl numProcessors =
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
+            <*> projectOpts "daml repl"
+            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
+            -- This is useful for tests and `bazel run`.
+
     packageImport = option readPackage $
         long "import"
         <> short 'i'
@@ -621,17 +622,19 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                     Nothing -> pure $ distDir </> name <.> "dar"
                     Just out -> rel out
 execRepl
-    :: ProjectOpts
-    -> Options
-    -> FilePath -> [FilePath] -> [(LF.PackageName, Maybe LF.PackageVersion)]
+    :: [FilePath]
+    -> [(LF.PackageName, Maybe LF.PackageVersion)]
     -> Maybe (String, String)
     -> Maybe FilePath
     -> Maybe ReplClient.ApplicationId
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
     -> ReplClient.ReplTimeMode
+    -> ProjectOpts
+    -> Options
+    -> FilePath
     -> Command
-execRepl projectOpts opts scriptDar dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
+execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode projectOpts opts scriptDar = Command Repl (Just projectOpts) effect
   where
         toPackageFlag (LF.PackageName name, Nothing) =
             ExposePackage "--import" (PackageArg $ T.unpack name) (ModRenaming True [])
