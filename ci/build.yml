@@ -55,7 +55,6 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux'
         is_release: variables.is_release
-        scala_version: ''
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
@@ -137,7 +136,6 @@ jobs:
         release_tag: $(release_tag)
         name: macos
         is_release: variables.is_release
-        scala_version: ''
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

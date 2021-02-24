@@ -337,11 +337,11 @@ mavenArtifactCoords Artifact{..} = do
 
     let mavenCoords classifier artifactType =
            MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
-    pure $ [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
-           , (mavenCoords Nothing "pom",  outDir </> pomFile)
-           , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
-           , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
-           ]
+    pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
+         , (mavenCoords Nothing "pom",  outDir </> pomFile)
+         , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
+         , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
+         ]
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do
