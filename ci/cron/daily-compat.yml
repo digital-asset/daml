@@ -203,19 +203,12 @@ jobs:
     timeoutInMinutes: 1200
     condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
+      vmImage: "ubuntu-20.04"
     steps:
       - checkout: self
         persistCredentials: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
@@ -227,9 +220,11 @@ jobs:
         displayName: 'Build'
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          eval "$(dev-env/bin/dade-assist)"
 
-          #needs to be specified since blackduck can not scan all bazel dependency types in one go, haskell has to be scanned separatey and code location name uniquely identified to avoid stomping
+          #needs to be specified since blackduck can not scan all bazel
+          #dependency types in one go, haskell has to be scanned separatey and
+          #code location name uniquely identified to avoid stomping
           BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
@@ -247,9 +242,10 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          eval "$(dev-env/bin/dade-assist)"
 
-          #avoid stomping any previous bazel haskell scans for this repository by qualifying as a maven_install (aka jvm) bazel blackduck scan
+          #avoid stomping any previous bazel haskell scans for this repository
+          #by qualifying as a maven_install (aka jvm) bazel blackduck scan
           BAZEL_DEPENDENCY_TYPE="maven_install"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
@@ -281,13 +277,23 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           source $(bash_lib)
 
+          branch="notices-update-$(Build.BuildId)"
+
           tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
           if git diff --exit-code -- NOTICES; then
               echo "NOTICES file already up-to-date."
           else
               git add NOTICES
-              open_pr "notices-update-$(Build.BuildId)" "update NOTICES file"
+              open_pr "$branch" "update NOTICES file"
           fi
+
+          az extension add --name azure-devops
+          echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+          az pipelines build queue --branch "$branch" \
+                                   --definition-name "PRs" \
+                                   --org "https://dev.azure.com/digitalasset" \
+                                   --project daml
+
         displayName: open PR
         condition: and(succeeded(),
                        eq(variables['Build.SourceBranchName'], 'main'))
