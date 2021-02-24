@@ -5,16 +5,24 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
 )
-load(
-    "@scala_version//:index.bzl",
-    "scala_major_version_suffix",
-)
 
 da_scala_benchmark_jmh(
     name = "non-repudiation-perf",
     srcs = glob(["src/main/scala/**/*.scala"]),
     max_heap_size = "4g",
     resources = ["src/main/resources/logback.xml"],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_lihaoyi_sourcecode",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_tpolecat_doobie_hikari",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_free",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
     tags = ["manual"],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -30,15 +38,5 @@ da_scala_benchmark_jmh(
         "@maven//:io_grpc_grpc_services",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:com_chuusai_shapeless_{}".format(scala_major_version_suffix),
-        "@maven//:com_lihaoyi_sourcecode_{}".format(scala_major_version_suffix),
-        "@maven//:org_scala_lang_modules_scala_collection_compat_{}".format(scala_major_version_suffix),
-        "@maven//:org_tpolecat_doobie_core_{}".format(scala_major_version_suffix),
-        "@maven//:org_tpolecat_doobie_free_{}".format(scala_major_version_suffix),
-        "@maven//:org_tpolecat_doobie_hikari_{}".format(scala_major_version_suffix),
-        "@maven//:org_typelevel_cats_core_{}".format(scala_major_version_suffix),
-        "@maven//:org_typelevel_cats_effect_{}".format(scala_major_version_suffix),
-        "@maven//:org_typelevel_cats_free_{}".format(scala_major_version_suffix),
-        "@maven//:org_typelevel_cats_kernel_{}".format(scala_major_version_suffix),
     ],
 )
