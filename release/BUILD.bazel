@@ -8,7 +8,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
     name = "release",
-    srcs = glob(["src/**/*.hs"]) + ["//:SdkVersion.hs"],
+    srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
         "async",
@@ -26,7 +26,6 @@ da_haskell_binary(
         "extra",
         "fast-logger",
         "filepath",
-        "ghc",
         "http-client",
         "http-client-tls",
         "http-conduit",
@@ -57,7 +56,10 @@ da_haskell_binary(
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//libs-haskell/test-utils",
+    ],
 )
 
 # Disabled on Windows since directory outputs can cause issues.

@@ -20,6 +20,7 @@ module Util (
     buildTargets,
     copyToReleaseDir,
     getBazelLocations,
+    isScalaJar,
     isDeployJar,
     loggedProcess_,
     mavenArtifactCoords,
@@ -323,8 +324,8 @@ releasePomPath PomData{..} =
 
 -- | Given an artifact, produce a list of pairs of an input file and the Maven coordinates.
 -- This corresponds to the files uploaded to Maven Central.
-mavenArtifactCoords :: E.MonadThrow m => OnlyScala -> Artifact PomData -> m [(MavenCoords, Path Rel File)]
-mavenArtifactCoords onlyScala Artifact{..} = do
+mavenArtifactCoords :: E.MonadThrow m => Artifact PomData -> m [(MavenCoords, Path Rel File)]
+mavenArtifactCoords Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
@@ -336,14 +337,11 @@ mavenArtifactCoords onlyScala Artifact{..} = do
 
     let mavenCoords classifier artifactType =
            MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
-    pure $
-      if getOnlyScala onlyScala && artReleaseType /= Jar Scala
-        then []
-        else [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
-             , (mavenCoords Nothing "pom",  outDir </> pomFile)
-             , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
-             , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
-             ]
+    pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
+         , (mavenCoords Nothing "pom",  outDir </> pomFile)
+         , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
+         , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
+         ]
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do
@@ -354,10 +352,10 @@ copyToReleaseDir BazelLocations{..} releaseDir inp out = do
     copyFile absIn absOut
 
 isDeployJar :: ReleaseType -> Bool
-isDeployJar t =
-    case t of
-        Jar Deploy -> True
-        _ -> False
+isDeployJar = (Jar Deploy ==)
+
+isScalaJar :: ReleaseType -> Bool
+isScalaJar = (Jar Scala ==)
 
 osName ::  Text
 osName
