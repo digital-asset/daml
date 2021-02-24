@@ -34,6 +34,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -192,6 +193,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService,
+      seeding = Some(Seeding.Weak),
     )
 
   private def clientConfig[A](
