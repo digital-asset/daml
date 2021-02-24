@@ -18,7 +18,7 @@ final class PostgresqlSignedPayloadRepository(transactor: Transactor[IO])(implic
   private val table = Fragment.const(s"${Tables.Prefix}_signed_payloads")
 
   private def getSignedPayload(key: CommandIdString): Fragment =
-    fr"select algorithm, fingerprint, payload, signature from" ++ table ++ fr"where command_id = $key"
+    fr"select algorithm, fingerprint, payload, signature, timestamp from" ++ table ++ fr"where command_id = $key"
 
   override def get(key: CommandIdString): Iterable[SignedPayload] =
     getSignedPayload(key).query[SignedPayload].to[Iterable].transact(transactor).unsafeRunSync()

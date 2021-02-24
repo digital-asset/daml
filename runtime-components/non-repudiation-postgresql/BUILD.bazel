@@ -43,9 +43,6 @@ da_scala_test(
     ],
     scala_deps = [
         "@maven//:org_tpolecat_doobie_core",
-        "@maven//:org_tpolecat_doobie_hikari",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_effect",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     runtime_deps = [
@@ -65,7 +62,6 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox-common",
-        "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -73,11 +69,9 @@ da_scala_test(
         "//libs-scala/resources-grpc",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-client",
-        "//runtime-components/non-repudiation-resources",
-        "@maven//:com_zaxxer_HikariCP",
+        "//runtime-components/non-repudiation-testing",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
