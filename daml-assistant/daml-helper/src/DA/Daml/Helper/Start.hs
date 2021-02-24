@@ -302,9 +302,11 @@ runStart
           doCodegen projectConfig
           doUploadDar darPath sandboxPort
           doRunInitScript
+          setSGR [SetColor Foreground Dull Green]
           putStrLn "Rebuild complete."
+          setSGR [Reset]
         printRebuildInstructions = do
-          setSGR [SetColor Foreground Vivid Red]
+          setSGR [SetColor Foreground Vivid Yellow]
           putStrLn reloadInstructions
           setSGR [Reset]
           hFlush stdout
