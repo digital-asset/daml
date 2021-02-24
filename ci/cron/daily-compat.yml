@@ -300,8 +300,6 @@ jobs:
           fi
         displayName: open PR
         name: out
-        condition: and(succeeded(),
-                       eq(variables['Build.SourceBranchName'], 'main'))
       - template: ../daily_tell_slack.yml
 
   - job: run_notices_pr_build
