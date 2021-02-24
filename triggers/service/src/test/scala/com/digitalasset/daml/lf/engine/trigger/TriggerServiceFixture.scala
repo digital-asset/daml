@@ -53,6 +53,7 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
@@ -261,6 +262,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     authService = authService,
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    seeding = Some(Seeding.Weak),
   )
 
   protected lazy val sandboxServer: SandboxServer = resource.value._1

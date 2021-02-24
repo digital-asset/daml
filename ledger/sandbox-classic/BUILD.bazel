@@ -8,6 +8,7 @@ load("@build_environment//:configuration.bzl", "mvn_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
+    "lf_version_configuration_versions",
 )
 
 da_scala_library(
@@ -244,11 +245,10 @@ da_scala_test_suite(
     name = "sandbox-classic-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//daml-lf/encoder:testing-dar-dev",
-        "//daml-lf/encoder:testing-dar-latest",
+        "//daml-lf/encoder:testing-dars",
         "//ledger/test-common:model-tests-stable.dar",
         "//ledger/test-common/test-certificates",
-    ] + ["//daml-lf/encoder:testing-dar-preview"] if lf_version_configuration.get("preview") != None else [],
+    ],
     resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     scala_deps = scala_test_deps,
     deps = test_deps,

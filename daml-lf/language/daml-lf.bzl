@@ -9,9 +9,8 @@
 # If exists "preview"'s value is guarantee to be different for all other values.
 lf_version_configuration = {
     "legacy": "1.8",
-    "stable": "1.8",
-    "latest": "1.11",
-    "preview": "1.12",
+    "stable": "1.11",
+    "latest": "1.12",
     "dev": "1.dev",
 }
 
@@ -53,7 +52,13 @@ COMPILER_LF_VERSIONS = ENCODER_LF_VERSIONS
 # We need Any in DAML Script so we require DAML-LF >= 1.7
 SCRIPT_LF_VERSIONS = [ver for ver in COMPILER_LF_VERSIONS if ver != "1.6"]
 
-LF_VERSION_PACKAGE_DIGITALASSET = {"1.6": "digitalasset", "1.7": "digitalasset", "1.8": "digitalasset", "1.11": "daml"}
+LF_VERSION_PACKAGE_DIGITALASSET = {
+    "1.6": "digitalasset",
+    "1.7": "digitalasset",
+    "1.8": "digitalasset",
+    "1.11": "daml",
+    "1.12": "daml",
+}
 
 def lf_version_package(version):
     return LF_VERSION_PACKAGE_DIGITALASSET.get(version, "daml")

@@ -3,7 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -88,7 +88,7 @@ da_haskell_test(
     src_strip_prefix = "test",
     # We spin up Sandbox as a separate process, so
     # try not to overload the machine.
-    tags = ["cpu:2"],
+    tags = ["cpu:2"] + (["manual"] if is_darwin else []),
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",

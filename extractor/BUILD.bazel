@@ -206,7 +206,6 @@ da_scala_test_suite(
     size = "medium",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//daml-lf/encoder:testing-dar-dev",
         "//daml-lf/encoder:testing-dar-latest",
         "//extractor:PrimitiveTypes.dar",
         "//extractor:RecordsAndVariants.dar",
@@ -247,6 +246,7 @@ da_scala_test_suite(
         ":extractor-scala-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
+        "//daml-lf/encoder:testing-dar-lookup-lib-latest",
         "//daml-lf/interface",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",

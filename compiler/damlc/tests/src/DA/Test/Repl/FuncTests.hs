@@ -113,7 +113,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , matchServiceOutput "^.*: \\[\\]$"
           , input "_ <- submit alice $ createCmd (T alice alice)"
           , input "debug =<< query @T alice"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           ]
     , testInteraction' "propose and accept"
           [ input "alice <- allocateParty \"Alice\""
@@ -121,11 +121,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
           , input "debug props"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
-          , matchOutput "^\\[<contract-id>\\]$"
+          , matchOutput "^\\[[0-9a-f]+\\]$"
           , input "debug =<< query @T bob"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
           , matchServiceOutput "^.*: \\[\\]$"
           ]
