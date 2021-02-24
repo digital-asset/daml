@@ -23,7 +23,6 @@ da_scala_benchmark_jmh(
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
     ],
-    tags = ["manual"],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/doobie-slf4j",
