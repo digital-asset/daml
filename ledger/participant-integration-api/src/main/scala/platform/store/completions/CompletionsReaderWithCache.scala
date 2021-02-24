@@ -1,4 +1,4 @@
-package com.daml.platform.store
+package com.daml.platform.store.completions
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -7,15 +7,31 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.completions.CompletionsCache.{Boundaries, Cache}
 
 import scala.concurrent.ExecutionContext
 
-class CompletionsReaderWithCache(ledgerDao: LedgerReadDao, maxItems: Int) {
+/**
+ * Responsible for reading completions from data store. Caches maxItems newest completions to decrease database usage
+ * @param completionsDao data access object for completions
+ * @param maxItems maximum amount of in memory cached completions
+ */
+class CompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: Int) {
 
   private val cache = new CompletionsCache(maxItems)
 
-  def getCommandCompletions(
+  /**
+   * Returns completions stream based on parameters. Completions are read from cache or if not available from database.
+   * Newest completions read from database are added to cache
+   * @param startExclusive
+   * @param endInclusive
+   * @param applicationId
+   * @param parties
+   * @param loggingContext
+   * @param executionContext
+   * @return
+   */
+  def getCompletionsPage(
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
@@ -23,12 +39,20 @@ class CompletionsReaderWithCache(ledgerDao: LedgerReadDao, maxItems: Int) {
   )(implicit
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
-  ): Source[(Offset, CompletionStreamResponse), NotUsed] = { // if is historic not synced, else synced
-    val cachedCompletions = cache.get(startExclusive, endInclusive, applicationId, parties) // synchronized
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] = { // should be future of seq
+    val cachedCompletions = synchronized(
+      cache.getCachedCompletions(startExclusive, endInclusive, applicationId, parties)
+    )
     val historicCompletions =
       fetchHistoric(cachedCompletions, startExclusive, endInclusive, applicationId, parties)
     val futureCompletions =
-      fetchFuture(cachedCompletions, startExclusive, endInclusive, applicationId, parties) // at least partially synchronized
+      fetchFuture(
+        cachedCompletions,
+        startExclusive,
+        endInclusive,
+        applicationId,
+        parties,
+      ) // at least partially synchronized
     historicCompletions
       .concat(Source(cachedCompletions.cache.toList))
       .concat(futureCompletions)
@@ -51,7 +75,7 @@ class CompletionsReaderWithCache(ledgerDao: LedgerReadDao, maxItems: Int) {
           val historicEnd =
             if (boundaries.startExclusive > endInclusive) endInclusive
             else boundaries.startExclusive
-          ledgerDao.completions
+          completionsDao
             .getCommandCompletions(startExclusive, historicEnd, applicationId, parties)
         }
       }
@@ -78,8 +102,8 @@ class CompletionsReaderWithCache(ledgerDao: LedgerReadDao, maxItems: Int) {
           boundaries.endInclusive
         else startExclusive
       val futureCompletions =
-        ledgerDao.completions.getAllCommandCompletions(futureStart, endInclusive)
-      futureCompletions.foreach(cache.set(futureStart, endInclusive, _))
+        completionsDao.getAllCommandCompletions(futureStart, endInclusive) // we should block here
+      futureCompletions.foreach(synchronized(cache.cacheCompletions(futureStart, endInclusive, _)))
       Source
         .future(futureCompletions)
         .mapConcat(_.filter { case (_, completionsWithParties) =>
