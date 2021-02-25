@@ -261,7 +261,7 @@ private[dump] object Encode {
       case _ => (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
     val submit = "submitMulti " +: encodeParties(partyMap, submitters)
-    val actions = Doc.stack(evs.map { case ev =>
+    val actions = Doc.stack(evs.map { ev =>
       val cid = ContractId(ev.contractId)
       val bind = if (returnStmt.nonEmpty && cidRefs.contains(cid)) {
         encodeCid(cidMap, cid) :+ " <- "
