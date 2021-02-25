@@ -70,7 +70,7 @@ private[dump] object Encode {
       (Doc.text("dump Parties{..} = do") /
         Doc.stack(
           sortedAcs.map(createdEvent =>
-            encodeCreatedEvent(partyMap, cidMap, cidRefs, createdEvent)
+            encodeSubmitCreatedEvent(partyMap, cidMap, cidRefs, createdEvent)
           ) ++
             trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
         ) /
@@ -215,6 +215,7 @@ private[dump] object Encode {
       ev: TreeEvent.Kind,
   ): Doc = ev match {
     case TreeEvent.Kind.Created(created) =>
+      encodeCreatedEvent(partyMap, cidMap, created)
       Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
     case TreeEvent.Kind.Exercised(exercised @ _) =>
       Doc.text("exerciseCmd ") + encodeCid(
@@ -228,6 +229,13 @@ private[dump] object Encode {
     case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
   }
 
+  private def encodeCreatedEvent(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      created: CreatedEvent,
+  ): Doc =
+    Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
+
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     Doc.text("let ") + encodeCid(cidMap, c.cid) + Doc.text(" = createdCid @") +
       qualifyId(c.tplId) + Doc.text(" [") + Doc.intercalate(
@@ -236,7 +244,7 @@ private[dump] object Encode {
       ) + Doc.text("] tree")
   }
 
-  private[dump] def encodeCreatedEvent(
+  private[dump] def encodeSubmitCreatedEvent(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
@@ -261,18 +269,18 @@ private[dump] object Encode {
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
     val submitters = rootEvs.flatMap(evParties(_)).toSet
-    val isCreatesOnly = rootEvs
-      .map {
-        case Kind.Created(value) => Some(Seq(ContractId(value.contractId)))
-        case Kind.Exercised(_) => None
-        case Kind.Empty => None
-      }
-      .fold(Some(Seq.empty)) {
-        case (Some(l), Some(r)) => Some(l ++ r)
-        case _ => None
-      }
-    isCreatesOnly match {
-      case Some(cids) => {
+    val createsOnly = {
+      import scalaz.Scalaz._
+      rootEvs.toList
+        .map {
+          case Kind.Created(value) => Some(value)
+          case _ => None
+        }
+        .sequence[Option, CreatedEvent]
+    }
+    createsOnly match {
+      case Some(evs) => {
+        val cids = ContractId.subst(evs.map(_.contractId))
         val referencedCids = cids.filter(cid => cidRefs.contains(cid))
         val encodedCids = referencedCids.map(cid => encodeCid(cidMap, cid))
         val (bind, returnStmt) = referencedCids.length match {
@@ -282,13 +290,14 @@ private[dump] object Encode {
           case _ => (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
         }
         val submit = "submitMulti " +: encodeParties(partyMap, submitters)
-        val actions = Doc.stack(cids.zip(rootEvs).map { case (cid, ev) =>
+        val actions = Doc.stack(evs.map { case ev =>
+          val cid = ContractId(ev.contractId)
           val bind = if (returnStmt.nonEmpty && referencedCids.contains(cid)) {
             encodeCid(cidMap, cid) :+ " <- "
           } else {
             Doc.empty
           }
-          bind + encodeEv(partyMap, cidMap, ev)
+          bind + encodeCreatedEvent(partyMap, cidMap, ev)
         })
         val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
         ((bind + submit :+ " [] do") / body).hang(2)

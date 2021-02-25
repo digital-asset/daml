@@ -29,7 +29,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
             )
           ),
         )
-        encodeCreatedEvent(parties, cidMap, cidRefs, created).render(80) shouldBe
+        encodeSubmitCreatedEvent(parties, cidMap, cidRefs, created).render(80) shouldBe
           """submitMulti [alice_0] [] do
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
@@ -49,7 +49,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
             )
           ),
         )
-        encodeCreatedEvent(parties, cidMap, cidRefs, created).render(80) shouldBe
+        encodeSubmitCreatedEvent(parties, cidMap, cidRefs, created).render(80) shouldBe
           """contract_0_0 <- submitMulti [alice_0] [] do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
