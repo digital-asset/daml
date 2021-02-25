@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.text.{DecimalFormat, NumberFormat}
@@ -11,7 +14,9 @@ import scala.concurrent.{Await, ExecutionContextExecutorService, Future}
 
 object PerfSupport {
 
-  def everyMillis(millis: Long, afterMillis: Long, runAfterShutdown: Boolean = false)(block: => Unit): () => Unit = {
+  def everyMillis(millis: Long, afterMillis: Long, runAfterShutdown: Boolean = false)(
+      block: => Unit
+  ): () => Unit = {
     val ex = new ScheduledThreadPoolExecutor(1)
     val f = ex.scheduleAtFixedRate(() => block, afterMillis, millis, TimeUnit.MILLISECONDS)
     () => {
@@ -34,9 +39,13 @@ object PerfSupport {
     result
   }
 
-  def runOnWorkerWithMetrics[IN, OUT](workerEC: ExecutionContextExecutorService, counters: Counter*)(block: IN => OUT): IN => Future[OUT] = in => Future {
-    withMetrics(counters: _*)(block(in))
-  }(workerEC)
+  def runOnWorkerWithMetrics[IN, OUT](
+      workerEC: ExecutionContextExecutorService,
+      counters: Counter*
+  )(block: IN => OUT): IN => Future[OUT] = in =>
+    Future {
+      withMetrics(counters: _*)(block(in))
+    }(workerEC)
 
   case class CountedCounter() extends Counter {
     private var count = 0L
@@ -106,12 +115,14 @@ object PerfSupport {
 
     def add(l: Long): Unit = {
       buckets.view.zipWithIndex.find(_._1 > l) match {
-        case Some((_, i)) => synchronized {
-          acc.update(i, acc(i) + 1)
-        }
-        case None => synchronized {
-          acc.update(size, acc(size) + 1)
-        }
+        case Some((_, i)) =>
+          synchronized {
+            acc.update(i, acc(i) + 1)
+          }
+        case None =>
+          synchronized {
+            acc.update(size, acc(size) + 1)
+          }
       }
     }
 
@@ -174,7 +185,6 @@ object PerfSupport {
   def now: String = LocalDateTime.now().format(dtFormatter)
   private lazy val mainLogger = TimedLogger("")
   def log(s: String): Unit = mainLogger.log(s)
-
 
   implicit class WaitforitOps[T](val f: Future[T]) {
     def waitforit: T = Await.result(f, Duration(100, "hour"))

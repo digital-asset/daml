@@ -13,13 +13,12 @@ object EventsTableDelete {
     * - archive events before or at specified offset and
     * - create events that have been archived before or at the specific offset.
     */
-  // TODO @simon@ please review
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
     SQL"""
           delete from participant_events as delete_events
           where
             delete_events.event_offset <= $endInclusive and
-            delete_events.event_kind in (10, 0) and
+            delete_events.event_kind in (10, 0) and   -- create and divulgence events
             exists (
               SELECT 1 FROM participant_events as archive_events
               WHERE
@@ -30,7 +29,7 @@ object EventsTableDelete {
           delete from participant_events as delete_events
           where
             delete_events.event_offset <= $endInclusive and
-            delete_events.event_kind in (20, 25);
+            delete_events.event_kind in (20, 25);  -- consuming and non-consuming exercise events
        """
 
 }

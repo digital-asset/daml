@@ -35,7 +35,6 @@ private[events] abstract class EventsTable {
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      contractInfo: TransactionIndexing.ContractsInfo,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches
 

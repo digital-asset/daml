@@ -228,7 +228,10 @@ private[platform] object Conversions {
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
       val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(i => if (i == null) null else java.sql.Timestamp.from(i)))
+      val ts = conn.createArrayOf(
+        "TIMESTAMP",
+        v.map(i => if (i == null) null else java.sql.Timestamp.from(i)),
+      )
       s.setArray(index, ts)
     }
   }

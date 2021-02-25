@@ -321,7 +321,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                     from participant_events as archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
-                      archived_cs.event_kind = 20 and -- consuming and
+                      archived_cs.event_kind = 20 and -- consuming
                       archived_cs.event_offset <= ${range.endInclusive._1: Offset}
                   )
                   and #${witnessesWhereClause("active_cs")}
@@ -431,6 +431,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionValues("active_cs.flat_event_witnesses", parties)
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("active_cs.submitters", parties)
+      // TODO these repetitions are painful to maintain. Ideas: Adding SQL views (do reuse in SQL schema), pursue anorm to enable reuse, using something else then anorm here.
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
             from participant_events as active_cs

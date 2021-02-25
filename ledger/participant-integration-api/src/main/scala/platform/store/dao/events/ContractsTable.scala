@@ -16,8 +16,8 @@ import scala.util.{Failure, Success, Try}
 private[events] object ContractsTable extends PostCommitValidationData {
 
   override final def lookupContractKeyGlobally(
-                                                key: Key
-                                              )(implicit connection: Connection): Option[ContractId] =
+      key: Key
+  )(implicit connection: Connection): Option[ContractId] =
     SQL"""
   WITH last_contract_key_create AS (
          SELECT participant_events.*
@@ -25,13 +25,12 @@ private[events] object ContractsTable extends PostCommitValidationData {
           WHERE event_kind = 10 -- create
             AND create_key_hash = ${key.hash}
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-                -- do NOT check visibility here, as otherwise we do not abort the scan early
           ORDER BY event_sequential_id DESC
           LIMIT 1
        )
   SELECT contract_id
     FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-   WHERE NOT EXISTS       -- check no archival visible
+   WHERE NOT EXISTS
          (SELECT 1
             FROM participant_events, parameters
            WHERE event_kind = 20 -- consuming exercise
@@ -42,12 +41,11 @@ private[events] object ContractsTable extends PostCommitValidationData {
       .as(contractId("contract_id").singleOpt)
 
   override final def lookupMaximumLedgerTime(
-                                              ids: Set[ContractId]
-                                            )(implicit connection: Connection): Try[Option[Instant]] = {
+      ids: Set[ContractId]
+  )(implicit connection: Connection): Try[Option[Instant]] = {
     if (ids.isEmpty) {
       Failure(ContractsTable.emptyContractIds)
     } else {
-      // TODO very slow for lot of contracts, needs to be done in SQL
       def lookup(id: ContractId): Option[Option[Instant]] =
         SQL"""
   WITH archival_event AS (
@@ -88,25 +86,27 @@ private[events] object ContractsTable extends PostCommitValidationData {
    LIMIT 1;
                """.as(instant("ledger_effective_time").?.singleOpt)
 
-      val foundIds: List[Option[Instant]] = ids
-        .toList
+      val foundIds: List[Option[Instant]] = ids.toList
         .map(lookup)
-        .collect {
-          case Some(found) => found
+        .collect { case Some(found) =>
+          found
         }
-      val result = if (foundIds.size != ids.size) Failure(ContractsTable.notFound(ids)) else {
-        val ledgerTimes = foundIds.collect {
-          case Some(ledgerEffectiveTime) => ledgerEffectiveTime
+      val result =
+        if (foundIds.size != ids.size) Failure(ContractsTable.notFound(ids))
+        else {
+          val ledgerTimes = foundIds.collect { case Some(ledgerEffectiveTime) =>
+            ledgerEffectiveTime
+          }
+          val optionalMax: Option[Instant] =
+            if (ledgerTimes.isEmpty) None else Some(ledgerTimes.max)
+          Success(optionalMax)
         }
-        val optionalMax: Option[Instant] = if (ledgerTimes.isEmpty) None else Some(ledgerTimes.max)
-        Success(optionalMax)
-      }
       result
     }
   }
 
   override final def lookupParties(parties: Seq[Party])(implicit
-                                                        connection: Connection
+      connection: Connection
   ): List[PartyDetails] =
     JdbcLedgerDao.selectParties(parties).map(JdbcLedgerDao.constructPartyDetails)
 

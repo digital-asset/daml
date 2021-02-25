@@ -6,7 +6,13 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, ContractInst, DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{
+  CommittedTransaction,
+  ContractInst,
+  DivulgedContract,
+  Offset,
+  SubmitterInfo,
+}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.store.serialization.Compression
@@ -14,7 +20,6 @@ import com.daml.platform.store.serialization.Compression
 final case class TransactionIndexing(
     transaction: TransactionIndexing.TransactionInfo,
     events: TransactionIndexing.EventsInfo,
-    contracts: TransactionIndexing.ContractsInfo,
 )
 
 object TransactionIndexing {
@@ -40,10 +45,17 @@ object TransactionIndexing {
           val (createArgument, createKeyValue) = translation.serialize(eventId, create)
           createArguments += ((nodeId, create.coid, createArgument))
           createKeyValue.foreach(key => createKeyValues += ((nodeId, key)))
-          createKeyValue.foreach(_ => createKeyHashes += ((nodeId, create.key
-            .map(convertLfValueKey(create.templateId, _))
-            .map(_.hash.bytes.toByteArray)
-            .orNull)))
+          createKeyValue.foreach(_ =>
+            createKeyHashes += (
+              (
+                nodeId,
+                create.key
+                  .map(convertLfValueKey(create.templateId, _))
+                  .map(_.hash.bytes.toByteArray)
+                  .orNull,
+              ),
+            )
+          )
         case exercise: Exercise =>
           val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
           exerciseArguments += ((nodeId, exerciseArgument))
@@ -182,13 +194,12 @@ object TransactionIndexing {
       val divulgedContractIndex = divulgences
         .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
         .toMap
-      val netDivulged = blinding.divulgence.map {
-        case (contractId, visibleToParties) =>
-          TransactionDivulgedContract(
-            contractId = contractId,
-            contractInst = divulgedContractIndex.get(contractId).map(_.contractInst),
-            visibility = visibleToParties
-          )
+      val divulgedContractInfos = blinding.divulgence.map { case (contractId, visibleToParties) =>
+        DivulgedContractInfo(
+          contractId = contractId,
+          contractInst = divulgedContractIndex.get(contractId).map(_.contractInst),
+          visibility = visibleToParties,
+        )
       }
       TransactionIndexing(
         transaction = TransactionInfo(
@@ -202,9 +213,7 @@ object TransactionIndexing {
           events = events.result(),
           stakeholders = stakeholders.result(),
           disclosure = disclosure.result(),
-        ),
-        contracts = ContractsInfo(
-          divulgedContracts = netDivulged,
+          divulgedContractInfos = divulgedContractInfos,
         ),
       )
     }
@@ -222,22 +231,18 @@ object TransactionIndexing {
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],
+      divulgedContractInfos: Iterable[DivulgedContractInfo],
   )
 
   // most involved change: divulgence is now an event instead encoded in contract/contract_witness tables
   // also we generate these events directly as part of the other events, so we need to land the necessery
   // data in the EventsTablePostgresql
-  case class TransactionDivulgedContract(contractId: ContractId,
-                                         contractInst: Option[ContractInst], // this we do not necessarily have: for public KV ledgers the divulged contract list is empty, since all contracts must be at all ledger as create nodes already
-                                         visibility: Set[Party])
-
-  final case class ContractsInfo(
-      divulgedContracts: Iterable[TransactionDivulgedContract],
-  )
-
-  final case class ContractWitnessesInfo(
-      netArchives: Set[ContractId],
-      netVisibility: WitnessRelation[ContractId],
+  case class DivulgedContractInfo(
+      contractId: ContractId,
+      contractInst: Option[
+        ContractInst
+      ], // this we do not necessarily have: for public KV ledgers the divulged contract list is empty, since all contracts must be at all ledger as create nodes already
+      visibility: Set[Party],
   )
 
   final case class Serialized(

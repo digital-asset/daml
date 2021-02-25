@@ -23,7 +23,6 @@ import scala.concurrent.{ExecutionContext, Future}
 /** @see [[ContractsTable]]
   */
 private[dao] sealed class ContractsReader(
-
     dispatcher: DbDispatcher,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
@@ -146,7 +145,7 @@ private[dao] sealed class ContractsReader(
           LIMIT 1
        ),
        create_event AS (
-         SELECT contract_id, template_id, create_argument
+         SELECT contract_id, template_id
            FROM participant_events, parameters
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
@@ -155,19 +154,26 @@ private[dao] sealed class ContractsReader(
           LIMIT 1 -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
-         SELECT contract_id, template_id, create_argument
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+         SELECT divulgence_events.contract_id,
+                -- Note: the divulgance_event.template_id can be NULL
+                -- for certain integrations. For example, the KV integration exploits that
+                -- every participant node knows about all create events. The integration
+                -- therefore only communicates the change in visibility to the IndexDB, but
+                -- does not include a full divulgence event.
+                COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id)
+           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+                parameters
+          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
+            AND divulgence_events.event_kind = 0 -- divulgence
+            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$tree_event_witnessesWhere
-          ORDER BY event_sequential_id
+          ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
           LIMIT 1
        ),
        create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgance events
+         (SELECT * FROM create_event)   -- prefer create over divulgence events
          UNION ALL
          (SELECT * FROM divulged_contract)
        )
@@ -211,7 +217,6 @@ private[dao] sealed class ContractsReader(
     }
 
   private def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row] = {
-    // TODO @simon@ here we make a switch from create_stakeholders to flat_event_witnesses. Is that ok?
     def flat_event_witnessesWhere(columnPrefix: String) =
       sqlFunctions.arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers)
     SQL"""

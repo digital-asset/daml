@@ -515,7 +515,10 @@ CREATE INDEX participant_events_transaction_id_idx ON participant_events USING b
 -- filtering by template
 CREATE INDEX participant_events_template_id_idx ON participant_events USING btree (template_id);
 
--- filtering by witnesses (visibility) for both GetTransactions (flat) and GetTransactionTrees
+-- filtering by witnesses (visibility) for some queries used in the implementation of
+-- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
+-- Note that Potsgres has trouble using these indices effectively with our paged access.
+-- We might decide to drop them.
 CREATE INDEX participant_events_flat_event_witnesses_idx ON participant_events USING gin (flat_event_witnesses);
 CREATE INDEX participant_events_tree_event_witnesses_idx ON participant_events USING gin (tree_event_witnesses);
 
@@ -527,9 +530,8 @@ CREATE INDEX participant_events_tree_event_witnesses_idx ON participant_events U
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create USING hash (contract_id);
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise USING hash (contract_id);
 
-CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence USING hash (contract_id);
--- ^^ This index choice assumes that the same contract is not divulged 1000s of times. In that case a hash index would lead to slowdowns,
--- as its insert cost is high for values that occur 1000s of times.
+-- lookup divulgance events, in order of ingestion
+CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence USING btree (contract_id, event_sequential_id);
 
 -- lookup by contract_key
 CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events_create USING btree (create_key_hash, event_sequential_id);

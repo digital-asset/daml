@@ -16,7 +16,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     * faster than using JDBC batches.
     */
   final class Batches(
-      eventsInsertion: SimpleSql[Row],
+      eventsInsertion: SimpleSql[Row]
   ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
       eventsInsertion.execute()
@@ -27,11 +27,10 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
   override def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      contractInfo: TransactionIndexing.ContractsInfo,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches = {
 
-    val batchSize = info.events.size + contractInfo.divulgedContracts.size
+    val batchSize = info.events.size + info.divulgedContractInfos.size
     val eventKinds = Array.ofDim[Int](batchSize)
     val eventIds = Array.ofDim[String](batchSize)
     val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
@@ -102,7 +101,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       }
     }
 
-    for ((divulgedContract, divulgedIndex) <- contractInfo.divulgedContracts.zipWithIndex) {
+    for ((divulgedContract, divulgedIndex) <- info.divulgedContractInfos.zipWithIndex) {
       val i = divulgedIndex + info.events.size
       eventKinds(i) = 0
       eventOffsets(i) = null
@@ -115,7 +114,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       templateIds(i) = divulgedContract.contractInst.map(_.template.toString).orNull
       flatEventWitnesses(i) = ""
       treeEventWitnesses(i) = divulgedContract.visibility.mkString("|")
-      createArguments(i) = serialized.createArgumentsByContract.getOrElse(divulgedContract.contractId, null)
+      createArguments(i) =
+        serialized.createArgumentsByContract.getOrElse(divulgedContract.contractId, null)
     }
 
     val inserts = insertEvents(
@@ -151,7 +151,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     )
 
     new Batches(
-      eventsInsertion = inserts,
+      eventsInsertion = inserts
     )
   }
 

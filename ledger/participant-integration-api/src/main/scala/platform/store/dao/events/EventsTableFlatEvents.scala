@@ -122,7 +122,7 @@ private[events] object EventsTableFlatEvents {
       requestingParty: Party,
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
-      // TODO varchars are not texts according to postgreSQL - we need to do lot of casting. since these are primarlily the same I suggest for the final approach to pick either and aligne old and new code @simon@
+      // TODO varchars are not texts according to postgreSQL - we need to do lot of casting. since these are primarlily the same I suggest for the final approach to pick either and align
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
                  case when submitters = array[$requestingParty]::text[] then command_id else '' end as command_id
@@ -142,6 +142,7 @@ private[events] object EventsTableFlatEvents {
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
     val submittersInPartiesClause =
       sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
+    // TODO check existence of a test which fails when the transaction_id and flat_event_witnesses restriction wouldn't be there, if not add test.
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events

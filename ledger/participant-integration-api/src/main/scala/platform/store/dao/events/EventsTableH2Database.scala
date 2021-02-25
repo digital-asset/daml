@@ -192,7 +192,6 @@ object EventsTableH2Database extends EventsTable {
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      contractInfo: TransactionIndexing.ContractsInfo,
       compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches = {
 
@@ -209,7 +208,7 @@ object EventsTableH2Database extends EventsTable {
     )
 
     val archivals = Nil
-      //info.archives.iterator.map(archive(tx.offset)).toList
+    //info.archives.iterator.map(archive(tx.offset)).toList
 
     new Batches(
       insertEvents = batch(insertEvent, events),

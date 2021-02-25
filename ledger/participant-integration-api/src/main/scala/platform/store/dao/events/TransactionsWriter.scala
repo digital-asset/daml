@@ -94,7 +94,7 @@ private[platform] final class TransactionsWriter(
       )
 
     new TransactionsWriter.PreparedInsert(
-      eventsTable.toExecutables(indexing.transaction, indexing.events, indexing.contracts, compressed.events)
+      eventsTable.toExecutables(indexing.transaction, indexing.events, compressed.events)
     )
   }
 

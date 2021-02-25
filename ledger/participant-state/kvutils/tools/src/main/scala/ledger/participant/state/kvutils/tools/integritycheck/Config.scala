@@ -9,13 +9,13 @@ import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import scopt.OptionParser
 
 case class Config(
-                   exportFilePath: Path,
-                   performByteComparison: Boolean,
-                   sortWriteSet: Boolean,
-                   indexOnly: Boolean = false,
-                   reportMetrics: Boolean = false,
-                   jdbcUrl: Option[String] = None,
-                   indexerPerfTest: Boolean = false,
+    exportFilePath: Path,
+    performByteComparison: Boolean,
+    sortWriteSet: Boolean,
+    indexOnly: Boolean = false,
+    reportMetrics: Boolean = false,
+    jdbcUrl: Option[String] = None,
+    indexerPerfTest: Boolean = false,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
