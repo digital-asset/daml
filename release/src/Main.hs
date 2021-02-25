@@ -10,6 +10,7 @@ import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Exception
+import qualified Control.Exception.Safe as E
 import qualified Data.SemVer as SemVer
 import Data.Yaml
 import qualified Data.Set as Set
@@ -38,12 +39,14 @@ import qualified SdkVersion
 scalaVersions :: [T.Text]
 scalaVersions = ["2.12.12", "2.13.3"]
 
-buildArtifacts :: (MonadLogger m, MonadIO m) => SemVer.Version -> BazelLocations -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
-buildArtifacts mvnVersion bazelLocations artifacts = do
+buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
+buildAndCopyArtifacts mvnVersion bazelLocations releaseDir artifacts = do
       let targets = concatMap buildTargets artifacts
       liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) targets)
       $logInfo "Reading metadata from pom files"
-      liftIO $ mapM (resolvePomData bazelLocations mvnVersion) artifacts
+      as <- liftIO $ mapM (resolvePomData bazelLocations mvnVersion) artifacts
+      copyArtifacts bazelLocations releaseDir as
+      pure as
 
 checkForMissingDeps :: (MonadLogger m, MonadIO m) => [Artifact c] -> m ()
 checkForMissingDeps jars = do
@@ -71,6 +74,14 @@ checkForMissingDeps jars = do
       let query = "kind(\"(java|scala)_library\", deps(" <> target <> ")) intersect //..."
       in liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
 
+copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => BazelLocations -> Path Abs Dir -> [Artifact PomData] -> m ()
+copyArtifacts bazelLocations releaseDir as = do
+  mvnFiles <-
+    fmap concat $ forM as $ \artifact ->
+    map (artifact,) <$> artifactFiles artifact
+  forM_ mvnFiles $ \(_, (inp, outp)) ->
+    copyToReleaseDir bazelLocations releaseDir inp outp
+
 main :: IO ()
 main = do
   Options{..} <- parseOptions
@@ -88,10 +99,10 @@ main = do
       -- we don't check dependencies for deploy jars as they are single-executable-jars
       let nonDeployJars = filter (not . isDeployJar . artReleaseType) mvnArtifacts
 
-      nonScalaArtifacts <- buildArtifacts mvnVersion bazelLocations nonScalaArtifacts
+      nonScalaArtifacts <- buildAndCopyArtifacts mvnVersion bazelLocations releaseDir nonScalaArtifacts
 
       scalaArtifacts <- forM scalaVersions $ \ver -> withEnv [("DAML_SCALA_VERSION", Just (T.unpack ver))] $ do
-          as <- buildArtifacts mvnVersion bazelLocations scalaArtifacts
+          as <- buildAndCopyArtifacts mvnVersion bazelLocations releaseDir scalaArtifacts
           -- Check for missing deps once per Scala version since bazel query depends on DAML_SCALA_VERSION.
           checkForMissingDeps (nonDeployJars ++ scalaArtifacts)
           pure as
@@ -116,11 +127,6 @@ main = do
               forM_ artifacts $ \artifact -> do
                   $logError ("\t- "# getBazelTarget (artTarget artifact))
           liftIO exitFailure
-
-      mvnFiles <- fmap concat $ forM allArtifacts $ \artifact ->
-          map (artifact,) <$> artifactFiles artifact
-      forM_ mvnFiles $ \(_, (inp, outp)) ->
-          copyToReleaseDir bazelLocations releaseDir inp outp
 
       mvnUploadArtifacts <- concatMapM mavenArtifactCoords allArtifacts
       validateMavenArtifacts releaseDir mvnUploadArtifacts
