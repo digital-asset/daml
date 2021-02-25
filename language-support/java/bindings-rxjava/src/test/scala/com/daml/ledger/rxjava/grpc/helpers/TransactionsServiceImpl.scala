@@ -12,7 +12,7 @@ import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.{
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services.TransactionServiceAuthorization
 import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised, Empty}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
   LEDGER_BEGIN,
@@ -150,6 +150,7 @@ object TransactionsServiceImpl {
   def eventId(event: Event): String = event.event match {
     case Archived(archivedEvent) => archivedEvent.eventId
     case Created(createdEvent) => createdEvent.eventId
+    case Exercised(exercisedEvent) => exercisedEvent.eventId
     case Empty => ""
   }
 

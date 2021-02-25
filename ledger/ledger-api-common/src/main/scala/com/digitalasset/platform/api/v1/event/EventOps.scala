@@ -3,7 +3,7 @@
 
 package com.daml.platform.api.v1.event
 
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised, Empty}
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{
@@ -38,30 +38,35 @@ object EventOps {
     def eventId: String = event match {
       case Archived(value) => value.eventId
       case Created(value) => value.eventId
+      case Exercised(value) => value.eventId
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
     def witnessParties: Seq[String] = event match {
       case Archived(value) => value.witnessParties
       case Created(value) => value.witnessParties
+      case Exercised(value) => value.witnessParties
       case Empty => Seq.empty
     }
 
     def updateWitnessParties(set: Seq[String]): Event.Event = event match {
       case Archived(value) => Archived(value.copy(witnessParties = set))
       case Created(value) => Created(value.copy(witnessParties = set))
+      case Exercised(value) => Exercised(value.copy(witnessParties = set))
       case Empty => Empty
     }
 
     def modifyWitnessParties(f: Seq[String] => Seq[String]): Event.Event = event match {
       case Archived(value) => Archived(value.copy(witnessParties = f(value.witnessParties)))
       case Created(value) => Created(value.copy(witnessParties = f(value.witnessParties)))
+      case Exercised(value) => Exercised(value.copy(witnessParties = f(value.witnessParties)))
       case Empty => Empty
     }
 
     def templateId: Identifier = event match {
       case Archived(value) => value.templateId.get
       case Created(value) => value.templateId.get
+      case Exercised(value) => value.templateId.get
       case Empty =>
         throw new IllegalArgumentException("Cannot extract Template ID from Empty event.")
     }
@@ -69,6 +74,7 @@ object EventOps {
     def contractId: String = event match {
       case Archived(value) => value.contractId
       case Created(value) => value.contractId
+      case Exercised(value) => value.contractId
       case Empty =>
         throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
     }

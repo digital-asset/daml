@@ -178,11 +178,9 @@ object TransactionIndexing {
           addEventAndDisclosure(event)
           addVisibility(exercise.targetCoid, blinding.disclosure(nodeId))
           addDivulgence(exercise.targetCoid)
+          addStakeholders(nodeId, exercise.signatories ++ exercise.actingParties)
           if (exercise.consuming) {
-            addStakeholders(nodeId, exercise.stakeholders)
             addArchive(exercise.targetCoid)
-          } else {
-            addStakeholders(nodeId, Set.empty)
           }
         case _ =>
           () // ignore anything else

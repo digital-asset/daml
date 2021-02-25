@@ -158,7 +158,8 @@ lowerRequest = \case
         getTransactionsRequestEnd = fmap lowerLedgerOffset end,
         getTransactionsRequestFilter = Just filter,
         getTransactionsRequestVerbose = unVerbosity verbose,
-        getTransactionsRequestTraceContext = noTrace
+        getTransactionsRequestTraceContext = noTrace,
+        getTransactionsRequestIncludeNonConsumingExerciseEvents = False
         }
 
 mkByEventIdRequest :: LedgerId -> EventId -> [Party] -> LL.GetTransactionByEventIdRequest

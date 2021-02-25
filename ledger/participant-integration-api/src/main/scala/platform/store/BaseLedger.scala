@@ -61,10 +61,14 @@ private[platform] abstract class BaseLedger(
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
+      RangeSource(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(_, _, filter, verbose, includeNonConsumingExerciseEvents)
+      ),
       endInclusive,
     )
 

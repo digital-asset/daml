@@ -108,6 +108,7 @@ private[sandbox] final class InMemoryLedger(
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Ref.Identifier]],
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)

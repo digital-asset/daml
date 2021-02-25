@@ -76,6 +76,7 @@ private[dao] final class TransactionsReader(
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
       ParticipantTracer
@@ -97,6 +98,7 @@ private[dao] final class TransactionsReader(
               range = EventsRange(range.startExclusive._2, range.endInclusive._2),
               filter = filter,
               pageSize = pageSize,
+              includeNonConsumingExerciseEvents = includeNonConsumingExerciseEvents,
             )
             .executeSql,
           range.startExclusive._1,

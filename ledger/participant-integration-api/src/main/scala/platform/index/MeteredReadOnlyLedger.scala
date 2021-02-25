@@ -46,8 +46,15 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
-    ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
+    ledger.flatTransactions(
+      startExclusive,
+      endInclusive,
+      filter,
+      verbose,
+      includeNonConsumingExerciseEvents,
+    )
 
   override def transactionTrees(
       startExclusive: Option[Offset],

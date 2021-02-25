@@ -26,6 +26,7 @@ trait IndexTransactionsService extends LedgerEndService {
       endAt: Option[LedgerOffset],
       filter: TransactionFilter,
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed]
 
   def transactionTrees(

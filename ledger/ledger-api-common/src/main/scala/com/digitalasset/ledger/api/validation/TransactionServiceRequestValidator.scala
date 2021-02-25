@@ -93,6 +93,7 @@ class TransactionServiceRequestValidator(
         convertedFilter,
         req.verbose,
         req.traceContext.map(toBrave),
+        req.includeNonConsumingExerciseEvents,
       )
     }
   }

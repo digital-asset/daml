@@ -6,7 +6,7 @@ package com.daml.ledger.client.binding
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.refinements.ApiTypes._
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised, Empty}
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
@@ -93,6 +93,7 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
           .fold(logAndDiscard(createdEvent), mapCreatedEvent(createdEvent, _).map(Some.apply))
       case Archived(archivedEvent) =>
         mapArchivedEvent(archivedEvent).map(Some.apply)
+      case Exercised(_) => ??? // TODO
       case Empty =>
         Left(EmptyEvent)
     }

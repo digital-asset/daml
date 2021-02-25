@@ -82,9 +82,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
     delegate
-      .transactions(begin, endAt, filter, verbose)
+      .transactions(begin, endAt, filter, verbose, includeNonConsumingExerciseEvents)
       .wireTap(
         _.transactions
           .map(transaction =>

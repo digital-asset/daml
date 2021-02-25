@@ -322,6 +322,7 @@ private[http] object ContractsFetch {
     txes foreach {
       case Event(Created(c)) => discard { csb += c }
       case Event(Archived(a)) => discard { asb += ((a.contractId, a)) }
+      case Event(Exercised(_)) => ??? // TODO
       case Event(Empty) => () // nonsense
     }
     val as = asb.result()

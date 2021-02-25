@@ -90,6 +90,48 @@ private[events] object Raw {
       )
   }
 
+  private[events] sealed abstract class Exercised[E](
+      val partial: PbExercisedEvent,
+      val exerciseArgument: InputStream,
+      val exerciseArgumentCompression: Compression.Algorithm,
+      val exerciseResult: Option[InputStream],
+      val exerciseResultCompression: Compression.Algorithm,
+  ) extends Raw[E] {
+    protected def wrapInEvent(event: PbExercisedEvent): E
+
+    final override def applyDeserialization(
+        lfValueTranslation: LfValueTranslation,
+        verbose: Boolean,
+    )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[E] = {
+      lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
+    }
+  }
+
+  private object Exercised {
+    def apply(
+        eventId: String,
+        contractId: String,
+        templateId: Identifier,
+        exerciseConsuming: Boolean,
+        exerciseChoice: String,
+        exerciseActors: ArraySeq[String],
+        exerciseChildEventIds: ArraySeq[String],
+        eventWitnesses: ArraySeq[String],
+    ): PbExercisedEvent =
+      PbExercisedEvent(
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
+        choice = exerciseChoice,
+        choiceArgument = null,
+        actingParties = exerciseActors,
+        consuming = exerciseConsuming,
+        witnessParties = eventWitnesses,
+        childEventIds = exerciseChildEventIds,
+        exerciseResult = null,
+      )
+  }
+
   sealed trait FlatEvent extends Raw[PbFlatEvent]
 
   object FlatEvent {
@@ -141,6 +183,59 @@ private[events] object Raw {
           createKeyValue = createKeyValue,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
+    }
+
+    final class Exercised(
+        raw: PbExercisedEvent,
+        exerciseArgument: InputStream,
+        exerciseArgumentCompression: Compression.Algorithm,
+        exerciseResult: Option[InputStream],
+        exerciseResultCompression: Compression.Algorithm,
+    ) extends Raw.Exercised[PbFlatEvent](
+          raw,
+          exerciseArgument,
+          exerciseArgumentCompression,
+          exerciseResult,
+          exerciseResultCompression,
+        )
+        with FlatEvent {
+      override protected def wrapInEvent(event: PbExercisedEvent): PbFlatEvent =
+        PbFlatEvent(PbFlatEvent.Event.Exercised(event))
+    }
+
+    object Exercised {
+      def apply(
+          eventId: String,
+          contractId: String,
+          templateId: Identifier,
+          exerciseConsuming: Boolean,
+          exerciseChoice: String,
+          exerciseArgument: InputStream,
+          exerciseArgumentCompression: Option[Int],
+          exerciseResult: Option[InputStream],
+          exerciseResultCompression: Option[Int],
+          exerciseActors: ArraySeq[String],
+          exerciseChildEventIds: ArraySeq[String],
+          eventWitnesses: ArraySeq[String],
+      ): Raw.FlatEvent.Exercised = {
+        new Raw.FlatEvent.Exercised(
+          raw = Raw.Exercised(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            exerciseConsuming = exerciseConsuming,
+            exerciseChoice = exerciseChoice,
+            exerciseActors = exerciseActors,
+            exerciseChildEventIds = exerciseChildEventIds,
+            eventWitnesses = eventWitnesses,
+          ),
+          exerciseArgument = exerciseArgument,
+          exerciseArgumentCompression =
+            Compression.Algorithm.assertLookup(exerciseArgumentCompression),
+          exerciseResult = exerciseResult,
+          exerciseResultCompression = Compression.Algorithm.assertLookup(exerciseResultCompression),
+        )
+      }
     }
 
     /** Archived events don't actually have anything to deserialize
@@ -232,23 +327,22 @@ private[events] object Raw {
     }
 
     final class Exercised(
-        val partial: PbExercisedEvent,
-        val exerciseArgument: InputStream,
-        val exerciseArgumentCompression: Compression.Algorithm,
-        val exerciseResult: Option[InputStream],
-        val exerciseResultCompression: Compression.Algorithm,
-    ) extends TreeEvent {
-      override def applyDeserialization(
-          lfValueTranslation: LfValueTranslation,
-          verbose: Boolean,
-      )(implicit
-          ec: ExecutionContext,
-          loggingContext: LoggingContext,
-      ): Future[PbTreeEvent] =
-        lfValueTranslation
-          .deserialize(this, verbose)
-          .map(event => PbTreeEvent(PbTreeEvent.Kind.Exercised(event)))
-
+        raw: PbExercisedEvent,
+        exerciseArgument: InputStream,
+        exerciseArgumentCompression: Compression.Algorithm,
+        exerciseResult: Option[InputStream],
+        exerciseResultCompression: Compression.Algorithm,
+    ) extends Raw.Exercised[PbTreeEvent](
+          raw,
+          exerciseArgument,
+          exerciseArgumentCompression,
+          exerciseResult,
+          exerciseResultCompression,
+        )
+        with TreeEvent {
+      override protected def wrapInEvent(event: PbExercisedEvent): PbTreeEvent = {
+        PbTreeEvent(PbTreeEvent.Kind.Exercised(event))
+      }
     }
 
     object Exercised {
@@ -265,19 +359,17 @@ private[events] object Raw {
           exerciseActors: ArraySeq[String],
           exerciseChildEventIds: ArraySeq[String],
           eventWitnesses: ArraySeq[String],
-      ): Raw.TreeEvent.Exercised =
+      ): Raw.TreeEvent.Exercised = {
         new Raw.TreeEvent.Exercised(
-          partial = PbExercisedEvent(
+          raw = Raw.Exercised(
             eventId = eventId,
             contractId = contractId,
-            templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
-            choice = exerciseChoice,
-            choiceArgument = null,
-            actingParties = exerciseActors,
-            consuming = exerciseConsuming,
-            witnessParties = eventWitnesses,
-            childEventIds = exerciseChildEventIds,
-            exerciseResult = null,
+            templateId = templateId,
+            exerciseConsuming = exerciseConsuming,
+            exerciseChoice = exerciseChoice,
+            exerciseActors = exerciseActors,
+            exerciseChildEventIds = exerciseChildEventIds,
+            eventWitnesses = eventWitnesses,
           ),
           exerciseArgument = exerciseArgument,
           exerciseArgumentCompression =
@@ -285,6 +377,7 @@ private[events] object Raw {
           exerciseResult = exerciseResult,
           exerciseResultCompression = Compression.Algorithm.assertLookup(exerciseResultCompression),
         )
+      }
     }
   }
 

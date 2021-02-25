@@ -177,6 +177,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
     } yield {
@@ -207,6 +208,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(alice -> Set.empty),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
       resultForBob <- transactionsOf(
@@ -216,6 +218,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(bob -> Set.empty),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
       resultForCharlie <- transactionsOf(
@@ -225,6 +228,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(charlie -> Set.empty),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
     } yield {
@@ -255,6 +259,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(alice -> Set(otherTemplateId)),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
     } yield {
@@ -289,6 +294,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               bob -> Set(otherTemplateId),
             ),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
     } yield {
@@ -329,6 +335,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               bob -> Set(otherTemplateId),
             ),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
     } yield {
@@ -369,6 +376,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               bob -> Set.empty,
             ),
             verbose = true,
+            includeNonConsumingExerciseEvents = false,
           )
       )
     } yield {
@@ -397,6 +405,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true,
+          includeNonConsumingExerciseEvents = false,
         )
         .runWith(Sink.seq)
     } yield {
@@ -429,6 +438,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset2,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true,
+          includeNonConsumingExerciseEvents = false,
         )
         .runWith(Sink.seq)
 
@@ -459,6 +469,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endOffsetFromTheFuture,
           Map(alice -> Set.empty[Identifier]),
           verbose = true,
+          includeNonConsumingExerciseEvents = false,
         )
         .runWith(Sink.seq)
 
@@ -503,6 +514,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endOffset,
           Map(alice -> Set.empty[Identifier]),
           verbose = true,
+          includeNonConsumingExerciseEvents = false,
         )
         .runWith(Sink.seq)
 
@@ -546,7 +558,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           }
           to <- ledgerDao.lookupLedgerEnd()
           response <- ledgerDao.transactionsReader
-            .getFlatTransactions(from, to, cp.filter, verbose = false)
+            .getFlatTransactions(
+              from,
+              to,
+              cp.filter,
+              verbose = false,
+              includeNonConsumingExerciseEvents = false,
+            )
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
           readCreates = extractAllTransactions(response) flatMap (_.events)

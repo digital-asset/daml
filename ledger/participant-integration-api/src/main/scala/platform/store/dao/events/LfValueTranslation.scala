@@ -261,8 +261,8 @@ final class LfValueTranslation(
     }
   }
 
-  def deserialize(
-      raw: Raw.TreeEvent.Exercised,
+  def deserialize[E](
+      raw: Raw.Exercised[E],
       verbose: Boolean,
   )(implicit
       ec: ExecutionContext,

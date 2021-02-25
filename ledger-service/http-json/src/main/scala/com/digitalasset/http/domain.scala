@@ -265,6 +265,8 @@ object domain {
           ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
         case lav1.event.Event.Event.Archived(archived) =>
           ArchivedContract.fromLedgerApi(archived).map(a => Contract(-\/(a)))
+        case lav1.event.Event.Event.Exercised(_) =>
+          ??? // TODO
         case lav1.event.Event.Event.Empty =>
           val errorMsg = s"Expected either Created or Archived event, got: Empty"
           -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))

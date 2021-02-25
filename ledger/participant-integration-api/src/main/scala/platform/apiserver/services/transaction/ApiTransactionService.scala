@@ -71,7 +71,13 @@ private[apiserver] final class ApiTransactionService private (
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
-        .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+        .transactions(
+          request.startExclusive,
+          request.endInclusive,
+          request.filter,
+          request.verbose,
+          request.includeNonConsumingExerciseEvents,
+        )
         .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
     }

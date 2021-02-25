@@ -42,6 +42,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def transactionTrees(

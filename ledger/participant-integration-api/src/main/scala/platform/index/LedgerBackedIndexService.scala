@@ -97,6 +97,7 @@ private[platform] final class LedgerBackedIndexService(
       endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
     between(startExclusive, endInclusive)((from, to) => {
       from.foreach(offset =>
@@ -111,6 +112,7 @@ private[platform] final class LedgerBackedIndexService(
           endInclusive = to,
           filter = convertFilter(filter),
           verbose = verbose,
+          includeNonConsumingExerciseEvents = includeNonConsumingExerciseEvents,
         )
         .map(_._2)
     })

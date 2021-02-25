@@ -92,10 +92,11 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
+      includeNonConsumingExerciseEvents: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactions,
-      delegate.transactions(begin, endAt, filter, verbose),
+      delegate.transactions(begin, endAt, filter, verbose, includeNonConsumingExerciseEvents),
     )
 
   override def transactionTrees(

@@ -187,6 +187,9 @@ data Event
       , tid     :: TemplateId
       , witness :: [Party]
       }
+    | ExercisedEvent
+      { eid :: EventId
+      }
     deriving (Eq,Ord,Show)
 
 -- value.proto
