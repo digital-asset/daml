@@ -261,6 +261,36 @@ private[dump] object Encode {
     ) / createCmd).hang(2)
   }
 
+  private[dump] def encodeSubmitCreatedEvents(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      evs: Seq[CreatedEvent],
+  ): Doc = {
+    val submitters = evs.flatMap(ev => evParties(Kind.Created(ev))).toSet
+    val cids = ContractId.subst(evs.map(_.contractId))
+    val referencedCids = cids.filter(cid => cidRefs.contains(cid))
+    val encodedCids = referencedCids.map(cid => encodeCid(cidMap, cid))
+    val (bind, returnStmt) = referencedCids.length match {
+      case 0 => (Doc.empty, Doc.empty)
+      case 1 if referencedCids.last == cids.last => (encodedCids.last :+ " <- ", Doc.empty)
+      case 1 => (encodedCids.last :+ " <- ", "pure " +: encodedCids.last)
+      case _ => (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
+    }
+    val submit = "submitMulti " +: encodeParties(partyMap, submitters)
+    val actions = Doc.stack(evs.map { case ev =>
+      val cid = ContractId(ev.contractId)
+      val bind = if (returnStmt.nonEmpty && cidRefs.contains(cid)) {
+        encodeCid(cidMap, cid) :+ " <- "
+      } else {
+        Doc.empty
+      }
+      bind + encodeCreatedEvent(partyMap, cidMap, ev)
+    })
+    val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
+    ((bind + submit :+ " [] do") / body).hang(2)
+  }
+
   private[dump] def encodeTree(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -268,7 +298,6 @@ private[dump] object Encode {
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val submitters = rootEvs.flatMap(evParties(_)).toSet
     val createsOnly = {
       import scalaz.Scalaz._
       rootEvs.toList
@@ -279,30 +308,10 @@ private[dump] object Encode {
         .sequence[Option, CreatedEvent]
     }
     createsOnly match {
-      case Some(evs) => {
-        val cids = ContractId.subst(evs.map(_.contractId))
-        val referencedCids = cids.filter(cid => cidRefs.contains(cid))
-        val encodedCids = referencedCids.map(cid => encodeCid(cidMap, cid))
-        val (bind, returnStmt) = referencedCids.length match {
-          case 0 => (Doc.empty, Doc.empty)
-          case 1 if referencedCids.last == cids.last => (encodedCids.last :+ " <- ", Doc.empty)
-          case 1 => (encodedCids.last :+ " <- ", "pure " +: encodedCids.last)
-          case _ => (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
-        }
-        val submit = "submitMulti " +: encodeParties(partyMap, submitters)
-        val actions = Doc.stack(evs.map { case ev =>
-          val cid = ContractId(ev.contractId)
-          val bind = if (returnStmt.nonEmpty && referencedCids.contains(cid)) {
-            encodeCid(cidMap, cid) :+ " <- "
-          } else {
-            Doc.empty
-          }
-          bind + encodeCreatedEvent(partyMap, cidMap, ev)
-        })
-        val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-        ((bind + submit :+ " [] do") / body).hang(2)
-      }
+      case Some(evs) =>
+        encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, evs)
       case None => {
+        val submitters = rootEvs.flatMap(evParties(_)).toSet
         val cids = treeCreatedCids(tree)
         val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
         val treeBind =
