@@ -23,6 +23,10 @@ case class Config(
                    submissionBatchSize: Long = 1,
                    tailingRateLimitPerSecond: Int = 2,
                    batchWithinMillis: Long = 10,
+                   streamExport: Boolean = true,
+                   cycleRun: Boolean = false,
+                   initSubmissionSize: Int = 118,
+                   runStageUntil: Int = 6 // TODO remove, test-code
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
@@ -69,6 +73,39 @@ object Config {
         .text("No validation: only runs indexer performance test with streaming from export.")
         .action((_, config) => config.copy(indexerPerfTest = true))
 
+      opt[Int]("deserMappingPar")
+        .text("deserMappingPar")
+        .action((p, config) => config.copy(deserMappingPar = p))
+      opt[Int]("deserMappingBatchSize")
+        .text("deserMappingBatchSize")
+        .action((p, config) => config.copy(deserMappingBatchSize = p))
+      opt[Int]("inputMappingParallelism")
+        .text("inputMappingParallelism")
+        .action((p, config) => config.copy(inputMappingParallelism = p))
+      opt[Int]("ingestionParallelism")
+        .text("ingestionParallelism")
+        .action((p, config) => config.copy(ingestionParallelism = p))
+      opt[Long]("submissionBatchSize")
+        .text("submissionBatchSize")
+        .action((p, config) => config.copy(submissionBatchSize = p))
+      opt[Int]("tailingRateLimitPerSecond")
+        .text("tailingRateLimitPerSecond")
+        .action((p, config) => config.copy(tailingRateLimitPerSecond = p))
+      opt[Long]("batchWithinMillis")
+        .text("batchWithinMillis")
+        .action((p, config) => config.copy(batchWithinMillis = p))
+      opt[Boolean]("streamExport")
+        .text("streamExport")
+        .action((p, config) => config.copy(streamExport = p))
+      opt[Boolean]("cycleRun")
+        .text("cycleRun")
+        .action((p, config) => config.copy(cycleRun = p))
+      opt[Int]("initSubmissionSize")
+        .text("initSubmissionSize")
+        .action((p, config) => config.copy(initSubmissionSize = p))
+      opt[Int]("runStageUntil")
+        .text("runStageUntil")
+        .action((p, config) => config.copy(runStageUntil = p))
     }
 
   def parse(args: collection.Seq[String]): Option[Config] =

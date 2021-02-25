@@ -23,6 +23,7 @@ case class IndexerConfig(
     submissionBatchSize: Long = 1L,
     tailingRateLimitPerSecond: Int = 100,
     batchWithinMillis: Long = 10,
+    runStageUntil: Int = 6,
 )
 
 object IndexerConfig {

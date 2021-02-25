@@ -109,7 +109,8 @@ object JdbcIndexer {
             ingestionParallelism = config.ingestionParallelism,
             submissionBatchSize = config.submissionBatchSize,
             tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
-            batchWithinMillis = config.batchWithinMillis
+            batchWithinMillis = config.batchWithinMillis,
+            runStageUntil = config.runStageUntil
           )
         } yield indexer
       ) else Future.successful(for {

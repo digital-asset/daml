@@ -25,7 +25,8 @@ object PoCIndexerFactory {
             ingestionParallelism: Int,
             submissionBatchSize: Long,
             tailingRateLimitPerSecond: Int,
-            batchWithinMillis: Long): ResourceOwner[Indexer] = {
+            batchWithinMillis: Long,
+            runStageUntil: Int): ResourceOwner[Indexer] = {
     for {
       inputMapperExecutor <- asyncPool(inputMappingParallelism)
       postgresDaoPool <- asyncResourcePool(() => JDBCPostgresDAO(jdbcUrl), size = ingestionParallelism + 1)
@@ -67,7 +68,8 @@ object PoCIndexerFactory {
               )
               batch
             }
-          )
+          ),
+          runStageUntil = runStageUntil
         )(source).map(_ => ())
 
       def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =

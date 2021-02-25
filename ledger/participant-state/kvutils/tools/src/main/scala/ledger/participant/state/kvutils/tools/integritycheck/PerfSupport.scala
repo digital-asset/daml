@@ -146,18 +146,6 @@ object PerfSupport {
       else Iterator.continually(' ').take(to - from.length).mkString
   }
 
-  implicit class ChainOps[A](val in: A) extends AnyVal {
-    def pipeIf(cond: A => Boolean)(f: A => A): A =
-      if (cond(in)) f(in) else in
-
-    def pipe[B](f: A => B): B = f(in)
-
-    def tap[U](f: A => U): A = {
-      f(in)
-      in
-    }
-  }
-
   case class TimedLogger(marker: String) {
     private val start = System.nanoTime()
     private var last = start

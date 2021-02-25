@@ -31,14 +31,49 @@ object IndexerPerfTest {
                      writeSetToUpdates: (WriteSet, Long) => Iterable[(Offset, Update)],
                      defaultExecutionContext: ExecutionContext)
                     (implicit materializer: Materializer): Future[Unit] = {
+    println(
+      s"""Config
+         |  exportFilePath ${config.exportFilePath}
+         |  performByteComparison ${config.performByteComparison}
+         |  sortWriteSet ${config.sortWriteSet}
+         |  indexOnly ${config.indexOnly}
+         |  reportMetrics ${config.reportMetrics}
+         |  jdbcUrl ${config.jdbcUrl}
+         |  indexerPerfTest ${config.indexerPerfTest}
+         |  deserMappingPar ${config.deserMappingPar}
+         |  deserMappingBatchSize ${config.deserMappingBatchSize}
+         |  inputMappingParallelism ${config.inputMappingParallelism}
+         |  ingestionParallelism ${config.ingestionParallelism}
+         |  submissionBatchSize ${config.submissionBatchSize}
+         |  tailingRateLimitPerSecond ${config.tailingRateLimitPerSecond}
+         |  batchWithinMillis ${config.batchWithinMillis}
+         |  streamExport ${config.streamExport}
+         |  cycleRun ${config.cycleRun}
+         |  initSubmissionSize ${config.initSubmissionSize}
+         |  runStageUntil ${config.runStageUntil}
+         |""".stripMargin)
+
     val ReadServiceMappingParallelism = config.deserMappingPar
     val ReadServiceBatchSize = config.deserMappingBatchSize
-    val InitSubmissionSize = 118
+    val InitSubmissionSize = config.initSubmissionSize
 
     val workerE = Executors.newFixedThreadPool(ReadServiceMappingParallelism)
     val workerEC = ExecutionContext.fromExecutorService(workerE)
 
-    val _import = importer.read().map(_._2).zipWithIndex.toVector
+    val importIterator =
+      if (config.streamExport) {
+        @volatile var rollingForwardImporter: ProtobufBasedLedgerDataImporter = importer
+        () => {
+          rollingForwardImporter.close()
+          rollingForwardImporter = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+          rollingForwardImporter.read().iterator.map(_._2).zipWithIndex.drop(InitSubmissionSize)
+        }
+      } else {
+        log("Start loading export...")
+        val loaded = importer.read().map(_._2).zipWithIndex.drop(InitSubmissionSize).toVector
+        log("Export loaded")
+        () => loaded.iterator
+      }
 
     //    val (initIterator, mainIterator) = importer.read()
     //      .iterator
@@ -68,8 +103,7 @@ object IndexerPerfTest {
 
     val importBackedStreamingReadService = {
       val stream: Source[(Offset, Update), NotUsed] =
-        Source.cycle(() => _import.iterator.drop(InitSubmissionSize))
-          //        Source.fromIterator(() => mainIterator)
+        (if (config.cycleRun) Source.cycle(importIterator) else Source.fromIterator(importIterator))
           .groupedWithin(ReadServiceBatchSize, FiniteDuration(50, "millis"))
           .mapAsync(ReadServiceMappingParallelism)(runOnWorkerWithMetrics(workerEC, readServiceMappingCounter) {
             batch => {
@@ -123,7 +157,8 @@ object IndexerPerfTest {
         ingestionParallelism = config.ingestionParallelism,
         submissionBatchSize = config.submissionBatchSize,
         tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
-        batchWithinMillis = config.batchWithinMillis
+        batchWithinMillis = config.batchWithinMillis,
+        runStageUntil = config.runStageUntil
       )
       val indexerFactory = newLoggingContext { implicit loggingContext =>
         new JdbcIndexer.Factory(
@@ -158,15 +193,13 @@ object IndexerPerfTest {
             val stopOneSecReporter = everyMillis(1000, 1000, runAfterShutdown = true) {
               val (c, c10, c100) = submissionCounter.retrieveAndReset
               submissionsProcessed += c
-              val (readServiceNanos, _, _) = readServiceMappingCounter.retrieveAndReset
-              val (mappingNanos, _, _) = StaticMetrics.mappingCPU.retrieveAndReset
-              val (seqMappingNanos, _, _) = StaticMetrics.seqMappingCPU.retrieveAndReset
-              val (ingestionNanos, _, _) = StaticMetrics.ingestionCPU.retrieveAndReset
+              val (_, readServiceNanos, _) = readServiceMappingCounter.retrieveAndReset
+              val (_, mappingNanos, _) = StaticMetrics.mappingCPU.retrieveAndReset
+              val (_, seqMappingNanos, _) = StaticMetrics.seqMappingCPU.retrieveAndReset
+              val (_, ingestionNanos, _) = StaticMetrics.ingestionCPU.retrieveAndReset
               val averageBatchSize = StaticMetrics.batchCounter.retrieveAverage
               val dbCallHist = StaticMetrics.dbCallHistrogram.retrieveAndReset
-              progress = s"progress: ${(submissionsProcessed / 2).toString.padRight(7)} trades ${
-                (100 * submissionsProcessed / 16000).toString.padRight(2)
-              }%"
+              progress = s"progress: ${(submissionsProcessed / 2).toString.padRight(7)} trades"
               println(
                 s"$now $progress ${
                   (c / 2).toString.padRight(4)
@@ -177,13 +210,13 @@ object IndexerPerfTest {
                 } trade/s averageBatchSize: ${
                   averageBatchSize.getOrElse("-").toString.padRight(4)
                 } read-service-cpu: ${
-                  (readServiceNanos / 10000000L).toString.padRight(4)
+                  (readServiceNanos / 100000000L).toString.padRight(4)
                 }% mapping-cpu: ${
-                  (mappingNanos / 10000000L).toString.padRight(4)
+                  (mappingNanos / 100000000L).toString.padRight(4)
                 }% seq-mapping-cpu: ${
-                  (seqMappingNanos / 10000000L).toString.padRight(4)
+                  (seqMappingNanos / 100000000L).toString.padRight(4)
                 }% ingesting-cpu: ${
-                  (ingestionNanos / 10000000L).toString.padRight(4)
+                  (ingestionNanos / 100000000L).toString.padRight(4)
                 }% db call histogram [0, 0.1ms, 1ms, 10ms, 100ms, 1s, 10s] ${
                   dbCallHist
                     .map(micro => micro.toString.padRight(5))

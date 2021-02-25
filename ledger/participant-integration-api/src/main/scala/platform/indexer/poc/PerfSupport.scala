@@ -103,6 +103,17 @@ object PerfSupport {
 
   }
 
+  implicit class ChainOps[A](val in: A) extends AnyVal {
+    def pipeIf(cond: A => Boolean)(f: A => A): A =
+      if (cond(in)) f(in) else in
+
+    def pipe[B](f: A => B): B = f(in)
+
+    def tap[U](f: A => U): A = {
+      f(in)
+      in
+    }
+  }
 }
 
 object StaticMetrics {

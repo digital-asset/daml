@@ -621,7 +621,7 @@ private class JdbcLedgerDao(
     contractsReader.lookupActiveContract(forParties, contractId)
 
   private val SQL_SELECT_ALL_PARTIES =
-    SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
+    SQL("select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset")
 
   override def getParties(
       parties: Seq[Party]
@@ -650,14 +650,16 @@ private class JdbcLedgerDao(
         |values ({party}, {display_name}, {ledger_offset}, 'true', {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES =
-    SQL("""select package_id, source_description, known_since, size
-        |from packages
+    SQL("""select packages.package_id, packages.source_description, packages.known_since, packages.size
+        |from packages, parameters
+        |where packages.ledger_offset <= parameters.ledger_end
         |""".stripMargin)
 
   private val SQL_SELECT_PACKAGE =
-    SQL("""select package
-        |from packages
+    SQL("""select packages.package
+        |from packages, parameters
         |where package_id = {package_id}
+        |and packages.ledger_offset <= parameters.ledger_end
         |""".stripMargin)
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
@@ -1075,7 +1077,7 @@ private[platform] object JdbcLedgerDao {
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
-      "select party, display_name, ledger_offset, explicit, is_local from parties where party in ({parties})"
+      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where party in ({parties}) and parties.ledger_offset <= parameters.ledger_end"
     )
 
   private val PartyDataParser: RowParser[ParsedPartyData] =
