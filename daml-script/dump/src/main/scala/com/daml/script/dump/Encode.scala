@@ -70,7 +70,7 @@ private[dump] object Encode {
       (Doc.text("dump Parties{..} = do") /
         Doc.stack(
           sortedAcs.map(createdEvent =>
-            encodeSubmitCreatedEvent(partyMap, cidMap, cidRefs, createdEvent)
+            encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, Seq(createdEvent))
           ) ++
             trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
         ) /
@@ -242,23 +242,6 @@ private[dump] object Encode {
         Doc.text(", "),
         c.path.map(encodeSelector(_)),
       ) + Doc.text("] tree")
-  }
-
-  private[dump] def encodeSubmitCreatedEvent(
-      partyMap: Map[Party, String],
-      cidMap: Map[ContractId, String],
-      cidRefs: Set[ContractId],
-      createdEvent: CreatedEvent,
-  ): Doc = {
-    val createCmd =
-      Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
-    val cid = ContractId(createdEvent.contractId)
-    val bind = if (cidRefs.contains(cid)) { Doc.text(cidMap(cid)) + Doc.text(" <- ") }
-    else { Doc.empty }
-    val submitters = Party.subst(createdEvent.signatories)
-    (bind + Doc.text("submitMulti ") + encodeParties(partyMap, submitters) + Doc.text(
-      " [] do"
-    ) / createCmd).hang(2)
   }
 
   private[dump] def encodeSubmitCreatedEvents(
