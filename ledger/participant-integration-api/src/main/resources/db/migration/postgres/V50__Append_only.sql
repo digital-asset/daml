@@ -379,7 +379,13 @@ CREATE TABLE participant_events (
     exercise_argument bytea,
     exercise_result bytea,
     exercise_actors text[],
-    exercise_child_event_ids text[]
+    exercise_child_event_ids text[],
+
+    --compression flags
+    create_argument_compression SMALLINT,
+    create_key_value_compression SMALLINT,
+    exercise_argument_compression SMALLINT,
+    exercise_result_compression SMALLINT
 
 
 

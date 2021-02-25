@@ -66,7 +66,7 @@ object EventsTableH2Database extends EventsTable {
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],
-      compressed: TransactionIndexing.Compressed.Events,
+      compressed: TransactionIndexing.Compressed,
   ): Vector[Vector[NamedParameter]] = {
     val transactionSharedColumns =
       Vector[NamedParameter](
@@ -92,23 +92,23 @@ object EventsTableH2Database extends EventsTable {
         val eventSpecificColumns =
           node match {
             case event: Create =>
-              val (argument, keyValue) = compressed.assertCreate(nodeId)
+              val (argument, keyValue) = compressed.events.assertCreate(nodeId)
               create(
                 event = event,
                 argument = argument,
-                argumentCompression = compressed.createArgumentsCompression.id,
+                argumentCompression = compressed.events.createArgumentsCompression.id,
                 key = keyValue,
-                keyCompression = compressed.createKeyValueCompression.id,
+                keyCompression = compressed.events.createKeyValueCompression.id,
               )
             case event: Exercise =>
-              val (argument, result) = compressed.assertExercise(nodeId)
+              val (argument, result) = compressed.events.assertExercise(nodeId)
               exercise(
                 event = event,
                 transactionId = transactionId,
                 argument = argument,
-                argumentCompression = compressed.exerciseArgumentsCompression.id,
+                argumentCompression = compressed.events.exerciseArgumentsCompression.id,
                 result = result,
-                resultCompression = compressed.exerciseResultsCompression.id,
+                resultCompression = compressed.events.exerciseResultsCompression.id,
               )
             case _ => throw new UnexpectedNodeException(nodeId, transactionId)
           }
@@ -192,7 +192,7 @@ object EventsTableH2Database extends EventsTable {
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      compressed: TransactionIndexing.Compressed.Events,
+      compressed: TransactionIndexing.Compressed,
   ): EventsTable.Batches = {
 
     val events = transaction(

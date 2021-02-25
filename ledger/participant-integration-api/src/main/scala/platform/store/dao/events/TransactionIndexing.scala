@@ -28,7 +28,7 @@ object TransactionIndexing {
       translation: LfValueTranslation,
       transactionId: TransactionId,
       events: Vector[(NodeId, Node)],
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgences: Iterable[DivulgedContract],
   ): Serialized = {
 
     val createArguments = Vector.newBuilder[(NodeId, ContractId, Array[Byte])]
@@ -64,7 +64,7 @@ object TransactionIndexing {
       }
     }
 
-    for (DivulgedContract(contractId, contractInst) <- divulgence) {
+    for (DivulgedContract(contractId, contractInst) <- divulgences) {
       val serializedCreateArgument = translation.serialize(contractId, contractInst.arg)
       divulgedContracts += ((contractId, serializedCreateArgument))
     }
@@ -114,9 +114,7 @@ object TransactionIndexing {
     }
 
     for ((nodeId, key) <- serialized.createKeyHashes) {
-      val compressedKeyHash = compressionStrategy.createKeyHashCompression
-        .compress(key, compressionMetrics.createKeyHash)
-      createKeyHashes += ((nodeId, compressedKeyHash))
+      createKeyHashes += ((nodeId, key))
     }
 
     for ((nodeId, argument) <- serialized.exerciseArguments) {
@@ -142,7 +140,6 @@ object TransactionIndexing {
         createKeyValues = createKeyValues.result(),
         createKeyValueCompression = compressionStrategy.createKeyValueCompression,
         createKeyHashes = createKeyHashes.result(),
-        createKeyHashCompression = compressionStrategy.createKeyHashCompression,
         exerciseArguments = exerciseArguments.result(),
         exerciseArgumentsCompression = compressionStrategy.exerciseArgumentCompression,
         exerciseResults = exerciseResults.result(),
@@ -191,7 +188,7 @@ object TransactionIndexing {
         offset: Offset,
         divulgedContracts: Iterable[DivulgedContract],
     ): TransactionIndexing = {
-      val divulgedContractIndex = divulgences
+      val divulgedContractIndex = divulgedContracts
         .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
         .toMap
       val divulgedContractInfos = blinding.divulgence.map { case (contractId, visibleToParties) =>
@@ -249,12 +246,13 @@ object TransactionIndexing {
       createArguments: Vector[(NodeId, ContractId, Array[Byte])],
       divulgedContracts: Vector[(ContractId, Array[Byte])],
       createKeyValues: Vector[(NodeId, Array[Byte])],
-      createKeyHashes: Vector[NodeId, Array[Byte]],
+      createKeyHashes: Vector[(NodeId, Array[Byte])],
       exerciseArguments: Vector[(NodeId, Array[Byte])],
       exerciseResults: Vector[(NodeId, Array[Byte])],
   ) {
-    val createArgumentsByContract = createArguments.map { case (_, contractId, arg) =>
-      contractId -> arg
+    val createArgumentsByContract: Map[ContractId, Array[Byte]] = createArguments.map {
+      case (_, contractId, arg) =>
+        contractId -> arg
     }.toMap
   }
 
@@ -271,7 +269,6 @@ object TransactionIndexing {
         createKeyValues: Map[NodeId, Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
         createKeyHashes: Map[NodeId, Array[Byte]],
-        createKeyHashCompression: Compression.Algorithm,
         exerciseArguments: Map[NodeId, Array[Byte]],
         exerciseArgumentsCompression: Compression.Algorithm,
         exerciseResults: Map[NodeId, Array[Byte]],

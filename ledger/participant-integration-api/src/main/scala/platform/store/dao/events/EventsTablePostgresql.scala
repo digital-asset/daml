@@ -27,7 +27,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
   override def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      compressed: TransactionIndexing.Compressed.Events,
+      compressed: TransactionIndexing.Compressed,
   ): EventsTable.Batches = {
 
     val batchSize = info.events.size + info.divulgedContractInfos.size
@@ -72,14 +72,14 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
-          createArguments(i) = compressed.createArguments(nodeId)
+          createArguments(i) = compressed.events.createArguments(nodeId)
           createSignatories(i) = create.signatories.mkString("|")
           createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
           if (create.coinst.agreementText.nonEmpty) {
             createAgreementTexts(i) = create.coinst.agreementText
           }
-          createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
-          createKeyHashes(i) = compressed.createKeyHashes.get(nodeId).orNull
+          createKeyValues(i) = compressed.events.createKeyValues.get(nodeId).orNull
+          createKeyHashes(i) = compressed.events.createKeyHashes.get(nodeId).orNull
         case exercise: Exercise =>
           eventKinds(i) = if (exercise.consuming) 20 else 25
           submitters(i) = submittersValue
@@ -90,8 +90,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
           exerciseChoices(i) = exercise.choiceId
-          exerciseArguments(i) = compressed.exerciseArguments(nodeId)
-          exerciseResults(i) = compressed.exerciseResults.get(nodeId).orNull
+          exerciseArguments(i) = compressed.events.exerciseArguments(nodeId)
+          exerciseResults(i) = compressed.events.exerciseResults.get(nodeId).orNull
           exerciseActors(i) = exercise.actingParties.mkString("|")
           exerciseChildEventIds(i) = exercise.children
             .map(EventId(tx.transactionId, _).toLedgerString)
@@ -115,7 +115,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       flatEventWitnesses(i) = ""
       treeEventWitnesses(i) = divulgedContract.visibility.mkString("|")
       createArguments(i) =
-        serialized.createArgumentsByContract.getOrElse(divulgedContract.contractId, null)
+        compressed.contracts.createArguments.getOrElse(divulgedContract.contractId, null)
     }
 
     val inserts = insertEvents(
@@ -144,10 +144,24 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       exerciseResults,
       exerciseActors,
       exerciseChildEventIds,
-      createArgumentsCompression = eventIds.map(_ => compressed.createArgumentsCompression.id),
-      createKeyValueCompression = eventIds.map(_ => compressed.createKeyValueCompression.id),
-      exerciseArgumentCompression = eventIds.map(_ => compressed.exerciseArgumentsCompression.id),
-      exerciseResultCompression = eventIds.map(_ => compressed.exerciseResultsCompression.id),
+      createArgumentsCompression = eventIds.map(_ =>
+        compressed.events.createArgumentsCompression.id
+          .map(_.asInstanceOf[java.lang.Integer])
+          .orNull
+      ),
+      createKeyValueCompression = eventIds.map(_ =>
+        compressed.events.createKeyValueCompression.id.map(_.asInstanceOf[java.lang.Integer]).orNull
+      ),
+      exerciseArgumentCompression = eventIds.map(_ =>
+        compressed.events.exerciseArgumentsCompression.id
+          .map(_.asInstanceOf[java.lang.Integer])
+          .orNull
+      ),
+      exerciseResultCompression = eventIds.map(_ =>
+        compressed.events.exerciseResultsCompression.id
+          .map(_.asInstanceOf[java.lang.Integer])
+          .orNull
+      ),
     )
 
     new Batches(
@@ -208,8 +222,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
          )
          select
            event_kind, event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, string_to_array(submitters,'|'), string_to_array(flat_event_witnesses, '|'), string_to_array(tree_event_witnesses, '|'),
-           create_argument, create_argument_compression, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_key_value, create_key_value_compression, create_key_hash,
-           exercise_choice, exercise_argument, exercise_argument_compression, exercise_result, exercise_result_compression, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
+           create_argument, create_argument_compression::smallint, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_key_value, create_key_value_compression::smallint, create_key_hash,
+           exercise_choice, exercise_argument, exercise_argument_compression::smallint, exercise_result, exercise_result_compression::smallint, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
          from
            unnest(
              {$eventKinds}, {$eventIds}, {$eventOffsets}, {$contractIds}, {$transactionIds}, {$workflowIds}, {$ledgerEffectiveTimes}, {$templateIds}, {$nodeIndexes}, {$commandIds}, {$applicationIds}, {$submitters}, {$flatEventWitnesses}, {$treeEventWitnesses},
@@ -252,12 +266,12 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       exerciseResults: Array[Array[Byte]],
       exerciseActors: Array[String],
       exerciseChildEventIds: Array[String],
-      createArgumentsCompression: Array[Option[Int]],
-      createKeyValueCompression: Array[Option[Int]],
-      exerciseArgumentCompression: Array[Option[Int]],
-      exerciseResultCompression: Array[Option[Int]],
+      createArgumentsCompression: Array[java.lang.Integer],
+      createKeyValueCompression: Array[java.lang.Integer],
+      exerciseArgumentCompression: Array[java.lang.Integer],
+      exerciseResultCompression: Array[java.lang.Integer],
   ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.IntToSmallIntConversions._
+    import com.daml.platform.store.Conversions._
     anorm
       .SQL(insertStmt)
       .on(

@@ -202,23 +202,18 @@ private[platform] object Conversions {
     }
   }
 
-  object IntToSmallIntConversions {
-    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
-      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
-        val conn = s.getConnection
-        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
-        val ts = conn.createArrayOf("SMALLINT", intOrNullsArray.asInstanceOf[Array[AnyRef]])
-        s.setArray(index, ts)
-      }
-    }
-  }
-
   implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
 
   implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
 
   implicit object IntArrayToStatement extends ToStatement[Array[Int]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Int]): Unit = {
+      s.setObject(index, v)
+    }
+  }
+
+  implicit object JIntArrayToStatement extends ToStatement[Array[java.lang.Integer]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[java.lang.Integer]): Unit = {
       s.setObject(index, v)
     }
   }

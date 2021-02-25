@@ -13,7 +13,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
-  WriteSet
+  WriteSet,
 }
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
