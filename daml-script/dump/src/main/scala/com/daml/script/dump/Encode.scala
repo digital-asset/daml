@@ -8,6 +8,7 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
@@ -51,7 +52,8 @@ private[dump] object Encode {
         treeRefs(_)
       )
     val moduleRefs = refs.map(_.moduleName).toSet
-    Doc.text("module Dump where") /
+    Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
+      Doc.text("module Dump where") /
       Doc.text("import Daml.Script") /
       Doc.stack(moduleRefs.map(encodeImport(_))) /
       Doc.hardLine +
@@ -160,6 +162,9 @@ private[dump] object Encode {
   private def parens(v: Doc) =
     Doc.text("(") + v + Doc.text(")")
 
+  private def tuple(xs: Seq[Doc]) =
+    parens(Doc.intercalate(Doc.text(", "), xs))
+
   private def brackets(v: Doc) =
     Doc.text("[") + v + Doc.text("]")
 
@@ -256,13 +261,49 @@ private[dump] object Encode {
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
     val submitters = rootEvs.flatMap(evParties(_)).toSet
-    val cids = treeCreatedCids(tree)
-    val treeBind =
-      (Doc.text("tree <- submitTreeMulti ") + encodeParties(partyMap, submitters) + Doc.text(
-        " [] do"
-      ) / Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
-    val cidBinds = cids.filter(c => cidRefs.contains(c.cid)).map(bindCid(cidMap, _))
-    Doc.stack(treeBind +: cidBinds)
+    val isCreatesOnly = rootEvs
+      .map {
+        case Kind.Created(value) => Some(Seq(ContractId(value.contractId)))
+        case Kind.Exercised(_) => None
+        case Kind.Empty => None
+      }
+      .fold(Some(Seq.empty)) {
+        case (Some(l), Some(r)) => Some(l ++ r)
+        case _ => None
+      }
+    isCreatesOnly match {
+      case Some(cids) => {
+        val referencedCids = cids.filter(cid => cidRefs.contains(cid))
+        val encodedCids = referencedCids.map(cid => encodeCid(cidMap, cid))
+        val (bind, returnStmt) = referencedCids.length match {
+          case 0 => (Doc.empty, Doc.empty)
+          case 1 if referencedCids.last == cids.last => (encodedCids.last :+ " <- ", Doc.empty)
+          case 1 => (encodedCids.last :+ " <- ", "pure " +: encodedCids.last)
+          case _ => (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
+        }
+        val submit = "submitMulti " +: encodeParties(partyMap, submitters)
+        val actions = Doc.stack(cids.zip(rootEvs).map { case (cid, ev) =>
+          val bind = if (returnStmt.nonEmpty && referencedCids.contains(cid)) {
+            encodeCid(cidMap, cid) :+ " <- "
+          } else {
+            Doc.empty
+          }
+          bind + encodeEv(partyMap, cidMap, ev)
+        })
+        val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
+        ((bind + submit :+ " [] do") / body).hang(2)
+      }
+      case None => {
+        val cids = treeCreatedCids(tree)
+        val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
+        val treeBind =
+          (Doc.text("tree <- submitTreeMulti ") + encodeParties(partyMap, submitters) + Doc.text(
+            " [] do"
+          ) / Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
+        val cidBinds = referencedCids.map(bindCid(cidMap, _))
+        Doc.stack(treeBind +: cidBinds)
+      }
+    }
   }
 
   private def encodeSelector(selector: Selector): Doc = Doc.str(selector.i)
