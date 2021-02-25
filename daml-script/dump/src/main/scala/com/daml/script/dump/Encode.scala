@@ -216,7 +216,6 @@ private[dump] object Encode {
   ): Doc = ev match {
     case TreeEvent.Kind.Created(created) =>
       encodeCreatedEvent(partyMap, cidMap, created)
-      Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
     case TreeEvent.Kind.Exercised(exercised @ _) =>
       Doc.text("exerciseCmd ") + encodeCid(
         cidMap,
