@@ -143,3 +143,9 @@ run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
+
+# Note that we cannot use a symlink here because Windows.
+if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
+    echo ".bazelrc and  compatibility/.bazelrc are out of sync:"
+    diff -u .bazelrc compatibility/.bazelrc
+fi
