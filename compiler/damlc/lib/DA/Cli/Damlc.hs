@@ -182,6 +182,7 @@ cmdTest numProcessors =
     cmd = runTestsInProjectOrFiles
       <$> projectOpts "daml test"
       <*> filesOpt
+      <*> fmap RunAllTests runAllTests
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
@@ -192,17 +193,19 @@ cmdTest numProcessors =
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
+    runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
 
 runTestsInProjectOrFiles ::
        ProjectOpts
     -> Maybe [FilePath]
+    -> RunAllTests
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
     -> Options
     -> InitPkgDb
     -> Command
-runTestsInProjectOrFiles projectOpts Nothing coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
         initPackageDb cliOptions initPkgDb
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
@@ -211,12 +214,12 @@ runTestsInProjectOrFiles projectOpts Nothing coverage color mbJUnitOutput cliOpt
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files coverage color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles projectOpts (Just inFiles) coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+            execTest files allTests coverage color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles projectOpts (Just inFiles) allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         initPackageDb cliOptions initPkgDb
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' coverage color mbJUnitOutput cliOptions
+        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =

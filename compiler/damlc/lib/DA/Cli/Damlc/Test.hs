@@ -7,6 +7,7 @@ module DA.Cli.Damlc.Test (
     execTest
     , UseColor(..)
     , ShowCoverage(..)
+    , RunAllTests(..)
     ) where
 
 import Control.Monad.Except
@@ -23,6 +24,7 @@ import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import Data.Maybe
 import qualified Data.NameMap as NM
+import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -40,17 +42,19 @@ import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
 import qualified Text.XML.Light as XML
+import Safe
 
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
+newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 
 -- | Test a DAML file.
-execTest :: [NormalizedFilePath] -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> IO ()
-execTest inFiles coverage color mbJUnitOutput opts = do
+execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> IO ()
+execTest inFiles runAllTests coverage color mbJUnitOutput opts = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDamlLfVersion opts) coverage color mbJUnitOutput
+        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
@@ -59,11 +63,12 @@ testRun ::
        IdeState
     -> [NormalizedFilePath]
     -> LF.Version
+    -> RunAllTests
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
     -> IO ()
-testRun h inFiles lfVersion coverage color mbJUnitOutput  = do
+testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput  = do
     -- make sure none of the files disappear
     liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
@@ -72,25 +77,63 @@ testRun h inFiles lfVersion coverage color mbJUnitOutput  = do
     deps <- runActionSync h $ mapM getDependencies inFiles
     let files = nubOrd $ concat $ inFiles : catMaybes deps
 
+    -- get all external dependencies
+    extPkgs <- fmap (nubSortOn LF.extPackageId . concat) $ runActionSync h $
+      Shake.forP files $ \file -> getExternalPackages file
+    let extModules =
+                [ (Just pId, mod)
+                | pkg <- extPkgs
+                , let modules = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
+                , let pId = LF.extPackageId pkg
+                , mod <- modules
+                ]
+
+    let printResults res = liftIO $ printScenarioResults [(v, r) | (v, Right r) <- res] color
+
     results <- runActionSync h $ do
-        dalfs <- Shake.forP files dalfForScenario
         Shake.forP files $ \file -> do
+            mod <- moduleForScenario file
             mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
-            results <- case liftM2 (++) mbScenarioResults mbScriptResults of
-                Nothing -> failedTestOutput h file
-                Just scenarioResults -> do
-                    -- failures are printed out through diagnostics, so just print the sucesses
-                    let results' = [(v, r) | (v, Right r) <- scenarioResults]
-                    liftIO $ printScenarioResults results' color
-                    liftIO $ printTestCoverage coverage dalfs scenarioResults
-                    let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
-                    pure $ map (second f) scenarioResults
-            pure (file, results)
+            let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
+            forM_ mbResults printResults
+            return (file, mod, mbResults)
+
+    extResults <-
+        if runAllTests
+        then case headMay inFiles of
+                 Nothing -> pure [] -- nothing to test
+                 Just file ->
+                     runActionSync h $
+                     forM extPkgs $ \pkg -> do
+                         mbResults <- snd <$> runScenariosScriptsPkg file pkg extPkgs
+                         forM_ mbResults printResults
+                         return mbResults
+        else pure []
+
+    -- print total test coverage
+    printTestCoverage
+        coverage
+        extPkgs
+        ([(Nothing, mod) | (_file, mod, _result) <- results] ++
+         [extModule | runAllTests, extModule <- extModules]
+        )
+        (concat $
+         [result | (_file, _mod, Just result) <- results] ++ catMaybes extResults
+        )
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
-        writeFile junitOutput $ XML.showTopElement $ toJUnit results
+        res <- forM results $ \(file, _mod, resultM) -> do
+            case resultM of
+                Nothing -> fmap (file, ) $ runActionSync h $ failedTestOutput h file
+                Just scenarioResults -> do
+                    let render =
+                            either
+                                (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion)
+                                (const Nothing)
+                    pure (file, map (second render) scenarioResults)
+        writeFile junitOutput $ XML.showTopElement $ toJUnit res
 
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
@@ -103,11 +146,12 @@ failedTestOutput h file = do
 
 
 printTestCoverage ::
-       ShowCoverage
-    -> [LF.Module]
+    ShowCoverage
+    -> [LF.ExternalPackage]
+    -> [(Maybe LF.PackageId, LF.Module)]
     -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)]
     -> IO ()
-printTestCoverage ShowCoverage {getShowCoverage} dalfs results
+printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
   | any (\(_, errOrRes) -> isLeft errOrRes) results = pure ()
   | otherwise = do
       putStrLn $
@@ -124,8 +168,15 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
               ["choices never executed:"] <>
               [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
   where
-    templates = [(m, t) | m <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
-    choices = [(m, t, n) | (m, t) <- templates, n <- NM.names $ LF.tplChoices t]
+    pkgMap =
+        M.fromList
+            [ ( LF.unPackageId $ LF.extPackageId extPkg
+              , fmap LF.packageName $ LF.packageMetadata $ LF.extPackagePkg extPkg)
+            | extPkg <- extPkgs
+            ]
+    pkgIdToPkgName pId = maybe pId LF.unPackageName $ join $ M.lookup pId pkgMap
+    templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
+    choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"
@@ -140,7 +191,7 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just templateId <- [SS.contractInstanceTemplateId contractInstance]
         ]
     missingTemplates =
-        S.fromList [fullTemplateName m t | (m, t) <- templates] `S.difference`
+        S.fromList [fullTemplateName pidM m t | (pidM, m, t) <- templates] `S.difference`
         S.fromList
             [ fullTemplateNameProto tId
             | tId <- coveredTemplates
@@ -155,7 +206,7 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
         , Just templateId <- [node_ExerciseTemplateId]
         ]
     missingChoices =
-        S.fromList [(fullTemplateName m t, LF.unChoiceName n) | (m, t, n) <- choices] `S.difference`
+        S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.difference`
         S.fromList
             [ (fullTemplateNameProto t, TL.toStrict c)
             | (t, c) <- coveredChoices
@@ -164,9 +215,10 @@ printTestCoverage ShowCoverage {getShowCoverage} dalfs results
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
     coveredNrOfTemplates = length coveredTemplates
-    printFullTemplateName (pIdM, name) = T.unpack $ maybe name (\pId -> pId <> ":" <> name) pIdM
-    fullTemplateName m t =
-        ( Nothing
+    printFullTemplateName (pIdM, name) =
+        T.unpack $ maybe name (\pId -> pkgIdToPkgName pId <> ":" <> name) pIdM
+    fullTemplateName pidM m t =
+        ( fmap LF.unPackageId pidM
         , (LF.moduleNameString $ LF.moduleName m) <> ":" <>
           (T.concat $ LF.unTypeConName $ LF.tplTypeCon t))
     fullTemplateNameProto SS.Identifier {SS.identifierPackage, SS.identifierName} =
