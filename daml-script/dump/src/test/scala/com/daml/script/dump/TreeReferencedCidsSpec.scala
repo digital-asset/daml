@@ -3,8 +3,7 @@
 
 package com.daml.script.dump
 
-import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.{value => v}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,64 +12,25 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
   import TreeUtils._
   "treeReferencedCids" - {
     "empty" in {
-      treeReferencedCids(
-        TransactionTree(
-          transactionId = "txid",
-          commandId = "cmdid",
-          workflowId = "flowid",
-          effectiveAt = None,
-          offset = "",
-          eventsById = Map.empty,
-          rootEventIds = Seq.empty,
-          traceContext = None,
-        )
-      ) shouldBe Set.empty
+      val tree = TestData.Tree(Seq()).toTransactionTree
+      treeReferencedCids(tree) shouldBe Set.empty
     }
     "created only" in {
-      treeReferencedCids(
-        TransactionTree(
-          transactionId = "txid",
-          commandId = "cmdid",
-          workflowId = "flowid",
-          effectiveAt = None,
-          offset = "",
-          eventsById = Map(
-            "create" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  contractId = "cid",
-                )
-              )
-            )
-          ),
-          rootEventIds = Seq("create"),
-          traceContext = None,
-        )
-      ) shouldBe Set.empty
+      val tree = TestData.Tree(Seq(TestData.Created(ContractId("cid")))).toTransactionTree
+      treeReferencedCids(tree) shouldBe Set.empty
     }
     "exercised" in {
-      treeReferencedCids(
-        TransactionTree(
-          transactionId = "txid",
-          commandId = "cmdid",
-          workflowId = "flowid",
-          effectiveAt = None,
-          offset = "",
-          eventsById = Map(
-            "exercise" -> TreeEvent(
-              TreeEvent.Kind.Exercised(
-                ExercisedEvent(
-                  eventId = "exercise",
-                  contractId = "cid",
-                )
-              )
+      val tree = TestData
+        .Tree(
+          Seq(
+            TestData.Exercised(
+              ContractId("cid"),
+              Seq(),
             )
-          ),
-          rootEventIds = Seq("exercise"),
-          traceContext = None,
+          )
         )
-      ) shouldBe Set("cid")
+        .toTransactionTree
+      treeReferencedCids(tree) shouldBe Set("cid")
     }
     "referenced" in {
       val variant = v.Value(
@@ -117,46 +77,22 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
           )
         )
       )
-      treeReferencedCids(
-        TransactionTree(
-          transactionId = "txid",
-          commandId = "cmdid",
-          workflowId = "flowid",
-          effectiveAt = None,
-          offset = "",
-          eventsById = Map(
-            "create" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "exercise",
-                  createArguments = Some(
-                    v.Record(
-                      recordId = Some(v.Identifier("package", "Module", "record")),
-                      fields = Seq(
-                        v.RecordField(
-                          "contract_id",
-                          Some(v.Value(v.Value.Sum.ContractId("cid_create_arg"))),
-                        )
-                      ),
-                    )
-                  ),
-                )
-              )
+      val tree = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(
+              ContractId("cid_create"),
+              Seq(v.RecordField("contract_id", Some(v.Value().withContractId("cid_create_arg")))),
             ),
-            "exercise" -> TreeEvent(
-              TreeEvent.Kind.Exercised(
-                ExercisedEvent(
-                  eventId = "exercise",
-                  contractId = "cid_exercise",
-                  choiceArgument = Some(record),
-                )
-              )
+            TestData.Exercised(
+              ContractId("cid_exercise"),
+              Seq.empty[TestData.Event],
+              record,
             ),
-          ),
-          rootEventIds = Seq("create", "exercise"),
-          traceContext = None,
+          )
         )
-      ) shouldBe Set(
+        .toTransactionTree
+      treeReferencedCids(tree) shouldBe Set(
         "cid_create_arg",
         "cid_exercise",
         "cid_variant",
