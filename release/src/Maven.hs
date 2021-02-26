@@ -37,7 +37,7 @@ generateAggregatePom releaseDir artifacts = do
     where
     execution :: (MonadFail m, E.MonadThrow m) => Artifact PomData -> m Text
     execution artifact = do
-        (mainArtifactFile:pomFile:rest) <- snd . unzip <$> artifactFiles artifact
+        (mainArtifactFile:pomFile:rest) <- map snd <$> artifactFiles artifact
         let (javadocFile, sourcesFile) = case rest of
               [javadoc, sources] -> (Just javadoc, Just sources)
               _ -> (Nothing, Nothing)
