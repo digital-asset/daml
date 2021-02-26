@@ -1,6 +1,7 @@
 package com.daml.platform.store.completions
 
 import com.daml.ledger.ApplicationId
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -16,7 +17,7 @@ trait CompletionsDao {
       parties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[List[(Offset, CompletionStreamResponseWithParties)]]
+  ): Future[List[(Offset, CompletionStreamResponse)]]
 
   def getAllCompletions(
       startExclusive: Offset,

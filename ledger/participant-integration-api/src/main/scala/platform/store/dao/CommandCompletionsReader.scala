@@ -5,15 +5,14 @@ package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.lf.data.Ref
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
-import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 import com.daml.platform.store.dao.events.{QueryNonPruned, SqlFunctions}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,26 +60,26 @@ private[dao] final class CommandCompletionsReader(
       .mapConcat(_.map(response => offsetFor(response) -> response))
   }
 
-  def getAllCommandCompletions(
-                             startExclusive: Offset,
-                             endInclusive: Offset,
-                           )(implicit
-                             loggingContext: LoggingContext
-                           ): Future[List[(Offset, CompletionStreamResponseWithParties)]] = {
-    val query = CommandCompletionsTable.prepareGetForAllParties(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-    )
-        dispatcher
-          .executeSql(metrics.daml.index.db.getCompletions) { implicit connection => // TODO incorrect metric?
-            QueryNonPruned.executeSql[List[CompletionStreamResponse]](
-              query.as(CommandCompletionsTable.parser.*), // TODO fix parser
-              startExclusive,
-              pruned =>
-                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
-            )
-          }
-          .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
-  }
+//  def getAllCommandCompletions(
+//                             startExclusive: Offset,
+//                             endInclusive: Offset,
+//                           )(implicit
+//                             loggingContext: LoggingContext
+//                           ): Future[List[(Offset, CompletionStreamResponseWithParties)]] = {
+//    val query = CommandCompletionsTable.prepareGetForAllParties(
+//      startExclusive = startExclusive,
+//      endInclusive = endInclusive,
+//    )
+//        dispatcher
+//          .executeSql(metrics.daml.index.db.getCompletions) { implicit connection => // TODO incorrect metric?
+//            QueryNonPruned.executeSql[List[CompletionStreamResponse]](
+//              query.as(CommandCompletionsTable.parser.*), // TODO fix parser
+//              startExclusive,
+//              pruned =>
+//                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
+//            )
+//          }
+//          .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
+//  }
 
 }
