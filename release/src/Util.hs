@@ -82,7 +82,8 @@ data JarType
     | Scala
       -- ^ A scala library jar, with source and scaladoc jars.
     | JarJar
-      -- ^ A scala library jar, with source and scaladoc jars.
+      -- ^ A shaded jar built with jarjar. This is similar to a deploy jar
+      -- but the names of the targets are slightly different.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
