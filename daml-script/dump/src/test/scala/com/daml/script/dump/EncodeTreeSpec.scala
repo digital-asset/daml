@@ -31,6 +31,31 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
       )
     )
   }
+  private def mkExercised(i: Int, cid: ContractId, result: Value, childEventIds: Seq[String]) = {
+    s"exercise$i" -> TreeEvent(
+      TreeEvent.Kind.Exercised(
+        ExercisedEvent(
+          eventId = s"exercise$i",
+          templateId = Some(Identifier("package", "Module", "Template")),
+          contractId = ContractId.unwrap(cid),
+          actingParties = Seq("Alice"),
+          choice = "Choice",
+          choiceArgument = Some(
+            Value()
+              .withVariant(
+                Variant(
+                  Some(Identifier("package", "Module", "Choice")),
+                  "Choice",
+                  Some(Value().withUnit(protobuf.empty.Empty())),
+                )
+              )
+          ),
+          childEventIds = childEventIds,
+          exerciseResult = Some(result),
+        )
+      )
+    )
+  }
 
   "encodeTree" - {
     "contract id bindings" - {
@@ -96,31 +121,9 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           offset = "",
           eventsById = Map(
             mkCreated(1),
-            "exercise" -> TreeEvent(
-              TreeEvent.Kind.Exercised(
-                ExercisedEvent(
-                  eventId = "exercise",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid0",
-                  actingParties = Seq("Alice"),
-                  choice = "Choice",
-                  choiceArgument = Some(
-                    Value()
-                      .withVariant(
-                        Variant(
-                          Some(Identifier("package", "Module", "Choice")),
-                          "Choice",
-                          Some(Value().withUnit(protobuf.empty.Empty())),
-                        )
-                      )
-                  ),
-                  childEventIds = Seq("create1"),
-                  exerciseResult = Some(Value().withContractId("cid2")),
-                )
-              )
-            ),
+            mkExercised(2, ContractId("cid0"), Value().withContractId("cid2"), Seq("create1")),
           ),
-          rootEventIds = Seq("exercise"),
+          rootEventIds = Seq("exercise2"),
           traceContext = None,
         )
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
@@ -196,31 +199,14 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           eventsById = Map(
             mkCreated(1),
             mkCreated(2),
-            "exercise" -> TreeEvent(
-              TreeEvent.Kind.Exercised(
-                ExercisedEvent(
-                  eventId = "exercise",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid0",
-                  actingParties = Seq("Alice"),
-                  choice = "Choice",
-                  choiceArgument = Some(
-                    Value()
-                      .withVariant(
-                        Variant(
-                          Some(Identifier("package", "Module", "Choice")),
-                          "Choice",
-                          Some(Value().withUnit(protobuf.empty.Empty())),
-                        )
-                      )
-                  ),
-                  childEventIds = Seq("create1", "create2"),
-                  exerciseResult = Some(Value().withContractId("cid2")),
-                )
-              )
+            mkExercised(
+              3,
+              ContractId("cid0"),
+              Value().withContractId("cid2"),
+              Seq("create1", "create2"),
             ),
           ),
-          rootEventIds = Seq("exercise"),
+          rootEventIds = Seq("exercise3"),
           traceContext = None,
         )
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
