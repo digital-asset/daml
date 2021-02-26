@@ -17,7 +17,6 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import Data.Either
@@ -43,6 +42,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
 import qualified Text.XML.Light as XML
+import Safe
 
 
 newtype UseColor = UseColor {getUseColor :: Bool}
@@ -103,17 +103,12 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     extResults <- runActionSync h $ do
         if runAllTests
         then do
-            projPathM <- liftIO getProjectPath
-            case projPathM of
-                Nothing -> do
-                    liftIO $
-                        putStrLn "Warning: Project root not found, not testing package dependencies"
-                    pure []
-                Just projPath' ->
+            case headMay inFiles of
+                Nothing -> pure [] -- nothing to test
+                Just file ->
                     forM extPkgs $ \pkg -> do
-                        let projDir = toNormalizedFilePath' projPath'
-                        mbScenarioResults <- snd <$> runScenariosPkg projDir pkg extPkgs
-                        mbScriptResults <- snd <$> runScriptsPkg projDir pkg extPkgs
+                        mbScenarioResults <- snd <$> runScenariosPkg file pkg extPkgs
+                        mbScriptResults <- snd <$> runScriptsPkg file pkg extPkgs
                         let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
                         forM_ mbResults $ \scenarioResults -> do
                             let results' = [(v, r) | (v, Right r) <- scenarioResults]

@@ -219,6 +219,69 @@ testsForDamlcTest damlc = testGroup "damlc test" $
                      , "Foo:T:Archive\n"
                      ] `isSuffixOf`
                  stdout)
+    , testCase ("Full test coverage report with --all set") $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "a")
+          writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
+            [ "module A where"
+            , "template U with p : Party where"
+            , "  signatory p"
+            , "  choice Y : () with controller p"
+            , "    do pure ()"
+            , "testA = scenario do"
+            , "  alice <- getParty \"Alice\""
+            , "  c <- submit alice $ create U with p = alice"
+            , "  submit alice $ exercise c Y with"
+            ]
+          callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
+          createDirectoryIfMissing True (projDir </> "b")
+          writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
+            ]
+          let bFilePath = projDir </> "b" </> "B.daml"
+          writeFileUTF8 bFilePath $ unlines
+            [ "module B where"
+            , "import A"
+            , "type C = ContractId U"
+            , "template S with p : Party where"
+            , "  signatory p"
+            , "template T with p : Party where"
+            , "  signatory p"
+            , "  choice X : () with controller p"
+            , "    do pure ()"
+            , "x = scenario do"
+            , "      alice <- getParty \"Alice\""
+            , "      c <- submit alice $ create T with p = alice"
+            , "      submit alice $ exercise c X with"
+            ]
+          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc
+            ["test" , "--show-coverage" , "--all" , "--project-root" , (projDir </> "b"), "--files", bFilePath]
+            ""
+          stderr @?= ""
+          assertBool ("Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "B.daml:x: ok, 0 active contracts, 2 transactions."
+                 , "a:testA: ok, 0 active contracts, 2 transactions."
+                 , "test coverage: templates 67%, choices 40%"
+                 , "templates never created:"
+                 , "B:S"
+                 , "choices never executed:"
+                 , "B:S:Archive"
+                 , "B:T:Archive"
+                 , "a:A:U:Archive\n"
+                 ] `isSuffixOf`
+             stdout)
+          exitCode @?= ExitSuccess
     , testCase "File with failing scenario" $ do
         withTempDir $ \dir -> do
             let file = dir </> "Foo.daml"
