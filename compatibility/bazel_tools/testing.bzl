@@ -375,15 +375,20 @@ def create_daml_app_test(
 
 # FIXME
 #
-# From version 1.11.0-snapshot.20210217.6338.1 of the SDK, the Ledger API
-# Test Tool uses Daml-LF 1.11, which requires platform versions starting from
-# 1.10.0.
+# From version 1.11.0-snapshot.20210217.6338.0.ba6ba901 of the SDK components default to
+# Daml-LF 1.11, which requires platform versions starting from 1.10.0.
 #
-# This predicate is used to filter Ledger API Test Tool tests in the
-# sdk_platform_test macro as a temporary measure to prevent spurious errors on CI.
+# This predicate can be used to filter sdk_platform_test rules as a temporary
+# measure to prevent spurious errors on CI.
+#
 # The proper fix is to use the appropriate version of Daml-LF for every SDK/platform pair.
-def ledger_api_test_tool_compatible(sdk_version, platform_version):
-    return in_range(sdk_version, {"end": "1.11.0-snapshot.20210217.6338.1"}) or (in_range(sdk_version, {"start": "1.11.0-snapshot.20210217.6338.1"}) and in_range(platform_version, {"start": "1.10.0"}))
+
+switch_to_lf_1_11_inclusive = "1.11.0-snapshot.20210217.6338.0.ba6ba901"
+
+switch_to_lf_1_11_exclusive = "1.11.0-snapshot.20210217.6338.1"
+
+def daml_lf_compatible(sdk_version, platform_version):
+    return in_range(sdk_version, {"end": switch_to_lf_1_11_inclusive}) or (in_range(sdk_version, {"start": switch_to_lf_1_11_exclusive}) and in_range(platform_version, {"start": "1.10.0"}))
 
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components
@@ -439,7 +444,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-    ) if ledger_api_test_tool_compatible(sdk_version, platform_version) else None
+    )
 
     client_server_test(
         name = name + "-classic",
@@ -457,7 +462,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-    ) if ledger_api_test_tool_compatible(sdk_version, platform_version) else None
+    )
 
     client_server_test(
         name = name + "-postgresql",
@@ -474,7 +479,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows and ledger_api_test_tool_compatible(sdk_version, platform_version) else None
+    ) if not is_windows else None
 
     client_server_test(
         name = name + "-classic-postgresql",
@@ -493,7 +498,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows and ledger_api_test_tool_compatible(sdk_version, platform_version) else None
+    ) if not is_windows else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
