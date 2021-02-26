@@ -288,12 +288,10 @@ private[dump] object Encode {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
     val createsOnly = {
       import scalaz.Scalaz._
-      rootEvs.toList
-        .map {
-          case Kind.Created(value) => Some(value)
-          case _ => None
-        }
-        .sequence[Option, CreatedEvent]
+      rootEvs.toList.traverse {
+        case Kind.Created(value) => Some(value)
+        case _ => None
+      }
     }
     createsOnly match {
       case Some(evs) =>
