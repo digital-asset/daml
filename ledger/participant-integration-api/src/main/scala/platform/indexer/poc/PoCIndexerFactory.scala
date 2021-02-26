@@ -12,7 +12,7 @@ import com.daml.platform.indexer.poc.AsyncSupport._
 import com.daml.platform.indexer.poc.PerfSupport._
 import com.daml.platform.indexer.poc.StaticMetrics._
 import com.daml.platform.indexer.{Indexer, SubscriptionIndexFeedHandle}
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -24,6 +24,7 @@ object PoCIndexerFactory {
       jdbcUrl: String,
       participantId: ParticipantId,
       translation: LfValueTranslation,
+      compressionStrategy: CompressionStrategy,
       mat: Materializer,
       inputMappingParallelism: Int,
       ingestionParallelism: Int,
@@ -52,6 +53,7 @@ object PoCIndexerFactory {
                     UpdateToDBDTOV1(
                       participantId = participantId,
                       translation = translation,
+                      compressionStrategy = compressionStrategy,
                     )
                   )(input)
                   batchCounter.add(input.size.toLong)

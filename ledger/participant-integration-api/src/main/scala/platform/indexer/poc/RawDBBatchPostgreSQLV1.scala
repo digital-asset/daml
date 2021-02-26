@@ -52,6 +52,10 @@ class EventsBatch(
     val exercise_actors: Array[String], // '|' separated list
     val exercise_child_event_ids: Array[String], // '|' separated list
     val event_sequential_id: Array[Long],
+    val create_argument_compression: Array[java.lang.Integer],
+    val create_key_value_compression: Array[java.lang.Integer],
+    val exercise_argument_compression: Array[java.lang.Integer],
+    val exercise_result_compression: Array[java.lang.Integer],
 )
 
 class ConfigurationEntriesBatch(
@@ -149,6 +153,14 @@ object RawDBBatchPostgreSQLV1 {
       exercise_child_event_ids: mutable.ArrayBuilder[String] =
         mutable.ArrayBuilder.make(), // '|' separated list
       event_sequential_id: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make(),
+      create_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make(),
+      create_key_value_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make(),
+      exercise_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make(),
+      exercise_result_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make(),
   )
 
   case class ConfigurationEntriesBatchBuilder(
@@ -260,6 +272,18 @@ object RawDBBatchPostgreSQLV1 {
             .map(encodeTextArray)
             .orNull
           eventsBatchBuilder.event_sequential_id += 0 // this will be filled at later stage in processing
+          eventsBatchBuilder.create_argument_compression += e.create_argument_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
+          eventsBatchBuilder.create_key_value_compression += e.create_key_value_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
+          eventsBatchBuilder.exercise_argument_compression += e.exercise_argument_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
+          eventsBatchBuilder.exercise_result_compression += e.exercise_result_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
 
         case e: ConfigurationEntry =>
           if (configurationEntriesBatchBuilder == null)
@@ -361,6 +385,10 @@ object RawDBBatchPostgreSQLV1 {
           exercise_actors = b.exercise_actors.result,
           exercise_child_event_ids = b.exercise_child_event_ids.result,
           event_sequential_id = b.event_sequential_id.result, // will be populated later
+          create_argument_compression = b.create_argument_compression.result,
+          create_key_value_compression = b.create_key_value_compression.result,
+          exercise_argument_compression = b.exercise_argument_compression.result,
+          exercise_result_compression = b.exercise_result_compression.result,
         )
       ),
       configurationEntriesBatch = Option(configurationEntriesBatchBuilder).map(b =>

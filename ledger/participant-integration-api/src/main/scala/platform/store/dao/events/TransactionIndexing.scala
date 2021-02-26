@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.platform.store.serialization.Compression
 
 final case class TransactionIndexing(
     transaction: TransactionIndexing.TransactionInfo,
@@ -83,7 +82,6 @@ object TransactionIndexing {
   def compress(
       serialized: Serialized,
       compressionStrategy: CompressionStrategy,
-      compressionMetrics: CompressionMetrics,
   ): Compressed = {
 
     val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
@@ -96,20 +94,20 @@ object TransactionIndexing {
     for ((contractId, argument) <- serialized.divulgedContracts) {
       val compressedArgument =
         compressionStrategy.createArgumentCompression
-          .compress(argument, compressionMetrics.createArgument)
+          .compress(argument)
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
     for ((nodeId, contractId, argument) <- serialized.createArguments) {
       val compressedArgument = compressionStrategy.createArgumentCompression
-        .compress(argument, compressionMetrics.createArgument)
+        .compress(argument)
       createArguments += ((nodeId, compressedArgument))
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
     for ((nodeId, key) <- serialized.createKeyValues) {
       val compressedKey = compressionStrategy.createKeyValueCompression
-        .compress(key, compressionMetrics.createKeyValue)
+        .compress(key)
       createKeyValues += ((nodeId, compressedKey))
     }
 
@@ -119,13 +117,13 @@ object TransactionIndexing {
 
     for ((nodeId, argument) <- serialized.exerciseArguments) {
       val compressedArgument = compressionStrategy.exerciseArgumentCompression
-        .compress(argument, compressionMetrics.exerciseArgument)
+        .compress(argument)
       exerciseArguments += ((nodeId, compressedArgument))
     }
 
     for ((nodeId, result) <- serialized.exerciseResults) {
       val compressedResult = compressionStrategy.exerciseResultCompression
-        .compress(result, compressionMetrics.exerciseResult)
+        .compress(result)
       exerciseResults += ((nodeId, compressedResult))
     }
 
@@ -260,19 +258,19 @@ object TransactionIndexing {
 
     final case class Contracts(
         createArguments: Map[ContractId, Array[Byte]],
-        createArgumentsCompression: Compression.Algorithm,
+        createArgumentsCompression: FieldCompressionStrategy,
     )
 
     final case class Events(
         createArguments: Map[NodeId, Array[Byte]],
-        createArgumentsCompression: Compression.Algorithm,
+        createArgumentsCompression: FieldCompressionStrategy,
         createKeyValues: Map[NodeId, Array[Byte]],
-        createKeyValueCompression: Compression.Algorithm,
+        createKeyValueCompression: FieldCompressionStrategy,
         createKeyHashes: Map[NodeId, Array[Byte]],
         exerciseArguments: Map[NodeId, Array[Byte]],
-        exerciseArgumentsCompression: Compression.Algorithm,
+        exerciseArgumentsCompression: FieldCompressionStrategy,
         exerciseResults: Map[NodeId, Array[Byte]],
-        exerciseResultsCompression: Compression.Algorithm,
+        exerciseResultsCompression: FieldCompressionStrategy,
     ) {
       def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
         assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")

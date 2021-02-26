@@ -18,6 +18,7 @@ object UpdateToDBDTOV1 {
   def apply(
       participantId: ParticipantId,
       translation: LfValueTranslation,
+      compressionStrategy: CompressionStrategy,
   ): Offset => Update => Iterator[DBDTOV1] = { offset =>
     {
       case u: Update.CommandRejected =>
@@ -164,11 +165,13 @@ object UpdateToDBDTOV1 {
               flat_event_witnesses = create.stakeholders.map(_.toString),
               tree_event_witnesses =
                 blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-              create_argument = Some(createArgument),
+              create_argument = Some(createArgument)
+                .map(compressionStrategy.createArgumentCompression.compress),
               create_signatories = Some(create.signatories.map(_.toString)),
               create_observers = Some(create.stakeholders.diff(create.signatories).map(_.toString)),
               create_agreement_text = Some(create.coinst.agreementText).filter(_.nonEmpty),
-              create_key_value = createKeyValue,
+              create_key_value = createKeyValue
+                .map(compressionStrategy.createKeyValueCompression.compress),
               create_key_hash = create.key
                 .map(convertLfValueKey(create.templateId, _))
                 .map(_.hash.bytes.toByteArray),
@@ -177,6 +180,13 @@ object UpdateToDBDTOV1 {
               exercise_result = None,
               exercise_actors = None,
               exercise_child_event_ids = None,
+              create_argument_compression = compressionStrategy.createArgumentCompression.id,
+              create_key_value_compression =
+                compressionStrategy.createKeyValueCompression.id.filter(_ =>
+                  createKeyValue.isDefined
+                ),
+              exercise_argument_compression = None,
+              exercise_result_compression = None,
             )
 
           case (nodeId, exercise: Exercise) =>
@@ -206,14 +216,20 @@ object UpdateToDBDTOV1 {
               create_key_value = None,
               create_key_hash = None,
               exercise_choice = Some(exercise.choiceId),
-              exercise_argument = Some(exerciseArgument),
-              exercise_result = exerciseResult,
+              exercise_argument = Some(exerciseArgument)
+                .map(compressionStrategy.exerciseArgumentCompression.compress),
+              exercise_result = exerciseResult
+                .map(compressionStrategy.exerciseResultCompression.compress),
               exercise_actors = Some(exercise.actingParties.map(_.toString)),
               exercise_child_event_ids = Some(
                 exercise.children.iterator
                   .map(EventId(u.transactionId, _).toLedgerString.toString)
                   .toSet
               ),
+              create_argument_compression = None,
+              create_key_value_compression = None,
+              exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
+              exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
             )
 
           case (nodeId, _) => throw new UnexpectedNodeException(nodeId, u.transactionId)
@@ -239,7 +255,10 @@ object UpdateToDBDTOV1 {
             template_id = contractInst.map(_.template.toString),
             flat_event_witnesses = Set.empty,
             tree_event_witnesses = visibleToParties.map(_.toString),
-            create_argument = contractInst.map(_.arg).map(translation.serialize(contractId, _)),
+            create_argument = contractInst
+              .map(_.arg)
+              .map(translation.serialize(contractId, _))
+              .map(compressionStrategy.createArgumentCompression.compress),
             create_signatories = None,
             create_observers = None,
             create_agreement_text = None,
@@ -250,6 +269,10 @@ object UpdateToDBDTOV1 {
             exercise_result = None,
             exercise_actors = None,
             exercise_child_event_ids = None,
+            create_argument_compression = compressionStrategy.createArgumentCompression.id,
+            create_key_value_compression = None,
+            exercise_argument_compression = None,
+            exercise_result_compression = None,
           )
         }
 

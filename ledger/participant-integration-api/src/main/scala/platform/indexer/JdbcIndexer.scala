@@ -20,7 +20,7 @@ import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.poc.PoCIndexerFactory
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations}
 
@@ -110,6 +110,7 @@ object JdbcIndexer {
                 enricherO = None,
                 loadPackage = (_, _) => Future.successful(None),
               ),
+              compressionStrategy = CompressionStrategy.allGZIP(metrics),
               mat = materializer,
               inputMappingParallelism = config.inputMappingParallelism,
               ingestionParallelism = config.ingestionParallelism,

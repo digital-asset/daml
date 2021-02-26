@@ -38,7 +38,6 @@ private[platform] final class TransactionsWriter(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     compressionStrategy: CompressionStrategy,
-    compressionMetrics: CompressionMetrics,
     idempotentEventInsertions: Boolean = false,
 ) {
 
@@ -89,7 +88,6 @@ private[platform] final class TransactionsWriter(
         TransactionIndexing.compress(
           serialized,
           compressionStrategy,
-          compressionMetrics,
         ),
       )
 

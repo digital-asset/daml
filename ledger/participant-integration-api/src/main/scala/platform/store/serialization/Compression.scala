@@ -3,32 +3,12 @@
 
 package com.daml.platform.store.serialization
 
-import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
+import java.io.{InputStream, OutputStream}
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
-
-import com.daml.platform.store.dao.events.CompressionMetrics
 
 private[platform] object Compression {
 
   sealed abstract class Algorithm(val id: Option[Int]) {
-    final def compress(
-        uncompressed: Array[Byte],
-        metrics: CompressionMetrics.Field,
-    ): Array[Byte] = {
-      val output = new ByteArrayOutputStream(uncompressed.length)
-      val gzip = compress(output)
-      try {
-        gzip.write(uncompressed)
-      } finally {
-        gzip.close()
-      }
-      val compressed = output.toByteArray
-      output.close()
-      metrics.compressed.update(compressed.length)
-      metrics.uncompressed.update(uncompressed.length)
-      compressed
-    }
-
     def compress(stream: OutputStream): OutputStream
 
     def decompress(stream: InputStream): InputStream
