@@ -80,54 +80,51 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     -- get all external dependencies
     extPkgs <- fmap (nubSortOn LF.extPackageId . concat) $ runActionSync h $
       Shake.forP files $ \file -> getExternalPackages file
-    let extDalfs =
-                [ (Just pId, dalf)
+    let extModules =
+                [ (Just pId, mod)
                 | pkg <- extPkgs
-                , let dalfs = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
+                , let modules = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
                 , let pId = LF.extPackageId pkg
-                , dalf <- dalfs
+                , mod <- modules
                 ]
+
+    let printResults res = liftIO $ printScenarioResults [(v, r) | (v, Right r) <- res] color
 
     results <- runActionSync h $ do
         Shake.forP files $ \file -> do
-            dalf <- dalfForScenario file
+            mod <- moduleForScenario file
             mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
             let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
-            forM_ mbResults $ \scenarioResults -> do
-                  -- failures are printed out through diagnostics, so just print the successes
-                  let results' = [(v, r) | (v, Right r) <- scenarioResults]
-                  liftIO $ printScenarioResults results' color
-            return (file, dalf, mbResults)
+            forM_ mbResults printResults
+            return (file, mod, mbResults)
 
-    extResults <- runActionSync h $ do
+    extResults <-
         if runAllTests
-        then do
-            case headMay inFiles of
-                Nothing -> pure [] -- nothing to test
-                Just file ->
-                    forM extPkgs $ \pkg -> do
-                        mbScenarioResults <- snd <$> runScenariosPkg file pkg extPkgs
-                        mbScriptResults <- snd <$> runScriptsPkg file pkg extPkgs
-                        let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
-                        forM_ mbResults $ \scenarioResults -> do
-                            let results' = [(v, r) | (v, Right r) <- scenarioResults]
-                            liftIO $ printScenarioResults results' color
-                        return mbResults
+        then case headMay inFiles of
+                 Nothing -> pure [] -- nothing to test
+                 Just file ->
+                     runActionSync h $
+                     forM extPkgs $ \pkg -> do
+                         mbResults <- snd <$> runScenariosScriptsPkg file pkg extPkgs
+                         forM_ mbResults printResults
+                         return mbResults
         else pure []
 
     -- print total test coverage
     printTestCoverage
         coverage
         extPkgs
-        ([(Nothing, dalf) | (_file, dalf, _result) <- results] ++
-         [extDalf | runAllTests, extDalf <- extDalfs])
+        ([(Nothing, mod) | (_file, mod, _result) <- results] ++
+         [extModule | runAllTests, extModule <- extModules]
+        )
         (concat $
-         [result | (_file, _dalf, Just result) <- results] ++ catMaybes extResults)
+         [result | (_file, _mod, Just result) <- results] ++ catMaybes extResults
+        )
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
-        res <- forM results $ \(file, _dalf, resultM) -> do
+        res <- forM results $ \(file, _mod, resultM) -> do
             case resultM of
                 Nothing -> fmap (file, ) $ runActionSync h $ failedTestOutput h file
                 Just scenarioResults -> do
@@ -154,7 +151,7 @@ printTestCoverage ::
     -> [(Maybe LF.PackageId, LF.Module)]
     -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)]
     -> IO ()
-printTestCoverage ShowCoverage {getShowCoverage} extPkgs dalfs results
+printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
   | any (\(_, errOrRes) -> isLeft errOrRes) results = pure ()
   | otherwise = do
       putStrLn $
@@ -178,7 +175,7 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs dalfs results
             | extPkg <- extPkgs
             ]
     pkgIdToPkgName pId = maybe pId LF.unPackageName $ join $ M.lookup pId pkgMap
-    templates = [(pidM, m, t) | (pidM, m) <- dalfs , t <- NM.toList $ LF.moduleTemplates m]
+    templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
     choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"

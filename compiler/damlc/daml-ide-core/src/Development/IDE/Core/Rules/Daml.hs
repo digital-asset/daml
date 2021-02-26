@@ -788,8 +788,8 @@ createScenarioContextRule =
 -- for generating modules that are sent to the scenario service.
 -- It switches between GenerateRawDalf and GenerateDalf depending
 -- on whether we only do light or full validation.
-dalfForScenario :: NormalizedFilePath -> Action LF.Module
-dalfForScenario file = do
+moduleForScenario :: NormalizedFilePath -> Action LF.Module
+moduleForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
     if getSkipScenarioValidation envSkipScenarioValidation then
         use_ GenerateRawDalf file
@@ -799,69 +799,47 @@ dalfForScenario file = do
 runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
-      m <- dalfForScenario file
+      m <- moduleForScenario file
       world <- worldForFile file
       let scenarios = map fst $ scenariosInModule m
-          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
-          toDiagnostic scenario (Left err) =
-              Just $ (file, ShowDiag,) $ Diagnostic
-              { _range = maybe noRange sourceLocToRange mbLoc
-              , _severity = Just DsError
-              , _source = Just "Scenario"
-              , _message = Pretty.renderPlain $ formatScenarioError world err
-              , _code = Nothing
-              , _tags = Nothing
-              , _relatedInformation = Nothing
-              }
-            where scenarioName = LF.qualObject scenario
-                  mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
-          toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
               (vr, res) <- runScenario scenarioService file ctxId scenario
-              pure (toDiagnostic scenario res, (vr, res))
+              let scenarioName = LF.qualObject scenario
+              let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
+              let range = maybe noRange sourceLocToRange mbLoc
+              pure (toDiagnostic file world range res , (vr, res))
       let (diags, results) = unzip scenarioResults
       pure (catMaybes diags, Just results)
 
 runScriptsRule :: Options -> Rules ()
 runScriptsRule opts =
     define $ \RunScripts file -> do
-      m <- dalfForScenario file
+      m <- moduleForScenario file
       world <- worldForFile file
       let scenarios = map fst $ scriptsInModule (optEnableScripts opts) m
-          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
-          toDiagnostic scenario (Left err) =
-              Just $ (file, ShowDiag,) $ Diagnostic
-              { _range = maybe noRange sourceLocToRange mbLoc
-              , _severity = Just DsError
-              , _source = Just "Script"
-              , _message = Pretty.renderPlain $ formatScenarioError world err
-              , _code = Nothing
-              , _tags = Nothing
-              , _relatedInformation = Nothing
-              }
-            where scenarioName = LF.qualObject scenario
-                  mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
-          toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
               (vr, res) <- runScript scenarioService file ctxId scenario
-              pure (toDiagnostic scenario res, (vr, res))
+              let scenarioName = LF.qualObject scenario
+              let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
+              let range = maybe noRange sourceLocToRange mbLoc
+              pure (toDiagnostic file world range res, (vr, res))
       let (diags, results) = unzip scenarioResults
       pure (catMaybes diags, Just results)
 
-runScriptsPkg ::
+runScenariosScriptsPkg ::
        NormalizedFilePath
     -> LF.ExternalPackage
     -> [LF.ExternalPackage]
     -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
-runScriptsPkg projRoot extPkg pkgs = do
+runScenariosScriptsPkg projRoot extPkg pkgs = do
     Just scenarioService <- envScenarioService <$> getDamlServiceEnv
     ctx <- contextForPackage projRoot pkg
     ctxIdOrErr <- liftIO $ SS.getNewCtx scenarioService ctx
@@ -873,70 +851,21 @@ runScriptsPkg projRoot extPkg pkgs = do
             ctxIdOrErr
     scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
-    scenarioResults <-
-        liftIO $
-        forM scenarios $ \scenario -> do
-            (vr, res) <-
-                runScript
-                    scenarioService
-                    pkgName'
-                    ctxId
-                    scenario
-            pure (toDiagnostic res, (vr, res))
-    let (diags, results) = unzip scenarioResults
-    pure (catMaybes diags, Just results)
-  where
-    pkg = LF.extPackagePkg extPkg
-    pkgId = LF.extPackageId extPkg
-    pkgName' =
-        toNormalizedFilePath' $
-        T.unpack $
-        maybe (LF.unPackageId pkgId) (LF.unPackageName . LF.packageName) $ LF.packageMetadata pkg
-    world = LF.initWorldSelf pkgs pkg
-    scenarios =
-        map fst $
-        concat
-            [ scriptsInModule (EnableScripts True) mod
-            | mod <- NM.elems $ LF.packageModules pkg
-            , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
-            ]
-    toDiagnostic :: Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
-    toDiagnostic (Left err) =
-        Just $
-        (pkgName', ShowDiag, ) $
-        Diagnostic
-            { _range = noRange
-            , _severity = Just DsError
-            , _source = Just "Script"
-            , _message = Pretty.renderPlain $ formatScenarioError world err
-            , _code = Nothing
-            , _tags = Nothing
-            , _relatedInformation = Nothing
-            }
-    toDiagnostic (Right _) = Nothing
-
-runScenariosPkg ::
-       NormalizedFilePath
-    -> LF.ExternalPackage
-    -> [LF.ExternalPackage]
-    -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
-runScenariosPkg projRoot extPkg pkgs = do
-    Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-    ctx <- contextForPackage projRoot pkg
-    ctxIdOrErr <- liftIO $ SS.getNewCtx scenarioService ctx
-    ctxId <-
-        liftIO $ either
-            (throwIO . ScenarioBackendException "Failed to create scenario context")
-            pure
-            ctxIdOrErr
-    scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-    liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
-    scenarioResults <-
-        liftIO $
-        forM scenarios $ \scenario -> do
-            (vr, res) <- runScenario scenarioService pkgName' ctxId scenario
-            pure (toDiagnostic res, (vr, res))
-    let (diags, results) = unzip scenarioResults
+    rs <-
+        liftIO $ do
+          scenarioResults <- forM scenarios $ \scenario ->
+              runScenario scenarioService pkgName' ctxId scenario
+          scriptResults <- forM scripts $ \script ->
+                  runScript
+                      scenarioService
+                      pkgName'
+                      ctxId
+                      script
+          pure $
+              [ (toDiagnostic pkgName' world noRange res, (vr, res))
+              | (vr, res) <- scenarioResults ++ scriptResults
+              ]
+    let (diags, results) = unzip rs
     pure (catMaybes diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
@@ -951,23 +880,34 @@ runScenariosPkg projRoot extPkg pkgs = do
         concat
             [ scenariosInModule mod
             | mod <- NM.elems $ LF.packageModules pkg
+            ]
+    scripts =
+        map fst $
+        concat
+            [ scriptsInModule (EnableScripts True) mod
+            | mod <- NM.elems $ LF.packageModules pkg
             , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
             ]
-    toDiagnostic :: Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
-    toDiagnostic (Left err) =
-        Just $
-        (pkgName', ShowDiag, ) $
-        Diagnostic
-            { _range = noRange
-            , _severity = Just DsError
-            , _source = Just "Script"
-            , _message = Pretty.renderPlain $ formatScenarioError world err
-            , _code = Nothing
-            , _tags = Nothing
-            , _relatedInformation = Nothing
-            }
-    toDiagnostic (Right _) = Nothing
 
+toDiagnostic ::
+       NormalizedFilePath
+    -> LF.World
+    -> Range
+    -> Either SS.Error SS.ScenarioResult
+    -> Maybe FileDiagnostic
+toDiagnostic file world range (Left err) =
+    Just $
+    (file, ShowDiag, ) $
+    Diagnostic
+        { _range = range
+        , _severity = Just DsError
+        , _source = Just "Script"
+        , _message = Pretty.renderPlain $ formatScenarioError world err
+        , _code = Nothing
+        , _tags = Nothing
+        , _relatedInformation = Nothing
+        }
+toDiagnostic _file _world _range (Right _) = Nothing
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
@@ -1218,7 +1158,7 @@ encodeModuleRule options =
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) fs
         encodedDeps <- uses_ EncodeModule files
-        m <- dalfForScenario file
+        m <- moduleForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
