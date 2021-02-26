@@ -253,9 +253,11 @@ private[dump] object Encode {
     val cids = ContractId.subst(evs.map(_.contractId))
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
+      case Seq() if cids.length == 1 =>
+        (Doc.text("_ <- "), Doc.empty)
       case Seq() =>
-        (Doc.empty, Doc.empty)
-      case Seq(cid) if cid == cids.last =>
+        (Doc.empty, Doc.text("pure ()"))
+      case Seq(cid) if cids.length == 1 =>
         val encodedCid = encodeCid(cidMap, cid)
         (encodedCid :+ " <- ", Doc.empty)
       case Seq(cid) =>
@@ -268,8 +270,12 @@ private[dump] object Encode {
     val submit = "submitMulti " +: encodeParties(partyMap, submitters)
     val actions = Doc.stack(evs.map { ev =>
       val cid = ContractId(ev.contractId)
-      val bind = if (returnStmt.nonEmpty && cidRefs.contains(cid)) {
-        encodeCid(cidMap, cid) :+ " <- "
+      val bind = if (returnStmt.nonEmpty) {
+        if (cidRefs.contains(cid)) {
+          encodeCid(cidMap, cid) :+ " <- "
+        } else {
+          Doc.text("_ <- ")
+        }
       } else {
         Doc.empty
       }

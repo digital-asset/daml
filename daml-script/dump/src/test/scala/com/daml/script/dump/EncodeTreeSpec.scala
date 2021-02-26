@@ -47,7 +47,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           traceContext = None,
         )
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """_ <- submitMulti [alice_0] [] do
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
       "unreferenced creates" in {
@@ -102,8 +102,9 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
         )
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
           """submitMulti [alice_0] [] do
-            |  createCmd Module.Template
-            |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
+            |  _ <- createCmd Module.Template
+            |  _ <- createCmd Module.Template
+            |  pure ()""".stripMargin.replace("\r\n", "\n")
       }
       "unreferenced exercise" in {
         val parties = Map(Party("Alice") -> "alice_0")
