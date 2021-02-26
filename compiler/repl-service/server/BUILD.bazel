@@ -21,7 +21,7 @@ repl_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart fo
 da_scala_binary(
     name = "repl-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.daml.lf.repl.ReplServiceMain",
+    main_class = "com.daml.lf.speedy.repl.ReplServiceMain",
     resources = ["src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",

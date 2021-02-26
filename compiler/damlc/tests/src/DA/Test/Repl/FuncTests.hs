@@ -345,6 +345,15 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "1"
           , matchOutput "1"
           ]
+    , testInteraction' "closure"
+          [ input "import qualified DA.Map as Map"
+          , input "let m = Map.fromList [(1, 2)]"
+          , input "m"
+          , matchOutput "Map \\[\\(1,2\\)\\]"
+          , input "let lookup1 k = Map.lookup k m"
+          , input "lookup1 1"
+          , matchOutput "^Some 2$"
+          ]
     ]
   where
     testInteraction' testName steps =
