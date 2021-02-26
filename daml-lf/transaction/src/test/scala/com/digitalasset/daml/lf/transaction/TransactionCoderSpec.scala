@@ -446,6 +446,95 @@ class TransactionCoderSpec
 
   }
 
+  "decodeNodeVersion" should {
+
+    val postV10versions = TransactionVersion.All.filter(_ > V10)
+
+    "succeed as expected when the node is encoded with an version older than the transaction version" in {
+
+      forAll(danglingRefGenNode, versionInIncreasingOrder(postV10versions), minSuccessful(5)) {
+        case ((nodeId, node), (v1, v2)) =>
+          val normalizedNode = normalizeNode(node.updateVersion(v1))
+
+          val Right(encoded) = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              v1,
+              nodeId,
+              normalizedNode,
+            )
+
+          TransactionCoder.decodeNodeVersion(v2, encoded) shouldBe Right(v1)
+      }
+    }
+
+    "fail when the node is encoded with a version newer than the transaction version" in {
+
+      forAll(
+        danglingRefGenNode,
+        versionInStrictIncreasingOrder(postV10versions),
+        minSuccessful(5),
+      ) { case ((nodeId, node), (v1, v2)) =>
+        val normalizedNode = normalizeNode(node.updateVersion(v2))
+
+        val Right(encoded) = TransactionCoder
+          .encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            v2,
+            nodeId,
+            normalizedNode,
+          )
+
+        TransactionCoder.decodeNodeVersion(v1, encoded) shouldBe a[Left[_, _]]
+      }
+    }
+
+    "return V10 when the node is not version" in {
+
+      forAll(danglingRefGenNode, minSuccessful(5)) { case (nodeId, node) =>
+        val normalizedNode = normalizeNode(node.updateVersion(V10))
+
+        val Right(encoded) = TransactionCoder
+          .encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            V10,
+            nodeId,
+            normalizedNode,
+          )
+
+        assert(encoded.getVersion.isEmpty)
+
+        TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
+      }
+    }
+
+    "ignore node version field when the transaction in transaction version < 11" in {
+
+      forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(5)) { case ((nodeId, node), str) =>
+        val nonEmptyString = if (str.isEmpty) V10.protoValue else str
+
+        val normalizedNode = normalizeNode(node.updateVersion(V10))
+
+        val Right(encoded) = TransactionCoder
+          .encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            V10,
+            nodeId,
+            normalizedNode,
+          )
+
+        encoded.newBuilderForType().setVersion(nonEmptyString)
+
+        TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
+      }
+    }
+
+  }
+
   "decodeVersionedNode" should {
 
     """ignore field version if enclosing Transaction message is of version 10""" in {
@@ -509,29 +598,29 @@ class TransactionCoderSpec
         val nodeId = NodeId(nodeIdx)
         val normalizedNode = normalizeExe(node.updateVersion(V10))
 
-        val Right(encoded) =
-          for {
-            encoded <- TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                V10,
-                nodeId,
-                normalizedNode,
-              )
-          } yield encoded.toBuilder
-            .setExercise(encoded.getExercise.toBuilder.addAllObservers(strings.asJava).build)
-            .build()
-
         forEvery(transactionVersions) { txVersion =>
+          val Right(encoded) =
+            for {
+              encoded <- TransactionCoder
+                .encodeNode(
+                  TransactionCoder.NidEncoder,
+                  ValueCoder.CidEncoder,
+                  txVersion,
+                  nodeId,
+                  normalizedNode,
+                )
+            } yield encoded.toBuilder
+              .setExercise(encoded.getExercise.toBuilder.addAllObservers(strings.asJava).build)
+              .build()
+
           val result = TransactionCoder.decodeVersionedNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
             txVersion,
             encoded,
           )
-
-          result shouldBe Right(nodeId -> normalizedNode)
+          if (result != Right(nodeId -> normalizedNode))
+            result shouldBe Right(nodeId -> normalizedNode)
         }
       }
     }
