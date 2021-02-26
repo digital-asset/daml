@@ -12,6 +12,7 @@ import com.daml.ledger.EventId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value
 
 private[platform] object Conversions {
@@ -116,6 +117,15 @@ private[platform] object Conversions {
 
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
+
+  implicit val columnToWitnesses: Column[Set[Party]] =
+    stringColumnToX(_.split(",").iterator.map(Party.fromString).foldLeft(Right(Set.empty[Party]): Either[String, Set[Party]]){
+      case (Right(witnesses), maybeParty) => maybeParty.map(witnesses + _)
+      case (left, _) => left
+    })
+
+  def flatEventWitnesses(columnName: String): RowParser[Set[Party]] =
+    SqlParser.get[Set[Party]](columnName)(columnToWitnesses)
 
   // ContractIdString
 

@@ -221,11 +221,10 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[Option[Instant]] =
     ledger.lookupMaximumLedgerTime(ids)
 
-  override def lookupContractKey(
-      readers: Set[Party],
-      key: GlobalKey,
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
-    ledger.lookupKey(key, readers)
+  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
+                                                          loggingContext: LoggingContext
+  ): Future[Option[(ContractId, Set[Party])]] =
+    ledger.lookupKey(key, atOffset)
 
   // PartyManagementService
   override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =

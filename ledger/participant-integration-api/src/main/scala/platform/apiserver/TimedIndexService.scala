@@ -9,30 +9,20 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
-  ConfigurationEntry,
-  LedgerId,
-  LedgerOffset,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{ApplicationId, CommandId, ConfigurationEntry, LedgerId, LedgerOffset, TransactionId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, PackageId, ParticipantId, Party}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
@@ -147,13 +137,12 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.lookupActiveContract(readers, contractId),
     )
 
-  override def lookupContractKey(
-      readers: Set[Party],
-      key: GlobalKey,
-  )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
+  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
+                                                          loggingContext: LoggingContext
+  ): Future[Option[(ContractId, Set[Party])]] =
     Timed.future(
       metrics.daml.services.index.lookupContractKey,
-      delegate.lookupContractKey(readers, key),
+      delegate.lookupContractKey(key, atOffset),
     )
 
   override def lookupMaximumLedgerTime(

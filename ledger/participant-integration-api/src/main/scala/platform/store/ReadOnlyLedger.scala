@@ -76,9 +76,9 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+  def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractId]]
+  ): Future[Option[(ContractId, Set[Party])]]
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,

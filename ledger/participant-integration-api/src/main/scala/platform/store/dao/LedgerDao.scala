@@ -80,12 +80,12 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up a Contract given a contract key and a party
     *
     * @param key the contract key to query
-    * @param forParties a set of parties for one of which the contract must be visible
+    * @param atOffset offset up until where to evaluate the key state
     * @return the optional ContractId
     */
-  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[ContractId]]
+  def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
+                                                  loggingContext: LoggingContext
+  ): Future[Option[(ContractId, Set[Party])]]
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party])(implicit

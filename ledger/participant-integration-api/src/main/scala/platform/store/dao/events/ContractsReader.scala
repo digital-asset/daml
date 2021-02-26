@@ -10,6 +10,8 @@ import anorm.SqlParser.{binaryStream, int, str}
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
@@ -208,41 +210,38 @@ private[dao] sealed class ContractsReader(
 
     }
 
-  override def lookupContractKey(
-      readers: Set[Party],
-      key: Key,
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
+  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(ContractId, Set[Party])]] =
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-      lookupContractKeyQuery(readers, key).as(contractId("contract_id").singleOpt)
+      lookupContractKeyQuery(key, atOffset).as((contractId("contract_id") ~ flatEventWitnesses("flat_event_witnesses"))
+        .map{case contractId ~ parties => (contractId, parties)}
+        .singleOpt
+      )
     }
 
-  private def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row] = {
-    def flat_event_witnessesWhere(columnPrefix: String) =
-      sqlFunctions.arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers)
+  private def lookupContractKeyQuery(key: GlobalKey, atOffset: Offset): SimpleSql[Row] =
     SQL"""
-  WITH last_contract_key_create AS (
+  WITH last_contract_key_create_before_offset AS (
          SELECT participant_events.*
            FROM participant_events, parameters
           WHERE event_kind = 10 -- create
             AND create_key_hash = ${key.hash}
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_offset <= $atOffset -- TODO Tudor (can I also use the ledger sequential id?)
                 -- do NOT check visibility here, as otherwise we do not abort the scan early
           ORDER BY event_sequential_id DESC
           LIMIT 1
        )
-  SELECT contract_id
-    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-  WHERE #${flat_event_witnessesWhere("last_contract_key_create")} -- check visibility only here
-    AND NOT EXISTS       -- check no archival visible
+  SELECT contract_id, flat_event_witnesses
+    FROM last_contract_key_create_before_offset -- creation only, as divulged contracts cannot be fetched by key
+    WHERE NOT EXISTS       -- check no archival visible
          (SELECT 1
-            FROM participant_events, parameters
+            FROM participant_events -- TODO Tudor (should I also add a ledger end guard here?)
            WHERE event_kind = 20 -- consuming exercise
-             AND event_sequential_id <= parameters.ledger_end_sequential_id
-             AND #${flat_event_witnessesWhere("participant_events")}
-             AND contract_id = last_contract_key_create.contract_id
+             AND event_offset <= $atOffset -- TODO Tudor (can I also use the ledger sequential id?)
+             AND contract_id = last_contract_key_create_before_offset.contract_id
          );
        """
-  }
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext

@@ -30,9 +30,11 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Event, Spans}
 
@@ -135,11 +137,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
     delegate.lookupActiveContract(readers, contractId)
 
-  override def lookupContractKey(
-      readers: Set[Party],
-      key: GlobalKey,
-  )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
-    delegate.lookupContractKey(readers, key)
+  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(ContractId, Set[Party])]] =
+  delegate.lookupContractKey(key, atOffset)
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId]

@@ -76,10 +76,10 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
-  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Value.ContractId]] =
-    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParties))
+  override def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
+                                                  loggingContext: LoggingContext
+  ): Future[Option[(ContractId, Set[Party])]] =
+    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, atOffset))
 
   override def getParties(parties: Seq[Party])(implicit
       loggingContext: LoggingContext

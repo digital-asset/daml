@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.index.v2
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
@@ -24,9 +25,9 @@ trait ContractStore {
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
-  def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
+  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractId]]
+  ): Future[Option[(ContractId, Set[Party])]]
 
   /** @return The maximum ledger effective time of all contracts in ids, fails as follows:
     *         - if ids is empty or not all the non-divulged ids can be found, a failed [[Future]]
