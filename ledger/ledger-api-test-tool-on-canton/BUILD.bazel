@@ -49,6 +49,7 @@ sh_binary(
 
 conformance_test(
     name = "conformance-test",
+    # Ideally these would be part of the script definition above, but that doesn't seem to work.
     extra_data = [
         ":bootstrap.canton",
         ":canton",
@@ -59,10 +60,6 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
-    # FIXME: drop the following line once canton-test-runner supports LF 1.11 or newer
-    lf_versions = ["legacy"],
-    # lf_versions = ["stable", "latest"]
     ports = [
         5011,
         5021,
@@ -78,9 +75,7 @@ conformance_test(
         "--exclude=ContractKeysIT,ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
         ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
         ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
-        ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-        # The following tests fail because Canton raises a different error (see https://github.com/digital-asset/daml/pull/8642)
-        ",PartyManagementServiceIT:PMRejectLongPartyHints,PartyManagementServiceIT:PMRejectInvalidPartyHints",
+        ",ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
     ],
 ) if not is_windows else None
 
@@ -98,8 +93,6 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
-    # FIXME: drop the following line once canton-test-runner supports LF 1.11 or newer
-    lf_versions = ["legacy"],
     ports = [
         5011,
         5021,
@@ -129,8 +122,6 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
-    # FIXME: drop the following line once canton-test-runner supports LF 1.11 or newer
-    lf_versions = ["legacy"],
     ports = [
         5011,
         5021,
@@ -145,6 +136,5 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
-        "--exclude=ParticipantPruningIT:PRFailPruneByOutOfBoundsOffset",  # on behalf of bug not yet fixed in canton 0.19.0
     ],
 ) if not is_windows else None
