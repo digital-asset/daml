@@ -252,12 +252,18 @@ private[dump] object Encode {
     val submitters = evs.flatMap(ev => evParties(Kind.Created(ev))).toSet
     val cids = ContractId.subst(evs.map(_.contractId))
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
-    val encodedCids = referencedCids.map(cid => encodeCid(cidMap, cid))
-    val (bind, returnStmt) = referencedCids.length match {
-      case 0 => (Doc.empty, Doc.empty)
-      case 1 if referencedCids.last == cids.last => (encodedCids.last :+ " <- ", Doc.empty)
-      case 1 => (encodedCids.last :+ " <- ", "pure " +: encodedCids.last)
-      case _ => (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
+    val (bind, returnStmt) = referencedCids match {
+      case Seq() =>
+        (Doc.empty, Doc.empty)
+      case Seq(cid) if cid == cids.last =>
+        val encodedCid = encodeCid(cidMap, cid)
+        (encodedCid :+ " <- ", Doc.empty)
+      case Seq(cid) =>
+        val encodedCid = encodeCid(cidMap, cid)
+        (encodedCid :+ " <- ", "pure " +: encodedCid)
+      case _ =>
+        val encodedCids = referencedCids.map(encodeCid(cidMap, _))
+        (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
     val submit = "submitMulti " +: encodeParties(partyMap, submitters)
     val actions = Doc.stack(evs.map { ev =>
