@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "sdk_platform_test")
+load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "in_range", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
     "daml_script_dar",
@@ -59,6 +59,23 @@ config_setting(
 # test runs to grow quadratically.
 head = "0.0.0"
 
+# FIXME
+#
+# From version 1.11.0-snapshot.20210217.6338.0.ba6ba901 of the SDK components default to
+# Daml-LF 1.11, which requires platform versions starting from 1.10.0.
+#
+# This predicate can be used to filter sdk_platform_test rules as a temporary
+# measure to prevent spurious errors on CI.
+#
+# The proper fix is to use the appropriate version of Daml-LF for every SDK/platform pair.
+
+switch_to_lf_1_11_inclusive = "1.11.0-snapshot.20210217.6338.0.ba6ba901"
+
+switch_to_lf_1_11_exclusive = "1.11.0-snapshot.20210217.6338.1"
+
+def daml_lf_compatible(sdk_version, platform_version):
+    return in_range(sdk_version, {"end": switch_to_lf_1_11_inclusive}) or (in_range(sdk_version, {"start": switch_to_lf_1_11_exclusive}) and in_range(platform_version, {"start": "1.10.0"}))
+
 # Missing on purpose: do not test the latest SDK with the latest platform
 # That is not a compatibility test, it's just testing the main branch. ;)
 
@@ -69,7 +86,7 @@ head = "0.0.0"
         sdk_version = head,
     )
     for platform_version in platform_versions
-    if platform_version != head
+    if platform_version != head and daml_lf_compatible(sdk_version, platform_version)
 ]
 
 # Test all old SDK versions with the latest platform
@@ -79,7 +96,7 @@ head = "0.0.0"
         sdk_version = sdk_version,
     )
     for sdk_version in sdk_versions
-    if sdk_version != head
+    if sdk_version != head and daml_lf_compatible(sdk_version, platform_version)
 ]
 
 [
