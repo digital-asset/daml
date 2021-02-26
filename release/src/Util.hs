@@ -81,6 +81,9 @@ data JarType
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
       -- ^ A scala library jar, with source and scaladoc jars.
+    | JarJar
+      -- ^ A shaded jar built with jarjar. This is similar to a deploy jar
+      -- but the names of the targets are slightly different.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
@@ -90,6 +93,7 @@ instance FromJSON ReleaseType where
             "jar-deploy" -> pure $ Jar Deploy
             "jar-proto" -> pure $ Jar Proto
             "jar-scala" -> pure $ Jar Scala
+            "jar-jarjar" -> pure $ Jar JarJar
             _ -> fail ("Could not parse release type: " <> unpack t)
 
 data Artifact c = Artifact
@@ -213,6 +217,7 @@ mainFileName (Jar jarTy) name = case jarTy of
     Deploy -> name <> "_deploy.jar"
     Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
     Scala -> name <> ".jar"
+    JarJar -> name <> ".jar"
 
 sourceJarName :: Artifact a -> Maybe Text
 sourceJarName Artifact{..}
@@ -221,7 +226,7 @@ sourceJarName Artifact{..}
 
 scalaSourceJarName :: Artifact a -> Maybe Text
 scalaSourceJarName Artifact{..}
-  | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | artReleaseType `elem` [Jar Scala, Jar JarJar] = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
 deploySourceJarName :: Artifact a -> Maybe Text
@@ -239,7 +244,7 @@ customSourceJarName Artifact{..} = T.pack . toFilePath <$> artSourceJar
 
 scaladocJarName :: Artifact a -> Maybe Text
 scaladocJarName Artifact{..}
-   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
+   | artReleaseType `elem` [Jar Scala, Jar JarJar] = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
    | otherwise = Nothing
 
 javadocDeployJarName :: Artifact a -> Maybe Text

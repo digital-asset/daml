@@ -30,22 +30,19 @@ validateMavenArtifacts releaseDir artifacts =
             $logError $ T.pack $ show file <> " is required for publishing to Maven"
             liftIO exitFailure
 
-generateAggregatePom :: E.MonadThrow m => BazelLocations -> [Artifact PomData] -> m Text
-generateAggregatePom BazelLocations{bazelBin} artifacts = do
+generateAggregatePom :: (MonadFail m, E.MonadThrow m) => Path Abs Dir -> [Artifact PomData] -> m Text
+generateAggregatePom releaseDir artifacts = do
     executions <- T.concat <$> mapM execution artifacts
     return (aggregatePomStart <> executions <> aggregatePomEnd)
     where
-    execution :: E.MonadThrow m => Artifact PomData -> m Text
+    execution :: (MonadFail m, E.MonadThrow m) => Artifact PomData -> m Text
     execution artifact = do
-        let (directoryText, name) = splitBazelTarget (artTarget artifact)
-        directory <- parseRelDir (T.unpack directoryText)
-        let prefix = bazelBin </> directory
-        mainArtifactFile <- mainArtifactPath name artifact
-        pomFile <- pomFilePath name
-        javadocFile <- javadocJarPath artifact
-        sourcesFile <- sourceJarPath artifact
+        (mainArtifactFile:pomFile:rest) <- map snd <$> artifactFiles artifact
+        let (javadocFile, sourcesFile) = case rest of
+              [javadoc, sources] -> (Just javadoc, Just sources)
+              _ -> (Nothing, Nothing)
         let configuration =
-                map (\(name, value) -> (name, pathToText (prefix </> value))) $
+                map (\(name, value) -> (name, pathToText (releaseDir </> value))) $
                     Maybe.catMaybes
                         [ Just ("pomFile", pomFile)
                         , Just ("file", mainArtifactFile)

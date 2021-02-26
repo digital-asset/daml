@@ -62,7 +62,7 @@
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
-  type: jar-scala
+  type: jar-jarjar
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
@@ -70,7 +70,7 @@
 - target: //language-support/java/codegen:lib
   type: jar-scala
 - target: //language-support/java/codegen:shaded_binary
-  type: jar-scala
+  type: jar-jarjar
 - target: //language-support/scala/bindings:bindings
   type: jar-scala
 - target: //language-support/scala/bindings-akka:bindings-akka
