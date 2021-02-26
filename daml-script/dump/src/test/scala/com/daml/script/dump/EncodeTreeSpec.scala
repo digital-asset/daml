@@ -13,11 +13,30 @@ import org.scalatest.matchers.should.Matchers
 
 class EncodeTreeSpec extends AnyFreeSpec with Matchers {
   import Encode._
+  private def mkCreated(i: Int) = {
+    s"create$i" -> TreeEvent(
+      TreeEvent.Kind.Created(
+        CreatedEvent(
+          eventId = s"create$i",
+          templateId = Some(Identifier("package", "Module", "Template")),
+          contractId = s"cid$i",
+          signatories = Seq("Alice"),
+          createArguments = Some(
+            Record(
+              recordId = Some(Identifier("package", "Module", "Template")),
+              fields = Seq.empty,
+            )
+          ),
+        )
+      )
+    )
+  }
+
   "encodeTree" - {
     "contract id bindings" - {
       "unreferenced create" in {
         val parties = Map(Party("Alice") -> "alice_0")
-        val cidMap = Map(ContractId("cid") -> "contract_0_0")
+        val cidMap = Map(ContractId("cid1") -> "contract_0_0")
         val cidRefs = Set.empty[ContractId]
         val tree = TransactionTree(
           transactionId = "txid",
@@ -26,24 +45,9 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
-            "create" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            )
+            mkCreated(1)
           ),
-          rootEventIds = Seq("create"),
+          rootEventIds = Seq("create1"),
           traceContext = None,
         )
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
@@ -64,38 +68,8 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
-            "create1" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid1",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
-            "create2" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid2",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
+            mkCreated(1),
+            mkCreated(2),
           ),
           rootEventIds = Seq("create1", "create2"),
           traceContext = None,
@@ -121,22 +95,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
-            "create" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid1",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
+            mkCreated(1),
             "exercise" -> TreeEvent(
               TreeEvent.Kind.Exercised(
                 ExercisedEvent(
@@ -155,7 +114,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
                         )
                       )
                   ),
-                  childEventIds = Seq("create"),
+                  childEventIds = Seq("create1"),
                   exerciseResult = Some(Value().withContractId("cid2")),
                 )
               )
@@ -170,8 +129,8 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
       }
       "referenced create" in {
         val parties = Map(Party("Alice") -> "alice_0")
-        val cidMap = Map(ContractId("cid") -> "contract_0_0")
-        val cidRefs = Set(ContractId("cid"))
+        val cidMap = Map(ContractId("cid1") -> "contract_0_0")
+        val cidRefs = Set(ContractId("cid1"))
         val tree = TransactionTree(
           transactionId = "txid",
           commandId = "cmdid",
@@ -179,24 +138,9 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
-            "create" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            )
+            mkCreated(1)
           ),
-          rootEventIds = Seq("create"),
+          rootEventIds = Seq("create1"),
           traceContext = None,
         )
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
@@ -220,38 +164,8 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
-            "create1" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid1",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
-            "create2" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid2",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
+            mkCreated(1),
+            mkCreated(2),
           ),
           rootEventIds = Seq("create1", "create2"),
           traceContext = None,
@@ -280,38 +194,8 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           effectiveAt = None,
           offset = "",
           eventsById = Map(
-            "create1" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid1",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
-            "create2" -> TreeEvent(
-              TreeEvent.Kind.Created(
-                CreatedEvent(
-                  eventId = "create",
-                  templateId = Some(Identifier("package", "Module", "Template")),
-                  contractId = "cid2",
-                  signatories = Seq("Alice"),
-                  createArguments = Some(
-                    Record(
-                      recordId = Some(Identifier("package", "Module", "Template")),
-                      fields = Seq.empty,
-                    )
-                  ),
-                )
-              )
-            ),
+            mkCreated(1),
+            mkCreated(2),
             "exercise" -> TreeEvent(
               TreeEvent.Kind.Exercised(
                 ExercisedEvent(
