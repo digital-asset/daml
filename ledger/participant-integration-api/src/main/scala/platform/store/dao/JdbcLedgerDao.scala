@@ -621,7 +621,9 @@ private class JdbcLedgerDao(
     contractsReader.lookupActiveContract(forParties, contractId)
 
   private val SQL_SELECT_ALL_PARTIES =
-    SQL("select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset")
+    SQL(
+      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset"
+    )
 
   override def getParties(
       parties: Seq[Party]
@@ -650,10 +652,12 @@ private class JdbcLedgerDao(
         |values ({party}, {display_name}, {ledger_offset}, 'true', {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES =
-    SQL("""select packages.package_id, packages.source_description, packages.known_since, packages.size
+    SQL(
+      """select packages.package_id, packages.source_description, packages.known_since, packages.size
         |from packages, parameters
         |where packages.ledger_offset <= parameters.ledger_end
-        |""".stripMargin)
+        |""".stripMargin
+    )
 
   private val SQL_SELECT_PACKAGE =
     SQL("""select packages.package
@@ -1226,9 +1230,9 @@ private[platform] object JdbcLedgerDao {
   }
 
   def deduplicationKey(
-                                commandId: domain.CommandId,
-                                submitters: List[Ref.Party],
-                              ): String = {
+      commandId: domain.CommandId,
+      submitters: List[Ref.Party],
+  ): String = {
     val submitterPart =
       if (submitters.length == 1)
         submitters.head

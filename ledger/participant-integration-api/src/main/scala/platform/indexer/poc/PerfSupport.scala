@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.indexer.poc
 
 import com.daml.platform.indexer.poc.PerfSupport.{CountedCounter, Histogramm, OneTenHundredCounter}
@@ -86,12 +89,14 @@ object PerfSupport {
 
     def add(l: Long): Unit = {
       buckets.view.zipWithIndex.find(_._1 > l) match {
-        case Some((_, i)) => synchronized {
-          acc.update(i, acc(i) + 1)
-        }
-        case None => synchronized {
-          acc.update(size, acc(size) + 1)
-        }
+        case Some((_, i)) =>
+          synchronized {
+            acc.update(i, acc(i) + 1)
+          }
+        case None =>
+          synchronized {
+            acc.update(size, acc(size) + 1)
+          }
       }
     }
 
@@ -121,5 +126,7 @@ object StaticMetrics {
   val mappingCPU: OneTenHundredCounter = OneTenHundredCounter()
   val seqMappingCPU: OneTenHundredCounter = OneTenHundredCounter()
   val ingestionCPU: OneTenHundredCounter = OneTenHundredCounter()
-  val dbCallHistrogram: Histogramm = Histogramm(Vector(100000, 1000000, 10000000, 100000000, 1000000000, 10000000000L))
+  val dbCallHistrogram: Histogramm = Histogramm(
+    Vector(100000, 1000000, 10000000, 100000000, 1000000000, 10000000000L)
+  )
 }

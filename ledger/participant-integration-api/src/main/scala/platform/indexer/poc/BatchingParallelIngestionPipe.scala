@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.indexer.poc
 
 import akka.NotUsed
@@ -10,29 +13,33 @@ import scala.concurrent.duration.FiniteDuration
 
 object BatchingParallelIngestionPipe {
 
-  def apply[IN, RUNBATCH](submissionBatchSize: Long,
-                          batchWithinMillis: Long,
-                          inputMappingParallelism: Int,
-                          inputMapper: Iterable[IN] => Future[RUNBATCH],
-                          seqMapperZero: RUNBATCH,
-                          seqMapper: (RUNBATCH, RUNBATCH) => RUNBATCH,
-                          ingestingParallelism: Int,
-                          ingester: RUNBATCH => Future[RUNBATCH],
-                          tailer: (RUNBATCH, RUNBATCH) => RUNBATCH,
-                          tailingRateLimitPerSecond: Int,
-                          ingestTail: RUNBATCH => Future[RUNBATCH],
-                          runStageUntil: Int) // 1 - nothing   2 - input mapping   3 - seq mapping   4 - db ingestion   5 - tailing   6 - persist params
-                         (source: Source[IN, NotUsed]): Source[Unit, NotUsed] = {
+  def apply[IN, RUNBATCH](
+      submissionBatchSize: Long,
+      batchWithinMillis: Long,
+      inputMappingParallelism: Int,
+      inputMapper: Iterable[IN] => Future[RUNBATCH],
+      seqMapperZero: RUNBATCH,
+      seqMapper: (RUNBATCH, RUNBATCH) => RUNBATCH,
+      ingestingParallelism: Int,
+      ingester: RUNBATCH => Future[RUNBATCH],
+      tailer: (RUNBATCH, RUNBATCH) => RUNBATCH,
+      tailingRateLimitPerSecond: Int,
+      ingestTail: RUNBATCH => Future[RUNBATCH],
+      runStageUntil: Int,
+  ) // 1 - nothing   2 - input mapping   3 - seq mapping   4 - db ingestion   5 - tailing   6 - persist params
+  (source: Source[IN, NotUsed]): Source[Unit, NotUsed] = {
     assert(runStageUntil >= 1 && runStageUntil <= 6)
     val stage1 = source
     val stage2 = stage1
-      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(batchWithinMillis, "millis")) // TODO .batch adds no latency to the pipe, but batch and mapAsync combination leads to dirac impulses in the forming batch sizes, which leads practically single threaded ingestion throughput at this stage.
+      .groupedWithin(
+        submissionBatchSize.toInt,
+        FiniteDuration(batchWithinMillis, "millis"),
+      ) // TODO .batch adds no latency to the pipe, but batch and mapAsync combination leads to dirac impulses in the forming batch sizes, which leads practically single threaded ingestion throughput at this stage.
       .mapAsync(inputMappingParallelism)(inputMapper)
     val stage3 = stage2
       .scan(seqMapperZero)(seqMapper)
       .drop(1) // remove the zero element from the beginning of the stream
-    val stage4 = stage3
-      .async
+    val stage4 = stage3.async
       .mapAsync(ingestingParallelism)(ingester)
     val stage5 = stage4
       .conflate(tailer)
@@ -46,7 +53,7 @@ object BatchingParallelIngestionPipe {
       stage3,
       stage4,
       stage5,
-      stage6
+      stage6,
     )
       .map(_.map(_ => ()))
       .apply(runStageUntil - 1)
@@ -72,39 +79,40 @@ object BatchingParallelIngestionPipe {
 
 }
 
-case class RunningDBBatch(lastOffset: Offset,
-                          lastSeqEventId: Long,
-                          lastConfig: Option[Array[Byte]],
-                          batch: RawDBBatchPostgreSQLV1)
+case class RunningDBBatch(
+    lastOffset: Offset,
+    lastSeqEventId: Long,
+    lastConfig: Option[Array[Byte]],
+    batch: RawDBBatchPostgreSQLV1,
+)
 
 object RunningDBBatch {
 
-  def inputMapper(toDbDto: Offset => Update => Iterator[DBDTOV1])
-                 (input: Iterable[(Offset, Update)]): RunningDBBatch = {
+  def inputMapper(
+      toDbDto: Offset => Update => Iterator[DBDTOV1]
+  )(input: Iterable[(Offset, Update)]): RunningDBBatch = {
     val batchBuilder = RawDBBatchPostgreSQLV1.Builder()
     var lastOffset: Offset = null
     var lastConfiguration: Array[Byte] = null
-    input.foreach {
-      case (offset, update) =>
-        val dbDtos = toDbDto(offset)(update)
-        lastOffset = offset
-        dbDtos.foreach {
-          dbDto =>
-            dbDto match {
-              case c: DBDTOV1.ConfigurationEntry if c.typ == JdbcLedgerDao.acceptType =>
-                lastConfiguration = c.configuration
-              case _ =>
-                ()
-            }
-            batchBuilder.add(dbDto)
+    input.foreach { case (offset, update) =>
+      val dbDtos = toDbDto(offset)(update)
+      lastOffset = offset
+      dbDtos.foreach { dbDto =>
+        dbDto match {
+          case c: DBDTOV1.ConfigurationEntry if c.typ == JdbcLedgerDao.acceptType =>
+            lastConfiguration = c.configuration
+          case _ =>
+            ()
         }
+        batchBuilder.add(dbDto)
+      }
     }
     val batch = batchBuilder.build()
     RunningDBBatch(
       lastOffset = lastOffset,
       lastSeqEventId = 0L, // will be populated later
       lastConfig = Option(lastConfiguration),
-      batch = batch
+      batch = batch,
     )
   }
 
@@ -113,18 +121,16 @@ object RunningDBBatch {
       lastOffset = null,
       lastSeqEventId = initialSeqEventId,
       lastConfig = None,
-      batch = nullBatch
+      batch = nullBatch,
     )
 
   def seqMapper(prev: RunningDBBatch, curr: RunningDBBatch): RunningDBBatch = {
     var seqEventId = prev.lastSeqEventId
-    curr.batch.eventsBatch.foreach {
-      eventsBatch =>
-        eventsBatch.event_sequential_id.indices.foreach {
-          i =>
-            seqEventId += 1
-            eventsBatch.event_sequential_id(i) = seqEventId
-        }
+    curr.batch.eventsBatch.foreach { eventsBatch =>
+      eventsBatch.event_sequential_id.indices.foreach { i =>
+        seqEventId += 1
+        eventsBatch.event_sequential_id(i) = seqEventId
+      }
     }
     curr.copy(lastSeqEventId = seqEventId)
   }
@@ -136,6 +142,6 @@ object RunningDBBatch {
       lastOffset = curr.lastOffset,
       lastSeqEventId = curr.lastSeqEventId,
       lastConfig = curr.lastConfig.orElse(prev.lastConfig),
-      batch = nullBatch
+      batch = nullBatch,
     )
 }

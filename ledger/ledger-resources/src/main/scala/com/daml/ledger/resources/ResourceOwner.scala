@@ -16,7 +16,9 @@ object ResourceOwner
     ResourceContext.`Context has ExecutionContext`
 
   def apply[T](f: ResourceContext => Resource[T]): ResourceOwner[T] = new ResourceOwner[T] {
-    override def acquire()(implicit context: ResourceContext): resources.Resource[ResourceContext, T] =
+    override def acquire()(implicit
+        context: ResourceContext
+    ): resources.Resource[ResourceContext, T] =
       f(context)
   }
 }

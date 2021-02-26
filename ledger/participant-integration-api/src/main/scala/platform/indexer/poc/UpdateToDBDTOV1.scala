@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.indexer.poc
 
 import java.util.UUID
@@ -12,9 +15,10 @@ import com.daml.platform.store.dao.{CommandCompletionsTable, JdbcLedgerDao}
 // TODO target to separation per update-type to it's own function + unit tests
 object UpdateToDBDTOV1 {
 
-  def apply(participantId: ParticipantId,
-            translation: LfValueTranslation): Offset => Update => Iterator[DBDTOV1] = { offset =>
-
+  def apply(
+      participantId: ParticipantId,
+      translation: LfValueTranslation,
+  ): Offset => Update => Iterator[DBDTOV1] = { offset =>
     {
       case u: Update.CommandRejected =>
         // TODO we might want to tune up deduplications so it is also a temporal query @simon@?
@@ -28,11 +32,14 @@ object UpdateToDBDTOV1 {
             command_id = u.submitterInfo.commandId,
             transaction_id = None,
             status_code = Some(statusCode),
-            status_message = Some(statusMessage)
+            status_message = Some(statusMessage),
           ),
           new DBDTOV1.CommandDeduplication(
-            JdbcLedgerDao.deduplicationKey(domain.CommandId(u.submitterInfo.commandId), u.submitterInfo.actAs)
-          )
+            JdbcLedgerDao.deduplicationKey(
+              domain.CommandId(u.submitterInfo.commandId),
+              u.submitterInfo.actAs,
+            )
+          ),
         )
 
       case u: Update.ConfigurationChanged =>
@@ -43,7 +50,7 @@ object UpdateToDBDTOV1 {
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.acceptType,
             configuration = Configuration.encode(u.newConfiguration).toByteArray,
-            rejection_reason = None
+            rejection_reason = None,
           )
         )
 
@@ -55,7 +62,7 @@ object UpdateToDBDTOV1 {
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.rejectType,
             configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
-            rejection_reason = Some(u.rejectionReason)
+            rejection_reason = Some(u.rejectionReason),
           )
         )
 
@@ -69,15 +76,15 @@ object UpdateToDBDTOV1 {
             display_name = Some(u.displayName),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
-            is_local = Some(u.participantId == participantId)
+            is_local = Some(u.participantId == participantId),
           ),
           new DBDTOV1.Party(
             party = u.party,
             display_name = Some(u.displayName),
             explicit = true,
             ledger_offset = Some(offset.toByteArray),
-            is_local = u.participantId == participantId
-          )
+            is_local = u.participantId == participantId,
+          ),
         )
 
       case u: Update.PartyAllocationRejected =>
@@ -90,23 +97,22 @@ object UpdateToDBDTOV1 {
             display_name = None,
             typ = JdbcLedgerDao.rejectType,
             rejection_reason = Some(u.rejectionReason),
-            is_local = None
+            is_local = None,
           )
         )
 
       case u: Update.PublicPackageUpload =>
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
-        val packages =  u.archives.iterator.map {
-          archive =>
-            new DBDTOV1.Package(
-              package_id = archive.getHash,
-              upload_id = uploadId,
-              source_description = u.sourceDescription,
-              size = archive.getPayload.size.toLong,
-              known_since = u.recordTime.toInstant,
-              ledger_offset = offset.toByteArray,
-              _package = archive.toByteArray
-            )
+        val packages = u.archives.iterator.map { archive =>
+          new DBDTOV1.Package(
+            package_id = archive.getHash,
+            upload_id = uploadId,
+            source_description = u.sourceDescription,
+            size = archive.getPayload.size.toLong,
+            known_since = u.recordTime.toInstant,
+            ledger_offset = offset.toByteArray,
+            _package = archive.toByteArray,
+          )
         }
         val packageEntries = u.submissionId.iterator.map(submissionId =>
           new DBDTOV1.PackageEntry(
@@ -114,7 +120,7 @@ object UpdateToDBDTOV1 {
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(submissionId),
             typ = JdbcLedgerDao.acceptType,
-            rejection_reason = None
+            rejection_reason = None,
           )
         )
         packages ++ packageEntries
@@ -126,15 +132,17 @@ object UpdateToDBDTOV1 {
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
             typ = JdbcLedgerDao.rejectType,
-            rejection_reason = Some(u.rejectionReason)
+            rejection_reason = Some(u.rejectionReason),
           )
         )
 
       case u: Update.TransactionAccepted =>
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
-        val preorderTraversal = u.transaction.fold(List.empty[(NodeId, Node)]) {
-          case (xs, x) => x :: xs //FIXME why not _ :: _ ?! COME ON! ;(
-        }.reverse
+        val preorderTraversal = u.transaction
+          .fold(List.empty[(NodeId, Node)]) { case (xs, x) =>
+            x :: xs //FIXME why not _ :: _ ?! COME ON! ;(
+          }
+          .reverse
 
         val events = preorderTraversal.iterator.map {
           case (nodeId, create: Create) =>
@@ -154,7 +162,8 @@ object UpdateToDBDTOV1 {
               contract_id = create.coid.coid,
               template_id = Some(create.coinst.template.toString),
               flat_event_witnesses = create.stakeholders.map(_.toString),
-              tree_event_witnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+              tree_event_witnesses =
+                blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
               create_argument = Some(createArgument),
               create_signatories = Some(create.signatories.map(_.toString)),
               create_observers = Some(create.stakeholders.diff(create.signatories).map(_.toString)),
@@ -167,7 +176,7 @@ object UpdateToDBDTOV1 {
               exercise_argument = None,
               exercise_result = None,
               exercise_actors = None,
-              exercise_child_event_ids = None
+              exercise_child_event_ids = None,
             )
 
           case (nodeId, exercise: Exercise) =>
@@ -186,8 +195,10 @@ object UpdateToDBDTOV1 {
               event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
               contract_id = exercise.targetCoid.coid,
               template_id = Some(exercise.templateId.toString),
-              flat_event_witnesses = if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
-              tree_event_witnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+              flat_event_witnesses =
+                if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
+              tree_event_witnesses =
+                blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
               create_argument = None,
               create_signatories = None,
               create_observers = None,
@@ -198,9 +209,11 @@ object UpdateToDBDTOV1 {
               exercise_argument = Some(exerciseArgument),
               exercise_result = exerciseResult,
               exercise_actors = Some(exercise.actingParties.map(_.toString)),
-              exercise_child_event_ids = Some(exercise.children.iterator
+              exercise_child_event_ids = Some(
+                exercise.children.iterator
                   .map(EventId(u.transactionId, _).toLedgerString.toString)
-                  .toSet)
+                  .toSet
+              ),
             )
 
           case (nodeId, _) => throw new UnexpectedNodeException(nodeId, u.transactionId)
@@ -209,40 +222,39 @@ object UpdateToDBDTOV1 {
         val divulgedContractIndex = u.divulgedContracts
           .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
           .toMap
-        val divulgences = blinding.divulgence.iterator.map {
-          case (contractId, visibleToParties) =>
-            val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-            new DBDTOV1.Event(
-              event_kind = 0,
-              event_offset = None,
-              transaction_id = None,
-              ledger_effective_time = None,
-              command_id = u.optSubmitterInfo.map(_.commandId),
-              workflow_id = u.transactionMeta.workflowId,
-              application_id = u.optSubmitterInfo.map(_.applicationId),
-              submitters = u.optSubmitterInfo.map(_.actAs.toSet),
-              node_index = None,
-              event_id = None,
-              contract_id = contractId.coid,
-              template_id = contractInst.map(_.template.toString),
-              flat_event_witnesses = Set.empty,
-              tree_event_witnesses = visibleToParties.map(_.toString),
-              create_argument = contractInst.map(_.arg).map(translation.serialize(contractId, _)),
-              create_signatories = None,
-              create_observers = None,
-              create_agreement_text = None,
-              create_key_value = None,
-              create_key_hash = None,
-              exercise_choice = None,
-              exercise_argument = None,
-              exercise_result = None,
-              exercise_actors = None,
-              exercise_child_event_ids = None
-            )
+        val divulgences = blinding.divulgence.iterator.map { case (contractId, visibleToParties) =>
+          val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
+          new DBDTOV1.Event(
+            event_kind = 0,
+            event_offset = None,
+            transaction_id = None,
+            ledger_effective_time = None,
+            command_id = u.optSubmitterInfo.map(_.commandId),
+            workflow_id = u.transactionMeta.workflowId,
+            application_id = u.optSubmitterInfo.map(_.applicationId),
+            submitters = u.optSubmitterInfo.map(_.actAs.toSet),
+            node_index = None,
+            event_id = None,
+            contract_id = contractId.coid,
+            template_id = contractInst.map(_.template.toString),
+            flat_event_witnesses = Set.empty,
+            tree_event_witnesses = visibleToParties.map(_.toString),
+            create_argument = contractInst.map(_.arg).map(translation.serialize(contractId, _)),
+            create_signatories = None,
+            create_observers = None,
+            create_agreement_text = None,
+            create_key_value = None,
+            create_key_hash = None,
+            exercise_choice = None,
+            exercise_argument = None,
+            exercise_result = None,
+            exercise_actors = None,
+            exercise_child_event_ids = None,
+          )
         }
 
-        val completions = u.optSubmitterInfo.iterator.map{
-          submitterInfo => new DBDTOV1.CommandCompletion(
+        val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>
+          new DBDTOV1.CommandCompletion(
             completion_offset = offset.toByteArray,
             record_time = u.recordTime.toInstant,
             application_id = submitterInfo.applicationId,
@@ -250,13 +262,12 @@ object UpdateToDBDTOV1 {
             command_id = submitterInfo.commandId,
             transaction_id = Some(u.transactionId),
             status_code = None,
-            status_message = None
+            status_message = None,
           )
         }
 
         events ++ divulgences ++ completions
     }
   }
-
 
 }

@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.indexer.poc
 
 import java.sql.{DriverManager, PreparedStatement, ResultSet}
@@ -329,103 +332,123 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
 
   override def insertBatch(rawDBBatchPostgreSQLV1: RawDBBatchPostgreSQLV1): Unit = {
     def execute(preparedStatement: PreparedStatement, params: Any*): Unit = {
-      params.view.zipWithIndex.foreach {
-        case (param, zeroBasedIndex) =>
-          preparedStatement.setObject(zeroBasedIndex + 1, param)
+      params.view.zipWithIndex.foreach { case (param, zeroBasedIndex) =>
+        preparedStatement.setObject(zeroBasedIndex + 1, param)
       }
       preparedStatement.execute()
       ()
     }
 
-    rawDBBatchPostgreSQLV1.commandCompletionsBatch.foreach(batch => execute(preparedInsertCommandCompletionBatch,
-      batch.completion_offset,
-      batch.record_time,
-      batch.application_id,
-      batch.submitters,
-      batch.command_id,
-      batch.transaction_id,
-      batch.status_code,
-      batch.status_message
-    ))
+    rawDBBatchPostgreSQLV1.commandCompletionsBatch.foreach(batch =>
+      execute(
+        preparedInsertCommandCompletionBatch,
+        batch.completion_offset,
+        batch.record_time,
+        batch.application_id,
+        batch.submitters,
+        batch.command_id,
+        batch.transaction_id,
+        batch.status_code,
+        batch.status_message,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.configurationEntriesBatch.foreach(batch => execute(preparedInsertConfigurationEntryBatch,
-      batch.ledger_offset,
-      batch.recorded_at,
-      batch.submission_id,
-      batch.typ,
-      batch.configuration,
-      batch.rejection_reason
-    ))
+    rawDBBatchPostgreSQLV1.configurationEntriesBatch.foreach(batch =>
+      execute(
+        preparedInsertConfigurationEntryBatch,
+        batch.ledger_offset,
+        batch.recorded_at,
+        batch.submission_id,
+        batch.typ,
+        batch.configuration,
+        batch.rejection_reason,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.eventsBatch.foreach(batch => execute(preparedInsertEventsBatch,
-      batch.event_kind,
-      batch.event_id,
-      batch.event_offset,
-      batch.contract_id,
-      batch.transaction_id,
-      batch.ledger_effective_time,
-      batch.node_index,
-      batch.command_id,
-      batch.workflow_id,
-      batch.application_id,
-      batch.submitters,
-      batch.create_argument,
-      batch.create_signatories,
-      batch.create_observers,
-      batch.create_agreement_text,
-      batch.create_key_value,
-      batch.create_key_hash,
-      batch.exercise_choice,
-      batch.exercise_argument,
-      batch.exercise_result,
-      batch.exercise_actors,
-      batch.exercise_child_event_ids,
-      batch.template_id,
-      batch.flat_event_witnesses,
-      batch.tree_event_witnesses,
-      batch.event_sequential_id
-    ))
+    rawDBBatchPostgreSQLV1.eventsBatch.foreach(batch =>
+      execute(
+        preparedInsertEventsBatch,
+        batch.event_kind,
+        batch.event_id,
+        batch.event_offset,
+        batch.contract_id,
+        batch.transaction_id,
+        batch.ledger_effective_time,
+        batch.node_index,
+        batch.command_id,
+        batch.workflow_id,
+        batch.application_id,
+        batch.submitters,
+        batch.create_argument,
+        batch.create_signatories,
+        batch.create_observers,
+        batch.create_agreement_text,
+        batch.create_key_value,
+        batch.create_key_hash,
+        batch.exercise_choice,
+        batch.exercise_argument,
+        batch.exercise_result,
+        batch.exercise_actors,
+        batch.exercise_child_event_ids,
+        batch.template_id,
+        batch.flat_event_witnesses,
+        batch.tree_event_witnesses,
+        batch.event_sequential_id,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.packageEntriesBatch.foreach(batch => execute(preparedInsertPackageEntryBatch,
-      batch.ledger_offset,
-      batch.recorded_at,
-      batch.submission_id,
-      batch.typ,
-      batch.rejection_reason
-    ))
+    rawDBBatchPostgreSQLV1.packageEntriesBatch.foreach(batch =>
+      execute(
+        preparedInsertPackageEntryBatch,
+        batch.ledger_offset,
+        batch.recorded_at,
+        batch.submission_id,
+        batch.typ,
+        batch.rejection_reason,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.packagesBatch.foreach(batch => execute(preparedInsertPackageBatch,
-      batch.package_id,
-      batch.upload_id,
-      batch.source_description,
-      batch.size,
-      batch.known_since,
-      batch.ledger_offset,
-      batch._package
-    ))
+    rawDBBatchPostgreSQLV1.packagesBatch.foreach(batch =>
+      execute(
+        preparedInsertPackageBatch,
+        batch.package_id,
+        batch.upload_id,
+        batch.source_description,
+        batch.size,
+        batch.known_since,
+        batch.ledger_offset,
+        batch._package,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.partiesBatch.foreach(batch => execute(preparedInsertPartyBatch,
-      batch.party,
-      batch.display_name,
-      batch.explicit,
-      batch.ledger_offset,
-      batch.is_local
-    ))
+    rawDBBatchPostgreSQLV1.partiesBatch.foreach(batch =>
+      execute(
+        preparedInsertPartyBatch,
+        batch.party,
+        batch.display_name,
+        batch.explicit,
+        batch.ledger_offset,
+        batch.is_local,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.partyEntriesBatch.foreach(batch => execute(preparedInsertPartyEntryBatch,
-      batch.ledger_offset,
-      batch.recorded_at,
-      batch.submission_id,
-      batch.party,
-      batch.display_name,
-      batch.typ,
-      batch.rejection_reason,
-      batch.is_local
-    ))
+    rawDBBatchPostgreSQLV1.partyEntriesBatch.foreach(batch =>
+      execute(
+        preparedInsertPartyEntryBatch,
+        batch.ledger_offset,
+        batch.recorded_at,
+        batch.submission_id,
+        batch.party,
+        batch.display_name,
+        batch.typ,
+        batch.rejection_reason,
+        batch.is_local,
+      )
+    )
 
-    rawDBBatchPostgreSQLV1.commandDeduplicationBatch.foreach(batch => execute(preparedDeleteCommandSubmissionBatch,
-      batch.deduplication_key
-    ))
+    rawDBBatchPostgreSQLV1.commandDeduplicationBatch.foreach(batch =>
+      execute(preparedDeleteCommandSubmissionBatch, batch.deduplication_key)
+    )
 
     connection.commit()
   }
@@ -453,7 +476,11 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  override def updateParams(ledgerEnd: Offset, eventSeqId: Long, configuration: Option[Array[Byte]]): Unit = {
+  override def updateParams(
+      ledgerEnd: Offset,
+      eventSeqId: Long,
+      configuration: Option[Array[Byte]],
+  ): Unit = {
     configuration match {
       case Some(configBytes) =>
         // TODO just a shortcut, proper solution: reading config with a temporal query
@@ -472,15 +499,15 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
   }
 
   override def initialize: (Option[Offset], Option[Long]) = {
-    val result@(offset, _) = queryLedgerAndAndEventSeqId()
+    val result @ (offset, _) = queryLedgerAndAndEventSeqId()
 
     // TODO verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
-    offset.foreach {
-      existingOffset =>
-        List(1, 2, 3, 4, 5, 6, 7).foreach(
-          preparedDeleteIngestionOverspillEntries.setBytes(_, existingOffset.toByteArray))
-        preparedDeleteIngestionOverspillEntries.execute()
+    offset.foreach { existingOffset =>
+      List(1, 2, 3, 4, 5, 6, 7).foreach(
+        preparedDeleteIngestionOverspillEntries.setBytes(_, existingOffset.toByteArray)
+      )
+      preparedDeleteIngestionOverspillEntries.execute()
     }
 
     connection.commit()
@@ -490,8 +517,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
 
   private def queryLedgerAndAndEventSeqId(): (Option[Offset], Option[Long]) = {
     val queryStatement = connection.createStatement()
-    val params = fetch(queryStatement.executeQuery(
-      """
+    val params = fetch(
+      queryStatement.executeQuery(
+        """
         |SELECT
         |  ledger_end,
         |  ledger_end_sequential_id
@@ -499,17 +527,21 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         |  parameters
         |
         |""".stripMargin
-    ))(rs => (
-      if (rs.getBytes(1) == null) None else Some(Offset.fromByteArray(rs.getBytes(1))),
-      Option(rs.getLong(2))
-    ))
+      )
+    )(rs =>
+      (
+        if (rs.getBytes(1) == null) None else Some(Offset.fromByteArray(rs.getBytes(1))),
+        Option(rs.getLong(2)),
+      )
+    )
     queryStatement.close()
     assert(params.size == 1)
     params.head
   }
 
-  private val preparedDeleteIngestionOverspillEntries: PreparedStatement = connection.prepareStatement(
-    """
+  private val preparedDeleteIngestionOverspillEntries: PreparedStatement =
+    connection.prepareStatement(
+      """
       |DELETE
       |FROM configuration_entries
       |WHERE ledger_offset > ?;
@@ -541,7 +573,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |WHERE ledger_offset > ?;
       |
       |""".stripMargin
-  )
+    )
 
   private def fetch[T](resultSet: ResultSet)(parse: ResultSet => T): Vector[T] = {
     val buffer = mutable.ArrayBuffer.empty[T]
@@ -558,8 +590,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
 
 object PostgresDAO {
 
-  case class ResourcePool[T <: AutoCloseable](create: () => T,
-                                              size: Int) extends AutoCloseable {
+  case class ResourcePool[T <: AutoCloseable](create: () => T, size: Int) extends AutoCloseable {
     assert(size > 0)
 
     private val pool = mutable.Queue.empty[T]

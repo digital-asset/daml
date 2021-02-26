@@ -10,6 +10,7 @@ import java.util.concurrent.{ScheduledThreadPoolExecutor, TimeUnit}
 
 import com.daml.platform.indexer.poc.PerfSupport._
 
+import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContextExecutorService, Future}
 
@@ -27,7 +28,6 @@ object PerfSupport {
       ()
     }
   }
-
 
   def runOnWorkerWithMetrics[IN, OUT](
       workerEC: ExecutionContextExecutorService,
