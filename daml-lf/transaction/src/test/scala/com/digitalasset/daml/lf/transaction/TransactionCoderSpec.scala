@@ -619,8 +619,7 @@ class TransactionCoderSpec
             txVersion,
             encoded,
           )
-          if (result != Right(nodeId -> normalizedNode))
-            result shouldBe Right(nodeId -> normalizedNode)
+          result shouldBe Right(nodeId -> normalizedNode)
         }
       }
     }
