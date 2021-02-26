@@ -51,19 +51,21 @@ object TestData {
 
   sealed case class Tree(rootEvents: Seq[Event]) {
     def toTransactionTree: TransactionTree = {
+      var count = 0
       def go(
-          acc: (Int, Seq[String], Map[String, TreeEvent]),
+          acc: (Seq[String], Map[String, TreeEvent]),
           event: Event,
-      ): (Int, Seq[String], Map[String, TreeEvent]) = {
-        val (curr, rootEventIds, eventsById) = acc
-        val eventId = s"ev$curr"
+      ): (Seq[String], Map[String, TreeEvent]) = {
+        val (rootEventIds, eventsById) = acc
+        val eventId = s"ev$count"
+        count += 1
         event match {
           case event: Created =>
             val treeEvent = TreeEvent(TreeEvent.Kind.Created(event.toCreatedEvent(eventId)))
-            (curr + 1, rootEventIds :+ eventId, eventsById + (eventId -> treeEvent))
+            (rootEventIds :+ eventId, eventsById + (eventId -> treeEvent))
           case Exercised(contractId, childEvents, choiceArgument) =>
-            val (next, childEventIds, childEventsById) =
-              childEvents.foldLeft((curr + 1, Seq.empty[String], Map.empty[String, TreeEvent]))(go)
+            val (childEventIds, childEventsById) =
+              childEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
             val treeEvent = TreeEvent(
               TreeEvent.Kind.Exercised(
                 ExercisedEvent(
@@ -78,11 +80,11 @@ object TestData {
                 )
               )
             )
-            (next, rootEventIds :+ eventId, eventsById + (eventId -> treeEvent) ++ childEventsById)
+            (rootEventIds :+ eventId, eventsById + (eventId -> treeEvent) ++ childEventsById)
         }
       }
-      val (_, rootEventIds, eventsById) =
-        rootEvents.foldLeft((0, Seq.empty[String], Map.empty[String, TreeEvent]))(go)
+      val (rootEventIds, eventsById) =
+        rootEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
       TransactionTree(
         transactionId = "txid",
         commandId = "cmdid",
