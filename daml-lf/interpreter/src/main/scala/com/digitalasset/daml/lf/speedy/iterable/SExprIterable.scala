@@ -6,7 +6,9 @@ package com.daml.lf.speedy.iterable
 import com.daml.lf.speedy.{SExpr, SValue}
 import scala.jdk.CollectionConverters._
 
-object SExprIterable {
+// Iterates only over immediate children similar to Haskell’s
+// uniplate.
+private[speedy] object SExprIterable {
   that =>
   private[iterable] def iterator(e: SExpr): Iterator[SExpr] = e match {
     case SExpr.SEVal(_) => Iterator.empty
