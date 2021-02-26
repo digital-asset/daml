@@ -164,7 +164,7 @@ main = do
                       [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
-              pom <- generateAggregatePom bazelLocations allArtifacts
+              pom <- generateAggregatePom releaseDir allArtifacts
               pomPath <- (releaseDir </>) <$> parseRelFile "pom.xml"
               liftIO $ T.IO.writeFile (toFilePath pomPath) pom
               exitCode <- liftIO $ withCreateProcess ((proc "mvn" ["initialize"]) { cwd = Just (toFilePath releaseDir) }) $ \_ _ _ mvnHandle ->
