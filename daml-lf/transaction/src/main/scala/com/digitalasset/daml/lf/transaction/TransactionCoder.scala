@@ -256,7 +256,8 @@ object TransactionCoder {
     else {
       val nodeBuilder =
         TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
-      nodeBuilder.setVersion(node.version.protoValue)
+      if (enclosingVersion >= TransactionVersion.minNodeVersion)
+        nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
