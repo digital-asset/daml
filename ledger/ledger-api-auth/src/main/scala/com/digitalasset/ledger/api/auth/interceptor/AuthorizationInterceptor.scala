@@ -53,10 +53,6 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
             logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
             call.close(internalAuthenticationError, new Metadata())
             new ServerCall.Listener[Nothing]() {}
-          case Success(Claims.empty) =>
-            logger.debug(s"Auth metadata decoded into empty claims, returning UNAUTHENTICATED")
-            call.close(Status.UNAUTHENTICATED, new Metadata())
-            new ServerCall.Listener[Nothing]() {}
           case Success(claims) =>
             val nextCtx = prevCtx.withValue(contextKeyClaim, claims)
             // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
