@@ -1197,6 +1197,44 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             , "<h1>TableView:IouDivulger</h1>"
             , "<h1>TableView:IouIssuer</h1>"
             ]
+    , testCase' "Table view on error" $ do
+        f <- makeFile "TableView.daml" $ T.unlines
+          [ "module TableView where"
+
+          , "template T with"
+          , "    p: Party"
+          , "  where"
+          , "    signatory p"
+          , "    choice Fail : ()"
+          , "      controller p"
+          , "      do create this"
+          , "         assert False"
+
+          , "test = scenario do"
+          , "  p <- getParty \"p\""
+          , "  c <- submit p do create T with p = p"
+          , "  submit p $ do exercise c Fail"
+          ]
+        setFilesOfInterest [f]
+        let vr = VRScenario f "test"
+        setOpenVirtualResources [vr]
+        -- This is a bit messy, we also want to to test for the absence of extra nodes
+        -- so we have to be quite strict in what we match against.
+        expectVirtualResourceRegex vr $ T.concat
+            [ "<h1>TableView:T</h1>"
+            , "<table>"
+            , "<tr><th>id</th><th>status</th><th>p</th><th><div class=\"observer\">p</div></th></tr>"
+            , "<tr class=\"active\">"
+            , "<td>#0:0</td>"
+            , "<td>active</td>"
+            , "<td>&#39;p&#39;</td>"
+            , "<td class=\"disclosure disclosed\">"
+            , "<div class=\"tooltip\"><span>S</span><span class=\"tooltiptext\">Signatory</span>"
+            , "</div>"
+            , "</td>"
+            , "</tr>"
+            , "</table>"
+            ]
     ]
     where
         testCase' = testCase mbScenarioService

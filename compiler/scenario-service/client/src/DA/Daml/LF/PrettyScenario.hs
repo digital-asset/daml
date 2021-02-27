@@ -8,6 +8,7 @@ module DA.Daml.LF.PrettyScenario
   , prettyScenarioError
   , prettyBriefScenarioError
   , renderScenarioResult
+  , renderScenarioError
   , lookupDefLocation
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
@@ -900,11 +901,11 @@ renderTable world Table{..} = H.div H.! A.class_ active $ do
     where
         active = if any niActive tRows then "active" else "archived"
 
-renderTableView :: LF.World -> ScenarioResult -> Maybe H.Html
-renderTableView world ScenarioResult{..} =
-    let nodes = mapMaybe nodeInfo (V.toList scenarioResultNodes)
-        tables = groupTables nodes
-    in if null nodes then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable world) tables
+renderTableView :: LF.World -> V.Vector Node -> Maybe H.Html
+renderTableView world nodes =
+    let nodeInfos = mapMaybe nodeInfo (V.toList nodes)
+        tables = groupTables nodeInfos
+    in if null nodeInfos then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable world) tables
 
 renderTransactionView :: LF.World -> ScenarioResult -> H.Html
 renderTransactionView world res =
@@ -918,28 +919,55 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let tableView = renderTableView world res
+        let tableView = renderTableView world (scenarioResultNodes res)
         let transView = renderTransactionView world res
-        let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
-        case tableView of
-            Nothing -> H.body H.! A.class_ "hide_note" $ do
-                noteView
-                transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note hidden_disclosure" $ do
-                H.div $ do
-                    H.button H.! A.onclick "toggle_view();" $ do
-                        H.span H.! A.class_ "table" $ H.text "Show transaction view"
-                        H.span H.! A.class_ "transaction" $ H.text "Show table view"
-                    H.text " "
-                    H.span H.! A.class_ "table" $ do
-                        H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
-                        H.label H.! A.for "show_archived" $ "Show archived"
-                    H.span H.! A.class_ "table" $ do
-                        H.input H.! A.type_ "checkbox" H.! A.id "show_detailed_disclosure" H.! A.onchange "toggle_detailed_disclosure();"
-                        H.label H.! A.for "show_detailed_disclosure" $ "Show detailed disclosure"
-                noteView
-                tbl
-                transView
+        renderViews SuccessView tableView transView
+
+renderScenarioError :: LF.World -> ScenarioError -> T.Text
+renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
+    H.docTypeHtml $ do
+        H.head $ do
+            H.style $ H.text Pretty.highlightStylesheet
+            H.script "" H.! A.src "$webviewSrc"
+            H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
+        let tableView = do
+                table <- renderTableView world (scenarioErrorNodes err)
+                pure $ H.div H.! A.class_ "table" $ do
+                  Pretty.renderHtml 128 $ annotateSC ErrorSC "Scenario execution failed, displaying state before failing transaction"
+                  table
+        let transView =
+                let doc = prettyScenarioError world err
+                in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
+        renderViews ErrorView tableView transView
+
+data ViewType = SuccessView | ErrorView
+
+renderViews :: ViewType -> Maybe H.Html -> H.Html -> H.Html
+renderViews viewType tableView transView =
+    case tableView of
+        Nothing -> H.body H.! A.class_ "hide_note" $ do
+            noteView
+            transView
+        Just tbl -> H.body H.! A.class_ ("hide_archived hide_note hidden_disclosure" <> extraClasses) $ do
+            H.div $ do
+                H.button H.! A.onclick "toggle_view();" $ do
+                    H.span H.! A.class_ "table" $ H.text "Show transaction view"
+                    H.span H.! A.class_ "transaction" $ H.text "Show table view"
+                H.text " "
+                H.span H.! A.class_ "table" $ do
+                    H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
+                    H.label H.! A.for "show_archived" $ "Show archived"
+                H.span H.! A.class_ "table" $ do
+                    H.input H.! A.type_ "checkbox" H.! A.id "show_detailed_disclosure" H.! A.onchange "toggle_detailed_disclosure();"
+                    H.label H.! A.for "show_detailed_disclosure" $ "Show detailed disclosure"
+            noteView
+            tbl
+            transView
+  where
+    noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
+    extraClasses = case viewType of
+        SuccessView -> " hide_transaction" -- default to table view
+        ErrorView -> " hide_table" -- default to transaction view
 
 scenarioNotInFileNote :: T.Text -> T.Text
 scenarioNotInFileNote file = htmlNote $ T.pack $

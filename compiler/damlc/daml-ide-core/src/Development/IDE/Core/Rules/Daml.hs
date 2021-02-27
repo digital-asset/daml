@@ -1123,6 +1123,14 @@ getOpenVirtualResourcesRule = do
         openVRs <- liftIO $ readVar envOpenVirtualResources
         pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
 
+formatHtmlScenarioError :: LF.World -> SS.Error -> T.Text
+formatHtmlScenarioError world  err = case err of
+    SS.BackendError err ->
+        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Scenario service backend error: " <> show err
+    SS.ScenarioError err -> LF.renderScenarioError world err
+    SS.ExceptionError err ->
+        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Exception during scenario execution: " <> show err
+
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
     SS.BackendError err -> Pretty.pretty $ "Scenario service backend error: " <> show err
@@ -1133,7 +1141,7 @@ formatScenarioResult :: LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
 formatScenarioResult world errOrRes =
     case errOrRes of
         Left err ->
-            Pretty.renderHtmlDocumentText 128 (formatScenarioError world err)
+            formatHtmlScenarioError world err
         Right res ->
             LF.renderScenarioResult world res
 
