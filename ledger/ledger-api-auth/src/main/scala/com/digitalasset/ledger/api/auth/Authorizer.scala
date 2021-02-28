@@ -24,7 +24,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID.
     */
-  private def valid(claims: Claims): Either[AuthorizationError, Unit] =
+  private def valid(claims: ClaimSet.Claims): Either[AuthorizationError, Unit] =
     for {
       _ <- claims.notExpired(now())
       _ <- claims.validForLedger(ledgerId)
@@ -168,7 +168,10 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
         )
     }
 
-  private def ongoingAuthorization[Res](scso: ServerCallStreamObserver[Res], claims: Claims) =
+  private def ongoingAuthorization[Res](
+      scso: ServerCallStreamObserver[Res],
+      claims: ClaimSet.Claims,
+  ) =
     new OngoingAuthorizationObserver[Res](
       scso,
       claims,
@@ -180,7 +183,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     )
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
-      authorized: Claims => Either[AuthorizationError, Unit]
+      authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
   ): (Req, StreamObserver[Res]) => Unit =
     (request, observer) => {
       val scso = assertServerCall(observer)
@@ -206,7 +209,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     }
 
   private def authorize[Req, Res](call: Req => Future[Res])(
-      authorized: Claims => Either[AuthorizationError, Unit]
+      authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
   ): Req => Future[Res] =
     request =>
       AuthorizationInterceptor

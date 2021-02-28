@@ -22,15 +22,25 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
   protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWT.getClass)
 
-  override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
-    decodeAndParse(headers).fold(
+  override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
+    CompletableFuture.completedFuture {
+      getAuthorizationHeader(headers) match {
+        case None => ClaimSet.Claims.Empty
+        case Some(header) => parseHeader(header)
+      }
+    }
+
+  private[this] def getAuthorizationHeader(headers: Metadata): Option[String] =
+    Option.apply(headers.get(AUTHORIZATION_KEY))
+
+  private[this] def parseHeader(header: String): ClaimSet =
+    parseJWTPayload(header).fold(
       error => {
         logger.warn("Authorization error: " + error.message)
-        CompletableFuture.completedFuture(Claims.empty)
+        ClaimSet.Unauthenticated
       },
-      token => CompletableFuture.completedFuture(payloadToClaims(token)),
+      token => payloadToClaims(token),
     )
-  }
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
     import AuthServiceJWTCodec.JsonImplicits._
@@ -39,15 +49,12 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     )
   }
 
-  private[this] def decodeAndParse(headers: Metadata): Either[Error, AuthServiceJWTPayload] = {
-    val bearerTokenRegex = "Bearer (.*)".r
+  private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] = {
+    val BearerTokenRegex = "Bearer (.*)".r
 
     for {
-      headerValue <- Option
-        .apply(headers.get(AUTHORIZATION_KEY))
-        .toRight(Error("Authorization header not found"))
-      token <- bearerTokenRegex
-        .findFirstMatchIn(headerValue)
+      token <- BearerTokenRegex
+        .findFirstMatchIn(header)
         .map(_.group(1))
         .toRight(Error("Authorization header does not use Bearer format"))
       decoded <- verifier
@@ -59,7 +66,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     } yield parsed
   }
 
-  private[this] def payloadToClaims(payload: AuthServiceJWTPayload): Claims = {
+  private[this] def payloadToClaims(payload: AuthServiceJWTPayload): ClaimSet.Claims = {
     val claims = ListBuffer[Claim]()
 
     // Any valid token authorizes the user to use public services
@@ -74,7 +81,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     payload.readAs
       .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
 
-    Claims(
+    ClaimSet.Claims(
       claims = claims.toList,
       ledgerId = payload.ledgerId,
       participantId = payload.participantId,

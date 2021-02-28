@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.auth.interceptor
 
-import com.daml.ledger.api.auth.{AuthService, Claims}
+import com.daml.ledger.api.auth.{AuthService, ClaimSet}
 import com.daml.platform.server.api.validation.ErrorFactories.unauthenticated
 import io.grpc.{
   Context,
@@ -53,18 +53,21 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
             logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
             call.close(internalAuthenticationError, new Metadata())
             new ServerCall.Listener[Nothing]() {}
-          case Success(Claims.empty) =>
-            logger.debug(s"Auth metadata decoded into empty claims, returning UNAUTHENTICATED")
-            call.close(Status.UNAUTHENTICATED, new Metadata())
-            new ServerCall.Listener[Nothing]() {}
-          case Success(claims) =>
-            val nextCtx = prevCtx.withValue(contextKeyClaim, claims)
-            // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
-            // such that `Context.current` returns `nextCtx`.
-            val nextListenerWithContext =
-              Contexts.interceptCall(nextCtx, call, headers, nextListener)
-            setNextListener(nextListenerWithContext)
-            nextListenerWithContext
+          case Success(claimSet) =>
+            claimSet match {
+              case ClaimSet.Unauthenticated =>
+                logger.debug(s"Auth metadata decoded into empty claims, returning UNAUTHENTICATED")
+                call.close(Status.UNAUTHENTICATED, new Metadata())
+                new ServerCall.Listener[Nothing]() {}
+              case claims: ClaimSet.Claims =>
+                val nextCtx = prevCtx.withValue(contextKeyClaim, claims)
+                // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
+                // such that `Context.current` returns `nextCtx`.
+                val nextListenerWithContext =
+                  Contexts.interceptCall(nextCtx, call, headers, nextListener)
+                setNextListener(nextListenerWithContext)
+                nextListenerWithContext
+            }
         }(ec)
     }
   }
@@ -72,10 +75,10 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
 
 object AuthorizationInterceptor {
 
-  private val contextKeyClaim = Context.key[Claims]("AuthServiceDecodedClaim")
+  private val contextKeyClaim = Context.key[ClaimSet.Claims]("AuthServiceDecodedClaim")
 
-  def extractClaimsFromContext(): Try[Claims] =
-    Option(contextKeyClaim.get()).fold[Try[Claims]](Failure(unauthenticated()))(Success(_))
+  def extractClaimsFromContext(): Try[ClaimSet.Claims] =
+    Option(contextKeyClaim.get()).fold[Try[ClaimSet.Claims]](Failure(unauthenticated()))(Success(_))
 
   def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec)

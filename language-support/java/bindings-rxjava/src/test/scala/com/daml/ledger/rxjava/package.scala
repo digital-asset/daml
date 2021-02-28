@@ -15,7 +15,7 @@ import com.daml.ledger.api.auth.{
   ClaimAdmin,
   ClaimPublic,
   ClaimReadAsParty,
-  Claims,
+  ClaimSet,
 }
 
 package object rxjava {
@@ -40,19 +40,25 @@ package object rxjava {
 
   private[rxjava] val mockedAuthService =
     AuthServiceStatic {
-      case `emptyToken` => Claims(Nil)
-      case `publicToken` => Claims(Seq[Claim](ClaimPublic))
-      case `adminToken` => Claims(Seq[Claim](ClaimAdmin))
+      case `emptyToken` => ClaimSet.Claims(Nil)
+      case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
+      case `adminToken` => ClaimSet.Claims(Seq[Claim](ClaimAdmin))
       case `somePartyReadToken` =>
-        Claims(Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someParty))))
+        ClaimSet.Claims(
+          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someParty)))
+        )
       case `somePartyReadWriteToken` =>
-        Claims(Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someParty))))
+        ClaimSet.Claims(
+          Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someParty)))
+        )
       case `someOtherPartyReadToken` =>
-        Claims(
+        ClaimSet.Claims(
           Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty)))
         )
       case `someOtherPartyReadWriteToken` =>
-        Claims(Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someOtherParty))))
+        ClaimSet.Claims(
+          Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someOtherParty)))
+        )
     }
 
 }
