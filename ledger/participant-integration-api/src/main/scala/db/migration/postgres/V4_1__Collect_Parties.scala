@@ -41,7 +41,9 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
       |WHERE
       |  typ='transaction'""".stripMargin
 
-    val rows: ResultSet = connection.createStatement().executeQuery(SQL_SELECT_LEDGER_ENTRIES)
+    val statement = connection.createStatement()
+    statement.setFetchSize(batchSize)
+    val rows: ResultSet = statement.executeQuery(SQL_SELECT_LEDGER_ENTRIES)
 
     new Iterator[(Long, Tx.Transaction)] {
 
