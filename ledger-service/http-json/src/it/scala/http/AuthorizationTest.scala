@@ -37,7 +37,7 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
   private val emptyToken = "empty"
   private val mockedAuthService = Option(AuthServiceStatic {
     case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
-    case `emptyToken` => ClaimSet.Claims.Empty
+    case `emptyToken` => ClaimSet.Unauthenticated
   })
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
