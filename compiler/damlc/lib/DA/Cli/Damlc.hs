@@ -166,7 +166,7 @@ cmdLint numProcessors =
     <> fullDesc
   where
     cmd = execLint
-        <$> inputFileOpt
+        <$> many inputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
 
 cmdTest :: Int -> Mod CommandFields Command
@@ -539,8 +539,8 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
 
-execLint :: FilePath -> Options -> Command
-execLint inputFile opts =
+execLint :: [FilePath] -> Options -> Command
+execLint inputFiles opts =
   Command Lint (Just projectOpts) effect
   where
      projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
@@ -548,16 +548,23 @@ execLint inputFile opts =
        withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
-         inputFile <- toNormalizedFilePath' <$> relativize inputFile
-         opts <- setDlintDataDir opts
-         withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
-             setFilesOfInterest ide (HashSet.singleton inputFile)
-             runActionSync ide $ getDlintIdeas inputFile
-             diags <- getDiagnostics ide
-             if null diags then
-               hPutStrLn stderr "No hints"
-             else
-               exitFailure
+         inputFiles <- getInputFiles inputFiles
+         forM_ inputFiles $ \inputFile -> do
+           inputFile <- toNormalizedFilePath' <$> relativize inputFile
+           opts <- setDlintDataDir opts
+           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+               setFilesOfInterest ide (HashSet.singleton inputFile)
+               runActionSync ide $ getDlintIdeas inputFile
+               diags <- getDiagnostics ide
+               if null diags then
+                 hPutStrLn stderr "No hints"
+               else
+                 exitFailure
+     getInputFiles = \case
+       [] -> do
+           fs <- listFilesInside (pure . not . isPrefixOf ".daml" . takeFileName) "."
+           pure $ [f | f <- fs, ".daml" `isExtensionOf` f]
+       fs -> pure fs
      setDlintDataDir :: Options -> IO Options
      setDlintDataDir opts = do
        defaultDir <-locateRunfiles $
