@@ -12,6 +12,7 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.MeteredReadOnlyLedger
+import com.daml.platform.store.dao.events.ContractsReader
 
 import scala.concurrent.Future
 
@@ -64,6 +65,7 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
     ledger.close()
   }
 
+  override def contractsReader: ContractsReader = ledger.contractsReader
 }
 
 private[sandbox] object MeteredLedger {

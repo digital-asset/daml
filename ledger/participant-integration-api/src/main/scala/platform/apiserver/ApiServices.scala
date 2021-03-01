@@ -45,6 +45,7 @@ import com.daml.platform.server.api.services.grpc.{
   GrpcTransactionService,
 }
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.MutableStateCacheLayer
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
@@ -101,6 +102,12 @@ private[daml] object ApiServices {
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
+
+    private val cachedContractsReader =
+      MutableStateCacheLayer(
+        store = contractStore,
+        metrics = metrics,
+      )(servicesExecutionContext)
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
@@ -197,10 +204,10 @@ private[daml] object ApiServices {
               engine,
               participantId,
               packagesService,
-              contractStore,
+              cachedContractsReader,
               metrics,
             ),
-            contractStore,
+            cachedContractsReader,
             maxRetries = 3,
             metrics,
           ),

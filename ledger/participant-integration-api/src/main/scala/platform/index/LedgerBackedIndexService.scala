@@ -55,6 +55,11 @@ private[platform] final class LedgerBackedIndexService(
     participantId: ParticipantId,
 ) extends IndexService {
 
+  def lookupContractKey(key: GlobalKey)(implicit
+      loggingContext: LoggingContext
+  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
+    ledger.contractsReader.lookupContractKey(key)
+
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     Future.successful(ledger.ledgerId)
 
@@ -221,10 +226,11 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[Option[Instant]] =
     ledger.lookupMaximumLedgerTime(ids)
 
-  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
-                                                          loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]] =
-    ledger.lookupKey(key, atOffset)
+  override def lookupContractKey(
+      readers: Set[Party],
+      key: GlobalKey,
+  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
+    ledger.lookupKey(key, readers)
 
   // PartyManagementService
   override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =

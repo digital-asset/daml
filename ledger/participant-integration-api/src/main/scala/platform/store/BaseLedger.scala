@@ -35,6 +35,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.events.ContractsReader
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -49,11 +50,14 @@ private[platform] abstract class BaseLedger(
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
+  override def contractsReader: ContractsReader = ledgerDao.contractsReader
+
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]] = ledgerDao.lookupKey(key, atOffset)
+  ): Future[Option[ContractId]] =
+    ledgerDao.lookupKey(key, forParties)
 
   override def flatTransactions(
       startExclusive: Option[Offset],

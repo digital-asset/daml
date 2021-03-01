@@ -12,6 +12,8 @@ trait IndexService
     with IndexTransactionsService
     with IndexActiveContractsService
     with ContractStore
+
+    /** TDT, ideally this should not be exposed here, since it doesn't expose a service to the Ledger API */
     with IdentityProvider
     with IndexPartyManagementService
     with IndexConfigManagementService

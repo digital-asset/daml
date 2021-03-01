@@ -30,6 +30,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ReadOnlyLedger
+import com.daml.platform.store.dao.events.ContractsReader
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -85,10 +86,10 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParties))
 
-  override def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]] =
-    Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, atOffset))
+  ): Future[Option[ContractId]] =
+    Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParties))
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -200,6 +201,8 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       metrics.daml.index.prune,
       ledger.prune(pruneUpToInclusive),
     )
+
+  override def contractsReader: ContractsReader = ledger.contractsReader
 }
 
 private[platform] object MeteredReadOnlyLedger {

@@ -28,7 +28,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.{ContractsReader, TransactionsReader, TransactionsWriter}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -40,7 +40,7 @@ import com.daml.platform.store.entries.{
 import scala.concurrent.Future
 
 private[platform] trait LedgerReadDao extends ReportsHealth {
-
+  def contractsReader: ContractsReader
   def maxConcurrentConnections: Int
 
   /** Looks up the ledger id */
@@ -80,12 +80,12 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up a Contract given a contract key and a party
     *
     * @param key the contract key to query
-    * @param atOffset offset up until where to evaluate the key state
+    * @param forParties a set of parties for one of which the contract must be visible
     * @return the optional ContractId
     */
-  def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
-                                                  loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]]
+  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractId]]
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party])(implicit

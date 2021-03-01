@@ -28,6 +28,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
+import com.daml.platform.store.dao.events.ContractsReader
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -36,6 +37,9 @@ import scala.concurrent.Future
 private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
+
+  // TDT Let's extract this later
+  def contractsReader: ContractsReader
 
   def flatTransactions(
       startExclusive: Option[Offset],
@@ -76,9 +80,9 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
+  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]]
+  ): Future[Option[ContractId]]
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,

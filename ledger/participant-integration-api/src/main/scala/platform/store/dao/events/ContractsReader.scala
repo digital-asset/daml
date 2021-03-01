@@ -6,15 +6,15 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.time.Instant
 
-import anorm.SqlParser.{binaryStream, int, str}
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
+import anorm.SqlParser._
+import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.Conversions._
+import com.daml.platform.store.Conversions.{contractId, offset, _}
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
@@ -24,10 +24,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** @see [[ContractsTable]]
   */
-private[dao] sealed class ContractsReader(
+sealed class ContractsReader(
     dispatcher: DbDispatcher,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslation.Cache,
     sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends ContractStore {
@@ -40,9 +39,6 @@ private[dao] sealed class ContractsReader(
     str("template_id") ~ binaryStream("create_argument") ~ int(
       "create_argument_compression"
     ).? map SqlParser.flatten
-
-  private val contractWithoutValueRowParser: RowParser[String] =
-    str("template_id")
 
   /** Lookup of a contract in the case the contract value is not already known */
   private def lookupActiveContractAndLoadArgument(
@@ -125,123 +121,91 @@ private[dao] sealed class ContractsReader(
       })
   }
 
-  /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
-  private def lookupActiveContractWithCachedArgument(
-      readers: Set[Party],
-      contractId: ContractId,
-      createArgument: Value,
-  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
-    val tree_event_witnessesWhere =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
-    dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
-        implicit connection =>
-          SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere  -- only use visible archivals
-          LIMIT 1
-       ),
-       create_event AS (
-         SELECT contract_id, template_id
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT divulgence_events.contract_id,
-                -- Note: the divulgance_event.template_id can be NULL
-                -- for certain integrations. For example, the KV integration exploits that
-                -- every participant node knows about all create events. The integration
-                -- therefore only communicates the change in visibility to the IndexDB, but
-                -- does not include a full divulgence event.
-                COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
-                parameters
-          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-            AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          ORDER BY divulgence_events.event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          LIMIT 1
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT contract_id, template_id
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   LIMIT 1;
-           """
-            .as(contractWithoutValueRowParser.singleOpt)
-      }
-      .map(
-        _.map(templateId =>
-          toContract(
-            templateId = templateId,
-            createArgument = createArgument,
-          )
-        )
-      )
-  }
-
   override def lookupActiveContract(
       readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
-    // Depending on whether the contract argument is cached or not, submit a different query to the database
-    lfValueTranslationCache.contracts
-      .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
-      case Some(createArgument) =>
-        lookupActiveContractWithCachedArgument(readers, contractId, createArgument.argument)
-      case None =>
-        lookupActiveContractAndLoadArgument(readers, contractId)
+    lookupActiveContractAndLoadArgument(readers, contractId)
 
-    }
-
-  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
+  /** Returns the offset at which the key was last assigned for an active contract, otherwise the ledger end */
+  override def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]] =
+  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-      lookupContractKeyQuery(key, atOffset).as((contractId("contract_id") ~ flatEventWitnesses("flat_event_witnesses"))
-        .map{case contractId ~ parties => (contractId, parties)}
-        .singleOpt
+      val maybeLastCreate = lookupLastCreated(key).as(
+        (offset("event_offset") ~ contractId("contract_id") ~ flatEventWitnessesColumn(
+          "flat_event_witnesses"
+        )).map { case offset ~ contractId ~ flatEventWitnesses =>
+          (offset, contractId, flatEventWitnesses)
+        }.singleOpt
       )
+
+      val maybeLastDelete = maybeLastCreate.flatMap { lastCreate =>
+        lookupLastArchived(lastCreate._2).as(
+          (offset("event_offset") ~ contractId("contract_id")).map { case offset ~ contractId =>
+            (offset, contractId)
+          }.singleOpt
+        )
+      }
+
+      (maybeLastCreate, maybeLastDelete)
     }
 
-  private def lookupContractKeyQuery(key: GlobalKey, atOffset: Offset): SimpleSql[Row] =
+  private def lookupLastCreated(key: GlobalKey): SimpleSql[Row] =
+    SQL"""SELECT event_offset, contract_id, flat_event_witnesses
+             FROM participant_events, parameters
+            WHERE event_kind = 10 -- create
+              AND create_key_hash = ${key.hash}
+              AND event_sequential_id <= parameters.ledger_end_sequential_id
+            ORDER BY event_sequential_id DESC
+            LIMIT 1
+            """
+
+  private def lookupLastArchived(contractId: ContractId): SimpleSql[Row] =
+    SQL"""SELECT event_offset, contract_id
+                FROM participant_events, parameters
+             WHERE event_kind = 20 -- consuming exercise
+                 AND event_sequential_id <= parameters.ledger_end_sequential_id
+                 AND contract_id = $contractId
+                 ORDER BY event_sequential_id DESC
+            LIMIT 1
+       """
+
+  override def lookupContractKey(
+      readers: Set[Party],
+      key: Key,
+  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
+    dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
+      lookupContractKeyQuery(readers, key).as(contractId("contract_id").singleOpt)
+    }
+
+  private def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row] = {
+    def flat_event_witnessesWhere(columnPrefix: String) =
+      sqlFunctions.arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers)
     SQL"""
-  WITH last_contract_key_create_before_offset AS (
+  WITH last_contract_key_create AS (
          SELECT participant_events.*
            FROM participant_events, parameters
           WHERE event_kind = 10 -- create
             AND create_key_hash = ${key.hash}
-            AND event_offset <= $atOffset -- TODO Tudor (can I also use the ledger sequential id?)
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
                 -- do NOT check visibility here, as otherwise we do not abort the scan early
           ORDER BY event_sequential_id DESC
           LIMIT 1
        )
-  SELECT contract_id, flat_event_witnesses
-    FROM last_contract_key_create_before_offset -- creation only, as divulged contracts cannot be fetched by key
-    WHERE NOT EXISTS       -- check no archival visible
+  SELECT contract_id
+    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+  WHERE #${flat_event_witnessesWhere("last_contract_key_create")} -- check visibility only here
+    AND NOT EXISTS       -- check no archival visible
          (SELECT 1
-            FROM participant_events -- TODO Tudor (should I also add a ledger end guard here?)
+            FROM participant_events, parameters
            WHERE event_kind = 20 -- consuming exercise
-             AND event_offset <= $atOffset -- TODO Tudor (can I also use the ledger sequential id?)
-             AND contract_id = last_contract_key_create_before_offset.contract_id
+             AND event_sequential_id <= parameters.ledger_end_sequential_id
+             AND #${flat_event_witnessesWhere("participant_events")}
+             AND contract_id = last_contract_key_create.contract_id
          );
        """
+  }
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
@@ -251,7 +215,6 @@ private[dao] sealed class ContractsReader(
         committedContracts.lookupMaximumLedgerTime(ids)
       }
       .map(_.get)
-
 }
 
 private[dao] object ContractsReader {
@@ -260,7 +223,6 @@ private[dao] object ContractsReader {
       dispatcher: DbDispatcher,
       dbType: DbType,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext): ContractsReader = {
     def sqlFunctions = dbType match {
       case DbType.Postgres => PostgresSqlFunctions
@@ -269,7 +231,6 @@ private[dao] object ContractsReader {
     new ContractsReader(
       dispatcher = dispatcher,
       metrics = metrics,
-      lfValueTranslationCache = lfValueTranslationCache,
       sqlFunctions = sqlFunctions,
     )
   }
@@ -304,14 +265,4 @@ private[dao] object ContractsReader {
       agreementText = "",
     )
   }
-
-  private def toContract(
-      templateId: String,
-      createArgument: Value,
-  ): Contract =
-    Contract(
-      template = Identifier.assertFromString(templateId),
-      arg = createArgument,
-      agreementText = "",
-    )
 }

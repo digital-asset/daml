@@ -25,9 +25,9 @@ trait ContractStore {
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
-  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
+  def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]]
+  ): Future[Option[ContractId]]
 
   /** @return The maximum ledger effective time of all contracts in ids, fails as follows:
     *         - if ids is empty or not all the non-divulged ids can be found, a failed [[Future]]
@@ -36,4 +36,8 @@ trait ContractStore {
   def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Instant]]
+
+  def lookupContractKey(key: GlobalKey)(implicit
+      loggingContext: LoggingContext
+  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])]
 }

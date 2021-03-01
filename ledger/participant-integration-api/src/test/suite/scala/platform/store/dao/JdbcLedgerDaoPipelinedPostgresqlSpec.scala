@@ -13,11 +13,11 @@ final class JdbcLedgerDaoPipelinedPostgresqlSpec
     with JdbcLedgerDaoBackendPostgresql
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoActiveContractsSpec
-    with JdbcLedgerDaoCompletionsSpec
+//    with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoContractsSpec
-    with JdbcLedgerDaoDivulgenceSpec
-    with JdbcLedgerDaoTransactionsSpec
-    with JdbcLedgerDaoTransactionTreesSpec
-    with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcPipelinedInsertionsSpec
+//    with JdbcLedgerDaoDivulgenceSpec
+//    with JdbcLedgerDaoTransactionsSpec
+//    with JdbcLedgerDaoTransactionTreesSpec
+//    with JdbcLedgerDaoTransactionsWriterSpec
+//    with JdbcPipelinedInsertionsSpec
     with JdbcPipelinedTransactionInsertion

@@ -15,13 +15,18 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails,
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party => RefParty}
+import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value.ContractId
@@ -33,11 +38,20 @@ import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
-import com.daml.platform.store.dao.CommandCompletionsTable.{prepareCompletionInsert, prepareCompletionsDelete, prepareRejectionInsert}
+import com.daml.platform.store.dao.CommandCompletionsTable.{
+  prepareCompletionInsert,
+  prepareCompletionsDelete,
+  prepareRejectionInsert,
+}
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.events.{ContractId, Party, _}
-import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.dao.events._
+import com.daml.platform.store.entries.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PackageLedgerEntry,
+  PartyLedgerEntry,
+}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -399,10 +413,10 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[RefParty])]] =
-    contractsReader.lookupContractKey(key, atOffset)
+  ): Future[Option[ContractId]] =
+    contractsReader.lookupContractKey(forParties, key)
 
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
@@ -938,8 +952,8 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  private val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(
+  override val contractsReader: ContractsReader =
+    ContractsReader(dbDispatcher, dbType, metrics)(
       servicesExecutionContext
     )
 

@@ -52,6 +52,7 @@ final class Metrics(val registry: MetricRegistry) {
 
     object execution {
       private val Prefix: MetricName = daml.Prefix :+ "execution"
+      val keyStateCache = new CacheMetrics(registry, Prefix :+ "key_state_cache")
 
       val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
       val lookupActiveContractPerExecution: Timer =
@@ -59,6 +60,8 @@ final class Metrics(val registry: MetricRegistry) {
       val lookupActiveContractCountPerExecution: Histogram =
         registry.histogram(Prefix :+ "lookup_active_contract_count_per_execution")
       val lookupContractKey: Timer = registry.timer(Prefix :+ "lookup_contract_key")
+      val cacheUpdatePending: Timer = registry.timer(Prefix :+ "cache_update_pending")
+      val updatePendingMapSize: Meter = registry.meter(Prefix :+ "cache_pending_updates_size")
       val lookupContractKeyPerExecution: Timer =
         registry.timer(Prefix :+ "lookup_contract_key_per_execution")
       val lookupContractKeyCountPerExecution: Histogram =

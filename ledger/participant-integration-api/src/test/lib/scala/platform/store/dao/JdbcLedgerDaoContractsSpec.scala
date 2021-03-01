@@ -116,8 +116,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result shouldBe None
     }
   }
-  423b1e441271e41897e098391ffe9af8a919bbe3
-  6aadb7622a5374947799d7a13a0ef93d9b8389bb
+
   it should "find a key if at least one of requesters is a stakeholder" in {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     for {

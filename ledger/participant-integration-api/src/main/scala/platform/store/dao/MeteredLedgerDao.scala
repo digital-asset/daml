@@ -21,7 +21,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.{ContractsReader, TransactionsReader, TransactionsWriter}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -34,6 +34,8 @@ import scala.concurrent.Future
 
 private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
     extends LedgerReadDao {
+
+  def contractsReader: ContractsReader = ledgerDao.contractsReader
 
   override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
 
@@ -76,10 +78,10 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
-  override def lookupKey(key: GlobalKey, atOffset: Offset)(implicit
-                                                  loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]] =
-    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, atOffset))
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Value.ContractId]] =
+    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParties))
 
   override def getParties(parties: Seq[Party])(implicit
       loggingContext: LoggingContext
@@ -167,6 +169,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     extends MeteredLedgerReadDao(ledgerDao, metrics)
     with LedgerDao {
+
+  override def contractsReader: ContractsReader = ledgerDao.contractsReader
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 

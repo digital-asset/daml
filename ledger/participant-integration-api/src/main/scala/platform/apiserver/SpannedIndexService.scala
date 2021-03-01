@@ -37,7 +37,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Event, Spans}
-
 import scala.concurrent.Future
 
 private[daml] final class SpannedIndexService(delegate: IndexService) extends IndexService {
@@ -137,10 +136,11 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
     delegate.lookupActiveContract(readers, contractId)
 
-  def lookupContractKey(key: GlobalKey, atOffset: Offset)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(ContractId, Set[Party])]] =
-  delegate.lookupContractKey(key, atOffset)
+  override def lookupContractKey(
+      readers: Set[Party],
+      key: GlobalKey,
+  )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
+    delegate.lookupContractKey(readers, key)
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId]
@@ -201,4 +201,9 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  def lookupContractKey(key: GlobalKey)(implicit
+      loggingContext: LoggingContext
+  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
+    delegate.lookupContractKey(key)
 }
