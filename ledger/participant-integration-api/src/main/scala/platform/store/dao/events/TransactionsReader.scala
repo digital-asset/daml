@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 
 import akka.NotUsed
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -46,6 +47,10 @@ private[dao] final class TransactionsReader(
   private val sqlFunctions = SqlFunctions(dbType)
 
   private val logger = ContextualizedLogger.get(this.getClass)
+
+  // TransactionReader adds an Akka stream buffer at the end of all streaming queries.
+  // This significantly improves the performance of the transaction service.
+  private val outputStreamBufferSize = 128
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -105,6 +110,7 @@ private[dao] final class TransactionsReader(
         val response = EventsTable.Entry.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
   }
 
   def lookupFlatTransactionById(
@@ -174,6 +180,7 @@ private[dao] final class TransactionsReader(
         val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
   }
 
   def lookupTransactionTreeById(
@@ -237,6 +244,7 @@ private[dao] final class TransactionsReader(
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
   }
 
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
