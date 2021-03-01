@@ -453,7 +453,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       data.actAs,
                       data.readAs,
                       data.cmds,
-                      data.commitLocation,
+                      data.stackTrace.topFrame,
                     )
                     _ = copyTracelog(client)
                     v <- submitRes match {
@@ -502,7 +502,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       data.actAs,
                       data.readAs,
                       data.cmds,
-                      data.commitLocation,
+                      data.stackTrace.topFrame,
                     )
                     _ = copyTracelog(client)
                     v <- submitRes match {
@@ -525,7 +525,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       data.actAs,
                       data.readAs,
                       data.cmds,
-                      data.commitLocation,
+                      data.stackTrace.topFrame,
                     )
                     res <- Converter.toFuture(
                       Converter.translateTransactionTree(
@@ -538,7 +538,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                     _ = copyTracelog(client)
                     v <- run(SEApp(SEValue(data.continue), Array(SEValue(res))))
                   } yield v
-                case ScriptF.Query(parties, tplId, continue) =>
+                case ScriptF.Query(parties, tplId, _, continue) =>
                   for {
                     client <- Converter.toFuture(
                       clients
@@ -556,7 +556,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
                     }
                   } yield v
-                case ScriptF.QueryContractId(parties, tplId, cid, continue) =>
+                case ScriptF.QueryContractId(parties, tplId, cid, _, continue) =>
                   for {
                     client <- Converter.toFuture(clients.getPartyParticipant(parties.head))
                     optR <- client.queryContractId(parties, tplId, cid)
@@ -565,7 +565,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                     )
                     v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
                   } yield v
-                case ScriptF.QueryContractKey(parties, tplId, key, continue) =>
+                case ScriptF.QueryContractKey(parties, tplId, key, _, continue) =>
                   for {
                     client <- Converter.toFuture(clients.getPartiesParticipant(parties))
                     optR <- client.queryContractKey(parties, tplId, key.key, translateKey)
@@ -575,7 +575,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                     v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
                   } yield v
 
-                case ScriptF.AllocParty(displayName, idHint, participant, continue) =>
+                case ScriptF.AllocParty(displayName, idHint, participant, _, continue) =>
                   for {
                     client <- clients.getParticipant(participant) match {
                       case Right(client) => Future.successful(client)
@@ -597,7 +597,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       run(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
                     }
                   } yield v
-                case ScriptF.ListKnownParties(participant, continue) =>
+                case ScriptF.ListKnownParties(participant, _, continue) =>
                   for {
                     client <- clients.getParticipant(participant) match {
                       case Right(client) => Future.successful(client)
@@ -614,7 +614,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       )
                     }
                   } yield v
-                case ScriptF.GetTime(continue) =>
+                case ScriptF.GetTime(_, continue) =>
                   for {
                     time <- timeMode match {
                       case ScriptTimeMode.Static => {
@@ -634,7 +634,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                     v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
 
                   } yield v
-                case ScriptF.SetTime(time, continue) =>
+                case ScriptF.SetTime(time, _, continue) =>
                   timeMode match {
                     case ScriptTimeMode.Static =>
                       for {
@@ -651,7 +651,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       )
 
                   }
-                case ScriptF.Sleep(micros, continue) =>
+                case ScriptF.Sleep(micros, _, continue) =>
                   val sleepMillis = micros / 1000
                   val sleepNanos = (micros % 1000) * 1000
                   Thread.sleep(sleepMillis, sleepNanos.toInt)

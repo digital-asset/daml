@@ -5,7 +5,7 @@ package com.daml.lf.engine.script
 
 import com.daml.lf.command
 import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.{Identifier, Location, PackageId, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
@@ -19,34 +19,53 @@ import scalaz.std.either._
 import com.daml.script.converter.Converter.toContractId
 
 object ScriptF {
-  sealed trait Cmd
-  final case class Submit(data: SubmitData) extends Cmd
-  final case class SubmitMustFail(data: SubmitData) extends Cmd
-  final case class SubmitTree(data: SubmitData) extends Cmd
-  final case class Query(parties: OneAnd[Set, Party], tplId: Identifier, continue: SValue)
-      extends Cmd
+  sealed trait Cmd {
+    def stackTrace: StackTrace
+  }
+  final case class Submit(data: SubmitData) extends Cmd {
+    override def stackTrace = data.stackTrace
+  }
+  final case class SubmitMustFail(data: SubmitData) extends Cmd {
+    override def stackTrace = data.stackTrace
+  }
+  final case class SubmitTree(data: SubmitData) extends Cmd {
+    override def stackTrace = data.stackTrace
+  }
+  final case class Query(
+      parties: OneAnd[Set, Party],
+      tplId: Identifier,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd
   final case class QueryContractId(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       cid: ContractId,
+      stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd
   final case class QueryContractKey(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       key: AnyContractKey,
+      stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd
   final case class AllocParty(
       displayName: String,
       idHint: String,
       participant: Option[Participant],
+      stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd
-  final case class ListKnownParties(participant: Option[Participant], continue: SValue) extends Cmd
-  final case class GetTime(continue: SValue) extends Cmd
-  final case class SetTime(time: Timestamp, continue: SValue) extends Cmd
-  final case class Sleep(micros: Long, continue: SValue) extends Cmd
+  final case class ListKnownParties(
+      participant: Option[Participant],
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd
+  final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd
+  final case class SetTime(time: Timestamp, stackTrace: StackTrace, continue: SValue) extends Cmd
+  final case class Sleep(micros: Long, stackTrace: StackTrace, continue: SValue) extends Cmd
 
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
@@ -54,28 +73,32 @@ object ScriptF {
       readAs: Set[Party],
       cmds: List[command.Command],
       freeAp: SValue,
-      commitLocation: Option[Location],
+      stackTrace: StackTrace,
       continue: SValue,
   )
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
-  def parseSubmit(ctx: Ctx, v: SValue): Either[String, SubmitData] = {
+  private def toStackTrace(ctx: Ctx, stackTrace: Option[SValue]): Either[String, StackTrace] =
+    stackTrace match {
+      case None => Right(StackTrace.empty)
+      case Some(stackTrace) => Converter.toStackTrace(ctx.knownPackages, stackTrace)
+    }
+
+  private def parseSubmit(ctx: Ctx, v: SValue): Either[String, SubmitData] = {
     def convert(
         actAs: OneAnd[List, SValue],
         readAs: List[SValue],
         freeAp: SValue,
         continue: SValue,
-        loc: Option[SValue],
+        stackTrace: Option[SValue],
     ) =
       for {
         actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
         readAs <- readAs.traverse(Converter.toParty(_))
         cmds <- Converter.toCommands(ctx.compiledPackages, freeAp)
-        commitLocation <- loc.fold(Right(None): Either[String, Option[Location]])(sLoc =>
-          Converter.toOptionLocation(ctx.knownPackages, sLoc)
-        )
-      } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, commitLocation, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, stackTrace, continue)
     v match {
       // no location
       case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue)) =>
@@ -100,53 +123,81 @@ object ScriptF {
     }
   }
 
-  def parseQuery(v: SValue): Either[String, Query] = {
-    def convert(readAs: SValue, tplId: SValue, continue: SValue) =
+  private def parseQuery(ctx: Ctx, v: SValue): Either[String, Query] = {
+    def convert(readAs: SValue, tplId: SValue, stackTrace: Option[SValue], continue: SValue) =
       for {
         readAs <- Converter.toParties(readAs)
         tplId <- Converter
           .typeRepToIdentifier(tplId)
-      } yield Query(readAs, tplId, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield Query(readAs, tplId, stackTrace, continue)
     v match {
       case SRecord(_, _, JavaList(actAs, tplId, continue)) =>
-        convert(actAs, tplId, continue)
+        convert(actAs, tplId, None, continue)
+      case SRecord(_, _, JavaList(actAs, tplId, continue, stackTrace)) =>
+        convert(actAs, tplId, Some(stackTrace), continue)
       case _ => Left(s"Expected Query payload but got $v")
     }
   }
 
-  def parseQueryContractId(v: SValue): Either[String, QueryContractId] = {
-    def convert(actAs: SValue, tplId: SValue, cid: SValue, continue: SValue) =
+  private def parseQueryContractId(ctx: Ctx, v: SValue): Either[String, QueryContractId] = {
+    def convert(
+        actAs: SValue,
+        tplId: SValue,
+        cid: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
       for {
         actAs <- Converter.toParties(actAs)
         tplId <- Converter.typeRepToIdentifier(tplId)
         cid <- toContractId(cid)
-      } yield QueryContractId(actAs, tplId, cid, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryContractId(actAs, tplId, cid, stackTrace, continue)
     v match {
       case SRecord(_, _, JavaList(actAs, tplId, cid, continue)) =>
-        convert(actAs, tplId, cid, continue)
+        convert(actAs, tplId, cid, None, continue)
+      case SRecord(_, _, JavaList(actAs, tplId, cid, continue, stackTrace)) =>
+        convert(actAs, tplId, cid, Some(stackTrace), continue)
       case _ => Left(s"Expected QueryContractId payload but got $v")
     }
   }
 
-  def parseQueryContractKey(v: SValue): Either[String, QueryContractKey] = {
-    def convert(actAs: SValue, tplId: SValue, key: SValue, continue: SValue) =
+  private def parseQueryContractKey(ctx: Ctx, v: SValue): Either[String, QueryContractKey] = {
+    def convert(
+        actAs: SValue,
+        tplId: SValue,
+        key: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
       for {
         actAs <- Converter.toParties(actAs)
         tplId <- Converter.typeRepToIdentifier(tplId)
         key <- Converter.toAnyContractKey(key)
-      } yield QueryContractKey(actAs, tplId, key, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryContractKey(actAs, tplId, key, stackTrace, continue)
     v match {
       case SRecord(_, _, JavaList(actAs, tplId, key, continue)) =>
-        convert(actAs, tplId, key, continue)
+        convert(actAs, tplId, key, None, continue)
+      case SRecord(_, _, JavaList(actAs, tplId, key, continue, stackTrace)) =>
+        convert(actAs, tplId, key, Some(stackTrace), continue)
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
   }
 
-  def parseAllocParty(v: SValue): Either[String, AllocParty] = {
-    def convert(displayName: String, idHint: String, participantName: SValue, continue: SValue) =
+  private def parseAllocParty(ctx: Ctx, v: SValue): Either[String, AllocParty] = {
+    def convert(
+        displayName: String,
+        idHint: String,
+        participantName: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
       for {
         participantName <- Converter.toParticipantName(participantName)
-      } yield AllocParty(displayName, idHint, participantName, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield AllocParty(displayName, idHint, participantName, stackTrace, continue)
     v match {
       case SRecord(
             _,
@@ -158,43 +209,75 @@ object ScriptF {
               continue,
             ),
           ) =>
-        convert(displayName, idHint, participantName, continue)
+        convert(displayName, idHint, participantName, None, continue)
+      case SRecord(
+            _,
+            _,
+            JavaList(
+              SText(displayName),
+              SText(idHint),
+              participantName,
+              continue,
+              stackTrace,
+            ),
+          ) =>
+        convert(displayName, idHint, participantName, Some(stackTrace), continue)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
   }
 
-  def parseListKnownParties(v: SValue): Either[String, ListKnownParties] = {
-    def convert(participantName: SValue, continue: SValue) =
+  private def parseListKnownParties(ctx: Ctx, v: SValue): Either[String, ListKnownParties] = {
+    def convert(participantName: SValue, stackTrace: Option[SValue], continue: SValue) =
       for {
         participantName <- Converter.toParticipantName(participantName)
-      } yield ListKnownParties(participantName, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield ListKnownParties(participantName, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(participantName, continue)) => convert(participantName, continue)
+      case SRecord(_, _, JavaList(participantName, continue)) =>
+        convert(participantName, None, continue)
+      case SRecord(_, _, JavaList(participantName, continue, stackTrace)) =>
+        convert(participantName, Some(stackTrace), continue)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
   }
 
-  def parseGetTime(v: SValue): Either[String, GetTime] = {
-    Right(GetTime(v))
+  private def parseGetTime(ctx: Ctx, v: SValue): Either[String, GetTime] = {
+    def convert(stackTrace: Option[SValue], continue: SValue) =
+      for {
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield GetTime(stackTrace, continue)
+    v match {
+      case SRecord(_, _, JavaList(continue, stackTrace)) => convert(Some(stackTrace), continue)
+      case _ => convert(None, v)
+    }
   }
 
-  def parseSetTime(v: SValue): Either[String, SetTime] = {
-    def convert(time: SValue, continue: SValue) =
+  private def parseSetTime(ctx: Ctx, v: SValue): Either[String, SetTime] = {
+    def convert(time: SValue, stackTrace: Option[SValue], continue: SValue) =
       for {
         time <- Converter.toTimestamp(time)
-      } yield SetTime(time, continue)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield SetTime(time, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(time, continue)) => convert(time, continue)
+      case SRecord(_, _, JavaList(time, continue)) => convert(time, None, continue)
+      case SRecord(_, _, JavaList(time, continue, stackTrace)) =>
+        convert(time, Some(stackTrace), continue)
       case _ => Left(s"Expected SetTime payload but got $v")
     }
   }
 
-  def parseSleep(v: SValue): Either[String, Sleep] = {
-    def convert(micros: Long, continue: SValue) =
-      Right(Sleep(micros, continue))
+  private def parseSleep(ctx: Ctx, v: SValue): Either[String, Sleep] = {
+    def convert(micros: Long, stackTrace: Option[SValue], continue: SValue) = {
+      for {
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield Sleep(micros, stackTrace, continue)
+    }
+
     v match {
       case SRecord(_, _, JavaList(SRecord(_, _, JavaList(SInt64(micros))), continue)) =>
-        convert(micros, continue)
+        convert(micros, None, continue)
+      case SRecord(_, _, JavaList(SRecord(_, _, JavaList(SInt64(micros))), continue, stackTrace)) =>
+        convert(micros, Some(stackTrace), continue)
       case _ => Left(s"Expected Sleep payload but got $v")
     }
 
@@ -204,14 +287,14 @@ object ScriptF {
     case "Submit" => parseSubmit(ctx, v).map(Submit(_))
     case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
     case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
-    case "Query" => parseQuery(v)
-    case "QueryContractId" => parseQueryContractId(v)
-    case "QueryContractKey" => parseQueryContractKey(v)
-    case "AllocParty" => parseAllocParty(v)
-    case "ListKnownParties" => parseListKnownParties(v)
-    case "GetTime" => parseGetTime(v)
-    case "SetTime" => parseSetTime(v)
-    case "Sleep" => parseSleep(v)
+    case "Query" => parseQuery(ctx, v)
+    case "QueryContractId" => parseQueryContractId(ctx, v)
+    case "QueryContractKey" => parseQueryContractKey(ctx, v)
+    case "AllocParty" => parseAllocParty(ctx, v)
+    case "ListKnownParties" => parseListKnownParties(ctx, v)
+    case "GetTime" => parseGetTime(ctx, v)
+    case "SetTime" => parseSetTime(ctx, v)
+    case "Sleep" => parseSleep(ctx, v)
     case _ => Left(s"Unknown contructor $constr")
   }
 

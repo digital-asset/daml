@@ -183,7 +183,7 @@ instance ActionFail Update where
 -- | The `HasTime` class is for where the time is available: `Scenario` and `Update`.
 class HasTime m where
     -- | Get the current time.
-    getTime : m Time
+    getTime : HasCallStack => m Time
 
 instance HasTime Update where
     getTime = primitive @"UGetTime"
