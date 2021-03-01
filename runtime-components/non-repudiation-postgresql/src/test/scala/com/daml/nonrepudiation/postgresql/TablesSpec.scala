@@ -48,7 +48,7 @@ final class TablesSpec
         AlgorithmString.SHA256withRSA
 
       val expectedPayload =
-        PayloadBytes.wrap(generateCommand("hello, world").toByteArray)
+        PayloadBytes.wrap(generateCommand().toByteArray)
 
       val expectedKey =
         db.signedPayloads.keyEncoder.encode(expectedPayload)

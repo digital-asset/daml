@@ -37,7 +37,7 @@ class NonRepudiationProxyBenchmark extends PostgresAround {
   @Benchmark
   def run(): Unit = {
     // Generating commands adds very little noise to substantial benchmarks
-    val command = generateCommand(payload)
+    val command = generateCommand(payload = payload)
     val _ = stub.submit(command)
   }
 
