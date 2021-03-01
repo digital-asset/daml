@@ -72,7 +72,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         _ <- Resource.fromFuture(dao.initializeParticipantId(TestParticipantId))
       } yield dao
     }
-    ledgerDao = Await.result(resource.asFuture, 10.seconds)
+    ledgerDao = Await.result(resource.asFuture, 30.seconds)
   }
 
   override protected def afterAll(): Unit = {
