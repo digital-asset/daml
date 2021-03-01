@@ -19,6 +19,8 @@ import org.typelevel.paiges.Doc
 import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
+import scala.collection.compat.immutable.LazyList
+
 
 private[dump] object Encode {
   def encodeTransactionTreeStream(
@@ -301,7 +303,7 @@ private[dump] object Encode {
       acsSize / batchSize + 1
     }
     Doc.stack(
-      Stream
+      LazyList
         .range(0, numBatches)
         .map(i => acs.slice(i * batchSize, (i + 1) * batchSize))
         .map(batch => encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, batch))
