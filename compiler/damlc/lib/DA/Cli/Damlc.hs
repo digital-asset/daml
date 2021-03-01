@@ -548,22 +548,22 @@ execLint inputFiles opts =
        withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
-         inputFiles <- getInputFiles relativize inputFiles
-         forM_ inputFiles $ \inputFile -> do
-           opts <- setDlintDataDir opts
-           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
-               setFilesOfInterest ide (HashSet.singleton inputFile)
-               runActionSync ide $ getDlintIdeas inputFile
-               diags <- getDiagnostics ide
-               if null diags then
-                 hPutStrLn stderr "No hints"
-               else
-                 exitFailure
+         opts <- setDlintDataDir opts
+         withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+             inputFiles <- getInputFiles relativize inputFiles
+             setFilesOfInterest ide (HashSet.fromList inputFiles)
+             diags <- forM inputFiles $ \inputFile -> do
+               void $ runActionSync ide $ getDlintIdeas inputFile
+               getDiagnostics ide
+             if null $ concat diags then
+               hPutStrLn stderr "No hints"
+             else
+               exitFailure
      getInputFiles relativize = \case
        [] -> do
            withPackageConfig defaultProjectPath $ \PackageConfigFields {pSrc} -> do
            getDamlRootFiles pSrc
-       fs -> forM fs $ \f -> toNormalizedFilePath' <$> relativize f
+       fs -> forM fs $ fmap toNormalizedFilePath' . relativize
      setDlintDataDir :: Options -> IO Options
      setDlintDataDir opts = do
        defaultDir <-locateRunfiles $
