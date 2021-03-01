@@ -7,12 +7,11 @@ import com.daml.ledger.api.auth.AuthServiceJWTPayload
 import com.daml.lf.data.Ref
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.lf.engine.script.JsonLedgerClient
 import scalaz.OneAnd
 
 final class JsonPartyValidation extends AnyWordSpec with Matchers {
 
-  import JsonLedgerClient._
+  import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient._
 
   private def token(actAs: List[String], readAs: List[String]): AuthServiceJWTPayload =
     AuthServiceJWTPayload(

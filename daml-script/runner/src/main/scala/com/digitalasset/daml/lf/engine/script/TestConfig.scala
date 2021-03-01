@@ -6,6 +6,8 @@ package com.daml.lf.engine.script
 import java.io.File
 import java.time.Duration
 
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+
 case class TestConfig(
     darPath: File,
     ledgerHost: Option[String],

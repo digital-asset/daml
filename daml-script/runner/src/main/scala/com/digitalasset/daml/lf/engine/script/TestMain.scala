@@ -16,6 +16,7 @@ import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.language.Ast.Package
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig

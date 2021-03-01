@@ -28,6 +28,12 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.script.ledgerinteraction.{
+  GrpcLedgerClient,
+  JsonLedgerClient,
+  ScriptLedgerClient,
+  ScriptTimeMode,
+}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
