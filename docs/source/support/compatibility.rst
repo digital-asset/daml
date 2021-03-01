@@ -50,6 +50,23 @@ The below lists with which Daml Connect version a new Ledger API version was int
    * - <= 1.7
      - Introduced with the same Daml Connect / SDK version
 
+Summary of Ledger API Changes
+.............................
+
+.. list-table::
+   :header-rows: 1
+
+   * - Ledger API Version
+     - Changes
+   * - 1.10
+     - Introduce Daml-LF 1.12
+   * - 1.9
+     - Introduce Daml-LF 1.11
+   * - 1.8
+     - Introduce Multi-Party Submissions
+   * - <= 1.7
+     - See Daml Connect (/SDK) [release notes](https://daml.com/release-notes) of same version number. 
+
 Driver and Participant Compatibility: Network Upgradeability
 ------------------------------------------------------------
 
