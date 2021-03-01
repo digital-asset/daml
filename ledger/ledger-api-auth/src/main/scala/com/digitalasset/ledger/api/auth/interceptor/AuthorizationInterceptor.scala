@@ -30,8 +30,6 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
   private val internalAuthenticationError =
     Status.INTERNAL.withDescription("Failed to get claims from request metadata")
 
-  import AuthorizationInterceptor.contextKeyClaim
-
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
       headers: Metadata,
@@ -54,20 +52,13 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
             call.close(internalAuthenticationError, new Metadata())
             new ServerCall.Listener[Nothing]() {}
           case Success(claimSet) =>
-            claimSet match {
-              case ClaimSet.Unauthenticated =>
-                logger.debug(s"Auth metadata decoded into empty claims, returning UNAUTHENTICATED")
-                call.close(Status.UNAUTHENTICATED, new Metadata())
-                new ServerCall.Listener[Nothing]() {}
-              case claims: ClaimSet.Claims =>
-                val nextCtx = prevCtx.withValue(contextKeyClaim, claims)
-                // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
-                // such that `Context.current` returns `nextCtx`.
-                val nextListenerWithContext =
-                  Contexts.interceptCall(nextCtx, call, headers, nextListener)
-                setNextListener(nextListenerWithContext)
-                nextListenerWithContext
-            }
+            val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
+            // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
+            // such that `Context.current` returns `nextCtx`.
+            val nextListenerWithContext =
+              Contexts.interceptCall(nextCtx, call, headers, nextListener)
+            setNextListener(nextListenerWithContext)
+            nextListenerWithContext
         }(ec)
     }
   }
@@ -75,10 +66,14 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
 
 object AuthorizationInterceptor {
 
-  private val contextKeyClaim = Context.key[ClaimSet.Claims]("AuthServiceDecodedClaim")
+  private val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
-  def extractClaimsFromContext(): Try[ClaimSet.Claims] =
-    Option(contextKeyClaim.get()).fold[Try[ClaimSet.Claims]](Failure(unauthenticated()))(Success(_))
+  def extractClaimsFromContext(): Try[ClaimSet.Claims] = {
+    Option(contextKeyClaimSet.get()).fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
+      case ClaimSet.Unauthenticated => Failure(unauthenticated())
+      case claims: ClaimSet.Claims => Success(claims)
+    }
+  }
 
   def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec)

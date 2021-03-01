@@ -40,7 +40,7 @@ package object rxjava {
 
   private[rxjava] val mockedAuthService =
     AuthServiceStatic {
-      case `emptyToken` => ClaimSet.Claims(Nil)
+      case `emptyToken` => ClaimSet.Unauthenticated
       case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
       case `adminToken` => ClaimSet.Claims(Seq[Claim](ClaimAdmin))
       case `somePartyReadToken` =>

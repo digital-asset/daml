@@ -25,7 +25,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
     CompletableFuture.completedFuture {
       getAuthorizationHeader(headers) match {
-        case None => ClaimSet.Claims.Empty
+        case None => ClaimSet.Unauthenticated
         case Some(header) => parseHeader(header)
       }
     }
