@@ -18,6 +18,7 @@ import spray.json._
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package

@@ -10,7 +10,8 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, QualifiedName}
-import com.daml.lf.engine.script.{Participants, Runner, ScriptLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package

@@ -13,6 +13,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite

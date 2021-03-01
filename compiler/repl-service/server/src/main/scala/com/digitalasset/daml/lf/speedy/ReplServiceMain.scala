@@ -25,6 +25,7 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
 
+import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.speedy.iterable.SExprIterable
 
 import scala.jdk.CollectionConverters._

@@ -12,24 +12,18 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.assertRight
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
-import com.daml.lf.speedy.{SExpr, SValue, SDefinition}
+import com.daml.lf.speedy.{SDefinition, SExpr, SValue}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{
-  Runner,
-  Script,
-  ScriptIds,
-  ScriptTimeMode,
-  IdeClient,
-  Participants,
-}
+import com.daml.lf.engine.script.{Participants, Runner, Script, ScriptIds}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -212,7 +206,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ScriptTimeMode.Static,
     )
-    val ledgerClient = new IdeClient(compiledPackages)
+    val ledgerClient = new IdeLedgerClient(compiledPackages)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val (clientMachine, resultF) = runner.runWithClients(participants)
     resultF.transform {

@@ -13,7 +13,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.script.{GrpcLedgerClient, Participants, Runner, ScriptTimeMode}
+import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
@@ -33,6 +33,7 @@ import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
+import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import scalaz.syntax.tag._
 import scalaz.std.scalaFuture._
 import scalaz.std.list._

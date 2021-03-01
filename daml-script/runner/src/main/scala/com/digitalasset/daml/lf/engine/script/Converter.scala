@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._

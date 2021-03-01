@@ -9,6 +9,7 @@ import java.time.Duration
 
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 
 case class RunnerConfig(
     darPath: File,
