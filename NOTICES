@@ -7491,6 +7491,34 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
+(encodeurl 1.0.2)
+
+(The MIT License)
+
+Copyright (c) 2016 Douglas Christopher Wilson
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
 (is-alphabetical 1.0.4, is-alphanumerical 1.0.4, is-decimal 1.0.4, is-hexadecimal 1.0.4, unist-util-stringify-position 2.0.3, unist-util-visit-parents 1.1.2)
 
 (The MIT License)
@@ -9897,7 +9925,7 @@ IN THE SOFTWARE
 ---
 
 MIT License
-(Punycode.js 1.4.1, emoji-regex v8.0.0, jsesc v2.5.2, uc.micro 1.0.6)
+(Punycode.js 1.4.1, emoji-regex v8.0.0, jsesc v2.5.2, string-width v4.2.0, uc.micro 1.0.6)
 
 Copyright Mathias Bynens <https://mathiasbynens.be/>
 
@@ -10302,39 +10330,6 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(domain-browser 1.2.0)
-
-License: Expat
-
-Files: debian/tests/test_modules/ansicolors/*
-Copyright: 2013, Thorsten Lorenz
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
 (on-finished 2.3.0)
 
 License: Expat
@@ -10432,7 +10427,7 @@ Permission is hereby granted, free of charge, to any person obtaining
 ---
 
 MIT License
-(loose-envify 1.4.0, string-width v4.2.0)
+(loose-envify 1.4.0)
 
 License: Expat
 
@@ -11197,7 +11192,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(to-fast-properties 2.0.0)
+(domain-browser 1.2.0, to-fast-properties 2.0.0)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -15293,44 +15288,6 @@ License: Expat
 
 Files: debian/*
 Copyright: 2014 Leo Iannacone <l3on@ubuntu.com>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
-(encodeurl 1.0.2)
-
-Upstream-Contact: https://github.com/pillarjs/encodeurl/issues
-Source: https://github.com/pillarjs/encodeurl#readme
-
-Files: *
-Copyright: 2016 Douglas Christopher Wilson
-License: Expat
-
-Files: debian/*
-Copyright: 2017 Kartik Kulkarni <kartik.koolks@gmail.com>
 License: Expat
 
 License: Expat
