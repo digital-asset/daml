@@ -42,6 +42,12 @@ trait ConfigProvider[ExtraConfig] {
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
+      inputMappingParallelism = config.pocIndexerIngestionParallelism,
+      submissionBatchSize = config.pocIndexerSubmissionBatchSize,
+      tailingRateLimitPerSecond = config.pocIndexerTailingRateLimitPerSecond,
+      batchWithinMillis = config.pocIndexerBatchWithinMillis,
+      enableCompression = config.pocIndexerEnableCompression,
+      usePoCIndexer = config.pocIndexerEnabled,
     )
 
   def apiServerConfig(

@@ -88,7 +88,7 @@ object JdbcIndexer {
     def resetSchema(): Future[ResourceOwner[Indexer]] = initialized(resetSchema = true)
 
     private def initialized(resetSchema: Boolean): Future[ResourceOwner[Indexer]] =
-      if (/*usePoC == */ true)
+      if (config.usePoCIndexer)
         Future.successful(
           for {
             ledgerDao <- ledgerDaoOwner
@@ -110,7 +110,9 @@ object JdbcIndexer {
                 enricherO = None,
                 loadPackage = (_, _) => Future.successful(None),
               ),
-              compressionStrategy = if (config.enableCompression) CompressionStrategy.allGZIP(metrics) else CompressionStrategy.none(metrics),
+              compressionStrategy =
+                if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
+                else CompressionStrategy.none(metrics),
               mat = materializer,
               inputMappingParallelism = config.inputMappingParallelism,
               ingestionParallelism = config.ingestionParallelism,

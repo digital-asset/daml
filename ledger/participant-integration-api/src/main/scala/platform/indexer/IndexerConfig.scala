@@ -25,6 +25,7 @@ case class IndexerConfig(
     batchWithinMillis: Long = 10,
     runStageUntil: Int = 6,
     enableCompression: Boolean = true,
+    usePoCIndexer: Boolean = true,
 )
 
 object IndexerConfig {
