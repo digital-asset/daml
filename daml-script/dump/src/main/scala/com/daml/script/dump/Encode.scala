@@ -24,6 +24,7 @@ private[dump] object Encode {
   def encodeTransactionTreeStream(
       acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
+      acsBatchSize: Int,
   ): Doc = {
     val parties = partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
@@ -68,7 +69,7 @@ private[dump] object Encode {
       Doc.hardLine +
       Doc.text("dump : Parties -> Script ()") /
       (Doc.text("dump Parties{..} = do") /
-        encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = 1) /
+        encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize) /
         Doc.stack(trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))) /
         Doc.text("pure ()")).hang(2)
   }

@@ -14,6 +14,7 @@ final case class Config(
     parties: List[String],
     start: LedgerOffset,
     end: LedgerOffset,
+    acsBatchSize: Int,
     outputPath: Path,
     sdkVersion: String,
     damlScriptLib: String,
@@ -55,6 +56,14 @@ object Config {
       .text(
         "The transaction offset (inclusive) for the end position of the dump. Optional, by default the dump includes the current end of the ledger."
       )
+    opt[Int]("acs-batch-size")
+      .optional()
+      .action((x, c) => c.copy(acsBatchSize = x))
+      .validate(x =>
+        if (x <= 0) { failure("ACS batch size must be greater than zero") }
+        else { success }
+      )
+      .text("Batch this many create commands into one transaction when recreating the ACS.")
     opt[File]('o', "output")
       .required()
       .action((x, c) => c.copy(outputPath = x.toPath))
@@ -69,6 +78,7 @@ object Config {
     parties = List(),
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+    acsBatchSize = 1,
     outputPath = null,
     sdkVersion = "",
     damlScriptLib = "daml-script",

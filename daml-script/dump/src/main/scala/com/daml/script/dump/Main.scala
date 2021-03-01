@@ -62,6 +62,7 @@ object Main {
         trees,
         pkgRefs,
         pkgs,
+        config.acsBatchSize,
       )
     } yield ()
 
