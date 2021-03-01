@@ -448,11 +448,11 @@ class TransactionCoderSpec
 
   "decodeNodeVersion" should {
 
-    val postV10versions = TransactionVersion.All.filter(_ > V10)
+    val postV10Versions = TransactionVersion.All.filter(_ > V10)
 
-    "succeed as expected when the node is encoded with an version older than the transaction version" in {
+    "succeed as expected when the node is encoded with a version older than the transaction version" in {
 
-      forAll(danglingRefGenNode, versionInIncreasingOrder(postV10versions), minSuccessful(5)) {
+      forAll(danglingRefGenNode, versionInIncreasingOrder(postV10Versions), minSuccessful(5)) {
         case ((nodeId, node), (v1, v2)) =>
           val normalizedNode = normalizeNode(node.updateVersion(v1))
 
@@ -473,7 +473,7 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefGenNode,
-        versionInStrictIncreasingOrder(postV10versions),
+        versionInStrictIncreasingOrder(postV10Versions),
         minSuccessful(5),
       ) { case ((nodeId, node), (v1, v2)) =>
         val normalizedNode = normalizeNode(node.updateVersion(v2))
@@ -491,7 +491,7 @@ class TransactionCoderSpec
       }
     }
 
-    "return V10 when the node is not version" in {
+    "return V10 when the node does not have a version set" in {
 
       forAll(danglingRefGenNode, minSuccessful(5)) { case (nodeId, node) =>
         val normalizedNode = normalizeNode(node.updateVersion(V10))
@@ -506,12 +506,11 @@ class TransactionCoderSpec
           )
 
         assert(encoded.getVersion.isEmpty)
-
         TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
       }
     }
 
-    "ignore node version field when the transaction in transaction version < 11" in {
+    "ignore node version field when transaction version = 10" in {
 
       forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(5)) { case ((nodeId, node), str) =>
         val nonEmptyString = if (str.isEmpty) V10.protoValue else str
