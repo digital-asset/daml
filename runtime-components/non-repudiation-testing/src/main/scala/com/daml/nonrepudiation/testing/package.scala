@@ -51,14 +51,17 @@ package object testing {
   private val ApplicationId = UUID.randomUUID.toString
   private val Party = UUID.randomUUID.toString
 
-  def generateCommand(payload: String): SubmitRequest =
+  def generateCommand(
+      payload: String = "hello, world",
+      commandId: String = UUID.randomUUID.toString,
+  ): SubmitRequest =
     SubmitRequest(
       commands = Some(
         Commands(
           ledgerId = LedgerId,
           workflowId = WorkflowId,
           applicationId = ApplicationId,
-          commandId = UUID.randomUUID.toString,
+          commandId = commandId,
           party = Party,
           commands = Seq(
             Command(
