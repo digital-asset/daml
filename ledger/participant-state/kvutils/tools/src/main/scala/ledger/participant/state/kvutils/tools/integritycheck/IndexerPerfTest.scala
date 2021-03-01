@@ -57,6 +57,7 @@ object IndexerPerfTest {
          |  cycleRun ${config.cycleRun}
          |  initSubmissionSize ${config.initSubmissionSize}
          |  runStageUntil ${config.runStageUntil}
+         |  enableCompression ${config.enableCompression}
          |""".stripMargin)
 
     val ReadServiceMappingParallelism = config.deserMappingPar
@@ -172,6 +173,7 @@ object IndexerPerfTest {
         tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
         batchWithinMillis = config.batchWithinMillis,
         runStageUntil = config.runStageUntil,
+        enableCompression = config.enableCompression,
       )
       val indexerFactory = newLoggingContext { implicit loggingContext =>
         new JdbcIndexer.Factory(

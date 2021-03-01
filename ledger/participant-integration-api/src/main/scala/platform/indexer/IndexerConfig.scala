@@ -24,6 +24,7 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = 100,
     batchWithinMillis: Long = 10,
     runStageUntil: Int = 6,
+    enableCompression: Boolean = true,
 )
 
 object IndexerConfig {

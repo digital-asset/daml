@@ -110,7 +110,7 @@ object JdbcIndexer {
                 enricherO = None,
                 loadPackage = (_, _) => Future.successful(None),
               ),
-              compressionStrategy = CompressionStrategy.allGZIP(metrics),
+              compressionStrategy = if (config.enableCompression) CompressionStrategy.allGZIP(metrics) else CompressionStrategy.none(metrics),
               mat = materializer,
               inputMappingParallelism = config.inputMappingParallelism,
               ingestionParallelism = config.ingestionParallelism,

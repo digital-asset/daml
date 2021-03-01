@@ -27,6 +27,7 @@ case class Config(
     cycleRun: Boolean = false,
     initSubmissionSize: Int = 118,
     runStageUntil: Int = 6, // TODO remove, test-code
+    enableCompression: Boolean = true, // TODO remove, test-code
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
@@ -106,6 +107,9 @@ object Config {
       opt[Int]("runStageUntil")
         .text("runStageUntil")
         .action((p, config) => config.copy(runStageUntil = p))
+      opt[Boolean]("enableCompression")
+        .text("enableCompression")
+        .action((p, config) => config.copy(enableCompression = p))
     }
 
   def parse(args: collection.Seq[String]): Option[Config] =
