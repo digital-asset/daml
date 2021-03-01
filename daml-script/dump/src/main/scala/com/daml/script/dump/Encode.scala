@@ -69,9 +69,11 @@ private[dump] object Encode {
       Doc.hardLine +
       Doc.text("dump : Parties -> Script ()") /
       (Doc.text("dump Parties{..} = do") /
-        encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize) /
-        Doc.stack(trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))) /
-        Doc.text("pure ()")).hang(2)
+        stackNonEmpty(
+          encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize)
+            +: trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
+            :+ Doc.text("pure ()")
+        )).hang(2)
   }
 
   private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
@@ -170,6 +172,9 @@ private[dump] object Encode {
 
   private def pair(v1: Doc, v2: Doc) =
     parens(v1 + Doc.text(", ") + v2)
+
+  private def stackNonEmpty(docs: Seq[Doc]): Doc =
+    Doc.stack(docs.filter(_.nonEmpty))
 
   private def encodeRecord(
       partyMap: Map[Party, String],
