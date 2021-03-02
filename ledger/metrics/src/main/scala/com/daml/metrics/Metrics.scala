@@ -505,6 +505,7 @@ final class Metrics(val registry: MetricRegistry) {
     }
 
     object indexer {
+
       private val Prefix: MetricName = daml.Prefix :+ "indexer"
 
       val lastReceivedRecordTime = new VarGauge[Long](0)
@@ -512,6 +513,15 @@ final class Metrics(val registry: MetricRegistry) {
 
       val lastReceivedOffset = new VarGauge[String]("<none>")
       registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
+
+      val currentEventSequentialIdGauge = new VarGauge[Long](0L)
+      registry.register(Prefix :+ "current_event_sequential_id", currentEventSequentialIdGauge)
+
+      val currentStateCacheSequentialIdGauge = new VarGauge[Long](0L)
+      registry.register(
+        Prefix :+ "current_state_cache_sequential_id",
+        currentStateCacheSequentialIdGauge,
+      )
 
       registerGauge(
         Prefix :+ "current_record_time_lag",

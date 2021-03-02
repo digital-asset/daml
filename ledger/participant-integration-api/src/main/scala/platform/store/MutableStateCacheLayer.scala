@@ -22,6 +22,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 class MutableStateCacheLayer(
+    metrics: Metrics,
     store: ContractStore,
     keyCache: Cache[GlobalKey, KeyCacheValue],
 )(implicit
@@ -50,7 +51,10 @@ class MutableStateCacheLayer(
           archived.globalKey.foreach(feed(_, Option.empty))
           archived.eventSequentialId
       }
-      .runForeach(currentCacheIndex.set)
+      .runForeach(idx => {
+        currentCacheIndex.set(idx)
+        metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(idx)
+      })
       .foreach { _ => println("Streaming cache updater finished") }
 
   private val currentCacheIndex = new AtomicLong(0L)
@@ -164,6 +168,7 @@ object MutableStateCacheLayer {
       executionContext: ExecutionContext
   ): MutableStateCacheLayer =
     new MutableStateCacheLayer(
+      metrics,
       store,
       SizedCache.from(SizedCache.Configuration(10000L), metrics.daml.execution.keyStateCache),
     )
