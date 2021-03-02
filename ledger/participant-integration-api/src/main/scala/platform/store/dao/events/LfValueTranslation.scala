@@ -9,9 +9,9 @@ import com.daml.caching
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
+  Identifier => ApiIdentifier,
   Record => ApiRecord,
   Value => ApiValue,
-  Identifier => ApiIdentifier,
 }
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.{engine => LfEngine}
@@ -22,11 +22,11 @@ import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.events.{
   ChoiceName => LfChoiceName,
-  PackageId => LfPackageId,
-  Identifier => LfIdentifier,
-  QualifiedName => LfQualifiedName,
   DottedName => LfDottedName,
+  Identifier => LfIdentifier,
   ModuleName => LfModuleName,
+  PackageId => LfPackageId,
+  QualifiedName => LfQualifiedName,
   Value => LfValue,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}

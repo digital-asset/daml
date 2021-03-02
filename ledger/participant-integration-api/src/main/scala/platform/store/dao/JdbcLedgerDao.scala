@@ -952,10 +952,9 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  override val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, dbType, metrics)(
-      servicesExecutionContext
-    )
+  val contractsReader: ContractsReader = ContractsReader(dbDispatcher, dbType, metrics)(
+    servicesExecutionContext
+  )
 
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(dbDispatcher, dbType, metrics, servicesExecutionContext)

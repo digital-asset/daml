@@ -60,7 +60,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
-import com.daml.platform.store.dao.events.ContractsReader
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -85,7 +85,9 @@ private[sandbox] final class InMemoryLedger(
     ledgerEntries: ImmArray[LedgerEntryOrBump],
 ) extends Ledger {
 
-  override def contractsReader: ContractsReader = null
+  override def contractLifecycleEvents(implicit
+      loggineContext: LoggingContext
+  ): Source[(Offset, ContractLifecycleEventsReader.ContractLifecycleEvent), NotUsed] = null
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val entries = {

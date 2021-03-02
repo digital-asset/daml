@@ -16,7 +16,7 @@ import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref.Party
@@ -527,4 +527,6 @@ private final class SqlLedger(
           ()
         }(DEC)
     }
+
+  override protected val cachingContractsReader: ContractStore = null
 }

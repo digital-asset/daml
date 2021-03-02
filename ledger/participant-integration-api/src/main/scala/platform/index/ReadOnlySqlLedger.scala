@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
@@ -22,7 +23,7 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
+import com.daml.platform.store.{BaseLedger, MutableStateCacheLayer, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -53,7 +54,15 @@ private[platform] object ReadOnlySqlLedger {
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         ledger <- ResourceOwner
-          .forCloseable(() => new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher))
+          .forCloseable(() =>
+            new ReadOnlySqlLedger(
+              ledgerId,
+              ledgerDao,
+              dispatcher,
+              metrics,
+              servicesExecutionContext,
+            )
+          )
           .acquire()
       } yield ledger
 
@@ -126,6 +135,8 @@ private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
+    metrics: Metrics,
+    executionContext: ExecutionContext,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
 
@@ -170,5 +181,11 @@ private final class ReadOnlySqlLedger(
     Await.result(deduplicationCleanupDone, 10.seconds)
     Await.result(ledgerEndUpdateDone, 10.seconds)
     super.close()
+  }
+
+  override protected val cachingContractsReader: ContractStore = {
+    val cachingLayer = MutableStateCacheLayer(ledgerDao.contractsReader, metrics)(executionContext)
+    cachingLayer.consumeFrom(contractLifecycleEvents.map(_._2))
+    cachingLayer
   }
 }

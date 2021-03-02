@@ -35,8 +35,6 @@ import scala.concurrent.Future
 private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
     extends LedgerReadDao {
 
-  def contractsReader: ContractsReader = ledgerDao.contractsReader
-
   override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -77,6 +75,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
     )
 
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
+
+  override def contractsReader: ContractsReader = ledgerDao.contractsReader
 
   override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
@@ -169,8 +169,6 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     extends MeteredLedgerReadDao(ledgerDao, metrics)
     with LedgerDao {
-
-  override def contractsReader: ContractsReader = ledgerDao.contractsReader
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 

@@ -40,7 +40,6 @@ import com.daml.platform.store.entries.{
 import scala.concurrent.Future
 
 private[platform] trait LedgerReadDao extends ReportsHealth {
-  def contractsReader: ContractsReader
   def maxConcurrentConnections: Int
 
   /** Looks up the ledger id */
@@ -76,6 +75,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
   def transactionsReader: TransactionsReader
+
+  def contractsReader: ContractsReader
 
   /** Looks up a Contract given a contract key and a party
     *

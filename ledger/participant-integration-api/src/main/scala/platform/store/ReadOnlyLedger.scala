@@ -28,7 +28,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.events.ContractsReader
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -37,9 +37,6 @@ import scala.concurrent.Future
 private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
-
-  // TDT Let's extract this later
-  def contractsReader: ContractsReader
 
   def flatTransactions(
       startExclusive: Option[Offset],
@@ -164,8 +161,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
     *         need to wait for the operation to finish, it is safe to concurrently
     *         call deduplicateCommand().
     *
-    * Note: The deduplication cache is used by the submission service,
-    * it does not modify any on-ledger data.
+    *         Note: The deduplication cache is used by the submission service,
+    *         it does not modify any on-ledger data.
     */
   def removeExpiredDeduplicationData(
       currentTime: Instant
@@ -174,4 +171,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   /** Performs participant ledger pruning up to and including the specified offset.
     */
   def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+
+  def contractLifecycleEvents(implicit
+      loggineContext: LoggingContext
+  ): Source[(Offset, ContractLifecycleEventsReader.ContractLifecycleEvent), NotUsed]
 }

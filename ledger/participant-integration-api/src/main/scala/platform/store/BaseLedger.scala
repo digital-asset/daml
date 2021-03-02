@@ -22,7 +22,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
@@ -35,7 +35,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.LedgerReadDao
-import com.daml.platform.store.dao.events.ContractsReader
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractLifecycleEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -50,14 +50,13 @@ private[platform] abstract class BaseLedger(
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
-  override def contractsReader: ContractsReader = ledgerDao.contractsReader
+  protected val cachingContractsReader: ContractStore
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractId]] =
-    ledgerDao.lookupKey(key, forParties)
+  ): Future[Option[ContractId]] = cachingContractsReader.lookupContractKey(forParties, key)
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -69,6 +68,15 @@ private[platform] abstract class BaseLedger(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive,
+    )
+
+  override def contractLifecycleEvents(implicit
+      loggineContext: LoggingContext
+  ): Source[(Offset, ContractLifecycleEvent), NotUsed] =
+    dispatcher.startingAt(
+      Offset.beforeBegin,
+      RangeSource(ledgerDao.transactionsReader.getContractLifecycleEvents(_, _)),
+      Option.empty,
     )
 
   override def transactionTrees(

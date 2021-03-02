@@ -462,6 +462,9 @@ final class Metrics(val registry: MetricRegistry) {
           "lookup_flat_transaction_by_id"
         )
         val getTransactionTrees: DatabaseMetrics = createDbMetrics("get_transaction_trees")
+        val getContractLifecycleEvents: DatabaseMetrics = createDbMetrics(
+          "get_contract_lifecycle_events"
+        )
         val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
           "lookup_transaction_tree_by_id"
         )
@@ -533,6 +536,7 @@ final class Metrics(val registry: MetricRegistry) {
         val currentLedgerEnd: Timer = registry.timer(Prefix :+ "current_ledger_end")
         val getCompletions: Timer = registry.timer(Prefix :+ "get_completions")
         val transactions: Timer = registry.timer(Prefix :+ "transactions")
+        val contractLifecycleEvents: Timer = registry.timer(Prefix :+ "contract_lifecycle_events")
         val transactionTrees: Timer = registry.timer(Prefix :+ "transaction_trees")
         val getTransactionById: Timer = registry.timer(Prefix :+ "get_transaction_by_id")
         val getTransactionTreeById: Timer = registry.timer(Prefix :+ "get_transaction_tree_by_id")

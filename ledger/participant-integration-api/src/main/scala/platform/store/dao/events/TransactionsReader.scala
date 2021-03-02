@@ -25,6 +25,7 @@ import com.daml.metrics._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractLifecycleEvent
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import io.opentelemetry.trace.Span
 
@@ -70,6 +71,33 @@ private[dao] final class TransactionsReader(
       entry: EventsTable.Entry[Raw[E]]
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
+
+  def getContractLifecycleEvents(startExclusive: Offset, endInclusive: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, ContractLifecycleEvent), NotUsed] = {
+    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
+    val query = (range: EventsRange[(Offset, Long)]) => {
+      implicit connection: Connection =>
+        QueryNonPruned.executeSqlOrThrow(
+          ContractLifecycleEventsReader.read(range),
+          range.startExclusive._1,
+          pruned =>
+            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+        )
+    }
+
+    Source
+      .futureSource(requestedRangeF.map { requestedRange =>
+        streamEvents(
+          dbMetrics.getContractLifecycleEvents,
+          query,
+          nextPageRangeContracts(requestedRange.endInclusive),
+        )(requestedRange)
+      })
+      .map(event => event.eventOffset -> event)
+      .mapMaterializedValue(_ => NotUsed)
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+  }
 
   def getFlatTransactions(
       startExclusive: Offset,
@@ -303,6 +331,11 @@ private[dao] final class TransactionsReader(
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
+  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
+      a: ContractLifecycleEvent
+  ): EventsRange[(Offset, Long)] =
+    EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
+
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[EventsRange[(Offset, Long)]] =
@@ -370,6 +403,19 @@ private[dao] final class TransactionsReader(
           )
         )
       }
+    }
+
+  private def streamEvents(
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[(Offset, Long)] => Connection => Vector[ContractLifecycleEvent],
+      getNextPageRange: ContractLifecycleEvent => EventsRange[(Offset, Long)],
+  )(range: EventsRange[(Offset, Long)])(implicit
+      loggingContext: LoggingContext
+  ): Source[ContractLifecycleEvent, NotUsed] =
+    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
+      if (EventsRange.isEmpty(range1))
+        Future.successful(Vector.empty)
+      else dispatcher.executeSql(queryMetric)(query(range1))
     }
 
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
