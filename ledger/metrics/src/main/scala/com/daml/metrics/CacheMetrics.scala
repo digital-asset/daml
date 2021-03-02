@@ -22,6 +22,8 @@ final class CacheMetrics(
     register(prefix :+ "size", () => sizeGauge)
   def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
     register(prefix :+ "weight", () => weightGauge)
+  def registerHitRateGauge(hitRateGauge: Gauge[Double]): Unit =
+    register(prefix :+ "hit_rate", () => hitRateGauge)
 
   private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
     registerGauge(name, gaugeSupplier, registry)

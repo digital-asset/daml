@@ -23,6 +23,8 @@ import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.Tag
 
+import scala.concurrent.Future
+
 final class ContractKeysIT extends LedgerTestSuite {
   test(
     "CKFetchOrLookup",
@@ -310,6 +312,8 @@ final class ContractKeysIT extends LedgerTestSuite {
         "TextKeyChoice",
         Value(Value.Sum.Record(Record())),
       )
+      // TDT crude way of making sure the cache is up to date
+      _ <- Future(Thread.sleep(1000L))
       failureAfterConsuming <- ledger
         .exerciseByKey(
           party,

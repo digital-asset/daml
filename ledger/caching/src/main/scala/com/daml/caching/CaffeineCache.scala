@@ -41,6 +41,7 @@ object CaffeineCache {
     metrics.registerWeightGauge(() =>
       cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
     )
+    metrics.registerHitRateGauge(() => cache.stats().hitRate())
 
     private val delegate = new SimpleCaffeineCache(cache)
 
