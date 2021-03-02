@@ -10,6 +10,33 @@ import org.scalatest.matchers.should.Matchers
 class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
   import Encode._
   "encodeCreatedEvent" - {
+    "multi party submissions" in {
+      val parties = Map(
+        Party("Alice") -> "alice_0",
+        Party("Bob") -> "bob_0",
+      )
+      val cidMap = Map(
+        ContractId("cid1") -> "contract_0_0",
+        ContractId("cid2") -> "contract_0_1",
+      )
+      val cidRefs = Set.empty[ContractId]
+      val events = TestData
+        .ACS(
+          Seq(
+            TestData.Created(ContractId("cid1"), submitters = Seq(Party("Alice"))),
+            TestData.Created(ContractId("cid2"), submitters = Seq(Party("Bob"))),
+          )
+        )
+        .toCreatedEvents
+      encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
+        """submitMulti [alice_0, bob_0] [] do
+          |  _ <- createCmd Module.Template
+          |  _ <- createCmd Module.Template
+          |  pure ()""".stripMargin.replace(
+          "\r\n",
+          "\n",
+        )
+    }
     "contract id bindings" - {
       "unreferenced" in {
         val parties = Map(Party("Alice") -> "alice_0")
