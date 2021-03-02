@@ -10,11 +10,10 @@ import anorm.SqlParser._
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.Conversions.{contractId, offset, _}
+import com.daml.platform.store.Conversions.{contractId, _}
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
@@ -130,46 +129,34 @@ sealed class ContractsReader(
   /** Returns the offset at which the key was last assigned for an active contract, otherwise the ledger end */
   override def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
+  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-      val maybeLastCreate = lookupLastCreated(key).as(
-        (offset("event_offset") ~ contractId("contract_id") ~ flatEventWitnessesColumn(
-          "flat_event_witnesses"
-        )).map { case offset ~ contractId ~ flatEventWitnesses =>
-          (offset, contractId, flatEventWitnesses)
+      lookupLastCreateKeyWithPotentialArchive(key).as(
+        (long("created_at") ~ long("archived_at").? ~ contractId(
+          "contract_id"
+        ) ~ flatEventWitnessesColumn("create_event_witnesses")).map {
+          case createdAt ~ maybeArchivedAt ~ contractId ~ flatEventWitnesses =>
+            (createdAt, contractId, flatEventWitnesses, maybeArchivedAt)
         }.singleOpt
       )
-
-      val maybeLastDelete = maybeLastCreate.flatMap { lastCreate =>
-        lookupLastArchived(lastCreate._2).as(
-          (offset("event_offset") ~ contractId("contract_id")).map { case offset ~ contractId =>
-            (offset, contractId)
-          }.singleOpt
-        )
-      }
-
-      (maybeLastCreate, maybeLastDelete)
     }
 
-  private def lookupLastCreated(key: GlobalKey): SimpleSql[Row] =
-    SQL"""SELECT event_offset, contract_id, flat_event_witnesses
-             FROM participant_events, parameters
-            WHERE event_kind = 10 -- create
-              AND create_key_hash = ${key.hash}
-              AND event_sequential_id <= parameters.ledger_end_sequential_id
-            ORDER BY event_sequential_id DESC
+  private def lookupLastCreateKeyWithPotentialArchive(key: GlobalKey): SimpleSql[Row] =
+    SQL"""SELECT
+                creates.event_sequential_id as created_at,
+                archives.event_sequential_id as archived_at,
+                creates.contract_id as contract_id,
+                creates.flat_event_witnesses as create_event_witnesses
+             FROM participant_events creates
+             LEFT JOIN participant_events archives ON creates.contract_id = archives.contract_id, parameters
+            WHERE creates.event_kind = 10 -- create
+              AND archives.event_kind = 20 -- consuming exercise
+              AND archives.event_sequential_id <= parameters.ledger_end_sequential_id
+              AND creates.create_key_hash = ${key.hash}
+              AND creates.event_sequential_id <= parameters.ledger_end_sequential_id
+            ORDER BY created_at DESC
             LIMIT 1
             """
-
-  private def lookupLastArchived(contractId: ContractId): SimpleSql[Row] =
-    SQL"""SELECT event_offset, contract_id
-                FROM participant_events, parameters
-             WHERE event_kind = 20 -- consuming exercise
-                 AND event_sequential_id <= parameters.ledger_end_sequential_id
-                 AND contract_id = $contractId
-                 ORDER BY event_sequential_id DESC
-            LIMIT 1
-       """
 
   override def lookupContractKey(
       readers: Set[Party],

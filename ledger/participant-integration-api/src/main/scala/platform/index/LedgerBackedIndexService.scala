@@ -57,7 +57,7 @@ private[platform] final class LedgerBackedIndexService(
 
   override def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
+  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
     Future.failed(new RuntimeException("Should not go through here"))
 
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =

@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.index.v2
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
@@ -39,5 +38,5 @@ trait ContractStore {
 
   def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])]
+  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]]
 }

@@ -1,7 +1,7 @@
 package com.daml.platform.store
 
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -9,7 +9,6 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.caching.{Cache, SizedCache}
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -21,7 +20,6 @@ import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.Contract
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.util.Success
 
 class MutableStateCacheLayer(
     store: ContractStore,
@@ -43,19 +41,19 @@ class MutableStateCacheLayer(
               contractId,
               globalKey,
               flatEventWitnesses,
-              eventOffset,
               _,
+              eventSequentialId,
             ) =>
-          globalKey.foreach(keyCache.put(_, Some(contractId -> flatEventWitnesses)))
-          eventOffset
-        case ContractLifecycleEvent.Archived(_, _, globalKey, _, _, eventOffset, _) =>
-          globalKey.foreach(keyCache.put(_, Option.empty))
-          eventOffset
+          globalKey.foreach(feed(_, Some(contractId -> flatEventWitnesses)))
+          eventSequentialId
+        case archived: ContractLifecycleEvent.Archived =>
+          archived.globalKey.foreach(feed(_, Option.empty))
+          archived.eventSequentialId
       }
-      .runForeach(currentOffset.set)
+      .runForeach(currentCacheIndex.set)
       .foreach { _ => println("Streaming cache updater finished") }
 
-  private val currentOffset = new AtomicReference[Offset](Offset.beforeBegin)
+  private val currentCacheIndex = new AtomicLong(0L)
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
@@ -90,39 +88,37 @@ class MutableStateCacheLayer(
   private def readThroughCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext): Future[Option[(ContractId, Set[Party])]] = {
-    val currentCacheOffset = currentOffset.get()
-    val promise = Promise[Option[(GlobalKey, Option[(ContractId, Set[Party])])]]
-    feedAsync(promise.future)
+    val currentCacheOffset = currentCacheIndex.get()
+    val promise = Promise[Option[(Long, ContractId, Set[Party], Option[Long])]]
 
-    store
-      .lookupContractKey(key)
-      .andThen { case Success((maybeLastCreated, maybeLastDeleted)) =>
-        (maybeLastCreated, maybeLastDeleted) match {
-          case (Some(lastCreated), Some(lastDeleted))
-              if lastCreated._1 <= currentCacheOffset && lastDeleted._1 <= currentCacheOffset =>
-            promise.complete(Success(Some((key, Option.empty))))
-          case (Some((createdAt, contractId, parties)), _) if createdAt <= currentCacheOffset =>
-            promise.complete(Success(Some((key, Some(contractId -> parties)))))
-//          case (None, _) => keyCache.put(key, Option.empty) // TDT Tricky one: can it cause incorrect cache state? Slim chances
-          case _ => promise.complete(Success(Option.empty))
-        }
+    feedAsync(() => {
+      promise.future.map {
+        case Some((createdAt, _, _, Some(archivedAt)))
+            if archivedAt < currentCacheOffset && createdAt < currentCacheOffset =>
+          Some(key -> Option.empty[(ContractId, Set[Party])])
+        case Some((createdAt, contractId, parties, _)) if createdAt < currentCacheOffset =>
+          Some(key -> Some(contractId -> parties))
+        case None => None
       }
-      .map { case (lastCreate, lastArchive) =>
-        lastArchive
-          .map { _ => Option.empty }
-          .getOrElse {
-            lastCreate.map { case (_, id, parties) =>
-              id -> parties
-            }
-          }
-      }
+    })
+
+    val eventualResult = store.lookupContractKey(key)
+    promise.completeWith(eventualResult)
+
+    eventualResult.map {
+      case Some((_, _, _, Some(_))) =>
+        // Archived
+        Option.empty[(ContractId, Set[Party])]
+      case Some((_, contractId, parties, None)) => Some(contractId -> parties)
+      case None => Option.empty[(ContractId, Set[Party])]
+    }
   }
 
   def feed(key: GlobalKey, contractDetails: Option[(ContractId, Set[Party])]): Unit =
-    feedAsync(Future.successful(Some(key -> contractDetails)))
+    feedAsync(() => Future.successful(Some(key -> contractDetails)))
 
   private def feedAsync(
-      future: Future[Option[(GlobalKey, Option[(ContractId, Set[Party])])]]
+      future: () => Future[Option[(GlobalKey, Option[(ContractId, Set[Party])])]]
   ): Unit =
     queue
       .offer(future)
@@ -138,12 +134,12 @@ class MutableStateCacheLayer(
 
   private val queue =
     Source
-      .queue[Future[Option[(GlobalKey, Option[(ContractId, Set[Party])])]]](
+      .queue[() => Future[Option[(GlobalKey, Option[(ContractId, Set[Party])])]]](
         0,
         OverflowStrategy.dropNew,
         1,
       )
-      .mapAsync(1000)(identity)
+      .mapAsync(1000)(f => f())
       .map {
         case Some((key, maybeValue)) =>
           keyCache.put(key, maybeValue)
@@ -155,10 +151,10 @@ class MutableStateCacheLayer(
   private def `intersection non-empty`[T](one: Set[T], other: Set[T]): Boolean =
     one.toStream.intersect(other.toStream).nonEmpty
 
-  def lookupContractKey(key: GlobalKey)(implicit
+  override def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
-    Future.successful(Option.empty -> Option.empty)
+  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
+    Future.failed(new RuntimeException("should not go through here"))
 }
 
 object MutableStateCacheLayer {

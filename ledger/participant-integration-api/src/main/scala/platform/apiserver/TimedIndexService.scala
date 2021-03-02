@@ -233,9 +233,9 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 
-  override def lookupContractKey(key: GlobalKey)(implicit
+  def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
+  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
     Timed.future(
       metrics.daml.services.index.lookupContractKey,
       delegate.lookupContractKey(key),

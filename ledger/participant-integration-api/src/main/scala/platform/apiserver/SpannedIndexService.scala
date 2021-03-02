@@ -205,6 +205,6 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   def lookupContractKey(key: GlobalKey)(implicit
       loggingContext: LoggingContext
-  ): Future[(Option[(Offset, ContractId, Set[Party])], Option[(Offset, ContractId)])] =
+  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
     delegate.lookupContractKey(key)
 }

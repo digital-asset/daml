@@ -22,16 +22,17 @@ object ContractLifecycleEventsReader {
   ): Vector[ContractLifecycleEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
       .as(
-        (offset("archived_at").? ~
+        (long("archived_at").? ~
           contractId("contract_id") ~
           binaryStream("create_key_value").? ~
           int("create_key_value_compression").? ~
           identifier("template_id") ~
-          offset("created_at").? ~
+          long("created_at").? ~
           flatEventWitnessesColumn("flat_event_witnesses") ~
           long("event_sequential_id") ~
-          int("kind")).map {
-          case maybeArchivedAt ~ contractId ~ maybeCreateKeyValue ~ maybeCreateKeyValueCompression ~ templateId ~ maybeCreatedAt ~ flatEventWitnesses ~ eventSequentialId ~ kind =>
+          int("kind") ~
+          offset("event_offset")).map {
+          case maybeArchivedAt ~ contractId ~ maybeCreateKeyValue ~ maybeCreateKeyValueCompression ~ templateId ~ maybeCreatedAt ~ flatEventWitnesses ~ eventSequentialId ~ kind ~ offset =>
             val maybeGlobalKey =
               for {
                 createKeyValue <- maybeCreateKeyValue
@@ -50,13 +51,13 @@ object ContractLifecycleEventsReader {
                 throw new RuntimeException("Archived at should be present for consuming events")
               )
               Archived(
-                archivedAt,
-                contractId,
-                maybeGlobalKey,
-                flatEventWitnesses,
-                createdAt,
-                archivedAt,
-                eventSequentialId,
+                archivedAt = archivedAt,
+                contractId = contractId,
+                globalKey = maybeGlobalKey,
+                flatEventWitnesses = flatEventWitnesses,
+                createdAt = createdAt,
+                eventOffset = offset,
+                eventSequentialId = eventSequentialId,
               )
             } else
               Created(
@@ -64,7 +65,7 @@ object ContractLifecycleEventsReader {
                 contractId,
                 maybeGlobalKey,
                 flatEventWitnesses,
-                createdAt,
+                offset,
                 eventSequentialId,
               )
         }.*
@@ -83,14 +84,15 @@ object ContractLifecycleEventsReader {
   private val createsAndArchives: (EventsRange[Long], String) => SimpleSql[Row] =
     (range: EventsRange[Long], limitExpr: String) => SQL"""
               SELECT
-                archives.event_offset as archived_at,
+                archives.event_sequential_id as archived_at,
                 archives.contract_id as contract_id,
                 creates.create_key_value as create_key_value,
                 creates.template_id as template_id,
-                creates.event_offset as created_at,
+                creates.event_sequential_id as created_at,
                 archives.flat_event_witnesses as flat_event_witnesses,
                 archives.event_sequential_id as event_sequential_id,
-                20 as kind
+                20 as kind,
+                archives.event_offset as event_offset
               FROM participant_events creates
               LEFT JOIN participant_events archives
               ON archives.contract_id = creates.contract_id
@@ -100,14 +102,15 @@ object ContractLifecycleEventsReader {
                     and creates.event_kind = 10 -- created
               UNION ALL
               SELECT
-                null as archived_at,
+                0 as archived_at,
                 contract_id,
                 create_key_value,
                 template_id,
-                event_offset as created_at,
+                event_sequential_id as created_at,
                 flat_event_witnesses,
                 event_sequential_id,
-                10 as kind
+                10 as kind,
+                event_offset
               FROM participant_events
               WHERE event_sequential_id > ${range.startExclusive}
                     and event_sequential_id <= ${range.endInclusive}
@@ -120,7 +123,7 @@ object ContractLifecycleEventsReader {
   }
   object ContractLifecycleEvent {
     final case class Created(
-        createdAt: Offset,
+        createdAt: Long,
         contractId: ContractId,
         globalKey: Option[GlobalKey],
         flatEventWitnesses: Set[Party],
@@ -128,11 +131,11 @@ object ContractLifecycleEventsReader {
         eventSequentialId: Long,
     ) extends ContractLifecycleEvent
     final case class Archived(
-        archivedAt: Offset,
+        archivedAt: Long,
         contractId: ContractId,
         globalKey: Option[GlobalKey],
         flatEventWitnesses: Set[Party],
-        createdAt: Offset,
+        createdAt: Long,
         eventOffset: Offset,
         eventSequentialId: Long,
     ) extends ContractLifecycleEvent
