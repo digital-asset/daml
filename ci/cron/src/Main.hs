@@ -341,7 +341,7 @@ download_assets tmp release = do
             status
         downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
             let body = HTTP.responseBody resp
-            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode $ \handle -> do
+            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.WriteMode $ \handle -> do
                 while (readFrom body) (writeTo handle)
 
 verify_signatures :: FilePath -> FilePath -> String -> IO ()
