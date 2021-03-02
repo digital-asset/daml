@@ -67,6 +67,9 @@ object IndexerPerfTest {
     val workerE = Executors.newFixedThreadPool(ReadServiceMappingParallelism)
     val workerEC = ExecutionContext.fromExecutorService(workerE)
 
+    val metricRegistry = new MetricRegistry
+    val metrics = new Metrics(metricRegistry)
+
     val importIterator =
       if (config.streamExport) {
         @volatile var rollingForwardImporter: ProtobufBasedLedgerDataImporter = importer
@@ -161,8 +164,6 @@ object IndexerPerfTest {
 
         override def currentHealth(): HealthStatus = throw new UnsupportedOperationException
       }
-      val metricRegistry = new MetricRegistry
-      val metrics = new Metrics(metricRegistry)
       val indexerConfig = IndexerConfig(
         participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
         jdbcUrl = config.jdbcUrl.get,
@@ -245,6 +246,10 @@ object IndexerPerfTest {
     indexerE.shutdownNow()
     if (result.isSuccess) {
       log(s"ALL DONE")
+      if (config.reportMetrics) {
+        IntegrityChecker.reportDetailedMetrics(metricRegistry)
+      }
+
       System.exit(0)
     } else {
       log(s"FAILED")

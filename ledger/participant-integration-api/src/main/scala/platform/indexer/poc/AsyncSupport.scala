@@ -5,7 +5,9 @@ package com.daml.platform.indexer.poc
 
 import java.util.concurrent.Executors
 
+import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.MetricName
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,9 +23,21 @@ object AsyncSupport {
     def execute[OUT](block: => OUT): Future[OUT]
   }
 
-  def asyncPool(size: Int): ResourceOwner[Executor] =
+  def asyncPool(
+      size: Int,
+      withMetric: Option[(MetricName, MetricRegistry)] = None,
+  ): ResourceOwner[Executor] =
     ResourceOwner.forCloseable { () =>
-      val workerE = Executors.newFixedThreadPool(size)
+      val executor = Executors.newFixedThreadPool(size)
+      val workerE = withMetric match {
+        case Some((metricName, metricRegistry)) =>
+          new InstrumentedExecutorService(
+            executor,
+            metricRegistry,
+            metricName,
+          )
+        case None => executor
+      }
       val workerEC = ExecutionContext.fromExecutorService(workerE)
       new Executor with AutoCloseable {
         override def execute[FIN, FOUT](f: FIN => FOUT): FIN => Future[FOUT] =
@@ -47,9 +61,10 @@ object AsyncSupport {
   def asyncResourcePool[RESOURCE <: AutoCloseable](
       createResource: () => RESOURCE,
       size: Int,
+      withMetric: Option[(MetricName, MetricRegistry)] = None,
   ): ResourceOwner[PooledResourceExecutor[RESOURCE]] =
     for {
-      asyncPool <- asyncPool(size)
+      asyncPool <- asyncPool(size, withMetric)
       resourcePool <- ResourceOwner.forCloseable(() =>
         PostgresDAO.ResourcePool(createResource, size)
       )

@@ -3,6 +3,8 @@
 
 package com.daml.platform.indexer.poc
 
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.Source
 import com.daml.platform.indexer.poc.PerfSupport.{CountedCounter, Histogramm, OneTenHundredCounter}
 
 import scala.collection.mutable
@@ -119,9 +121,23 @@ object PerfSupport {
       in
     }
   }
+
+  // adds a buffer to the output of the original source, and adds a Counter metric for buffer size
+  // good for detecting consumer vs producer speed
+  def instrumentedBufferedSource[T, U](
+      original: Source[T, U],
+      counter: com.codahale.metrics.Counter,
+      size: Int,
+  ): Source[T, U] = {
+    original
+      .wireTap(_ => counter.inc())
+      .buffer(size, OverflowStrategy.backpressure)
+      .wireTap(_ => counter.dec())
+  }
+
 }
 
-object StaticMetrics {
+object StaticMetrics { // Custom metrics for local log reporting
   val batchCounter: CountedCounter = CountedCounter()
   val mappingCPU: OneTenHundredCounter = OneTenHundredCounter()
   val seqMappingCPU: OneTenHundredCounter = OneTenHundredCounter()

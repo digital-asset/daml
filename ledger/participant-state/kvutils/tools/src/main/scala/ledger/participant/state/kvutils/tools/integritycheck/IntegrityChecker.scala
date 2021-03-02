@@ -216,15 +216,6 @@ class IntegrityChecker[LogResult](
       }
   }
 
-  private def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
-    val reporter = ConsoleReporter
-      .forRegistry(metricRegistry)
-      .convertRatesTo(TimeUnit.SECONDS)
-      .convertDurationsTo(TimeUnit.MILLISECONDS)
-      .build
-    reporter.report()
-  }
-
   private def migrateAndStartIndexer(
       config: IndexerConfig,
       readService: ReadService,
@@ -322,4 +313,12 @@ object IntegrityChecker {
   private[integritycheck] def defaultJdbcUrl(exportFileName: String): String =
     s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
 
+  def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
+    val reporter = ConsoleReporter
+      .forRegistry(metricRegistry)
+      .convertRatesTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
+      .build
+    reporter.report()
+  }
 }

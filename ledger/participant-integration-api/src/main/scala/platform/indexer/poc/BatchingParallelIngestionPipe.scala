@@ -84,12 +84,15 @@ case class RunningDBBatch(
     lastSeqEventId: Long,
     lastConfig: Option[Array[Byte]],
     batch: RawDBBatchPostgreSQLV1,
+    batchSize: Int,
+    averageStartTime: Long,
 )
 
 object RunningDBBatch {
 
   def inputMapper(
-      toDbDto: Offset => Update => Iterator[DBDTOV1]
+      toDbDto: Offset => Update => Iterator[DBDTOV1],
+      averageStartTime: Long,
   )(input: Iterable[(Offset, Update)]): RunningDBBatch = {
     val batchBuilder = RawDBBatchPostgreSQLV1.Builder()
     var lastOffset: Offset = null
@@ -113,6 +116,8 @@ object RunningDBBatch {
       lastSeqEventId = 0L, // will be populated later
       lastConfig = Option(lastConfiguration),
       batch = batch,
+      batchSize = input.size,
+      averageStartTime = averageStartTime,
     )
   }
 
@@ -122,6 +127,8 @@ object RunningDBBatch {
       lastSeqEventId = initialSeqEventId,
       lastConfig = None,
       batch = nullBatch,
+      batchSize = 0,
+      averageStartTime = 0,
     )
 
   def seqMapper(prev: RunningDBBatch, curr: RunningDBBatch): RunningDBBatch = {
@@ -143,5 +150,7 @@ object RunningDBBatch {
       lastSeqEventId = curr.lastSeqEventId,
       lastConfig = curr.lastConfig.orElse(prev.lastConfig),
       batch = nullBatch,
+      batchSize = 0,
+      averageStartTime = 0,
     )
 }
