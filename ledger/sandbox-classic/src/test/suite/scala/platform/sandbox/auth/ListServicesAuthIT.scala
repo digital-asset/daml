@@ -10,8 +10,10 @@ import scala.concurrent.Future
 class ListServicesAuthIT extends UnsecuredServiceCallAuthTests {
   override def serviceCallName: String = "ServerReflection#List"
 
-  override def serviceCallWithoutToken(): Future[Any] =
+  override def serviceCallWithToken(token: Option[String]): Future[Any] =
     new StreamConsumer[ServerReflectionResponse](observer =>
-      stub(ServerReflectionGrpc.newStub(channel), None).serverReflectionInfo(observer).onCompleted()
+      stub(ServerReflectionGrpc.newStub(channel), token)
+        .serverReflectionInfo(observer)
+        .onCompleted()
     ).first()
 }
