@@ -4,7 +4,6 @@
 package com.daml.ledger.api.auth.interceptor
 
 import com.daml.ledger.api.auth.{AuthService, ClaimSet}
-import com.daml.platform.server.api.validation.ErrorFactories.unauthenticated
 import io.grpc.{
   Context,
   Contexts,
@@ -18,7 +17,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
@@ -68,12 +67,8 @@ object AuthorizationInterceptor {
 
   private val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
-  def extractClaimsFromContext(): Try[ClaimSet.Claims] = {
-    Option(contextKeyClaimSet.get()).fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
-      case ClaimSet.Unauthenticated => Failure(unauthenticated())
-      case claims: ClaimSet.Claims => Success(claims)
-    }
-  }
+  def extractClaimSetFromContext(): Option[ClaimSet] =
+    Option(contextKeyClaimSet.get())
 
   def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec)
