@@ -1298,6 +1298,10 @@ private[lf] object Speedy {
 
     def execute(v: SValue) = {
       restore()
+      machine.ledgerMode match {
+        case OffLedger => ()
+        case onLedger: OnLedger => onLedger.ptx = onLedger.ptx.endTry
+      }
       machine.returnValue = v
     }
   }
