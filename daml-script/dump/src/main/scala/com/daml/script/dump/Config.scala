@@ -78,7 +78,7 @@ object Config {
     parties = List(),
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-    acsBatchSize = 1,
+    acsBatchSize = 10,
     outputPath = null,
     sdkVersion = "",
     damlScriptLib = "daml-script",
