@@ -24,13 +24,17 @@ object Dump {
       trees: Seq[TransactionTree],
       pkgRefs: Set[PackageId],
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
+      acsBatchSize: Int,
   ) = {
     // Needed for map on Dar
     import scalaz.syntax.traverse._
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Dump.daml"),
-      Encode.encodeTransactionTreeStream(acs, trees).render(80).getBytes(StandardCharsets.UTF_8),
+      Encode
+        .encodeTransactionTreeStream(acs, trees, acsBatchSize)
+        .render(80)
+        .getBytes(StandardCharsets.UTF_8),
     )
     val dars: Seq[Dar[(PackageId, ByteString, Ast.Package)]] =
       pkgRefs.view.collect(Function.unlift(Dependencies.toDar(_, pkgs))).toSeq

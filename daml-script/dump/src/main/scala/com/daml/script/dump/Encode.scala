@@ -24,6 +24,7 @@ private[dump] object Encode {
   def encodeTransactionTreeStream(
       acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
+      acsBatchSize: Int,
   ): Doc = {
     val parties = partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
@@ -68,13 +69,11 @@ private[dump] object Encode {
       Doc.hardLine +
       Doc.text("dump : Parties -> Script ()") /
       (Doc.text("dump Parties{..} = do") /
-        Doc.stack(
-          sortedAcs.map(createdEvent =>
-            encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, Seq(createdEvent))
-          ) ++
-            trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
-        ) /
-        Doc.text("pure ()")).hang(2)
+        stackNonEmpty(
+          encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize)
+            +: trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
+            :+ Doc.text("pure ()")
+        )).hang(2)
   }
 
   private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
@@ -173,6 +172,9 @@ private[dump] object Encode {
 
   private def pair(v1: Doc, v2: Doc) =
     parens(v1 + Doc.text(", ") + v2)
+
+  private def stackNonEmpty(docs: Seq[Doc]): Doc =
+    Doc.stack(docs.filter(_.nonEmpty))
 
   private def encodeRecord(
       partyMap: Map[Party, String],
@@ -283,6 +285,21 @@ private[dump] object Encode {
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + submit :+ " [] do") / body).hang(2)
+  }
+
+  private[dump] def encodeACS(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      acs: Seq[CreatedEvent],
+      batchSize: Int,
+  ): Doc = {
+    Doc.stack(
+      acs
+        .grouped(batchSize)
+        .map(encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, _))
+        .toSeq
+    )
   }
 
   private[dump] def encodeTree(

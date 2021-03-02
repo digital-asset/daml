@@ -149,6 +149,7 @@ final class IT
         parties = parties,
         start = offset,
         end = ledgerEnd,
+        acsBatchSize = 2,
         outputPath = tmpDir,
         damlScriptLib = damlScriptLib.toString,
         sdkVersion = SdkVersion.sdkVersion,
