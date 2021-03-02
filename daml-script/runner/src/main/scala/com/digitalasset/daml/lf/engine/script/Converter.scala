@@ -559,6 +559,12 @@ object Converter {
       case _ => Left(s"Expected SList but got $v")
     }
 
+  def toParticipantName(v: SValue): Either[String, Option[Participant]] = v match {
+    case SOptional(Some(SText(t))) => Right(Some(Participant(t)))
+    case SOptional(None) => Right(None)
+    case _ => Left(s"Expected optional participant name but got $v")
+  }
+
   def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
     for {
       packageId <- PackageId.fromString(id.packageId)
