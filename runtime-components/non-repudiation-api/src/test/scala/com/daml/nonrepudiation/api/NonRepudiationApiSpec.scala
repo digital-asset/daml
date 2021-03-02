@@ -174,7 +174,7 @@ final class NonRepudiationApiSpec
 
   it should "return the expected error if the certificate is invalid" in withApi() {
     (baseUrl, _, _) =>
-      val randomBytes = Array.fill(2048)(Random.nextInt.toByte)
+      val randomBytes = Array.fill(2048)(Random.nextInt().toByte)
       val malformedCertificate = BaseEncoding.base64Url().encode(randomBytes)
       for {
         response <- putCertificate(baseUrl, s"""{"certificate":"$malformedCertificate"}""")
