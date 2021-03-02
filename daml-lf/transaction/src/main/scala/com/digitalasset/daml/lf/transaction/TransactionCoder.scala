@@ -256,7 +256,8 @@ object TransactionCoder {
     else {
       val nodeBuilder =
         TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
-      nodeBuilder.setVersion(node.version.protoValue)
+      if (enclosingVersion >= TransactionVersion.minNodeVersion)
+        nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
@@ -432,23 +433,7 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, (Nid, GenNode[Nid, Cid])] =
     for {
-      nodeVersion <-
-        if (transactionVersion < TransactionVersion.minNodeVersion) {
-          Right(transactionVersion)
-        } else {
-          decodeVersion(protoNode.getVersion) match {
-            case Right(nodeVersion) =>
-              if (transactionVersion < nodeVersion)
-                Left(
-                  DecodeError(
-                    s"A transaction of version $transactionVersion cannot contain node of newer version (${protoNode.getVersion})"
-                  )
-                )
-              else
-                Right(nodeVersion)
-            case Left(err) => Left(err)
-          }
-        }
+      nodeVersion <- decodeNodeVersion(transactionVersion, protoNode)
       node <- decodeNode(decodeNid, decodeCid, nodeVersion, protoNode)
     } yield node
 
@@ -645,6 +630,25 @@ object TransactionCoder {
         } yield builder.addNodes(encodedNode)
       }
       .map(_.build)
+  }
+
+  def decodeNodeVersion(
+      txVersion: TransactionVersion,
+      protoNode: TransactionOuterClass.Node,
+  ): Either[DecodeError, TransactionVersion] = {
+    if (txVersion < TransactionVersion.minNodeVersion) {
+      Right(txVersion)
+    } else {
+      decodeVersion(protoNode.getVersion) match {
+        case Right(nodeVersion) if (txVersion < nodeVersion) =>
+          Left(
+            DecodeError(
+              s"A transaction of version $txVersion cannot contain node of newer version (${protoNode.getVersion})"
+            )
+          )
+        case otherwise => otherwise
+      }
+    }
   }
 
   def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
