@@ -31,13 +31,13 @@ class EncodeAcsSpec extends AnyFreeSpec with Matchers {
         .toCreatedEvents
       "batch size 1" in {
         encodeACS(parties, cidMap, cidRefs, events, 1).render(80) shouldBe
-          """_ <- submitMulti [alice_0] [] do
+          """_ <- submit alice_0 do
             |  createCmd Module.Template
-            |_ <- submitMulti [alice_0] [] do
+            |_ <- submit alice_0 do
             |  createCmd Module.Template
-            |_ <- submitMulti [alice_0] [] do
+            |_ <- submit alice_0 do
             |  createCmd Module.Template
-            |_ <- submitMulti [alice_0] [] do
+            |_ <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
@@ -45,11 +45,11 @@ class EncodeAcsSpec extends AnyFreeSpec with Matchers {
       }
       "batch size 2 - divides evenly" in {
         encodeACS(parties, cidMap, cidRefs, events, 2).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  pure ()
-            |submitMulti [alice_0] [] do
+            |submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  pure ()""".stripMargin.replace(
@@ -59,12 +59,12 @@ class EncodeAcsSpec extends AnyFreeSpec with Matchers {
       }
       "batch size 3 - does not divide evenly" in {
         encodeACS(parties, cidMap, cidRefs, events, 3).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  pure ()
-            |_ <- submitMulti [alice_0] [] do
+            |_ <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
@@ -72,7 +72,7 @@ class EncodeAcsSpec extends AnyFreeSpec with Matchers {
       }
       "batch size 4 - equals total size" in {
         encodeACS(parties, cidMap, cidRefs, events, 4).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
@@ -84,7 +84,7 @@ class EncodeAcsSpec extends AnyFreeSpec with Matchers {
       }
       "batch size 5 - greater than total size" in {
         encodeACS(parties, cidMap, cidRefs, events, 5).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
