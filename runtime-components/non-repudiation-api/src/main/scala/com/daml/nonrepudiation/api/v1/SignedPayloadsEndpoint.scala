@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import com.daml.nonrepudiation.{CommandIdString, SignedPayload, SignedPayloadRepository}
 import com.google.common.io.BaseEncoding
+import org.slf4j.{Logger, LoggerFactory}
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 import scala.collection.compat.immutable.ArraySeq
@@ -21,11 +22,13 @@ private[api] final class SignedPayloadsEndpoint private (
   private val route: Route =
     path(Segment.map(CommandIdString.wrap)) { commandId =>
       get {
-        val responses = signedPayloads.get(commandId).map(toResponse)
-        if (responses.nonEmpty) {
-          complete(responses)
-        } else {
-          reject
+        handleExceptions(logAndReport(logger)(UnableToRetrieveTheSignedPayload)) {
+          val responses = signedPayloads.get(commandId).map(toResponse)
+          if (responses.nonEmpty) {
+            complete(responses)
+          } else {
+            reject
+          }
         }
       }
     }
@@ -36,6 +39,11 @@ object SignedPayloadsEndpoint {
 
   def apply(signedPayloads: SignedPayloadRepository.Read[CommandIdString]): Route =
     new SignedPayloadsEndpoint(signedPayloads).route
+
+  private val logger: Logger = LoggerFactory.getLogger(classOf[SignedPayloadsEndpoint])
+
+  private[api] val UnableToRetrieveTheSignedPayload: String =
+    "An error occurred when trying to retrieve the signed payload, please try again."
 
   final case class Response(
       algorithm: String,

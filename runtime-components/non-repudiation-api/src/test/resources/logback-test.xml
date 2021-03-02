@@ -10,7 +10,7 @@
         </encoder>
     </appender>
 
-    <root level="${LOGLEVEL:-INFO}">
+    <root level="${LOGLEVEL:-ERROR}">
         <appender-ref ref="stderr-appender"/>
     </root>
 

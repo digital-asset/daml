@@ -7,12 +7,11 @@ import java.io.ByteArrayInputStream
 import java.security.cert.{CertificateFactory, X509Certificate}
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.marshalling.ToEntityMarshaller
-import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Route, StandardRoute, ValidationRejection}
 import com.daml.nonrepudiation.{CertificateRepository, FingerprintBytes}
 import com.google.common.io.BaseEncoding
+import org.slf4j.{Logger, LoggerFactory}
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 import scala.util.Try
@@ -22,24 +21,29 @@ private[api] final class CertificatesEndpoint private (certificates: Certificate
 
   import CertificatesEndpoint._
 
-  private def tryAdd(certificate: X509Certificate): Either[Throwable, FingerprintBytes] =
-    Try(certificates.put(certificate)).toEither
+  private def putCertificate(certificate: X509Certificate): Route =
+    handleExceptions(logAndReport(logger)(UnableToAddTheCertificate)) {
+      val fingerprint = certificates.put(certificate)
+      complete(encode(fingerprint))
+    }
+
+  private def getCertificate(fingerprint: FingerprintBytes): Route =
+    handleExceptions(logAndReport(logger)(UnableToRetrieveTheCertificate)) {
+      certificates.get(fingerprint).fold(reject)(certificate => complete(encode(certificate)))
+    }
 
   private val route: Route =
     concat(
       put {
         decodeRequest {
-          entity(as[CertificatesEndpoint.Certificate]) { request =>
-            decode(request)
-              .fold(rejectBadInput, tryAdd(_).fold(reportServerError, fulfillRequest))
+          entity(as[CertificatesEndpoint.Certificate]) {
+            decode(_).fold(rejectBadInput, putCertificate)
           }
         }
       },
       path(Segment) { fingerprint =>
         get {
-          decode(fingerprint)
-            .map(certificates.get)
-            .fold(rejectBadInput, _.fold(reject)(fulfillRequest))
+          decode(fingerprint).fold(rejectBadInput, getCertificate)
         }
       },
     )
@@ -51,6 +55,8 @@ object CertificatesEndpoint {
   def apply(certificates: CertificateRepository): Route =
     new CertificatesEndpoint(certificates).route
 
+  private val logger: Logger = LoggerFactory.getLogger(classOf[CertificatesEndpoint])
+
   private[api] val InvalidCertificateString: String =
     "Invalid upload, the 'certificate' field must contain a URL-safe base64-encoded X.509 certificate"
 
@@ -59,6 +65,9 @@ object CertificatesEndpoint {
 
   private[api] val UnableToAddTheCertificate: String =
     "An error occurred when trying to add the certificate, please try again."
+
+  private[api] val UnableToRetrieveTheCertificate: String =
+    "An error occurred when trying to retrieve the certificate, please try again."
 
   private[api] val InvalidFingerprintString: String =
     "Invalid request, the fingerprint must be a URL-safe base64-encoded array of bytes representing the SHA256 of the DER representation of an X.509 certificate"
@@ -84,20 +93,6 @@ object CertificatesEndpoint {
 
   private def rejectBadInput(errorMessage: String): StandardRoute =
     reject(ValidationRejection(errorMessage))
-
-  private def reportServerError(throwable: Throwable): StandardRoute = {
-    throwable.printStackTrace()
-    complete(HttpResponse(StatusCodes.InternalServerError, entity = UnableToAddTheCertificate))
-  }
-
-  private def fulfillRequest(fingerprint: FingerprintBytes)(implicit
-      marshaller: ToEntityMarshaller[Fingerprint]
-  ): StandardRoute =
-    complete(encode(fingerprint))
-
-  private def fulfillRequest(certificate: X509Certificate)(implicit
-      marshaller: ToEntityMarshaller[Certificate]
-  ): StandardRoute = complete(encode(certificate))
 
   final case class Certificate(certificate: String)
 

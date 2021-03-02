@@ -94,6 +94,18 @@ final class NonRepudiationApiSpec
 
   }
 
+  it should "return the expected error if a signed payload cannot be retrieved" in withApi(
+    signedPayloads = NonRepudiationApiSpec.BrokenSignedPayloads
+  ) { (baseUrl, _, _) =>
+    for {
+      response <- getSignedPayload(baseUrl, "not-really-important")
+      (status, body) <- statusAndBody(response)
+    } yield {
+      status shouldBe 500
+      body shouldBe SignedPayloadsEndpoint.UnableToRetrieveTheSignedPayload
+    }
+  }
+
   it should "correctly show a certificate in the backend" in withApi() {
     (baseUrl, certificates, _) =>
       val (_, expectedCertificate) = generateKeyAndCertificate()
@@ -173,8 +185,24 @@ final class NonRepudiationApiSpec
       }
   }
 
-  it should "return the expected error if the backend fails" in withApi(certificates =
+  it should "return the expected error if a certificate cannot be added" in withApi(certificates =
     NonRepudiationApiSpec.BrokenCertificates
+  ) { (baseUrl, _, _) =>
+    val (_, expectedCertificate) = generateKeyAndCertificate()
+    val fingerprintBytes = FingerprintBytes.compute(expectedCertificate)
+    val expectedFingerprint = BaseEncoding.base64Url().encode(fingerprintBytes.unsafeArray)
+
+    for {
+      response <- getCertificate(baseUrl, expectedFingerprint)
+      (status, body) <- statusAndBody(response)
+    } yield {
+      status shouldBe 500
+      body shouldBe CertificatesEndpoint.UnableToRetrieveTheCertificate
+    }
+  }
+
+  it should "return the expected error if a certificated cannot be retrieved" in withApi(
+    certificates = NonRepudiationApiSpec.BrokenCertificates
   ) { (baseUrl, _, _) =>
     val (_, expectedCertificate) = generateKeyAndCertificate()
 
@@ -258,6 +286,16 @@ object NonRepudiationApiSpec {
 
     override def put(certificate: X509Certificate): FingerprintBytes =
       throw new UnsupportedOperationException("The certificate repository is broken")
+
+  }
+
+  private object BrokenSignedPayloads extends SignedPayloadRepository[CommandIdString] {
+
+    override def get(key: CommandIdString): Iterable[SignedPayload] =
+      throw new UnsupportedOperationException("The signed payload repository is broken")
+
+    override def put(signedPayload: SignedPayload): Unit =
+      throw new UnsupportedOperationException("The signed payload repository is broken")
 
   }
 
