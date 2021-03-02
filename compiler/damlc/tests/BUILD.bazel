@@ -108,6 +108,34 @@ da_haskell_test(
     ],
 )
 
+# Tests for damlc lint
+da_haskell_test(
+    name = "damlc-lint",
+    srcs = ["src/DamlcLint.hs"],
+    data = [
+        "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DamlcLint.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc:damlc-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
 da_haskell_library(
     name = "integration-lib",
     srcs = ["src/DA/Test/DamlcIntegration.hs"],
