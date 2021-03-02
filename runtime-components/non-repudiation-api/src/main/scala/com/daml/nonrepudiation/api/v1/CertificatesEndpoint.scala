@@ -8,6 +8,7 @@ import java.security.cert.{CertificateFactory, X509Certificate}
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
+import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Route, StandardRoute, ValidationRejection}
 import com.daml.nonrepudiation.{CertificateRepository, FingerprintBytes}
@@ -50,16 +51,16 @@ object CertificatesEndpoint {
   def apply(certificates: CertificateRepository): Route =
     new CertificatesEndpoint(certificates).route
 
-  private val InvalidCertificateString: String =
+  private[api] val InvalidCertificateString: String =
     "Invalid upload, the 'certificate' field must contain a URL-safe base64-encoded X.509 certificate"
 
-  private val InvalidCertificateFormat: String =
+  private[api] val InvalidCertificateFormat: String =
     "Invalid certificate format, the certificate must be a valid X.509 certificate"
 
-  private val UnableToAddTheCertificate: String =
+  private[api] val UnableToAddTheCertificate: String =
     "An error occurred when trying to add the certificate, please try again."
 
-  private val InvalidFingerprintString: String =
+  private[api] val InvalidFingerprintString: String =
     "Invalid request, the fingerprint must be a URL-safe base64-encoded array of bytes representing the SHA256 of the DER representation of an X.509 certificate"
 
   private val certificateFactory: CertificateFactory =
@@ -84,8 +85,10 @@ object CertificatesEndpoint {
   private def rejectBadInput(errorMessage: String): StandardRoute =
     reject(ValidationRejection(errorMessage))
 
-  private def reportServerError(throwable: Throwable): StandardRoute =
-    failWith(new RuntimeException(UnableToAddTheCertificate, throwable))
+  private def reportServerError(throwable: Throwable): StandardRoute = {
+    throwable.printStackTrace()
+    complete(HttpResponse(StatusCodes.InternalServerError, entity = UnableToAddTheCertificate))
+  }
 
   private def fulfillRequest(fingerprint: FingerprintBytes)(implicit
       marshaller: ToEntityMarshaller[Fingerprint]
