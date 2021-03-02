@@ -38,9 +38,9 @@ final class SignedPayloadsEndpointSpec extends AnyFlatSpec with Matchers {
 
     SignedPayloadsEndpoint.toResponse(signedPayload) shouldBe SignedPayloadsEndpoint.Response(
       algorithm = algorithm,
-      fingerprint = "ZmluZ2VycHJpbnQ=",
-      payload = "cGF5bG9hZA==",
-      signature = "c2lnbmF0dXJl",
+      fingerprint = "ZmluZ2VycHJpbnQ=", // URL-safe base64 encoded "fingerprint"
+      payload = "cGF5bG9hZA==", // URL-safe base64 encoded "payload"
+      signature = "c2lnbmF0dXJl", // URL-safe base64 encoded "signature"
       timestamp = timestamp,
     )
 
