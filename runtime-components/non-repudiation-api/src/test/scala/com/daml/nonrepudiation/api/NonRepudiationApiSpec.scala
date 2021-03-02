@@ -86,7 +86,7 @@ final class NonRepudiationApiSpec
         payloadsAfterSecondAdd <- Unmarshal(thirdResponse).to[List[SignedPayloadsEndpoint.Response]]
       } yield {
         payloadsAfterFirstAdd should contain only firstExpectedResponse
-        payloadsAfterSecondAdd should contain allOf (firstExpectedResponse, secondExpectedResponse)
+        payloadsAfterSecondAdd should contain.allOf(firstExpectedResponse, secondExpectedResponse)
       }
 
   }
