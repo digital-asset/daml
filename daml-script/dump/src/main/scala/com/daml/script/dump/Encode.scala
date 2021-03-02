@@ -269,7 +269,7 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val submit = "submitMulti " +: encodeParties(partyMap, submitters)
+    val submit = "submitMulti " +: encodeParties(partyMap, submitters) :+ " []"
     val actions = Doc.stack(evs.map { ev =>
       val cid = ContractId(ev.contractId)
       val bind = if (returnStmt.nonEmpty) {
@@ -284,7 +284,7 @@ private[dump] object Encode {
       bind + encodeCreatedEvent(partyMap, cidMap, ev)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-    ((bind + submit :+ " [] do") / body).hang(2)
+    ((bind + submit :+ " do") / body).hang(2)
   }
 
   private[dump] def encodeACS(
