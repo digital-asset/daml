@@ -28,6 +28,7 @@ da_haskell_binary(
         "filepath",
         "http-client",
         "http-client-tls",
+        "http-conduit",
         "http-types",
         "lens",
         "lifted-async",
