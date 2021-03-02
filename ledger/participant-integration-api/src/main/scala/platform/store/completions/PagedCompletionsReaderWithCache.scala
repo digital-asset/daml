@@ -15,9 +15,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: Int)
     extends PagedCompletionsReader {
 
-  private val cache: AtomicReference[RangeCache[CompletionStreamResponseWithParties]] = new AtomicReference(
-    RangeCache.empty[CompletionStreamResponseWithParties](maxItems))
-
+  private val cacheRef: AtomicReference[RangeCache[CompletionStreamResponseWithParties]] =
+    new AtomicReference(RangeCache.empty[CompletionStreamResponseWithParties](maxItems))
 
   private val pendingRequest: AtomicReference[Future[Unit]] =
     new AtomicReference[Future[Unit]](Future.unit)
@@ -42,10 +41,10 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
   ): Future[Seq[(Offset, CompletionStreamResponse)]] = {
-    val cachedCompletions = cache.get().slice(startExclusive, endInclusive)
+    val inMemCache = cacheRef.get()
     val historicCompletionsFuture =
       fetchHistoric(
-        cachedCompletions.map(_.boundaries),
+        inMemCache.boundaries,
         startExclusive,
         endInclusive,
         applicationId,
@@ -53,7 +52,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       )
     val futureCompletionsFuture =
       fetchFuture(
-        cachedCompletions.map(_.boundaries),
+        inMemCache,
         startExclusive,
         endInclusive,
         applicationId,
@@ -63,7 +62,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       historicCompletions <- historicCompletionsFuture
       futureCompletions <- futureCompletionsFuture
     } yield historicCompletions ++ filterCache(
-      cachedCompletions,
+      inMemCache.slice(startExclusive, endInclusive),
       applicationId,
       parties,
     ) ++ futureCompletions
@@ -88,7 +87,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   }
 
   private def fetchHistoric(
-      cachedBoundaries: Option[Boundaries],
+      cachedBoundaries: Boundaries,
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
@@ -97,19 +96,19 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       loggingContext: LoggingContext
   ): Future[Seq[(Offset, CompletionStreamResponse)]] = {
     val boundariesToFetch =
-      cachedBoundaries.fold[Option[Boundaries]](Some(Boundaries(startExclusive, endInclusive))) {
-        cached =>
-          if (cached.startExclusive <= startExclusive) {
-            None
-          } else {
-            Some(
-              Boundaries(
-                startExclusive = startExclusive,
-                endInclusive =
-                  if (cached.startExclusive > endInclusive) endInclusive else cached.startExclusive,
-              )
-            )
-          }
+      if (
+        cachedBoundaries.startExclusive <= startExclusive || cachedBoundaries.isOffsetBeforeBegin()
+      ) {
+        None
+      } else {
+        Some(
+          Boundaries(
+            startExclusive = startExclusive,
+            endInclusive =
+              if (cachedBoundaries.startExclusive > endInclusive) endInclusive
+              else cachedBoundaries.startExclusive,
+          )
+        )
       }
     boundariesToFetch
       .map(boundaries =>
@@ -125,7 +124,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   }
 
   private def fetchFuture(
-      cachedBoundaries: Option[Boundaries],
+      inMemCache: RangeCache[CompletionStreamResponseWithParties],
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
@@ -135,48 +134,60 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       executionContext: ExecutionContext,
   ): Future[Seq[(Offset, CompletionStreamResponse)]] = {
     val boundariesToFetch =
-      cachedBoundaries.fold[Option[Boundaries]](Some(Boundaries(startExclusive, endInclusive))) {
-        cached =>
-          if (cached.endInclusive >= endInclusive) {
-            None
-          } else {
-            Some(
-              Boundaries(
-                startExclusive =
-                  if (cached.endInclusive > startExclusive) cached.endInclusive else startExclusive,
-                endInclusive = endInclusive,
-              )
-            )
-          }
+      if (inMemCache.boundaries.endInclusive >= endInclusive) {
+        None
+      } else {
+        Some(
+          Boundaries(
+            startExclusive =
+              if (inMemCache.boundaries.endInclusive > startExclusive)
+                inMemCache.boundaries.endInclusive
+              else startExclusive,
+            endInclusive = endInclusive,
+          )
+        )
       }
 
-    boundariesToFetch.map { boundaries =>
-      synchronized {
-        val request = pendingRequest.get()
-        if (request.isCompleted) {
-          val allCompletionsFuture =
-            completionsDao.getAllCompletions(boundaries.startExclusive, boundaries.endInclusive)
-          val updateCacheRequest = allCompletionsFuture.map { fetchedCompletions =>
-          val cacheToUpdate = if(boundaries.endInclusive < startExclusive) RangeCache.empty[CompletionStreamResponseWithParties](maxItems) else cache.get()
-            val updatedCache = cacheToUpdate.cache(
-              boundaries.startExclusive,
-              boundaries.endInclusive,
-              SortedMap(fetchedCompletions: _*),
-            )
-            cache.set(updatedCache)
-          }
-          pendingRequest.set(updateCacheRequest)
-          allCompletionsFuture.map(_.filter { case (_, completion) =>
-            completion.applicationId == applicationId && completion.parties.exists(parties.contains)
-          }.map {case (offset, completionWithParties) => (offset, completionWithParties.completion)}) // convert to result set
-          // create pending request
-        } else {
-          request.flatMap { _ =>
-            getCompletionsPage(boundaries.startExclusive, boundaries.endInclusive, applicationId, parties)
+    boundariesToFetch
+      .map { boundaries =>
+        synchronized {
+          val request = pendingRequest.get()
+          if (request.isCompleted) {
+            val allCompletionsFuture =
+              completionsDao.getAllCompletions(boundaries.startExclusive, boundaries.endInclusive)
+            val updateCacheRequest = allCompletionsFuture.map { fetchedCompletions =>
+              val cacheToUpdate =
+                if (boundaries.endInclusive < startExclusive)
+                  RangeCache.empty[CompletionStreamResponseWithParties](maxItems)
+                else cacheRef.get()
+              val updatedCache = cacheToUpdate.cache(
+                boundaries.startExclusive,
+                boundaries.endInclusive,
+                SortedMap(fetchedCompletions: _*),
+              )
+              cacheRef.set(updatedCache)
+            }
+            pendingRequest.set(updateCacheRequest)
+            allCompletionsFuture.map(_.filter { case (_, completion) =>
+              completion.applicationId == applicationId && completion.parties.exists(
+                parties.contains
+              )
+            }.map { case (offset, completionWithParties) =>
+              (offset, completionWithParties.completion)
+            })
+          } else {
+            request.flatMap { _ =>
+              getCompletionsPage(
+                boundaries.startExclusive,
+                boundaries.endInclusive,
+                applicationId,
+                parties,
+              )
+            }
           }
         }
       }
-    }.getOrElse(Future.successful(Nil))
+      .getOrElse(Future.successful(Nil))
 
   }
 }

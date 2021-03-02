@@ -4,7 +4,11 @@ import com.daml.ledger.participant.state.v1.Offset
 
 import scala.collection.SortedMap
 
-case class Boundaries(startExclusive: Offset, endInclusive: Offset)
+case class Boundaries(startExclusive: Offset, endInclusive: Offset) {
+
+  def isOffsetBeforeBegin(): Boolean =
+    startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
+}
 
 /** In memory cache implementation for completions. If size of cache exceeds maxElems, oldest elements will be removed,
   * based on ledger offset
@@ -29,19 +33,23 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
   ): RangeCache[T] = {
     // if cached offset and new offset are disjointed, cache newer one, else cache join
     if (boundaries.endInclusive < startExclusive) {
+      val start = calculateStartOffset(startExclusive, values)
       copy(
-        boundaries = Boundaries(startExclusive, endInclusive),
+        boundaries = Boundaries(start, endInclusive),
         cache = values.takeRight(maxElems),
       )
     } else if (boundaries.startExclusive > endInclusive) {
       this
     } else {
+      val allValues = values ++ cache
+      val start =
+        calculateStartOffset(getLesser(boundaries.startExclusive, startExclusive), allValues)
       copy(
         boundaries = Boundaries(
-          startExclusive = getLesser(boundaries.startExclusive, startExclusive),
+          startExclusive = start,
           endInclusive = getGreater(boundaries.endInclusive, endInclusive),
         ),
-        cache = (values ++ cache).takeRight(maxElems),
+        cache = allValues.takeRight(maxElems),
       )
     }
   }
@@ -56,10 +64,10 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
             startExclusive = getGreater(startExclusive, boundaries.startExclusive),
             endInclusive = getLesser(endInclusive, boundaries.endInclusive),
           ),
-          cache = ((cache.range(startExclusive, endInclusive) - startExclusive) ++ cache)
+          cache = (cache.range(startExclusive, endInclusive) - startExclusive) ++ cache
             .get(endInclusive)
             .map(v => SortedMap(endInclusive -> v))
-            .getOrElse(SortedMap.empty),
+            .getOrElse(SortedMap.empty[Offset, T]),
         )
       )
 
@@ -73,6 +81,15 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
 
   private def getLesser(offset1: Offset, offset2: Offset): Offset =
     if (offset1 < offset2) offset1 else offset2
+
+  private def calculateStartOffset(
+      proposedStartOffset: Offset,
+      proposedCacheUpdate: SortedMap[Offset, T],
+  ) = {
+    if (proposedCacheUpdate.size > maxElems)
+      proposedCacheUpdate.toSeq(proposedCacheUpdate.size - maxElems - 1)._1
+    else proposedStartOffset
+  }
 }
 
 object RangeCache {
