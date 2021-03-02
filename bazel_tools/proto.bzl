@@ -207,12 +207,16 @@ def proto_jars(
         maven_artifact_proto_suffix = "proto",
         maven_artifact_java_suffix = "java-proto",
         maven_artifact_scala_suffix = "scala-proto"):
+    # NOTE (MK) An empty string flattens the whole structure which is
+    # rarely what you want, see https://github.com/bazelbuild/rules_pkg/issues/82
+    tar_strip_prefix = "." if not strip_import_prefix else strip_import_prefix
+
     # Tarball containing the *.proto files.
     pkg_tar(
         name = "%s_tar" % name,
         srcs = srcs,
         extension = "tar.gz",
-        strip_prefix = strip_import_prefix,
+        strip_prefix = tar_strip_prefix,
         visibility = [":__subpackages__", "//release:__subpackages__"],
     )
 
