@@ -98,7 +98,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
       forM_ depsExtracted $
           -- We only have the interface files for the main DALF in a `dependency` so we
           -- also only extract the main dalf.
-          \ExtractedDar{..} -> installDar dbPath edConfFiles edMain edSrcs
+          \ExtractedDar{..} -> installDar depsDir dbPath edConfFiles edMain edSrcs
 
       loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
@@ -169,9 +169,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
                   , not (depPkgId `Set.member` stablePkgIds)
                   ]
           let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+          let thisDepDir = depsDir </> unitIdStr <> "-" <> pkgIdStr
           createDirectoryIfMissing True workDir
-          -- write the dalf package
-          BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
+          createDirectoryIfMissing True thisDepDir
+          -- write the dalf package to the dependencies
+          BS.writeFile (thisDepDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
 
           generateAndInstallIfaceFiles
               (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
@@ -192,12 +194,14 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
           (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes depsFingerprint)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
+    depsDir = projectDependenciesDatabase </> lfVersionString (optDamlLfVersion opts)
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
         -- issues during SDk upgrades. Once we have a more clever mechanism than
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
+        removePathForcibly depsDir
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
 
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
@@ -385,13 +389,14 @@ getUnitId thisUnitId pkgMap =
 
 -- Install a dar in the package database
 installDar ::
-       FilePath
+    FilePath
+    -> FilePath
     -> [ZipArchive.Entry]
     -> ZipArchive.Entry
     -> [ZipArchive.Entry]
     -> IO ()
-installDar dbPath confFiles dalf srcs = do
-    let path = dbPath </> ZipArchive.eRelativePath dalf
+installDar depPath dbPath confFiles dalf srcs = do
+    let path = depPath </> ZipArchive.eRelativePath dalf
     createDirectoryIfMissing True (takeDirectory path)
     BSL.writeFile path (ZipArchive.fromEntry dalf)
     forM_ confFiles $ \conf ->
