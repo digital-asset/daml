@@ -29,7 +29,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     )
   }
 
-  private def contractIdsInOrder_complete(tx: SubmittedTransaction): Seq[Value.ContractId] = {
+  private def contractIdsInOrder(tx: SubmittedTransaction): Seq[Value.ContractId] = {
     tx.fold(Vector.empty[Value.ContractId]) {
       case (acc, (_, create: Node.NodeCreate[Value.ContractId])) => acc :+ create.coid
       case (acc, _) => acc
@@ -48,9 +48,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     }
   }
 
-  "Correct number of contracts are created" should {
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+  val pkgs: PureCompiledPackages = typeAndCompile(p"""
       module M {
 
         record @serializable MyException = { message: Text } ;
@@ -152,62 +150,27 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        }
       """)
 
-    val party = Party.assertFromString("Alice")
-    val lit: PrimLit = PLParty(party)
-    val arg: Expr = EPrimLit(lit)
+  val testCases = Table[String, Int](
+    ("expression", "expected-number-of-contracts"),
+    ("create0", 0),
+    ("create1", 1),
+    ("create2", 2),
+    ("create3", 3),
+    ("create3nested", 3),
+    ("create3catchNoThrow", 3),
+    ("create3throwAndCatch", 1),
+    ("create3throwAndOuterCatch", 1),
+  )
 
-    "create 0 contracts" in {
-      val example: Expr = EApp(e"M:create0", arg)
+  forEvery(testCases) { (exp: String, expected: Int) =>
+    s"""$exp, contracts expected: #$expected """ in {
+      val party = Party.assertFromString("Alice")
+      val lit: PrimLit = PLParty(party)
+      val arg: Expr = EPrimLit(lit)
+      val example: Expr = EApp(e"M:$exp", arg)
       val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 0
+      val ids: Seq[Value.ContractId] = contractIdsInOrder(tx)
+      ids.size shouldBe expected
     }
-
-    "create 1 contract" in {
-      val example: Expr = EApp(e"M:create1", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 1
-    }
-
-    "create 2 contracts" in {
-      val example: Expr = EApp(e"M:create2", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 2
-    }
-
-    "create 3 contracts" in {
-      val example: Expr = EApp(e"M:create3", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 3
-    }
-    "create 3 contracts (nested)" in {
-      val example: Expr = EApp(e"M:create3nested", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 3
-    }
-    "create 3 contracts (catch, no throw)" in {
-      val example: Expr = EApp(e"M:create3catchNoThrow", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 3
-    }
-    "create 1 contracts (throw & catch)" in {
-      val example: Expr = EApp(e"M:create3throwAndCatch", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 1
-    }
-    "create 1 contracts (throw & outer catch)" in {
-      val example: Expr = EApp(e"M:create3throwAndOuterCatch", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
-      val ids: Seq[Value.ContractId] = contractIdsInOrder_complete(tx)
-      ids.size shouldBe 1
-    }
-
   }
-
 }
