@@ -242,7 +242,7 @@ checkDuplicateRecordFields m =
       fieldName :: GHC.LConDeclField GHC.GhcPs -> GHC.Located GHC.RdrName
       fieldName (GHC.L _ GHC.ConDeclField { cd_fld_names = (n : _) }) = GHC.rdrNameFieldOcc (GHC.unLoc n)
       fieldName (GHC.L _ GHC.ConDeclField { cd_fld_names = [] }) =
-          error $ "Internal error: cd_fld_names should contain exactly one name but got an empty list"
+          error "Internal error: cd_fld_names should contain exactly one name but got an empty list"
       fieldName (GHC.L _ (GHC.XConDeclField GHC.NoExt)) = error "Internal error: unexpected XConDeclField"
       fieldError :: GHC.SrcSpan -> GHC.Located GHC.RdrName -> (GHC.SrcSpan, String)
       fieldError def (GHC.L l n) =
