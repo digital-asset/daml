@@ -99,7 +99,7 @@ jobs:
           local commit_log
           commit_log=$(git log --pretty=oneline $start..HEAD)
           local changelog
-          changelog=$(./unreleased.sh $start..$end)
+          changelog=$(./unreleased.sh $start..HEAD)
           echo "This PR has been created by a script, which is not very smart"
           echo "and does not have all the context. Please do double-check that"
           echo "the version prefix is correct before merging."
@@ -121,7 +121,7 @@ jobs:
       NEXT_SLACK=$(head -1 release/rotation | awk '{print $1}')
       NEXT_GH=$(head -1 release/rotation | awk '{print $2}')
 
-      PREV=$(head -1 LATEST | awk '{print $2}')
+      PREV="v$(head -1 LATEST | awk '{print $2}')"
       ./release.sh new snapshot
       RELEASE=$(head -1 LATEST | awk '{print $2}')
       PR_FILE=$(mktemp)
