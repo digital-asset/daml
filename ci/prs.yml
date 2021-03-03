@@ -9,7 +9,7 @@ pr:
   autoCancel: true # cancel previous builds on push
   branches:
     include:
-      - release/1.8.x
+      - release/1.8.x-special-patch
 
 jobs:
   - job: git_sha
