@@ -18,8 +18,11 @@ sdk_versions = [
     "1.9.0",
     "1.10.0",
     "1.10.1",
+    "1.10.2",
     "1.11.0-snapshot.20210212.6300.0.ad161d7f",
     "1.11.0-snapshot.20210217.6338.0.ba6ba901",
+    "1.11.0-snapshot.20210225.6390.0.0617fbde",
+    "1.11.0-snapshot.20210303.6421.0.145ddaa8",
     "0.0.0",
 ]
 platform_versions = [
@@ -38,8 +41,11 @@ platform_versions = [
     "1.9.0",
     "1.10.0",
     "1.10.1",
+    "1.10.2",
     "1.11.0-snapshot.20210212.6300.0.ad161d7f",
     "1.11.0-snapshot.20210217.6338.0.ba6ba901",
+    "1.11.0-snapshot.20210225.6390.0.0617fbde",
+    "1.11.0-snapshot.20210303.6421.0.145ddaa8",
     "0.0.0",
 ]
 stable_versions = [
@@ -58,9 +64,10 @@ stable_versions = [
     "1.9.0",
     "1.10.0",
     "1.10.1",
+    "1.10.2",
     "0.0.0",
 ]
-latest_stable_version = "1.10.1"
+latest_stable_version = "1.10.2"
 version_sha256s = {
     "1.0.0": {
         "linux": "ee7e2f50394d44fb3490068de64d37f4f87534e802717bd7e07e8767df2e4e05",
@@ -210,6 +217,16 @@ version_sha256s = {
         "daml_react": "83814ac29fdd73df065d12f2a780b696f33f2d0e126ea517001535a083eb664e",
         "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
     },
+    "1.10.2": {
+        "linux": "c30695850cfb92cf3ba825aac64f5924b7a7332767112f0e148aff2c379acbc5",
+        "macos": "3c4cc4b5524fa72e2397509fc444bc8d1146fb9307d86114822b044751fbe596",
+        "windows": "b83dd501afc4b2963d459b2ea577a94e6f44a5a0b70da3ae7ed4683488447546",
+        "test_tool": "d654ea7a2820539696c25bfe77481dde6866b27f248d642ef85f3854f8c81496",
+        "daml_types": "1e109f68268804c0727d58deca1a2908660639a55561066722ce6ea0de7294b3",
+        "daml_ledger": "5bdf85a91c06639610de30c0c4fcc05d1db52fa45902539610e1334cae091983",
+        "daml_react": "a1014ffe85dbc035d7eee82f46edf07140e3366882ec609d68f375922f7fc5e2",
+        "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
+    },
     "1.11.0-snapshot.20210212.6300.0.ad161d7f": {
         "linux": "d0cef00d1ea63047559aa7d847c20812f6abacd16b9f92fed8a260c2c6062bae",
         "macos": "17bc40dc4326618d923f65bbb613b1810eac4002fdf58ec8e0a9850b2dec1534",
@@ -228,6 +245,26 @@ version_sha256s = {
         "daml_types": "5c9bf42895a049940c7944fa0d361c9acf145f3afdafa76b935fc18e319206b1",
         "daml_ledger": "5f1e4a5bb8f63d7a5c9449fbede7ca40c54955e956afabd77f63f732440c82e3",
         "daml_react": "431ebde3ac37d7a24d932ca3c729db923f8fa13cc2ba70fa41f293e2abf56628",
+        "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
+    },
+    "1.11.0-snapshot.20210225.6390.0.0617fbde": {
+        "linux": "0444e79bc49aa440659a86db66b2eb7fd517546aa9eb971c87a29356ab49fb79",
+        "macos": "df4e18aedeabf913b4ede61c6108ea3899930a1cc55885db7bd9552a9ec533c3",
+        "windows": "65774a7887df2695fd118d95e786e6ec0e8e0ff4bf83bfc7722bcb49506d967b",
+        "test_tool": "1974e2ee405d2ac7375d401a07f3516235ca94ad2606a73fe4c7a7d46098da29",
+        "daml_types": "9d8adb6225c3f8b14a66c4901820784ef86dfcc1d9b92f22266aa44169b9bc87",
+        "daml_ledger": "a8e28a748308e2a4f0ed271dd1640768d8133996c71b21a9eeeecef8144205c4",
+        "daml_react": "8cccbe39fd35258c946c120e1832f48a038ddc678a4db479166f7091446ce59c",
+        "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
+    },
+    "1.11.0-snapshot.20210303.6421.0.145ddaa8": {
+        "linux": "7b578b466789583155db8f6bb6133cd5ec382da7381c3a08bfa51e971041c47f",
+        "macos": "50732b6b164cda6029ba48c1732f26d17583b81a1e76b169aaa59afe66c85eb8",
+        "windows": "032b3c18d1eff1b277a7346e140d8b07d99cbe7f02d52a391f983ed7d4b9112f",
+        "test_tool": "0e91479bbf8e890f88d04642c787a3f9027d4f888b62b91a66413ee2768f2980",
+        "daml_types": "f7339be685312d7e4b762f2f2a9d3bcfbbe91cd6b80dfe2ad90182660f0b9afc",
+        "daml_ledger": "52116783399603f5cc6e56efeae74460bd9f096da709dafc6d927949db2d0300",
+        "daml_react": "201ff78ecc2f5ff2c1f19f543144c7c29f713ce5c7714f1bd6dc7a1a41d7523f",
         "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
     },
 }
