@@ -87,13 +87,14 @@ private[dao] object ParametersTable {
   def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
     offsetStep match {
       case CurrentOffset(ledgerEnd) =>
+        // TODO FIXME crude initial approach to track the ledger end for the sequential id as well. needs to be implemented properly later. @simon@ I would not place high emphasiz on this ATM since parallel ingestion implementation likely change this naturally.
         discard(
-          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd, ledger_end_sequential_id = nextval('participant_events_event_sequential_id_seq') where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
             .execute()
         )
       case IncrementalOffsetStep(previousOffset, ledgerEnd) =>
         val sqlStatement =
-          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where #$LedgerEndColumnName = $previousOffset"
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd, ledger_end_sequential_id = nextval('participant_events_event_sequential_id_seq') where #$LedgerEndColumnName = $previousOffset"
         if (sqlStatement.executeUpdate() == 0) {
           throw LedgerEndUpdateError(previousOffset)
         }

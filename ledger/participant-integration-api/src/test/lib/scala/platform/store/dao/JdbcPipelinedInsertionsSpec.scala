@@ -21,7 +21,11 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
 
   behavior of "JdbcLedgerDao (on PostgreSQL)"
 
-  it should "allow idempotent transaction insertions" in {
+  // TODO ignoring this test: this idempotent re-ingestion approach is backed by unique index on event_id
+  // TODO with future ingestion strategies this might be not necessary
+  // TODO current PoC schema does not support this DB level uniqueness checks
+  // TODO cc @simon@
+  ignore should "allow idempotent transaction insertions" in {
     val key = "some-key"
     val create @ (offset, tx) = txCreateContractWithKey(alice, key, Some("1337"))
     val maybeSubmitterInfo = submitterInfo(tx)
@@ -30,7 +34,6 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       // Assume the indexer restarts after events insertion
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
-      _ <- ledgerDao.storeTransactionState(preparedInsert)
       // Assume the indexer restarts after state insertion
       _ <- store(create) // The whole transaction insertion succeeds
       result <- ledgerDao.transactionsReader
@@ -77,7 +80,6 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
     val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
-      _ <- ledgerDao.storeTransactionState(preparedInsert)
       transactionTreeResponse <- ledgerDao.transactionsReader.lookupTransactionTreeById(
         transactionId = tx.transactionId,
         tx.actAs.toSet,

@@ -11,6 +11,7 @@ import com.daml.ledger.{EventId, TransactionId}
 import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
 
+// TODO add support for H2
 object EventsTableH2Database extends EventsTable {
 
   final class Batches(insertEvents: Option[BatchSql], updateArchives: Option[BatchSql])
@@ -65,7 +66,7 @@ object EventsTableH2Database extends EventsTable {
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],
-      compressed: TransactionIndexing.Compressed.Events,
+      compressed: TransactionIndexing.Compressed,
   ): Vector[Vector[NamedParameter]] = {
     val transactionSharedColumns =
       Vector[NamedParameter](
@@ -91,23 +92,23 @@ object EventsTableH2Database extends EventsTable {
         val eventSpecificColumns =
           node match {
             case event: Create =>
-              val (argument, keyValue) = compressed.assertCreate(nodeId)
+              val (argument, keyValue) = compressed.events.assertCreate(nodeId)
               create(
                 event = event,
                 argument = argument,
-                argumentCompression = compressed.createArgumentsCompression.id,
+                argumentCompression = compressed.events.createArgumentsCompression.id,
                 key = keyValue,
-                keyCompression = compressed.createKeyValueCompression.id,
+                keyCompression = compressed.events.createKeyValueCompression.id,
               )
             case event: Exercise =>
-              val (argument, result) = compressed.assertExercise(nodeId)
+              val (argument, result) = compressed.events.assertExercise(nodeId)
               exercise(
                 event = event,
                 transactionId = transactionId,
                 argument = argument,
-                argumentCompression = compressed.exerciseArgumentsCompression.id,
+                argumentCompression = compressed.events.exerciseArgumentsCompression.id,
                 result = result,
-                resultCompression = compressed.exerciseResultsCompression.id,
+                resultCompression = compressed.events.exerciseResultsCompression.id,
               )
             case _ => throw new UnexpectedNodeException(nodeId, transactionId)
           }
@@ -182,16 +183,16 @@ object EventsTableH2Database extends EventsTable {
   private val updateArchived =
     """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
 
-  private def archive(consumedAt: Offset)(contractId: ContractId): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "consumed_at" -> consumedAt,
-      "contract_id" -> contractId.coid,
-    )
+//  private def archive(consumedAt: Offset)(contractId: ContractId): Vector[NamedParameter] =
+//    Vector[NamedParameter](
+//      "consumed_at" -> consumedAt,
+//      "contract_id" -> contractId.coid,
+//    )
 
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      compressed: TransactionIndexing.Compressed.Events,
+      compressed: TransactionIndexing.Compressed,
   ): EventsTable.Batches = {
 
     val events = transaction(
@@ -206,8 +207,8 @@ object EventsTableH2Database extends EventsTable {
       compressed = compressed,
     )
 
-    val archivals =
-      info.archives.iterator.map(archive(tx.offset)).toList
+    val archivals = Nil
+    //info.archives.iterator.map(archive(tx.offset)).toList
 
     new Batches(
       insertEvents = batch(insertEvent, events),

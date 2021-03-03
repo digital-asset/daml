@@ -208,10 +208,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
-  def storeTransactionState(preparedInsert: PreparedInsert)(implicit
-      loggingContext: LoggingContext
-  ): Future[PersistenceResponse]
-
   def storeTransactionEvents(preparedInsert: PreparedInsert)(implicit
       loggingContext: LoggingContext
   ): Future[PersistenceResponse]

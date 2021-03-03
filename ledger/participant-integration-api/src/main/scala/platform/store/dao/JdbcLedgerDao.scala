@@ -453,15 +453,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  override def storeTransactionState(
-      preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
-        preparedInsert.writeState(metrics)(_)
-      )
-      .map(_ => Ok)(servicesExecutionContext)
-
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -499,7 +490,6 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         validate(ledgerEffectiveTime, transaction, divulged) match {
           case None =>
-            preparedInsert.writeState(metrics)
             preparedInsert.writeEvents(metrics)
             insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
@@ -1189,8 +1179,6 @@ private[platform] object JdbcLedgerDao {
         |truncate table participant_command_completions cascade;
         |truncate table participant_command_submissions cascade;
         |truncate table participant_events cascade;
-        |truncate table participant_contracts cascade;
-        |truncate table participant_contract_witnesses cascade;
         |truncate table parties cascade;
         |truncate table party_entries cascade;
       """.stripMargin
@@ -1209,6 +1197,7 @@ private[platform] object JdbcLedgerDao {
     }
   }
 
+  // TODO
   object H2DatabaseQueries extends Queries {
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """merge into packages using dual on package_id = {package_id}

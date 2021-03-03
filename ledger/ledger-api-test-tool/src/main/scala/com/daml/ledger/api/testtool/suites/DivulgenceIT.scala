@@ -12,6 +12,7 @@ import com.daml.ledger.test.model.Test.{Asset, Divulgence1, Divulgence2, Proposa
 import scalaz.Tag
 
 final class DivulgenceIT extends LedgerTestSuite {
+
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",
