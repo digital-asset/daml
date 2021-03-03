@@ -16,6 +16,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions.{contractId, _}
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
+import com.daml.platform.store.dao.events.ContractsReader.toContract
 import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
@@ -29,18 +30,111 @@ sealed class ContractsReader(
     sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends ContractStore {
+  def lookupContract(contractId: ContractId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(Contract, Set[Party], Long, Option[Long])]] =
+    dispatcher
+      .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
+        SQL"""
+   SELECT create_event.template_id as template_id,
+          create_event.flat_event_witnesses as flat_event_witnesses,
+          create_event.create_argument as create_argument,
+          create_event.create_argument_compression as create_argument_compression,
+          create_event.event_sequential_id as create_sequential_id,
+          archival_event.event_sequential_id as archival_sequential_id
+   FROM (participant_events create_event
+        LEFT JOIN participant_events archival_event
+        ON create_event.contract_id = archival_event.contract_id
+        ), parameters
+   WHERE create_event.event_sequential_id <= parameters.ledger_end_sequential_id
+          AND archival_event.event_sequential_id <= parameters.ledger_end_sequential_id
+          AND create_event.contract_id = $contractId
+          AND archival_event.contract_id = $contractId
+          AND create_event.event_kind = 10 -- create
+          AND archival_event.event_kind = 20 -- consuming exercise
+   LIMIT 1;"""
+          .as(fullDetailsContractRowParser.singleOpt)
+      }
+      .map(_.map {
+        case (
+              templateId,
+              stakeholders,
+              createArgument,
+              createArgumentCompression,
+              createSequentialId,
+              maybeArchivalSequentialId,
+            ) =>
+          (
+            toContract(
+              contractId = contractId,
+              templateId = templateId,
+              createArgument = createArgument,
+              createArgumentCompression =
+                Compression.Algorithm.assertLookup(createArgumentCompression),
+              decompressionTimer =
+                metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
+              deserializationTimer =
+                metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
+            ),
+            stakeholders,
+            createSequentialId,
+            maybeArchivalSequentialId,
+          )
+      })
 
   val committedContracts: PostCommitValidationData = ContractsTable
 
   import ContractsReader._
+
+  private val fullDetailsContractRowParser
+      : RowParser[(String, Set[Party], InputStream, Option[Int], Long, Option[Long])] =
+    str("template_id") ~ flatEventWitnessesColumn("flat_event_witnesses") ~ binaryStream(
+      "create_argument"
+    ) ~ int(
+      "create_argument_compression"
+    ).? ~ long("create_sequential_id") ~ long("archival_sequential_id").? map SqlParser.flatten
 
   private val contractRowParser: RowParser[(String, InputStream, Option[Int])] =
     str("template_id") ~ binaryStream("create_argument") ~ int(
       "create_argument_compression"
     ).? map SqlParser.flatten
 
+  def checkDivulgenceVisibility(contractId: ContractId, readers: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean] = {
+    val tree_event_witnessesWhere =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
+    dispatcher
+      .executeSql(metrics.daml.index.db.lookupDivulgenceVisibility) { implicit connection =>
+        SQL"""
+       WITH archival_event AS (
+         SELECT participant_events.*
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 20  -- consuming exercise
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere  -- only use visible archivals
+          LIMIT 1
+       ),
+       divulged_contract AS (
+         SELECT divulgence_events.contract_id,
+           FROM participant_events AS divulgence_events, parameters
+          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
+            AND divulgence_events.event_kind = 0 -- divulgence
+            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+            AND #$tree_event_witnessesWhere
+          ORDER BY divulgence_events.event_sequential_id
+          LIMIT 1
+       )
+        SELECT COUNT(*) as count
+          FROM divulged_contract
+         WHERE NOT EXISTS (SELECT 1 FROM archival_event)
+   """.as(int("count").single.map(_ == 1))
+      }
+  }
+
   /** Lookup of a contract in the case the contract value is not already known */
-  private def lookupActiveContractAndLoadArgument(
+  def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {

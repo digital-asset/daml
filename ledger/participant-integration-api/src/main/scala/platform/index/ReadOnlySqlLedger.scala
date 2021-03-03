@@ -23,7 +23,7 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.state.MutableStateCacheLayer
+import com.daml.platform.store.state.CachingContractsStore
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -186,7 +186,7 @@ private final class ReadOnlySqlLedger(
 
   override protected val cachingContractsReader: ContractStore = {
     val cachingLayer =
-      MutableStateCacheLayer(ledgerDao.contractsReader, metrics)(executionContext, mat)
+      CachingContractsStore(ledgerDao.contractsReader, metrics)(executionContext, mat)
     cachingLayer.consumeFrom(contractLifecycleEvents.map(_._2))
     cachingLayer
   }

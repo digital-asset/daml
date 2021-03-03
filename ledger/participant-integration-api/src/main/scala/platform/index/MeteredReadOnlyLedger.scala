@@ -204,7 +204,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEventsReader.ContractLifecycleEvent), NotUsed] =
+  ): Source[(Offset, ContractLifecycleEventsReader.ContractStateEvent), NotUsed] =
     ledger.contractLifecycleEvents
 }
 

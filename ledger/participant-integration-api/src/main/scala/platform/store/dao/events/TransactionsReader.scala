@@ -25,7 +25,7 @@ import com.daml.metrics._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractLifecycleEvent
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import io.opentelemetry.trace.Span
 
@@ -74,7 +74,7 @@ private[dao] final class TransactionsReader(
 
   def getContractLifecycleEvents(startExclusive: Offset, endInclusive: Offset)(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEvent), NotUsed] = {
+  ): Source[(Offset, ContractStateEvent), NotUsed] = {
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
@@ -332,7 +332,7 @@ private[dao] final class TransactionsReader(
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
   private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      a: ContractLifecycleEvent
+      a: ContractStateEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
@@ -407,11 +407,11 @@ private[dao] final class TransactionsReader(
 
   private def streamEvents(
       queryMetric: DatabaseMetrics,
-      query: EventsRange[(Offset, Long)] => Connection => Vector[ContractLifecycleEvent],
-      getNextPageRange: ContractLifecycleEvent => EventsRange[(Offset, Long)],
+      query: EventsRange[(Offset, Long)] => Connection => Vector[ContractStateEvent],
+      getNextPageRange: ContractStateEvent => EventsRange[(Offset, Long)],
   )(range: EventsRange[(Offset, Long)])(implicit
       loggingContext: LoggingContext
-  ): Source[ContractLifecycleEvent, NotUsed] =
+  ): Source[ContractStateEvent, NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)

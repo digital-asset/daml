@@ -174,5 +174,5 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEventsReader.ContractLifecycleEvent), NotUsed]
+  ): Source[(Offset, ContractLifecycleEventsReader.ContractStateEvent), NotUsed]
 }

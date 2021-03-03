@@ -87,7 +87,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEventsReader.ContractLifecycleEvent), NotUsed] = null
+  ): Source[(Offset, ContractLifecycleEventsReader.ContractStateEvent), NotUsed] = null
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val entries = {

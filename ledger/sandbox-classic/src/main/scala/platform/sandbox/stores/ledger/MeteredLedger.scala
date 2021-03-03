@@ -69,7 +69,7 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEventsReader.ContractLifecycleEvent), NotUsed] =
+  ): Source[(Offset, ContractLifecycleEventsReader.ContractStateEvent), NotUsed] =
     ledger.contractLifecycleEvents
 }
 

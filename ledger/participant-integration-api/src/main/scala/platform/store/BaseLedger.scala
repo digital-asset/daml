@@ -35,7 +35,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.LedgerReadDao
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractLifecycleEvent
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -72,7 +72,7 @@ private[platform] abstract class BaseLedger(
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEvent), NotUsed] =
+  ): Source[(Offset, ContractStateEvent), NotUsed] =
     dispatcher.startingAt(
       Offset.beforeBegin,
       RangeSource(ledgerDao.transactionsReader.getContractLifecycleEvents(_, _)),

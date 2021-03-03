@@ -52,7 +52,11 @@ final class Metrics(val registry: MetricRegistry) {
 
     object execution {
       private val Prefix: MetricName = daml.Prefix :+ "execution"
-      val keyStateCache = new CacheMetrics(registry, Prefix :+ "key_state_cache")
+      val contractsKeyStateCache = new CacheMetrics(registry, Prefix :+ "key_state_cache")
+      val contractsStateCache: CacheMetrics =
+        new CacheMetrics(registry, Prefix :+ "contract_state_cache")
+      val contractArgumentsCache: CacheMetrics =
+        new CacheMetrics(registry, Prefix :+ "contract_arguments_cache")
 
       val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
       val lookupActiveContractPerExecution: Timer =
@@ -454,6 +458,9 @@ final class Metrics(val registry: MetricRegistry) {
           "lookup_active_contract_with_cached_argument"
         )
         val lookupContractByKey: DatabaseMetrics = createDbMetrics("lookup_contract_by_key")
+        val lookupDivulgenceVisibility: DatabaseMetrics = createDbMetrics(
+          "lookup_divulgence_visibility"
+        )
         val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_maximum_ledger_time"
         ) // FIXME Base name conflicts with lookupActiveContract

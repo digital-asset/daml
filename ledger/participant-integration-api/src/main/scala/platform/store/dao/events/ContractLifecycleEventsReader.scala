@@ -8,31 +8,30 @@ import anorm._
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractLifecycleEvent.{
+import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent.{
   Archived,
   Created,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
-import scala.util.control.NonFatal
-
 object ContractLifecycleEventsReader {
   def read(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
-  ): Vector[ContractLifecycleEvent] =
+  ): Vector[ContractStateEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
       .as(
-        (long("archived_at").? ~
-          contractId("contract_id") ~
+        (contractId("contract_id") ~
+          identifier("template_id") ~
           binaryStream("create_key_value").? ~
           int("create_key_value_compression").? ~
-          identifier("template_id") ~
-          long("created_at").? ~
+          binaryStream("create_argument").? ~
+          int("create_argument_compression").? ~
+          long("created_at") ~
+          long("archived_at").? ~
           flatEventWitnessesColumn("flat_event_witnesses") ~
-          long("event_sequential_id") ~
           int("kind") ~
           offset("event_offset")).map {
-          case maybeArchivedAt ~ contractId ~ maybeCreateKeyValue ~ maybeCreateKeyValueCompression ~ templateId ~ maybeCreatedAt ~ flatEventWitnesses ~ eventSequentialId ~ kind ~ offset =>
+          case contractId ~ templateId ~ maybeCreateKeyValue ~ maybeCreateKeyValueCompression ~ maybeCreateArgument ~ maybeCreateArgumentCompression ~ createdAt ~ maybeArchivedAt ~ flatEventWitnesses ~ kind ~ offset =>
             val maybeGlobalKey =
               for {
                 createKeyValue <- maybeCreateKeyValue
@@ -41,60 +40,79 @@ object ContractLifecycleEventsReader {
                 )
                 keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
               } yield GlobalKey.assertBuild(templateId, keyValue.value)
-            val createdAt =
-              maybeCreatedAt.getOrElse(
-                throw new RuntimeException("Created at should not be missing")
+            val contract =
+              toContract( // TDT Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
+                contractId,
+                templateId,
+                createArgument = maybeCreateArgument.get,
+                createArgumentCompression =
+                  Compression.Algorithm.assertLookup(maybeCreateArgumentCompression),
               )
-
             if (kind == 20) {
               val archivedAt = maybeArchivedAt.getOrElse(
-                throw new RuntimeException("Archived at should be present for consuming events")
+                throw new RuntimeException("Archived at should be present for consuming exercises")
               )
               Archived(
-                archivedAt = archivedAt,
                 contractId = contractId,
+                contract = contract,
                 globalKey = maybeGlobalKey,
                 flatEventWitnesses = flatEventWitnesses,
                 createdAt = createdAt,
                 eventOffset = offset,
-                eventSequentialId = eventSequentialId,
+                eventSequentialId = archivedAt,
               )
             } else
               Created(
-                createdAt,
-                contractId,
-                maybeGlobalKey,
-                flatEventWitnesses,
-                offset,
-                eventSequentialId,
+                contractId = contractId,
+                contract = contract,
+                globalKey = maybeGlobalKey,
+                flatEventWitnesses = flatEventWitnesses,
+                eventOffset = offset,
+                eventSequentialId = createdAt,
               )
         }.*
       )
       .toVector
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) = {
-    try {
-      val _ = algorithm // TDT
-      ValueSerializer.deserializeValue(Compression.Algorithm.GZIP.decompress(value))
-    } catch {
-      case NonFatal(e) => throw new RuntimeException(s"Failure Decompressing using $algorithm", e)
-    }
+  private[store] def toContract(
+      contractId: ContractId,
+      templateId: Identifier,
+      createArgument: InputStream,
+      createArgumentCompression: Compression.Algorithm,
+  ): Contract = {
+    val decompressed = createArgumentCompression.decompress(createArgument)
+
+    val deserialized = ValueSerializer.deserializeValue(
+      stream = decompressed,
+      errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
+    )
+    Contract(
+      template = templateId,
+      arg = deserialized,
+      agreementText = "",
+    )
   }
+
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
+    ValueSerializer.deserializeValue(algorithm.decompress(value))
 
   private val createsAndArchives: (EventsRange[Long], String) => SimpleSql[Row] =
     (range: EventsRange[Long], limitExpr: String) => SQL"""
               SELECT
-                archives.event_sequential_id as archived_at,
                 archives.contract_id as contract_id,
-                creates.create_key_value as create_key_value,
                 creates.template_id as template_id,
-                creates.event_sequential_id as created_at,
+                creates.create_key_value as create_key_value,
+                creates.create_key_value_compression as create_key_value_compression,
+                creates.create_argument as create_argument,
+                creates.create_argument_compression as create_argument_compression,
                 archives.flat_event_witnesses as flat_event_witnesses,
-                archives.event_sequential_id as event_sequential_id,
+                creates.event_sequential_id as event_sequential_id,
+                creates.event_sequential_id as created_at,
+                archives.event_sequential_id as archived_at,
                 20 as kind,
                 archives.event_offset as event_offset
-              FROM participant_events creates
-              LEFT JOIN participant_events archives
+              FROM participant_events archives
+              INNER JOIN participant_events creates -- TDT use LEFT JOIN in order to support prunning
               ON archives.contract_id = creates.contract_id
               WHERE archives.event_sequential_id > ${range.startExclusive}
                     and archives.event_sequential_id <= ${range.endInclusive}
@@ -102,13 +120,16 @@ object ContractLifecycleEventsReader {
                     and creates.event_kind = 10 -- created
               UNION ALL
               SELECT
-                0 as archived_at,
                 contract_id,
-                create_key_value,
                 template_id,
-                event_sequential_id as created_at,
+                create_key_value,
+                create_key_value_compression,
+                create_argument,
+                create_argument_compression,
                 flat_event_witnesses,
                 event_sequential_id,
+                event_sequential_id as created_at,
+                0 as archived_at,
                 10 as kind,
                 event_offset
               FROM participant_events
@@ -117,29 +138,29 @@ object ContractLifecycleEventsReader {
                     and event_kind = 10 -- created
               ORDER BY event_sequential_id #$limitExpr"""
 
-  sealed trait ContractLifecycleEvent extends Product with Serializable {
+  sealed trait ContractStateEvent extends Product with Serializable {
     def eventOffset: Offset
     def eventSequentialId: Long
   }
-  object ContractLifecycleEvent {
+  object ContractStateEvent {
     final case class Created(
-        createdAt: Long,
         contractId: ContractId,
+        contract: Contract,
         globalKey: Option[GlobalKey],
         flatEventWitnesses: Set[Party],
         eventOffset: Offset,
         eventSequentialId: Long,
-    ) extends ContractLifecycleEvent
+    ) extends ContractStateEvent
     final case class Archived(
-        archivedAt: Long,
         contractId: ContractId,
+        contract: Contract,
         globalKey: Option[GlobalKey],
         flatEventWitnesses: Set[Party],
         createdAt: Long,
         eventOffset: Offset,
         eventSequentialId: Long,
-    ) extends ContractLifecycleEvent
+    ) extends ContractStateEvent
   }
 
-  case class ContractLifecycleResponse(events: Seq[ContractLifecycleEvent])
+  case class ContractLifecycleResponse(events: Seq[ContractStateEvent])
 }
