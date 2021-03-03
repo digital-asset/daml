@@ -12,7 +12,7 @@ import scala.concurrent.Future
   * They do not test for variations in expiration time, ledger ID, or participant ID.
   * It is expected that [[ReadWriteServiceCallAuthTests]] are run on the same service.
   */
-trait MultiPartyServiceCallAuthTests extends ServiceCallAuthTests {
+trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   // Parties specified in the API request
   sealed case class RequestSubmitters(party: String, actAs: Seq[String], readAs: Seq[String])

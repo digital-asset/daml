@@ -7,8 +7,8 @@ import io.grpc.stub.ServerCallStreamObserver
 
 private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
-    claims: Claims,
-    authorized: Claims => Either[AuthorizationError, Unit],
+    claims: ClaimSet.Claims,
+    authorized: ClaimSet.Claims => Either[AuthorizationError, Unit],
     throwOnFailure: AuthorizationError => Throwable,
 ) extends ServerCallStreamObserver[A] {
 
