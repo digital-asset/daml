@@ -11,7 +11,7 @@ import com.daml.auth.TokenHolder
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.TestUtil.requiredFile
-import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, Claims}
+import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.client.LedgerClient
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -36,8 +36,8 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
   private val publicToken = "public"
   private val emptyToken = "empty"
   private val mockedAuthService = Option(AuthServiceStatic {
-    case `publicToken` => Claims(Seq[Claim](ClaimPublic))
-    case `emptyToken` => Claims(Nil)
+    case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
+    case `emptyToken` => ClaimSet.Unauthenticated
   })
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")

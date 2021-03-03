@@ -59,12 +59,6 @@ trait ServiceCallAuthTests
   protected def ledgerBegin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
-  behavior of serviceCallName
-
-  it should "deny unauthenticated calls" in {
-    expectUnauthenticated(serviceCallWithToken(None))
-  }
-
   protected val canActAsRandomParty: Option[String] =
     Option(toHeader(readWriteToken(UUID.randomUUID.toString)))
   protected val canActAsRandomPartyExpired: Option[String] =

@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.auth
 
 import java.util.UUID
 
-trait AdminServiceCallAuthTests extends ServiceCallAuthTests {
+trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   private val signedIncorrectly = Option(toHeader(adminToken, UUID.randomUUID.toString))
 
