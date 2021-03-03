@@ -8,7 +8,7 @@ jobs:
 
 - job: patch_bazel_pre_check
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
   steps:
   - checkout: self
   - bash: |
@@ -92,7 +92,7 @@ jobs:
     target_url: $[ dependencies.patch_bazel_pre_check.outputs['out.target_url'] ]
     should_run: $[ dependencies.patch_bazel_pre_check.outputs['out.should_run'] ]
   pool:
-    name: linux-pool
+    name: ubuntu_20_04
   steps:
   - task: DownloadPipelineArtifact@2
     inputs:
