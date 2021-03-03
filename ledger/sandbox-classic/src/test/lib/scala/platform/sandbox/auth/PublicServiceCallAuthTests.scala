@@ -3,7 +3,7 @@
 
 package com.daml.platform.sandbox.auth
 
-trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
+trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   it should "deny calls with an expired read-only token" in {
     expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))

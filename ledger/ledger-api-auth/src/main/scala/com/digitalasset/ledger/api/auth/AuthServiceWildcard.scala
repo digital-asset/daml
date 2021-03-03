@@ -7,9 +7,9 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import io.grpc.Metadata
 
-/** An AuthService that authorizes all calls by always returning a wildcard [[Claims]] */
+/** An AuthService that authorizes all calls by always returning a wildcard [[ClaimSet.Claims]] */
 object AuthServiceWildcard extends AuthService {
-  override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
-    CompletableFuture.completedFuture(Claims.wildcard)
+  override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] = {
+    CompletableFuture.completedFuture(ClaimSet.Claims.Wildcard)
   }
 }
