@@ -19,7 +19,8 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.indexer.poc.PoCIndexerFactory
+import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations}
 
@@ -27,6 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object JdbcIndexer {
+
   private[daml] final class Factory private[indexer] (
       config: IndexerConfig,
       readService: ReadService,
@@ -35,6 +37,7 @@ object JdbcIndexer {
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
       ledgerDaoOwner: ResourceOwner[LedgerDao],
       flywayMigrations: FlywayMigrations,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit materializer: Materializer, loggingContext: LoggingContext) {
 
     private[daml] def this(
@@ -63,47 +66,85 @@ object JdbcIndexer {
           enricher = None,
         ),
         new FlywayMigrations(config.jdbcUrl),
+        lfValueTranslationCache,
       )
 
     private val logger = ContextualizedLogger.get(this.getClass)
 
     def validateSchema()(implicit
         resourceContext: ResourceContext
-    ): Future[ResourceOwner[JdbcIndexer]] =
+    ): Future[ResourceOwner[Indexer]] =
       flywayMigrations
         .validate()
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     def migrateSchema(
         allowExistingSchema: Boolean
-    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
+    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
       flywayMigrations
         .migrate(allowExistingSchema)
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
-    def resetSchema(): Future[ResourceOwner[JdbcIndexer]] = initialized(resetSchema = true)
+    def resetSchema(): Future[ResourceOwner[Indexer]] = initialized(resetSchema = true)
 
-    private def initialized(resetSchema: Boolean): Future[ResourceOwner[JdbcIndexer]] =
-      Future.successful(for {
-        ledgerDao <- ledgerDaoOwner
-        _ <-
-          if (resetSchema) {
-            ResourceOwner.forFuture(() => ledgerDao.reset())
-          } else {
-            ResourceOwner.unit
-          }
-        initialLedgerEnd <- initializeLedger(ledgerDao)()
-        dbType = DbType.jdbcType(config.jdbcUrl)
-        updateFlow <- updateFlowOwnerBuilder(
-          dbType,
-          ledgerDao,
-          metrics,
-          config.participantId,
-          config.updatePreparationParallelism,
-          materializer.executionContext,
-          loggingContext,
+    private def initialized(resetSchema: Boolean): Future[ResourceOwner[Indexer]] =
+      if (config.usePoCIndexer)
+        Future.successful(
+          for {
+            ledgerDao <- ledgerDaoOwner
+            _ <-
+              if (resetSchema) {
+                ResourceOwner.forFuture(() => ledgerDao.reset())
+              } else {
+                ResourceOwner.unit
+              }
+            _ <- initializeLedger(ledgerDao)()
+            // TODO we defer initialisation to original code for now, from here PoC ledger factoring starts
+            // TODO until here mutable initialisation is concluded, from here read only initialisation ATM
+            indexer <- PoCIndexerFactory(
+              jdbcUrl = config.jdbcUrl,
+              participantId = config.participantId,
+              translation = new LfValueTranslation(
+                cache = lfValueTranslationCache,
+                metrics = metrics,
+                enricherO = None,
+                loadPackage = (_, _) => Future.successful(None),
+              ),
+              compressionStrategy =
+                if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
+                else CompressionStrategy.none(metrics),
+              mat = materializer,
+              inputMappingParallelism = config.inputMappingParallelism,
+              ingestionParallelism = config.ingestionParallelism,
+              submissionBatchSize = config.submissionBatchSize,
+              tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
+              batchWithinMillis = config.batchWithinMillis,
+              runStageUntil = config.runStageUntil,
+              metrics = metrics,
+            )
+          } yield indexer
         )
-      } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow))
+      else
+        Future.successful(for {
+          ledgerDao <- ledgerDaoOwner
+          _ <-
+            if (resetSchema) {
+              ResourceOwner.forFuture(() => ledgerDao.reset())
+            } else {
+              ResourceOwner.unit
+            }
+          initialLedgerEnd <- initializeLedger(ledgerDao)()
+          dbType = DbType.jdbcType(config.jdbcUrl)
+          updateFlow <- updateFlowOwnerBuilder(
+            dbType,
+            ledgerDao,
+            metrics,
+            config.participantId,
+            config.updatePreparationParallelism,
+            materializer.executionContext,
+            loggingContext,
+          )
+        } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow))
 
     private def initializeLedger(dao: LedgerDao)(): ResourceOwner[Option[Offset]] =
       new ResourceOwner[Option[Offset]] {
@@ -231,9 +272,7 @@ private[daml] class JdbcIndexer private[indexer] (
       )
   }
 
-  private class SubscriptionIndexFeedHandle(
-      val killSwitch: KillSwitch,
-      override val completed: Future[Unit],
-  ) extends IndexFeedHandle
-
 }
+
+class SubscriptionIndexFeedHandle(val killSwitch: KillSwitch, override val completed: Future[Unit])
+    extends IndexFeedHandle

@@ -24,7 +24,6 @@ trait JdbcPipelinedTransactionInsertion {
     val preparedTransactionInsert =
       prepareInsert(submitterInfo, tx, offsetStep, divulgedContracts, blindingInfo)
     for {
-      _ <- ledgerDao.storeTransactionState(preparedTransactionInsert)
       _ <- ledgerDao.storeTransactionEvents(preparedTransactionInsert)
       _ <- ledgerDao.completeTransaction(
         submitterInfo = submitterInfo,

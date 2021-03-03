@@ -40,6 +40,14 @@ final case class Config[Extra](
     trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
     extra: Extra,
+    // with this defaults, and with the hardcoded 4 parallelism in PrivacyAwareKeyValueParticipantStateReader it should provide 3K trades/s throughput (verified in GCP)
+    pocIndexerEnabled: Boolean = true,
+    pocIndexerInputMappingParallelism: Int = 16,
+    pocIndexerIngestionParallelism: Int = 16,
+    pocIndexerSubmissionBatchSize: Long = 50L,
+    pocIndexerTailingRateLimitPerSecond: Int = 20,
+    pocIndexerBatchWithinMillis: Long = 50,
+    pocIndexerEnableCompression: Boolean = false,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -360,6 +368,56 @@ object Config {
           .action((_, c) => c.copy(engineMode = EngineMode.Dev))
           .text(
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
+          )
+
+        // TODO temporary flags for PoC indexer
+        opt[Boolean]("pocIndexerEnabled")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerEnabled = p))
+          .text(
+            "true: use the PoC Parallel Indexer, false: use original indexer. Default: true"
+          )
+
+        opt[Int]("pocIndexerInputMappingParallelism")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerInputMappingParallelism = p))
+          .text(
+            "Level of parallelism of the input mapping. Default: 16. (Defaults should provide 3K trades/s throughput on GCP n1)"
+          )
+
+        opt[Int]("pocIndexerIngestionParallelism")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerIngestionParallelism = p))
+          .text(
+            "Level of parallelism of the database ingestion. Sets parallelism for postgreSQL inserts. Default: 16. (Defaults should provide 3K trades/s throughput on GCP n1)"
+          )
+
+        opt[Long]("pocIndexerSubmissionBatchSize")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerSubmissionBatchSize = p))
+          .text(
+            "Maximum size of the batches for input mapping and ingestion. Default: 50. (Defaults should provide 3K trades/s throughput on GCP n1)"
+          )
+
+        opt[Int]("pocIndexerTailingRateLimitPerSecond")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerTailingRateLimitPerSecond = p))
+          .text(
+            "Rate limit of setting the ledger_end. Default: 20. (Defaults should provide 3K trades/s throughput on GCP n1)"
+          )
+
+        opt[Long]("pocIndexerBatchWithinMillis")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerBatchWithinMillis = p))
+          .text(
+            "Maximum milliseconds until pipeline is waiting for a batch to fill. Default: 50. (Defaults should provide 3K trades/s throughput on GCP n1)"
+          )
+
+        opt[Boolean]("pocIndexerEnableCompression")
+          .optional()
+          .action((p, c) => c.copy(pocIndexerEnableCompression = p))
+          .text(
+            "true: compression enabled, false: compression disabled. Default: false. (Defaults should provide 3K trades/s throughput on GCP n1)"
           )
 
         help("help").text(s"$name as a service.")

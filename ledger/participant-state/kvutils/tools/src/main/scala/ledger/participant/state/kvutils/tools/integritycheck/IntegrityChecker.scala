@@ -13,14 +13,15 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
+  WriteSet,
 }
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
+import com.daml.platform.indexer.{Indexer, IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.dao.events.LfValueTranslation
 
 import scala.concurrent.duration.Duration
@@ -215,15 +216,6 @@ class IntegrityChecker[LogResult](
       }
   }
 
-  private def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
-    val reporter = ConsoleReporter
-      .forRegistry(metricRegistry)
-      .convertRatesTo(TimeUnit.SECONDS)
-      .convertDurationsTo(TimeUnit.MILLISECONDS)
-      .build
-    reporter.report()
-  }
-
   private def migrateAndStartIndexer(
       config: IndexerConfig,
       readService: ReadService,
@@ -233,7 +225,7 @@ class IntegrityChecker[LogResult](
       resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[JdbcIndexer] =
+  ): ResourceOwner[Indexer] =
     for {
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
@@ -269,16 +261,18 @@ object IntegrityChecker {
   def runAndExit[LogResult](
       args: Array[String],
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
+      writeSetToUpdates: Option[(WriteSet, Long) => Iterable[(Offset, Update)]],
   ): Unit = {
     val config = Config.parse(args).getOrElse {
       sys.exit(1)
     }
-    runAndExit(config, commitStrategySupportFactory)
+    runAndExit(config, commitStrategySupportFactory, writeSetToUpdates)
   }
 
   def runAndExit[LogResult](
       config: Config,
       commitStrategySupportFactory: CommitStrategySupportFactory[LogResult],
+      writeSetToUpdates: Option[(WriteSet, Long) => Iterable[(Offset, Update)]],
   ): Unit = {
     println(s"Verifying integrity of ${config.exportFilePath}...")
 
@@ -288,6 +282,10 @@ object IntegrityChecker {
     implicit val materializer: Materializer = Materializer(actorSystem)
 
     val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+
+    if (config.indexerPerfTest)
+      IndexerPerfTest.run(importer, config, writeSetToUpdates.get, executionContext)
+
     new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
       .run(importer, config)
       .onComplete {
@@ -315,4 +313,12 @@ object IntegrityChecker {
   private[integritycheck] def defaultJdbcUrl(exportFileName: String): String =
     s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
 
+  def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
+    val reporter = ConsoleReporter
+      .forRegistry(metricRegistry)
+      .convertRatesTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
+      .build
+    reporter.report()
+  }
 }

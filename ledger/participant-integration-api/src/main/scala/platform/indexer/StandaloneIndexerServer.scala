@@ -67,7 +67,7 @@ final class StandaloneIndexerServer(
 
   private def startIndexer(
       indexer: RecoveringIndexer,
-      initializedIndexerFactory: ResourceOwner[JdbcIndexer],
+      initializedIndexerFactory: ResourceOwner[Indexer],
   )(implicit context: ResourceContext): Resource[Unit] =
     indexer
       .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())

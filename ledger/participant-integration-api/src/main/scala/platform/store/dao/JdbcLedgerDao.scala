@@ -151,9 +151,6 @@ private class JdbcLedgerDao(
       ParametersTable.getLedgerEndAndConfiguration
     )
 
-  private val acceptType = "accept"
-  private val rejectType = "reject"
-
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
       str("typ") ~
@@ -453,15 +450,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  override def storeTransactionState(
-      preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
-        preparedInsert.writeState(metrics)(_)
-      )
-      .map(_ => Ok)(servicesExecutionContext)
-
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -499,7 +487,6 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         validate(ledgerEffectiveTime, transaction, divulged) match {
           case None =>
-            preparedInsert.writeState(metrics)
             preparedInsert.writeEvents(metrics)
             insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
@@ -634,7 +621,9 @@ private class JdbcLedgerDao(
     contractsReader.lookupActiveContract(forParties, contractId)
 
   private val SQL_SELECT_ALL_PARTIES =
-    SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
+    SQL(
+      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset"
+    )
 
   override def getParties(
       parties: Seq[Party]
@@ -663,14 +652,18 @@ private class JdbcLedgerDao(
         |values ({party}, {display_name}, {ledger_offset}, 'true', {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES =
-    SQL("""select package_id, source_description, known_since, size
-        |from packages
-        |""".stripMargin)
+    SQL(
+      """select packages.package_id, packages.source_description, packages.known_since, packages.size
+        |from packages, parameters
+        |where packages.ledger_offset <= parameters.ledger_end
+        |""".stripMargin
+    )
 
   private val SQL_SELECT_PACKAGE =
-    SQL("""select package
-        |from packages
+    SQL("""select packages.package
+        |from packages, parameters
         |where package_id = {package_id}
+        |and packages.ledger_offset <= parameters.ledger_end
         |""".stripMargin)
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
@@ -834,18 +827,6 @@ private class JdbcLedgerDao(
       "deduplicate_until"
     )
 
-  private def deduplicationKey(
-      commandId: domain.CommandId,
-      submitters: List[Ref.Party],
-  ): String = {
-    val submitterPart =
-      if (submitters.length == 1)
-        submitters.head
-      else
-        submitters.sorted(Ordering.String).distinct.mkString("%")
-    commandId.unwrap + "%" + submitterPart
-  }
-
   override def deduplicateCommand(
       commandId: domain.CommandId,
       submitters: List[Ref.Party],
@@ -955,10 +936,7 @@ private class JdbcLedgerDao(
     )
 
   private val compressionStrategy: CompressionStrategy =
-    CompressionStrategy.AllGZIP
-
-  private val compressionMetrics: CompressionMetrics =
-    CompressionMetrics(metrics)
+    CompressionStrategy.allGZIP(metrics)
 
   private val transactionsWriter: TransactionsWriter =
     new TransactionsWriter(
@@ -966,7 +944,6 @@ private class JdbcLedgerDao(
       metrics,
       translation,
       compressionStrategy,
-      compressionMetrics,
       idempotentEntryInserts,
     )
 
@@ -1100,7 +1077,7 @@ private[platform] object JdbcLedgerDao {
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
-      "select party, display_name, ledger_offset, explicit, is_local from parties where party in ({parties})"
+      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where party in ({parties}) and parties.ledger_offset <= parameters.ledger_end"
     )
 
   private val PartyDataParser: RowParser[ParsedPartyData] =
@@ -1189,8 +1166,6 @@ private[platform] object JdbcLedgerDao {
         |truncate table participant_command_completions cascade;
         |truncate table participant_command_submissions cascade;
         |truncate table participant_events cascade;
-        |truncate table participant_contracts cascade;
-        |truncate table participant_contract_witnesses cascade;
         |truncate table parties cascade;
         |truncate table party_entries cascade;
       """.stripMargin
@@ -1209,6 +1184,7 @@ private[platform] object JdbcLedgerDao {
     }
   }
 
+  // TODO
   object H2DatabaseQueries extends Queries {
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """merge into packages using dual on package_id = {package_id}
@@ -1248,4 +1224,19 @@ private[platform] object JdbcLedgerDao {
         conn: Connection
     ): Unit = ()
   }
+
+  def deduplicationKey(
+      commandId: domain.CommandId,
+      submitters: List[Ref.Party],
+  ): String = {
+    val submitterPart =
+      if (submitters.length == 1)
+        submitters.head
+      else
+        submitters.sorted(Ordering.String).distinct.mkString("%")
+    commandId.unwrap + "%" + submitterPart
+  }
+
+  val acceptType = "accept"
+  val rejectType = "reject"
 }

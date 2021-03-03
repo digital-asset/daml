@@ -157,7 +157,7 @@ dev_env_tool(
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_9_6",
+    attribute_path = "postgresql_12",  # requirement of the partitioned schema
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
