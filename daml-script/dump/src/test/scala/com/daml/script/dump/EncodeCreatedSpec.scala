@@ -10,6 +10,33 @@ import org.scalatest.matchers.should.Matchers
 class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
   import Encode._
   "encodeCreatedEvent" - {
+    "multi party submissions" in {
+      val parties = Map(
+        Party("Alice") -> "alice_0",
+        Party("Bob") -> "bob_0",
+      )
+      val cidMap = Map(
+        ContractId("cid1") -> "contract_0_0",
+        ContractId("cid2") -> "contract_0_1",
+      )
+      val cidRefs = Set.empty[ContractId]
+      val events = TestData
+        .ACS(
+          Seq(
+            TestData.Created(ContractId("cid1"), submitters = Seq(Party("Alice"))),
+            TestData.Created(ContractId("cid2"), submitters = Seq(Party("Bob"))),
+          )
+        )
+        .toCreatedEvents
+      encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
+        """submitMulti [alice_0, bob_0] [] do
+          |  _ <- createCmd Module.Template
+          |  _ <- createCmd Module.Template
+          |  pure ()""".stripMargin.replace(
+          "\r\n",
+          "\n",
+        )
+    }
     "contract id bindings" - {
       "unreferenced" in {
         val parties = Map(Party("Alice") -> "alice_0")
@@ -23,7 +50,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
           )
           .toCreatedEvents
         encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
-          """_ <- submitMulti [alice_0] [] do
+          """_ <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
       "referenced" in {
@@ -38,7 +65,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
           )
           .toCreatedEvents
         encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
-          """contract_0_0 <- submitMulti [alice_0] [] do
+          """contract_0_0 <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
@@ -62,7 +89,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
           )
           .toCreatedEvents
         encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
@@ -89,7 +116,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
           )
           .toCreatedEvents
         encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
-          """(contract_0_0, contract_0_2) <- submitMulti [alice_0] [] do
+          """(contract_0_0, contract_0_2) <- submit alice_0 do
             |  contract_0_0 <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  contract_0_2 <- createCmd Module.Template
@@ -114,7 +141,7 @@ class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
           )
           .toCreatedEvents
         encodeSubmitCreatedEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
-          """contract_0_1 <- submitMulti [alice_0] [] do
+          """contract_0_1 <- submit alice_0 do
             |  _ <- createCmd Module.Template
             |  contract_0_1 <- createCmd Module.Template
             |  pure contract_0_1""".stripMargin.replace(

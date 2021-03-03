@@ -269,7 +269,6 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val submit = "submitMulti " +: encodeParties(partyMap, submitters)
     val actions = Doc.stack(evs.map { ev =>
       val cid = ContractId(ev.contractId)
       val bind = if (returnStmt.nonEmpty) {
@@ -284,7 +283,7 @@ private[dump] object Encode {
       bind + encodeCreatedEvent(partyMap, cidMap, ev)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-    ((bind + submit :+ " [] do") / body).hang(2)
+    ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
   }
 
   private[dump] def encodeACS(
@@ -324,9 +323,8 @@ private[dump] object Encode {
         val cids = treeCreatedCids(tree)
         val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
         val treeBind =
-          (Doc.text("tree <- submitTreeMulti ") + encodeParties(partyMap, submitters) + Doc.text(
-            " [] do"
-          ) / Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
+          (("tree <- " +: submit(partyMap, submitters, isTree = true) :+ " do") /
+            Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
         val cidBinds = referencedCids.map(bindCid(cidMap, _))
         Doc.stack(treeBind +: cidBinds)
       }
@@ -334,6 +332,15 @@ private[dump] object Encode {
   }
 
   private def encodeSelector(selector: Selector): Doc = Doc.str(selector.i)
+
+  private def submit(partyMap: Map[Party, String], submitters: Set[Party], isTree: Boolean): Doc = {
+    val tree = if (isTree) { Doc.text("Tree") }
+    else { Doc.empty }
+    submitters.toList match {
+      case ::(submitter, Nil) => "submit" +: tree & encodeParty(partyMap, submitter)
+      case _ => "submit" +: tree :+ "Multi" & encodeParties(partyMap, submitters) :+ " []"
+    }
+  }
 
   private def encodeImport(moduleName: String) =
     Doc.text("import qualified ") + Doc.text(moduleName)

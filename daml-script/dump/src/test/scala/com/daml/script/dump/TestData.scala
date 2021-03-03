@@ -24,13 +24,14 @@ object TestData {
   sealed case class Created(
       contractId: ContractId,
       createArguments: Seq[RecordField] = Seq.empty,
+      submitters: Seq[Party] = defaultParties,
   ) extends Event {
     def toCreatedEvent(eventId: String): CreatedEvent = {
       CreatedEvent(
         eventId = eventId,
         templateId = Some(defaultTemplateId),
         contractId = ContractId.unwrap(contractId),
-        signatories = Party.unsubst(defaultParties),
+        signatories = Party.unsubst(submitters),
         createArguments = Some(Record(recordId = Some(defaultTemplateId), fields = createArguments)),
       )
     }
@@ -39,6 +40,7 @@ object TestData {
       contractId: ContractId,
       childEvents: Seq[Event],
       choiceArgument: Value = defaultChoiceArgument,
+      actingParties: Seq[Party] = defaultParties,
   ) extends Event
 
   sealed case class ACS(contracts: Seq[Created]) {
@@ -63,7 +65,7 @@ object TestData {
           case event: Created =>
             val treeEvent = TreeEvent(TreeEvent.Kind.Created(event.toCreatedEvent(eventId)))
             (rootEventIds :+ eventId, eventsById + (eventId -> treeEvent))
-          case Exercised(contractId, childEvents, choiceArgument) =>
+          case Exercised(contractId, childEvents, choiceArgument, actingParties) =>
             val (childEventIds, childEventsById) =
               childEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
             val treeEvent = TreeEvent(
@@ -72,7 +74,7 @@ object TestData {
                   eventId = eventId,
                   templateId = Some(defaultTemplateId),
                   contractId = ContractId.unwrap(contractId),
-                  actingParties = Party.unsubst(defaultParties),
+                  actingParties = Party.unsubst(actingParties),
                   choice = "Choice",
                   choiceArgument = Some(choiceArgument),
                   childEventIds = childEventIds,

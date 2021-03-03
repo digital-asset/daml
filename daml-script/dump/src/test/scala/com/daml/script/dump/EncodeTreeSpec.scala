@@ -10,6 +10,29 @@ import org.scalatest.matchers.should.Matchers
 class EncodeTreeSpec extends AnyFreeSpec with Matchers {
   import Encode._
   "encodeTree" - {
+    "multi-party submissions" in {
+      val parties = Map(
+        Party("Alice") -> "alice_0",
+        Party("Bob") -> "bob_0",
+      )
+      val cidMap = Map(
+        ContractId("cid1") -> "contract_0_0",
+        ContractId("cid2") -> "contract_0_1",
+      )
+      val cidRefs = Set.empty[ContractId]
+      val tree = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(ContractId("cid1"), submitters = Seq(Party("Alice"))),
+            TestData.Exercised(ContractId("cid2"), Seq.empty, actingParties = Seq(Party("Bob"))),
+          )
+        )
+        .toTransactionTree
+      encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
+        """tree <- submitTreeMulti [alice_0, bob_0] [] do
+          |  createCmd Module.Template
+          |  exerciseCmd contract_0_1 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
+    }
     "contract id bindings" - {
       "unreferenced create" in {
         val parties = Map(Party("Alice") -> "alice_0")
@@ -23,7 +46,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           )
           .toTransactionTree
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """_ <- submitMulti [alice_0] [] do
+          """_ <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
       "unreferenced creates" in {
@@ -42,7 +65,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           )
           .toTransactionTree
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """submitMulti [alice_0] [] do
+          """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
             |  pure ()""".stripMargin.replace("\r\n", "\n")
@@ -68,7 +91,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           )
           .toTransactionTree
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """tree <- submitTreeMulti [alice_0] [] do
+          """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
       }
       "referenced create" in {
@@ -83,7 +106,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           )
           .toTransactionTree
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """contract_0_0 <- submitMulti [alice_0] [] do
+          """contract_0_0 <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
@@ -105,7 +128,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           )
           .toTransactionTree
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """(contract_1_0, contract_1_1) <- submitMulti [alice_0] [] do
+          """(contract_1_0, contract_1_1) <- submit alice_0 do
             |  contract_1_0 <- createCmd Module.Template
             |  contract_1_1 <- createCmd Module.Template
             |  pure (contract_1_0, contract_1_1)""".stripMargin.replace(
@@ -135,7 +158,7 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
           )
           .toTransactionTree
         encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
-          """tree <- submitTreeMulti [alice_0] [] do
+          """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())
             |let contract_1_0 = createdCid @Module.Template [0, 0] tree
             |let contract_1_1 = createdCid @Module.Template [0, 1] tree""".stripMargin.replace(
