@@ -8,25 +8,19 @@ package script
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
-import com.typesafe.scalalogging.StrictLogging
-import java.time.Clock
-
-import scala.concurrent.{ExecutionContext, Future}
-import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
-import scalaz.OneAnd._
-import scalaz.std.either._
-import scalaz.std.list._
-import scalaz.std.option._
-import scalaz.std.map._
-import scalaz.std.scalaFuture._
-import scalaz.std.set._
-import scalaz.syntax.traverse._
-
-import spray.json._
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   JsonLedgerClient,
@@ -36,25 +30,27 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SExpr, SValue, Speedy}
-import com.daml.lf.speedy.SError._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SExpr, SValue, Speedy}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
-import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerIdRequirement}
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
-import ParticipantsJsonProtocol.ContractIdFormat
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.Value
 import com.daml.script.converter.Converter.{JavaList, unrollFree}
 import com.daml.script.converter.ConverterException
+import com.typesafe.scalalogging.StrictLogging
+import scalaz.OneAnd._
+import scalaz.std.either._
+import scalaz.std.map._
+import scalaz.std.option._
+import scalaz.std.scalaFuture._
+import scalaz.std.set._
+import scalaz.syntax.traverse._
+import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
+import spray.json._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -356,46 +352,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
     }
   }
 
-  private val utcClock = Clock.systemUTC()
-
-  private def lookupChoice(id: Identifier, choice: Name): Either[String, TemplateChoiceSignature] =
-    for {
-      pkg <- compiledPackages
-        .getSignature(id.packageId)
-        .toRight(s"Failed to find package ${id.packageId}")
-      module <- pkg.modules
-        .get(id.qualifiedName.module)
-        .toRight(s"Failed to find module ${id.qualifiedName.module}")
-      tpl <- module.templates
-        .get(id.qualifiedName.name)
-        .toRight(s"Failed to find template ${id.qualifiedName.name}")
-      choice <- tpl.choices
-        .get(choice)
-        .toRight(s"Failed to find choice $choice in $id")
-    } yield choice
-
-  private def lookupKeyTy(id: Identifier): Either[String, Type] =
-    for {
-      pkg <- compiledPackages
-        .getSignature(id.packageId)
-        .toRight(s"Failed to find package ${id.packageId}")
-      module <- pkg.modules
-        .get(id.qualifiedName.module)
-        .toRight(s"Failed to find module ${id.qualifiedName.module}")
-      tpl <- module.templates
-        .get(id.qualifiedName.name)
-        .toRight(s"Failed to find template ${id.qualifiedName.name}")
-      key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
-    } yield key.typ
-
-  private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
-
-  private def translateKey(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
-    for {
-      keyTy <- lookupKeyTy(id)
-      translated <- valueTranslator.translateValue(keyTy, v).left.map(_.msg)
-    } yield translated
-
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
@@ -408,7 +364,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
-    var clients = initialClients
     val machine =
       Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
 
@@ -423,15 +378,12 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           Left(new RuntimeException(s"Unexpected speedy result $res"))
       }
 
-    // Copy the tracelog from the client to the current machine
-    // interleaving ledger-side trace statements with client-side trace
-    // statements.
-    def copyTracelog(client: ScriptLedgerClient) = {
-      for ((msg, optLoc) <- client.tracelogIterator) {
-        machine.traceLog.add(msg, optLoc)
-      }
-      client.clearTracelog
-    }
+    val env = new ScriptF.Env(
+      script.scriptIds,
+      timeMode,
+      initialClients,
+      machine,
+    )
 
     def run(expr: SExpr): Future[SValue] = {
       machine.setExpressionToEvaluate(expr)
@@ -442,221 +394,8 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           case Right((vv, v)) =>
             Converter
               .toFuture(ScriptF.parse(ScriptF.Ctx(knownPackages, extendedCompiledPackages), vv, v))
-              .flatMap {
-                case ScriptF.Submit(data) =>
-                  for {
-                    client <- Converter.toFuture(
-                      clients
-                        .getPartiesParticipant(data.actAs)
-                    )
-                    submitRes <- client.submit(
-                      data.actAs,
-                      data.readAs,
-                      data.cmds,
-                      data.stackTrace.topFrame,
-                    )
-                    _ = copyTracelog(client)
-                    v <- submitRes match {
-                      case Right(results) => {
-                        for {
-                          filled <- Converter.toFuture(
-                            Converter
-                              .fillCommandResults(
-                                extendedCompiledPackages,
-                                lookupChoice,
-                                valueTranslator,
-                                data.freeAp,
-                                results,
-                              )
-                          )
-                          v <- {
-                            run(filled)
-                          }
-                        } yield v
-                      }
-                      case Left(statusEx) => {
-                        // This branch is superseded by SubmitMustFail below,
-                        // however, it is maintained for backwards
-                        // compatibility with DAML script DARs generated by
-                        // older SDK versions that didn't distinguish Submit
-                        // and SubmitMustFail.
-                        for {
-                          res <- Converter.toFuture(
-                            Converter
-                              .fromStatusException(script.scriptIds, statusEx)
-                          )
-                          v <- {
-                            run(SEApp(SEValue(data.continue), Array(SEValue(res))))
-                          }
-                        } yield v
-                      }
-                    }
-                  } yield v
-                case ScriptF.SubmitMustFail(data) =>
-                  for {
-                    client <- Converter.toFuture(
-                      clients
-                        .getPartiesParticipant(data.actAs)
-                    )
-                    submitRes <- client.submitMustFail(
-                      data.actAs,
-                      data.readAs,
-                      data.cmds,
-                      data.stackTrace.topFrame,
-                    )
-                    _ = copyTracelog(client)
-                    v <- submitRes match {
-                      case Right(()) =>
-                        run(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
-                      case Left(()) =>
-                        Future.failed(
-                          new DamlEUserError("Expected submit to fail but it succeeded")
-                        )
-                    }
-                  } yield v
-
-                case ScriptF.SubmitTree(data) =>
-                  for {
-                    client <- Converter.toFuture(
-                      clients
-                        .getPartiesParticipant(data.actAs)
-                    )
-                    submitRes <- client.submitTree(
-                      data.actAs,
-                      data.readAs,
-                      data.cmds,
-                      data.stackTrace.topFrame,
-                    )
-                    res <- Converter.toFuture(
-                      Converter.translateTransactionTree(
-                        lookupChoice,
-                        valueTranslator,
-                        script.scriptIds,
-                        submitRes,
-                      )
-                    )
-                    _ = copyTracelog(client)
-                    v <- run(SEApp(SEValue(data.continue), Array(SEValue(res))))
-                  } yield v
-                case ScriptF.Query(parties, tplId, _, continue) =>
-                  for {
-                    client <- Converter.toFuture(
-                      clients
-                        .getPartiesParticipant(parties)
-                    )
-                    acs <- client.query(parties, tplId)
-                    res <- Converter.toFuture(
-                      FrontStack(acs)
-                        .traverse(
-                          Converter
-                            .fromCreated(valueTranslator, _)
-                        )
-                    )
-                    v <- {
-                      run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
-                    }
-                  } yield v
-                case ScriptF.QueryContractId(parties, tplId, cid, _, continue) =>
-                  for {
-                    client <- Converter.toFuture(clients.getPartyParticipant(parties.head))
-                    optR <- client.queryContractId(parties, tplId, cid)
-                    optR <- Converter.toFuture(
-                      optR.traverse(Converter.fromContract(valueTranslator, _))
-                    )
-                    v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
-                  } yield v
-                case ScriptF.QueryContractKey(parties, tplId, key, _, continue) =>
-                  for {
-                    client <- Converter.toFuture(clients.getPartiesParticipant(parties))
-                    optR <- client.queryContractKey(parties, tplId, key.key, translateKey)
-                    optR <- Converter.toFuture(
-                      optR.traverse(Converter.fromCreated(valueTranslator, _))
-                    )
-                    v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
-                  } yield v
-
-                case ScriptF.AllocParty(displayName, idHint, participant, _, continue) =>
-                  for {
-                    client <- clients.getParticipant(participant) match {
-                      case Right(client) => Future.successful(client)
-                      case Left(err) => Future.failed(new RuntimeException(err))
-                    }
-                    party <- client.allocateParty(idHint, displayName)
-                    v <- {
-                      participant match {
-                        case None => {
-                          // If no participant is specified, we use default_participant so we don’t need to change anything.
-                        }
-                        case Some(participant) =>
-                          clients = clients
-                            .copy(
-                              party_participants =
-                                clients.party_participants + (party -> participant)
-                            )
-                      }
-                      run(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
-                    }
-                  } yield v
-                case ScriptF.ListKnownParties(participant, _, continue) =>
-                  for {
-                    client <- clients.getParticipant(participant) match {
-                      case Right(client) => Future.successful(client)
-                      case Left(err) => Future.failed(new RuntimeException(err))
-                    }
-                    partyDetails <- client.listKnownParties()
-                    partyDetails_ <- Converter.toFuture(
-                      partyDetails
-                        .traverse(details => Converter.fromPartyDetails(script.scriptIds, details))
-                    )
-                    v <- {
-                      run(
-                        SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
-                      )
-                    }
-                  } yield v
-                case ScriptF.GetTime(_, continue) =>
-                  for {
-                    time <- timeMode match {
-                      case ScriptTimeMode.Static => {
-                        // We don’t parametrize this by participant since this
-                        // is only useful in static time mode and using the time
-                        // service with multiple participants is very dodgy.
-                        for {
-                          client <- Converter.toFuture(clients.getParticipant(None))
-                          t <- client.getStaticTime()
-                        } yield t
-                      }
-                      case ScriptTimeMode.WallClock =>
-                        Future {
-                          Timestamp.assertFromInstant(utcClock.instant())
-                        }
-                    }
-                    v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
-
-                  } yield v
-                case ScriptF.SetTime(time, _, continue) =>
-                  timeMode match {
-                    case ScriptTimeMode.Static =>
-                      for {
-                        // We don’t parametrize this by participant since this
-                        // is only useful in static time mode and using the time
-                        // service with multiple participants is very dodgy.
-                        client <- Converter.toFuture(clients.getParticipant(None))
-                        _ <- client.setStaticTime(time)
-                        v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
-                      } yield v
-                    case ScriptTimeMode.WallClock =>
-                      Future.failed(
-                        new RuntimeException("setTime is not supported in wallclock mode")
-                      )
-
-                  }
-                case ScriptF.Sleep(micros, _, continue) =>
-                  val sleepMillis = micros / 1000
-                  val sleepNanos = (micros % 1000) * 1000
-                  Thread.sleep(sleepMillis, sleepNanos.toInt)
-                  run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
-              }
+              .flatMap(_.execute(env))
+              .flatMap(run(_))
           case Left(v) =>
             v match {
               case SRecord(_, _, JavaList(newState, _)) => {

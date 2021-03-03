@@ -3,69 +3,394 @@
 
 package com.daml.lf.engine.script
 
-import com.daml.lf.command
-import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import java.time.Clock
+
+import akka.stream.Materializer
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.lf.data.FrontStack
+import com.daml.lf.{CompiledPackages, command}
+import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SValue
-import com.daml.lf.speedy.SValue.{SInt64, SList, SRecord, SText}
+import com.daml.lf.language.Ast.{TemplateChoiceSignature, Type}
+import com.daml.lf.speedy.SError.DamlEUserError
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
+import com.daml.lf.speedy.{SExpr, SValue}
+import com.daml.lf.speedy.SValue.{
+  SInt64,
+  SList,
+  SOptional,
+  SParty,
+  SRecord,
+  SText,
+  STimestamp,
+  SUnit,
+}
+import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.Converter.JavaList
 import scalaz.{Foldable, OneAnd}
 import scalaz.syntax.traverse._
-import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.std.option._
 import com.daml.script.converter.Converter.toContractId
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object ScriptF {
   sealed trait Cmd {
     def stackTrace: StackTrace
+    def continue: SValue
+    def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr]
+  }
+  // The environment that the `execute` function gets access to.
+  final class Env(
+      val scriptIds: ScriptIds,
+      val timeMode: ScriptTimeMode,
+      private var _clients: Participants[ScriptLedgerClient],
+      machine: Machine,
+  ) {
+    def clients = _clients
+    val valueTranslator = new ValueTranslator(machine.compiledPackages)
+    val utcClock = Clock.systemUTC()
+    // Copy the tracelog from the client to the off-ledger machine.
+    def copyTracelog(client: ScriptLedgerClient) = {
+      for ((msg, optLoc) <- client.tracelogIterator) {
+        machine.traceLog.add(msg, optLoc)
+      }
+      client.clearTracelog
+    }
+    def addPartyParticipantMapping(party: Party, participant: Participant) = {
+      _clients =
+        _clients.copy(party_participants = _clients.party_participants + (party -> participant))
+    }
+    def compiledPackages = machine.compiledPackages
+    def lookupChoice(id: Identifier, choice: Name): Either[String, TemplateChoiceSignature] =
+      for {
+        pkg <- compiledPackages
+          .getSignature(id.packageId)
+          .toRight(s"Failed to find package ${id.packageId}")
+        module <- pkg.modules
+          .get(id.qualifiedName.module)
+          .toRight(s"Failed to find module ${id.qualifiedName.module}")
+        tpl <- module.templates
+          .get(id.qualifiedName.name)
+          .toRight(s"Failed to find template ${id.qualifiedName.name}")
+        choice <- tpl.choices
+          .get(choice)
+          .toRight(s"Failed to find choice $choice in $id")
+      } yield choice
+
+    def lookupKeyTy(id: Identifier): Either[String, Type] =
+      for {
+        pkg <- compiledPackages
+          .getSignature(id.packageId)
+          .toRight(s"Failed to find package ${id.packageId}")
+        module <- pkg.modules
+          .get(id.qualifiedName.module)
+          .toRight(s"Failed to find module ${id.qualifiedName.module}")
+        tpl <- module.templates
+          .get(id.qualifiedName.name)
+          .toRight(s"Failed to find template ${id.qualifiedName.name}")
+        key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
+      } yield key.typ
+
   }
   final case class Submit(data: SubmitData) extends Cmd {
     override def stackTrace = data.stackTrace
+
+    override def continue = data.continue
+
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        submitRes <- client.submit(
+          data.actAs,
+          data.readAs,
+          data.cmds,
+          data.stackTrace.topFrame,
+        )
+        _ = env.copyTracelog(client)
+        v <- submitRes match {
+          case Right(results) =>
+            Converter.toFuture(
+              Converter
+                .fillCommandResults(
+                  env.compiledPackages,
+                  env.lookupChoice,
+                  env.valueTranslator,
+                  data.freeAp,
+                  results,
+                )
+            )
+          case Left(statusEx) =>
+            // This branch is superseded by SubmitMustFail below,
+            // however, it is maintained for backwards
+            // compatibility with DAML script DARs generated by
+            // older SDK versions that didn't distinguish Submit
+            // and SubmitMustFail.
+            for {
+              res <- Converter.toFuture(
+                Converter
+                  .fromStatusException(env.scriptIds, statusEx)
+              )
+
+            } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
+        }
+      } yield v
   }
+
   final case class SubmitMustFail(data: SubmitData) extends Cmd {
     override def stackTrace = data.stackTrace
+    override def continue = data.continue
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        submitRes <- client.submitMustFail(
+          data.actAs,
+          data.readAs,
+          data.cmds,
+          data.stackTrace.topFrame,
+        )
+        _ = env.copyTracelog(client)
+        v <- submitRes match {
+          case Right(()) =>
+            Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
+          case Left(()) =>
+            Future.failed(
+              new DamlEUserError("Expected submit to fail but it succeeded")
+            )
+        }
+      } yield v
+
   }
   final case class SubmitTree(data: SubmitData) extends Cmd {
     override def stackTrace = data.stackTrace
+    override def continue = data.continue
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        submitRes <- client.submitTree(
+          data.actAs,
+          data.readAs,
+          data.cmds,
+          data.stackTrace.topFrame,
+        )
+        res <- Converter.toFuture(
+          Converter.translateTransactionTree(
+            env.lookupChoice,
+            env.valueTranslator,
+            env.scriptIds,
+            submitRes,
+          )
+        )
+        _ = env.copyTracelog(client)
+      } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
   }
   final case class Query(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       stackTrace: StackTrace,
       continue: SValue,
-  ) extends Cmd
+  ) extends Cmd {
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(parties)
+        )
+        acs <- client.query(parties, tplId)
+        res <- Converter.toFuture(
+          FrontStack(acs)
+            .traverse(
+              Converter
+                .fromCreated(env.valueTranslator, _)
+            )
+        )
+      } yield SEApp(SEValue(continue), Array(SEValue(SList(res))))
+
+  }
   final case class QueryContractId(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       cid: ContractId,
       stackTrace: StackTrace,
       continue: SValue,
-  ) extends Cmd
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        optR <- client.queryContractId(parties, tplId, cid)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromContract(env.valueTranslator, _))
+        )
+      } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
+  }
   final case class QueryContractKey(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
       key: AnyContractKey,
       stackTrace: StackTrace,
       continue: SValue,
-  ) extends Cmd
+  ) extends Cmd {
+    private def translateKey(
+        env: Env
+    )(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
+      for {
+        keyTy <- env.lookupKeyTy(id)
+        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.msg)
+      } yield translated
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        optR <- client.queryContractKey(parties, tplId, key.key, translateKey(env))
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromCreated(env.valueTranslator, _))
+        )
+      } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
+  }
   final case class AllocParty(
       displayName: String,
       idHint: String,
       participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
-  ) extends Cmd
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- env.clients.getParticipant(participant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        party <- client.allocateParty(idHint, displayName)
+
+      } yield {
+        participant.foreach(env.addPartyParticipantMapping(party, _))
+        SEApp(SEValue(continue), Array(SEValue(SParty(party))))
+      }
+
+  }
   final case class ListKnownParties(
       participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
-  ) extends Cmd
-  final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd
-  final case class SetTime(time: Timestamp, stackTrace: StackTrace, continue: SValue) extends Cmd
-  final case class Sleep(micros: Long, stackTrace: StackTrace, continue: SValue) extends Cmd
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- env.clients.getParticipant(participant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        partyDetails <- client.listKnownParties()
+        partyDetails_ <- Converter.toFuture(
+          partyDetails
+            .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
+        )
+      } yield SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
+
+  }
+  final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        time <- env.timeMode match {
+          case ScriptTimeMode.Static => {
+            // We don’t parametrize this by participant since this
+            // is only useful in static time mode and using the time
+            // service with multiple participants is very dodgy.
+            for {
+              client <- Converter.toFuture(env.clients.getParticipant(None))
+              t <- client.getStaticTime()
+            } yield t
+          }
+          case ScriptTimeMode.WallClock =>
+            Future {
+              Timestamp.assertFromInstant(env.utcClock.instant())
+            }
+        }
+      } yield SEApp(SEValue(continue), Array(SEValue(STimestamp(time))))
+
+  }
+  final case class SetTime(time: Timestamp, stackTrace: StackTrace, continue: SValue) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      env.timeMode match {
+        case ScriptTimeMode.Static =>
+          for {
+            // We don’t parametrize this by participant since this
+            // is only useful in static time mode and using the time
+            // service with multiple participants is very dodgy.
+            client <- Converter.toFuture(env.clients.getParticipant(None))
+            _ <- client.setStaticTime(time)
+          } yield SEApp(SEValue(continue), Array(SEValue(SUnit)))
+        case ScriptTimeMode.WallClock =>
+          Future.failed(
+            new RuntimeException("setTime is not supported in wallclock mode")
+          )
+
+      }
+  }
+
+  final case class Sleep(micros: Long, stackTrace: StackTrace, continue: SValue) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future {
+      val sleepMillis = micros / 1000
+      val sleepNanos = (micros % 1000) * 1000
+      Thread.sleep(sleepMillis, sleepNanos.toInt)
+      SEApp(SEValue(continue), Array(SEValue(SUnit)))
+    }
+  }
 
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
