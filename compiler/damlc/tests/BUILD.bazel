@@ -80,6 +80,7 @@ da_haskell_test(
 # Tests for damlc test
 da_haskell_test(
     name = "damlc-test",
+    size = "large",
     srcs = ["src/DamlcTest.hs"],
     data = [
         "//compiler/damlc",
