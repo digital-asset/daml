@@ -28,6 +28,7 @@ import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import           Data.List.Extra
 import           Data.Maybe
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           System.FilePath (splitDirectories)
 
@@ -220,7 +221,41 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
         , "Possible solution: Change the constructor name to", tyNameStr ]
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m
+checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m ++ checkDuplicateRecordFields m
+
+checkDuplicateRecordFields :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkDuplicateRecordFields m =
+    [ err
+    | GHC.L _ con <- universeConDecl m
+    , err <- conErrs (GHC.getConArgs con)
+    ]
+  where
+      conErrs :: GHC.HsConDeclDetails GHC.GhcPs -> [(GHC.SrcSpan, String)]
+      conErrs (GHC.RecCon (GHC.L _ fields)) =
+          let names = map fieldName fields
+              grouped = Map.fromListWith (++) [(GHC.unLoc n, [n]) | n <- names]
+          in concatMap errors (Map.elems grouped)
+      conErrs _ = []
+
+      -- Before the renamer, cd_fld_names is always a singleton list.
+      fieldName :: GHC.LConDeclField GHC.GhcPs -> GHC.Located GHC.RdrName
+      fieldName (GHC.L _ GHC.ConDeclField { cd_fld_names = [n] }) = GHC.rdrNameFieldOcc (GHC.unLoc n)
+      fieldName (GHC.L _ GHC.ConDeclField { cd_fld_names = fldNames }) =
+          error $ "Internal error: cd_fld_names should contain exactly one name but got " ++ showSDocUnsafe (ppr fldNames)
+      fieldName (GHC.L _ (GHC.XConDeclField GHC.NoExt)) = error "Internal error: unexpected XConDeclField"
+      fieldError :: GHC.SrcSpan -> GHC.Located GHC.RdrName -> (GHC.SrcSpan, String)
+      fieldError def (GHC.L l n) =
+          ( l
+          , unlines
+            [ "Duplicate field name " ++ showSDocUnsafe (ppr n)
+            , "Original definition at " ++ showSDocUnsafe (ppr def)
+            ]
+          )
+      -- the list should always be non-empty but easy enough to handle this case without crashing
+      errors xs = case sortOn GHC.getLoc xs of
+        [] -> []
+        (hd : tl) -> map (fieldError (GHC.getLoc hd)) tl
+
 
 checkAmbiguousDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkAmbiguousDataTypes (GHC.L _ m) =

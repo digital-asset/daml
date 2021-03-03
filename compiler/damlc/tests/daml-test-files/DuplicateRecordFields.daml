@@ -1,0 +1,20 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=12:5-12:6; Duplicate field name a
+-- @ERROR range=13:5-13:6; Duplicate field name a
+-- @ERROR range=17:5-17:6; Duplicate field name b
+
+module DuplicateRecordFields where
+
+data T = T with
+    a : Int
+    a : Bool
+    a : Int
+
+template T with
+    b : Int
+    b : Bool
+    p : Party
+  where
+    signatory p
