@@ -93,18 +93,41 @@ jobs:
           cp release/rotation $tmp
           (tail -n +2 $tmp; head -1 $tmp) > release/rotation
       }
+      release_message() {
+          local handler=$1
+          local start=$2
+          local commit_log
+          commit_log=$(git log --pretty=oneline $start..HEAD)
+          local changelog
+          changelog=$(./unreleased.sh $start..HEAD)
+          echo "This PR has been created by a script, which is not very smart"
+          echo "and does not have all the context. Please do double-check that"
+          echo "the version prefix is correct before merging."
+          echo ""
+          echo "@${handler} is in charge of this release."
+          echo ""
+          echo "Commit log:"
+          echo "\`\`\`"
+          echo "$commit_log"
+          echo "\`\`\`"
+          echo "Changelog:"
+          echo "\`\`\`"
+          echo "$changelog"
+          echo "\`\`\`"
+      }
 
       reset
 
       NEXT_SLACK=$(head -1 release/rotation | awk '{print $1}')
       NEXT_GH=$(head -1 release/rotation | awk '{print $2}')
 
+      PREV="v$(head -1 LATEST | awk '{print $2}')"
       ./release.sh new snapshot
       RELEASE=$(head -1 LATEST | awk '{print $2}')
       PR_FILE=$(mktemp)
       open_pr "auto-release-pr-$(date -I)" \
               "release $RELEASE" \
-              "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\n\n@$NEXT_GH is in charge of this release." \
+              "$(release_message $NEXT_GH $PREV)" \
               $PR_FILE
 
       PR=$(cat $PR_FILE)
