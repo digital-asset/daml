@@ -13,13 +13,13 @@ import qualified Control.Concurrent.QSem
 import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
-import qualified Control.Monad.Loops
 import Control.Retry
 import qualified Data.Aeson as JSON
-import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
+import Data.Conduit (runConduit, (.|))
+import Data.Conduit.Combinators (sinkHandle)
 import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
@@ -30,6 +30,7 @@ import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
+import Network.HTTP.Client.Conduit (bodyReaderSource)
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified Network.URI
@@ -328,11 +329,7 @@ download_assets tmp release = do
                 [retryHandler]
                 (\_ -> downloadFile req manager url)
           )
-  where while = Control.Monad.Loops.whileJust_
-        readFrom body = ifNotEmpty <$> HTTP.brRead body
-        ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
-        writeTo = Data.ByteString.hPut
-        -- Retry for 5 minutes total, doubling delay starting with 20ms
+  where -- Retry for 5 minutes total, doubling delay starting with 20ms
         retryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
         retryHandler status =
           logRetries
@@ -340,9 +337,8 @@ download_assets tmp release = do
             (\shouldRetry err status -> IO.hPutStrLn IO.stderr $ defaultLogMsg shouldRetry err status)
             status
         downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
-            let body = HTTP.responseBody resp
-            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.WriteMode $ \handle -> do
-                while (readFrom body) (writeTo handle)
+            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.WriteMode $ \handle ->
+                runConduit $ bodyReaderSource (HTTP.responseBody resp) .| sinkHandle handle
 
 verify_signatures :: FilePath -> FilePath -> String -> IO ()
 verify_signatures bash_lib tmp version_tag = do

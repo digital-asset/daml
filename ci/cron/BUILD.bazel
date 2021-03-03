@@ -18,6 +18,7 @@ da_haskell_binary(
         "directory",
         "extra",
         "filepath",
+        "http-conduit",
         "http-client",
         "http-client-tls",
         "http-types",
