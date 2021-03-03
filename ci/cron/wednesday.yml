@@ -96,21 +96,24 @@ jobs:
       release_message() {
           local handler=$1
           local start=$2
-          local end=$3
-          echo "This PR has been created by a script, which is not very smart \
-                and does not have all the context. Please do double-check that \
-                the version prefix is correct before merging.\
-                \n\n\
-                @${handler} is in charge of this release.\
-                \n\n\
-                Commit log:\
-                \n\`\`\`\n\
-                $(git log --pretty=oneline $start..$end)\
-                \n\`\`\`\n\n\
-                Changelog:\
-                \n\`\`\`\n\
-                $(./unreleased.sh $start..$end)\
-                \`\`\`\n"
+          local commit_log
+          commit_log=$(git log --pretty=oneline $start..HEAD)
+          local changelog
+          changelog=$(./unreleased.sh $start..$end)
+          echo "This PR has been created by a script, which is not very smart"
+          echo "and does not have all the context. Please do double-check that"
+          echo "the version prefix is correct before merging."
+          echo ""
+          echo "@${handler} is in charge of this release."
+          echo ""
+          echo "Commit log:"
+          echo "\`\`\`"
+          echo "$commit_log"
+          echo "\`\`\`"
+          echo "Changelog:"
+          echo "\`\`\`"
+          echo "$changelog"
+          echo "\`\`\`"
       }
 
       reset
@@ -124,7 +127,7 @@ jobs:
       PR_FILE=$(mktemp)
       open_pr "auto-release-pr-$(date -I)" \
               "release $RELEASE" \
-              "$(release_message $NEXT_GH $PREV $RELEASE)" \
+              "$(release_message $NEXT_GH $PREV)" \
               $PR_FILE
 
       PR=$(cat $PR_FILE)
