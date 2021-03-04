@@ -247,9 +247,9 @@ checkDuplicateRecordFields m =
       fieldError :: GHC.SrcSpan -> GHC.Located GHC.RdrName -> (GHC.SrcSpan, String)
       fieldError def (GHC.L l n) =
           ( l
-          , unlines
-            [ "Duplicate field name " ++ showSDocUnsafe (ppr n)
-            , "Original definition at " ++ showSDocUnsafe (ppr def)
+          , unwords
+            [ "Duplicate field name " ++ showSDocUnsafe (ppr n) <> "."
+            , "Original definition at " ++ showSDocUnsafe (ppr def) <> "."
             ]
           )
       -- the list should always be non-empty but easy enough to handle this case without crashing
