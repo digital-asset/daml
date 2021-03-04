@@ -4,7 +4,7 @@
 package com.daml.platform.store.completions
 
 import java.util.UUID
-import java.util.concurrent.{ConcurrentLinkedQueue, Executors}
+import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -29,18 +29,17 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
   import CompletionsDaoMock.genOffset
 
-  implicit val executionContext: ExecutionContext =
+  private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
-  implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-
-  private def await[T](f: Future[T]) = Await.result(f, Duration.Inf)
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   it should "correctly fetch historic data" in {
 
+    // GIVEN: completions reader and dao mock with 20 completions
     val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(20))
-
     val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
 
+    // WHEN: completions are requested for the first time
     val cachedCompletions = await(
       reader.getCompletionsPage(
         genOffset(9),
@@ -50,12 +49,14 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
       )
     )
 
+    // THEN returned completions size should be 10
     cachedCompletions.size shouldBe 10
-
+    // AND all completions should be requested from database - proof of caching
     completionsDao.runQueriesJournalToSeq() shouldBe Seq(
       GetAllCompletionsRequest(genOffset(9), genOffset(19))
     )
 
+    // WHEN: completions older than cached are fetched
     val historicCompletions = await(
       reader.getCompletionsPage(
         Offset.beforeBegin,
@@ -65,8 +66,10 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
       )
     )
 
+    // THEN: 10 completions should be returned
     historicCompletions.size shouldBe 10
 
+    // AND database should be queried with application and parties filter
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
       GetAllCompletionsRequest(genOffset(9), genOffset(19)),
       GetFilteredCompletionsRequest(
@@ -80,10 +83,12 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
   it should "correctly fetch future (not cached yet) data and replace oldest cache with it" in {
 
-    val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(20))
+    // GIVEN: completions reader and dao mock with 20 completions
+    val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(30))
 
     val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
 
+    // WHEN: not cached completions are fetched
     val cachedCompletions = await(
       reader.getCompletionsPage(
         genOffset(9),
@@ -92,15 +97,15 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
         Set(Party.assertFromString("party1")),
       )
     )
-
+    // THEN: 10 completions should be returned
     cachedCompletions.size shouldBe 10
 
+    // AND all completions should be requested from database - proof of caching
     completionsDao.runQueriesJournalToSeq() shouldBe Seq(
       GetAllCompletionsRequest(genOffset(9), genOffset(19))
     )
 
-    completionsDao.completions ++= CompletionsDaoMock.genCompletions(20, 30)
-
+    // WHEN: newer completions are queried
     val futureCompletions = await(
       reader.getCompletionsPage(
         genOffset(9),
@@ -109,14 +114,17 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
         Set(Party.assertFromString("party1")),
       )
     )
-
+    // THEN: 20 completions should be returned
     futureCompletions.size shouldBe 20
 
+    // AND previously read completions should be read from cache
+    // AND database should be queried only for new completions starting from offset 19
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
       GetAllCompletionsRequest(genOffset(9), genOffset(19)),
       GetAllCompletionsRequest(genOffset(19), genOffset(30)),
     )
 
+    // WHEN: completions older than cache are queried
     val pastCompletions = await(
       reader.getCompletionsPage(
         genOffset(9),
@@ -125,9 +133,10 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
         Set(Party.assertFromString("party1")),
       )
     )
-
+    // THEN: correct number of completions should be returned
     pastCompletions.size shouldBe 10
 
+    // AND database should be queried with application and parties filter
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
       GetAllCompletionsRequest(genOffset(9), genOffset(19)),
       GetAllCompletionsRequest(genOffset(19), genOffset(30)),
@@ -141,10 +150,12 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "correctly fetch data overlapping with cache boundaries" in {
-    val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(40))
 
+    // GIVEN: completions reader and dao mock with 40 completions
+    val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(40))
     val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
 
+    // WHEN: not cached completions are fetched
     val cachedCompletions = await(
       reader.getCompletionsPage(
         genOffset(19),
@@ -154,8 +165,10 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
       )
     )
 
+    // THEN: correct number of completions should be returned
     cachedCompletions.size shouldBe 10
 
+    // WHEN completions for range bigger than cache size are requested
     val overlappingCompletions = await(
       reader.getCompletionsPage(
         genOffset(9),
@@ -165,8 +178,12 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
       )
     )
 
+    // THEN: correct number of completions should be returned
     overlappingCompletions.size shouldBe 30
 
+    // AND database should be queried with application and parties filter for older than cached completions (<19)
+    // AND database should not be queried by cached completions (19, 29]
+    // AND database should be queried for all completions newer than 29
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
       GetAllCompletionsRequest(genOffset(19), genOffset(29)),
       GetFilteredCompletionsRequest(
@@ -180,9 +197,11 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fetch each completion exactly once" in {
+    // GIVEN: completions reader and dao mock with 20 completions
     val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(20))
     val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
 
+    // WHEN 10 equal requests are performed concurrently
     val responses = await(Future.sequence((0 until 10).map { _ =>
       Future(
         reader.getCompletionsPage(
@@ -195,10 +214,13 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     }))
     responses.forall(_.size == 10) shouldBe true
 
+    // THEN database should be queried only once
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
       GetAllCompletionsRequest(genOffset(9), genOffset(19))
     )
   }
+
+  private def await[T](f: Future[T]) = Await.result(f, Duration.apply(5, TimeUnit.SECONDS))
 
 }
 object CompletionsDaoMock {

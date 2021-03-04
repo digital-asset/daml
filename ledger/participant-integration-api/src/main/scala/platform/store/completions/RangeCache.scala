@@ -57,12 +57,11 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
     }
   }
 
-  /**
-   * fetches subset of current cache. If cached range and requested one are disjointed, then None is returned.
-   * @param startExclusive requested subset start
-   * @param endInclusive requested subset end
-   * @return optional subset of current cache as new RangeCache instance.
-   */
+  /** fetches subset of current cache. If cached range and requested one are disjointed, then None is returned.
+    * @param startExclusive requested subset start
+    * @param endInclusive requested subset end
+    * @return optional subset of current cache as new RangeCache instance.
+    */
   def slice(startExclusive: Offset, endInclusive: Offset): Option[RangeCache[T]] =
     if (areDisjointed(startExclusive, endInclusive)) {
       None
