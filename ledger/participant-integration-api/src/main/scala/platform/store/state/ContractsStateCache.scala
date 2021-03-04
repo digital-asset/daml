@@ -8,9 +8,11 @@ import com.daml.platform.store.state.ContractsStateCache.ContractCacheValue
 
 import scala.concurrent.ExecutionContext
 
-case class ContractsStateCache(cache: Cache[ContractId, ContractCacheValue], ec: ExecutionContext)
-    extends StateCache[ContractId, ContractCacheValue, ContractCacheValue] {
-  override protected def toUpdateValue(u: ContractCacheValue): ContractCacheValue = u
+class ContractsStateCache(val cache: Cache[ContractId, ContractCacheValue])(implicit
+    val ec: ExecutionContext
+) extends StateCache[ContractId, ContractCacheValue, ContractCacheValue] {
+  override protected def toUpdateAction(u: ContractCacheValue): Option[ContractCacheValue] =
+    Some(u)
 }
 
 object ContractsStateCache {
@@ -36,7 +38,6 @@ object ContractsStateCache {
     SizedCache.from[ContractId, ContractCacheValue](
       SizedCache.Configuration(10000L),
       metrics.daml.execution.contractsStateCache,
-    ),
-    ec,
+    )
   )
 }

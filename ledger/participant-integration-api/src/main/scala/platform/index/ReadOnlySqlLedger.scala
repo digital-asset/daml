@@ -186,8 +186,8 @@ private final class ReadOnlySqlLedger(
 
   override protected val cachingContractsReader: ContractStore = {
     val cachingLayer =
-      CachingContractsStore(ledgerDao.contractsReader, metrics)(executionContext, mat)
-    cachingLayer.consumeFrom(contractLifecycleEvents.map(_._2))
+      CachingContractsStore(ledgerDao.contractsReader, metrics)(executionContext)
+    val _ = contractLifecycleEvents.map(_._2).via(cachingLayer.consumeFrom).run()
     cachingLayer
   }
 }

@@ -21,8 +21,8 @@ object CaffeineCache {
     }
   }
 
-  private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-      cache: caffeine.Cache[Key, Value]
+  final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
+      val cache: caffeine.Cache[Key, Value]
   ) extends ConcurrentCache[Key, Value] {
     override def put(key: Key, value: Value): Unit = cache.put(key, value)
 
@@ -34,7 +34,7 @@ object CaffeineCache {
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-      cache: caffeine.Cache[Key, Value],
+      val cache: caffeine.Cache[Key, Value],
       metrics: CacheMetrics,
   ) extends ConcurrentCache[Key, Value] {
     metrics.registerSizeGauge(() => cache.estimatedSize())

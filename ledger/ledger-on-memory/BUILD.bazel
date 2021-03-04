@@ -138,8 +138,8 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=ContractKeysIT",
-#        "--include=ActiveContractsServiceIT,CommandSubmissionCompletionIT,ContractKeysIT,DivulgenceIT,TransactionServiceIT,WitnessesIT,WronglyTypedContractIdIT",
+#        "--include=ContractKeysIT",
+        "--include=ActiveContractsServiceIT,CommandSubmissionCompletionIT,ContractKeysIT,DivulgenceIT,TransactionServiceIT,WitnessesIT,WronglyTypedContractIdIT",
     ],
 )
 

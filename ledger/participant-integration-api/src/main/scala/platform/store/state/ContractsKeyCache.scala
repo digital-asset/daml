@@ -17,10 +17,13 @@ import scala.concurrent.ExecutionContext
 case class ContractsKeyCache(cache: Cache[GlobalKey, KeyCacheValue])(implicit
     protected val ec: ExecutionContext
 ) extends StateCache[GlobalKey, KeyStateUpdate, KeyCacheValue] {
-  override protected def toUpdateValue(u: KeyStateUpdate): KeyCacheValue =
+  override protected def toUpdateAction(u: KeyStateUpdate): Option[KeyCacheValue] =
     u match {
-      case Unassigned => Option.empty[(ContractId, Set[Party])]
-      case Assigned(contractId, createWitnesses) => Some(contractId -> createWitnesses)
+      case Unassigned =>
+        Some(Option.empty[(ContractId, Set[Party])])
+      case Assigned(contractId, createWitnesses) =>
+        Some(Some(contractId -> createWitnesses))
+      case ContractsKeyCache.DontUpdate => None
     }
 }
 
@@ -30,6 +33,7 @@ object ContractsKeyCache {
   final case class Assigned(contractId: ContractId, createWitnesses: Set[Party])
       extends KeyStateUpdate
   final case object Unassigned extends KeyStateUpdate
+  final case object DontUpdate extends KeyStateUpdate
 
   def apply(metrics: Metrics)(implicit
       executionContext: ExecutionContext

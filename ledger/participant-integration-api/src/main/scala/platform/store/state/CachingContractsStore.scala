@@ -4,8 +4,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.Flow
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
@@ -15,6 +14,7 @@ import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.Contract
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
 import com.daml.platform.store.state.ContractsKeyCache.{
   Assigned,
+  DontUpdate,
   KeyCacheValue,
   KeyStateUpdate,
   Unassigned,
@@ -22,22 +22,20 @@ import com.daml.platform.store.state.ContractsKeyCache.{
 import com.daml.platform.store.state.ContractsStateCache._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
 
-private[store] class CachingContractsStore private (
+private[store] class CachingContractsStore private[store] (
     metrics: Metrics,
     store: ContractsReader,
     keyCache: StateCache[GlobalKey, KeyStateUpdate, KeyCacheValue],
     contractsCache: StateCache[ContractId, ContractCacheValue, ContractCacheValue],
 )(implicit
-    executionContext: ExecutionContext,
-    materializer: Materializer,
+    executionContext: ExecutionContext
 ) extends ContractStore {
   private val logger = ContextualizedLogger.get(getClass)
-  private val cacheIndex = new AtomicLong(0L)
+  private[store] val cacheIndex = new AtomicLong(0L)
 
-  def consumeFrom(contractEvents: Source[ContractStateEvent, NotUsed]): Unit =
-    contractEvents
+  val consumeFrom: Flow[ContractStateEvent, Unit, NotUsed] =
+    Flow[ContractStateEvent]
       .map {
         case ContractStateEvent.Created(
               contractId,
@@ -83,34 +81,29 @@ private[store] class CachingContractsStore private (
           )
           eventSequentialId
       }
-      .runForeach(idx => {
+      .map(idx => {
         cacheIndex.set(idx)
         metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(idx)
       })
-      .foreach { _ => println("Streaming cache updater finished") } // TDT remove println
 
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    Future
-      .successful(keyCache.fetch(key))
-      .andThen { case Success(Some(cacheHit)) =>
-        println(s"Cache hit at ${cacheIndex.get()}: $key -> $cacheHit")
-      } // TDT remove println
-      .flatMap {
-        case None =>
-          readThroughKeyCache(key).map(_.collect {
-            case (id, parties) if `intersection non-empty`(readers, parties) => id
-          })
-        case Some(Some((contractId, parties))) if `intersection non-empty`(readers, parties) =>
-          Future.successful(Some(contractId))
-        case _ => Future.successful(None)
-      }
+    keyCache.fetch(key) match {
+      case Some(Some((contractId, parties))) if `intersection non-empty`(readers, parties) =>
+        Future.successful(Some(contractId))
+      case Some(_) =>
+        Future.successful(None)
+      case None =>
+        readThroughKeyCache(key).map(_.collect {
+          case (id, parties) if `intersection non-empty`(readers, parties) =>
+            id
+        })
+    }
 
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext): Future[Option[(ContractId, Set[Party])]] = {
-    // Get here so we can close over this immutable `state in time` in the future below.
     val currentCacheOffset = cacheIndex.get()
     val eventualResult = store.lookupContractKey(key)
 
@@ -118,11 +111,16 @@ private[store] class CachingContractsStore private (
       key,
       currentCacheOffset,
       eventualResult.map {
-        case Some((createdAt, _, _, Some(archivedAt)))
-            if archivedAt < currentCacheOffset && createdAt < currentCacheOffset =>
-          Unassigned
-        case Some((createdAt, contractId, parties, _)) if createdAt < currentCacheOffset =>
+        case Some((createdAt, _, _, Some(archivedAt))) if createdAt <= currentCacheOffset =>
+          if (archivedAt <= currentCacheOffset) Unassigned
+          // We can't update the cache ahead of the contract events stream front.
+          // Even if the cache `has seen` the create, do not update with a stale view
+          else DontUpdate
+        case Some((createdAt, contractId, parties, None)) if createdAt <= currentCacheOffset =>
           Assigned(contractId, parties)
+        case Some(_) =>
+          // Both create and archive happen `in the future` from the cache's point of view
+          DontUpdate
         case None =>
           // Safe to update since there cannot be any pending updates
           // at an earlier stage conflicting with this one  (e.g. the key is never assigned previous to this cache offset).
@@ -206,8 +204,7 @@ private[store] class CachingContractsStore private (
 
 object CachingContractsStore {
   def apply(store: ContractsReader, metrics: Metrics)(implicit
-      executionContext: ExecutionContext,
-      mat: Materializer,
+      executionContext: ExecutionContext
   ): CachingContractsStore =
     new CachingContractsStore(
       metrics,

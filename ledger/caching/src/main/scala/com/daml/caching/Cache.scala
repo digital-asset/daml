@@ -3,6 +3,8 @@
 
 package com.daml.caching
 
+import com.github.benmanes.caffeine.{cache => caffeine}
+
 /** A cache. Used for caching values.
   *
   * The strategy used for eviction is implementation-dependent.
@@ -11,6 +13,7 @@ package com.daml.caching
   * @tparam Value The type of the cached value.
   */
 abstract class Cache[Key, Value] {
+  val cache: caffeine.Cache[Key, Value]
 
   /** Put a value into the cache.
     *
