@@ -248,8 +248,8 @@ checkDuplicateRecordFields m =
       fieldError def (GHC.L l n) =
           ( l
           , unwords
-            [ "Duplicate field name " ++ showSDocUnsafe (ppr n) <> "."
-            , "Original definition at " ++ showSDocUnsafe (ppr def) <> "."
+            [ "Duplicate field name " ++ showSDocUnsafe (ppr n) ++ "."
+            , "Original definition at " ++ showSDocUnsafe (ppr def) ++ "."
             ]
           )
       -- the list should always be non-empty but easy enough to handle this case without crashing
