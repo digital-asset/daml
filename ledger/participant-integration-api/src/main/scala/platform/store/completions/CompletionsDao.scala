@@ -12,7 +12,12 @@ import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamRespo
 
 import scala.concurrent.Future
 
+/** data access object for completions
+  */
 trait CompletionsDao {
+
+  /** Fetches completions in given boundaries for given application id and parties
+    */
   def getFilteredCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -22,6 +27,8 @@ trait CompletionsDao {
       loggingContext: LoggingContext
   ): Future[List[(Offset, CompletionStreamResponse)]]
 
+  /** Fetches all completions in given boundaries
+    */
   def getAllCompletions(
       startExclusive: Offset,
       endInclusive: Offset,

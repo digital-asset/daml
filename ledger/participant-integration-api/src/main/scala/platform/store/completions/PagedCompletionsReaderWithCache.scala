@@ -105,9 +105,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       startExclusive: Offset,
       endInclusive: Offset,
   ): Option[Boundaries] =
-    if (
-      cachedBoundaries.startExclusive <= startExclusive || cachedBoundaries.isBeforeBegin
-    ) {
+    if (cachedBoundaries.startExclusive <= startExclusive || cachedBoundaries.isBeforeBegin) {
       None
     } else {
       Some(
