@@ -1,7 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 
 module Daml.Trigger
  ( query
@@ -54,8 +54,13 @@ import DA.Functor ((<&>))
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
 #endif
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import DA.Map (Map)
+import qualified DA.Map as Map
+#else
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
+#endif
 import DA.Optional
 
 import Daml.Trigger.Internal
