@@ -31,7 +31,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     )
   }
 
-  private def runUpdateExpr_GetTx(pkgs1: PureCompiledPackages)(e: Expr): SubmittedTransaction = {
+  private def runUpdateExprGetTx(pkgs1: PureCompiledPackages)(e: Expr): SubmittedTransaction = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("RollbackTest.scala")
     val m = Speedy.Machine.fromScenarioExpr(pkgs1, transactionSeed, e)
     val res = m.run()
@@ -163,7 +163,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val lit: PrimLit = PLParty(party)
       val arg: Expr = EPrimLit(lit)
       val example: Expr = EApp(e"M:$exp", arg)
-      val tx: SubmittedTransaction = runUpdateExpr_GetTx(pkgs)(example)
+      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example)
       val ids: Seq[Long] = contractValuesInOrder(tx)
       ids shouldBe expected
     }
