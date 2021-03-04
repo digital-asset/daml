@@ -323,12 +323,14 @@ data SubmitFailure = SubmitFailure
 -- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
 -- Older versions of the SDK didn't distinguish @Submit@ and
 -- @SubmitMustFail@ in the script runner.
+-- We stub it out to () for newer versions so we can easily
+-- check if it needs to be called for failures or not.
 data SubmitCmd a = SubmitCmd
   with
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
-    handleFailure : SubmitFailure -> a
+    handleFailure : ()
     locations : [(Text, SrcLoc)]
   deriving Functor
 
@@ -352,8 +354,7 @@ instance HasSubmit Script Commands where
       actAs = NonEmpty p []
       readAs = []
       commands = cmds
-      handleFailure = \failure ->
-        error $ "Submit failed with code " <> show failure.status <> ": " <> failure.description
+      handleFailure = ()
       locations = getCallStack callStack
 
   submitMustFail p cmds =
@@ -396,8 +397,7 @@ submitMulti actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = cmds
-      handleFailure = \failure ->
-        error $ "Submit failed with code " <> show failure.status <> ": " <> failure.description
+      handleFailure = ()
       locations = getCallStack callStack
 
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`

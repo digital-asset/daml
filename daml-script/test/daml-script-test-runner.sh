@@ -43,7 +43,7 @@ ScriptExample:initializeFixed SUCCESS
 ScriptExample:initializeFromQuery SUCCESS
 ScriptExample:queryParties SUCCESS
 ScriptExample:test SUCCESS
-ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: INVALID_ARGUMENT: Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction: <empty transaction>.
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:multiPartySubmission SUCCESS
 ScriptTest:partyIdHintTest SUCCESS

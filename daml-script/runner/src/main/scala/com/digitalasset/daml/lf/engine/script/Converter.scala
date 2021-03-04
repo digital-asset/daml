@@ -69,6 +69,11 @@ final case class StackTrace(frames: Vector[Location]) {
   // Return the most recent frame
   def topFrame: Option[Location] =
     frames.headOption
+  def pretty(l: Location) =
+    s"${l.definition} at ${l.packageId}:${l.module}:${l.start._1}"
+  def pretty(): String =
+    frames.map(pretty(_)).mkString("\n")
+
 }
 object StackTrace {
   val empty: StackTrace = StackTrace(Vector.empty)

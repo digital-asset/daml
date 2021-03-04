@@ -51,6 +51,7 @@ import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -394,7 +395,14 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           case Right((vv, v)) =>
             Converter
               .toFuture(ScriptF.parse(ScriptF.Ctx(knownPackages, extendedCompiledPackages), vv, v))
-              .flatMap(_.execute(env))
+              .flatMap { cmd =>
+                cmd.execute(env).transform {
+                  case Failure(exception) =>
+                    Failure(new ScriptF.FailedCmd(cmd, exception))
+                  case Success(value) =>
+                    Success(value)
+                }
+              }
               .flatMap(run(_))
           case Left(v) =>
             v match {

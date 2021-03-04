@@ -32,7 +32,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTi
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.json.ApiCodecCompressed
@@ -297,7 +296,7 @@ final class JsonApiIt
         )
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command with actAs = [Bob] but token provides claims for actAs = [Alice]"
+          exception.getCause.getMessage === "Tried to submit a command with actAs = [Bob] but token provides claims for actAs = [Alice]"
         )
       }
     }
@@ -330,7 +329,9 @@ final class JsonApiIt
           )
         )
       } yield {
-        assert(exception.getMessage === "Tried to query as Bob but token provides claims for Alice")
+        assert(
+          exception.getCause.getMessage === "Tried to query as Bob but token provides claims for Alice"
+        )
       }
     }
     "submit with no party fails" in {
@@ -341,18 +342,18 @@ final class JsonApiIt
         )
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command with actAs = [Alice] but token contains no actAs parties."
+          exception.getCause.getMessage === "Tried to submit a command with actAs = [Alice] but token contains no actAs parties."
         )
       }
     }
     "submit fails on assertion failure" in {
       for {
         clients <- getClients()
-        exception <- recoverToExceptionIf[DamlEUserError](
+        exception <- recoverToExceptionIf[ScriptF.FailedCmd](
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"))
         )
       } yield {
-        exception.message should include("Error: User abort: Assertion failed.")
+        exception.cause.getMessage should include("Error: User abort: Assertion failed.")
       }
     }
     "submitMustFail succeeds on assertion falure" in {
@@ -401,7 +402,7 @@ final class JsonApiIt
           )
         )
       } yield {
-        assert(ex.toString.contains("Cannot resolve template ID"))
+        assert(ex.getCause.toString.contains("Cannot resolve template ID"))
       }
     }
     "queryContractId" in {
