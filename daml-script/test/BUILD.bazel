@@ -215,7 +215,7 @@ sh_test(
         "$(rootpath :script-test.dar)",
         "$(POSIX_DIFF)",
         "$(POSIX_GREP)",
-        "$(POSIX_SORT)",
+        "$(POSIX_SED)",
     ],
     data = [
         ":script-test.dar",
