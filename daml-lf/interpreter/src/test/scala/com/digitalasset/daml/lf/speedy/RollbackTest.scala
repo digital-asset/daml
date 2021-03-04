@@ -9,7 +9,9 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.SResult.SResultScenarioCommit
+import com.daml.lf.speedy.PartialTransaction._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.SubmittedTransaction
@@ -31,13 +33,25 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     )
   }
 
-  private def runUpdateExprGetTx(pkgs1: PureCompiledPackages)(e: Expr): SubmittedTransaction = {
+  private def runUpdateExprGetTx(
+      pkgs1: PureCompiledPackages
+  )(e: Expr, party: Party): SubmittedTransaction = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("RollbackTest.scala")
-    val m = Speedy.Machine.fromScenarioExpr(pkgs1, transactionSeed, e)
-    val res = m.run()
+    val machine = Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party)
+    val res = machine.run()
     res match {
-      case SResultScenarioCommit(_, tx, _, _) =>
-        tx
+      case _: SResultFinalValue =>
+        machine.ledgerMode match {
+          case OffLedger =>
+            sys.error("unexpected OffLedger")
+          case onLedger: OnLedger =>
+            onLedger.ptx.finish match {
+              case IncompleteTransaction(_) =>
+                sys.error("unexpected IncompleteTransaction")
+              case CompleteTransaction(tx) =>
+                tx
+            }
+        }
       case _ =>
         sys.error(s"unexpected res: $res")
     }
@@ -62,33 +76,28 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           }
         };
 
-        val create0 : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
-            upure @Unit ());
+        val create0 : Party -> Update Unit = \(party: Party) ->
+            upure @Unit ();
 
-        val create1 : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create1 : Party -> Update Unit = \(party: Party) ->
             ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 }
-            in upure @Unit ());
+            in upure @Unit ();
 
-        val create2 : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create2 : Party -> Update Unit = \(party: Party) ->
             ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
               x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-            in upure @Unit ());
+            in upure @Unit ();
 
-        val create3 : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create3 : Party -> Update Unit = \(party: Party) ->
             ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
               x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 };
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ());
+            in upure @Unit ();
 
-        val create3nested : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create3nested : Party -> Update Unit = \(party: Party) ->
             ubind
               u1: Unit <-
                 ubind
@@ -96,10 +105,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
                   x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
                 in upure @Unit ();
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ());
+            in upure @Unit ();
 
-        val create3catchNoThrow : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create3catchNoThrow : Party -> Update Unit = \(party: Party) ->
             ubind
               u1: Unit <-
                 try @Unit
@@ -110,10 +118,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
                 catch e -> Some @(Update Unit) (upure @Unit ())
               ;
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ());
+            in upure @Unit ();
 
-        val create3throwAndCatch : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create3throwAndCatch : Party -> Update Unit = \(party: Party) ->
             ubind
               u1: Unit <-
                 try @Unit
@@ -124,10 +131,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
                 catch e -> Some @(Update Unit) (upure @Unit ())
               ;
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ());
+            in upure @Unit ();
 
-        val create3throwAndOuterCatch : Party -> Scenario Unit = \(party: Party) ->
-          commit @Unit party (
+        val create3throwAndOuterCatch : Party -> Update Unit = \(party: Party) ->
             ubind
               u1: Unit <-
                 try @Unit
@@ -140,7 +146,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
                 catch e -> Some @(Update Unit) (upure @Unit ())
               ;
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ());
+            in upure @Unit ();
 
        }
       """)
@@ -163,7 +169,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val lit: PrimLit = PLParty(party)
       val arg: Expr = EPrimLit(lit)
       val example: Expr = EApp(e"M:$exp", arg)
-      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example)
+      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example, party)
       val ids: Seq[Long] = contractValuesInOrder(tx)
       ids shouldBe expected
     }
