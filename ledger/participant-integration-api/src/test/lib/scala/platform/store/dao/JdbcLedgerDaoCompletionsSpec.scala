@@ -6,7 +6,6 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import akka.stream.scaladsl.Sink
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo}
@@ -31,8 +30,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       (offset, tx) <- store(singleCreate)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet)
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, tx.applicationId.get, tx.actAs.toSet)
+        .map(_.head)
     } yield {
       offsetOf(response) shouldBe offset
 
@@ -51,16 +50,16 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet)
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, tx.applicationId.get, tx.actAs.toSet)
+        .map(_.head)
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, Set(tx.actAs.head))
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, tx.applicationId.get, Set(tx.actAs.head))
+        .map(_.head)
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet + "UNRELATED")
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, tx.applicationId.get, tx.actAs.toSet + "UNRELATED")
+        .map(_.head)
     } yield {
       response1.completions.loneElement.commandId shouldBe tx.commandId.get
       response2.completions.loneElement.commandId shouldBe tx.commandId.get
@@ -75,8 +74,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       offset <- storeRejection(RejectionReason.Inconsistent(""), expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties)
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, applicationId, parties)
+        .map(_.head)
     } yield {
       offsetOf(response) shouldBe offset
 
@@ -96,16 +95,16 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties)
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, applicationId, parties)
+        .map(_.head)
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set(parties.head))
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, applicationId, Set(parties.head))
+        .map(_.head)
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties + "UNRELATED")
-        .runWith(Sink.head)
+        .getCompletionsPage(from, to, applicationId, parties + "UNRELATED")
+        .map(_.head)
     } yield {
       response1.completions.loneElement.commandId shouldBe expectedCmdId
       response2.completions.loneElement.commandId shouldBe expectedCmdId
@@ -119,8 +118,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId = "WRONG", parties)
-        .runWith(Sink.seq)
+        .getCompletionsPage(from, to, applicationId = "WRONG", parties)
     } yield {
       response shouldBe Seq.empty
     }
@@ -132,11 +130,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
-        .runWith(Sink.seq)
+        .getCompletionsPage(from, to, applicationId, Set("WRONG"))
       response2 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
-        .runWith(Sink.seq)
+        .getCompletionsPage(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
@@ -149,11 +145,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeMultiPartyRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
-        .runWith(Sink.seq)
+        .getCompletionsPage(from, to, applicationId, Set("WRONG"))
       response2 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
-        .runWith(Sink.seq)
+        .getCompletionsPage(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
@@ -176,9 +170,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- seq(reasons.map(reason => prepareStoreRejection(reason)))
       to <- ledgerDao.lookupLedgerEnd()
       responses <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties)
-        .map(_._2)
-        .runWith(Sink.seq)
+        .getCompletionsPage(from, to, applicationId, parties)
+        .map(_.map(_._2))
     } yield {
       responses should have length reasons.length.toLong
       val returnedCodes = responses.flatMap(_.completions.map(_.status.get.code))

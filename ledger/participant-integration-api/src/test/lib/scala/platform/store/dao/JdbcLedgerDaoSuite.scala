@@ -8,7 +8,6 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
-import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.index.v2
@@ -796,10 +795,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       parties: Set[Party],
   ): Future[Seq[(String, Int)]] =
     ledgerDao.completions
-      .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
-      .map(_._2.completions.head)
-      .map(c => c.commandId -> c.status.get.code)
-      .runWith(Sink.seq)
+      .getCompletionsPage(startExclusive, endInclusive, applicationId, parties)
+      .map(_.map { case (_, response) =>
+        response.completions.head.commandId -> response.completions.head.status.get.code
+      })
 
   def nextOffsetStep(offset: Offset): OffsetStep =
     OffsetStep(previousOffset.getAndSet(Some(offset)), offset)

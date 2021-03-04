@@ -235,6 +235,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   portFile = config.portFile,
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
+                  inMemoryCompletionsCache = true, // TODO export to config
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,

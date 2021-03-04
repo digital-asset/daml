@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.store.completions
 
 import java.util.UUID
@@ -26,7 +29,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
   import CompletionsDaoMock.genOffset
 
-  implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
+  implicit val executionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
   implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private def await[T](f: Future[T]) = Await.result(f, Duration.Inf)

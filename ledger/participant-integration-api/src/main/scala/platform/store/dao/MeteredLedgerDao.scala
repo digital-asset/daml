@@ -21,6 +21,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.completions.PagedCompletionsReader
 import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
@@ -129,7 +130,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledgerDao.getConfigurationEntries(startExclusive, endInclusive)
 
-  override val completions: CommandCompletionsReader = ledgerDao.completions
+  override val completions: PagedCompletionsReader = ledgerDao.completions
 
   override def deduplicateCommand(
       commandId: CommandId,
