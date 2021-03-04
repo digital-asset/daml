@@ -183,7 +183,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
           , input "submit alice (createCmd (T alice bob))"
-          , matchServiceOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
+          , matchServiceOutput "^.*requires authorizers.*but only.*were given.*$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]

@@ -297,7 +297,13 @@ class ReplService(
           // The error here is already printed by the logger in stepToValue.
           // No need to print anything here.
           respObs.onError(e)
-        case Failure(e) =>
+        case Failure(originalE) =>
+          val e = originalE match {
+            // For now, don’t show stack traces in Daml Repl. They look fairly confusing
+            // since they refer to the internal names we use.
+            case e: ScriptF.FailedCmd => e.cause
+            case _ => originalE
+          }
           println(s"$e")
           respObs.onError(e)
         case Success((v, result)) =>
