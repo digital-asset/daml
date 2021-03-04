@@ -9,10 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.testtool.suites.TransactionServiceIT.{
-  comparableTransactionTrees,
-  comparableTransactions,
-}
+import com.daml.ledger.api.testtool.suites.TransactionServiceIT.{comparableTransactionTrees, comparableTransactions}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.daml.ledger.client.binding.Primitive
@@ -22,6 +19,7 @@ import com.daml.ledger.test.model.Iou.Iou._
 import com.daml.ledger.test.model.Iou.IouTransfer._
 import com.daml.ledger.test.model.IouTrade.IouTrade
 import com.daml.ledger.test.model.IouTrade.IouTrade._
+import com.daml.ledger.test.model.SimpleTrade.SimpleTrade
 import com.daml.ledger.test.model.Test.Agreement._
 import com.daml.ledger.test.model.Test.AgreementFactory._
 import com.daml.ledger.test.model.Test.Choice1._
@@ -1622,6 +1620,41 @@ class TransactionServiceIT extends LedgerTestSuite {
       for ((event, witnesses) <- witnessesByEventIdInFlatStream) {
         assert(witnesses.subsetOf(witnessesByEventIdInTreesStream(event)))
       }
+    }
+  })
+  
+  test(
+    "TXFlatTransactionsVisibility",
+    "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
+    allocate(TwoParties)
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    for {
+      simpleTrade <- ledger.create(alice, SimpleTrade(alice, bob))
+      _ <- ledger.exercise(bob, simpleTrade.exerciseSimpleTrade_Accept(_))
+      aliceTransactions <- ledger.flatTransactions(alice)
+      bobTransactions <- ledger.flatTransactions(bob)
+    } yield {
+      def showTransactions(transactions: Vector[Transaction]) =
+        transactions.flatMap(_.events)
+        .collect {
+          case event if event.isCreated =>
+            val c = event.getCreated
+            s"T: ${c.templateId} | ID: ${c.contractId} | S:${c.signatories} | OBS:${c.observers} | W:${c.witnessParties}"
+          case event if event.isArchived =>
+            val c = event.getArchived
+            s"T: ${c.templateId} | ID: ${c.contractId} | W:${c.witnessParties}"
+        }.mkString("\n")
+
+      val error =
+        s"""
+           |
+           |
+           |${showTransactions(aliceTransactions)}
+           |
+           |${showTransactions(bobTransactions)}
+           |
+           |""".stripMargin
+      fail(error)
     }
   })
 }

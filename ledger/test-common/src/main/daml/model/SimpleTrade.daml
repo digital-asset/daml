@@ -1,0 +1,21 @@
+module SimpleTrade where
+
+type AssetId = ContractId Asset
+
+template SimpleTrade
+  with
+    buyer : Party
+    seller : Party
+  where
+    signatory buyer
+
+    controller seller can
+      SimpleTrade_Accept : AssetId
+        do create Asset with owner = buyer
+
+template Asset
+  with
+    owner : Party
+  where
+    signatory owner
+
