@@ -70,7 +70,7 @@ object LedgerApiTestTool {
     val pwd = Paths.get(".").toAbsolutePath
     println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
     for (resource <- resources) {
-      val is = getClass.getResourceAsStream(resource)
+      val is = getClass.getClassLoader.getResourceAsStream(resource)
       if (is == null) sys.error(s"Could not find $resource in classpath")
       val targetFile = new File(new File(resource).getName)
       Files.copy(is, targetFile.toPath, StandardCopyOption.REPLACE_EXISTING)
