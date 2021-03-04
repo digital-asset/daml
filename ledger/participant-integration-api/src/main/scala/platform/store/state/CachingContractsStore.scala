@@ -12,13 +12,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
-import com.daml.platform.store.state.ContractsKeyCache.{
-  Assigned,
-  DontUpdate,
-  KeyCacheValue,
-  KeyStateUpdate,
-  Unassigned,
-}
+import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
 import com.daml.platform.store.state.ContractsStateCache._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,8 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
 private[store] class CachingContractsStore private[store] (
     metrics: Metrics,
     store: ContractsReader,
-    keyCache: StateCache[GlobalKey, KeyStateUpdate, KeyCacheValue],
-    contractsCache: StateCache[ContractId, ContractCacheValue, ContractCacheValue],
+    keyCache: StateCache[GlobalKey, KeyStateUpdate],
+    contractsCache: StateCache[ContractId, ContractCacheValue],
 )(implicit
     executionContext: ExecutionContext
 ) extends ContractStore {
@@ -90,7 +84,7 @@ private[store] class CachingContractsStore private[store] (
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     keyCache.fetch(key) match {
-      case Some(Some((contractId, parties))) if `intersection non-empty`(readers, parties) =>
+      case Some(Assigned(contractId, parties)) if `intersection non-empty`(readers, parties) =>
         Future.successful(Some(contractId))
       case Some(_) =>
         Future.successful(None)
@@ -105,36 +99,18 @@ private[store] class CachingContractsStore private[store] (
       key: GlobalKey
   )(implicit loggingContext: LoggingContext): Future[Option[(ContractId, Set[Party])]] = {
     val currentCacheOffset = cacheIndex.get()
-    val eventualResult = store.lookupContractKey(key)
+    val eventualResult = store.lookupContractKey(key, currentCacheOffset)
 
     keyCache.feedAsync(
       key,
       currentCacheOffset,
       eventualResult.map {
-        case Some((createdAt, _, _, Some(archivedAt))) if createdAt <= currentCacheOffset =>
-          if (archivedAt <= currentCacheOffset) Unassigned
-          // We can't update the cache ahead of the contract events stream front.
-          // Even if the cache `has seen` the create, do not update with a stale view
-          else DontUpdate
-        case Some((createdAt, contractId, parties, None)) if createdAt <= currentCacheOffset =>
-          Assigned(contractId, parties)
-        case Some(_) =>
-          // Both create and archive happen `in the future` from the cache's point of view
-          DontUpdate
-        case None =>
-          // Safe to update since there cannot be any pending updates
-          // at an earlier stage conflicting with this one  (e.g. the key is never assigned previous to this cache offset).
-          Unassigned
+        case Some((contractId, stakeholders)) => Assigned(contractId, stakeholders)
+        case None => Unassigned
       },
     )
 
-    eventualResult.map {
-      case Some((_, _, _, Some(_))) =>
-        // Archived
-        Option.empty[(ContractId, Set[Party])]
-      case Some((_, contractId, parties, None)) => Some(contractId -> parties)
-      case None => Option.empty[(ContractId, Set[Party])]
-    }
+    eventualResult
   }
 
   private def `intersection non-empty`[T](one: Set[T], other: Set[T]): Boolean =
@@ -161,27 +137,26 @@ private[store] class CachingContractsStore private[store] (
       }
       .getOrElse {
         val currentCacheOffset = cacheIndex.get()
-        val eventualResult = store.lookupContract(contractId)
+        val eventualResult = store.lookupContract(contractId, currentCacheOffset)
         contractsCache.feedAsync(
           key = contractId,
           validAt = currentCacheOffset,
           newUpdate = eventualResult.map {
-            case Some((contract, stakeholders, createdAt, Some(archivedAt)))
-                if createdAt < currentCacheOffset && archivedAt < currentCacheOffset =>
+            case Some((contract, stakeholders, _, Some(_))) =>
               ContractsStateCache.Archived(contract, stakeholders)
-            case Some((contract, stakeholders, createdAt, _)) if createdAt < currentCacheOffset =>
+            case Some((contract, stakeholders, _, _)) =>
               ContractsStateCache.Active(contract, stakeholders)
             case None => ContractsStateCache.NotFound
           },
         )
 
         eventualResult.flatMap[Option[Contract]] {
-          case Some((_, stakeholders, _, Some(_)))
+          case Some((contract, stakeholders, _, maybeArchival))
               if `intersection non-empty`(stakeholders, readers) =>
-            Future.successful(Option.empty[Contract])
-          case Some((contract, stakeholders, _, None))
-              if `intersection non-empty`(stakeholders, readers) =>
-            Future.successful(Some(contract))
+            Future.successful(
+              if (maybeArchival.nonEmpty) Option.empty[Contract]
+              else Some(contract)
+            )
           case Some((contract, _, _, _)) =>
             store.checkDivulgenceVisibility(contractId, readers).map {
               case true => Option.empty[Contract]
@@ -195,11 +170,6 @@ private[store] class CachingContractsStore private[store] (
       loggingContext: LoggingContext
   ): Future[Option[Instant]] =
     store.lookupMaximumLedgerTime(ids)
-
-  override def lookupContractKey(key: GlobalKey)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
-    Future.failed(new RuntimeException("should not go through here"))
 }
 
 object CachingContractsStore {

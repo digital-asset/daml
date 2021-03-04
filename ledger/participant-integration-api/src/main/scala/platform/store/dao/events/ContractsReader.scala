@@ -7,7 +7,7 @@ import java.io.InputStream
 import java.time.Instant
 
 import anorm.SqlParser._
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.transaction.GlobalKey
@@ -30,7 +30,7 @@ sealed class ContractsReader(
     sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends ContractStore {
-  def lookupContract(contractId: ContractId)(implicit
+  def lookupContract(contractId: ContractId, before: Long)(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Contract, Set[Party], Long, Option[Long])]] =
     dispatcher
@@ -46,8 +46,8 @@ sealed class ContractsReader(
         LEFT JOIN participant_events archival_event
         ON create_event.contract_id = archival_event.contract_id
         ), parameters
-   WHERE create_event.event_sequential_id <= parameters.ledger_end_sequential_id
-          AND archival_event.event_sequential_id <= parameters.ledger_end_sequential_id
+   WHERE create_event.event_sequential_id <= $before
+          AND archival_event.event_sequential_id <= $before
           AND create_event.contract_id = $contractId
           AND archival_event.contract_id = $contractId
           AND create_event.event_kind = 10 -- create
@@ -220,37 +220,41 @@ sealed class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     lookupActiveContractAndLoadArgument(readers, contractId)
 
-  /** Returns the offset at which the key was last assigned for an active contract, otherwise the ledger end */
-  override def lookupContractKey(key: GlobalKey)(implicit
+  def lookupContractKey(key: GlobalKey, before: Long)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
+  ): Future[Option[(ContractId, Set[Party])]] =
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-      lookupLastCreateKeyWithPotentialArchive(key).as(
-        (long("created_at") ~ long("archived_at").? ~ contractId(
-          "contract_id"
-        ) ~ flatEventWitnessesColumn("create_event_witnesses")).map {
-          case createdAt ~ maybeArchivedAt ~ contractId ~ flatEventWitnesses =>
-            (createdAt, contractId, flatEventWitnesses, maybeArchivedAt)
-        }.singleOpt
+      lookupLastCreateKeyWithPotentialArchive(key, before).as(
+        (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses"))
+          .map(SqlParser.flatten)
+          .singleOpt
       )
     }
 
-  private def lookupLastCreateKeyWithPotentialArchive(key: GlobalKey): SimpleSql[Row] =
-    SQL"""SELECT
-                creates.event_sequential_id as created_at,
-                archives.event_sequential_id as archived_at,
-                creates.contract_id as contract_id,
-                creates.flat_event_witnesses as create_event_witnesses
-             FROM participant_events creates
-             LEFT JOIN participant_events archives ON creates.contract_id = archives.contract_id, parameters
-            WHERE creates.event_kind = 10 -- create
-              AND archives.event_kind = 20 -- consuming exercise
-              AND archives.event_sequential_id <= parameters.ledger_end_sequential_id
-              AND creates.create_key_hash = ${key.hash}
-              AND creates.event_sequential_id <= parameters.ledger_end_sequential_id
-            ORDER BY created_at DESC
-            LIMIT 1
-            """
+  private def lookupLastCreateKeyWithPotentialArchive(
+      key: GlobalKey,
+      before: Long,
+  ): SimpleSql[Row] =
+    SQL"""
+  WITH last_contract_key_create AS (
+         SELECT contract_id, flat_event_witnesses
+           FROM participant_events
+          WHERE event_kind = 10 -- create
+            AND create_key_hash = ${key.hash}
+            AND event_sequential_id <= $before
+          ORDER BY event_sequential_id DESC
+          LIMIT 1
+       )
+  SELECT contract_id
+    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+  WHERE NOT EXISTS       -- check no archival visible
+         (SELECT 1
+            FROM participant_events
+           WHERE event_kind = 20 -- consuming exercise
+             AND event_sequential_id <= $before
+             AND contract_id = last_contract_key_create.contract_id
+         );
+       """
 
   override def lookupContractKey(
       readers: Set[Party],

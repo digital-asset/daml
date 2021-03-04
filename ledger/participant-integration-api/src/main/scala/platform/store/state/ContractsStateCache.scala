@@ -10,10 +10,7 @@ import scala.concurrent.ExecutionContext
 
 class ContractsStateCache(val cache: Cache[ContractId, ContractCacheValue])(implicit
     val ec: ExecutionContext
-) extends StateCache[ContractId, ContractCacheValue, ContractCacheValue] {
-  override protected def toUpdateAction(u: ContractCacheValue): Option[ContractCacheValue] =
-    Some(u)
-}
+) extends StateCache[ContractId, ContractCacheValue]
 
 object ContractsStateCache {
   // Caching possible lifecycle states of a contract, together with its stakeholders

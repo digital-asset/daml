@@ -55,11 +55,6 @@ private[platform] final class LedgerBackedIndexService(
     participantId: ParticipantId,
 ) extends IndexService {
 
-  override def lookupContractKey(key: GlobalKey)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
-    Future.failed(new RuntimeException("Should not go through here"))
-
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     Future.successful(ledger.ledgerId)
 

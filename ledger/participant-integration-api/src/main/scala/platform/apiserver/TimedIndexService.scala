@@ -34,7 +34,6 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
@@ -232,12 +231,4 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
-
-  def lookupContractKey(key: GlobalKey)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(Long, ContractId, Set[Party], Option[Long])]] =
-    Timed.future(
-      metrics.daml.services.index.lookupContractKey,
-      delegate.lookupContractKey(key),
-    )
 }

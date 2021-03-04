@@ -18,15 +18,15 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
-import com.daml.platform.store.state.ContractsKeyCache.KeyCacheValue
+import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate}
 import com.daml.platform.store.state.ContractsStateCache.ContractCacheValue
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 
@@ -48,7 +48,7 @@ class CachingContractsStoreSpec
   private implicit val testLoggingContext: LoggingContext = LoggingContext.ForTesting
   private val testCacheSize: SizedCache.Configuration = SizedCache.Configuration(1000L)
   private val contractsKeyCache: ContractsKeyCache =
-    ContractsKeyCache(SizedCache.from[GlobalKey, KeyCacheValue](testCacheSize))
+    ContractsKeyCache(SizedCache.from[GlobalKey, KeyStateUpdate](testCacheSize))
 
   private val contractsStateCache = new ContractsStateCache(
     SizedCache.from[ContractId, ContractCacheValue](testCacheSize)
@@ -81,9 +81,9 @@ class CachingContractsStoreSpec
   }
 
   private def indexReturnsNotFound(): Unit = {
-    when(contractsReaderMock.lookupContractKey(*[GlobalKey])(*[LoggingContext]))
+    when(contractsReaderMock.lookupContractKey(*[GlobalKey], anyLong)(*[LoggingContext]))
       .thenReturn(Future.successful(Option.empty))
-    when(contractsReaderMock.lookupContract(*[ContractId])(*[LoggingContext]))
+    when(contractsReaderMock.lookupContract(*[ContractId], anyLong)(*[LoggingContext]))
       .thenReturn(Future.successful(Option.empty))
     ()
   }
@@ -111,7 +111,6 @@ class CachingContractsStoreSpec
       _ <- assertCreated(contractEventsStream, created3)
       // ########### Assert cache population via read-throughs ###########
       _ <- `assert read-through`(created2)
-      _ <- `assert read-through doesn't happen if past the cache offset`(created3)
     } yield succeed
   }
 
@@ -127,10 +126,12 @@ class CachingContractsStoreSpec
       contractsKeyCache.cache.cache.invalidateAll() // Ensure the fetched element is not cached
       val readers = defaultStakeholders.map(party)
       when(
-        contractsReaderMock.lookupContractKey(eqTo(created.globalKey.get))(*[LoggingContext])
+        contractsReaderMock.lookupContractKey(eqTo(created.globalKey.get), anyLong)(
+          *[LoggingContext]
+        )
       ).thenReturn(
         Future.successful(
-          Some((created.eventSequentialId, created.contractId, created.flatEventWitnesses, None))
+          Some((created.contractId, created.flatEventWitnesses))
         )
       )
 
@@ -139,43 +140,11 @@ class CachingContractsStoreSpec
           .lookupContractKey(readers, created.globalKey.get)
         _ = lookupResult shouldBe Some(created.contractId)
         _ <- eventually {
-          contractsKeyCache.cache.getIfPresent(created.globalKey.get) shouldBe Some(
-            Some((created.contractId, created.flatEventWitnesses))
+          contractsKeyCache.cache.cache.getIfPresent(created.globalKey.get) shouldBe Assigned(
+            created.contractId,
+            created.flatEventWitnesses,
           )
         }
-      } yield succeed
-    }
-
-  private def `assert read-through doesn't happen if past the cache offset`(
-      created: ContractStateEvent.Created
-  ): Future[Assertion] =
-    withCacheContext {
-      contractsKeyCache.cache.cache.invalidateAll() // Ensure the fetched element is not cached
-      val readers = defaultStakeholders.map(party)
-      when(
-        contractsReaderMock.lookupContractKey(eqTo(created.globalKey.get))(*[LoggingContext])
-      ).thenReturn(
-        Future.successful(
-          Some(
-            (
-              created.eventSequentialId,
-              created.contractId,
-              created.flatEventWitnesses,
-              Some(created.eventSequentialId + 1L),
-            )
-          )
-        )
-      )
-
-      for {
-        lookupResult <- cachingContractsStore
-          .lookupContractKey(readers, created.globalKey.get)
-        _ = lookupResult shouldBe None
-        // Loading is async to the client result.
-        // No idea how to assert without this sleep
-        _ = Thread.sleep(1000L)
-        // Result should not be cached
-        _ = contractsKeyCache.cache.getIfPresent(created.globalKey.get) shouldBe None
       } yield succeed
     }
 
@@ -185,10 +154,14 @@ class CachingContractsStoreSpec
   )(
       times: Int
   ): Future[Assertion] = {
-    def createSingleLazyFuture: () => Future[Assertion] = {
+    def createAndArchive: (ContractStateEvent.Created, ContractStateEvent.Archived) = {
       val c = created(Some(key), parties)
-      val a = archived(c)
-      () =>
+      (c, archived(c))
+    }
+
+    def createSingleLazyFuture
+        : ((ContractStateEvent.Created, ContractStateEvent.Archived)) => Future[Assertion] = {
+      case (c, a) =>
         for {
           _ <- assertCreated(contractEventsStream, c)
           _ <- assertArchived(contractEventsStream, a)
@@ -196,8 +169,65 @@ class CachingContractsStoreSpec
     }
 
     indexReturnsNotFound()
-    (1 to times).map(_ => createSingleLazyFuture).foldLeft(Future.successful(succeed)) {
-      case (f, next) => f.flatMap(_ => next())
+    val contracts = (1 to times).map(_ => createAndArchive)
+    contracts.zip(contracts.tail).foldLeft(Future.successful(succeed)) {
+      case (f, (eventsStream, indexState)) =>
+        f.flatMap { _ =>
+          // The index db reader will return one step in advance
+          when(
+            contractsReaderMock.lookupContractKey(
+              eqTo(indexState._1.globalKey.get),
+              eqTo(indexState._1.eventSequentialId),
+            )(*[LoggingContext])
+          )
+            .thenReturn(
+              Future.successful(Some((indexState._1.contractId, indexState._1.flatEventWitnesses)))
+            )
+          when(
+            contractsReaderMock.lookupContractKey(
+              eqTo(indexState._2.globalKey.get),
+              eqTo(indexState._2.eventSequentialId),
+            )(*[LoggingContext])
+          )
+            .thenReturn(Future.successful(None))
+          when(
+            contractsReaderMock.lookupContract(
+              eqTo(indexState._1.contractId),
+              eqTo(indexState._1.eventSequentialId),
+            )(*[LoggingContext])
+          )
+            .thenReturn(
+              Future.successful(
+                Some(
+                  (
+                    indexState._1.contract,
+                    indexState._1.flatEventWitnesses,
+                    indexState._1.eventSequentialId,
+                    None,
+                  )
+                )
+              )
+            )
+          when(
+            contractsReaderMock.lookupContract(
+              eqTo(indexState._2.contractId),
+              eqTo(indexState._2.eventSequentialId),
+            )(*[LoggingContext])
+          )
+            .thenReturn(
+              Future.successful(
+                Some(
+                  (
+                    indexState._2.contract,
+                    indexState._2.flatEventWitnesses,
+                    indexState._2.createdAt,
+                    Some(indexState._2.eventSequentialId),
+                  )
+                )
+              )
+            )
+          createSingleLazyFuture(eventsStream)
+        }
     }
   }
 
@@ -208,8 +238,9 @@ class CachingContractsStoreSpec
     for {
       _ <- Future.successful(contractEventsStream.offer(createdEvent) shouldBe Enqueued)
       _ <- eventually {
-        contractsKeyCache.cache.cache.getIfPresent(createdEvent.globalKey.get) shouldBe Some(
-          (createdEvent.contractId, createdEvent.flatEventWitnesses)
+        contractsKeyCache.cache.cache.getIfPresent(createdEvent.globalKey.get) shouldBe Assigned(
+          createdEvent.contractId,
+          createdEvent.flatEventWitnesses,
         )
       }
       _ <- withCacheContext {
@@ -234,6 +265,7 @@ class CachingContractsStoreSpec
           .lookupContractKey(Set("party-1337").map(party), createdEvent.globalKey.get)
           .map(_ shouldBe None)
       }
+
     } yield succeed
 
   private def assertArchived(
@@ -242,9 +274,6 @@ class CachingContractsStoreSpec
   ): Future[Assertion] =
     for {
       _ <- Future.successful(contractEventsStream.offer(archivedEvent) shouldBe Enqueued)
-      _ <- eventually {
-        contractsKeyCache.cache.cache.getIfPresent(archivedEvent.globalKey.get) shouldBe None
-      }
       _ <- withCacheContext {
         eventually {
           // Contract key de-assigned

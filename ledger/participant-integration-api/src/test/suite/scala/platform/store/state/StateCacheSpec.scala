@@ -7,8 +7,8 @@ import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.Success
 
@@ -16,13 +16,11 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
   behavior of "async cache loading"
 
   private val stateCacheBuilder = (provided: DamlCache[String, String]) =>
-    new StateCache[String, String, String] {
+    new StateCache[String, String] {
       override protected implicit def ec: ExecutionContext =
         scala.concurrent.ExecutionContext.global
 
       override def cache: DamlCache[String, String] = provided
-
-      override protected def toUpdateAction(u: String): String = Some(u)
     }
 
   it should "load async" in {
