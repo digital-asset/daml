@@ -100,6 +100,9 @@ object CertificatesEndpoint {
   private def encode(bytes: FingerprintBytes): Fingerprint =
     Fingerprint(BaseEncoding.base64Url().encode(bytes.unsafeArray))
 
+  // URL-safe encoding is used for certificate as well even though they don't require
+  // it to make sure there is only one encoding used across the API (fingerprints can
+  // be passed in URLs for GETs and thus are required to be URL-safe)
   private def encode(certificate: X509Certificate): Certificate =
     Certificate(BaseEncoding.base64Url().encode(certificate.getEncoded))
 
