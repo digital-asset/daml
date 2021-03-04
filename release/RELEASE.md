@@ -89,6 +89,10 @@ patches we backport to the 1.0 release branch).
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
    >
+   > The script that installs Firefox, Node, VSCode and OpenJDK runs once the
+   > machine is available for login. If you can't find the software you need
+   > immediately, just wait for a couple of minutes.
+   >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
 
