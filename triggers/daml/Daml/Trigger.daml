@@ -52,9 +52,6 @@ import DA.Action.State (execState)
 import DA.Foldable (any)
 import DA.Functor ((<&>))
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-import qualified DA.Map as GMap
-#endif
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import DA.Map (Map)
 import qualified DA.Map as Map
 #else
@@ -74,8 +71,8 @@ getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
 getContracts (ACS tpls pending) = mapOptional fromAny
                                 $ filter (\(cid, _) -> not $ cid `elem` allPending)
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-                                $ optional [] GMap.toList
-                                $ GMap.lookup (templateTypeRep @a)
+                                $ optional [] Map.toList
+                                $ Map.lookup (templateTypeRep @a)
 #endif
                                   tpls
   where
@@ -86,7 +83,7 @@ getContractById : forall a. Template a => ContractId a -> ACS -> Optional a
 getContractById id (ACS tpls pending) = do
   let aid = toAnyContractId id
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-      implSpecific = GMap.lookup aid <=< GMap.lookup (templateTypeRep @a)
+      implSpecific = Map.lookup aid <=< Map.lookup (templateTypeRep @a)
 #else
       implSpecific = fmap snd . find ((aid ==) . fst)
 #endif
