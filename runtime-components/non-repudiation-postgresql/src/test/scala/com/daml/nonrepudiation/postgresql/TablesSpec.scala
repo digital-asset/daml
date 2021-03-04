@@ -38,6 +38,17 @@ final class TablesSpec
     }
   }
 
+  it should "guarantee that adding a certificate is idempotent" in {
+    initializeDatabase(postgresDatabase.url, maxPoolSize = 10).use { db =>
+      val (_, expectedCertificate) = generateKeyAndCertificate()
+      val fingerprint1 = db.certificates.put(expectedCertificate)
+      val fingerprint2 = db.certificates.put(expectedCertificate)
+      fingerprint1 shouldEqual fingerprint2
+      val certificate = db.certificates.get(fingerprint1)
+      certificate.value.getEncoded shouldEqual expectedCertificate.getEncoded
+    }
+  }
+
   it should "correctly read and write signed payloads" in {
     initializeDatabase(postgresDatabase.url, maxPoolSize = 10).use { db =>
       val (privateKey, expectedCertificate) = generateKeyAndCertificate()

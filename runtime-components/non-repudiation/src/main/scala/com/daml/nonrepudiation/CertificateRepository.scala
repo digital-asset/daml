@@ -10,11 +10,16 @@ import com.codahale.metrics.Timer
 object CertificateRepository {
 
   trait Read {
+
     def get(fingerprint: FingerprintBytes): Option[X509Certificate]
+
   }
 
   trait Write {
+
+    /** Must guarantee idempotence. */
     def put(certificate: X509Certificate): FingerprintBytes
+
   }
 
   final class Timed(timer: Timer, delegate: Read) extends Read {
