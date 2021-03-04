@@ -12,9 +12,8 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{Get, Put}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.scaladsl.Sink
-import akka.util.ByteString
 import com.daml.nonrepudiation.api.v1.{CertificatesEndpoint, SignedPayloadsEndpoint}
+import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{
   AlgorithmString,
   CertificateRepository,
@@ -25,12 +24,12 @@ import com.daml.nonrepudiation.{
   SignedPayload,
   SignedPayloadRepository,
 }
-import com.daml.nonrepudiation.testing._
 import com.daml.ports.FreePort
 import com.google.common.io.BaseEncoding
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
+import spray.json.JsonFormat
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -41,6 +40,7 @@ final class NonRepudiationApiSpec
     with Matchers
     with OptionValues
     with BeforeAndAfterAll
+    with Result.JsonProtocol
     with SignedPayloadsEndpoint.JsonProtocol
     with CertificatesEndpoint.JsonProtocol {
 
@@ -82,14 +82,17 @@ final class NonRepudiationApiSpec
         _ = signedPayloads.put(toSignedPayload(firstExpectedResponse))
         secondResponse <- getSignedPayload(baseUrl, commandId)
         _ = secondResponse.status.intValue shouldBe 200
-        payloadsAfterFirstAdd <- Unmarshal(secondResponse).to[List[SignedPayloadsEndpoint.Response]]
+        payloadsAfterFirstAdd <- expect[List[SignedPayloadsEndpoint.Response]](secondResponse)
         _ = signedPayloads.put(toSignedPayload(secondExpectedResponse))
         thirdResponse <- getSignedPayload(baseUrl, commandId)
         _ = thirdResponse.status.intValue shouldBe 200
-        payloadsAfterSecondAdd <- Unmarshal(thirdResponse).to[List[SignedPayloadsEndpoint.Response]]
+        payloadsAfterSecondAdd <- expect[List[SignedPayloadsEndpoint.Response]](thirdResponse)
       } yield {
-        payloadsAfterFirstAdd should contain only firstExpectedResponse
-        payloadsAfterSecondAdd should contain.allOf(firstExpectedResponse, secondExpectedResponse)
+        payloadsAfterFirstAdd.result should contain only firstExpectedResponse
+        payloadsAfterSecondAdd.result should contain.allOf(
+          firstExpectedResponse,
+          secondExpectedResponse,
+        )
       }
 
   }
@@ -99,10 +102,11 @@ final class NonRepudiationApiSpec
   ) { (baseUrl, _, _) =>
     for {
       response <- getSignedPayload(baseUrl, "not-really-important")
-      (status, body) <- statusAndBody(response)
+      failure <- Unmarshal(response).to[Result.Failure]
     } yield {
-      status shouldBe 500
-      body shouldBe SignedPayloadsEndpoint.UnableToRetrieveTheSignedPayload
+      response.status.intValue shouldBe 500
+      failure.status shouldBe 500
+      failure.error shouldBe SignedPayloadsEndpoint.UnableToRetrieveTheSignedPayload
     }
   }
 
@@ -118,10 +122,11 @@ final class NonRepudiationApiSpec
         expectedFingerprint = certificates.put(expectedCertificate)
         _ = fingerprintBytes shouldEqual expectedFingerprint
         secondResponse <- getCertificate(baseUrl, fingerprint)
-        secondResponseBody <- Unmarshal(secondResponse).to[CertificatesEndpoint.Certificate]
+        secondResponseBody <- expect[CertificatesEndpoint.Certificate](secondResponse)
       } yield {
-        val certificate = BaseEncoding.base64Url().decode(secondResponseBody.certificate)
-        certificate shouldEqual expectedCertificate.getEncoded
+        val encodedCertificate = secondResponseBody.result.certificate
+        val certificateBytes = BaseEncoding.base64Url().decode(encodedCertificate)
+        certificateBytes shouldEqual expectedCertificate.getEncoded
       }
   }
 
@@ -136,8 +141,8 @@ final class NonRepudiationApiSpec
       for {
         response <- putCertificate(baseUrl, expectedCertificate)
         _ = response.status.intValue shouldBe 200
-        responseBody <- Unmarshal(response).to[CertificatesEndpoint.Fingerprint]
-        _ = responseBody.fingerprint shouldBe expectedFingerprint
+        responseBody <- expect[CertificatesEndpoint.Fingerprint](response)
+        _ = responseBody.result.fingerprint shouldBe expectedFingerprint
       } yield {
         val certificate = certificates.get(fingerprintBytes).value
         certificate.getEncoded shouldEqual expectedCertificate.getEncoded
@@ -148,10 +153,11 @@ final class NonRepudiationApiSpec
     (baseUrl, _, _) =>
       for {
         response <- getCertificate(baseUrl, "not-a-fingerprint")
-        (status, body) <- statusAndBody(response)
+        result <- Unmarshal(response).to[Result.Failure]
       } yield {
-        status shouldBe 400
-        body shouldBe CertificatesEndpoint.InvalidFingerprintString
+        response.status.intValue shouldBe 400
+        result.status shouldBe 400
+        result.error shouldBe CertificatesEndpoint.InvalidFingerprintString
       }
   }
 
@@ -165,10 +171,11 @@ final class NonRepudiationApiSpec
     (baseUrl, _, _) =>
       for {
         response <- putCertificate(baseUrl, """{"certificate":"Ceci n'est pas un certificat"}""")
-        (status, body) <- statusAndBody(response)
+        result <- Unmarshal(response).to[Result.Failure]
       } yield {
-        status shouldBe 400
-        body shouldBe CertificatesEndpoint.InvalidCertificateString
+        response.status.intValue shouldBe 400
+        result.status shouldBe 400
+        result.error shouldBe CertificatesEndpoint.InvalidCertificateString
       }
   }
 
@@ -178,10 +185,11 @@ final class NonRepudiationApiSpec
       val malformedCertificate = BaseEncoding.base64Url().encode(randomBytes)
       for {
         response <- putCertificate(baseUrl, s"""{"certificate":"$malformedCertificate"}""")
-        (status, body) <- statusAndBody(response)
+        result <- Unmarshal(response).to[Result.Failure]
       } yield {
-        status shouldBe 400
-        body shouldBe CertificatesEndpoint.InvalidCertificateFormat
+        response.status.intValue shouldBe 400
+        result.status shouldBe 400
+        result.error shouldBe CertificatesEndpoint.InvalidCertificateFormat
       }
   }
 
@@ -194,10 +202,11 @@ final class NonRepudiationApiSpec
 
     for {
       response <- getCertificate(baseUrl, expectedFingerprint)
-      (status, body) <- statusAndBody(response)
+      result <- Unmarshal(response).to[Result.Failure]
     } yield {
-      status shouldBe 500
-      body shouldBe CertificatesEndpoint.UnableToRetrieveTheCertificate
+      response.status.intValue shouldBe 500
+      result.status shouldBe 500
+      result.error shouldBe CertificatesEndpoint.UnableToRetrieveTheCertificate
     }
   }
 
@@ -208,10 +217,11 @@ final class NonRepudiationApiSpec
 
     for {
       response <- putCertificate(baseUrl, expectedCertificate)
-      (status, body) <- statusAndBody(response)
+      result <- Unmarshal(response).to[Result.Failure]
     } yield {
-      status shouldBe 500
-      body shouldBe CertificatesEndpoint.UnableToAddTheCertificate
+      response.status.intValue shouldBe 500
+      result.status shouldBe 500
+      result.error shouldBe CertificatesEndpoint.UnableToAddTheCertificate
     }
   }
 
@@ -263,12 +273,8 @@ final class NonRepudiationApiSpec
     Http().singleRequest(Put(s"$baseUrl/v1/certificate").withEntity(entity))
   }
 
-  private def statusAndBody(response: HttpResponse): Future[(Int, String)] =
-    response.entity
-      .getDataBytes()
-      .runWith(Sink.seq[ByteString], actorSystem)
-      .map(_.reduce(_ ++ _))
-      .map(bytes => response.status.intValue -> bytes.utf8String)
+  def expect[A: JsonFormat](response: HttpResponse): Future[Result.Success[A]] =
+    Unmarshal(response).to[Result.Success[A]]
 
   override protected def afterAll(): Unit = {
     super.afterAll()

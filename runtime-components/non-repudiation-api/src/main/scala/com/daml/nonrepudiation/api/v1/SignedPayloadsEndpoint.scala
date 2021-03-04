@@ -6,6 +6,7 @@ package com.daml.nonrepudiation.api.v1
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import com.daml.nonrepudiation.api.Result
 import com.daml.nonrepudiation.{CommandIdString, SignedPayload, SignedPayloadRepository}
 import com.google.common.io.BaseEncoding
 import org.slf4j.{Logger, LoggerFactory}
@@ -15,7 +16,8 @@ import scala.collection.compat.immutable.ArraySeq
 
 private[api] final class SignedPayloadsEndpoint private (
     signedPayloads: SignedPayloadRepository.Read[CommandIdString]
-) extends SignedPayloadsEndpoint.JsonProtocol {
+) extends Result.JsonProtocol
+    with SignedPayloadsEndpoint.JsonProtocol {
 
   import SignedPayloadsEndpoint._
 
@@ -25,7 +27,7 @@ private[api] final class SignedPayloadsEndpoint private (
         handleExceptions(logAndReport(logger)(UnableToRetrieveTheSignedPayload)) {
           val responses = signedPayloads.get(commandId).map(toResponse)
           if (responses.nonEmpty) {
-            complete(responses)
+            complete(Result.Success(responses, 200))
           } else {
             reject
           }

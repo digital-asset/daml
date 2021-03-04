@@ -8,7 +8,8 @@ import java.security.cert.{CertificateFactory, X509Certificate}
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Route, StandardRoute, ValidationRejection}
+import akka.http.scaladsl.server.Route
+import com.daml.nonrepudiation.api.Result
 import com.daml.nonrepudiation.{CertificateRepository, FingerprintBytes}
 import com.google.common.io.BaseEncoding
 import org.slf4j.{Logger, LoggerFactory}
@@ -17,19 +18,22 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 import scala.util.Try
 
 private[api] final class CertificatesEndpoint private (certificates: CertificateRepository)
-    extends CertificatesEndpoint.JsonProtocol {
+    extends Result.JsonProtocol
+    with CertificatesEndpoint.JsonProtocol {
 
   import CertificatesEndpoint._
 
   private def putCertificate(certificate: X509Certificate): Route =
     handleExceptions(logAndReport(logger)(UnableToAddTheCertificate)) {
       val fingerprint = certificates.put(certificate)
-      complete(encode(fingerprint))
+      complete(Result.Success(encode(fingerprint), 200))
     }
 
   private def getCertificate(fingerprint: FingerprintBytes): Route =
     handleExceptions(logAndReport(logger)(UnableToRetrieveTheCertificate)) {
-      certificates.get(fingerprint).fold(reject)(certificate => complete(encode(certificate)))
+      certificates
+        .get(fingerprint)
+        .fold(reject)(certificate => complete(Result.Success(encode(certificate), 200)))
     }
 
   private val route: Route =
@@ -90,9 +94,6 @@ object CertificatesEndpoint {
 
   private def decode(fingerprint: String): Either[String, FingerprintBytes] =
     decodeBytes(fingerprint, InvalidFingerprintString).map(FingerprintBytes.wrap)
-
-  private def rejectBadInput(errorMessage: String): StandardRoute =
-    reject(ValidationRejection(errorMessage))
 
   final case class Certificate(certificate: String)
 
