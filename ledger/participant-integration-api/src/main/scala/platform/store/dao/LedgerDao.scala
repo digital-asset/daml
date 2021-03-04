@@ -27,8 +27,9 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.dao.events.ContractStateEvent
-import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
+import com.daml.platform.store.completions.PagedCompletionsReader
 import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -131,7 +132,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
   def contractsReader: LedgerDaoContractsReader
 
-  def completions: LedgerDaoCommandCompletionsReader
+  def completions: PagedCompletionsReader
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party])(implicit

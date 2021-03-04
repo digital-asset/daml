@@ -28,6 +28,7 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
+    inMemoryCompletionsCache: Boolean = true,
 )
 
 object IndexerConfig {

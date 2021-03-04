@@ -73,6 +73,7 @@ trait ConfigProvider[ExtraConfig] {
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
       enableMutableContractStateCache = config.enableMutableContractStateCache,
+      inMemoryCompletionsCache = true, // TODO export to config
     )
 
   def commandConfig(

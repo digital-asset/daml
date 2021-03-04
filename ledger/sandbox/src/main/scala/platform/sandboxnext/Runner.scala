@@ -240,6 +240,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
                   enableMutableContractStateCache = false,
+                  inMemoryCompletionsCache = true, // TODO export to config
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,

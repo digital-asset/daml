@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.store.completions
 
 import com.daml.ledger.participant.state.v1.Offset
@@ -6,7 +9,7 @@ import scala.collection.SortedMap
 
 case class Boundaries(startExclusive: Offset, endInclusive: Offset) {
 
-  def isOffsetBeforeBegin(): Boolean =
+  def isBeforeBegin: Boolean =
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
 }
 
@@ -21,10 +24,10 @@ case class Boundaries(startExclusive: Offset, endInclusive: Offset) {
 case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap[Offset, T]) {
 
   /** Caches values. This method may remove oldest values (based on offset)
-    * @param startExclusive
-    * @param endInclusive
-    * @param values
-    * @return new instance of cache containing
+    * @param startExclusive start of proposed cache
+    * @param endInclusive end of proposed cache
+    * @param values proposed new values of cache
+    * @return new instance of cache containing conjunction of existing cache and proposed cache limited to maxItems
     */
   def cache(
       startExclusive: Offset,
@@ -54,6 +57,12 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
     }
   }
 
+  /**
+   * fetches subset of current cache. If cached range and requested one are disjointed, then None is returned.
+   * @param startExclusive requested subset start
+   * @param endInclusive requested subset end
+   * @return optional subset of current cache as new RangeCache instance.
+   */
   def slice(startExclusive: Offset, endInclusive: Offset): Option[RangeCache[T]] =
     if (areDisjointed(startExclusive, endInclusive)) {
       None
@@ -64,10 +73,15 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
             startExclusive = getGreater(startExclusive, boundaries.startExclusive),
             endInclusive = getLesser(endInclusive, boundaries.endInclusive),
           ),
-          cache = (cache.range(startExclusive, endInclusive) - startExclusive) ++ cache
-            .get(endInclusive)
-            .map(v => SortedMap(endInclusive -> v))
-            .getOrElse(SortedMap.empty[Offset, T]),
+          cache = {
+            val cacheWithInvalidStart = cache.range(startExclusive, endInclusive) ++ cache
+              .get(endInclusive)
+              .map(v => SortedMap(endInclusive -> v))
+              .getOrElse(SortedMap.empty[Offset, T])
+            if (cacheWithInvalidStart.contains(startExclusive))
+              cacheWithInvalidStart.tail
+            else cacheWithInvalidStart
+          },
         )
       )
 
@@ -95,9 +109,6 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
 object RangeCache {
 
   /** creates empty range cache
-    * @param maxElems
-    * @tparam T
-    * @return
     */
   def empty[T](maxElems: Int): RangeCache[T] = RangeCache(
     Boundaries(Offset.beforeBegin, Offset.beforeBegin),

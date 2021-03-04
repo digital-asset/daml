@@ -52,6 +52,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = Some(new ValueEnricher(new Engine())),
+      inMemoryCompletionsCache = true,
     )
 
   protected final var ledgerDao: LedgerDao = _

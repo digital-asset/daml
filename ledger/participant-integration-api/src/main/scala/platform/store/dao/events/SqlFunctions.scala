@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.events.EventsTableQueries.format
 
-private[dao] trait SqlFunctions {
+private[store] trait SqlFunctions {
   def arrayIntersectionWhereClause(arrayColumn: String, party: Party): String =
     arrayIntersectionWhereClause(arrayColumn: String, Set(party))
 
@@ -22,7 +22,7 @@ private[dao] trait SqlFunctions {
     s"group by (${cols.mkString(", ")})"
 }
 
-private[dao] object SqlFunctions {
+private[store] object SqlFunctions {
   def arrayIntersection(a: Array[String], b: Array[String]): Array[String] =
     a.toSet.intersect(b.toSet).toArray
 
