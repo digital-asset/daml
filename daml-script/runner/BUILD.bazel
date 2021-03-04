@@ -73,9 +73,9 @@ da_scala_binary(
 da_scala_binary(
     name = "test-runner",
     main_class = "com.daml.lf.engine.script.TestMain",
+    resources = glob(["src/main/resources/**/*"]),
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
-    resources = glob(["src/main/resources/**/*"]),
     deps = [":script-runner-lib"],
 )
 
