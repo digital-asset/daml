@@ -119,6 +119,7 @@ def _daml_package_rule_impl(ctx):
         --iface-dir $IFACE_DIR \
         --target {daml_lf_version} \
         --cpp {cpp} \
+        --ghc-option=-Werror \
         -o {dalf_file} \
         {main}
 

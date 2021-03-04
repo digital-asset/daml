@@ -496,7 +496,7 @@ dependencies:
   - daml-prim
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-indirect.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-test-indirect.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
@@ -529,7 +529,7 @@ dependencies:
   - repl-test-indirect.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-test.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
@@ -557,7 +557,7 @@ dependencies:
   - daml-prim
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-two.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-test-two.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
@@ -592,7 +592,7 @@ data-dependencies:
   - repl-test-two.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-multi-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-multi-test.dar)
       rm -rf $$TMP_DIR
   """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
