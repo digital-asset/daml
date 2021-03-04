@@ -30,6 +30,7 @@ load(
     ":conformance.bzl",
     "conformance_test",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 # we release ledger-api-test-tool-stable as ledger-api-test-tool
 da_scala_binary(
@@ -269,4 +270,24 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = ["--verbose"],
+)
+
+# This deliberately uses the deploy.jar since that’s what we ship
+# and we want to test that the extract option works there.
+# Given subleties in classpaths, it could potentially work
+# in the non-deploy jar.
+sh_test(
+    name = "test-extract",
+    srcs = ["test-extract.sh"],
+    args = [
+        "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
+        "$(location :ledger-api-test-tool_deploy.jar)",
+    ],
+    data = [
+        ":ledger-api-test-tool_deploy.jar",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
