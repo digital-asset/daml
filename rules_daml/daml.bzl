@@ -19,9 +19,7 @@ _zipper = attr.label(
     cfg = "host",
 )
 
-# For some reason, -Werror seems to turn on -Wmissing-signatures so we turn
-# it off again.
-ghc_opts = ["--ghc-option=-Werror", "--ghc-option=-Wno-error=missing-signatures"]
+ghc_opts = ["--ghc-option=-Werror"]
 
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
