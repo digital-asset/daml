@@ -169,7 +169,7 @@ private[lf] object Speedy {
 
     private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
       ledgerMode match {
-        case onLedger @ OnLedger(_, _, _, _, _, _, _, _) => f(onLedger)
+        case onLedger: OnLedger => f(onLedger)
         case OffLedger => throw SRequiresOnLedger(op)
       }
 
@@ -818,6 +818,26 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
+    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    def fromUpdateExpr(
+        compiledPackages: CompiledPackages,
+        transactionSeed: crypto.Hash,
+        updateE: Expr,
+        committer: Party,
+    ): Machine = {
+      val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
+      Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.MinValue,
+        initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
+        expr = SEApp(updateSE, Array(SEValue.Token)),
+        globalCids = Set.empty,
+        committers = Set(committer),
+      )
+    }
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
     // Construct a machine for running scenario.
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
@@ -1298,6 +1318,9 @@ private[lf] object Speedy {
 
     def execute(v: SValue) = {
       restore()
+      machine.withOnLedger("KTryCatchHandler") { onLedger =>
+        onLedger.ptx = onLedger.ptx.endTry
+      }
       machine.returnValue = v
     }
   }
