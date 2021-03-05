@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.nonrepudiation.perf
+package com.daml.nonrepudiation.testing
 
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.api.v1.command_submission_service.{
@@ -15,8 +15,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object DummyCommandSubmissionService {
 
-  private val Success = Future.successful(Empty.defaultInstance)
-
   def bind(executionContext: ExecutionContext): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(new DummyCommandSubmissionService, executionContext)
 
@@ -25,6 +23,6 @@ object DummyCommandSubmissionService {
 final class DummyCommandSubmissionService private extends CommandSubmissionService {
 
   override def submit(request: SubmitRequest): Future[Empty] =
-    DummyCommandSubmissionService.Success
+    Future.successful(Empty.defaultInstance)
 
 }
