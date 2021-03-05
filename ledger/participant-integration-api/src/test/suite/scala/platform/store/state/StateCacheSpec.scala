@@ -9,8 +9,10 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Promise}
-import scala.util.Success
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.Random
 
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
   behavior of "async cache loading"
@@ -23,26 +25,35 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
       override def cache: DamlCache[String, String] = provided
     }
 
-  it should "load async" in {
+  it should "assert " in {
     val caffeineCache: Cache[String, String] = Caffeine
       .newBuilder()
       .maximumSize(3)
       .build()
     val cache = new SimpleCaffeineCache[String, String](caffeineCache)
-    val updates = (1 to 10).map(idx => (idx.toLong, "same-key", Promise[String]))
+    val updates = (1 to 10000).map(idx => (idx.toLong, "same-key", Promise[String]))
     val (indices, _, eventualValues) = updates.unzip3
 
     val stateCache = stateCacheBuilder(cache)
-    updates.foreach { case (idx, key, eventualValue) =>
-      stateCache.feedAsync(key, idx, eventualValue.future)
-    }
-    (indices zip eventualValues).sortWith { case (a, b) => a._1 > b._1 }.foreach {
+    Await.result(
+      Future.sequence(Random.shuffle(updates).map { case (idx, key, eventualValue) =>
+        Future {
+          stateCache.feedAsync(key, idx, eventualValue.future)
+        }
+      }),
+      10.seconds,
+    )
+    // All concurrent requests finish after 1 second
+    Thread.sleep(1000L)
+    Random.shuffle(indices zip eventualValues).foreach {
       case (idx, promisedString) =>
-        promisedString.complete(Success(s"completed-$idx"))
+        promisedString.completeWith(Future{
+          s"completed-$idx"
+        })
     }
 
     caffeineCache.asMap().asScala should contain theSameElementsAs Map(
-      "same-key" -> "completed-10"
+      "same-key" -> "completed-10000"
     )
   }
 }
