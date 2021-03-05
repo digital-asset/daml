@@ -169,7 +169,7 @@ private[lf] object Speedy {
 
     private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
       ledgerMode match {
-        case onLedger @ OnLedger(_, _, _, _, _, _, _, _) => f(onLedger)
+        case onLedger: OnLedger => f(onLedger)
         case OffLedger => throw SRequiresOnLedger(op)
       }
 
@@ -1318,9 +1318,8 @@ private[lf] object Speedy {
 
     def execute(v: SValue) = {
       restore()
-      machine.ledgerMode match {
-        case OffLedger => ()
-        case onLedger: OnLedger => onLedger.ptx = onLedger.ptx.endTry
+      machine.withOnLedger("KTryCatchHandler") { onLedger =>
+        onLedger.ptx = onLedger.ptx.endTry
       }
       machine.returnValue = v
     }

@@ -11,7 +11,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.PartialTransaction._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.Speedy._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.SubmittedTransaction
@@ -41,16 +40,13 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>
-        machine.ledgerMode match {
-          case OffLedger =>
-            sys.error("unexpected OffLedger")
-          case onLedger: OnLedger =>
-            onLedger.ptx.finish match {
-              case IncompleteTransaction(_) =>
-                sys.error("unexpected IncompleteTransaction")
-              case CompleteTransaction(tx) =>
-                tx
-            }
+        machine.withOnLedger("RollbackTest") { onLedger =>
+          onLedger.ptx.finish match {
+            case IncompleteTransaction(_) =>
+              sys.error("unexpected IncompleteTransaction")
+            case CompleteTransaction(tx) =>
+              tx
+          }
         }
       case _ =>
         sys.error(s"unexpected res: $res")
