@@ -211,7 +211,7 @@ dependencies:
   - daml-trigger.dar
   - daml-script.dar
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror --ghc-option=-Wno-error=missing-signatures -o $$PWD/$(location test-model.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location test-model.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
