@@ -24,6 +24,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
@@ -31,6 +32,8 @@ da_scala_library(
         "//runtime-components/non-repudiation-postgresql",
         "//runtime-components/non-repudiation-resources",
         "@maven//:com_zaxxer_HikariCP",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_services",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

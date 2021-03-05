@@ -11,7 +11,7 @@ import cats.effect.{ContextShift, IO}
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.nonrepudiation.postgresql.Tables
 import com.daml.nonrepudiation.resources.HikariTransactorResourceOwner
@@ -67,7 +67,7 @@ package object testing {
             Command(
               Command.Command.Create(
                 CreateCommand(
-                  templateId = None,
+                  templateId = Some(Identifier("Package", "Module", "Entity")),
                   createArguments = Some(
                     Record(
                       recordId = None,
