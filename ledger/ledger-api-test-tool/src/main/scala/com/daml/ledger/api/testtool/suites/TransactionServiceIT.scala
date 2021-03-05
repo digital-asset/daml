@@ -635,10 +635,15 @@ class TransactionServiceIT extends LedgerTestSuite {
     for {
       transaction <- beta.submitAndWaitForTransaction(create)
       _ <- synchronize(alpha, beta)
-      transactions <- alpha.flatTransactions(alice)
+      aliceTransactions <- alpha.flatTransactions(alice)
     } yield {
+      val branchingContractId = createdEvents(transaction)
+        .map(_.contractId)
+        .headOption
+        .getOrElse(fail(s"Expected single create event"))
+      val contractsVisibleByAlice = aliceTransactions.flatMap(createdEvents).map(_.contractId)
       assert(
-        !transactions.exists(_.transactionId != transaction.transactionId),
+        !contractsVisibleByAlice.contains(branchingContractId),
         s"The transaction ${transaction.transactionId} should not have been disclosed.",
       )
     }
