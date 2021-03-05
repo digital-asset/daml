@@ -34,7 +34,7 @@ jobs:
                    -i \
                    -H 'Content-Type: application/json' \
                    --data "{\"text\":\"<!here> Perf tests seem to have changed. Please manually check:\n\`\`\`\ngit diff $TEST_SHA $LAST_CHANGES -- daml-lf/scenario-interpreter/src/perf\n\`\`\`\nand update accordingly. If the change is benign, update \`ci/cron/perf/test_sha\` to \`$LAST_CHANGES\`. With no intervention, you will no longer get performance reports.\"}" \
-                   $(Slack.team-daml)
+                   $(Slack.ci-failures-daml)
           else
               echo "Changes detected, but not from this commit."
           fi

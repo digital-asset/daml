@@ -22,7 +22,7 @@ steps:
            -i \
            -H 'Content-type: application/json' \
            --data "{\"text\":\"$WARNING\n\"}" \
-           $(Slack.team-daml)
+           $(Slack.ci-failures-daml)
     condition: and(failed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

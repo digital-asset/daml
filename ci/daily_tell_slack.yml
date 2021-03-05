@@ -25,7 +25,7 @@ steps:
              -i \
              -H 'Content-type: application/json' \
              --data "$PAYLOAD" \
-             $(Slack.team-daml)
+             $(Slack.ci-failures-daml)
     fi
   displayName: report
   condition: always()
