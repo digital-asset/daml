@@ -32,7 +32,6 @@ jobs:
       - checkout: self
       - template: ../clean-up.yml
       - template: ../compatibility_ts_libs.yml
-      - template: ../daily_tell_slack.yml
 
   - job: compatibility
     dependsOn: compatibility_ts_libs
@@ -52,7 +51,6 @@ jobs:
         - template: ../clear-shared-segments-macos.yml
       - template: ../clean-up.yml
       - template: ../compatibility.yml
-      - template: ../daily_tell_slack.yml
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
@@ -68,7 +66,6 @@ jobs:
         inputs:
           pathtoPublish: '$(Build.StagingDirectory)'
           artifactName: 'Bazel Compatibility Logs'
-      - template: ../daily_tell_slack.yml
 
   - job: perf_speedy
     timeoutInMinutes: 120
@@ -111,12 +108,16 @@ jobs:
 
           gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
+          setvar speedup "$(jq -r '.speedup' "$OUT")"
+
         displayName: measure perf
+        name: out
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
-        parameters:
-          success-message: $(jq --arg stats "$(cat $(Build.StagingDirectory)/perf-results.json)" --arg link "$COMMIT_LINK" -n '"perf for " + $link + ":```" + $stats + "```"')
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/perf-results.json
+          artifactName: perf
 
   - job: perf_http_json
     timeoutInMinutes: 120
@@ -197,7 +198,6 @@ jobs:
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
@@ -291,11 +291,14 @@ jobs:
           fi
         displayName: open PR
         name: out
-      - template: ../daily_tell_slack.yml
+        condition: and(succeeded(),
+                       eq(variables['Build.SourceBranchName'], 'main'))
 
   - job: run_notices_pr_build
     timeoutInMinutes: 60
     dependsOn: ["blackduck_scan"]
+    condition: and(succeeded(),
+                   eq(variables['Build.SourceBranchName'], 'main'))
     pool:
       vmImage: ubuntu-20.04
     variables:
@@ -312,3 +315,48 @@ jobs:
                                        --org "https://dev.azure.com/digitalasset" \
                                        --project daml
           fi
+
+  - job: report
+    dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
+                perf_speedy, perf_http_json, check_releases,
+                blackduck_scan, run_notices_pr_build]
+    condition: and(succeededOrFailed(),
+                   eq(variables['Build.SourceBranchName'], 'main'))
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    variables:
+      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
+      compatibility: $[ dependencies.compatibility.result ]
+      compatibility_windows: $[ dependencies.compatibility_windows.result ]
+      perf_speedy: $[ dependencies.perf_speedy.result ]
+      speedup: $[ dependencies.perf_speedy.outputs['out.speedup'] ]
+      perf_http_json: $[ dependencies.perf_http_json.result ]
+      check_releases: $[ dependencies.check_releases.result ]
+      blackduck_scan: $[ dependencies.blackduck_scan.result ]
+      run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
+    steps:
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"
+        COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
+
+        if [[ "$(compatibility_ts_libs)" == "Succeeded"
+           && "$(compatibility)" == "Succeeded"
+           && "$(compatibility_windows)" == "Succeeded"
+           && "$(perf_speedy)" == "Succeeded"
+           && "$(perf_http_json)" == "Succeeded"
+           && "$(check_releases)" == "Succeeded"
+           && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
+           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
+            tell_slack "Daily tests passed: $COMMIT_LINK (speedup: $(speedup))." "$(Slack.ci-failures-daml)"
+        else
+            tell_slack "Daily tests failed: $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+        fi
