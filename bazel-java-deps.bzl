@@ -30,7 +30,7 @@ version_specific = {
 
 netty_version = "4.1.58.Final"
 grpc_version = "1.35.0"
-akka_version = "2.6.12"
+akka_version = "2.6.13"
 
 def install_java_deps():
     maven_install(
