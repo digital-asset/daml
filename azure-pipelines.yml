@@ -230,7 +230,7 @@ jobs:
         if [ "$msg" = "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging." ]; then
             pr_handler=@$(head -1 release/rotation | awk '{print $1}')
         else
-            pr_handler="!here"
+            pr_handler=""
         fi
         curl -XPOST \
              -i \
