@@ -7,13 +7,11 @@ module DA.Cli.Damlc.Packaging
   , getUnitId
   ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
 import Data.Either.Combinators
 import Data.Graph
 import Data.List.Extra
@@ -45,13 +43,12 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.Compiler.DecodeDar (DecodedDar(..), DecodedDalf(..), decodeDar, decodeDalf)
+import DA.Daml.Compiler.DecodeDar (DecodedDalf(..))
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Package.Config
+import DA.Cli.Damlc.DependencyDb
 import qualified DA.Pretty
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
@@ -71,22 +68,16 @@ import SdkVersion
 --   ledger. Based on the DAML-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
-createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps' dataDeps
+createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
+createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
-    deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps')
-    (needsReinitalization, depsFingerprint)
-        <- dbNeedsReinitialization projectRoot deps thisSdkVer (show $ optDamlLfVersion opts)
+    allDepFiles <- listFilesRecursive depsDir
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot allDepFiles
     when needsReinitalization $ do
       clearPackageDb
-      depsExtracted <- mapM extractDar deps
 
-      let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
-      let depsSdkVersions = map edSdkVersions depsExtracted
-      unless (all (== thisSdkVer) depsSdkVersions) $
-             fail $
-             "Package dependencies from different SDK versions: " ++
-             intercalate ", " uniqSdkVersions
+      deps <- queryDependencies depsDir
+      dataDeps <- queryDataDependencies depsDir
 
       -- Register deps at the very beginning. This allows data-dependencies to
       -- depend on dependencies which is necessary so that we can reconstruct typeclass
@@ -95,10 +86,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
       -- data-dependency but that seems acceptable.
       -- See https://github.com/digital-asset/daml/issues/4218 for more details.
       -- TODO Enforce this with useful error messages
-      forM_ depsExtracted $
-          -- We only have the interface files for the main DALF in a `dependency` so we
-          -- also only extract the main dalf.
-          \ExtractedDar{..} -> installDar depsDir dbPath edConfFiles edMain edSrcs
+      forM_ deps $ registerDepInPkgDb dbPath
 
       loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
@@ -110,23 +98,16 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
       let dependenciesInPkgDbIds =
               Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
 
-      -- Now handle data-dependencies.
-      darsFromDataDependencies <- getDarsFromDataDependencies dependenciesInPkgDbIds dataDeps
-      let dalfsFromDataDependencies = concatMap dalfs darsFromDataDependencies
-
-      -- All transitive packages from DARs specified in  `dependencies`.
-      -- This is only used for unit-id collision checks
-      -- and dependencies on newer LF versions.
-      darsFromDependencies <- getDarsFromDependencies dependenciesInPkgDbIds depsExtracted
-      let dalfsFromDependencies = concatMap dalfs darsFromDependencies
+      -- This is only used for unit-id collision checks and dependencies on newer LF versions.
+      dalfsFromDependencies <- concatMapM (queryDependencyDalfs dependenciesInPkgDbIds) deps
+      dalfsFromDataDependencies <- concatMapM (queryDependencyDalfs dependenciesInPkgDbIds) dataDeps
+      uids <- forM (deps ++ dataDeps) (fmap decodedUnitId . queryDependencyMain dependenciesInPkgDbIds)
 
       let dependencyInfo = DependencyInfo
               { dependenciesInPkgDb
               , dalfsFromDependencies
               , dalfsFromDataDependencies
-              , mainUnitIds =
-                    map (decodedUnitId . mainDalf)
-                        (darsFromDataDependencies ++ darsFromDependencies)
+              , mainUnitIds = uids
               }
 
       -- We perform these check before checking for unit id collisions
@@ -169,11 +150,8 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
                   , not (depPkgId `Set.member` stablePkgIds)
                   ]
           let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-          let thisDepDir = depsDir </> unitIdStr <> "-" <> pkgIdStr
           createDirectoryIfMissing True workDir
-          createDirectoryIfMissing True thisDepDir
-          -- write the dalf package to the dependencies
-          BS.writeFile (thisDepDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
+          BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
 
           generateAndInstallIfaceFiles
               (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
@@ -194,26 +172,22 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
           (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes depsFingerprint)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
-    depsDir = projectDependenciesDatabase </> lfVersionString (optDamlLfVersion opts)
+    depsDir = dependenciesDir opts projectRoot
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
         -- issues during SDk upgrades. Once we have a more clever mechanism than
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
-        removePathForcibly depsDir
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
 
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
 -- the package db to decide whether to run reinitialization or not.
 dbNeedsReinitialization ::
-       NormalizedFilePath -> [FilePath] -> String -> String -> IO (Bool, Fingerprint)
-dbNeedsReinitialization projectRoot allDeps sdkVersion damlLfVersion = do
+       NormalizedFilePath -> [FilePath] -> IO (Bool, Fingerprint)
+dbNeedsReinitialization projectRoot allDeps  = do
     fileFingerprints <- mapM getFileHash allDeps
-    let sdkVersionFingerprint = fingerprintString sdkVersion
-    let damlLfFingerprint = fingerprintString damlLfVersion
-    let depsFingerprint =
-            fingerprintFingerprints $ sdkVersionFingerprint : damlLfFingerprint : fileFingerprints
+    let depsFingerprint = fingerprintFingerprints fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
     errOrmetaData <- tryAny $ readMetadata projectRoot
     pure $
@@ -323,6 +297,22 @@ settings =
   , ("cross compiling", "NO")
   ]
 
+-- Register a dar dependency in the package database
+registerDepInPkgDb :: FilePath -> FilePath -> IO ()
+registerDepInPkgDb dbPath depPath = do
+    linkDirRec (configDir depPath) (dbPath </> "package.conf.d")
+    linkDirRec (sourcesDir depPath) dbPath
+    linkDirRec (mainDir depPath) dbPath
+    recachePkgDb dbPath
+
+linkDirRec :: FilePath -> FilePath -> IO ()
+linkDirRec from to = do
+    srcs <- listFilesRecursive from
+    forM_ srcs $ \src -> do
+      let fp = to </> makeRelative from src
+      createDirectoryIfMissing True (takeDirectory fp)
+      createFileLink src fp
+
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
     T.writeFileUtf8 (dbPath </> "settings") $ T.pack $ show settings
@@ -387,30 +377,7 @@ getUnitId thisUnitId pkgMap =
                  "Unknown package id: " <> (T.unpack $ LF.unPackageId pId)) $
             MS.lookup pId pkgMap
 
--- Install a dar in the package database
-installDar ::
-    FilePath
-    -> FilePath
-    -> [ZipArchive.Entry]
-    -> ZipArchive.Entry
-    -> [ZipArchive.Entry]
-    -> IO ()
-installDar depPath dbPath confFiles dalf srcs = do
-    let path = depPath </> ZipArchive.eRelativePath dalf
-    createDirectoryIfMissing True (takeDirectory path)
-    BSL.writeFile path (ZipArchive.fromEntry dalf)
-    forM_ confFiles $ \conf ->
-        BSL.writeFile
-            (dbPath </> "package.conf.d" </>
-             (takeFileName $ ZipArchive.eRelativePath conf))
-            (ZipArchive.fromEntry conf)
-    forM_ srcs $ \src -> do
-        let path = dbPath </> ZipArchive.eRelativePath src
-        write path (ZipArchive.fromEntry src)
-    recachePkgDb dbPath
-  where
-    write fp bs =
-        createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
+
 
 -- | Write generated source files
 writeSrc :: (NormalizedFilePath, String) -> IO ()
@@ -634,26 +601,6 @@ getExposedModules opts projectRoot = do
         map (\pkgConf -> (getUnitId pkgConf, mkUniqSet $ map fst $ GHC.exposedModules pkgConf)) $
         GHC.listPackageConfigMap df
     getUnitId = GHC.DefiniteUnitId . GHC.DefUnitId . GHC.unitId
-
--- | data-dependencies accept both DAR files as well as DALFs. The latter
--- is only used in tests and should probably go away at some point.
--- We treat a DALF as a DAR with only that DALF in the main DALF list.
-getDarsFromDataDependencies :: Set LF.PackageId -> [FilePath] -> IO [DecodedDar]
-getDarsFromDataDependencies dependenciesInPkgDb files = do
-    dars <- forM fpDars $ \file -> do
-        extractedDar <- extractDar file
-        either fail pure (decodeDar dependenciesInPkgDb extractedDar)
-    dalfs <-
-        forM fpDalfs $ \fp -> do
-            bs <- BS.readFile fp
-            decodedDalf <- either fail pure $ decodeDalf dependenciesInPkgDb fp bs
-            pure (DecodedDar decodedDalf [decodedDalf])
-    pure (dars ++ dalfs)
-    where (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) files
-
-getDarsFromDependencies :: Set LF.PackageId -> [ExtractedDar] -> IO [DecodedDar]
-getDarsFromDependencies dependenciesInPkgDb depsExtracted =
-    either fail pure $ mapM (decodeDar dependenciesInPkgDb) depsExtracted
 
 -- | Given the prefixes declared in daml.yaml
 -- and the list of decoded dalfs, validate that

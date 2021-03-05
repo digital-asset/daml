@@ -21,6 +21,7 @@ import DA.Cli.Damlc.BuildInfo
 import qualified DA.Cli.Damlc.InspectDar as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging
+import DA.Cli.Damlc.DependencyDb
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
 import qualified DA.Daml.Compiler.Repl as Repl
@@ -207,7 +208,7 @@ runTestsInProjectOrFiles ::
     -> Command
 runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
-        initPackageDb cliOptions initPkgDb
+        installDepsAndInitPackageDb cliOptions initPkgDb
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
             -- TODO: We set up one scenario service context per file that
             -- we pass to execTest and scenario contexts are quite expensive.
@@ -217,7 +218,7 @@ runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutp
             execTest files allTests coverage color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
-        initPackageDb cliOptions initPkgDb
+        installDepsAndInitPackageDb cliOptions initPkgDb
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
         execTest inFiles' allTests coverage color mbJUnitOutput cliOptions
 
@@ -491,7 +492,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
               , optThreads = 0
               , optDlintUsage = DlintEnabled dlintDataDir True
               }
-          initPackageDb options (InitPkgDb True)
+          installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
               withScenarioService' enableScenarioService (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
@@ -575,18 +576,18 @@ execLint inputFiles opts =
 defaultProjectPath :: ProjectPath
 defaultProjectPath = ProjectPath "."
 
--- | If we're in a daml project, read the daml.yaml field and create the project local package
--- database. Otherwise do nothing.
+-- | If we're in a daml project, read the daml.yaml field, install the dependencies and create the
+-- project local package database. Otherwise do nothing.
 execInit :: Options -> ProjectOpts -> Command
 execInit opts projectOpts =
   Command Init (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \_relativize ->
-          initPackageDb
+          installDepsAndInitPackageDb
             opts
             (InitPkgDb True)
 
-initPackageDb :: Options -> InitPkgDb -> IO ()
-initPackageDb opts (InitPkgDb shouldInit) =
+installDepsAndInitPackageDb :: Options -> InitPkgDb -> IO ()
+installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
         -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
         -- This allows us to have a `daml.yaml` in the root of a multi-package project that just has an `sdk-version` field.
@@ -595,14 +596,20 @@ initPackageDb opts (InitPkgDb shouldInit) =
         isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
             projRoot <- getCurrentDirectory
-            withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
-                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pModulePrefixes pDependencies pDataDependencies
+            withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
+              installDependencies
+                  (toNormalizedFilePath' projRoot)
+                  opts
+                  pSdkVersion
+                  pDependencies
+                  pDataDependencies
+              createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
-            initPackageDb opts initPkgDb
+            installDepsAndInitPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
                 let warnings = checkPkgConfig pkgConfig
@@ -676,7 +683,7 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
                     , "- " <> show scriptDar
                     , "data-dependencies:"
                     ] ++ ["- " <> show dar | dar <- dars]
-                initPackageDb opts (InitPkgDb True)
+                installDepsAndInitPackageDb opts (InitPkgDb True)
                 replLogger <- Repl.newReplLogger
                 withDamlIdeState opts logger (Repl.replEventLogger replLogger)
                     (Repl.runRepl importPkgs opts replHandle replLogger)

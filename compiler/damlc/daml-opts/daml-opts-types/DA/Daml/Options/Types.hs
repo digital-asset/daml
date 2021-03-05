@@ -25,7 +25,6 @@ module DA.Daml.Options.Types
     , genDir
     , basePackages
     , getPackageDbs
-    , getDependenciesDbs
     , pkgNameVersion
     , fullPkgName
     , optUnitId
@@ -170,17 +169,6 @@ getPackageDbs :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO [Fil
 getPackageDbs version mbProjRoot userPkgDbs = do
     builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
-
-getDependenciesDbs :: LF.Version -> Maybe NormalizedFilePath -> IO [FilePath]
-getDependenciesDbs version =
-    \case
-        Nothing -> pure []
-        Just projRoot -> do
-            let depsDb =
-                    fromNormalizedFilePath projRoot </> projectDependenciesDatabase </>
-                    renderPretty version
-            hasDepsDb <- Dir.doesDirectoryExist depsDb
-            pure $ [depsDb | hasDepsDb]
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =
