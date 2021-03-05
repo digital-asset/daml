@@ -28,7 +28,10 @@ trait StateCache[K, V] {
         None
     }
 
-  def feedAsync(key: K, validAt: Long, newUpdate: Future[V]): Future[Unit] = {
+  def feedAsync(key: K, validAt: Long, newUpdate: Future[V])(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = {
+    logger.debug(s"New pending cache update for key $key at $validAt")
     val pendingUpdate = pendingUpdates
       .getOrElseUpdate(key, PendingUpdates.empty)
     // We need to synchronize here instead of using a lock-free update
@@ -51,11 +54,12 @@ trait StateCache[K, V] {
       validAt: Long,
       key: K,
       eventualUpdate: Future[V],
-  ): Future[V] =
+  )(implicit loggingContext: LoggingContext): Future[V] =
     eventualUpdate.andThen {
       case Success(update) =>
         // Double-check if we need to update
         if (pendingUpdates(key).highestIndex.get() == validAt) {
+          logger.debug(s"Updating cache with $key -> $update ")
           cache.put(key, update)
         }
         removeFromPending(key)

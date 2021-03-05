@@ -25,7 +25,7 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
       override def cache: DamlCache[String, String] = provided
     }
 
-  it should "assert " in {
+  it should "always store the latest key update in face of conflicting pending updates" in {
     val caffeineCache: Cache[String, String] = Caffeine
       .newBuilder()
       .maximumSize(3)
@@ -45,11 +45,10 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     )
     // All concurrent requests finish after 1 second
     Thread.sleep(1000L)
-    Random.shuffle(indices zip eventualValues).foreach {
-      case (idx, promisedString) =>
-        promisedString.completeWith(Future{
-          s"completed-$idx"
-        })
+    Random.shuffle(indices zip eventualValues).foreach { case (idx, promisedString) =>
+      promisedString.completeWith(Future {
+        s"completed-$idx"
+      })
     }
 
     caffeineCache.asMap().asScala should contain theSameElementsAs Map(

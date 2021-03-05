@@ -28,8 +28,14 @@ private[store] class CachingContractsStore private[store] (
   private val logger = ContextualizedLogger.get(getClass)
   private[store] val cacheIndex = new AtomicLong(0L)
 
-  val consumeFrom: Flow[ContractStateEvent, Unit, NotUsed] =
+  def consumeFrom(implicit
+      loggingContext: LoggingContext
+  ): Flow[ContractStateEvent, Unit, NotUsed] =
     Flow[ContractStateEvent]
+      .map { el =>
+        println(s"Contract state events update: ${el}")
+        el
+      }
       .map {
         case ContractStateEvent.Created(
               contractId,
@@ -39,17 +45,17 @@ private[store] class CachingContractsStore private[store] (
               _,
               eventSequentialId,
             ) =>
+          contractsCache.feedAsync(
+            contractId,
+            eventSequentialId,
+            Future.successful(Active(contract, flatEventWitnesses)),
+          )
           globalKey.foreach(
             keyCache.feedAsync(
               _,
               eventSequentialId,
               Future.successful(Assigned(contractId, flatEventWitnesses)),
             )
-          )
-          contractsCache.feedAsync(
-            contractId,
-            eventSequentialId,
-            Future.successful(Active(contract, flatEventWitnesses)),
           )
           eventSequentialId
         case ContractStateEvent.Archived(
@@ -77,6 +83,7 @@ private[store] class CachingContractsStore private[store] (
       }
       .map(idx => {
         cacheIndex.set(idx)
+        logger.debug(s"New cache index $idx")
         metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(idx)
       })
 
