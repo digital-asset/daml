@@ -245,7 +245,7 @@ sealed class ContractsReader(
           ORDER BY event_sequential_id DESC
           LIMIT 1
        )
-  SELECT contract_id
+  SELECT contract_id, flat_event_witnesses
     FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
   WHERE NOT EXISTS       -- check no archival visible
          (SELECT 1

@@ -117,7 +117,7 @@ class CachingContractsStoreSpec
   it should "assert contract events stream population correctness in 1000 create and archive cycles" in {
     indexReturnsNotFound()
     `assert multiple create-archive cycles for the same key`("global-key-1", defaultStakeholders)(
-      1000
+      10000
     )
   }
 

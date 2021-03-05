@@ -1,6 +1,6 @@
 package com.daml.platform.store.state
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import com.daml.caching.Cache
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -16,7 +16,7 @@ trait StateCache[K, V] {
   protected val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   private[store] val pendingUpdates =
-    collection.concurrent.TrieMap.empty[K, AtomicReference[PendingUpdates]]
+    collection.concurrent.TrieMap.empty[K, PendingUpdates]
 
   def fetch(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
@@ -29,20 +29,22 @@ trait StateCache[K, V] {
     }
 
   def feedAsync(key: K, validAt: Long, newUpdate: Future[V]): Future[Unit] = {
-    pendingUpdates
-      .getOrElseUpdate(key, new AtomicReference(PendingUpdates.empty))
-      .updateAndGet { case current @ PendingUpdates(pendingCount, highestIndex, effectsChain) =>
-        if (highestIndex >= validAt) current
-        else
-          PendingUpdates(
-            pendingCount = pendingCount + 1,
-            highestIndex = validAt,
-            effectsChain = effectsChain.transformWith { _ =>
-              registerEventualCacheUpdate(validAt, key, newUpdate).map(_ => ())
-            },
-          )
+    val pendingUpdate = pendingUpdates
+      .getOrElseUpdate(key, PendingUpdates.empty)
+    // We need to synchronize here instead of using a lock-free update
+    // since registering the next update is impure and cannot be retried/discarded
+    // on thread contention.
+    pendingUpdate.synchronized {
+      if (pendingUpdate.highestIndex.get() >= validAt)
+        Future.unit
+      else {
+        pendingUpdate.highestIndex.set(validAt)
+        pendingUpdate.pendingCount.incrementAndGet()
+        pendingUpdate.effectsChain.updateAndGet(_.transformWith { _ =>
+          registerEventualCacheUpdate(validAt, key, newUpdate).map(_ => ())
+        })
       }
-      .effectsChain
+    }
   }
 
   private def registerEventualCacheUpdate(
@@ -53,24 +55,29 @@ trait StateCache[K, V] {
     eventualUpdate.andThen {
       case Success(update) =>
         // Double-check if we need to update
-        if (pendingUpdates(key).get().highestIndex == validAt) {
+        if (pendingUpdates(key).highestIndex.get() == validAt) {
           cache.put(key, update)
         }
         removeFromPending(key)
       case Failure(_) => removeFromPending(key)
     }
 
-  private def removeFromPending(key: K): Unit =
-    if (
-      pendingUpdates(key).updateAndGet { pending =>
-        pending.copy(pendingCount = pending.pendingCount - 1)
-      }.pendingCount == 0L
-    ) pendingUpdates -= key
+  private def removeFromPending(key: K): Unit = {
+    if (pendingUpdates(key).pendingCount.updateAndGet(_ - 1) == 0L) pendingUpdates -= key
+  }
 }
 
 object StateCache {
-  case class PendingUpdates(pendingCount: Long, highestIndex: Long, effectsChain: Future[Unit])
+  case class PendingUpdates(
+      pendingCount: AtomicLong,
+      highestIndex: AtomicLong,
+      effectsChain: AtomicReference[Future[Unit]],
+  )
   object PendingUpdates {
-    val empty: PendingUpdates = PendingUpdates(0L, Long.MinValue, Future.unit)
+    val empty: PendingUpdates = PendingUpdates(
+      new AtomicLong(0L),
+      new AtomicLong(Long.MinValue),
+      new AtomicReference(Future.unit),
+    )
   }
 }
