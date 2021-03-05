@@ -14,9 +14,9 @@ steps:
       COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})")"
       COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
       if [ -z "${{ parameters.trigger_sha }}" ]; then
-          WARNING="<!here> *FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK"
+          WARNING="*FAILED* $(Build.SourceBranchName)/$(Agent.JobName) [$(Agent.MachineName)]: $COMMIT_LINK"
       else
-          WARNING=":fire: :fire: :fire: :fire: :fire:\n<!here> *RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
+          WARNING=":fire: :fire: :fire: :fire: :fire:\n*RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
       fi
       curl -XPOST \
            -i \
