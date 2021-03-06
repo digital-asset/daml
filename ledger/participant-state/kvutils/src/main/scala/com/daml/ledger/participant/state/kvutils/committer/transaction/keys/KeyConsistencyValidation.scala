@@ -90,17 +90,18 @@ private[keys] object KeyConsistencyValidation {
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       submittedDamlContractKey: DamlContractKey,
       keyValidationState: KeyValidationState,
-  ): KeyValidationStatus =
-    if (
-      keyValidationState.submittedContractKeysToContractIds
-        .get(
-          submittedDamlContractKey
-        )
-        .flatten != contractKeysToContractIds.get(submittedDamlContractKey)
-    )
-      Left(Inconsistent)
-    else
+  ): KeyValidationStatus = {
+    val actual: Option[RawContractId] = keyValidationState.submittedContractKeysToContractIds
+      .get(
+        submittedDamlContractKey
+      )
+      .flatten
+    val expected = contractKeysToContractIds.get(submittedDamlContractKey)
+    if (actual != expected) {
+      Left(Inconsistent(submittedDamlContractKey.toString, actual, expected))
+    } else
       Right(keyValidationState)
+  }
 
   private def ConsistencyKeyValidationState(
       submittedContractKeysToContractIds: Map[DamlContractKey, Option[

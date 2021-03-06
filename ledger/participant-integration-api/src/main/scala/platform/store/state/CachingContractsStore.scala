@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
@@ -33,7 +33,7 @@ private[store] class CachingContractsStore private[store] (
   ): Flow[ContractStateEvent, Unit, NotUsed] =
     Flow[ContractStateEvent]
       .map { el =>
-        println(s"Contract state events update: ${el}")
+        logger.debug(s"Contract state events update: $el")
         el
       }
       .map {
@@ -144,7 +144,11 @@ private[store] class CachingContractsStore private[store] (
       }
       .getOrElse {
         val currentCacheOffset = cacheIndex.get()
-        val eventualResult = store.lookupContract(contractId, currentCacheOffset)
+        val eventualResult =
+          Timed.future(
+            metrics.daml.index.lookupContract,
+            store.lookupContract(contractId, currentCacheOffset),
+          )
         contractsCache.feedAsync(
           key = contractId,
           validAt = currentCacheOffset,

@@ -89,8 +89,8 @@ private[transaction] object ContractKeysValidation {
         val message = error match {
           case Duplicate =>
             "DuplicateKeys: at least one contract key is not unique"
-          case Inconsistent =>
-            "InconsistentKeys: at least one contract key has changed since the submission"
+          case Inconsistent(contractKey, actual, expected) =>
+            s"InconsistentKeys: at least one contract key has changed since the submission $contractKey -> $actual vs $expected"
         }
         transactionCommitter.reject(
           recordTime,
@@ -124,7 +124,11 @@ private[transaction] object ContractKeysValidation {
 
   private[keys] sealed trait KeyValidationError
   private[keys] case object Duplicate extends KeyValidationError
-  private[keys] case object Inconsistent extends KeyValidationError
+  private[keys] final case class Inconsistent(
+      contractKey: String,
+      actual: Option[RawContractId],
+      expected: Option[RawContractId],
+  ) extends KeyValidationError
 
   private[keys] final class KeyValidationState private[ContractKeysValidation] (
       private[keys] val activeStateKeys: Set[DamlStateKey],

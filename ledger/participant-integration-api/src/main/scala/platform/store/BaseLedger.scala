@@ -46,6 +46,7 @@ private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
+    contractStateEventsDispatcher: Dispatcher[Offset]
 ) extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
@@ -73,7 +74,7 @@ private[platform] abstract class BaseLedger(
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
   ): Source[(Offset, ContractStateEvent), NotUsed] =
-    dispatcher.startingAt(
+    contractStateEventsDispatcher.startingAt(
       Offset.beforeBegin,
       RangeSource(ledgerDao.transactionsReader.getContractStateEvents(_, _)),
       Option.empty,
@@ -125,7 +126,7 @@ private[platform] abstract class BaseLedger(
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParties)
+    cachingContractsReader.lookupActiveContract(forParties, contractId)
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,

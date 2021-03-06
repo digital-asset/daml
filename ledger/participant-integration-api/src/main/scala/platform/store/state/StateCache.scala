@@ -32,38 +32,44 @@ trait StateCache[K, V] {
       loggingContext: LoggingContext
   ): Future[Unit] = {
     logger.debug(s"New pending cache update for key $key at $validAt")
-    val pendingUpdate = pendingUpdates
+    val pendingUpdate @ PendingUpdates(pendingCount, highestIndex, effectsChain) = pendingUpdates
       .getOrElseUpdate(key, PendingUpdates.empty)
     // We need to synchronize here instead of using a lock-free update
     // since registering the next update is impure and cannot be retried/discarded
     // on thread contention.
     pendingUpdate.synchronized {
-      if (pendingUpdate.highestIndex.get() >= validAt)
+      if (highestIndex.get() >= validAt) {
+        logger.trace(
+          s"Not registering update for key $key. Highest index ${highestIndex.get()} vs $validAt. Pending updates map $pendingUpdates"
+        )
         Future.unit
-      else {
-        pendingUpdate.highestIndex.set(validAt)
-        pendingUpdate.pendingCount.incrementAndGet()
-        pendingUpdate.effectsChain.updateAndGet(_.transformWith { _ =>
-          registerEventualCacheUpdate(validAt, key, newUpdate).map(_ => ())
+      } else {
+        logger.trace(
+          s"Registered pending update for key $key. Highest index ${highestIndex.get()} and $validAt. Pending updates map $pendingUpdates"
+        )
+        highestIndex.set(validAt)
+        pendingCount.incrementAndGet()
+        effectsChain.updateAndGet(_.transformWith { _ =>
+          registerEventualCacheUpdate(key, newUpdate).map(_ => ())
         })
       }
     }
   }
 
   private def registerEventualCacheUpdate(
-      validAt: Long,
       key: K,
       eventualUpdate: Future[V],
   )(implicit loggingContext: LoggingContext): Future[V] =
     eventualUpdate.andThen {
       case Success(update) =>
         // Double-check if we need to update
-        if (pendingUpdates(key).highestIndex.get() == validAt) {
-          logger.debug(s"Updating cache with $key -> $update ")
-          cache.put(key, update)
-        }
+//        if (pendingUpdates(key).highestIndex.get() == validAt) {
+        logger.debug(s"Updating cache with $key -> $update ")
+        cache.put(key, update)
         removeFromPending(key)
-      case Failure(_) => removeFromPending(key)
+      case Failure(e) =>
+        removeFromPending(key)
+        logger.warn(s"Failure in pending cache update for key $key", e)
     }
 
   private def removeFromPending(key: K): Unit = {
@@ -78,7 +84,7 @@ object StateCache {
       effectsChain: AtomicReference[Future[Unit]],
   )
   object PendingUpdates {
-    val empty: PendingUpdates = PendingUpdates(
+    def empty: PendingUpdates = PendingUpdates(
       new AtomicLong(0L),
       new AtomicLong(Long.MinValue),
       new AtomicReference(Future.unit),

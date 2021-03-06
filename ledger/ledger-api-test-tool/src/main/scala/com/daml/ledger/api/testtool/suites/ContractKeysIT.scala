@@ -305,6 +305,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         )
         .mustFail("exercising before creation")
       _ <- ledger.create(party, TextKey(party, keyString, List.empty))
+      _ <- Future(Thread.sleep(200L))
       _ <- ledger.exerciseByKey(
         party,
         TextKey.id,
@@ -313,7 +314,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         Value(Value.Sum.Record(Record())),
       )
       // TDT crude way of making sure the cache is up to date
-      _ <- Future(Thread.sleep(1000L))
+      _ <- Future(Thread.sleep(200L))
       failureAfterConsuming <- ledger
         .exerciseByKey(
           party,
