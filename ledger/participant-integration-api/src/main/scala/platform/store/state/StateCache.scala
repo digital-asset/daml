@@ -35,7 +35,7 @@ trait StateCache[K, V] {
     val pendingUpdate @ PendingUpdates(pendingCount, highestIndex, effectsChain) = pendingUpdates
       .getOrElseUpdate(key, PendingUpdates.empty)
     // We need to synchronize here instead of using a lock-free update
-    // since registering the next update is impure and cannot be retried/discarded
+    // since registering the next update is impure and cannot be retried/cancelled
     // on thread contention.
     pendingUpdate.synchronized {
       if (highestIndex.get() >= validAt) {

@@ -315,6 +315,7 @@ final class Metrics(val registry: MetricRegistry) {
 
     object index {
       private val Prefix = daml.Prefix :+ "index"
+      val cacheCatchup: Timer = registry.timer(Prefix :+ "cache_catchup")
 
       val lookupContract: Timer = registry.timer(Prefix :+ "lookup_contract")
       val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
@@ -343,7 +344,10 @@ final class Metrics(val registry: MetricRegistry) {
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
+
         private val Prefix: MetricName = index.Prefix :+ "db"
+        val getLedgerEndAndSequentialId: Timer =
+          registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
 
         val storePartyEntry: Timer = registry.timer(Prefix :+ "store_party_entry")
         val storeInitialState: Timer = registry.timer(Prefix :+ "store_initial_state")

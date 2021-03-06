@@ -16,7 +16,7 @@ object ContractsStateCache {
   // Caching possible lifecycle states of a contract, together with its stakeholders
   sealed trait ContractCacheValue
   // Inexistent contracts (e.g. coming from malformed submissions)
-  // -- This situation is outside the happy flow, but it may raise an error
+  // -- This situation is outside the happy flow, but it may indicate an bug
   final case object NotFound extends ContractCacheValue
 
   sealed trait ExistingContractValue extends ContractCacheValue {

@@ -130,11 +130,11 @@ da_scala_binary(
 
 conformance_test(
     name = "conformance-test",
-    ports = [6867],
+    ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6867,server-jdbc-url=jdbc:postgresql://localhost:5432/indexdb?user=indexdb",
+        "--participant=participant-id=example,port=6865,server-jdbc-url=jdbc:postgresql://localhost:5432/indexdb?user=indexdb",
     ],
     test_tool_args = [
         "--verbose",

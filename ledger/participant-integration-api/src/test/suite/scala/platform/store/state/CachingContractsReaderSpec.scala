@@ -30,7 +30,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 
-class CachingContractsStoreSpec
+class CachingContractsReaderSpec
     extends AsyncFlatSpec
     with MockitoSugar
     with Matchers
@@ -54,7 +54,7 @@ class CachingContractsStoreSpec
     SizedCache.from[ContractId, ContractCacheValue](testCacheSize)
   )
 
-  private val cachingContractsStore = new CachingContractsStore(
+  private val cachingContractsStore = new CachingContractsReader(
     store = contractsReaderMock,
     metrics = new Metrics(new MetricRegistry),
     keyCache = contractsKeyCache,

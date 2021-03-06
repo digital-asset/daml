@@ -5,8 +5,8 @@ package com.daml.platform.store.dao
 
 import java.sql.Connection
 
-import anorm.SqlParser.byteArray
-import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
+import anorm.SqlParser.{byteArray, long}
+import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.platform.indexer.{IncrementalOffsetStep, CurrentOffset, OffsetStep}
@@ -14,11 +14,11 @@ import com.daml.platform.store.Conversions.{OffsetToStatement, ledgerString, off
 import com.daml.scalautil.Statement.discard
 
 private[dao] object ParametersTable {
-
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
   private val ParticipantIdColumnName: String = "participant_id"
   private val LedgerEndColumnName: String = "ledger_end"
+  private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
   private val ConfigurationColumnName: String = "configuration"
 
   private val LedgerIdParser: RowParser[LedgerId] =
@@ -33,6 +33,15 @@ private[dao] object ParametersTable {
   private val LedgerEndOrBeforeBeginParser: RowParser[Offset] =
     LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
 
+  private val LedgerEndParserAndSequentialIdParser =
+    (offset(LedgerEndColumnName).? ~ long(LedgerEndSequentialIdColumnName).?)
+      .map(SqlParser.flatten)
+      .map {
+        case (Some(offset), Some(seqId)) => (offset, seqId)
+        case (None, None) => (Offset.beforeBegin, 0L)
+        case other => throw new RuntimeException(s"Weird combo: $other")
+      }
+
   private val ConfigurationParser: RowParser[Option[Configuration]] =
     byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
 
@@ -45,6 +54,9 @@ private[dao] object ParametersTable {
     }
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
+
+  private val SelectLedgerEndAndSequentialId =
+    SQL"select #$LedgerEndColumnName, #$LedgerEndSequentialIdColumnName from #$TableName"
 
   def getLedgerId(connection: Connection): Option[LedgerId] =
     SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
@@ -69,6 +81,9 @@ private[dao] object ParametersTable {
   def getLedgerEnd(connection: Connection): Offset =
     SelectLedgerEnd.as(LedgerEndOrBeforeBeginParser.single)(connection)
 
+  def getLedgerEndAndSequentialId(connection: Connection): (Offset, Long) =
+    SelectLedgerEndAndSequentialId.as(LedgerEndParserAndSequentialIdParser.single)(connection)
+
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
 
@@ -89,12 +104,12 @@ private[dao] object ParametersTable {
       case CurrentOffset(ledgerEnd) =>
         // TODO FIXME crude initial approach to track the ledger end for the sequential id as well. needs to be implemented properly later. @simon@ I would not place high emphasiz on this ATM since parallel ingestion implementation likely change this naturally.
         discard(
-          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd, ledger_end_sequential_id = nextval('participant_events_event_sequential_id_seq') where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd, #$LedgerEndSequentialIdColumnName = nextval('participant_events_event_sequential_id_seq') where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
             .execute()
         )
       case IncrementalOffsetStep(previousOffset, ledgerEnd) =>
         val sqlStatement =
-          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd, ledger_end_sequential_id = nextval('participant_events_event_sequential_id_seq') where #$LedgerEndColumnName = $previousOffset"
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd, #$LedgerEndSequentialIdColumnName = nextval('participant_events_event_sequential_id_seq') where #$LedgerEndColumnName = $previousOffset"
         if (sqlStatement.executeUpdate() == 0) {
           throw LedgerEndUpdateError(previousOffset)
         }

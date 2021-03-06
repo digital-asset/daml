@@ -99,7 +99,7 @@ sealed class ContractsReader(
       "create_argument_compression"
     ).? map SqlParser.flatten
 
-  def checkDivulgenceVisibility(contractId: ContractId, readers: Set[Party])(implicit
+  def checkDivulgenceVisibility(contractId: ContractId, readers: Set[Party], before: Long)(implicit
       loggingContext: LoggingContext
   ): Future[Boolean] = {
     val tree_event_witnessesWhere =
@@ -112,16 +112,16 @@ sealed class ContractsReader(
            FROM participant_events, parameters
           WHERE contract_id = $contractId
             AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $before
             AND #$tree_event_witnessesWhere  -- only use visible archivals
           LIMIT 1
        ),
        divulged_contract AS (
-         SELECT divulgence_events.contract_id,
+         SELECT divulgence_events.contract_id
            FROM participant_events AS divulgence_events, parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+            AND divulgence_events.event_sequential_id <= $before
             AND #$tree_event_witnessesWhere
           ORDER BY divulgence_events.event_sequential_id
           LIMIT 1

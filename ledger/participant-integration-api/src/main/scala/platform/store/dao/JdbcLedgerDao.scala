@@ -97,6 +97,12 @@ private class JdbcLedgerDao(
     case DbType.H2Database => H2DatabaseQueries
   }
 
+  override def lookupLedgerEndAndEventSequentialId()(implicit
+      loggingContext: LoggingContext
+  ): Future[(Offset, Long)] =
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEnd)(ParametersTable.getLedgerEndAndSequentialId)
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()

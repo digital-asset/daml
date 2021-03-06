@@ -1,11 +1,13 @@
 package com.daml.platform.store.state
 
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -15,16 +17,41 @@ import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
 import com.daml.platform.store.state.ContractsStateCache._
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-private[store] class CachingContractsStore private[store] (
+private[platform] class CachingContractsReader private[store] (
     metrics: Metrics,
     store: ContractsReader,
     keyCache: StateCache[GlobalKey, KeyStateUpdate],
     contractsCache: StateCache[ContractId, ContractCacheValue],
+    signalGlobalNewLedgerEnd: Offset => Unit,
 )(implicit
     executionContext: ExecutionContext
 ) extends ContractStore {
+
+  private val headsToBeSignaled = mutable.Queue.empty[(Offset, Long, Long)]
+
+  def dequeueExpired(headsToBeSignaled: mutable.Queue[(Offset, Long, Long)]): Unit =
+    headsToBeSignaled
+      .dequeueAll { case (_, _, enqueuedAt) => // let the system progress
+        (System.nanoTime() - enqueuedAt) > 500000000L
+      }
+      .foreach(el => signalGlobalNewLedgerEnd(el._1))
+
+  // Make sure the cache is up to date before completions and transactions streams
+  def signalNewHead(implicit loggingContext: LoggingContext): ((Offset, Long)) => Unit = {
+    case (offset, eventSequentialId) =>
+      if (eventSequentialId <= cacheIndex.get()) {
+        signalGlobalNewLedgerEnd(offset)
+      } else {
+        val enqueuedAt = System.nanoTime()
+        logger.debug(s"Enqueued new head ${(offset, eventSequentialId, enqueuedAt)}")
+        headsToBeSignaled.enqueue((offset, eventSequentialId, enqueuedAt))
+      }
+      dequeueExpired(headsToBeSignaled)
+  }
+
   private val logger = ContextualizedLogger.get(getClass)
   private[store] val cacheIndex = new AtomicLong(0L)
 
@@ -45,17 +72,17 @@ private[store] class CachingContractsStore private[store] (
               _,
               eventSequentialId,
             ) =>
-          contractsCache.feedAsync(
-            contractId,
-            eventSequentialId,
-            Future.successful(Active(contract, flatEventWitnesses)),
-          )
           globalKey.foreach(
             keyCache.feedAsync(
               _,
               eventSequentialId,
               Future.successful(Assigned(contractId, flatEventWitnesses)),
             )
+          )
+          contractsCache.feedAsync(
+            contractId,
+            eventSequentialId,
+            Future.successful(Active(contract, flatEventWitnesses)),
           )
           eventSequentialId
         case ContractStateEvent.Archived(
@@ -83,7 +110,15 @@ private[store] class CachingContractsStore private[store] (
       }
       .map(idx => {
         cacheIndex.set(idx)
-        logger.debug(s"New cache index $idx")
+        val oldestHeadInQueue = headsToBeSignaled.head._2
+        logger.debug(s"New cache index $idx vs oldest head in queue $oldestHeadInQueue")
+        if (oldestHeadInQueue <= idx) { // This queue should never be called empty at this point
+          val dekd @ (offset, _, enqueuedAt) = headsToBeSignaled.dequeue()
+          logger.debug(s"Dequeued $dekd and signaling new ledger end")
+          metrics.daml.index.cacheCatchup
+            .update(System.nanoTime() - enqueuedAt, TimeUnit.NANOSECONDS)
+          signalGlobalNewLedgerEnd(offset)
+        }
         metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(idx)
       })
 
@@ -102,27 +137,6 @@ private[store] class CachingContractsStore private[store] (
         })
     }
 
-  private def readThroughKeyCache(
-      key: GlobalKey
-  )(implicit loggingContext: LoggingContext): Future[Option[(ContractId, Set[Party])]] = {
-    val currentCacheOffset = cacheIndex.get()
-    val eventualResult = store.lookupContractKey(key, currentCacheOffset)
-
-    keyCache.feedAsync(
-      key,
-      currentCacheOffset,
-      eventualResult.map {
-        case Some((contractId, stakeholders)) => Assigned(contractId, stakeholders)
-        case None => Unassigned
-      },
-    )
-
-    eventualResult
-  }
-
-  private def `intersection non-empty`[T](one: Set[T], other: Set[T]): Boolean =
-    one.toStream.intersect(other.toStream).nonEmpty
-
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
@@ -137,9 +151,10 @@ private[store] class CachingContractsStore private[store] (
           logger.warn(s"Contract not found for $contractId")
           Future.successful(Option.empty)
         case state: ExistingContractValue =>
-          store.checkDivulgenceVisibility(contractId, readers).map {
-            case true => Option.empty
-            case false => Some(state.contract)
+          logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
+          store.checkDivulgenceVisibility(contractId, readers, cacheIndex.get()).map {
+            case true => Some(state.contract)
+            case false => Option.empty
           }
       }
       .getOrElse {
@@ -169,13 +184,34 @@ private[store] class CachingContractsStore private[store] (
               else Some(contract)
             )
           case Some((contract, _, _, _)) =>
-            store.checkDivulgenceVisibility(contractId, readers).map {
-              case true => Option.empty[Contract]
-              case false => Some(contract)
+            store.checkDivulgenceVisibility(contractId, readers, currentCacheOffset).map {
+              case true => Some(contract)
+              case false => Option.empty[Contract]
             }
           case None => Future.successful(Option.empty[Contract])
         }
       }
+
+  private def readThroughKeyCache(
+      key: GlobalKey
+  )(implicit loggingContext: LoggingContext): Future[Option[(ContractId, Set[Party])]] = {
+    val currentCacheOffset = cacheIndex.get()
+    val eventualResult = store.lookupContractKey(key, currentCacheOffset)
+
+    keyCache.feedAsync(
+      key,
+      currentCacheOffset,
+      eventualResult.map {
+        case Some((contractId, stakeholders)) => Assigned(contractId, stakeholders)
+        case None => Unassigned
+      },
+    )
+
+    eventualResult
+  }
+
+  private def `intersection non-empty`[T](one: Set[T], other: Set[T]): Boolean =
+    one.toStream.intersect(other.toStream).nonEmpty
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
@@ -183,14 +219,15 @@ private[store] class CachingContractsStore private[store] (
     store.lookupMaximumLedgerTime(ids)
 }
 
-object CachingContractsStore {
-  def apply(store: ContractsReader, metrics: Metrics)(implicit
-      executionContext: ExecutionContext
-  ): CachingContractsStore =
-    new CachingContractsStore(
+object CachingContractsReader {
+  def apply(store: ContractsReader, metrics: Metrics, globallySignalNewLedgerEnd: Offset => Unit)(
+      implicit executionContext: ExecutionContext
+  ): CachingContractsReader =
+    new CachingContractsReader(
       metrics,
       store,
       ContractsKeyCache(metrics),
       ContractsStateCache(metrics),
+      globallySignalNewLedgerEnd,
     )
 }

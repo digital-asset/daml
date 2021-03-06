@@ -12,7 +12,6 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
@@ -23,7 +22,7 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.state.CachingContractsStore
+import com.daml.platform.store.state.CachingContractsReader
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -54,12 +53,14 @@ private[platform] object ReadOnlySqlLedger {
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
+        contractStateEventsDispatcher <- dispatcherOwner(ledgerEnd).acquire()
         ledger <- ResourceOwner
           .forCloseable(() =>
             new ReadOnlySqlLedger(
               ledgerId,
               ledgerDao,
               dispatcher,
+              contractStateEventsDispatcher,
               metrics,
               servicesExecutionContext,
             )
@@ -136,10 +137,24 @@ private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
+    contractStateEventsDispatcher: Dispatcher[Offset],
     metrics: Metrics,
     executionContext: ExecutionContext,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
+    extends BaseLedger(ledgerId, ledgerDao, dispatcher, contractStateEventsDispatcher) {
+
+  override protected val cachingContractsReader: CachingContractsReader = {
+    val cachingLayer =
+      CachingContractsReader(
+        store = ledgerDao.contractsReader,
+        metrics = metrics,
+        globallySignalNewLedgerEnd = dispatcher.signalNewHead, // TDT
+      )(
+        executionContext
+      )
+    val _ = contractLifecycleEvents.map(_._2).via(cachingLayer.consumeFrom).run()
+    cachingLayer
+  }
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
@@ -148,10 +163,15 @@ private final class ReadOnlySqlLedger(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+          .mapAsync(1)(_ => ledgerDao.lookupLedgerEndAndEventSequentialId())
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
+      .toMat(Sink.foreach { offset =>
+        contractStateEventsDispatcher.signalNewHead(offset._1)
+        cachingContractsReader.signalNewHead(loggingContext)(offset)
+      })(
+        Keep.both[UniqueKillSwitch, Future[Done]]
+      )
       .run()
 
   // Periodically remove all expired deduplication cache entries.
@@ -182,12 +202,5 @@ private final class ReadOnlySqlLedger(
     Await.result(deduplicationCleanupDone, 10.seconds)
     Await.result(ledgerEndUpdateDone, 10.seconds)
     super.close()
-  }
-
-  override protected val cachingContractsReader: ContractStore = {
-    val cachingLayer =
-      CachingContractsStore(ledgerDao.contractsReader, metrics)(executionContext)
-    val _ = contractLifecycleEvents.map(_._2).via(cachingLayer.consumeFrom).run()
-    cachingLayer
   }
 }

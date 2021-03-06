@@ -6,7 +6,7 @@
 
 <configuration>
     <include resource="com/daml/ledger/participant/state/kvutils/app/logback.base.xml"/>
-    <logger name="com.daml.platform.store.state.CachingContractsStore" level="debug"/>
+    <logger name="com.daml.platform.store.state.CachingContractsReader" level="debug"/>
     <logger name="com.daml.platform.store.state.ContractsKeyCache" level="debug"/>
     <logger name="com.daml.platform.store.state.ContractsStateCache" level="debug"/>
 </configuration>

@@ -164,6 +164,10 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(metrics.daml.index.db.prune, ledgerDao.prune(pruneUpToInclusive))
+
+  override def lookupLedgerEndAndEventSequentialId()(implicit
+      loggingContext: LoggingContext
+  ): Future[(Offset, Long)] = ledgerDao.lookupLedgerEndAndEventSequentialId()
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)

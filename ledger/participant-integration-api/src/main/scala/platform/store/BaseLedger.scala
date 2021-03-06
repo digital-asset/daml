@@ -46,7 +46,7 @@ private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
-    contractStateEventsDispatcher: Dispatcher[Offset]
+    contractStateEventsDispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
@@ -96,7 +96,8 @@ private[platform] abstract class BaseLedger(
       endInclusive,
     )
 
-  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = dispatcher.getHead()
+  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset =
+    contractStateEventsDispatcher.getHead()
 
   override def completions(
       startExclusive: Option[Offset],
@@ -158,7 +159,7 @@ private[platform] abstract class BaseLedger(
   override def partyEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] =
-    dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
+    contractStateEventsDispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
@@ -182,7 +183,10 @@ private[platform] abstract class BaseLedger(
   override def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPackageEntries))
+    contractStateEventsDispatcher.startingAt(
+      startExclusive,
+      RangeSource(ledgerDao.getPackageEntries),
+    )
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -192,7 +196,10 @@ private[platform] abstract class BaseLedger(
   override def configurationEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
-    dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getConfigurationEntries))
+    contractStateEventsDispatcher.startingAt(
+      startExclusive,
+      RangeSource(ledgerDao.getConfigurationEntries),
+    )
 
   override def deduplicateCommand(
       commandId: CommandId,

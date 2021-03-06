@@ -325,7 +325,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, dispatcher, null /* TDT */ )
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
