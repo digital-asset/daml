@@ -2,6 +2,7 @@ package com.daml.platform.store.state
 
 import com.daml.caching.CaffeineCache.SimpleCaffeineCache
 import com.daml.caching.{Cache => DamlCache}
+import com.daml.logging.LoggingContext
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
@@ -16,6 +17,8 @@ import scala.util.Random
 
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
   behavior of "async cache loading"
+
+  private implicit val loggingContext = LoggingContext.ForTesting
 
   private val stateCacheBuilder = (provided: DamlCache[String, String]) =>
     new StateCache[String, String] {

@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -247,7 +247,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     for {
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       events <- contractEvents(
-        ledgerDao.transactionsReader.getContractLifecycleEvents(Offset.beforeBegin, ledgerEnd)
+        ledgerDao.transactionsReader.getContractStateEvents(Offset.beforeBegin, ledgerEnd)
       )
     } yield {
       println(events)

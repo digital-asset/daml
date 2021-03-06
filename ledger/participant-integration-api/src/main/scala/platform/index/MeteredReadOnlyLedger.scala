@@ -30,7 +30,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ReadOnlyLedger
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader
+import com.daml.platform.store.dao.events.ContractStateEventsReader
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -204,7 +204,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEventsReader.ContractStateEvent), NotUsed] =
+  ): Source[(Offset, ContractStateEventsReader.ContractStateEvent), NotUsed] =
     ledger.contractLifecycleEvents
 }
 

@@ -28,7 +28,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader
+import com.daml.platform.store.dao.events.ContractStateEventsReader
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -174,5 +174,5 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractLifecycleEventsReader.ContractStateEvent), NotUsed]
+  ): Source[(Offset, ContractStateEventsReader.ContractStateEvent), NotUsed]
 }

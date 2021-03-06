@@ -235,6 +235,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         set
     }
 
+  protected def transient(tx: LedgerEntry.Transaction): Set[ContractId] =
+    tx.transaction.fold(Set.empty[ContractId]) {
+      case (set, (_, create: NodeCreate[ContractId])) =>
+        set + create.coid
+      case (set, _) =>
+        set
+    }
+
   protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
     singleCreate(create(_))
 

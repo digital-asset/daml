@@ -8,13 +8,13 @@ import anorm._
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent.{
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
   Archived,
   Created,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
-object ContractLifecycleEventsReader {
+object ContractStateEventsReader {
   def read(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
   ): Vector[ContractStateEvent] =
@@ -106,7 +106,7 @@ object ContractLifecycleEventsReader {
                 creates.create_argument as create_argument,
                 creates.create_argument_compression as create_argument_compression,
                 archives.flat_event_witnesses as flat_event_witnesses,
-                creates.event_sequential_id as event_sequential_id,
+                archives.event_sequential_id as event_sequential_id,
                 creates.event_sequential_id as created_at,
                 archives.event_sequential_id as archived_at,
                 20 as kind,
@@ -141,6 +141,9 @@ object ContractLifecycleEventsReader {
   sealed trait ContractStateEvent extends Product with Serializable {
     def eventOffset: Offset
     def eventSequentialId: Long
+    def contract: Contract
+    def flatEventWitnesses: Set[Party]
+    def globalKey: Option[GlobalKey]
   }
   object ContractStateEvent {
     final case class Created(

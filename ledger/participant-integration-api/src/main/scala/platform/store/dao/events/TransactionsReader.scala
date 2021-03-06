@@ -25,7 +25,7 @@ import com.daml.metrics._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import io.opentelemetry.trace.Span
 
@@ -72,14 +72,14 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
-  def getContractLifecycleEvents(startExclusive: Offset, endInclusive: Offset)(implicit
+  def getContractStateEvents(startExclusive: Offset, endInclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, ContractStateEvent), NotUsed] = {
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         QueryNonPruned.executeSqlOrThrow(
-          ContractLifecycleEventsReader.read(range),
+          ContractStateEventsReader.read(range),
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",

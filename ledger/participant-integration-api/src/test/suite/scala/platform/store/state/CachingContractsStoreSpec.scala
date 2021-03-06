@@ -16,7 +16,7 @@ import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.dao.events.ContractLifecycleEventsReader.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate}
 import com.daml.platform.store.state.ContractsStateCache.ContractCacheValue
