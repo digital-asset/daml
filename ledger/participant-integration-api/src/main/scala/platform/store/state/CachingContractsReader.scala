@@ -29,19 +29,10 @@ private[platform] class CachingContractsReader private[store] (
 )(implicit
     executionContext: ExecutionContext
 ) extends ContractStore {
-  private val headSignalTimeoutNanos = 50.milliseconds.toNanos
+  private val headSignalTimeoutNanos = 500.milliseconds.toNanos
   private val headsToBeSignaled = new ConcurrentLinkedQueue[(Offset, Long, Long)]
-
-  def dequeueExpired(headsToBeSignaled: ConcurrentLinkedQueue[(Offset, Long, Long)]): Unit = {
-    headsToBeSignaled
-      .removeIf { case (offset, _, enqueuedAt) =>
-        if ((System.nanoTime() - enqueuedAt) > headSignalTimeoutNanos) {
-          signalGlobalNewLedgerEnd(offset)
-          true
-        } else false
-      }
-    ()
-  }
+  private val logger = ContextualizedLogger.get(getClass)
+  private[store] val cacheIndex = new AtomicLong(0L)
 
   // Make sure the cache is up to date before completions and transactions streams
   def signalNewHead(implicit loggingContext: LoggingContext): ((Offset, Long)) => Unit = {
@@ -55,9 +46,6 @@ private[platform] class CachingContractsReader private[store] (
       }
       dequeueExpired(headsToBeSignaled)
   }
-
-  private val logger = ContextualizedLogger.get(getClass)
-  private[store] val cacheIndex = new AtomicLong(0L)
 
   def consumeFrom(implicit
       loggingContext: LoggingContext
@@ -181,7 +169,7 @@ private[platform] class CachingContractsReader private[store] (
           Future.successful(Option.empty)
         case state: ExistingContractValue =>
           logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
-          store.checkDivulgenceVisibility(contractId, readers, cacheIndex.get()).map {
+          store.checkDivulgenceVisibility(contractId, readers).map {
             case true => Some(state.contract)
             case false => Option.empty
           }
@@ -212,13 +200,26 @@ private[platform] class CachingContractsReader private[store] (
               else Some(contract)
             )
           case Some((contract, _, _, _)) =>
-            store.checkDivulgenceVisibility(contractId, readers, currentCacheOffset).map {
+            store.checkDivulgenceVisibility(contractId, readers).map {
               case true => Some(contract)
               case false => Option.empty[Contract]
             }
           case None => Future.successful(Option.empty[Contract])
         }
       }
+
+  private def dequeueExpired(
+      headsToBeSignaled: ConcurrentLinkedQueue[(Offset, Long, Long)]
+  ): Unit = {
+    headsToBeSignaled
+      .removeIf { case (offset, _, enqueuedAt) =>
+        if ((System.nanoTime() - enqueuedAt) > headSignalTimeoutNanos) {
+          signalGlobalNewLedgerEnd(offset)
+          true
+        } else false
+      }
+    ()
+  }
 
   private def readThroughKeyCache(
       key: GlobalKey

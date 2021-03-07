@@ -6,8 +6,9 @@ import java.sql.Connection
 import anorm.SqlParser.{binaryStream, int, long}
 import anorm._
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
-import com.daml.platform.store.Conversions._
+import com.daml.platform.store.Conversions.{contractId, offset, _}
 import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
   Archived,
   Created,
@@ -15,9 +16,23 @@ import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStat
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 object ContractStateEventsReader {
+  type RawContractEvent = (
+      ContractId,
+      Ref.Identifier,
+      Option[InputStream],
+      Option[Int],
+      Option[InputStream],
+      Option[Int],
+      Long,
+      Option[Long],
+      Set[Party],
+      Int,
+      Offset,
+  )
+
   def read(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
-  ): Vector[ContractStateEvent] =
+  ): Vector[RawContractEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
       .as(
         (contractId("contract_id") ~
@@ -30,49 +45,64 @@ object ContractStateEventsReader {
           long("archived_at").? ~
           flatEventWitnessesColumn("flat_event_witnesses") ~
           int("kind") ~
-          offset("event_offset")).map {
-          case contractId ~ templateId ~ maybeCreateKeyValue ~ maybeCreateKeyValueCompression ~ maybeCreateArgument ~ maybeCreateArgumentCompression ~ createdAt ~ maybeArchivedAt ~ flatEventWitnesses ~ kind ~ offset =>
-            val maybeGlobalKey =
-              for {
-                createKeyValue <- maybeCreateKeyValue
-                createKeyValueCompression = Compression.Algorithm.assertLookup(
-                  maybeCreateKeyValueCompression
-                )
-                keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
-              } yield GlobalKey.assertBuild(templateId, keyValue.value)
-            val contract =
-              toContract( // TDT Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
-                contractId,
-                templateId,
-                createArgument = maybeCreateArgument.get,
-                createArgumentCompression =
-                  Compression.Algorithm.assertLookup(maybeCreateArgumentCompression),
-              )
-            if (kind == 20) {
-              val archivedAt = maybeArchivedAt.getOrElse(
-                throw new RuntimeException("Archived at should be present for consuming exercises")
-              )
-              Archived(
-                contractId = contractId,
-                contract = contract,
-                globalKey = maybeGlobalKey,
-                flatEventWitnesses = flatEventWitnesses,
-                createdAt = createdAt,
-                eventOffset = offset,
-                eventSequentialId = archivedAt,
-              )
-            } else
-              Created(
-                contractId = contractId,
-                contract = contract,
-                globalKey = maybeGlobalKey,
-                flatEventWitnesses = flatEventWitnesses,
-                eventOffset = offset,
-                eventSequentialId = createdAt,
-              )
-        }.*
+          offset("event_offset")).map(SqlParser.flatten).*
       )
       .toVector
+
+  def toContractStateEvent(row: RawContractEvent): ContractStateEvent =
+    row match {
+      case (
+            contractId,
+            templateId,
+            maybeCreateKeyValue,
+            maybeCreateKeyValueCompression,
+            maybeCreateArgument,
+            maybeCreateArgumentCompression,
+            createdAt,
+            maybeArchivedAt,
+            flatEventWitnesses,
+            kind,
+            offset,
+          ) =>
+        val maybeGlobalKey =
+          for {
+            createKeyValue <- maybeCreateKeyValue
+            createKeyValueCompression = Compression.Algorithm.assertLookup(
+              maybeCreateKeyValueCompression
+            )
+            keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
+          } yield GlobalKey.assertBuild(templateId, keyValue.value)
+        val contract =
+          toContract( // TDT Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
+            contractId,
+            templateId,
+            createArgument = maybeCreateArgument.get,
+            createArgumentCompression =
+              Compression.Algorithm.assertLookup(maybeCreateArgumentCompression),
+          )
+        if (kind == 20) {
+          val archivedAt = maybeArchivedAt.getOrElse(
+            throw new RuntimeException("Archived at should be present for consuming exercises")
+          )
+          Archived(
+            contractId = contractId,
+            contract = contract,
+            globalKey = maybeGlobalKey,
+            flatEventWitnesses = flatEventWitnesses,
+            createdAt = createdAt,
+            eventOffset = offset,
+            eventSequentialId = archivedAt,
+          )
+        } else
+          Created(
+            contractId = contractId,
+            contract = contract,
+            globalKey = maybeGlobalKey,
+            flatEventWitnesses = flatEventWitnesses,
+            eventOffset = offset,
+            eventSequentialId = createdAt,
+          )
+    }
 
   private[store] def toContract(
       contractId: ContractId,
@@ -129,7 +159,7 @@ object ContractStateEventsReader {
                 flat_event_witnesses,
                 event_sequential_id,
                 event_sequential_id as created_at,
-                0 as archived_at,
+                null as archived_at,
                 10 as kind,
                 event_offset
               FROM participant_events

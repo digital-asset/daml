@@ -25,7 +25,10 @@ import com.daml.metrics._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEventsReader.{
+  ContractStateEvent,
+  RawContractEvent,
+}
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import io.opentelemetry.trace.Span
 
@@ -94,6 +97,13 @@ private[dao] final class TransactionsReader(
           nextPageRangeContracts(requestedRange.endInclusive),
         )(requestedRange)
       })
+      .async
+      .mapAsync(4) { raw =>
+        Timed.future(
+          metrics.daml.index.decodeStateEvent,
+          Future(ContractStateEventsReader.toContractStateEvent(raw)),
+        )
+      }
       .map(event => event.eventOffset -> event)
       .mapMaterializedValue(_ => NotUsed)
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
@@ -332,9 +342,12 @@ private[dao] final class TransactionsReader(
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
   private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      a: ContractStateEvent
+      a: RawContractEvent
   ): EventsRange[(Offset, Long)] =
-    EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
+    EventsRange(
+      startExclusive = (a._11, a._8.getOrElse(a._7)), /* TDT Use an intermediary DTO */
+      endInclusive = endEventSeqId,
+    )
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
@@ -407,11 +420,11 @@ private[dao] final class TransactionsReader(
 
   private def streamEvents(
       queryMetric: DatabaseMetrics,
-      query: EventsRange[(Offset, Long)] => Connection => Vector[ContractStateEvent],
-      getNextPageRange: ContractStateEvent => EventsRange[(Offset, Long)],
+      query: EventsRange[(Offset, Long)] => Connection => Vector[RawContractEvent],
+      getNextPageRange: RawContractEvent => EventsRange[(Offset, Long)],
   )(range: EventsRange[(Offset, Long)])(implicit
       loggingContext: LoggingContext
-  ): Source[ContractStateEvent, NotUsed] =
+  ): Source[RawContractEvent, NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)

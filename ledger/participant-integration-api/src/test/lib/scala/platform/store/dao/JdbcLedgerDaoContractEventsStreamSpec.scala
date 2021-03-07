@@ -54,7 +54,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           None,
           Set(alice, bob),
           offset2,
-          firstEventSeqId + 2, // TDT do something more revealing about the event seq id assertionsd
+          firstEventSeqId + 2, // TDT do something more revealing about the event seq id assertions
         ),
         Archived(
           nonTransient(t2).loneElement,

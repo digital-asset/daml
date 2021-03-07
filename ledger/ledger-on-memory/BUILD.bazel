@@ -140,6 +140,7 @@ conformance_test(
         "--verbose",
 #        "--include=ContractKeysIT",
         "--include=ActiveContractsServiceIT,CommandSubmissionCompletionIT,ContractKeysIT,DivulgenceIT,TransactionServiceIT,WitnessesIT,WronglyTypedContractIdIT",
+#        "--include=WitnessesIT",
     ],
 )
 

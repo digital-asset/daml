@@ -314,9 +314,11 @@ final class Metrics(val registry: MetricRegistry) {
     }
 
     object index {
+
       private val Prefix = daml.Prefix :+ "index"
       val cacheCatchup: Timer = registry.timer(Prefix :+ "cache_catchup")
 
+      val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
       val lookupContract: Timer = registry.timer(Prefix :+ "lookup_contract")
       val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
       val lookupFlatTransactionById: Timer =

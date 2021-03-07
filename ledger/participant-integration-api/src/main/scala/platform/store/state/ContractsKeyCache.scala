@@ -23,7 +23,7 @@ object ContractsKeyCache {
       executionContext: ExecutionContext
   ): ContractsKeyCache = ContractsKeyCache(
     SizedCache.from[GlobalKey, KeyStateUpdate](
-      SizedCache.Configuration(100000L),
+      SizedCache.Configuration(500000L),
       metrics.daml.execution.contractsKeyStateCache,
     )
   )

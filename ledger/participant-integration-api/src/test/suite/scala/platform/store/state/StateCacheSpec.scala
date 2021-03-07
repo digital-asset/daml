@@ -18,7 +18,16 @@ import scala.util.Random
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
   behavior of "async cache loading"
 
-  private implicit val loggingContext = LoggingContext.ForTesting
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
+  private val `number of competing updates` = 1000
+  private val `number of keys in cache` = 1000L
+
+  private val caffeineCache: Cache[String, String] = Caffeine
+    .newBuilder()
+    .maximumSize(`number of keys in cache`)
+    .build()
+  private val cache = new SimpleCaffeineCache[String, String](caffeineCache)
 
   private val stateCacheBuilder = (provided: DamlCache[String, String]) =>
     new StateCache[String, String] {
@@ -29,33 +38,34 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     }
 
   it should "always store the latest key update in face of conflicting pending updates" in {
-    val caffeineCache: Cache[String, String] = Caffeine
-      .newBuilder()
-      .maximumSize(3)
-      .build()
-    val cache = new SimpleCaffeineCache[String, String](caffeineCache)
-    val updates = (1 to 10000).map(idx => (idx.toLong, "same-key", Promise[String]))
+    val assertionSet = (1L to `number of keys in cache`).map { keyIdx =>
+      val keyValue = s"some-key-$keyIdx"
+      keyValue -> concurrentForKey(keyValue, `number of competing updates`)
+    }
+
+    Thread.sleep(1000L)
+    assertionSet.foreach(_._2.foreach(_.apply()))
+    Thread.sleep(1000L)
+
+    caffeineCache.asMap().asScala should contain theSameElementsAs assertionSet.map {
+      case (key, _) => key -> s"completed-${`number of competing updates`}"
+    }
+  }
+
+  private def concurrentForKey(key: String, concurrency: Int) = {
+    val updates =
+      (1 to concurrency).map(idx => (idx.toLong, key, Promise[String]))
     val (indices, _, eventualValues) = updates.unzip3
 
     val stateCache = stateCacheBuilder(cache)
     Await.result(
       Future.sequence(Random.shuffle(updates).map { case (idx, key, eventualValue) =>
-        Future {
-          stateCache.feedAsync(key, idx, eventualValue.future)
-        }
+        stateCache.feedAsync(key, idx, eventualValue.future)
       }),
       10.seconds,
     )
-    // All concurrent requests finish after 1 second
-    Thread.sleep(1000L)
-    Random.shuffle(indices zip eventualValues).foreach { case (idx, promisedString) =>
-      promisedString.completeWith(Future {
-        s"completed-$idx"
-      })
+    Random.shuffle(indices zip eventualValues).map { case (idx, promisedString) =>
+      () => promisedString.completeWith(Future.successful(s"completed-$idx"))
     }
-
-    caffeineCache.asMap().asScala should contain theSameElementsAs Map(
-      "same-key" -> "completed-10000"
-    )
   }
 }
