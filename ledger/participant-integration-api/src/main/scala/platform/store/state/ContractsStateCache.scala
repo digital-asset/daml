@@ -33,7 +33,7 @@ object ContractsStateCache {
       ec: ExecutionContext
   ): ContractsStateCache = new ContractsStateCache(
     SizedCache.from[ContractId, ContractCacheValue](
-      SizedCache.Configuration(10000L),
+      SizedCache.Configuration(100000L),
       metrics.daml.execution.contractsStateCache,
     )
   )

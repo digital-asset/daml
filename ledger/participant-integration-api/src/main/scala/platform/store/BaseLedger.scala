@@ -97,7 +97,7 @@ private[platform] abstract class BaseLedger(
     )
 
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset =
-    contractStateEventsDispatcher.getHead()
+    dispatcher.getHead()
 
   override def completions(
       startExclusive: Option[Offset],

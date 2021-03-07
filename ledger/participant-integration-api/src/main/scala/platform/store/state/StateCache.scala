@@ -21,7 +21,7 @@ trait StateCache[K, V] {
   def fetch(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
       case Some(value) =>
-        logger.debug(s"Cache hit for $key -> $value")
+        logger.debug(s"Cache hit for $key -> ${value.toString.take(100)}")
         Some(value)
       case None =>
         logger.debug(s"Cache miss for $key ")
@@ -64,7 +64,7 @@ trait StateCache[K, V] {
       case Success(update) =>
         // Double-check if we need to update
 //        if (pendingUpdates(key).highestIndex.get() == validAt) {
-        logger.debug(s"Updating cache with $key -> $update ")
+        logger.debug(s"Updating cache with $key -> ${update.toString.take(100)}")
         cache.put(key, update)
         removeFromPending(key)
       case Failure(e) =>

@@ -16,6 +16,7 @@ import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStat
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
 import com.daml.platform.store.state.ContractsStateCache._
+import scala.concurrent.duration._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -28,17 +29,18 @@ private[platform] class CachingContractsReader private[store] (
 )(implicit
     executionContext: ExecutionContext
 ) extends ContractStore {
-
+  private val headSignalTimeoutNanos = 50.milliseconds.toNanos
   private val headsToBeSignaled = new ConcurrentLinkedQueue[(Offset, Long, Long)]
 
   def dequeueExpired(headsToBeSignaled: ConcurrentLinkedQueue[(Offset, Long, Long)]): Unit = {
     headsToBeSignaled
       .removeIf { case (offset, _, enqueuedAt) =>
-        if ((System.nanoTime() - enqueuedAt) > 500000000L) {
+        if ((System.nanoTime() - enqueuedAt) > headSignalTimeoutNanos) {
           signalGlobalNewLedgerEnd(offset)
           true
         } else false
       }
+    ()
   }
 
   // Make sure the cache is up to date before completions and transactions streams
@@ -61,9 +63,32 @@ private[platform] class CachingContractsReader private[store] (
       loggingContext: LoggingContext
   ): Flow[ContractStateEvent, Unit, NotUsed] =
     Flow[ContractStateEvent]
-      .map { el =>
-        logger.debug(s"Contract state events update: $el")
-        el
+      .map {
+        case el @ ContractStateEvent.Created(
+              contractId,
+              _,
+              globalKey,
+              _,
+              eventOffset,
+              eventSequentialId,
+            ) =>
+          logger.debug(
+            s"State events update: Created(contractId=$contractId, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId"
+          )
+          el
+        case el @ ContractStateEvent.Archived(
+              contractId,
+              _,
+              globalKey,
+              _,
+              createdAt,
+              eventOffset,
+              eventSequentialId,
+            ) =>
+          logger.debug(
+            s"State events update: Archived(contractId=$contractId, globalKey=$globalKey, createdAt=$createdAt, offset=$eventOffset, eventSequentialId=$eventSequentialId"
+          )
+          el
       }
       .map {
         case ContractStateEvent.Created(
@@ -171,12 +196,11 @@ private[platform] class CachingContractsReader private[store] (
         contractsCache.feedAsync(
           key = contractId,
           validAt = currentCacheOffset,
-          newUpdate = eventualResult.map {
+          newUpdate = eventualResult.collect {
             case Some((contract, stakeholders, _, Some(_))) =>
               ContractsStateCache.Archived(contract, stakeholders)
             case Some((contract, stakeholders, _, _)) =>
               ContractsStateCache.Active(contract, stakeholders)
-            case None => ContractsStateCache.NotFound
           },
         )
 

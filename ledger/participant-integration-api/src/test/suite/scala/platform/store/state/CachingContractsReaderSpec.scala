@@ -59,11 +59,12 @@ class CachingContractsReaderSpec
     metrics = new Metrics(new MetricRegistry),
     keyCache = contractsKeyCache,
     contractsCache = contractsStateCache,
+    signalGlobalNewLedgerEnd = _ => (),
   )
 
   private val contractEventsStream = Source
     .queue[ContractStateEvent](16)
-    .via(cachingContractsStore.consumeFrom)
+    .via(cachingContractsStore.consumeFrom(testLoggingContext))
     .toMat(Sink.ignore)(Keep.left)
     .run()
 
@@ -73,7 +74,7 @@ class CachingContractsReaderSpec
   override def beforeAll(): Unit = {
     // Don't test divulgence
     when(
-      contractsReaderMock.checkDivulgenceVisibility(*[ContractId], *[Set[Party]])(
+      contractsReaderMock.checkDivulgenceVisibility(*[ContractId], *[Set[Party]], anyLong)(
         *[LoggingContext]
       )
     ).thenReturn(Future.successful(false))
