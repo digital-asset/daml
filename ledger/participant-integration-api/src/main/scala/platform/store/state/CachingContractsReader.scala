@@ -1,8 +1,8 @@
 package com.daml.platform.store.state
 
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
@@ -17,7 +17,6 @@ import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
 import com.daml.platform.store.state.ContractsStateCache._
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] class CachingContractsReader private[store] (
@@ -30,14 +29,17 @@ private[platform] class CachingContractsReader private[store] (
     executionContext: ExecutionContext
 ) extends ContractStore {
 
-  private val headsToBeSignaled = mutable.Queue.empty[(Offset, Long, Long)]
+  private val headsToBeSignaled = new ConcurrentLinkedQueue[(Offset, Long, Long)]
 
-  def dequeueExpired(headsToBeSignaled: mutable.Queue[(Offset, Long, Long)]): Unit =
+  def dequeueExpired(headsToBeSignaled: ConcurrentLinkedQueue[(Offset, Long, Long)]): Unit = {
     headsToBeSignaled
-      .dequeueAll { case (_, _, enqueuedAt) => // let the system progress
-        (System.nanoTime() - enqueuedAt) > 500000000L
+      .removeIf { case (offset, _, enqueuedAt) =>
+        if ((System.nanoTime() - enqueuedAt) > 500000000L) {
+          signalGlobalNewLedgerEnd(offset)
+          true
+        } else false
       }
-      .foreach(el => signalGlobalNewLedgerEnd(el._1))
+  }
 
   // Make sure the cache is up to date before completions and transactions streams
   def signalNewHead(implicit loggingContext: LoggingContext): ((Offset, Long)) => Unit = {
@@ -47,7 +49,7 @@ private[platform] class CachingContractsReader private[store] (
       } else {
         val enqueuedAt = System.nanoTime()
         logger.debug(s"Enqueued new head ${(offset, eventSequentialId, enqueuedAt)}")
-        headsToBeSignaled.enqueue((offset, eventSequentialId, enqueuedAt))
+        headsToBeSignaled.add((offset, eventSequentialId, enqueuedAt))
       }
       dequeueExpired(headsToBeSignaled)
   }
@@ -110,14 +112,16 @@ private[platform] class CachingContractsReader private[store] (
       }
       .map(idx => {
         cacheIndex.set(idx)
-        val oldestHeadInQueue = headsToBeSignaled.head._2
+        val oldestHeadInQueue = headsToBeSignaled.peek()._2
         logger.debug(s"New cache index $idx vs oldest head in queue $oldestHeadInQueue")
-        if (oldestHeadInQueue <= idx) { // This queue should never be called empty at this point
-          val dekd @ (offset, _, enqueuedAt) = headsToBeSignaled.dequeue()
-          logger.debug(s"Dequeued $dekd and signaling new ledger end")
-          metrics.daml.index.cacheCatchup
-            .update(System.nanoTime() - enqueuedAt, TimeUnit.NANOSECONDS)
-          signalGlobalNewLedgerEnd(offset)
+        headsToBeSignaled.removeIf { case dekd @ (offset, seqId, enqueuedAt) =>
+          if (seqId <= idx) {
+            logger.debug(s"Dequeued $dekd and signaling new ledger end")
+            metrics.daml.index.cacheCatchup
+              .update(System.nanoTime() - enqueuedAt, TimeUnit.NANOSECONDS)
+            signalGlobalNewLedgerEnd(offset)
+            true
+          } else false
         }
         metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(idx)
       })
