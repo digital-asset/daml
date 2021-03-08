@@ -18,6 +18,8 @@ deps = [
     "//triggers/runner:trigger-runner-lib",
     "//triggers/service:trigger-service",
     "//triggers/service/auth:oauth2-middleware",
+    "//navigator/backend:backend-resources",
+    "//navigator/backend:frontend-resources",
 ]
 
 scala_deps = [
@@ -45,6 +47,8 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = scala_deps,
     scala_runtime_deps = scala_runtime_deps,
+    # Navigator resources trigger this incorrectly
+    unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps,
     deps = deps,
@@ -57,6 +61,8 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = scala_deps,
     scala_runtime_deps = scala_runtime_deps,
+    # Navigator resources trigger this incorrectly
+    unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps + [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
