@@ -714,9 +714,9 @@ class DecodeV1Spec
 
     s"reject comparison builtins as is if version >= ${LV.Features.genComparison}" in {
 
-      forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
+      forEveryVersionSuchThat(_ >= LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
-        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
+        forEvery(comparisonBuiltinCases) { (proto, _) =>
           a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
