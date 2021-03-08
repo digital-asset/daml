@@ -345,7 +345,7 @@ private[dao] final class TransactionsReader(
       a: RawContractEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
-      startExclusive = (a._11, a._8.getOrElse(a._7)), /* TDT Use an intermediary DTO */
+      startExclusive = (a._12, a._11), /* TDT Use an intermediary DTO */
       endInclusive = endEventSeqId,
     )
 

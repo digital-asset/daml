@@ -13,10 +13,10 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.Other
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
 import com.daml.platform.store.state.ContractsStateCache._
-import scala.concurrent.duration._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,7 +29,6 @@ private[platform] class CachingContractsReader private[store] (
 )(implicit
     executionContext: ExecutionContext
 ) extends ContractStore {
-  private val headSignalTimeoutNanos = 500.milliseconds.toNanos
   private val headsToBeSignaled = new ConcurrentLinkedQueue[(Offset, Long, Long)]
   private val logger = ContextualizedLogger.get(getClass)
   private[store] val cacheIndex = new AtomicLong(0L)
@@ -43,8 +42,8 @@ private[platform] class CachingContractsReader private[store] (
         val enqueuedAt = System.nanoTime()
         logger.debug(s"Enqueued new head ${(offset, eventSequentialId, enqueuedAt)}")
         headsToBeSignaled.add((offset, eventSequentialId, enqueuedAt))
+        ()
       }
-      dequeueExpired(headsToBeSignaled)
   }
 
   def consumeFrom(implicit
@@ -75,6 +74,11 @@ private[platform] class CachingContractsReader private[store] (
             ) =>
           logger.debug(
             s"State events update: Archived(contractId=$contractId, globalKey=$globalKey, createdAt=$createdAt, offset=$eventOffset, eventSequentialId=$eventSequentialId"
+          )
+          el
+        case el @ Other(eventOffset, eventSequentialId, kind) =>
+          logger.debug(
+            s"Other state event update of kind $kind: $eventOffset -> $eventSequentialId "
           )
           el
       }
@@ -122,6 +126,8 @@ private[platform] class CachingContractsReader private[store] (
             Future.successful(Archived(contract, stakeholders)),
           )
           eventSequentialId
+        case other =>
+          other.eventSequentialId // Just pass the seq id downstream
       }
       .map(idx => {
         cacheIndex.set(idx)
@@ -207,19 +213,6 @@ private[platform] class CachingContractsReader private[store] (
           case None => Future.successful(Option.empty[Contract])
         }
       }
-
-  private def dequeueExpired(
-      headsToBeSignaled: ConcurrentLinkedQueue[(Offset, Long, Long)]
-  ): Unit = {
-    headsToBeSignaled
-      .removeIf { case (offset, _, enqueuedAt) =>
-        if ((System.nanoTime() - enqueuedAt) > headSignalTimeoutNanos) {
-          signalGlobalNewLedgerEnd(offset)
-          true
-        } else false
-      }
-    ()
-  }
 
   private def readThroughKeyCache(
       key: GlobalKey

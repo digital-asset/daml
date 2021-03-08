@@ -38,7 +38,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
       println(contractStateEvents)
       val first = contractStateEvents.head
       val firstEventSeqId = first.eventSequentialId
-      val contract = first.contract
+      val contract = first.asInstanceOf[Created].contract
       contractStateEvents should contain theSameElementsInOrderAs Seq(
         Created(
           nonTransient(t1).loneElement,
