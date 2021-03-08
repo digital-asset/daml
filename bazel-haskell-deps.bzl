@@ -222,31 +222,6 @@ haskell_cabal_library(
         patch_args = ["-p1"],
     )
 
-    http_archive(
-        name = "ghc_lib",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-load("@stackage//:packages.bzl", "packages")
-haskell_cabal_library(
-    name = "ghc-lib",
-    version = "8.8.1.20210101",
-    srcs = glob(["**"]),
-    haddock = False,
-    deps = packages["ghc-lib"].deps,
-    tools = ["@stackage-exe//happy", "@stackage-exe//alex"],
-    verbose = False,
-    visibility = ["//visibility:public"],
-)
-""",
-        patch_args = ["-p2"],
-        patches = [
-            "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-lib.patch",
-        ],
-        sha256 = "7014dd6b9b277ecc6c41de8331eeb741c8f255aea784414b43aa668e98bef5d7",
-        strip_prefix = "ghc-lib-8.8.1.20210101",
-        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-927591afb5343097516894c6163a6df7.tar.gz"],
-    )
-
     # Note (MK)
     # We vendor Shake and its JS dependencies
     # so that we can replace the data-files with file-embed.
@@ -478,6 +453,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghc",
             "ghc-boot",
             "ghc-boot-th",
+            "ghc-lib",
             "ghc-lib-parser",
             "ghc-lib-parser-ex",
             "ghc-paths",
@@ -607,7 +583,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghcide": "@ghcide_ghc_lib//:ghcide",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
             "grpc-haskell": "@grpc_haskell//:grpc-haskell",
-            "ghc-lib": "@ghc_lib//:ghc-lib",
             "js-jquery": "@js_jquery//:js-jquery",
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
