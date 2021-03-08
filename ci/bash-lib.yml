@@ -81,9 +81,11 @@ steps:
         key=$(mktemp)
         # There may already be a trap; this will save it
         restore_trap=$(trap -p EXIT)
-        cleanup="rm -rf $key ~/.config/gcloud"
-        trap "$cleanup" EXIT
+        config_dir=$(mktemp -d)
+        cleanup="rm -rf $key $config_dir"
+        trap "$cleanup; $restore_trap" EXIT
         echo "$cred" > $key
+        export CLOUDSDK_CONFIG="$config_dir"
         gcloud auth activate-service-account --key-file=$key
 
         BOTO_CONFIG=/dev/null gsutil $cmd "${args[@]}"
