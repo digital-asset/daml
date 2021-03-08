@@ -67,4 +67,6 @@ protos_zip(
     name = "protobufs",
 ) if not is_windows else None
 
-sdk_tarball("sdk-release-tarball", sdk_version)
+sdk_tarball("sdk-release-tarball", sdk_version, "community")
+
+sdk_tarball("sdk-release-tarball-ee", sdk_version, "enterprise")
