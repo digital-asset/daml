@@ -75,10 +75,10 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
-  def getContractStateEvents(startExclusive: Offset, endInclusive: Offset)(implicit
+  def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, ContractStateEvent), NotUsed] = {
-    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] = {
+
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         QueryNonPruned.executeSqlOrThrow(
@@ -89,24 +89,28 @@ private[dao] final class TransactionsReader(
         )
     }
 
-    Source
-      .futureSource(requestedRangeF.map { requestedRange =>
-        streamEvents(
-          dbMetrics.getContractLifecycleEvents,
-          query,
-          nextPageRangeContracts(requestedRange.endInclusive),
-        )(requestedRange)
-      })
-      .async
+    val endMarker = Source.single(
+      endInclusive -> ContractStateEventsReader.ContractStateEvent.LedgerEndMarker(
+        eventOffset = endInclusive._1,
+        eventSequentialId = endInclusive._2,
+      )
+    )
+
+    streamEvents(
+      dbMetrics.getContractLifecycleEvents,
+      query,
+      nextPageRangeContracts(endInclusive),
+    )(EventsRange(startExclusive, endInclusive)).async
       .mapAsync(4) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
           Future(ContractStateEventsReader.toContractStateEvent(raw)),
         )
       }
-      .map(event => event.eventOffset -> event)
+      .map(event => (event.eventOffset, event.eventSequentialId) -> event)
       .mapMaterializedValue(_ => NotUsed)
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+      .concat(endMarker)
   }
 
   def getFlatTransactions(
@@ -345,7 +349,7 @@ private[dao] final class TransactionsReader(
       a: RawContractEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
-      startExclusive = (a._12, a._11), /* TDT Use an intermediary DTO */
+      startExclusive = (a._11, a._8.getOrElse(a._7)), /* TDT Use an intermediary DTO */
       endInclusive = endEventSeqId,
     )
 

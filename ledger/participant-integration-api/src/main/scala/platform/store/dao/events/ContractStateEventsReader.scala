@@ -13,42 +13,44 @@ import com.daml.platform.store.dao.events
 import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
   Archived,
   Created,
-  Other,
+  LedgerEndMarker,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 object ContractStateEventsReader {
   type RawContractEvent = (
-      Option[ContractId],
-      Option[Ref.Identifier],
+      ContractId,
+      Ref.Identifier,
       Option[InputStream],
       Option[Int],
       Option[InputStream],
       Option[Int],
-      Option[Long],
-      Option[Long],
-      Option[Set[Party]],
-      Int,
       Long,
+      Option[Long],
+      Set[Party],
+      Int,
       Offset,
   )
+
+  // TDT Very ugly!!!
+  def ledgerEndMarker(eventSeqId: Long, offset: Offset): RawContractEvent =
+    (null, null, None, None, None, None, eventSeqId, None, Set.empty, -1, offset)
 
   def read(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
   ): Vector[RawContractEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
       .as(
-        (contractId("contract_id").? ~
-          identifier("template_id").? ~
+        (contractId("contract_id") ~
+          identifier("template_id") ~
           binaryStream("create_key_value").? ~
           int("create_key_value_compression").? ~
           binaryStream("create_argument").? ~
           int("create_argument_compression").? ~
-          long("created_at").? ~
+          long("created_at") ~
           long("archived_at").? ~
-          flatEventWitnessesColumn("flat_event_witnesses").? ~
+          flatEventWitnessesColumn("flat_event_witnesses") ~
           int("kind") ~
-          long("event_sequential_id") ~
           offset("event_offset")).map(SqlParser.flatten).*
       )
       .toVector
@@ -56,73 +58,71 @@ object ContractStateEventsReader {
   def toContractStateEvent(row: RawContractEvent): ContractStateEvent =
     row match {
       case (
-            maybeContractId,
-            maybeTemplateId,
+            contractId,
+            templateId,
             maybeCreateKeyValue,
             maybeCreateKeyValueCompression,
             maybeCreateArgument,
             maybeCreateArgumentCompression,
-            maybeCreatedAt,
+            createdAt,
             maybeArchivedAt,
-            maybeFlatEventWitnesses,
+            flatEventWitnesses,
             kind,
-            eventSequentialId,
             offset,
           ) =>
         if (kind == 20) {
-          val (maybeGlobalKey: Option[GlobalKey], contract: Contract) =
-            getGlobalKeyAndContract(
-              maybeContractId.get,
-              maybeTemplateId.get,
-              maybeCreateKeyValue,
-              maybeCreateKeyValueCompression,
-              maybeCreateArgument.get,
-              maybeCreateArgumentCompression,
-            )
+          val archivedAt = maybeArchivedAt.getOrElse(
+            throw new RuntimeException("Archived at should be present for consuming exercises")
+          )
+          val (maybeGlobalKey: Option[GlobalKey], contract: Contract) = globalKeyAndContract(
+            contractId,
+            templateId,
+            maybeCreateKeyValue,
+            maybeCreateKeyValueCompression,
+            maybeCreateArgument,
+            maybeCreateArgumentCompression,
+          )
           Archived(
-            contractId = maybeContractId.get,
+            contractId = contractId,
             contract = contract,
             globalKey = maybeGlobalKey,
-            flatEventWitnesses = maybeFlatEventWitnesses.get,
-            createdAt = maybeCreatedAt.get,
+            flatEventWitnesses = flatEventWitnesses,
+            createdAt = createdAt,
             eventOffset = offset,
-            eventSequentialId = maybeArchivedAt.get,
+            eventSequentialId = archivedAt,
           )
         } else if (kind == 10) {
-          val (maybeGlobalKey: Option[GlobalKey], contract: Contract) =
-            getGlobalKeyAndContract(
-              maybeContractId.get,
-              maybeTemplateId.get,
-              maybeCreateKeyValue,
-              maybeCreateKeyValueCompression,
-              maybeCreateArgument.get,
-              maybeCreateArgumentCompression,
-            )
-
+          val (maybeGlobalKey: Option[GlobalKey], contract: Contract) = globalKeyAndContract(
+            contractId,
+            templateId,
+            maybeCreateKeyValue,
+            maybeCreateKeyValueCompression,
+            maybeCreateArgument,
+            maybeCreateArgumentCompression,
+          )
           Created(
-            contractId = maybeContractId.get,
+            contractId = contractId,
             contract = contract,
             globalKey = maybeGlobalKey,
-            flatEventWitnesses = maybeFlatEventWitnesses.get,
+            flatEventWitnesses = flatEventWitnesses,
             eventOffset = offset,
-            eventSequentialId = maybeCreatedAt.get,
+            eventSequentialId = createdAt,
           )
         } else
-          Other(
-            eventSequentialId = eventSequentialId,
+          LedgerEndMarker( // TDT this will come when kind -1 are injected at ledger end. Very ugly
             eventOffset = offset,
-            kind = kind,
+            eventSequentialId = createdAt,
           )
     }
 
-  private def getGlobalKeyAndContract(
+  private def globalKeyAndContract(
       contractId: ContractId,
       templateId: events.Identifier,
       maybeCreateKeyValue: Option[InputStream],
       maybeCreateKeyValueCompression: Option[Int],
-      createArgument: InputStream,
+      maybeCreateArgument: Option[InputStream],
       maybeCreateArgumentCompression: Option[Int],
-  ) = {
+  ): (Option[Key], Contract) = {
     val maybeGlobalKey =
       for {
         createKeyValue <- maybeCreateKeyValue
@@ -135,7 +135,7 @@ object ContractStateEventsReader {
       toContract( // TDT Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
         contractId,
         templateId,
-        createArgument = createArgument,
+        createArgument = maybeCreateArgument.get,
         createArgumentCompression =
           Compression.Algorithm.assertLookup(maybeCreateArgumentCompression),
       )
@@ -177,7 +177,7 @@ object ContractStateEventsReader {
                 archives.event_sequential_id as event_sequential_id,
                 creates.event_sequential_id as created_at,
                 archives.event_sequential_id as archived_at,
-                archives.event_kind as kind,
+                20 as kind,
                 archives.event_offset as event_offset
               FROM participant_events archives
               INNER JOIN participant_events creates -- TDT use LEFT JOIN in order to support prunning
@@ -198,31 +198,12 @@ object ContractStateEventsReader {
                 event_sequential_id,
                 event_sequential_id as created_at,
                 null as archived_at,
-                event_kind as kind,
+                10 as kind,
                 event_offset
               FROM participant_events
               WHERE event_sequential_id > ${range.startExclusive}
                     and event_sequential_id <= ${range.endInclusive}
                     and event_kind = 10 -- created
-              UNION ALL
-              SELECT
-                null as contract_id,
-                null as template_id,
-                null as create_key_value,
-                null as create_key_value_compression,
-                null as create_argument,
-                null as create_argument_compression,
-                null as flat_event_witnesses,
-                event_sequential_id,
-                null as created_at,
-                null as archived_at,
-                event_kind as kind,
-                event_offset
-              FROM participant_events
-              WHERE event_sequential_id > ${range.startExclusive}
-                    and event_sequential_id <= ${range.endInclusive}
-                    and event_kind <> 10
-                    and event_kind <> 20 -- other events needed for having a complete stream
               ORDER BY event_sequential_id #$limitExpr"""
 
   sealed trait ContractStateEvent extends Product with Serializable {
@@ -247,10 +228,9 @@ object ContractStateEventsReader {
         eventOffset: Offset,
         eventSequentialId: Long,
     ) extends ContractStateEvent
-    final case class Other(
+    final case class LedgerEndMarker(
         eventOffset: Offset,
         eventSequentialId: Long,
-        kind: Int,
     ) extends ContractStateEvent
   }
 

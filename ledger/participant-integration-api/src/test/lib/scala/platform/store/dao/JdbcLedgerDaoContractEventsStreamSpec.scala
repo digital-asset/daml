@@ -4,10 +4,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.store.dao.events.ContractStateEventsReader
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
-  Archived,
-  Created,
-}
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{Archived, Created, LedgerEndMarker}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -98,6 +95,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           offset6,
           firstEventSeqId + 13,
         ),
+        LedgerEndMarker(offset6, firstEventSeqId + 13)
       )
     }
   }

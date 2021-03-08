@@ -29,6 +29,7 @@ import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 private[platform] object ReadOnlySqlLedger {
 
@@ -51,9 +52,9 @@ private[platform] object ReadOnlySqlLedger {
       for {
         ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
-        dispatcher <- dispatcherOwner(ledgerEnd).acquire()
-        contractStateEventsDispatcher <- dispatcherOwner(ledgerEnd).acquire()
+        (ledgerEndOffset, ledgerEndSeqId) <- Resource.fromFuture(ledgerDao.lookupLedgerEndAndEventSequentialId())
+        dispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
+        contractStateEventsDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEndOffset, ledgerEndSeqId).acquire()
         ledger <- ResourceOwner
           .forCloseable(() =>
             new ReadOnlySqlLedger(
@@ -129,6 +130,18 @@ private[platform] object ReadOnlySqlLedger {
         zeroIndex = Offset.beforeBegin,
         headAtInitialization = ledgerEnd,
       )
+
+    private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
+      implicit val ordering: Ordering[(Offset, Long)] = Ordering.fromLessThan{
+        case ((fOffset, fSeqId), (sOffset, sSeqId)) =>
+          (fOffset < sOffset) || (fOffset == sOffset && fSeqId < sSeqId)
+      }
+      Dispatcher.owner(
+        name = "contract-state-events",
+        zeroIndex = (Offset.beforeBegin, -1L),
+        headAtInitialization = (ledgerEnd, evtSeqId)
+      )
+    }
   }
 
 }
@@ -137,22 +150,30 @@ private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
-    contractStateEventsDispatcher: Dispatcher[Offset],
+    contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     metrics: Metrics,
     executionContext: ExecutionContext,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher, contractStateEventsDispatcher) {
 
+  private val logger = ContextualizedLogger.get(getClass)
   override protected val cachingContractsReader: CachingContractsReader = {
     val cachingLayer =
       CachingContractsReader(
         store = ledgerDao.contractsReader,
         metrics = metrics,
         globallySignalNewLedgerEnd = dispatcher.signalNewHead, // TDT
-      )(
-        executionContext
-      )
-    val _ = contractLifecycleEvents.map(_._2).via(cachingLayer.consumeFrom).run()
+      )(executionContext)
+    contractLifecycleEvents
+      .map(_._2)
+      .via(cachingLayer.consumeFrom)
+      .run()
+      .onComplete {
+        case Failure(exception) =>
+          logger.error("Event state consumption stream failed", exception)
+        case Success(_) =>
+          logger.info("Finished consuming state events")
+      }(executionContext)
     cachingLayer
   }
 
@@ -166,9 +187,9 @@ private final class ReadOnlySqlLedger(
           .mapAsync(1)(_ => ledgerDao.lookupLedgerEndAndEventSequentialId())
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { offset =>
-        contractStateEventsDispatcher.signalNewHead(offset._1)
-        cachingContractsReader.signalNewHead(loggingContext)(offset)
+      .toMat(Sink.foreach { ledgerEnd =>
+        contractStateEventsDispatcher.signalNewHead(ledgerEnd)
+        cachingContractsReader.signalNewHead(loggingContext)(ledgerEnd)
       })(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )

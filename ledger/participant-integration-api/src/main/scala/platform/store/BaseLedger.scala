@@ -46,7 +46,7 @@ private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
-    contractStateEventsDispatcher: Dispatcher[Offset],
+    contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
 ) extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
@@ -73,9 +73,9 @@ private[platform] abstract class BaseLedger(
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractStateEvent), NotUsed] =
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
     contractStateEventsDispatcher.startingAt(
-      Offset.beforeBegin,
+      (Offset.beforeBegin, -1L),
       RangeSource(ledgerDao.transactionsReader.getContractStateEvents(_, _)),
       Option.empty,
     )
@@ -159,7 +159,9 @@ private[platform] abstract class BaseLedger(
   override def partyEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] =
-    contractStateEventsDispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
+    contractStateEventsDispatcher
+      .startingAt((startExclusive, 0L), RangeSource((i1, i2) => ledgerDao.getPartyEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)))
+      .map { case ((offset, _), s) => (offset, s) }
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
@@ -183,10 +185,12 @@ private[platform] abstract class BaseLedger(
   override def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    contractStateEventsDispatcher.startingAt(
-      startExclusive,
-      RangeSource(ledgerDao.getPackageEntries),
-    )
+    contractStateEventsDispatcher
+      .startingAt(
+        (startExclusive, 0L),
+        RangeSource((i1, i2) => ledgerDao.getPackageEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)),
+      )
+      .map { case ((offset, _), s) => (offset, s) }
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -196,10 +200,12 @@ private[platform] abstract class BaseLedger(
   override def configurationEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
-    contractStateEventsDispatcher.startingAt(
-      startExclusive,
-      RangeSource(ledgerDao.getConfigurationEntries),
-    )
+    contractStateEventsDispatcher
+      .startingAt(
+        (startExclusive, 0L),
+        RangeSource((i1, i2) => ledgerDao.getConfigurationEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)),
+      )
+      .map { case ((offset, _), s) => (offset, s) }
 
   override def deduplicateCommand(
       commandId: CommandId,

@@ -13,12 +13,7 @@ import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDeta
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.data.Ref
@@ -30,7 +25,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ReadOnlyLedger
-import com.daml.platform.store.dao.events.ContractStateEventsReader
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -204,7 +199,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def contractLifecycleEvents(implicit
       loggineContext: LoggingContext
-  ): Source[(Offset, ContractStateEventsReader.ContractStateEvent), NotUsed] =
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
     ledger.contractLifecycleEvents
 }
 

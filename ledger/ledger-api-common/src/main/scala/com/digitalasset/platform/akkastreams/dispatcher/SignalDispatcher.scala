@@ -40,9 +40,7 @@ class SignalDispatcher private () extends AutoCloseable {
       .queue[Signal](1, OverflowStrategy.dropTail)
       .mapMaterializedValue { q =>
         // this use of mapMaterializedValue, believe it or not, seems to be kosher
-        runningState.updateAndGet { s =>
-          s.map(set => set + q)
-        } match {
+        runningState.updateAndGet(_.map(_ + q)) match {
           // We do this here, since updateAndGet is not guaranteed once-only.
           case Some(_) =>
             if (signalOnSubscribe) q.offer(Signal)

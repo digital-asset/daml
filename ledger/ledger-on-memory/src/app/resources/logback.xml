@@ -9,4 +9,5 @@
     <logger name="com.daml.platform.store.state.CachingContractsReader" level="debug"/>
     <logger name="com.daml.platform.store.state.ContractsKeyCache" level="debug"/>
     <logger name="com.daml.platform.store.state.ContractsStateCache" level="debug"/>
+    <logger name="com.daml.platform.store.dao.events.TransactionsReader" level="info"/>
 </configuration>

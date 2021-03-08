@@ -13,7 +13,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.Other
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractsReader}
 import com.daml.platform.store.state.ContractsKeyCache.{Assigned, KeyStateUpdate, Unassigned}
 import com.daml.platform.store.state.ContractsStateCache._
@@ -76,9 +76,9 @@ private[platform] class CachingContractsReader private[store] (
             s"State events update: Archived(contractId=$contractId, globalKey=$globalKey, createdAt=$createdAt, offset=$eventOffset, eventSequentialId=$eventSequentialId"
           )
           el
-        case el @ Other(eventOffset, eventSequentialId, kind) =>
+        case el @ LedgerEndMarker(eventOffset, eventSequentialId) =>
           logger.debug(
-            s"Other state event update of kind $kind: $eventOffset -> $eventSequentialId "
+            s"Ledger end reached: $eventOffset -> $eventSequentialId "
           )
           el
       }
@@ -126,22 +126,25 @@ private[platform] class CachingContractsReader private[store] (
             Future.successful(Archived(contract, stakeholders)),
           )
           eventSequentialId
-        case other =>
-          other.eventSequentialId // Just pass the seq id downstream
+        case other => other.eventSequentialId // Just pass the seq id downstream
       }
       .map(idx => {
         cacheIndex.set(idx)
-        val oldestHeadInQueue = headsToBeSignaled.peek()._2
-        logger.debug(s"New cache index $idx vs oldest head in queue $oldestHeadInQueue")
-        headsToBeSignaled.removeIf { case dekd @ (offset, seqId, enqueuedAt) =>
-          if (seqId <= idx) {
-            logger.debug(s"Dequeued $dekd and signaling new ledger end")
-            metrics.daml.index.cacheCatchup
-              .update(System.nanoTime() - enqueuedAt, TimeUnit.NANOSECONDS)
-            signalGlobalNewLedgerEnd(offset)
-            true
-          } else false
-        }
+        Option(headsToBeSignaled.peek())
+          .foreach { oldestHeadInQueue =>
+            logger.debug(s"New cache index $idx vs oldest head in queue $oldestHeadInQueue")
+            headsToBeSignaled.removeIf { case dekd @ (offset, seqId, enqueuedAt) =>
+              if (seqId <= idx) {
+                logger.debug(s"Dequeued $dekd and signaling new ledger end")
+                metrics.daml.index.cacheCatchup
+                  .update(System.nanoTime() - enqueuedAt, TimeUnit.NANOSECONDS)
+                signalGlobalNewLedgerEnd(offset)
+                true
+              } else false
+            }
+            ()
+          }
+
         metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(idx)
       })
 

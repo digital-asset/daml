@@ -73,7 +73,7 @@ final class DispatcherImpl[Index: Ordering](
       case Running(prev, disp) =>
         if (Ordering[Index].gt(head, prev)) disp.signal()
       case _: Closed =>
-        logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
+        logger.error(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
