@@ -1114,7 +1114,7 @@ class DecodeV1Spec
     }
   }
 
-  s"reject experiment expression  version <= ${LV.v1_dev}" in {
+  s"reject experiment expression if LF version < ${LV.v1_dev}" in {
 
     val expr = DamlLf1.Expr
       .newBuilder()
