@@ -46,7 +46,7 @@ object IndexMetadata {
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
       enricher = None,
-      inMemoryCompletionsCache = true, // TODO should be exported to config ???
+      useCompletionsCache = true,
     )
 
   private val Empty = "<empty>"

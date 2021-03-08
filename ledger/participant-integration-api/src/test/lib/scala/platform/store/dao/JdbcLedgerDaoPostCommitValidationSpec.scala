@@ -19,7 +19,7 @@ import org.scalatest.matchers.should.Matchers
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  override protected def daoOwner(eventsPageSize: Int)(implicit
+  override protected def daoOwner(eventsPageSize: Int, useCompletionsCache: Boolean)(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao
@@ -32,7 +32,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
         enricher = None,
-        inMemoryCompletionsCache = true,
+        useCompletionsCache = useCompletionsCache,
       )
 
   private val ok = io.grpc.Status.Code.OK.value()

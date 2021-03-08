@@ -61,7 +61,7 @@ trait ConfigProvider[ExtraConfig] {
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
-      inMemoryCompletionsCache = true, // TODO export to config
+      useCompletionsCache = config.useCompletionsCache, // TODO export to config
     )
 
   def commandConfig(

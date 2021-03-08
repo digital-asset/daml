@@ -50,6 +50,7 @@ final case class SandboxConfig(
     engineMode: SandboxConfig.EngineMode,
     managementServiceTimeout: Duration,
     sqlStartMode: Option[PostgresStartupMode],
+    useCompletionsCache: Boolean,
 )
 
 object SandboxConfig {
@@ -104,6 +105,7 @@ object SandboxConfig {
       engineMode = EngineMode.Stable,
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
+      useCompletionsCache = true,
     )
 
   sealed abstract class EngineMode extends Product with Serializable
