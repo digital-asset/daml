@@ -50,7 +50,7 @@ trait StateCache[K, V] {
         highestIndex.set(validAt)
         pendingCount.incrementAndGet()
         effectsChain.updateAndGet(_.transformWith { _ =>
-          registerEventualCacheUpdate(key, newUpdate, validAt).map(_ => ())
+          registerEventualCacheUpdate(key, newUpdate).map(_ => ())
         })
       }
     }
@@ -59,24 +59,20 @@ trait StateCache[K, V] {
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
-      validAt: Long,
   )(implicit loggingContext: LoggingContext): Future[V] =
     eventualUpdate.andThen {
       case Success(update) =>
-        // Double-check if we need to update
-        if (pendingUpdates(key).highestIndex.get() == validAt) {
-          logger.debug(s"Updating cache with $key -> ${update.toString.take(100)}")
-          cache.put(key, update)
-        }
+        // TDT Double-check if we need to update
+        logger.debug(s"Updating cache with $key -> ${update.toString.take(100)}")
+        cache.put(key, update)
         removeFromPending(key)
       case Failure(e) =>
         removeFromPending(key)
         logger.warn(s"Failure in pending cache update for key $key", e)
     }
 
-  private def removeFromPending(key: K): Unit = {
+  private def removeFromPending(key: K): Unit =
     if (pendingUpdates(key).pendingCount.updateAndGet(_ - 1) == 0L) pendingUpdates -= key
-  }
 }
 
 object StateCache {
