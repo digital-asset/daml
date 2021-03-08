@@ -635,10 +635,15 @@ class TransactionServiceIT extends LedgerTestSuite {
     for {
       transaction <- beta.submitAndWaitForTransaction(create)
       _ <- synchronize(alpha, beta)
-      transactions <- alpha.flatTransactions(alice)
+      aliceTransactions <- alpha.flatTransactions(alice)
     } yield {
+      val branchingContractId = createdEvents(transaction)
+        .map(_.contractId)
+        .headOption
+        .getOrElse(fail(s"Expected single create event"))
+      val contractsVisibleByAlice = aliceTransactions.flatMap(createdEvents).map(_.contractId)
       assert(
-        !transactions.exists(_.transactionId != transaction.transactionId),
+        !contractsVisibleByAlice.contains(branchingContractId),
         s"The transaction ${transaction.transactionId} should not have been disclosed.",
       )
     }
@@ -1622,6 +1627,77 @@ class TransactionServiceIT extends LedgerTestSuite {
       for ((event, witnesses) <- witnessesByEventIdInFlatStream) {
         assert(witnesses.subsetOf(witnessesByEventIdInTreesStream(event)))
       }
+    }
+  })
+
+  test(
+    "TXFlatTransactionsVisibility",
+    "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
+    for {
+      gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
+      gbpTransfer <- ledger.exerciseAndGetContract(bank, gbpIouIssue.exerciseIou_Transfer(_, alice))
+      dkkIouIssue <- ledger.create(bank, Iou(bank, bank, "DKK", 110, Nil))
+      dkkTransfer <- ledger.exerciseAndGetContract(bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
+
+      aliceIou1 <- eventually {
+        ledger.exerciseAndGetContract[Iou](alice, gbpTransfer.exerciseIouTransfer_Accept(_))
+      }
+      aliceIou <- eventually {
+        ledger.exerciseAndGetContract[Iou](alice, aliceIou1.exerciseIou_AddObserver(_, bob))
+      }
+      bobIou <- eventually {
+        ledger.exerciseAndGetContract[Iou](bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+      }
+      trade <- eventually {
+        ledger.create(
+          alice,
+          IouTrade(alice, bob, aliceIou, bank, "GBP", 100, bank, "DKK", 110),
+        )
+      }
+      tree <- eventually { ledger.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou)) }
+      aliceTransactions <- ledger.flatTransactions(alice)
+      bobTransactions <- ledger.flatTransactions(bob)
+    } yield {
+      val newIouList = createdEvents(tree)
+        .filter(event => event.templateId.exists(_.entityName == "Iou"))
+
+      assert(
+        newIouList.length == 2,
+        s"Expected 2 new IOUs created, found: ${newIouList.length}",
+      )
+
+      val newAliceIou = newIouList
+        .find(iou => iou.signatories.contains(alice) && iou.signatories.contains(bank))
+        .map(_.contractId)
+        .getOrElse {
+          fail(s"Not found an IOU owned by $alice")
+        }
+
+      val newBobIou = newIouList
+        .find(iou => iou.signatories.contains(bob) && iou.signatories.contains(bank))
+        .map(_.contractId)
+        .getOrElse {
+          fail(s"Not found an IOU owned by $bob")
+        }
+
+      assert(
+        aliceTransactions.flatMap(createdEvents).map(_.contractId).contains(newAliceIou),
+        "Alice's flat transaction stream does not contain the new IOU",
+      )
+      assert(
+        !aliceTransactions.flatMap(createdEvents).map(_.contractId).contains(newBobIou),
+        "Alice's flat transaction stream contains Bob's new IOU",
+      )
+      assert(
+        bobTransactions.flatMap(createdEvents).map(_.contractId).contains(newBobIou),
+        "Bob's flat transaction stream does not contain the new IOU",
+      )
+      assert(
+        !bobTransactions.flatMap(createdEvents).map(_.contractId).contains(newAliceIou),
+        "Bob's flat transaction stream contains Alice's new IOU",
+      )
     }
   })
 }
