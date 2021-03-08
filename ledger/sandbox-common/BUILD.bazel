@@ -57,6 +57,46 @@ da_scala_library(
     ],
 )
 
+da_scala_library(
+    name = "sandbox-common-ce",
+    srcs = glob(["src/ce/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [":sandbox-common"],
+    deps = [
+        ":sandbox-common",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//libs-scala/ports",
+    ],
+)
+
+da_scala_library(
+    name = "sandbox-common-ee",
+    srcs = glob(["src/ee/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [":sandbox-common"],
+    deps = [
+        ":sandbox-common",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//libs-scala/ports",
+    ],
+)
+
 alias(
     name = "Test-1.5.dar",
     actual = ":historical-dars/Test-1.5.dar",

@@ -29,7 +29,7 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",
-        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-ce",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
