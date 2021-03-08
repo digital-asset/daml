@@ -20,4 +20,6 @@ final class SignedPayloads[Key: KeyEncoder] extends SignedPayloadRepository[Key]
   override def get(key: Key): Iterable[SignedPayload] =
     map(key)
 
+  def size: Int = map.size
+
 }

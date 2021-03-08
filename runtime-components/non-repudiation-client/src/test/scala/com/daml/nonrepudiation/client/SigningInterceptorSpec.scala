@@ -84,6 +84,11 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
           Collections.singletonList(Command.fromProtoCommand(command)),
         )
         .blockingGet()
+
+      withClue("Only the command should be signed, not the call to the ledger identity service") {
+        signedPayloads.size shouldBe 1
+      }
+
       inside(signedPayloads.get(CommandIdString.wrap("command-id"))) {
         case Seq(SignedPayload(algorithm, fingerprint, payload, signature, timestamp)) =>
           val commands = SubmitAndWaitRequest.parseFrom(payload.unsafeArray).getCommands
