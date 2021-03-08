@@ -49,7 +49,9 @@ def sdk_tarball(name, version, config):
         cmd = """
           # damlc
           VERSION={version}
-          OUT=sdk-$$VERSION
+          DIR=$$(mktemp -d)
+          trap "rm -rf $$DIR" EXIT
+          OUT=$$DIR/sdk-$$VERSION
           mkdir -p $$OUT
 
           cp $(location {NOTICES}) $$OUT/NOTICES
