@@ -13,15 +13,15 @@ case class Boundaries(startExclusive: Offset, endInclusive: Offset) {
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
 }
 
-/** In memory cache implementation for completions. If size of cache exceeds maxElems, oldest elements will be removed,
+/** In memory cache implementation for completions. If size of cache exceeds maxItems, oldest elements will be removed,
   * based on ledger offset
   *
   * @param boundaries offset boundaries of data stored in cache
-  * @param maxElems maximum amount of elements stored in cache
+  * @param maxItems maximum amount of elements stored in cache
   * @param cache map of cached elements
   * @tparam T type of cached elements
   */
-case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap[Offset, T]) {
+case class RangeCache[T](boundaries: Boundaries, maxItems: Int, cache: SortedMap[Offset, T]) {
 
   /** Caches values. This method may remove oldest values (based on offset)
     * @param startExclusive start of proposed cache
@@ -39,7 +39,7 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
       val start = calculateStartOffset(startExclusive, values)
       copy(
         boundaries = Boundaries(start, endInclusive),
-        cache = values.takeRight(maxElems),
+        cache = values.takeRight(maxItems),
       )
     } else if (boundaries.startExclusive > endInclusive) {
       this
@@ -52,7 +52,7 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
           startExclusive = start,
           endInclusive = getGreater(boundaries.endInclusive, endInclusive),
         ),
-        cache = allValues.takeRight(maxElems),
+        cache = allValues.takeRight(maxItems),
       )
     }
   }
@@ -99,8 +99,8 @@ case class RangeCache[T](boundaries: Boundaries, maxElems: Int, cache: SortedMap
       proposedStartOffset: Offset,
       proposedCacheUpdate: SortedMap[Offset, T],
   ) = {
-    if (proposedCacheUpdate.size > maxElems)
-      proposedCacheUpdate.toSeq(proposedCacheUpdate.size - maxElems - 1)._1
+    if (proposedCacheUpdate.size > maxItems)
+      proposedCacheUpdate.toSeq(proposedCacheUpdate.size - maxItems - 1)._1
     else proposedStartOffset
   }
 }
@@ -109,9 +109,9 @@ object RangeCache {
 
   /** creates empty range cache
     */
-  def empty[T](maxElems: Int): RangeCache[T] = RangeCache(
+  def empty[T](maxItems: Int): RangeCache[T] = RangeCache(
     Boundaries(Offset.beforeBegin, Offset.beforeBegin),
-    maxElems,
+    maxItems,
     SortedMap.empty[Offset, T],
   )
 }

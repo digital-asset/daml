@@ -15,7 +15,7 @@ import com.daml.platform.store.dao.{CommandCompletionsTable, DbDispatcher}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class CompletionsDaoImpl(
+class JdbcCompletionsDao(
     dispatcher: DbDispatcher,
     dbType: DbType,
     metrics: Metrics,
@@ -46,7 +46,7 @@ class CompletionsDaoImpl(
             s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
         )
       }
-      .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
+      .flatMap(eitherToFuture)(executionContext)
       .map(_.map(response => offsetFor(response) -> response))(executionContext)
   }
 
@@ -56,7 +56,7 @@ class CompletionsDaoImpl(
   override def getAllCompletions(startExclusive: Offset, endInclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[List[(Offset, CommandCompletionsTable.CompletionStreamResponseWithParties)]] = {
-    val query = CommandCompletionsTable.prepareGetForAllParties(
+    val query = CommandCompletionsTable.getStmtForAllParties(
       startExclusive = startExclusive,
       endInclusive = endInclusive,
     )
@@ -70,7 +70,10 @@ class CompletionsDaoImpl(
               s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
           )
       }
-      .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
+      .flatMap(eitherToFuture)(executionContext)
       .map(_.map(response => offsetFor(response.completion) -> response))(executionContext)
   }
+
+  private def eitherToFuture[T](dbQueryResult: Either[Throwable, T]): Future[T] =
+    Future.fromTry(dbQueryResult.toTry)
 }

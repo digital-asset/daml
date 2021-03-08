@@ -15,7 +15,9 @@ import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamRespo
 import scala.collection.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Completions reader implementation that caches maxItems of newest completions in memory
+/** Completions reader implementation that caches maxItems of newest completions in memory.
+ * Under concurrent access, requests that miss the cache will be fetching data from database sequentially -
+ * only one request at the time can be executed on database for completions newer than last cached offset.
   * @param completionsDao DAO object responsible for fetching completions from datastore
   * @param maxItems maximum amount of completions stored in in-memory cache
   * @param executionContext context in which are run async operations

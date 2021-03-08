@@ -49,7 +49,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.completions.{
-  CompletionsDaoImpl,
+  JdbcCompletionsDao,
   PagedCompletionsReader,
   PagedCompletionsReaderWithCache,
 }
@@ -953,7 +953,7 @@ private class JdbcLedgerDao(
 
   override val completions: PagedCompletionsReader = {
     val completionsDao =
-      new CompletionsDaoImpl(dbDispatcher, dbType, metrics, servicesExecutionContext)
+      new JdbcCompletionsDao(dbDispatcher, dbType, metrics, servicesExecutionContext)
     if (useCompletionsCache) {
       new PagedCompletionsReaderWithCache(completionsDao, 400)(
         servicesExecutionContext
