@@ -1755,7 +1755,12 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TO_TEXT_DATE, BToTextDate),
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
-      BuiltinFunctionInfo(GREATER_DATE, BGreater, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(
+        GREATER_DATE,
+        BGreater,
+        implicitParameters = List(TDate),
+        maxVersion = Some(genComparison),
+      ),
       BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genComparison),
       BuiltinFunctionInfo(LESS, BLess, minVersion = genComparison),
       BuiltinFunctionInfo(LESS_EQ, BLessEq, minVersion = genComparison),
