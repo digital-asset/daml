@@ -74,6 +74,15 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
+              in upure @Unit (),
+
+            choice Ch2 (self) (i : Unit) : Unit
+            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+            to
+              ubind
+                x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
+                u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
+                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
               in upure @Unit ()
           }
         };
@@ -154,8 +163,32 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         val exer1 : Party -> Update Unit = \(party: Party) ->
             ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
-              x2: Unit <- exercise @M:T1 Ch1 x1 ();
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+
+              u: Unit <-
+                try @Unit
+                  ubind
+                    u: Unit <- exercise @M:T1 Ch1 x1 ();
+                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+                  in upure @Unit ()
+                catch e -> Some @(Update Unit) (upure @Unit ());
+
+              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+            in upure @Unit ();
+
+
+        val exer2 : Party -> Update Unit = \(party: Party) ->
+            ubind
+              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+
+              u: Unit <-
+                try @Unit
+                  ubind
+                    u: Unit <- exercise @M:T1 Ch2 x1 ();
+                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+                  in upure @Unit ()
+                catch e -> Some @(Update Unit) (upure @Unit ());
+
+              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
             in upure @Unit ();
 
        }
@@ -171,7 +204,8 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     ("create3catchNoThrow", List(100, 200, 300)),
     ("create3throwAndCatch", List(300)),
     ("create3throwAndOuterCatch", List(300)),
-    ("exer1", List(100, 400, 500, 200)),
+    ("exer1", List(100, 400, 500, 200, 300)),
+    ("exer2", List(100, 300)),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Long]) =>
