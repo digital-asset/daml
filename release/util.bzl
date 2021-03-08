@@ -96,7 +96,11 @@ def sdk_tarball(name, version, config):
           cp -L $(location {trigger_logback}) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location {daml_script_logback}) $$OUT/daml-sdk/script-logback.xml
 
-          $(execpath //bazel_tools/sh:mktgz) $@ $$OUT
+          MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+          OUT_PATH=$$PWD/$@
+          cd $$DIR
+
+          $$MKTGZ $$OUT_PATH $$(basename $$OUT)
         """.format(
             version = version,
             **kwargs
