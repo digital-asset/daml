@@ -44,6 +44,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
       id ^^ EVar |
+      experimental |
       (`(` ~> expr <~ `)`)
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
@@ -302,6 +303,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
     "CONTRACT_ERROR_MESSAGE" -> BContractErrorMessage,
   )
+
+  private lazy val experimental: Parser[Expr] =
+    `$` ~> id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
 
   /* Scenarios */
 

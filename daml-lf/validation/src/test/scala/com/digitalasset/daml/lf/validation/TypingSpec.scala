@@ -261,6 +261,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // UpdTryCatch
         E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
           T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
+        // EExperimental
+        E"$$ ANSWER (Unit -> Int64)" ->
+          T"Unit -> Int64",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>

@@ -614,6 +614,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_ThrowReturnType" expr_ThrowReturnType decodeType
     <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
     <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
+  LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
+    ty <- mayDecode "expr_Experimental" mbType decodeType
+    pure $ EExperimental (decodeString name) ty
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case

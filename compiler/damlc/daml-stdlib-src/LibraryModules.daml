@@ -1,5 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS -Wno-unused-imports -Wno-deprecations #-}
 
@@ -52,4 +54,9 @@ import DA.Time
 import DA.Traversable
 import DA.Tuple
 import DA.Validation
+
+#ifdef DAML_EXPERIMENTAL
+import DA.Experimental.Example
+#endif
+
 import Prelude

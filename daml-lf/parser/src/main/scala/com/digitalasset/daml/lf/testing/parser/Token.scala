@@ -23,6 +23,7 @@ private[parser] object Token {
   case object `]` extends Token
   case object `*` extends Token
   case object `->` extends Token
+  case object `$` extends Token
   case object `@` extends Token
   case object `\\` extends Token
   case object `=` extends Token

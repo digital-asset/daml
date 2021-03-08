@@ -15,6 +15,7 @@ module DA.Daml.LF.Ast.Recursive(
     ) where
 
 import Data.Functor.Foldable
+import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 
@@ -49,6 +50,7 @@ data ExprF expr
   | EToAnyExceptionF !Type !expr
   | EFromAnyExceptionF !Type !expr
   | EThrowF !Type !Type !expr
+  | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -177,7 +179,7 @@ instance Recursive Expr where
     ETyLam      a b   -> ETyLamF        a b
     ENil        a     -> ENilF          a
     ECons       a b c -> EConsF         a b c
-    ECase       a b   -> ECaseF         a (map projectCaseAlternative b)
+    ECase       a b   -> ECaseF         a (Prelude.map projectCaseAlternative b)
     ELet        a b   -> ELetF          (projectBinding a) b
     EUpdate     a     -> EUpdateF       (projectUpdate a)
     EScenario   a     -> EScenarioF     (projectScenario a)
@@ -190,6 +192,7 @@ instance Recursive Expr where
     EToAnyException a b -> EToAnyExceptionF a b
     EFromAnyException a b -> EFromAnyExceptionF a b
     EThrow a b c -> EThrowF a b c
+    EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
   embed = \case
@@ -210,7 +213,7 @@ instance Corecursive Expr where
     ETyLamF      a b   -> ETyLam        a b
     ENilF        a     -> ENil          a
     EConsF       a b c -> ECons         a b c
-    ECaseF       a b   -> ECase         a (map embedCaseAlternative b)
+    ECaseF       a b   -> ECase         a (Prelude.map embedCaseAlternative b)
     ELetF        a b   -> ELet          (embedBinding a) b
     EUpdateF     a     -> EUpdate       (embedUpdate a)
     EScenarioF   a     -> EScenario     (embedScenario a)
@@ -223,3 +226,4 @@ instance Corecursive Expr where
     EToAnyExceptionF a b -> EToAnyException a b
     EFromAnyExceptionF a b -> EFromAnyException a b
     EThrowF a b c -> EThrow a b c
+    EExperimentalF a b -> EExperimental a b
