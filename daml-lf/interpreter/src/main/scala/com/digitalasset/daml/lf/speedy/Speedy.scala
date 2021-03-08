@@ -21,6 +21,7 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
@@ -1281,8 +1282,8 @@ private[lf] object Speedy {
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
-    * (1) by 'endExercise' if this continuation is entered normally, or
-    * (2) by 'abortExercise' if we unwind the stack through this continuation (TODO 8020)
+    * (1) by 'endExercises' if this continuation is entered normally, or
+    * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
   private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
 
@@ -1290,8 +1291,8 @@ private[lf] object Speedy {
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
         checkAborted(onLedger.ptx)
-        machine.returnValue = exerciseResult
       }
+      machine.returnValue = exerciseResult
     }
   }
 
@@ -1364,22 +1365,35 @@ private[lf] object Speedy {
     * producing a text message.
     */
   private[speedy] def unwindToHandler(machine: Machine, payload: SValue): Unit = {
-    // TODO https://github.com/digital-asset/daml/issues/8020
-    // Support unwinding through KCloseExercise, aborting the open-exercise
-    val catchIndex =
-      machine.kontStack.asScala.lastIndexWhere(_.isInstanceOf[KTryCatchHandler])
-    if (catchIndex >= 0) {
-      val kh = machine.kontStack.get(catchIndex).asInstanceOf[KTryCatchHandler]
-      machine.kontStack.subList(catchIndex, machine.kontStack.size).clear()
-      kh.restore()
-      machine.popTempStackToBase()
-      machine.ctrl = kh.handler
-      machine.pushEnv(payload) // payload on stack where handler expects it
-    } else {
-      machine.kontStack.clear()
-      machine.env.clear()
-      machine.envBase = 0
-      throwUnhandledException(machine, payload)
+    @tailrec def unwind(): Option[KTryCatchHandler] = {
+      if (machine.kontDepth() == 0) {
+        None
+      } else {
+        machine.popKont() match {
+          case handler: KTryCatchHandler =>
+            Some(handler)
+          case _: KCloseExercise =>
+            machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
+              onLedger.ptx = onLedger.ptx.abortExercises
+              checkAborted(onLedger.ptx)
+            }
+            unwind()
+          case _ =>
+            unwind()
+        }
+      }
+    }
+    unwind() match {
+      case Some(kh) =>
+        kh.restore()
+        machine.popTempStackToBase()
+        machine.ctrl = kh.handler
+        machine.pushEnv(payload) // payload on stack where handler expects it
+      case None =>
+        machine.kontStack.clear()
+        machine.env.clear()
+        machine.envBase = 0
+        throwUnhandledException(machine, payload)
     }
   }
 
