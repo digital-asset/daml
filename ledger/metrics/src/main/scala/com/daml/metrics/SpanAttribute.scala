@@ -3,9 +3,11 @@
 
 package com.daml.metrics
 
+import io.opentelemetry.api.common.AttributeKey
+
 /** Represents a well-known span attribute key.
   */
-sealed case class SpanAttribute(key: String)
+sealed case class SpanAttribute(key: AttributeKey[String])
 object SpanAttribute {
   val CommandId: SpanAttribute = SpanAttribute("daml.command_id")
   val WorkflowId: SpanAttribute = SpanAttribute("daml.workflow_id")
@@ -13,4 +15,6 @@ object SpanAttribute {
   val Offset: SpanAttribute = SpanAttribute("daml.offset")
   val OffsetFrom: SpanAttribute = SpanAttribute("daml.offset_from")
   val OffsetTo: SpanAttribute = SpanAttribute("daml.offset_to")
+
+  def apply(key: String): SpanAttribute = SpanAttribute(AttributeKey.stringKey(key))
 }

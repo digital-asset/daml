@@ -378,6 +378,9 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KTryCatchHandler(machine, handler))
       machine.ctrl = body
+      machine.withOnLedger("SETryCatch") { onLedger =>
+        onLedger.ptx = onLedger.ptx.beginTry
+      }
     }
   }
 

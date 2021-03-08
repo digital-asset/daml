@@ -16,7 +16,6 @@ parseOptions =
 
 data Options = Options
   { optsPerformUpload :: PerformUpload
-  , optsOnlyScala :: OnlyScala
   , optsReleaseDir :: FilePath
   , optsLocallyInstallJars :: Bool
   } deriving (Eq, Show)
@@ -24,6 +23,5 @@ data Options = Options
 optsParser :: Parser Options
 optsParser = Options
   <$> (PerformUpload <$> switch (long "upload" <> help "upload java/scala artifacts to Maven Central and typescript artifacts to the npm registry."))
-  <*> (OnlyScala <$> switch (long "only-scala" <> help "only upload Scala libraries"))
   <*> option str (long "release-dir" <> help "specify full path to release directory")
   <*> switch (long "install-head-jars" <> help "install jars to ~/.m2")

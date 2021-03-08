@@ -1,6 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
@@ -20,7 +21,11 @@ import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
 import DA.Internal.LF
+#ifndef DAML_EXCEPTIONS
+import DA.Internal.Exception ()
+#else
 import DA.Internal.Exception
+#endif
 import GHC.Types (magic)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.

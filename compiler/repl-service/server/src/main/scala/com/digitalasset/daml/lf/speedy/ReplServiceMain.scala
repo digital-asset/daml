@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.repl
+package com.daml.lf.speedy.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -13,7 +13,7 @@ import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Compiler, SDefinition, SValue, SExpr, SError}
+import com.daml.lf.speedy.{Compiler, SDefinition, SError, SExpr, SValue}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
@@ -24,6 +24,9 @@ import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
+
+import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
+import com.daml.lf.speedy.iterable.SExprIterable
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
@@ -177,6 +180,22 @@ object ReplService {
   private val compilerConfig = Compiler.Config.Default.copy(
     stacktracing = Compiler.FullStackTrace
   )
+  private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
+
+  private def moduleRefs(v: SValue): Set[ModuleName] = {
+    def moduleRefs(acc: Set[ModuleName], e: SExpr): Set[ModuleName] =
+      e match {
+        case SEVal(ref) =>
+          if (ref.packageId == homePackageId) {
+            acc + ref.modName
+          } else {
+            acc
+          }
+        case e => SExprIterable(e).foldLeft(acc)(moduleRefs)
+      }
+
+    SExprIterable(v).foldLeft(Set.empty[ModuleName])(moduleRefs)
+  }
 }
 
 class ReplService(
@@ -190,13 +209,12 @@ class ReplService(
   var signatures: Map[PackageId, PackageSignature] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SDefinition] = Map.empty
   var results: Seq[SValue] = Seq()
+  var mainModules: Map[ModuleName, Ast.Module] = Map.empty
   implicit val ec_ = ec
   implicit val esf_ = esf
   implicit val mat_ = mat
 
   import ReplService._
-
-  private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
   override def loadPackage(
       req: LoadPackageRequest,
@@ -224,10 +242,7 @@ class ReplService(
     val lfScenarioModule =
       dop.protoScenarioModule(Decode.damlLfCodedInputStream(req.getDamlLf1.newInput))
     val mod: Ast.Module = dop.decodeScenarioModule(homePackageId, lfScenarioModule)
-    // For now we only include the module of the current line
-    // we probably need to extend this to merge the
-    // modules from each line.
-    val pkg = Package(Seq(mod), Seq(), lfVer, None)
+    val pkg = Package((mainModules + (mod.name -> mod)).values, Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val Some(scriptPackageId) = this.signatures.collectFirst {
       case (pkgId, pkg) if pkg.modules.contains(DottedName.assertFromString("Daml.Script")) => pkgId
@@ -282,11 +297,22 @@ class ReplService(
           // The error here is already printed by the logger in stepToValue.
           // No need to print anything here.
           respObs.onError(e)
-        case Failure(e) =>
+        case Failure(originalE) =>
+          val e = originalE match {
+            // For now, don’t show stack traces in Daml Repl. They look fairly confusing
+            // since they refer to the internal names we use.
+            case e: ScriptF.FailedCmd => e.cause
+            case _ => originalE
+          }
           println(s"$e")
           respObs.onError(e)
         case Success((v, result)) =>
-          results = results ++ Seq(v)
+          results = results :+ v
+          if (moduleRefs(v).contains(mod.name)) {
+            // If the result is a closure and contains a reference to the
+            // current module, we have to keep that module around.
+            mainModules += mod.name -> mod
+          }
           respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
           respObs.onCompleted
       }
@@ -297,6 +323,7 @@ class ReplService(
       respObs: StreamObserver[ClearResultsResponse],
   ): Unit = {
     results = Seq()
+    mainModules = Map.empty
     respObs.onNext(ClearResultsResponse.newBuilder.build)
     respObs.onCompleted
   }

@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.engine.script._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.ports.Port
 import org.scalatest.Suite
 

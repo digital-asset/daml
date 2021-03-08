@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
@@ -26,6 +27,7 @@ import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
@@ -59,9 +61,23 @@ object ScriptIds {
   }
 }
 
-case class AnyTemplate(ty: Identifier, arg: SValue)
-case class AnyChoice(name: ChoiceName, arg: SValue)
-case class AnyContractKey(key: SValue)
+final case class AnyTemplate(ty: Identifier, arg: SValue)
+final case class AnyChoice(name: ChoiceName, arg: SValue)
+final case class AnyContractKey(key: SValue)
+// frames ordered from most-recent to least-recent
+final case class StackTrace(frames: Vector[Location]) {
+  // Return the most recent frame
+  def topFrame: Option[Location] =
+    frames.headOption
+  def pretty(l: Location) =
+    s"${l.definition} at ${l.packageId}:${l.module}:${l.start._1}"
+  def pretty(): String =
+    frames.map(pretty(_)).mkString("\n")
+
+}
+object StackTrace {
+  val empty: StackTrace = StackTrace(Vector.empty)
+}
 
 object Converter {
   import com.daml.script.converter.Converter._
@@ -512,51 +528,67 @@ object Converter {
     case v => Left(s"Expected SInt64 but got $v")
   }
 
-  def toOptionLocation(
+  private case class SrcLoc(
+      pkgId: PackageId,
+      module: ModuleName,
+      start: (Int, Int),
+      end: (Int, Int),
+  )
+
+  private def toSrcLoc(knownPackages: Map[String, PackageId], v: SValue): Either[String, SrcLoc] =
+    v match {
+      case SRecord(
+            _,
+            _,
+            JavaList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+          ) =>
+        for {
+          unitId <- toText(unitId)
+          packageId <- unitId match {
+            // GHC uses unit-id "main" for the current package,
+            // but the scenario context expects "-homePackageId-".
+            case "main" => PackageId.fromString("-homePackageId-")
+            case id => knownPackages.get(id).toRight(s"Unknown package $id")
+          }
+          module <- toText(module).flatMap(ModuleName.fromString(_))
+          startLine <- toInt(startLine)
+          startCol <- toInt(startCol)
+          endLine <- toInt(endLine)
+          endCol <- toInt(endCol)
+        } yield SrcLoc(packageId, module, (startLine, startCol), (endLine, endCol))
+      case _ => Left(s"Expected SrcLoc but got $v")
+    }
+
+  def toLocation(knownPackages: Map[String, PackageId], v: SValue): Either[String, Location] =
+    v match {
+      case SRecord(_, _, JavaList(definition, loc)) =>
+        for {
+          // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
+          //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
+          //   The definition is not used when pretty printing locations. So, we can ignore this for now.
+          definition <- toText(definition)
+          loc <- toSrcLoc(knownPackages, loc)
+        } yield Location(loc.pkgId, loc.module, definition, loc.start, loc.end)
+      case _ => Left(s"Expected (Text, SrcLoc) but got $v")
+    }
+
+  def toStackTrace(
       knownPackages: Map[String, PackageId],
       v: SValue,
-  ): Either[String, Option[Location]] =
+  ): Either[String, StackTrace] =
     v match {
-      case SList(list) =>
-        list.pop match {
-          case None => Right(None)
-          case Some((pair, _)) =>
-            pair match {
-              case SRecord(_, _, vals) if vals.size == 2 =>
-                for {
-                  // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
-                  //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
-                  //   The definition is not used when pretty printing locations. So, we can ignore this.
-                  definition <- toText(vals.get(0))
-                  loc <- vals.get(1) match {
-                    case SRecord(_, _, vals) if vals.size == 7 =>
-                      for {
-                        packageId <- toText(vals.get(0)).flatMap {
-                          // GHC uses unit-id "main" for the current package,
-                          // but the scenario context expects "-homePackageId-".
-                          case "main" => PackageId.fromString("-homePackageId-")
-                          case id => knownPackages.get(id).toRight(s"Unknown package $id")
-                        }
-                        module <- toText(vals.get(1)).flatMap(ModuleName.fromString(_))
-                        startLine <- toInt(vals.get(3))
-                        startCol <- toInt(vals.get(4))
-                        endLine <- toInt(vals.get(5))
-                        endCol <- toInt(vals.get(6))
-                      } yield Location(
-                        packageId,
-                        module,
-                        definition,
-                        (startLine, startCol),
-                        (endLine, endCol),
-                      )
-                    case _ => Left("Expected SRecord of Daml.Script.SrcLoc")
-                  }
-                } yield Some(loc)
-              case _ => Left("Expected SRecord of a pair")
-            }
-        }
-      case _ => Left(s"Expected SList but got $v")
+      case SList(frames) =>
+        frames.toVector.traverse(toLocation(knownPackages, _)).map(StackTrace(_))
+      case _ =>
+        new Throwable().printStackTrace();
+        Left(s"Expected SList but got $v")
     }
+
+  def toParticipantName(v: SValue): Either[String, Option[Participant]] = v match {
+    case SOptional(Some(SText(t))) => Right(Some(Participant(t)))
+    case SOptional(None) => Right(None)
+    case _ => Left(s"Expected optional participant name but got $v")
+  }
 
   def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
     for {

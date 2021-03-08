@@ -1,6 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# Keep in sync with /release/src/Main.hs
 default_scala_version = "2.12.12"
 
 def _impl(ctx):

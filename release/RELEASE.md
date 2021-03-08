@@ -7,7 +7,7 @@ Valid commits for a release should come from either the `main` branch or one
 of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
 patches we backport to the 1.0 release branch).
 
-> **IMPORTANT**: If the release fails, please delete it from the releases page
+> **IMPORTANT**: If the release fails, please delete it from the [releases page]
 > and write how it failed on the PR.
 
 1. **[STABLE]** Go through the [checklist] before making the release. Note that
@@ -88,6 +88,10 @@ patches we backport to the 1.0 release branch).
    >
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
+   >
+   > The script that installs Firefox, Node, VSCode and OpenJDK runs once the
+   > machine is available for login. If you can't find the software you need
+   > immediately, just wait for a couple of minutes.
    >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
@@ -192,6 +196,24 @@ patches we backport to the 1.0 release branch).
        through on Linux or macOS, you still need to run on Windows, and vice
        versa.
 
+1. Run through the following test plan on Windows. This is slightly shortened to
+   make testing faster and since most issues are not platform specific.
+
+   1. Run `daml new quickstart` to create a new project and switch to it using
+      `cd quickstart`.
+   1. Run `daml start`.
+   1. Open your browser at `http://localhost:7500`, verify that you can login as
+      Alice and there is one template and one contract.
+   1. Kill `daml start` with `Ctrl-C`.
+   1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
+      the script result appears within 30 seconds.
+   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
+      you get an error on line 26.
+
+1. On your PR, add the comment:
+
+   > Manual tests passed on Windows.
+
 1. Tests for `quickstart-java` (Linux/macOS)
 
    While this is no longer the default getting started guide we still test it
@@ -276,25 +298,7 @@ patches we backport to the 1.0 release branch).
 
    specifying which platform you tested on.
 
-1. Run through the following test plan on Windows. This is slightly shortened to
-   make testing faster and since most issues are not platform specific.
-
-   1. Run `daml new quickstart` to create a new project and switch to it using
-      `cd quickstart`.
-   1. Run `daml start`.
-   1. Open your browser at `http://localhost:7500`, verify that you can login as
-      Alice and there is one template and one contract.
-   1. Kill `daml start` with `Ctrl-C`.
-   1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
-      the script result appears within 30 seconds.
-   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
-      you get an error on line 26.
-
-1. On your PR, add the comment:
-
-   > Manual tests passed on Windows.
-
-1. If the release is bad, delete the release from [the releases page]. Mention
+1. If the release is bad, delete the release from the [releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
 1. Announce the release on the relevant internal Slack channels (`#product-daml`,

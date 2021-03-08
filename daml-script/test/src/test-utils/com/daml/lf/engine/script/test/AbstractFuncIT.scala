@@ -6,7 +6,7 @@ package com.daml.lf.engine.script.test
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.daml.lf.engine.script.RunnerConfig
+import com.daml.lf.engine.script.{RunnerConfig, ScriptF, StackTrace}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import org.scalatest.matchers.should.Matchers
@@ -340,6 +340,30 @@ abstract class AbstractFuncIT
         )
       } yield {
         assert(v == SUnit)
+      }
+    }
+    "stack trace" in {
+      for {
+        clients <- participantClients()
+        e <- recoverToExceptionIf[ScriptF.FailedCmd](
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:stackTrace"),
+            dar = stableDar,
+          )
+        )
+      } yield {
+        val m = ModuleName.assertFromString("ScriptTest")
+        def loc(d: String, start: (Int, Int), end: (Int, Int)) = Location(
+          stableDar.main._1,
+          m,
+          d,
+          start,
+          end,
+        )
+        e.cmd.stackTrace shouldBe StackTrace(
+          Vector(loc("submit", (390, 18), (390, 31)), loc("mySubmit", (395, 2), (395, 12)))
+        )
       }
     }
   }

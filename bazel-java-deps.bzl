@@ -30,7 +30,7 @@ version_specific = {
 
 netty_version = "4.1.58.Final"
 grpc_version = "1.35.0"
-akka_version = "2.6.12"
+akka_version = "2.6.13"
 
 def install_java_deps():
     maven_install(
@@ -82,7 +82,8 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-graphite:4.1.2",
             "io.dropwizard.metrics:metrics-jmx:4.1.2",
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.opentelemetry:opentelemetry-api:0.8.0",
+            "io.opentelemetry:opentelemetry-context:0.16.0",
+            "io.opentelemetry:opentelemetry-api:0.16.0",
 
             # Bumping versions of io.grpc:* has a few implications:
             # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in

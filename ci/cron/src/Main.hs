@@ -13,23 +13,24 @@ import qualified Control.Concurrent.QSem
 import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
-import qualified Control.Monad.Loops
 import Control.Retry
 import qualified Data.Aeson as JSON
-import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
+import Data.Conduit (runConduit, (.|))
+import Data.Conduit.Combinators (sinkHandle)
 import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
+import Network.HTTP.Client.Conduit (bodyReaderSource)
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified Network.URI
@@ -328,27 +329,21 @@ download_assets tmp release = do
                 [retryHandler]
                 (\_ -> downloadFile req manager url)
           )
-  where while = Control.Monad.Loops.whileJust_
-        readFrom body = ifNotEmpty <$> HTTP.brRead body
-        ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
-        writeTo = Data.ByteString.hPut
-        -- Retry for 5 minutes total, doubling delay starting with 20ms
+  where -- Retry for 5 minutes total, doubling delay starting with 20ms
         retryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
         retryHandler status =
           logRetries
-            (\(_ :: IOException) -> pure True) -- Don’t try to be clever, just retry
+            (\e -> pure $ isJust (fromException @IOException e) || isJust (fromException @HTTP.HttpException e)) -- Don’t try to be clever, just retry
             (\shouldRetry err status -> IO.hPutStrLn IO.stderr $ defaultLogMsg shouldRetry err status)
             status
         downloadFile req manager url = HTTP.withResponse req manager $ \resp -> do
-            let body = HTTP.responseBody resp
-            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode $ \handle -> do
-                while (readFrom body) (writeTo handle)
+            IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.WriteMode $ \handle ->
+                runConduit $ bodyReaderSource (HTTP.responseBody resp) .| sinkHandle handle
 
-verify_signatures :: FilePath -> FilePath -> String -> IO String
+verify_signatures :: FilePath -> FilePath -> String -> IO ()
 verify_signatures bash_lib tmp version_tag = do
-    shell $ unlines ["bash -c '",
+    System.callCommand $ unlines ["bash -c '",
         "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
         "shopt -s extglob", -- enable !() pattern: things that _don't_ match
         "cd \"" <> tmp <> "\"",
@@ -374,7 +369,6 @@ does_backup_exist :: String -> FilePath -> FilePath -> IO Bool
 does_backup_exist gcp_credentials bash_lib path = do
     out <- shell $ unlines ["bash -c '",
         "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
         "GCRED=$(cat <<END",
         gcp_credentials,
@@ -392,7 +386,6 @@ gcs_cp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
 gcs_cp gcp_credentials bash_lib local_path remote_path = do
     shell_ $ unlines ["bash -c '",
         "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
         "GCRED=$(cat <<END",
         gcp_credentials,
@@ -420,9 +413,10 @@ check_releases gcp_credentials bash_lib max_releases = do
         putStrLn $ "Checking release " <> v <> " ..."
         IO.withTempDir $ \temp_dir -> do
             download_assets temp_dir release
-            verify_signatures bash_lib temp_dir v >>= putStrLn
-            Control.Monad.Extra.whenJust gcp_credentials $ \gcred ->
-                Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
+            verify_signatures bash_lib temp_dir v
+            Control.Monad.Extra.whenJust gcp_credentials $ \gcred -> do
+                files <- Directory.listDirectory temp_dir
+                Control.Concurrent.Async.forConcurrently_ files $ \f -> do
                   let local_github = temp_dir </> f
                   let local_gcp = temp_dir </> f <> ".gcp"
                   let remote_gcp = "gs://daml-data/releases/" <> v <> "/github/" <> f
@@ -433,7 +427,7 @@ check_releases gcp_credentials bash_lib max_releases = do
                           True -> putStrLn $ f <> " matches GCS backup."
                           False -> Exit.die $ f <> " does not match GCS backup."
                   else do
-                      Exit.die $ remote_gcp <> " does not exist. Aborting."))
+                      Exit.die $ remote_gcp <> " does not exist. Aborting.")
 
 data CliArgs = Docs
              | Check { bash_lib :: String,

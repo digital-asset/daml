@@ -8,48 +8,50 @@ package script
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
-import com.typesafe.scalalogging.StrictLogging
-import java.time.Clock
-
-import scala.concurrent.{ExecutionContext, Future}
-import scalaz.{Applicative, Foldable, NonEmptyList, OneAnd, Traverse, \/-}
-import scalaz.OneAnd._
-import scalaz.std.either._
-import scalaz.std.list._
-import scalaz.std.option._
-import scalaz.std.map._
-import scalaz.std.scalaFuture._
-import scalaz.std.set._
-import scalaz.syntax.traverse._
-import scalaz.syntax.std.option._
-
-import spray.json._
-import com.daml.lf.archive.Dar
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SExpr, SValue, Speedy}
-import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerIdRequirement}
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
-import ParticipantsJsonProtocol.ContractIdFormat
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
+import com.daml.lf.engine.script.ledgerinteraction.{
+  GrpcLedgerClient,
+  JsonLedgerClient,
+  ScriptLedgerClient,
+  ScriptTimeMode,
+}
+import com.daml.lf.iface.EnvironmentInterface
+import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.Value
-import com.daml.script.converter.Converter.{JavaList, toContractId, unrollFree}
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SExpr, SValue, Speedy}
+import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.script.converter.Converter.{JavaList, unrollFree}
 import com.daml.script.converter.ConverterException
+import com.typesafe.scalalogging.StrictLogging
+import scalaz.OneAnd._
+import scalaz.std.either._
+import scalaz.std.map._
+import scalaz.std.option._
+import scalaz.std.scalaFuture._
+import scalaz.std.set._
+import scalaz.syntax.traverse._
+import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
+import spray.json._
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -321,60 +323,6 @@ object Runner {
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
     runner.runWithClients(initialClients)._2
   }
-
-  private case class SubmitPayload(
-      actAs: OneAnd[List, SValue],
-      readAs: List[SValue],
-      freeAp: SValue,
-      continue: SValue,
-      loc: Option[SValue],
-  )
-
-  private def submitPayload: SValue PartialFunction SubmitPayload = {
-    // no location
-    case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue)) =>
-      SubmitPayload(OneAnd(sParty, List()), List(), freeAp, continue, None)
-    // location
-    case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue, loc)) =>
-      SubmitPayload(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
-
-    // multi-party actAs/readAs + location
-    case SRecord(
-          _,
-          _,
-          JavaList(
-            SRecord(_, _, JavaList(hdAct, SList(tlAct))),
-            SList(read),
-            SRecord(_, _, JavaList(freeAp)),
-            continue,
-            loc,
-          ),
-        ) =>
-      SubmitPayload(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
-
-  }
-
-  private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
-    OneAnd(x.head, x.tail.toSet - x.head)
-
-  // used to help scalac propagate the expected `B` type into `f`, which doesn't
-  // work with the literal tuple syntax.  The curried form also indents much
-  // more nicely with scalafmt, with far less horizontal space used
-  private def m2c[B, Z](expect: String)(f: B PartialFunction Z): (String, B PartialFunction Z) =
-    (expect, f)
-
-  // a variant of match2 specifically for our run function that lets us
-  // put the unique error message content right next to the pattern that
-  // must have failed
-  private def match2[A, B, Z](a: A, b: B)(
-      f: A => (String, B PartialFunction Future[Z])
-  ): Future[Z] = {
-    val (expect, bz) = f(a)
-    bz.applyOrElse(
-      b,
-      (b: B) => Future failed (new ConverterException(s"Expected $expect but got $b")),
-    )
-  }
 }
 
 class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode: ScriptTimeMode)
@@ -405,46 +353,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
     }
   }
 
-  private val utcClock = Clock.systemUTC()
-
-  private def lookupChoice(id: Identifier, choice: Name): Either[String, TemplateChoiceSignature] =
-    for {
-      pkg <- compiledPackages
-        .getSignature(id.packageId)
-        .toRight(s"Failed to find package ${id.packageId}")
-      module <- pkg.modules
-        .get(id.qualifiedName.module)
-        .toRight(s"Failed to find module ${id.qualifiedName.module}")
-      tpl <- module.templates
-        .get(id.qualifiedName.name)
-        .toRight(s"Failed to find template ${id.qualifiedName.name}")
-      choice <- tpl.choices
-        .get(choice)
-        .toRight(s"Failed to find choice $choice in $id")
-    } yield choice
-
-  private def lookupKeyTy(id: Identifier): Either[String, Type] =
-    for {
-      pkg <- compiledPackages
-        .getSignature(id.packageId)
-        .toRight(s"Failed to find package ${id.packageId}")
-      module <- pkg.modules
-        .get(id.qualifiedName.module)
-        .toRight(s"Failed to find module ${id.qualifiedName.module}")
-      tpl <- module.templates
-        .get(id.qualifiedName.name)
-        .toRight(s"Failed to find template ${id.qualifiedName.name}")
-      key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
-    } yield key.typ
-
-  private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
-
-  private def translateKey(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
-    for {
-      keyTy <- lookupKeyTy(id)
-      translated <- valueTranslator.translateValue(keyTy, v).left.map(_.msg)
-    } yield translated
-
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
@@ -457,7 +365,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
-    var clients = initialClients
     val machine =
       Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
 
@@ -472,347 +379,31 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           Left(new RuntimeException(s"Unexpected speedy result $res"))
       }
 
-    // Copy the tracelog from the client to the current machine
-    // interleaving ledger-side trace statements with client-side trace
-    // statements.
-    def copyTracelog(client: ScriptLedgerClient) = {
-      for ((msg, optLoc) <- client.tracelogIterator) {
-        machine.traceLog.add(msg, optLoc)
-      }
-      client.clearTracelog
-    }
+    val env = new ScriptF.Env(
+      script.scriptIds,
+      timeMode,
+      initialClients,
+      machine,
+    )
 
     def run(expr: SExpr): Future[SValue] = {
       machine.setExpressionToEvaluate(expr)
-      import Runner.{match2, m2c, submitPayload, toOneAndSet}
       stepToValue()
         .fold(Future.failed, Future.successful)
         .flatMap(fsu => Converter toFuture unrollFree(fsu))
         .flatMap {
           case Right((vv, v)) =>
-            match2(vv, v) {
-              case "Submit" =>
-                m2c("record with 3,4 or 5 fields") {
-                  submitPayload.andThen { payload =>
-                    for {
-                      actAs <- Converter
-                        .toFuture(payload.actAs.traverse(Converter.toParty(_)))
-                        .map(toOneAndSet(_))
-                      readAs <- Converter
-                        .toFuture(payload.readAs.traverse(Converter.toParty(_)))
-                        .map(_.toSet)
-                      commands <- Converter.toFuture(
-                        Converter
-                          .toCommands(extendedCompiledPackages, payload.freeAp)
-                      )
-                      client <- Converter.toFuture(
-                        clients
-                          .getPartiesParticipant(actAs)
-                      )
-                      commitLocation <- payload.loc.cata(
-                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                        Future(None),
-                      )
-                      submitRes <- client.submit(actAs, readAs, commands, commitLocation)
-                      _ = copyTracelog(client)
-                      v <- submitRes match {
-                        case Right(results) => {
-                          for {
-                            filled <- Converter.toFuture(
-                              Converter
-                                .fillCommandResults(
-                                  extendedCompiledPackages,
-                                  lookupChoice,
-                                  valueTranslator,
-                                  payload.freeAp,
-                                  results,
-                                )
-                            )
-                            v <- {
-                              run(filled)
-                            }
-                          } yield v
-                        }
-                        case Left(statusEx) => {
-                          // This branch is superseded by SubmitMustFail below,
-                          // however, it is maintained for backwards
-                          // compatibility with DAML script DARs generated by
-                          // older SDK versions that didn't distinguish Submit
-                          // and SubmitMustFail.
-                          for {
-                            res <- Converter.toFuture(
-                              Converter
-                                .fromStatusException(script.scriptIds, statusEx)
-                            )
-                            v <- {
-                              run(SEApp(SEValue(payload.continue), Array(SEValue(res))))
-                            }
-                          } yield v
-                        }
-                      }
-                    } yield v
-
-                  }
+            Converter
+              .toFuture(ScriptF.parse(ScriptF.Ctx(knownPackages, extendedCompiledPackages), vv, v))
+              .flatMap { cmd =>
+                cmd.execute(env).transform {
+                  case Failure(exception) =>
+                    Failure(new ScriptF.FailedCmd(cmd, exception))
+                  case Success(value) =>
+                    Success(value)
                 }
-              case "SubmitMustFail" =>
-                m2c("record with 3 or 4 fields") {
-                  submitPayload.andThen { payload =>
-                    for {
-                      actAs <- Converter
-                        .toFuture(payload.actAs.traverse(Converter.toParty(_)))
-                        .map(toOneAndSet(_))
-                      readAs <- Converter
-                        .toFuture(payload.readAs.traverse(Converter.toParty(_)))
-                        .map(_.toSet)
-                      commands <- Converter.toFuture(
-                        Converter
-                          .toCommands(extendedCompiledPackages, payload.freeAp)
-                      )
-                      client <- Converter.toFuture(
-                        clients
-                          .getPartiesParticipant(actAs)
-                      )
-                      commitLocation <- payload.loc.cata(
-                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                        Future(None),
-                      )
-                      submitRes <- client.submitMustFail(actAs, readAs, commands, commitLocation)
-                      _ = copyTracelog(client)
-                      v <- submitRes match {
-                        case Right(()) =>
-                          run(SEApp(SEValue(payload.continue), Array(SEValue(SUnit))))
-                        case Left(()) =>
-                          Future.failed(
-                            new DamlEUserError("Expected submit to fail but it succeeded")
-                          )
-                      }
-                    } yield v
-                  }
-                }
-              case "SubmitTree" =>
-                m2c("record with 4 fields") {
-                  submitPayload.andThen { payload =>
-                    for {
-                      actAs <- Converter
-                        .toFuture(payload.actAs.traverse(Converter.toParty(_)))
-                        .map(toOneAndSet(_))
-                      readAs <- Converter
-                        .toFuture(payload.readAs.traverse(Converter.toParty(_)))
-                        .map(_.toSet)
-                      commands <- Converter.toFuture(
-                        Converter
-                          .toCommands(extendedCompiledPackages, payload.freeAp)
-                      )
-                      client <- Converter.toFuture(
-                        clients
-                          .getPartiesParticipant(actAs)
-                      )
-                      commitLocation <- payload.loc.cata(
-                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                        Future(None),
-                      )
-                      submitRes <- client.submitTree(actAs, readAs, commands, commitLocation)
-                      res <- Converter.toFuture(
-                        Converter.translateTransactionTree(
-                          lookupChoice,
-                          valueTranslator,
-                          script.scriptIds,
-                          submitRes,
-                        )
-                      )
-                      _ = copyTracelog(client)
-                      v <- run(SEApp(SEValue(payload.continue), Array(SEValue(res))))
-                    } yield v
-                  }
-                }
-              case "Query" =>
-                m2c("record with 3 fields") {
-                  case SRecord(_, _, JavaList(sParties, sTplId, continue)) =>
-                    for {
-                      parties <- Converter.toFuture(
-                        Converter
-                          .toParties(sParties)
-                      )
-                      tplId <- Converter.toFuture(
-                        Converter
-                          .typeRepToIdentifier(sTplId)
-                      )
-                      client <- Converter.toFuture(
-                        clients
-                          .getPartiesParticipant(parties)
-                      )
-                      acs <- client.query(parties, tplId)
-                      res <- Converter.toFuture(
-                        FrontStack(acs)
-                          .traverse(
-                            Converter
-                              .fromCreated(valueTranslator, _)
-                          )
-                      )
-                      v <- {
-                        run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
-                      }
-                    } yield v
-                }
-              case "AllocParty" =>
-                m2c("record with 4 fields") {
-                  case SRecord(
-                        _,
-                        _,
-                        JavaList(
-                          SText(displayName),
-                          SText(partyIdHint),
-                          SOptional(sParticipantName),
-                          continue,
-                        ),
-                      ) =>
-                    for {
-                      participantName <- sParticipantName match {
-                        case Some(SText(t)) => Future.successful(Some(Participant(t)))
-                        case None => Future.successful(None)
-                        case v =>
-                          Future.failed(
-                            new ConverterException(s"Expected Option(SText) but got $v")
-                          )
-                      }
-                      client <- clients.getParticipant(participantName) match {
-                        case Right(client) => Future.successful(client)
-                        case Left(err) => Future.failed(new RuntimeException(err))
-                      }
-                      party <- client.allocateParty(partyIdHint, displayName)
-                      v <- {
-                        participantName match {
-                          case None => {
-                            // If no participant is specified, we use default_participant so we don’t need to change anything.
-                          }
-                          case Some(participant) =>
-                            clients = clients
-                              .copy(
-                                party_participants =
-                                  clients.party_participants + (party -> participant)
-                              )
-                        }
-                        run(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
-                      }
-                    } yield v
-                }
-              case "ListKnownParties" =>
-                m2c("record with 2 fields") {
-                  case SRecord(_, _, JavaList(SOptional(sParticipantName), continue)) => {
-                    for {
-                      participantName <- sParticipantName match {
-                        case Some(SText(t)) => Future.successful(Some(Participant(t)))
-                        case None => Future.successful(None)
-                        case v =>
-                          Future.failed(
-                            new ConverterException(s"Expected Option(SText) but got $v")
-                          )
-                      }
-                      client <- clients.getParticipant(participantName) match {
-                        case Right(client) => Future.successful(client)
-                        case Left(err) => Future.failed(new RuntimeException(err))
-                      }
-                      partyDetails <- client.listKnownParties()
-                      partyDetails_ <- Converter.toFuture(
-                        partyDetails.traverse(details =>
-                          Converter.fromPartyDetails(script.scriptIds, details)
-                        )
-                      )
-                      v <- {
-                        run(
-                          SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
-                        )
-                      }
-                    } yield v
-                  }
-                }
-              case "GetTime" =>
-                m2c("a function") { case continue =>
-                  for {
-                    time <- timeMode match {
-                      case ScriptTimeMode.Static => {
-                        // We don’t parametrize this by participant since this
-                        // is only useful in static time mode and using the time
-                        // service with multiple participants is very dodgy.
-                        for {
-                          client <- Converter.toFuture(clients.getParticipant(None))
-                          t <- client.getStaticTime()
-                        } yield t
-                      }
-                      case ScriptTimeMode.WallClock =>
-                        Future {
-                          Timestamp.assertFromInstant(utcClock.instant())
-                        }
-                    }
-                    v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
-
-                  } yield v
-
-                }
-              case "SetTime" =>
-                m2c("SetTimePayload") { case SRecord(_, _, JavaList(sT, continue)) =>
-                  timeMode match {
-                    case ScriptTimeMode.Static =>
-                      for {
-                        // We don’t parametrize this by participant since this
-                        // is only useful in static time mode and using the time
-                        // service with multiple participants is very dodgy.
-                        client <- Converter.toFuture(clients.getParticipant(None))
-                        t <- Converter.toFuture(Converter.toTimestamp(sT))
-                        _ <- client.setStaticTime(t)
-                        v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
-                      } yield v
-                    case ScriptTimeMode.WallClock =>
-                      Future.failed(
-                        new RuntimeException("setTime is not supported in wallclock mode")
-                      )
-
-                  }
-                }
-              case "Sleep" =>
-                m2c("record with 2 fields") {
-                  case SRecord(
-                        _,
-                        _,
-                        JavaList(SRecord(_, _, JavaList(SInt64(sleepMicros))), continue),
-                      ) =>
-                    val sleepMillis = sleepMicros / 1000
-                    val sleepNanos = (sleepMicros % 1000) * 1000
-                    Thread.sleep(sleepMillis, sleepNanos.toInt)
-                    run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
-                }
-              case "QueryContractId" =>
-                m2c("record with 4 fields") {
-                  case SRecord(_, _, JavaList(sParty, sTplId, sCid, continue)) =>
-                    for {
-                      parties <- Converter.toFuture(Converter.toParties(sParty))
-                      tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
-                      cid <- Converter.toFuture(toContractId(sCid))
-                      client <- Converter.toFuture(clients.getPartyParticipant(parties.head))
-                      optR <- client.queryContractId(parties, tplId, cid)
-                      optR <- Converter.toFuture(
-                        optR.traverse(Converter.fromContract(valueTranslator, _))
-                      )
-                      v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
-                    } yield v
-                }
-              case "QueryContractKey" =>
-                m2c("record with 4 fields") {
-                  case SRecord(_, _, JavaList(sParties, sTplId, sKey, continue)) =>
-                    for {
-                      parties <- Converter.toFuture(Converter.toParties(sParties))
-                      tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
-                      key <- Converter.toFuture(Converter.toAnyContractKey(sKey))
-                      client <- Converter.toFuture(clients.getPartiesParticipant(parties))
-                      optR <- client.queryContractKey(parties, tplId, key.key, translateKey)
-                      optR <- Converter.toFuture(
-                        optR.traverse(Converter.fromCreated(valueTranslator, _))
-                      )
-                      v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
-                    } yield v
-                }
-              case _ => m2c("Submit, Query or AllocParty")(PartialFunction.empty)
-            }
+              }
+              .flatMap(run(_))
           case Left(v) =>
             v match {
               case SRecord(_, _, JavaList(newState, _)) => {

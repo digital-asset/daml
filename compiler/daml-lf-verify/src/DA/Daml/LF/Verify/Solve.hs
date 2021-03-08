@@ -146,14 +146,19 @@ instance ConstrExpr Expr where
       builtin_op (ETyApp e _) = builtin_op e
       builtin_op (EBuiltin op) = case op of
         BEEqual _ -> COp OpEq
+        BEEqualGeneric -> COp OpEq
         BEEqualNumeric -> COp OpEq
         BEGreater _ -> COp OpGt
+        BEGreaterGeneric -> COp OpGt
         BEGreaterNumeric -> COp OpGt
         BEGreaterEq _ -> COp OpGtE
+        BEGreaterEqGeneric -> COp OpGtE
         BEGreaterEqNumeric -> COp OpGtE
         BELess _ -> COp OpLt
+        BELessGeneric -> COp OpLt
         BELessNumeric -> COp OpLt
         BELessEq _ -> COp OpLtE
+        BELessEqGeneric -> COp OpLtE
         BELessEqNumeric -> COp OpLtE
         BEAddInt64 -> CAdd
         BEAddNumeric -> CAdd

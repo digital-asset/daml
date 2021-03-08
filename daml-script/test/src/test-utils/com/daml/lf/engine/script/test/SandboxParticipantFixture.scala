@@ -5,13 +5,14 @@ package com.daml.lf.engine.script.test
 
 import java.io.File
 
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, RunnerConfig, ScriptTimeMode}
+import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, RunnerConfig}
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 
 import scala.concurrent.ExecutionContext
 

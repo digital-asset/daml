@@ -32,7 +32,6 @@ jobs:
       - checkout: self
       - template: ../clean-up.yml
       - template: ../compatibility_ts_libs.yml
-      - template: ../daily_tell_slack.yml
 
   - job: compatibility
     dependsOn: compatibility_ts_libs
@@ -52,7 +51,6 @@ jobs:
         - template: ../clear-shared-segments-macos.yml
       - template: ../clean-up.yml
       - template: ../compatibility.yml
-      - template: ../daily_tell_slack.yml
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
@@ -68,7 +66,6 @@ jobs:
         inputs:
           pathtoPublish: '$(Build.StagingDirectory)'
           artifactName: 'Bazel Compatibility Logs'
-      - template: ../daily_tell_slack.yml
 
   - job: perf_speedy
     timeoutInMinutes: 120
@@ -111,12 +108,16 @@ jobs:
 
           gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
+          setvar speedup "$(jq -r '.speedup' "$OUT")"
+
         displayName: measure perf
+        name: out
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
-        parameters:
-          success-message: $(jq --arg stats "$(cat $(Build.StagingDirectory)/perf-results.json)" --arg link "$COMMIT_LINK" -n '"perf for " + $link + ":```" + $stats + "```"')
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/perf-results.json
+          artifactName: perf
 
   - job: perf_http_json
     timeoutInMinutes: 120
@@ -197,7 +198,6 @@ jobs:
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
@@ -210,12 +210,6 @@ jobs:
         persistCredentials: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
@@ -227,9 +221,11 @@ jobs:
         displayName: 'Build'
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          eval "$(dev-env/bin/dade-assist)"
 
-          #needs to be specified since blackduck can not scan all bazel dependency types in one go, haskell has to be scanned separatey and code location name uniquely identified to avoid stomping
+          #needs to be specified since blackduck can not scan all bazel
+          #dependency types in one go, haskell has to be scanned separatey and
+          #code location name uniquely identified to avoid stomping
           BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
@@ -247,9 +243,10 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          eval "$(dev-env/bin/dade-assist)"
 
-          #avoid stomping any previous bazel haskell scans for this repository by qualifying as a maven_install (aka jvm) bazel blackduck scan
+          #avoid stomping any previous bazel haskell scans for this repository
+          #by qualifying as a maven_install (aka jvm) bazel blackduck scan
           BAZEL_DEPENDENCY_TYPE="maven_install"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
@@ -281,14 +278,85 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           source $(bash_lib)
 
+          branch="notices-update-$(Build.BuildId)"
+
           tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
           if git diff --exit-code -- NOTICES; then
               echo "NOTICES file already up-to-date."
+              setvar need_to_build false
           else
               git add NOTICES
-              open_pr "notices-update-$(Build.BuildId)" "update NOTICES file"
+              open_pr "$branch" "update NOTICES file"
+              setvar need_to_build true
           fi
         displayName: open PR
+        name: out
         condition: and(succeeded(),
                        eq(variables['Build.SourceBranchName'], 'main'))
-      - template: ../daily_tell_slack.yml
+
+  - job: run_notices_pr_build
+    timeoutInMinutes: 60
+    dependsOn: ["blackduck_scan"]
+    condition: and(succeeded(),
+                   eq(variables['Build.SourceBranchName'], 'main'))
+    pool:
+      vmImage: ubuntu-20.04
+    variables:
+      need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
+    steps:
+      - bash: |
+          if [ "$(need_to_build)" == "true" ]; then
+              branch="notices-update-$(Build.BuildId)"
+              az extension add --name azure-devops
+              trap "az devops logout" EXIT
+              echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+              az pipelines build queue --branch "$branch" \
+                                       --definition-name "PRs" \
+                                       --org "https://dev.azure.com/digitalasset" \
+                                       --project daml
+          fi
+
+  - job: report
+    dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
+                perf_speedy, perf_http_json, check_releases,
+                blackduck_scan, run_notices_pr_build]
+    condition: and(succeededOrFailed(),
+                   eq(variables['Build.SourceBranchName'], 'main'))
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    variables:
+      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
+      compatibility: $[ dependencies.compatibility.result ]
+      compatibility_windows: $[ dependencies.compatibility_windows.result ]
+      perf_speedy: $[ dependencies.perf_speedy.result ]
+      speedup: $[ dependencies.perf_speedy.outputs['out.speedup'] ]
+      perf_http_json: $[ dependencies.perf_http_json.result ]
+      check_releases: $[ dependencies.check_releases.result ]
+      blackduck_scan: $[ dependencies.blackduck_scan.result ]
+      run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
+    steps:
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"
+        COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
+
+        if [[ "$(compatibility_ts_libs)" == "Succeeded"
+           && "$(compatibility)" == "Succeeded"
+           && "$(compatibility_windows)" == "Succeeded"
+           && "$(perf_speedy)" == "Succeeded"
+           && "$(perf_http_json)" == "Succeeded"
+           && "$(check_releases)" == "Succeeded"
+           && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
+           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
+            tell_slack "Daily tests passed: $COMMIT_LINK (speedup: $(speedup))." "$(Slack.ci-failures-daml)"
+        else
+            tell_slack "Daily tests failed: $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+        fi

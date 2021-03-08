@@ -166,7 +166,7 @@ cmdLint numProcessors =
     <> fullDesc
   where
     cmd = execLint
-        <$> inputFileOpt
+        <$> many inputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
 
 cmdTest :: Int -> Mod CommandFields Command
@@ -182,6 +182,7 @@ cmdTest numProcessors =
     cmd = runTestsInProjectOrFiles
       <$> projectOpts "daml test"
       <*> filesOpt
+      <*> fmap RunAllTests runAllTests
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
@@ -192,17 +193,19 @@ cmdTest numProcessors =
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
+    runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
 
 runTestsInProjectOrFiles ::
        ProjectOpts
     -> Maybe [FilePath]
+    -> RunAllTests
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
     -> Options
     -> InitPkgDb
     -> Command
-runTestsInProjectOrFiles projectOpts Nothing coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
         initPackageDb cliOptions initPkgDb
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
@@ -211,12 +214,12 @@ runTestsInProjectOrFiles projectOpts Nothing coverage color mbJUnitOutput cliOpt
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files coverage color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles projectOpts (Just inFiles) coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+            execTest files allTests coverage color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles projectOpts (Just inFiles) allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         initPackageDb cliOptions initPkgDb
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' coverage color mbJUnitOutput cliOptions
+        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -266,11 +269,7 @@ cmdRepl numProcessors =
   where
     cmd =
         execRepl
-            <$> projectOpts "daml build"
-            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
-            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
-            -- This is useful for tests and `bazel run`.
-            <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
+            <$> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> many packageImport
             <*> optional
                   ((,) <$> strOption (long "ledger-host" <> help "Host of the ledger API")
@@ -291,6 +290,11 @@ cmdRepl numProcessors =
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
+            <*> projectOpts "daml repl"
+            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
+            -- This is useful for tests and `bazel run`.
+
     packageImport = option readPackage $
         long "import"
         <> short 'i'
@@ -535,8 +539,8 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
 
-execLint :: FilePath -> Options -> Command
-execLint inputFile opts =
+execLint :: [FilePath] -> Options -> Command
+execLint inputFiles opts =
   Command Lint (Just projectOpts) effect
   where
      projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
@@ -544,16 +548,22 @@ execLint inputFile opts =
        withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
-         inputFile <- toNormalizedFilePath' <$> relativize inputFile
          opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
-             setFilesOfInterest ide (HashSet.singleton inputFile)
-             runActionSync ide $ getDlintIdeas inputFile
-             diags <- getDiagnostics ide
-             if null diags then
+             inputFiles <- getInputFiles relativize inputFiles
+             setFilesOfInterest ide (HashSet.fromList inputFiles)
+             diags <- forM inputFiles $ \inputFile -> do
+               void $ runActionSync ide $ getDlintIdeas inputFile
+               getDiagnostics ide
+             if null $ concat diags then
                hPutStrLn stderr "No hints"
              else
                exitFailure
+     getInputFiles relativize = \case
+       [] -> do
+           withPackageConfig defaultProjectPath $ \PackageConfigFields {pSrc} -> do
+           getDamlRootFiles pSrc
+       fs -> forM fs $ fmap toNormalizedFilePath' . relativize
      setDlintDataDir :: Options -> IO Options
      setDlintDataDir opts = do
        defaultDir <-locateRunfiles $
@@ -621,17 +631,19 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                     Nothing -> pure $ distDir </> name <.> "dar"
                     Just out -> rel out
 execRepl
-    :: ProjectOpts
-    -> Options
-    -> FilePath -> [FilePath] -> [(LF.PackageName, Maybe LF.PackageVersion)]
+    :: [FilePath]
+    -> [(LF.PackageName, Maybe LF.PackageVersion)]
     -> Maybe (String, String)
     -> Maybe FilePath
     -> Maybe ReplClient.ApplicationId
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
     -> ReplClient.ReplTimeMode
+    -> ProjectOpts
+    -> Options
+    -> FilePath
     -> Command
-execRepl projectOpts opts scriptDar dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
+execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode projectOpts opts scriptDar = Command Repl (Just projectOpts) effect
   where
         toPackageFlag (LF.PackageName name, Nothing) =
             ExposePackage "--import" (PackageArg $ T.unpack name) (ModRenaming True [])

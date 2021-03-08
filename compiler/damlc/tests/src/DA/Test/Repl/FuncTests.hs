@@ -113,7 +113,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , matchServiceOutput "^.*: \\[\\]$"
           , input "_ <- submit alice $ createCmd (T alice alice)"
           , input "debug =<< query @T alice"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           ]
     , testInteraction' "propose and accept"
           [ input "alice <- allocateParty \"Alice\""
@@ -121,11 +121,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
           , input "debug props"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
-          , matchOutput "^\\[<contract-id>\\]$"
+          , matchOutput "^\\[[0-9a-f]+\\]$"
           , input "debug =<< query @T bob"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
           , matchServiceOutput "^.*: \\[\\]$"
           ]
@@ -183,7 +183,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
           , input "submit alice (createCmd (T alice bob))"
-          , matchServiceOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
+          , matchServiceOutput "^.*requires authorizers.*but only.*were given.*$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]
@@ -344,6 +344,15 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "let x = \\f g h -> f (g (h (ReplTest.NameCollision \"a\"))) (g (ReplTest.NameCollision \"b\")) : Script ()"
           , input "1"
           , matchOutput "1"
+          ]
+    , testInteraction' "closure"
+          [ input "import qualified DA.Map as Map"
+          , input "let m = Map.fromList [(1, 2)]"
+          , input "m"
+          , matchOutput "Map \\[\\(1,2\\)\\]"
+          , input "let lookup1 k = Map.lookup k m"
+          , input "lookup1 1"
+          , matchOutput "^Some 2$"
           ]
     ]
   where

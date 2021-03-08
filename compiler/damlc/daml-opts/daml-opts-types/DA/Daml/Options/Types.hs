@@ -19,11 +19,13 @@ module DA.Daml.Options.Types
     , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
+    , projectDependenciesDatabase
     , ifaceDir
     , distDir
     , genDir
     , basePackages
     , getPackageDbs
+    , getDependenciesDbs
     , pkgNameVersion
     , fullPkgName
     , optUnitId
@@ -138,6 +140,9 @@ damlArtifactDir = ".daml"
 projectPackageDatabase :: FilePath
 projectPackageDatabase = damlArtifactDir </> "package-database"
 
+projectDependenciesDatabase :: FilePath
+projectDependenciesDatabase = damlArtifactDir </> "dependencies"
+
 ifaceDir :: FilePath
 ifaceDir = damlArtifactDir </> "interfaces"
 
@@ -165,6 +170,17 @@ getPackageDbs :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO [Fil
 getPackageDbs version mbProjRoot userPkgDbs = do
     builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
+
+getDependenciesDbs :: LF.Version -> Maybe NormalizedFilePath -> IO [FilePath]
+getDependenciesDbs version =
+    \case
+        Nothing -> pure []
+        Just projRoot -> do
+            let depsDb =
+                    fromNormalizedFilePath projRoot </> projectDependenciesDatabase </>
+                    renderPretty version
+            hasDepsDb <- Dir.doesDirectoryExist depsDb
+            pure $ [depsDb | hasDepsDb]
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =

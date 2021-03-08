@@ -39,6 +39,7 @@ private[migration] object ValueSerializer {
         logger.error(
           s"*** Please upgrade your sandbox database by upgrading your SDK to 1.6 first. ***"
         )
+      case _ =>
     }
     x
   }

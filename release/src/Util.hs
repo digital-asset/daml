@@ -20,6 +20,7 @@ module Util (
     buildTargets,
     copyToReleaseDir,
     getBazelLocations,
+    isScalaJar,
     isDeployJar,
     loggedProcess_,
     mavenArtifactCoords,
@@ -80,6 +81,9 @@ data JarType
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
       -- ^ A scala library jar, with source and scaladoc jars.
+    | JarJar
+      -- ^ A shaded jar built with jarjar. This is similar to a deploy jar
+      -- but the names of the targets are slightly different.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
@@ -89,6 +93,7 @@ instance FromJSON ReleaseType where
             "jar-deploy" -> pure $ Jar Deploy
             "jar-proto" -> pure $ Jar Proto
             "jar-scala" -> pure $ Jar Scala
+            "jar-jarjar" -> pure $ Jar JarJar
             _ -> fail ("Could not parse release type: " <> unpack t)
 
 data Artifact c = Artifact
@@ -212,6 +217,7 @@ mainFileName (Jar jarTy) name = case jarTy of
     Deploy -> name <> "_deploy.jar"
     Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
     Scala -> name <> ".jar"
+    JarJar -> name <> ".jar"
 
 sourceJarName :: Artifact a -> Maybe Text
 sourceJarName Artifact{..}
@@ -220,7 +226,7 @@ sourceJarName Artifact{..}
 
 scalaSourceJarName :: Artifact a -> Maybe Text
 scalaSourceJarName Artifact{..}
-  | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | artReleaseType `elem` [Jar Scala, Jar JarJar] = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
 deploySourceJarName :: Artifact a -> Maybe Text
@@ -238,7 +244,7 @@ customSourceJarName Artifact{..} = T.pack . toFilePath <$> artSourceJar
 
 scaladocJarName :: Artifact a -> Maybe Text
 scaladocJarName Artifact{..}
-   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
+   | artReleaseType `elem` [Jar Scala, Jar JarJar] = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
    | otherwise = Nothing
 
 javadocDeployJarName :: Artifact a -> Maybe Text
@@ -323,8 +329,8 @@ releasePomPath PomData{..} =
 
 -- | Given an artifact, produce a list of pairs of an input file and the Maven coordinates.
 -- This corresponds to the files uploaded to Maven Central.
-mavenArtifactCoords :: E.MonadThrow m => OnlyScala -> Artifact PomData -> m [(MavenCoords, Path Rel File)]
-mavenArtifactCoords onlyScala Artifact{..} = do
+mavenArtifactCoords :: E.MonadThrow m => Artifact PomData -> m [(MavenCoords, Path Rel File)]
+mavenArtifactCoords Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
@@ -336,14 +342,11 @@ mavenArtifactCoords onlyScala Artifact{..} = do
 
     let mavenCoords classifier artifactType =
            MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
-    pure $
-      if getOnlyScala onlyScala && artReleaseType /= Jar Scala
-        then []
-        else [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
-             , (mavenCoords Nothing "pom",  outDir </> pomFile)
-             , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
-             , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
-             ]
+    pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
+         , (mavenCoords Nothing "pom",  outDir </> pomFile)
+         , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
+         , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
+         ]
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do
@@ -354,10 +357,10 @@ copyToReleaseDir BazelLocations{..} releaseDir inp out = do
     copyFile absIn absOut
 
 isDeployJar :: ReleaseType -> Bool
-isDeployJar t =
-    case t of
-        Jar Deploy -> True
-        _ -> False
+isDeployJar = (Jar Deploy ==)
+
+isScalaJar :: ReleaseType -> Bool
+isScalaJar = (Jar Scala ==)
 
 osName ::  Text
 osName

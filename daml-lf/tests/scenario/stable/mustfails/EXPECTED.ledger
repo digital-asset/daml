@@ -7,8 +7,8 @@ mustFailAt actAs: {'Alice'} readAs: {} [Test:96]
 
 mustFailAt actAs: {'Alice'} readAs: {} [Test:100]
 
-TX #4 1970-01-01T00:00:00Z [Test:108] version: 10
-#4:0 version: 10
+TX #4 1970-01-01T00:00:00Z [Test:108] version: 11
+#4:0 version: 11
 │   known to (since): Alice (#4), Bob (#4)
 └─> create Test:X@XXXXXXXX
     with: { p = 'Alice', p2 = 'Bob' }
@@ -17,8 +17,8 @@ pass -100000000
 
 mustFailAt actAs: {'Bob'} readAs: {} [Test:110]
 
-TX #7 1969-12-31T23:58:20Z [Test:115] version: 10
-#7:0 version: 10
+TX #7 1969-12-31T23:58:20Z [Test:115] version: 11
+#7:0 version: 11
 │   known to (since): Alice (#7)
 └─> create Test:TwoParties@XXXXXXXX
     with: { p = 'Alice', p2 = 'Alice' }
@@ -27,29 +27,29 @@ mustFailAt actAs: {'Bob'} readAs: {} [Test:116]
 
 mustFailAt actAs: {'Alice'} readAs: {} [Test:123]
 
-TX #10 1969-12-31T23:58:20Z [Test:128] version: 10
-#10:0 version: 10
+TX #10 1969-12-31T23:58:20Z [Test:128] version: 11
+#10:0 version: 11
 │   archived by #11:0
 │   referenced by #11:0
 │   known to (since): Alice (#10), Bob (#10)
 └─> create Test:ToTwoParties@XXXXXXXX
     with: { p = 'Alice', p2 = 'Bob' }
 
-TX #11 1969-12-31T23:58:20Z [Test:129] version: 10
-#11:0 version: 10
+TX #11 1969-12-31T23:58:20Z [Test:129] version: 11
+#11:0 version: 11
 │   known to (since): Alice (#11), Bob (#11)
 └─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on 00059653cdb8e866d69fac4d5bd0f62bbdaba4c36b01c438b86351fbdbf2cab8b0
     with {  }
     children:
-    #11:1 version: 10
+    #11:1 version: 11
     │   known to (since): Alice (#11), Bob (#11)
     └─> create Test:TwoParties@XXXXXXXX
         with: { p = 'Alice', p2 = 'Bob' }
 
 mustFailAt actAs: {'Bob'} readAs: {} [Test:130]
 
-TX #13 1969-12-31T23:58:20Z [Test:134] version: 10
-#13:0 version: 10
+TX #13 1969-12-31T23:58:20Z [Test:134] version: 11
+#13:0 version: 11
 │   known to (since): Alice (#13)
 └─> create Test:NoCtrls@XXXXXXXX
     with: { p = 'Alice', xs = [] }
@@ -58,16 +58,16 @@ mustFailAt actAs: {'Alice'} readAs: {} [Test:135]
 
 mustFailAt actAs: {'Alice'} readAs: {} [Test:139]
 
-TX #16 1969-12-31T23:58:20Z [Test:144] version: 10
-#16:0 version: 10
+TX #16 1969-12-31T23:58:20Z [Test:144] version: 11
+#16:0 version: 11
 │   known to (since): Alice (#16), Bob (#16)
 └─> create Test:X@XXXXXXXX
     with: { p = 'Alice', p2 = 'Bob' }
 
 mustFailAt actAs: {'Alice'} readAs: {} [Test:145]
 
-TX #18 1969-12-31T23:58:20Z [Test:151] version: 10
-#18:0 version: 10
+TX #18 1969-12-31T23:58:20Z [Test:151] version: 11
+#18:0 version: 11
 │   known to (since): Alice (#18)
 └─> create Test:Recursive@XXXXXXXX
     with: { p = 'Alice' }
@@ -76,8 +76,8 @@ mustFailAt actAs: {'Alice'} readAs: {} [Test:154]
 
 mustFailAt actAs: {'Alice'} readAs: {} [Test:340]
 
-TX #21 1969-12-31T23:58:20Z [Test:345] version: 10
-#21:0 version: 10
+TX #21 1969-12-31T23:58:20Z [Test:345] version: 11
+#21:0 version: 11
 │   known to (since): Alice (#21)
 └─> create Test:NestingLimitExercise@XXXXXXXX
     with: { p = 'Alice' }

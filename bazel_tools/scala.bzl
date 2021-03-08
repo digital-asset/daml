@@ -27,6 +27,9 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_s
 # Use the macros `da_scala_*` defined in this file, instead of the stock rules
 # `scala_*` from `rules_scala` in order for these default flags to take effect.
 
+def resolve_scala_deps(deps, scala_deps = [], versioned_scala_deps = {}):
+    return deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+
 version_specific = {
     "2.12": [
         # these two flags turn on source-incompatible enhancements that are always
@@ -205,9 +208,9 @@ def _wrap_rule(
         scala_exports = [],
         silent_annotations = False,
         **kwargs):
-    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
-    runtime_deps = runtime_deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_runtime_deps]
-    exports = exports + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_exports]
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    exports = resolve_scala_deps(exports, scala_exports)
     if silent_annotations:
         scalacopts = ["-P:silencer:checkUnused"] + scalacopts
         plugins = [silencer_plugin] + plugins
@@ -224,7 +227,7 @@ def _wrap_rule(
     )
 
 def _wrap_rule_no_plugins(rule, deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], **kwargs):
-    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
     rule(
         scalacopts = common_scalacopts + scalacopts,
         deps = deps,
@@ -498,7 +501,7 @@ Arguments:
 """
 
 def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
-    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
 
     # Limit execution to Linux and MacOS
     if is_windows == False:
@@ -639,5 +642,13 @@ def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_
 
 # TODO make the jmh rule work with plugins -- probably
 # just a matter of passing the flag in
-def da_scala_benchmark_jmh(**kwargs):
-    _wrap_rule_no_plugins(scala_benchmark_jmh, **kwargs)
+def da_scala_benchmark_jmh(
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        **kwargs):
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    _wrap_rule_no_plugins(scala_benchmark_jmh, deps, runtime_deps, **kwargs)

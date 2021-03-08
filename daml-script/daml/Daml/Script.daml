@@ -91,7 +91,7 @@ data ScriptF a
   | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
-  | GetTime (Time -> a)
+  | GetTime (GetTimePayload a)
   | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
   deriving Functor
@@ -100,12 +100,17 @@ data QueryACS a = QueryACS
   { parties : [Party]
   , tplId : TemplateTypeRep
   , continue : [(ContractId (), AnyTemplate)] -> a
+  , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party.
 query : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, t)]
-query p = lift $ Free $ Query (QueryACS (toParties p) (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
+query p = lift $ Free $ Query QueryACS with
+  parties = toParties p
+  tplId = templateTypeRep @t
+  continue = pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))
+  locations = getCallStack callStack
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party and match the given predicate.
@@ -117,6 +122,7 @@ data QueryContractIdPayload a = QueryContractIdPayload
   , tplId : TemplateTypeRep
   , cid : ContractId ()
   , continue : Optional AnyTemplate -> a
+  , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 -- | Query for the contract with the given contract id.
@@ -124,35 +130,39 @@ data QueryContractIdPayload a = QueryContractIdPayload
 -- Returns `None` if there is no active contract the party is a stakeholder on.
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractId : forall t p. (Template t, IsParties p) => p -> ContractId t -> Script (Optional t)
+queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
 queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   parties = toParties p
   tplId = templateTypeRep @t
   cid = coerceContractId c
   continue = pure . fmap (fromSome . fromAnyTemplate)
+  locations = getCallStack callStack
 
 data QueryContractKeyPayload a = QueryContractKeyPayload
   { parties : [Party]
   , tplId : TemplateTypeRep
   , key : AnyContractKey
   , continue : Optional (ContractId (), AnyTemplate) -> a
+  , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 -- Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractKey : forall t k p. (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
 queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
   parties = toParties p
   tplId = templateTypeRep @t
   key = toAnyContractKey @t k
   continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+  locations = getCallStack callStack
 
 data SetTimePayload a = SetTimePayload
   with
     time : Time
     continue : () -> a
+    locations : [(Text, SrcLoc)]
   deriving Functor
 
 -- | Set the time via the time service.
@@ -162,10 +172,11 @@ data SetTimePayload a = SetTimePayload
 --
 -- Note that the ledger time service does not support going backwards in time.
 -- However, you can go back in time in Daml Studio.
-setTime : Time -> Script ()
+setTime : HasCallStack => Time -> Script ()
 setTime time = lift $ Free $ SetTime $ SetTimePayload with
   time
   continue = pure
+  locations = getCallStack callStack
 
 -- | Advance ledger time by the given interval.
 --
@@ -186,16 +197,19 @@ data AllocateParty a = AllocateParty
   , idHint : Text
   , participant : Optional Text
   , continue : Party -> a
+  , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 data ListKnownPartiesPayload a = ListKnownPartiesPayload
   { participant : Optional Text
   , continue : [PartyDetails] -> a
+  , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 data SleepRec a = SleepRec
   { duration : RelTime
   , continue : () -> a
+  , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 -- | A hint to the backing participant what party id to allocate.
@@ -206,59 +220,59 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 
 -- | Allocate a party with the given display name
 -- using the party management service.
-allocateParty : Text -> Script Party
-allocateParty displayName = lift $ Free $ AllocParty $ AllocateParty
-  { displayName
-  , idHint = ""
-  , participant = None
-  , continue = pure
-  }
+allocateParty : HasCallStack => Text -> Script Party
+allocateParty displayName = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = ""
+  participant = None
+  continue = pure
+  locations = getCallStack callStack
 
 -- | Allocate a party with the given display name and id hint
 -- using the party management service.
-allocatePartyWithHint : Text -> PartyIdHint -> Script Party
-allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty
-  { displayName
-  , idHint = idHint
-  , participant = None
-  , continue = pure
-  }
+allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
+allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = idHint
+  participant = None
+  continue = pure
+  locations = getCallStack callStack
 
 -- | Allocate a party with the given display name
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn displayName (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty
-  { displayName
-  , idHint = ""
-  , participant = Some participant
-  , continue = pure
-  }
+allocatePartyOn displayName (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = ""
+  participant = Some participant
+  continue = pure
+  locations = getCallStack callStack
 
 -- | Allocate a party with the given display name and id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty
-  { displayName
-  , idHint = idHint
-  , participant = Some participant
-  , continue = pure
-  }
+allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
+  displayName
+  idHint = idHint
+  participant = Some participant
+  continue = pure
+  locations = getCallStack callStack
 
 -- | List the parties known to the default participant.
-listKnownParties : Script [PartyDetails]
+listKnownParties : HasCallStack => Script [PartyDetails]
 listKnownParties =
-  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
-    { participant = None
-    , continue = pure
-    }
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload with
+    participant = None
+    continue = pure
+    locations = getCallStack callStack
 
 -- | List the parties known to the given participant.
-listKnownPartiesOn : ParticipantName -> Script [PartyDetails]
+listKnownPartiesOn : HasCallStack => ParticipantName -> Script [PartyDetails]
 listKnownPartiesOn (ParticipantName participant) =
-  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
-    { participant = Some participant
-    , continue = pure
-    }
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload with
+    participant = Some participant
+    continue = pure
+    locations = getCallStack callStack
 
 -- | The party details returned by the party management service.
 data PartyDetails = PartyDetails
@@ -277,7 +291,15 @@ data PartyDetails = PartyDetails
 -- In static time mode over the JSON API, it will always
 -- return the Unix epoch.
 instance HasTime Script where
-  getTime = lift $ Free (GetTime pure)
+  getTime = lift $ Free $ GetTime GetTimePayload with
+    continue = pure
+    locations = getCallStack callStack
+
+data GetTimePayload a = GetTimePayload
+  with
+    continue : Time -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
 
 -- | Sleep for the given duration.
 --
@@ -285,8 +307,11 @@ instance HasTime Script where
 -- where you repeatedly call `query` until a certain state is reached.
 --
 -- Note that this will sleep for the same duration in both wallcock and static time mode.
-sleep : RelTime -> Script ()
-sleep duration = lift $ Free (Sleep $ SleepRec duration pure)
+sleep : HasCallStack => RelTime -> Script ()
+sleep duration = lift $ Free $Sleep SleepRec with
+  duration = duration
+  continue = pure
+  locations = getCallStack callStack
 
 data SubmitFailure = SubmitFailure
   { status : Int
@@ -298,12 +323,14 @@ data SubmitFailure = SubmitFailure
 -- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
 -- Older versions of the SDK didn't distinguish @Submit@ and
 -- @SubmitMustFail@ in the script runner.
+-- We stub it out to () for newer versions so we can easily
+-- check if it needs to be called for failures or not.
 data SubmitCmd a = SubmitCmd
   with
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
-    handleFailure : SubmitFailure -> a
+    handleFailure : ()
     locations : [(Text, SrcLoc)]
   deriving Functor
 
@@ -327,8 +354,7 @@ instance HasSubmit Script Commands where
       actAs = NonEmpty p []
       readAs = []
       commands = cmds
-      handleFailure = \failure ->
-        error $ "Submit failed with code " <> show failure.status <> ": " <> failure.description
+      handleFailure = ()
       locations = getCallStack callStack
 
   submitMustFail p cmds =
@@ -371,8 +397,7 @@ submitMulti actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = cmds
-      handleFailure = \failure ->
-        error $ "Submit failed with code " <> show failure.status <> ": " <> failure.description
+      handleFailure = ()
       locations = getCallStack callStack
 
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`

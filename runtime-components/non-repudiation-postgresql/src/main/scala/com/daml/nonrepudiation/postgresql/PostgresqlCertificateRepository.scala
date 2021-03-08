@@ -25,7 +25,7 @@ final class PostgresqlCertificateRepository(transactor: Transactor[IO])(implicit
     getCertificate(fingerprint).query[X509Certificate].option.transact(transactor).unsafeRunSync()
 
   private def putKey(fingerprint: FingerprintBytes, certificate: X509Certificate): Fragment =
-    fr"insert into" ++ table ++ fr"""(fingerprint, certificate) values ($fingerprint, $certificate)"""
+    fr"insert into" ++ table ++ fr"""(fingerprint, certificate) values ($fingerprint, $certificate) on conflict do nothing"""
 
   override def put(certificate: X509Certificate): FingerprintBytes = {
     val fingerprint = FingerprintBytes.compute(certificate)

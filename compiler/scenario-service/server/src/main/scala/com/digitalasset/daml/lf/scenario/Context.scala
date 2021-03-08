@@ -12,24 +12,18 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.assertRight
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
-import com.daml.lf.speedy.{SExpr, SValue, SDefinition}
+import com.daml.lf.speedy.{SDefinition, SExpr, SValue}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{
-  Runner,
-  Script,
-  ScriptIds,
-  ScriptTimeMode,
-  IdeClient,
-  Participants,
-}
+import com.daml.lf.engine.script.{Participants, Runner, Script, ScriptF, ScriptIds}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -212,9 +206,25 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ScriptTimeMode.Static,
     )
-    val ledgerClient = new IdeClient(compiledPackages)
+    val ledgerClient = new IdeLedgerClient(compiledPackages)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val (clientMachine, resultF) = runner.runWithClients(participants)
+
+    def handleFailure(e: SError) = {
+      // SError are the errors that should be handled and displayed as
+      // failed partial transactions.
+
+      // We copy tracelogs after every submit but on failures we need
+      // to copy the tracelog from the partial transaction as well since we
+      // don’t reach the end of the submit.
+      for ((msg, optLoc) <- ledgerClient.tracelogIterator) {
+        clientMachine.traceLog.add(msg, optLoc)
+      }
+      Success(
+        Some((ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e)))
+      )
+    }
+
     resultF.transform {
       case Success(v) =>
         Success(
@@ -222,19 +232,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))
           )
         )
-      case Failure(e: SError) =>
-        // SError are the errors that should be handled and displayed as
-        // failed partial transactions.
-
-        // We copy tracelogs after every submit but on failures we need
-        // to copy the tracelog from the partial transaction as well since we
-        // don’t reach the end of the submit.
-        for ((msg, optLoc) <- ledgerClient.tracelogIterator) {
-          clientMachine.traceLog.add(msg, optLoc)
+      case Failure(e: SError) => handleFailure(e)
+      case Failure(e: ScriptF.FailedCmd) =>
+        e.cause match {
+          case e: SError => handleFailure(e)
+          case _ => Failure(e)
         }
-        Success(
-          Some((ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e)))
-        )
       case Failure(e) => Failure(e)
     }
   }

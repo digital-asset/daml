@@ -622,7 +622,7 @@ dependencies:
   - daml-script.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location quickstart-model.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location quickstart-model.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],

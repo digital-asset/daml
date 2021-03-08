@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "sdk_platform_test")
+load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
     "daml_script_dar",
@@ -69,7 +69,7 @@ head = "0.0.0"
         sdk_version = head,
     )
     for platform_version in platform_versions
-    if platform_version != head
+    if platform_version != head and daml_lf_compatible(head, platform_version)
 ]
 
 # Test all old SDK versions with the latest platform
@@ -79,7 +79,7 @@ head = "0.0.0"
         sdk_version = sdk_version,
     )
     for sdk_version in sdk_versions
-    if sdk_version != head
+    if sdk_version != head and daml_lf_compatible(sdk_version, head)
 ]
 
 [

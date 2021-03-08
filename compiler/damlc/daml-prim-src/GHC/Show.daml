@@ -75,6 +75,7 @@ class  Show a  where
     show x          = shows x ""
     showList ls   s = showList__ shows ls s
 
+shows : Show a => a -> ShowS
 shows x = showsPrec (I# 0#) x
 
 showList__ : (a -> ShowS) ->  [a] -> ShowS

@@ -18,6 +18,7 @@ TEST_RUNNER=$(rlocation $TEST_WORKSPACE/$1)
 DAR_FILE=$(rlocation $TEST_WORKSPACE/$2)
 DIFF=$3
 GREP=$4
+SED=$5
 
 set +e
 TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
@@ -43,11 +44,12 @@ ScriptExample:initializeFixed SUCCESS
 ScriptExample:initializeFromQuery SUCCESS
 ScriptExample:queryParties SUCCESS
 ScriptExample:test SUCCESS
-ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: INVALID_ARGUMENT: Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction:
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:multiPartySubmission SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
+ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: INVALID_ARGUMENT: Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction:
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS
@@ -67,7 +69,8 @@ ScriptTest:tupleKey SUCCESS
 EOF
 )"
 
-ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE")"
+# We strip away the actual partial transaction since contract ids are not deterministic.
+ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE" | $SED 's/partial transaction: .*$/partial transaction:/g')"
 
 if ! $DIFF -du0 --label expected <(echo -n "$EXPECTED") --label actual <(echo -n "$ACTUAL") >&2; then
   FAIL=1

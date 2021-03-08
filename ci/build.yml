@@ -103,15 +103,6 @@ jobs:
         name: 'linux-scala-2.13'
         is_release: variables.is_release
         scala_version: "2.13.3"
-    - bash: |
-        set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
-        bazel build //release:release
-        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
-      env:
-        DAML_SCALA_VERSION: "2.13.3"
-      name: maven_check
-      condition: and(succeeded(), ne(variables['is_release'], 'true'))
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -249,6 +240,7 @@ jobs:
         ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
         ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       displayName: 'Build'
+      condition: eq(variables['System.PullRequest.IsFork'], 'False')
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

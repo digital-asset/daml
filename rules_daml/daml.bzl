@@ -19,11 +19,14 @@ _zipper = attr.label(
     cfg = "host",
 )
 
+ghc_opts = ["--ghc-option=-Werror"]
+
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
+    opts = ghc_opts + ["--target={}".format(target)] if target else ghc_opts
     ctx.actions.write(
         output = daml_yaml,
         content = """
@@ -32,12 +35,12 @@ def _daml_configure_impl(ctx):
             version: {version}
             source: .
             dependencies: []
-            build-options: [{target}]
+            build-options: [{opts} ]
         """.format(
             sdk = sdk_version,
             name = project_name,
             version = project_version,
-            target = "--target=" + target if (target) else "",
+            opts = ", ".join(opts),
         ),
     )
 
@@ -96,7 +99,7 @@ def _daml_build_impl(ctx):
             {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
-            {damlc} build --project-root $tmpdir -o $PWD/{output_dar}
+            {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar}
         """.format(
             config = daml_yaml.path,
             cp_srcs = "\n".join([
@@ -117,6 +120,7 @@ def _daml_build_impl(ctx):
             damlc = damlc.path,
             output_dar = output_dar.path,
             sdk_version = sdk_version,
+            ghc_opts = " ".join(ghc_opts),
         ),
     )
 

@@ -12,10 +12,10 @@ object TraceIdentifiers {
 
   /** Extract identifiers from a transaction message.
     */
-  def fromTransaction(transaction: Transaction): Map[String, String] = {
-    val attributes = Map.newBuilder[String, String]
+  def fromTransaction(transaction: Transaction): Map[SpanAttribute, String] = {
+    val attributes = Map.newBuilder[SpanAttribute, String]
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
-      if (!value.isEmpty) attributes += attribute.key -> value
+      if (!value.isEmpty) attributes += attribute -> value
 
     setIfNotEmpty(SpanAttribute.Offset, transaction.offset)
     setIfNotEmpty(SpanAttribute.CommandId, transaction.commandId)
@@ -27,10 +27,10 @@ object TraceIdentifiers {
 
   /** Extract identifiers from a transaction tree message.
     */
-  def fromTransactionTree(transactionTree: TransactionTree): Map[String, String] = {
-    val attributes = Map.newBuilder[String, String]
+  def fromTransactionTree(transactionTree: TransactionTree): Map[SpanAttribute, String] = {
+    val attributes = Map.newBuilder[SpanAttribute, String]
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
-      if (!value.isEmpty) attributes += attribute.key -> value
+      if (!value.isEmpty) attributes += attribute -> value
 
     setIfNotEmpty(SpanAttribute.Offset, transactionTree.offset)
     setIfNotEmpty(SpanAttribute.CommandId, transactionTree.commandId)
