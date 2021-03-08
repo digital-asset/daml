@@ -13,6 +13,7 @@ da_java_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//language-support/java/bindings:bindings-java",
         "//runtime-components/non-repudiation-core",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",

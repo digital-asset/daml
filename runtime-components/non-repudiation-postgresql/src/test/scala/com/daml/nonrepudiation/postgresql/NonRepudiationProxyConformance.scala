@@ -87,7 +87,7 @@ final class NonRepudiationProxyConformance
         testCases = ConformanceTestCases,
         participants = Vector(proxyChannel),
         commandInterceptors = Seq(
-          new SigningInterceptor(key, certificate)
+          SigningInterceptor.signCommands(key, certificate)
         ),
       )
 
