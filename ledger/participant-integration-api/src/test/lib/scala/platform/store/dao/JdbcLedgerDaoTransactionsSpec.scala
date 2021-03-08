@@ -495,7 +495,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
-      ledgerDao <- createLedgerDao(pageSize = 2, useCompletionCache = true)
+      ledgerDao <- createLedgerDao(pageSize = 2)
 
       response <- ledgerDao.transactionsReader
         .getFlatTransactions(
@@ -626,7 +626,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   private def createLedgerDao(pageSize: Int) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
-      daoOwner(eventsPageSize = pageSize, useCompletionCache = true).acquire()(
+      daoOwner(eventsPageSize = pageSize, true).acquire()(
         ResourceContext(executionContext)
       )
     }.asFuture

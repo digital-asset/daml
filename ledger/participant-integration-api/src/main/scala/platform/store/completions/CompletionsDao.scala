@@ -16,7 +16,8 @@ import scala.concurrent.Future
   */
 trait CompletionsDao {
 
-  /** Fetches completions in given boundaries for given application id and parties
+  /**  Fetches all completions within the given boundaries that match the given application id
+    * and are visible to at least one of the given parties.
     */
   def getFilteredCompletions(
       startExclusive: Offset,
@@ -27,7 +28,7 @@ trait CompletionsDao {
       loggingContext: LoggingContext
   ): Future[List[(Offset, CompletionStreamResponse)]]
 
-  /** Fetches all completions in given boundaries
+  /** Fetches all completions within the given boundaries.
     */
   def getAllCompletions(
       startExclusive: Offset,

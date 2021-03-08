@@ -5,7 +5,7 @@ package com.daml.platform.store.dao
 
 import java.time.Instant
 
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import anorm.{Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
@@ -96,14 +96,19 @@ private[platform] object CommandCompletionsTable {
     SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and #$submittersInPartiesClause order by completion_offset asc"
   }
 
-  def prepareGetForAllParties(
+  private val getForAllPartiesQuery = SQL(
+    """select completion_offset, record_time, command_id, transaction_id, status_code, status_message,
+           submitters, application_id
+         from participant_command_completions
+         where completion_offset > {startExclusive} and completion_offset <= {endInclusive}
+         order by completion_offset asc"""
+  )
+
+  def getStmtForAllParties(
       startExclusive: Offset,
       endInclusive: Offset,
   ): SimpleSql[Row] =
-    SQL"""select completion_offset, record_time, command_id, transaction_id, status_code, status_message, submitters, application_id
-         from participant_command_completions
-         where completion_offset > $startExclusive and completion_offset <= $endInclusive
-         order by completion_offset asc"""
+    getForAllPartiesQuery.on("startExclusive" -> startExclusive, "endInclusive" -> endInclusive)
 
   def prepareCompletionInsert(
       submitterInfo: SubmitterInfo,
