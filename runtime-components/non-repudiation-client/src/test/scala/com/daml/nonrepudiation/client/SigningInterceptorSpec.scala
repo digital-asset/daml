@@ -67,7 +67,7 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
       val clientChannelBuilder =
         builders.proxyChannel
           .asInstanceOf[NettyChannelBuilder]
-          .intercept(new SigningInterceptor(key, certificate))
+          .intercept(SigningInterceptor.signCommands(key, certificate))
       val client = DamlLedgerClient.newBuilder(clientChannelBuilder).build()
       client.connect()
       val command = ProtoCommand.parseFrom(generateCommand().getCommands.commands.head.toByteArray)
