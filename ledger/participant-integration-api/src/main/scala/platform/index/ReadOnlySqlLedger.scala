@@ -49,7 +49,7 @@ private[platform] object ReadOnlySqlLedger {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
-      inMemoryCompletionsCache: Boolean,
+      useCompletionsCache: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
@@ -140,7 +140,7 @@ private[platform] object ReadOnlySqlLedger {
           metrics,
           lfValueTranslationCache,
           Some(enricher),
-          inMemoryCompletionsCache,
+          useCompletionsCache,
         )
   }
 }

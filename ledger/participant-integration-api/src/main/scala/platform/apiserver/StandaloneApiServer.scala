@@ -84,7 +84,7 @@ final class StandaloneApiServer(
           maxContractStateCacheSize = config.maxContractStateCacheSize,
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           enableMutableContractStateCache = config.enableMutableContractStateCache,
-          inMemoryCompletionsCache = config.inMemoryCompletionsCache,
+          useCompletionsCache = config.useCompletionsCache,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)

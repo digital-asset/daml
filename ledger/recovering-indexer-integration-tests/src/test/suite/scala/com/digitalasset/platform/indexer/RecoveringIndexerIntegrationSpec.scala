@@ -229,7 +229,7 @@ class RecoveringIndexerIntegrationSpec
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = None,
-      inMemoryCompletionsCache = false,
+      useCompletionsCache = false,
     )
   }
 }

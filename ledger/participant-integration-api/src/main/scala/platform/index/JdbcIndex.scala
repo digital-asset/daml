@@ -32,7 +32,7 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
-      inMemoryCompletionsCache: Boolean,
+      useCompletionsCache: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole = serverRole,
@@ -48,7 +48,7 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize = maxContractStateCacheSize,
       maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
       enableMutableContractStateCache = enableMutableContractStateCache,
-      inMemoryCompletionsCache = inMemoryCompletionsCache,
+      useCompletionsCache = useCompletionsCache,
     ).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId)
     }

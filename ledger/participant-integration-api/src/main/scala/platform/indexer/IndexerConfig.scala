@@ -28,7 +28,7 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
-    inMemoryCompletionsCache: Boolean = true,
+    useCompletionsCache: Boolean = DefaultUseCompletionsCache,
 )
 
 object IndexerConfig {
@@ -45,4 +45,5 @@ object IndexerConfig {
   val DefaultTailingRateLimitPerSecond: Int = 20
   val DefaultBatchWithinMillis: Long = 50L
   val DefaultEnableCompression: Boolean = false
+  val DefaultUseCompletionsCache: Boolean = false
 }

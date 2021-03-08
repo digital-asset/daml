@@ -66,7 +66,7 @@ object JdbcIndexer {
           lfValueTranslationCache,
           jdbcAsyncCommitMode = config.asyncCommitMode,
           enricher = None,
-          inMemoryCompletionsCache = config.inMemoryCompletionsCache,
+          useCompletionsCache = config.useCompletionsCache,
         ),
         new FlywayMigrations(config.jdbcUrl),
         lfValueTranslationCache,

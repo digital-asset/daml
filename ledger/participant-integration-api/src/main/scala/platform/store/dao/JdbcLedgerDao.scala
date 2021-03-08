@@ -98,7 +98,7 @@ private class JdbcLedgerDao(
     validatePartyAllocation: Boolean,
     idempotentEntryInserts: Boolean,
     enricher: Option[ValueEnricher],
-    inMemoryCompletionsCache: Boolean,
+    useCompletionsCache: Boolean,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -954,7 +954,7 @@ private class JdbcLedgerDao(
   override val completions: PagedCompletionsReader = {
     val completionsDao =
       new CompletionsDaoImpl(dbDispatcher, dbType, metrics, servicesExecutionContext)
-    if (inMemoryCompletionsCache) {
+    if (useCompletionsCache) {
       new PagedCompletionsReaderWithCache(completionsDao, 400)(
         servicesExecutionContext
       ) // TODO export max items into variable
@@ -997,7 +997,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
-      inMemoryCompletionsCache: Boolean,
+      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
@@ -1010,7 +1010,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       idempotentEventInserts = false,
       enricher = enricher,
-      inMemoryCompletionsCache = inMemoryCompletionsCache,
+      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -1024,7 +1024,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
-      inMemoryCompletionsCache: Boolean,
+      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -1040,7 +1040,7 @@ private[platform] object JdbcLedgerDao {
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       idempotentEventInserts = dbType == DbType.Postgres,
       enricher = enricher,
-      inMemoryCompletionsCache = inMemoryCompletionsCache,
+      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1054,7 +1054,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
-      inMemoryCompletionsCache: Boolean,
+      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -1069,7 +1069,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       idempotentEventInserts = false,
       enricher = enricher,
-      inMemoryCompletionsCache = inMemoryCompletionsCache,
+      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1110,7 +1110,7 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       idempotentEventInserts: Boolean,
       enricher: Option[ValueEnricher],
-      inMemoryCompletionsCache: Boolean,
+      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
@@ -1132,7 +1132,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       idempotentEventInserts,
       enricher,
-      inMemoryCompletionsCache,
+      useCompletionsCache,
     )
 
   sealed trait Queries {

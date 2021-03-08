@@ -626,7 +626,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   private def createLedgerDao(pageSize: Int) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
-      daoOwner(eventsPageSize = pageSize).acquire()(ResourceContext(executionContext))
+      daoOwner(eventsPageSize = pageSize, useCompletionsCache = true).acquire()(
+        ResourceContext(executionContext)
+      )
     }.asFuture
 
   // XXX SC much of this is repeated because we're more concerned here

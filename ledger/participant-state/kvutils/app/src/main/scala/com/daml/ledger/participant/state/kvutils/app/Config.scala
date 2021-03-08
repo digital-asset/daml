@@ -42,6 +42,7 @@ final case class Config[Extra](
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
     extra: Extra,
+    useCompletionsCache: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -74,6 +75,7 @@ object Config {
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
       extra = extra,
+      useCompletionsCache = true,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
