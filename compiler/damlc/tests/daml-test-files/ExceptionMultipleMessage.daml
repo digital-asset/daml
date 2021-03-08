@@ -1,0 +1,13 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+
+-- | Test that multiple message declarations inside an exception block is a parse error.
+module ExceptionMultipleMessage where
+
+-- @ERROR Multiple 'message' declarations
+exception T
+    where
+        message "Hello"
+        message "Goodbye"
