@@ -9,7 +9,7 @@ import java.time.{Clock, Instant, ZoneId}
 
 import com.daml.grpc.test.GrpcServer
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
-import com.daml.nonrepudiation.client.SigningInterceptor
+import com.daml.nonrepudiation.client.TestSigningInterceptors
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.{Channel, StatusRuntimeException}
 import org.scalatest.Inside
@@ -78,7 +78,7 @@ final class NonRepudiationProxySpec
         val result =
           Health.getHealthStatus(
             proxyChannel,
-            new SigningInterceptor(privateKey, certificate),
+            TestSigningInterceptors.signEverything(privateKey, certificate),
           )
 
         result shouldEqual Health.getHealthStatus(channel)
@@ -135,7 +135,7 @@ final class NonRepudiationProxySpec
         the[StatusRuntimeException] thrownBy {
           Health.getHealthStatus(
             proxyChannel,
-            new SigningInterceptor(privateKey, certificate),
+            TestSigningInterceptors.signEverything(privateKey, certificate),
           )
         } should have message SignatureVerificationFailed.asRuntimeException.getMessage
       }

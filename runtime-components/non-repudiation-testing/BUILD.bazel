@@ -29,6 +29,7 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//runtime-components/non-repudiation",
+        "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-postgresql",
         "//runtime-components/non-repudiation-resources",
         "@maven//:com_zaxxer_HikariCP",

@@ -49,7 +49,7 @@ final class StubOwner private (
         )
       } yield CommandSubmissionServiceGrpc
         .blockingStub(builders.proxyChannel.build())
-        .withInterceptors(new SigningInterceptor(key, certificate))
+        .withInterceptors(SigningInterceptor.signCommands(key, certificate))
 
     stubOwner.acquire()(context)
 
