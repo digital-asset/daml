@@ -5,7 +5,6 @@ parameters:
 - name: final_job_name
 
 jobs:
-
 - job: ${{ parameters.final_job_name }}
   pool:
     vmImage: 'Ubuntu 16.04'
