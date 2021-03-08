@@ -1,0 +1,79 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Experimental.DecimalFloat(
+   DecimalFloat
+ , RoundingMode(..)
+ , zero
+ , one
+ , ten
+ , fromInt
+ , exponent
+ , compare
+ , add
+ , subtract
+ , multiply
+ , divide
+ , round
+) where
+
+import GHC.Types (primitive)
+import Prelude hiding (compare, round, subtract, toText)
+
+data DecimalFloat
+
+instance Show DecimalFloat where show x = toText x
+
+instance Eq DecimalFloat where
+    x == y = EQ == compare x y
+
+instance Ord DecimalFloat where
+    x <= y = GT /= compare x y
+
+-- should match the order of java.math.RoundingMode
+data RoundingMode =
+      Up
+    | Down
+    | Ceiling
+    | Floor
+    | HalfUp
+    | HalfDown
+    | HalfEven
+    | Unnecessary
+
+zero: DecimalFloat
+zero = fromInt 0
+
+one: DecimalFloat
+one = fromInt 1
+
+ten: DecimalFloat
+ten = fromInt 10
+
+fromInt: Int -> DecimalFloat
+fromInt = primitive @"$FROM_INT_DECIMALFLOAT"
+
+exponent: DecimalFloat -> Int
+exponent = primitive @"$EXPONENT_DECIMALFLOAT"
+
+add: Int -> RoundingMode -> DecimalFloat -> DecimalFloat -> DecimalFloat
+add = primitive @"$ADD_DECIMALFLOAT"
+
+subtract: Int -> RoundingMode -> DecimalFloat -> DecimalFloat -> DecimalFloat
+subtract = primitive @"$SUB_DECIMALFLOAT"
+
+multiply: Int -> RoundingMode -> DecimalFloat -> DecimalFloat -> DecimalFloat
+multiply = primitive @"$MULT_DECIMALFLOAT"
+
+divide: Int -> RoundingMode -> DecimalFloat -> DecimalFloat -> DecimalFloat
+divide = primitive @"$DIV_DECIMALFLOAT"
+
+round: Int -> RoundingMode -> DecimalFloat -> DecimalFloat
+round precision rounding x =
+    add precision rounding x zero
+
+compare: DecimalFloat -> DecimalFloat -> Ordering
+compare = primitive @"$COMPARE_DECIMALFLOAT"
+
+toText: DecimalFloat -> Text
+toText = primitive @"$TO_TEXT_DECIMALFLOAT"

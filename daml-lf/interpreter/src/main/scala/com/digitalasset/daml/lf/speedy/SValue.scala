@@ -76,6 +76,8 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SPAP")
       case SToken =>
         throw SErrorCrash("SValue.toValue: unexpected SToken")
+      case SExperimental(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected SExperimental")
     }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
@@ -224,6 +226,7 @@ object SValue {
   final case class STypeRep(ty: Type) extends SValue
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
+  final case class SExperimental(x: Any) extends SPrimLit
 
   object SValue {
     val Unit = SUnit

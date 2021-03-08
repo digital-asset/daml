@@ -315,7 +315,8 @@ private[lf] object SBuiltin {
         case SParty(p) => p
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
-        case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
+        case SContractId(_) | SNumeric(_) | SExperimental(_) =>
+          crash("litToText: literal not supported")
       })
     }
   }
@@ -411,7 +412,9 @@ private[lf] object SBuiltin {
             // potentially very costly String to BigDecimal conversions. Take for example the String
             // "1." followed by millions of '0's
             val newString = s"$signPart$intPart.${Option(decPartOrNull).getOrElse("")}"
-            SOptional(Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString)))))
+            SOptional(
+              Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))
+            )
           } else {
             SV.None
           }
@@ -1674,6 +1677,8 @@ private[lf] object SBuiltin {
 
   object SBExperimental {
 
+    import java.math._
+
     private sealed abstract class SBExperimental(val name: String, arity: Int)
         extends SBuiltin(arity)
 
@@ -1683,12 +1688,124 @@ private[lf] object SBuiltin {
       }
     }
 
+    object DecimalFloat {
+
+      val MaxExponent = 1000
+      val MaxPrecision = 10000
+
+      private[SBExperimental] def toBigDecimal(builtin: String, x: SValue) =
+        x match {
+          case SExperimental(x: BigDecimal) => x
+          case _ =>
+            crash(s"type mismatch $builtin: $x")
+        }
+
+      private[SBExperimental] def checkPrecision(i: Long): Int = {
+        if (i <= 0 || MaxPrecision < i) {
+          crash("invalide precision")
+        } else {
+          i.toInt
+        }
+      }
+
+      private[SBExperimental] def checkExponent(i: Long): Int = {
+        if (i < MaxExponent || MaxExponent < i) {
+          crash("invalide exponent")
+        } else {
+          i.toInt
+        }
+      }
+
+      private[SBExperimental] def check(x: => BigDecimal): BigDecimal = {
+        val normalized = {
+          try {
+            x.stripTrailingZeros()
+          } catch {
+            case _: ArithmeticException =>
+              crash("arithmetic exception")
+          }
+        }
+        val e = x.precision - 1 - x.scale
+        if (e < -MaxExponent)
+          crash("underflow")
+        else if (e > MaxExponent)
+          crash("overflow")
+        else
+          normalized
+      }
+    }
+
+    private object SBExponentDecimalFloat extends SBExperimental("EXPONENT_DECIMALFLOAT", 1) {
+      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        val x = DecimalFloat.toBigDecimal(name, args.get(2))
+        machine.returnValue = SInt64((x.precision - 1 - x.scale).toLong)
+      }
+    }
+
+    private object SBFromIntDecimalFloat extends SBExperimental("FROM_INT_DECIMALFLOAT", 1) {
+      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        val a = args.get(0).asInstanceOf[SInt64].value
+        machine.returnValue = SExperimental(BigDecimal.valueOf(a))
+      }
+    }
+
+    private sealed abstract class SBBinaryOpDecimalFloat(
+        name: String,
+        op: (BigDecimal, BigDecimal, MathContext) => BigDecimal,
+    ) extends SBExperimental(name, 4) {
+      override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        val precision = DecimalFloat.checkPrecision(args.get(0).asInstanceOf[SInt64].value)
+        val roundingMode = args.get(1).asInstanceOf[SEnum].constructorRank
+        val a = DecimalFloat.toBigDecimal(name, args.get(2))
+        val b = DecimalFloat.toBigDecimal(name, args.get(3))
+        val c = DecimalFloat.check(
+          op(a, b, new MathContext(precision, RoundingMode.valueOf(roundingMode)))
+        )
+        machine.returnValue = SExperimental(c)
+      }
+    }
+    private object SBAddDecimalFloat extends SBBinaryOpDecimalFloat("ADD_DECIMALFLOAT", _.add(_, _))
+    private object SBSubtractDecimalFloat
+        extends SBBinaryOpDecimalFloat("SUB_DECIMALFLOAT", _.subtract(_, _))
+    private object SBMultiplyDecimalFloat
+        extends SBBinaryOpDecimalFloat("MULT_DECIMALFLOAT", _.multiply(_, _))
+    private object SBDivideDecimalFloat
+        extends SBBinaryOpDecimalFloat("DIV_DECIMALFLOAT", _.divide(_, _))
+    private object SBCompareDecimalFloat extends SBExperimental("COMPARE_DECIMALFLOAT", 2) {
+      private[this] val orderingNames = Ref.Name.Array(
+        Ref.Name.assertFromString("LT"),
+        Ref.Name.assertFromString("EQ"),
+        Ref.Name.assertFromString("GT"),
+      )
+      private[this] val dummyId =
+        Identifier.assertFromString("dummyPackage:dummyModule:dummyConstructor")
+      override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        val a = DecimalFloat.toBigDecimal(name, args.get(0))
+        val b = DecimalFloat.toBigDecimal(name, args.get(1))
+        val rank = (a compareTo b) + 1
+        machine.returnValue = SEnum(dummyId, orderingNames(rank), rank)
+      }
+    }
+    private[this] object SBToTextDecimalFloat extends SBExperimental("TO_TEXT_DECIMALFLOAT", 1) {
+      override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        machine.returnValue = SText(DecimalFloat.toBigDecimal(name, args.get(0)).toString)
+      }
+    }
+
     def apply(name: String): SExpr =
       mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
 
     private val mapping: Map[String, SEBuiltin] =
       List[SBExperimental](
-        SBExperimentalAnswer
+        SBExperimentalAnswer,
+        SBAddDecimalFloat,
+        SBSubtractDecimalFloat,
+        SBMultiplyDecimalFloat,
+        SBDivideDecimalFloat,
+        SBExponentDecimalFloat,
+        SBFromIntDecimalFloat,
+        SBCompareDecimalFloat,
+        SBToTextDecimalFloat,
       ).map(x => x.name -> SEBuiltin(x)).toMap
 
   }

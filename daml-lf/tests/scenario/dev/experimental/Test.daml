@@ -4,6 +4,90 @@
 module Test where
 
 import DA.Experimental.Example
+import qualified DA.Experimental.DecimalFloat as DF
+import qualified DA.List as L
+
+test1 =
+    assert $ answer () == 42
+
+type DF = DF.DecimalFloat
+
+m = 1
+n = 16
+s = 4
+
+-- pretty bad pseudo random generator
+nextInt: Int -> Int
+nextInt seed = (seed * 2147483629 + 2147483587) % 1000000000 ;
+
+makeIntList: Int -> Int -> [Int] -> (Int, [Int])
+makeIntList seed 0 acc = (seed, acc)
+makeIntList seed n acc =
+    makeIntList nextSeed (n-1) (nextSeed :: acc)
+  where nextSeed = nextInt seed
+
+makeIntListList: Int -> Int -> Int -> [[Int]]-> (Int, [[Int]])
+makeIntListList seed 0 _ acc = (seed, acc)
+makeIntListList seed n m acc =
+    makeIntListList nextSeed (n-1) m (l :: acc)
+  where
+    (nextSeed, l) = makeIntList seed m []
+
+init_element:  (Int -> a) -> (a -> a -> a) -> (a -> a -> a) -> [Int] -> a
+init_element fromInt add mult l =
+     (L.foldl (\x i -> add (mult x billion) (fromInt i)) zero) l
+   where
+     zero = fromInt 0
+     billion = fromInt 1000000000
+
+init_list:  (Int -> a) -> (a -> a -> a) -> (a -> a -> a) -> [[Int]] -> [a]
+init_list fromInt add mult l =
+  map (init_element fromInt add mult) l
+
+sumProduct: (Int -> a) -> (a -> a -> a) -> (a -> a -> a) -> [a] -> [a] -> a
+sumProduct fromInt add mult l1 l2 =
+    L.foldl (\x tuple -> add x (mult (fst tuple) (snd tuple))) zero (L.zip l1 l2)
+  where
+    zero = fromInt 0
+
+---
+
+rounding = DF.HalfDown
+precision: Int
+precision = 9 * n * 2 + 1
+
+add: DF -> DF -> DF
+add = DF.add precision rounding
+
+mult: DF -> DF -> DF
+mult = DF.multiply precision rounding
+
+div: DF -> DF -> DF
+div = DF.divide precision rounding
+
+power: Int -> DF -> DF -> DF
+power i x y
+    | i > 0     = power (i - 1) x (mult y x)
+    | i < 0     = power (i + 1) x (div y x)
+    | otherwise = y
+
+multiplicant: DF
+multiplicant = power (-s * n) DF.ten DF.one
+
+fromInt: Int -> DF
+fromInt = DF.fromInt
+
+l1 = map (mult multiplicant) $ init_list fromInt add mult $ snd $ makeIntListList 0 m n []
+l2 = map (mult multiplicant) $ init_list fromInt add mult $ snd $ makeIntListList 1 m n []
+
+test2 =
+    assert $ (show result) == expectedResult
+  where
+    result = sumProduct fromInt add mult l1 l2
+    expectedResult = "1450217779520750740114092380580385102254679792467957306117851438396993788199700305751646428787424195732704751052050966978275850133986934529263614704650144019569.20833148101522975056791659892644969632853668544525204891091757299111295248528097097528474679896104565590131733691455520063083792"
+
 
 run = scenario do
-    assert $ answer () == 42
+    _ <- test1
+    _ <- test2
+    pure ()
