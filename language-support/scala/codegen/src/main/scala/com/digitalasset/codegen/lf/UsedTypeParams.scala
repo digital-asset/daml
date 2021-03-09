@@ -120,7 +120,7 @@ object UsedTypeParams {
       val solved = goSdt(dt, Set(dt))(lookupOrFail(dt)).solve
       new ResolvedVariance(prior ++ solved.view.map { case (tcName, m) =>
         val paramsOrder = lookupOrFail(tcName).typeVars
-        (tcName, paramsOrder map m)
+        (tcName, paramsOrder map (m.getOrElse(_, Covariant)))
       })
     }
   }
