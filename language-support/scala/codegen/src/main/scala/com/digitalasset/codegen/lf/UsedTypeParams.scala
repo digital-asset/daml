@@ -48,7 +48,10 @@ object UsedTypeParams {
   import Variance._
 
   final class ResolvedVariance private (private val prior: Map[I, ImmArraySeq[Variance]]) {
-    def allCovariantVars(dt: I, ei: iface.EnvironmentInterface): (ResolvedVariance, ImmArraySeq[Variance]) = {
+    def allCovariantVars(
+        dt: I,
+        ei: iface.EnvironmentInterface,
+    ): (ResolvedVariance, ImmArraySeq[Variance]) = {
       val resolved = covariantVars(dt, (i: I) => ei.typeDecls get i map (_.`type`))
       (resolved, resolved.prior(dt))
     }
