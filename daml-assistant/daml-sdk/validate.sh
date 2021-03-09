@@ -13,12 +13,19 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
+set -eou pipefail
+
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 SDK_CE=$(rlocation "$TEST_WORKSPACE/$2")
 SDK_EE=$(rlocation "$TEST_WORKSPACE/$3")
 
 for cmd in sandbox sandbox-classic; do
-    ! $JAVA -jar $SDK_CE $cmd --help | grep -q profile-dir
+    ret=0
+    $JAVA -jar $SDK_CE $cmd --help | grep -q profile-dir || ret=$?
+    if [[ $ret -eq 0 ]]; then
+        echo "Unexpected profile-dir option in CE"
+        exit 1
+    fi
 done
 
 for cmd in sandbox sandbox-classic; do
