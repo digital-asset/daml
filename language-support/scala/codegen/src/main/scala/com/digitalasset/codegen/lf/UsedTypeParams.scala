@@ -54,6 +54,9 @@ object UsedTypeParams {
         lookupType: I => Option[iface.DefDataType[RF, VF]],
     ): ResolvedVariance = {
       import iface._, Variance._
+
+      def lookupOrFail(i: I) = lookupType(i) getOrElse sys.error(s"$i not found")
+
       def goType(dt: I, seen: Set[I])(typ: iface.Type): VarianceConstraint = typ match {
         case TypeVar(name) =>
           // while we default to Covariant at a later step,
@@ -72,50 +75,54 @@ object UsedTypeParams {
               )
             case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
                 Optional | TextMap =>
+              // this is only safe for all-params-covariant cases
               typArgs foldMap goType(dt, seen)
           }
 
         case TypeCon(TypeConName(tcName), typArgs) =>
-          val refDdt = lookupType(tcName) getOrElse sys.error(s"$tcName not found")
-          if (seen(tcName)) {
-            VarianceConstraint(
-              resolutions = Map.empty,
-              delayedConstraints = (refDdt.typeVars, typArgs foldMap goType(dt, seen)),
-            )
-          } else {
-            val tcVc = goSdt(tcName, seen + tcName)(refDdt)
-            refDdt.typeVars.zip(typArgs).foldMap { case (paramName, aContents) =>
-              val pVariance = tcVc
-              val aPositions = goType(dt, seen)(aContents)
-              pVariance match {
-                case Covariant => aPositions
-                case Invariant =>
-                  aPositions mapResolutions (_.alter(dt)(
-                    _ map (_ transform ((_, _) => Invariant))
-                  ))
-              }
-            }
-          }
+          val refDdt = lookupOrFail(tcName)
+          val argConstraints = VarianceConstraint(
+            resolutions = Map.empty,
+            delayedConstraints = Map(dt -> refDdt.typeVars.zip(typArgs map goType(dt, seen))),
+          )
+          val refConstraints =
+            if (seen(tcName)) mzero[VarianceConstraint] else goSdt(tcName, seen + tcName)(refDdt)
+          argConstraints |+| refConstraints
 
         case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
       }
 
-      def goSdt(dt: I, seen: Set[I])(sdt: DefDataType[RF, VF]): VarianceConstraint = {
-        val vLookup = sdt.dataType match {
-          case Record(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
-          case Variant(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
-          case Enum(_) => mzero[VarianceConstraint]
-        }
-        vLookup
-      }
+      def goSdt(dt: I, seen: Set[I])(sdt: DefDataType[RF, VF]): VarianceConstraint =
+        prior
+          .get(dt)
+          .map { resolved =>
+            VarianceConstraint.base(Map(dt -> sdt.typeVars.view.zip(resolved).toMap))
+          }
+          .getOrElse {
+            val vLookup = sdt.dataType match {
+              case Record(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
+              case Variant(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
+              case Enum(_) => mzero[VarianceConstraint]
+            }
+            vLookup
+          }
 
-      goSdt(sdt)
+      val solved = goSdt(dt, Set(dt))(lookupOrFail(dt)).solve
+      new ResolvedVariance(prior ++ solved.view.map { case (tcName, m) =>
+        val paramsOrder = lookupOrFail(tcName).typeVars
+        (tcName, paramsOrder map m)
+      })
     }
   }
 
   object ResolvedVariance {
     val Empty: ResolvedVariance = new ResolvedVariance(Map.empty)
   }
+
+  /*
+  private[this] def setAllValues[K, V](m: Map[K, V])(v: V) =
+    m transform((_, _) => v)
+   */
 
   // an implementation tool for covariantVars
   private[this] final case class VarianceConstraint(
@@ -129,7 +136,7 @@ object UsedTypeParams {
 
   private[this] object VarianceConstraint {
     type BaseResolution = Map[ScopedDataType.Name, Map[Ref.Name, Variance]]
-    type DelayedResolution = Map[ScopedDataType.Name, (ImmArraySeq[Ref.Name], VarianceConstraint)]
+    type DelayedResolution = Map[ScopedDataType.Name, ImmArraySeq[(Ref.Name, VarianceConstraint)]]
 
     def base(base: BaseResolution) = VarianceConstraint(base, Map.empty)
 
@@ -138,13 +145,13 @@ object UsedTypeParams {
         VarianceConstraint(
           r0 |+| r1,
           d0.unionWithKey(d1) { (name, sr0, sr1) =>
-            val (sb0, c0) = sr0
-            val (sb1, c1) = sr1
             assert(
-              sb0 == sb1,
+              sr0.length == sr1.length,
               s"type $name yielded different param lists; this should never happen",
             )
-            (sb0, c0 |+| c1)
+            sr0 zip sr1 map { case ((p0, a0), (_, a1)) =>
+              (p0, a0 |+| a1)
+            }
           },
         )
       },
