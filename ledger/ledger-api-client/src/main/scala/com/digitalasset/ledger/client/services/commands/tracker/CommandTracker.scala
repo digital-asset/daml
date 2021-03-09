@@ -167,7 +167,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       )
 
       private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
-        compl.fold(pull(commandResultIn))(push(resultOut, _))
+        compl.fold(if (!hasBeenPulled(commandResultIn)) pull(commandResultIn))(emit(resultOut, _))
       }
 
       private def completeStageIfTerminal(): Unit = {
