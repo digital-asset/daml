@@ -10,43 +10,53 @@ import scala.collection.SortedMap
 case class Range(startExclusive: Offset, endInclusive: Offset) {
   import Range._
 
+  /** checks if range is set to before offset begin position
+    */
   def isBeforeBegin: Boolean =
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
 
-  /** Relative Complement of range in this (this - range) // TODO improve comments
-    * @param range
-    * @return
+  /** Relative complement of given rangeToDiff in this one (this - rangeToDiff) that is lesser than end of given rangeToDiff (this.end < rangeToDiff.start)
+    * @return range representing set of offsets that are in this range but not in rangeToDiff where each offset is lesser than rangeToDiff.start
     */
-  def lesserRangeDifference(range: Range): Option[Range] = {
-    if (isSubsetOf(range)) {
+  def lesserRangeDifference(rangeToDiff: Range): Option[Range] = {
+    if (isSubsetOf(rangeToDiff)) {
       None
     } else {
-      if (startExclusive >= range.startExclusive) {
+      if (startExclusive >= rangeToDiff.startExclusive) {
         None
       } else {
-        Some(Range(startExclusive, Range.min(endInclusive, range.startExclusive)))
+        Some(Range(startExclusive, Range.min(endInclusive, rangeToDiff.startExclusive)))
       }
     }
   }
 
-  def greaterRangeDifference(range: Range): Option[Range] = {
-    if (isSubsetOf(range)) {
+  /** Relative complement of given rangeToDiff in this one (this - rangeToDiff) that is greater than start of given rangeToDiff (this.start > rangeToDiff.end)
+    * @return range representing set of offsets that are in this range but not in rangeToDiff where each offset is greater than rangeToDiff.end
+    */
+  def greaterRangeDifference(rangeToDiff: Range): Option[Range] = {
+    if (isSubsetOf(rangeToDiff)) {
       None
     } else {
-      if (endInclusive <= range.endInclusive) {
+      if (endInclusive <= rangeToDiff.endInclusive) {
         None
       } else {
-        Some(Range(Range.max(startExclusive, range.endInclusive), endInclusive))
+        Some(Range(Range.max(startExclusive, rangeToDiff.endInclusive), endInclusive))
       }
     }
   }
 
+  /** checks if this range is subset of given one
+    */
   def isSubsetOf(range: Range): Boolean =
     startExclusive >= range.startExclusive && endInclusive <= range.startExclusive
 
+  /** checks if this and given range are disjointed - they have no offset in common.
+    */
   def areDisjointed(range: Range): Boolean =
     startExclusive >= range.endInclusive || endInclusive <= range.startExclusive
 
+  /** returns intersection of this and given range - range representing set of offsets that are in this and given range.
+    */
   def intersect(range: Range): Option[Range] = {
     if (areDisjointed(range)) {
       None
@@ -91,7 +101,7 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
   ): RangeCache[T] = { // add to cache greaterdiff
     // if cached offset and new offset are disjointed, cache newer one, else cache join
     if (range.endInclusive < appendRange.startExclusive) {
-      val start = calculateStartOffset(appendRange.startExclusive, values)
+      val start = RangeCache.calculateStartOffset(maxItems, appendRange.startExclusive, values)
       copy(
         range = Range(start, appendRange.endInclusive),
         cache = values.takeRight(maxItems),
@@ -101,7 +111,8 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
     } else {
       val allValues = values ++ cache
       val start =
-        calculateStartOffset(
+        RangeCache.calculateStartOffset(
+          maxItems,
           Range.min(range.startExclusive, appendRange.startExclusive),
           allValues,
         )
@@ -140,15 +151,6 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
       cacheWithInvalidStart.tail
     else cacheWithInvalidStart
   }
-
-  private def calculateStartOffset(
-      proposedStartOffset: Offset,
-      proposedCacheUpdate: SortedMap[Offset, T],
-  ) = {
-    if (proposedCacheUpdate.size > maxItems)
-      proposedCacheUpdate.toSeq(proposedCacheUpdate.size - maxItems - 1)._1
-    else proposedStartOffset
-  }
 }
 
 object RangeCache {
@@ -160,4 +162,21 @@ object RangeCache {
     maxItems,
     SortedMap.empty[Offset, T],
   )
+
+  def apply[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T]): RangeCache[T] =
+    new RangeCache(
+      range.copy(startExclusive = calculateStartOffset(maxItems, range.startExclusive, cache)),
+      maxItems,
+      cache.takeRight(maxItems),
+    )
+
+  private def calculateStartOffset[T](
+      maxItems: Int,
+      proposedStartOffset: Offset,
+      proposedCacheUpdate: SortedMap[Offset, T],
+  ) = {
+    if (proposedCacheUpdate.size > maxItems)
+      proposedCacheUpdate.toSeq(proposedCacheUpdate.size - maxItems - 1)._1
+    else proposedStartOffset
+  }
 }
