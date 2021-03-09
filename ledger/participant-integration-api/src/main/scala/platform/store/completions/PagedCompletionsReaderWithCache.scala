@@ -52,7 +52,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   ): Future[Seq[(Offset, CompletionStreamResponse)]] = {
     val inMemCache = cacheRef.get()
     val historicCompletionsFuture =
-      calculateHistoricBoundariesToFetch(inMemCache.boundaries, startExclusive, endInclusive)
+      calculateHistoricRangeToFetch(inMemCache.range, startExclusive, endInclusive)
         .map(historicRangeToFetch =>
           fetchHistoric(
             historicRangeToFetch.startExclusive,
@@ -64,7 +64,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
         .getOrElse(futureEmptyList)
 
     val futureCompletionsFuture =
-      calculateFutureBoundariesToFetch(inMemCache.boundaries, startExclusive, endInclusive)
+      calculateFutureRangeToFetch(inMemCache.range, startExclusive, endInclusive)
         .map(futureRangeToFetch =>
           fetchFuture(
             inMemCache,
@@ -104,20 +104,20 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
         parties,
       )
 
-  private def calculateHistoricBoundariesToFetch(
-      cachedBoundaries: Boundaries,
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ): Option[Boundaries] =
-    if (cachedBoundaries.startExclusive <= startExclusive || cachedBoundaries.isBeforeBegin) {
+  private def calculateHistoricRangeToFetch(
+                                                  cachedRange: Range,
+                                                  startExclusive: Offset,
+                                                  endInclusive: Offset,
+  ): Option[Range] =
+    if (cachedRange.startExclusive <= startExclusive || cachedRange.isBeforeBegin) {
       None
     } else {
       Some(
-        Boundaries(
+        Range(
           startExclusive = startExclusive,
           endInclusive =
-            if (cachedBoundaries.startExclusive > endInclusive) endInclusive
-            else cachedBoundaries.startExclusive,
+            if (cachedRange.startExclusive > endInclusive) endInclusive
+            else cachedRange.startExclusive,
         )
       )
     }
@@ -141,7 +141,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
           createAndSetNewPendingRequest(
             startExclusive,
             endInclusive,
-            inMemCache.boundaries.startExclusive,
+            inMemCache.range.startExclusive,
           )
         allCompletionsFuture.map(filterAndMapToResponse(_, applicationId, parties))
       } else {
@@ -196,18 +196,18 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
     allCompletionsFuture
   }
 
-  private def calculateFutureBoundariesToFetch(
-      cachedBoundaries: Boundaries,
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ): Option[Boundaries] = if (cachedBoundaries.endInclusive >= endInclusive) {
+  private def calculateFutureRangeToFetch(
+                                                cachedRange: Range,
+                                                startExclusive: Offset,
+                                                endInclusive: Offset,
+  ): Option[Range] = if (cachedRange.endInclusive >= endInclusive) {
     None
   } else {
     Some(
-      Boundaries(
+      Range(
         startExclusive =
-          if (cachedBoundaries.endInclusive > startExclusive)
-            cachedBoundaries.endInclusive
+          if (cachedRange.endInclusive > startExclusive)
+            cachedRange.endInclusive
           else startExclusive,
         endInclusive = endInclusive,
       )

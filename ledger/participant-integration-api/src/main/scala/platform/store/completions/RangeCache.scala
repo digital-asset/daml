@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.v1.Offset
 
 import scala.collection.SortedMap
 
-case class Boundaries(startExclusive: Offset, endInclusive: Offset) {
+case class Range(startExclusive: Offset, endInclusive: Offset) {
 
   def isBeforeBegin: Boolean =
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
@@ -16,12 +16,12 @@ case class Boundaries(startExclusive: Offset, endInclusive: Offset) {
 /** In memory cache implementation for completions. If size of cache exceeds maxItems, oldest elements will be removed,
   * based on ledger offset
   *
-  * @param boundaries offset boundaries of data stored in cache
+  * @param range offset range of data stored in cache
   * @param maxItems maximum amount of elements stored in cache
   * @param cache map of cached elements
   * @tparam T type of cached elements
   */
-case class RangeCache[T](boundaries: Boundaries, maxItems: Int, cache: SortedMap[Offset, T]) {
+case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T]) {
 
   /** Caches values. This method may remove oldest values (based on offset)
     * @param startExclusive start of proposed cache
@@ -35,22 +35,22 @@ case class RangeCache[T](boundaries: Boundaries, maxItems: Int, cache: SortedMap
       values: SortedMap[Offset, T],
   ): RangeCache[T] = {
     // if cached offset and new offset are disjointed, cache newer one, else cache join
-    if (boundaries.endInclusive < startExclusive) {
+    if (range.endInclusive < startExclusive) {
       val start = calculateStartOffset(startExclusive, values)
       copy(
-        boundaries = Boundaries(start, endInclusive),
+        range = Range(start, endInclusive),
         cache = values.takeRight(maxItems),
       )
-    } else if (boundaries.startExclusive > endInclusive) {
+    } else if (range.startExclusive > endInclusive) {
       this
     } else {
       val allValues = values ++ cache
       val start =
-        calculateStartOffset(getLesser(boundaries.startExclusive, startExclusive), allValues)
+        calculateStartOffset(getLesser(range.startExclusive, startExclusive), allValues)
       copy(
-        boundaries = Boundaries(
+        range = Range(
           startExclusive = start,
-          endInclusive = getGreater(boundaries.endInclusive, endInclusive),
+          endInclusive = getGreater(range.endInclusive, endInclusive),
         ),
         cache = allValues.takeRight(maxItems),
       )
@@ -68,9 +68,9 @@ case class RangeCache[T](boundaries: Boundaries, maxItems: Int, cache: SortedMap
     } else {
       Some(
         copy(
-          boundaries = Boundaries(
-            startExclusive = getGreater(startExclusive, boundaries.startExclusive),
-            endInclusive = getLesser(endInclusive, boundaries.endInclusive),
+          range = Range(
+            startExclusive = getGreater(startExclusive, range.startExclusive),
+            endInclusive = getLesser(endInclusive, range.endInclusive),
           ),
           cache = {
             val cacheWithInvalidStart = cache.range(startExclusive, endInclusive) ++ cache
@@ -87,7 +87,7 @@ case class RangeCache[T](boundaries: Boundaries, maxItems: Int, cache: SortedMap
     }
 
   private def areDisjointed(startExclusive: Offset, endInclusive: Offset): Boolean =
-    startExclusive >= boundaries.endInclusive || endInclusive <= boundaries.startExclusive
+    startExclusive >= range.endInclusive || endInclusive <= range.startExclusive
 
   private def getGreater(offset1: Offset, offset2: Offset): Offset =
     if (offset1 > offset2) offset1 else offset2
@@ -110,7 +110,7 @@ object RangeCache {
   /** creates empty range cache
     */
   def empty[T](maxItems: Int): RangeCache[T] = RangeCache(
-    Boundaries(Offset.beforeBegin, Offset.beforeBegin),
+    Range(Offset.beforeBegin, Offset.beforeBegin),
     maxItems,
     SortedMap.empty[Offset, T],
   )
