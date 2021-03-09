@@ -200,7 +200,7 @@ applySubstInExpr subst@Subst{..} = \case
         l
         (applySubstInExpr subst e)
     EExperimental name ty ->
-        EExperimental name ty
+        EExperimental name (applySubstInType subst ty)
 
 applySubstInAlternative :: Subst -> CaseAlternative -> CaseAlternative
 applySubstInAlternative subst (CaseAlternative p e) =
