@@ -88,7 +88,7 @@ object Range {
   * @param cache map of cached elements
   * @tparam T type of cached elements
   */
-case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T]) {
+case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[Offset, T]) {
 
   /** Caches values. This method may remove oldest values (based on offset)
     * @param appendRange range of proposed cache
