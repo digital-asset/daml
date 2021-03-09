@@ -105,22 +105,10 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       )
 
   private def calculateHistoricRangeToFetch(
-                                                  cachedRange: Range,
-                                                  startExclusive: Offset,
-                                                  endInclusive: Offset,
-  ): Option[Range] =
-    if (cachedRange.startExclusive <= startExclusive || cachedRange.isBeforeBegin) {
-      None
-    } else {
-      Some(
-        Range(
-          startExclusive = startExclusive,
-          endInclusive =
-            if (cachedRange.startExclusive > endInclusive) endInclusive
-            else cachedRange.startExclusive,
-        )
-      )
-    }
+      cachedRange: Range,
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): Option[Range] = Range(startExclusive, endInclusive).lesserRangeDifference(cachedRange)
 
   /** fetches completions ahead cache and caches results
     */
@@ -197,22 +185,10 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   }
 
   private def calculateFutureRangeToFetch(
-                                                cachedRange: Range,
-                                                startExclusive: Offset,
-                                                endInclusive: Offset,
-  ): Option[Range] = if (cachedRange.endInclusive >= endInclusive) {
-    None
-  } else {
-    Some(
-      Range(
-        startExclusive =
-          if (cachedRange.endInclusive > startExclusive)
-            cachedRange.endInclusive
-          else startExclusive,
-        endInclusive = endInclusive,
-      )
-    )
-  }
+      cachedRange: Range,
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): Option[Range] = Range(startExclusive, endInclusive).greaterRangeDifference(cachedRange)
 
   private val futureEmptyList = Future.successful(Nil)
 }

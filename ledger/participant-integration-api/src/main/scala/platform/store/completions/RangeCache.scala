@@ -11,6 +11,49 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
 
   def isBeforeBegin: Boolean =
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
+
+  /** Relative Complement of range in this (this - range)
+    * @param range
+    * @return
+    */
+  def lesserRangeDifference(range: Range): Option[Range] = {
+    if (isSubsetOf(range)) {
+      None
+    } else {
+      if (startExclusive >= range.startExclusive) {
+        None
+      } else {
+        Some(Range(startExclusive, Range.getLesser(endInclusive, range.startExclusive)))
+      }
+    }
+  }
+
+  def greaterRangeDifference(range: Range): Option[Range] = {
+    if (isSubsetOf(range)) {
+      None
+    } else {
+      if (endInclusive <= range.endInclusive) {
+        None
+      } else {
+        Some(Range(Range.getGreater(startExclusive, range.endInclusive), endInclusive))
+      }
+    }
+  }
+
+  def isSubsetOf(range: Range): Boolean =
+    startExclusive >= range.startExclusive && endInclusive <= range.startExclusive
+
+  def areDisjointed(range: Range): Boolean =
+    startExclusive >= range.endInclusive || endInclusive <= range.startExclusive
+}
+
+object Range {
+
+  def getGreater(offset1: Offset, offset2: Offset): Offset =
+    if (offset1 > offset2) offset1 else offset2
+
+  def getLesser(offset1: Offset, offset2: Offset): Offset =
+    if (offset1 < offset2) offset1 else offset2
 }
 
 /** In memory cache implementation for completions. If size of cache exceeds maxItems, oldest elements will be removed,
@@ -46,11 +89,11 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
     } else {
       val allValues = values ++ cache
       val start =
-        calculateStartOffset(getLesser(range.startExclusive, startExclusive), allValues)
+        calculateStartOffset(Range.getLesser(range.startExclusive, startExclusive), allValues)
       copy(
         range = Range(
           startExclusive = start,
-          endInclusive = getGreater(range.endInclusive, endInclusive),
+          endInclusive = Range.getGreater(range.endInclusive, endInclusive),
         ),
         cache = allValues.takeRight(maxItems),
       )
@@ -63,14 +106,14 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
     * @return optional subset of current cache as new RangeCache instance.
     */
   def slice(startExclusive: Offset, endInclusive: Offset): Option[RangeCache[T]] =
-    if (areDisjointed(startExclusive, endInclusive)) {
+    if (range.areDisjointed(Range(startExclusive, endInclusive))) {
       None
     } else {
       Some(
         copy(
           range = Range(
-            startExclusive = getGreater(startExclusive, range.startExclusive),
-            endInclusive = getLesser(endInclusive, range.endInclusive),
+            startExclusive = Range.getGreater(startExclusive, range.startExclusive),
+            endInclusive = Range.getLesser(endInclusive, range.endInclusive),
           ),
           cache = {
             val cacheWithInvalidStart = cache.range(startExclusive, endInclusive) ++ cache
@@ -85,15 +128,6 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
       )
 
     }
-
-  private def areDisjointed(startExclusive: Offset, endInclusive: Offset): Boolean =
-    startExclusive >= range.endInclusive || endInclusive <= range.startExclusive
-
-  private def getGreater(offset1: Offset, offset2: Offset): Offset =
-    if (offset1 > offset2) offset1 else offset2
-
-  private def getLesser(offset1: Offset, offset2: Offset): Offset =
-    if (offset1 < offset2) offset1 else offset2
 
   private def calculateStartOffset(
       proposedStartOffset: Offset,
