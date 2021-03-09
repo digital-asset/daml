@@ -8,6 +8,12 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  Node,
+  TransactionVersion,
+  VersionedTransaction,
+}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,11 +66,13 @@ object ReadServiceStateUpdateComparison {
   case class NormalizationSettings(
       ignoreBlindingInfo: Boolean = false,
       ignoreTransactionId: Boolean = false,
+      ignoreFetchAndLookupByKeyNodes: Boolean = false,
   )
 
   val DefaultNormalizationSettings: NormalizationSettings = NormalizationSettings(
     ignoreBlindingInfo = true,
     ignoreTransactionId = true,
+    ignoreFetchAndLookupByKeyNodes = true,
   )
 
   private def compareOffsets(expected: Offset, actual: Offset): Future[Unit] =
@@ -108,6 +116,8 @@ object ReadServiceStateUpdateComparison {
   // Normalization settings control whether we ignore the blinding info or the transaction ID in TransactionAccepted
   // updates:
   //   - We may not want to check blinding info as we haven't always populated these.
+  //   - We may not want to care about fetch and lookup-by-key nodes in the transaction tree attached to a
+  //   TransactionAccepted event as in some Daml SDK versions we are dropping them.
   //   - We may not want to check transaction ID as it is generated from the serialized form of a Daml submission which
   //   is not expected to stay the same across Daml SDK versions.
   private def normalizeUpdate(
@@ -146,6 +156,11 @@ object ReadServiceStateUpdateComparison {
             None
           else
             transactionAccepted.blindingInfo,
+        transaction =
+          if (normalizationSettings.ignoreFetchAndLookupByKeyNodes) {
+            CommittedTransaction(dropFetchAndLookupByKeyNodes(transactionAccepted.transaction))
+          } else
+            transactionAccepted.transaction,
       )
     case _ => update
   }
@@ -161,6 +176,45 @@ object ReadServiceStateUpdateComparison {
       case u: Update.TransactionAccepted => u.copy(recordTime = newRecordTime)
       case u: Update.CommandRejected => u.copy(recordTime = newRecordTime)
     }
+
+  private def dropFetchAndLookupByKeyNodes[Nid, Cid](
+      tx: VersionedTransaction[Nid, Cid]
+  ): VersionedTransaction[Nid, Cid] = {
+    val nodes = tx.nodes.filter {
+      case (_, _: Node.NodeFetch[Cid] | _: Node.NodeLookupByKey[Cid]) => false
+      case _ => true
+    }
+    val filteredNodes = nodes.map {
+      case (nid, node: Node.NodeExercises[Nid, Cid]) =>
+        // FIXME(miklos): Simple copy doesn't work because of a scalaz.Equals clash on the classpath.
+        // val filteredNode = node.copy(children = node.children.filter(nodes.contains))
+        val filteredNode = Node.NodeExercises(
+          targetCoid = node.targetCoid,
+          templateId = node.templateId,
+          choiceId = node.choiceId,
+          optLocation = node.optLocation,
+          consuming = node.consuming,
+          actingParties = node.actingParties,
+          chosenValue = node.chosenValue,
+          stakeholders = node.stakeholders,
+          signatories = node.signatories,
+          choiceObservers = node.choiceObservers,
+          children = node.children.filter(nodes.contains),
+          exerciseResult = node.exerciseResult,
+          key = node.key,
+          byKey = node.byKey,
+          version = node.version,
+        )
+        (nid, filteredNode)
+      case keep => keep
+    }
+    val filteredRoots = tx.roots.filter(nodes.contains)
+    // FIXME(miklos): Ordering defined within TransactionVersion is not accessible here.
+    // val version = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
+    //   acc max nodes(nodeId).version
+    // )
+    VersionedTransaction(TransactionVersion.maxVersion, filteredNodes, filteredRoots)
+  }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
     reason match {
