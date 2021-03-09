@@ -44,33 +44,23 @@ private[platform] object CommandCompletionsTable {
     }
 
   private val acceptedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
-    sharedColumns ~ str("transaction_id") ~ SqlParser.list[String]("submitters") ~ str(
-      "application_id"
-    ) map { case offset ~ recordTime ~ commandId ~ transactionId ~ submitters ~ applicationId =>
-      CompletionStreamResponseWithParties(
-        completion = CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime, offset),
-          completions = Seq(Completion(commandId, Some(Status()), transactionId)),
-        ),
-        parties = submitters.map(Ref.Party.assertFromString).toSet,
-        applicationId = ApplicationId.assertFromString(applicationId),
-      )
-    }
-
-  private val rejectedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
-    sharedColumns ~ int("status_code") ~ str("status_message") ~ SqlParser.list[String](
-      "submitters"
-    ) ~ str("application_id") map {
-      case offset ~ recordTime ~ commandId ~ statusCode ~ statusMessage ~ submitters ~ applicationId =>
+    acceptedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
+      case completionStreamResponse ~ submitters ~ applicationId =>
         CompletionStreamResponseWithParties(
-          completion = CompletionStreamResponse(
-            checkpoint = toApiCheckpoint(recordTime, offset),
-            completions = Seq(Completion(commandId, Some(Status(statusCode, statusMessage)))),
-          ),
+          completion = completionStreamResponse,
           parties = submitters.map(Ref.Party.assertFromString).toSet,
           applicationId = ApplicationId.assertFromString(applicationId),
         )
+    }
 
+  private val rejectedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
+    rejectedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
+      case completionStreamResponse ~ submitters ~ applicationId =>
+        CompletionStreamResponseWithParties(
+          completion = completionStreamResponse,
+          parties = submitters.map(Ref.Party.assertFromString).toSet,
+          applicationId = ApplicationId.assertFromString(applicationId),
+        )
     }
 
   case class CompletionStreamResponseWithParties(
