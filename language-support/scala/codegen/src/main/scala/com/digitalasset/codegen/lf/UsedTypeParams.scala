@@ -38,66 +38,83 @@ object UsedTypeParams {
   }
 
   final case class LookupType[+RF, +VF](
-      run: iface.TypeConName => Option[(ScopedDataType.DT[RF, VF], LookupType[RF, VF])]
+      run: iface.TypeConName => Option[(iface.DefDataType[RF, VF], LookupType[RF, VF])]
   )
 
   import VarianceConstraint.{BaseResolution, DelayedResolution}
+  import ScopedDataType.{Name => I}
 
-  /** Variance of `sdt.typeVars` in order. */
-  def covariantVars[RF <: iface.Type, VF <: iface.Type](
-      sdt: ScopedDataType.DT[RF, VF],
-      lookupType: LookupType[RF, VF],
-  ): ImmArraySeq[Variance] = {
-    import iface._, Variance._
-    def goType(typ: iface.Type): VarianceConstraint = typ match {
-      case TypeVar(name) =>
-        // while we default to Covariant at a later step,
-        // absence *does not* mean set-to-Covariant at this step
-        VarianceConstraint.base(Map(sdt.name -> Map(name -> Covariant)))
+  final class ResolvedVariance private (prior: Map[I, ImmArraySeq[Variance]]) {
+    def allCovariantVars(dt: I, ei: iface.EnvironmentInterface): ResolvedVariance =
+      covariantVars(dt, (i: I) => ei.typeDecls get i map (_.`type`))
 
-      case TypePrim(pt, typArgs) =>
-        import PrimType.{Map => _, _}
-        pt match {
-          case GenMap =>
-            val Seq(kt, vt) = typArgs
-            // we don't need to inspect `kt` any further than enumerating it;
-            // every occurrence therein is invariant
-            goType(vt) |+| VarianceConstraint.base(
-              Map(sdt.name -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
-            )
-          case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
-              Optional | TextMap =>
-            typArgs foldMap goType
-        }
+    /** Variance of `sdt.typeVars` in order. */
+    private[this] def covariantVars[RF <: iface.Type, VF <: iface.Type](
+        dt: I,
+        lookupType: I => Option[iface.DefDataType[RF, VF]],
+    ): ResolvedVariance = {
+      import iface._, Variance._
+      def goType(dt: I, seen: Set[I])(typ: iface.Type): VarianceConstraint = typ match {
+        case TypeVar(name) =>
+          // while we default to Covariant at a later step,
+          // absence *does not* mean set-to-Covariant at this step
+          VarianceConstraint.base(Map(dt -> Map(name -> Covariant)))
 
-      case TypeCon(tcName, typArgs) =>
-        val (refSdt, refLookupType @ _) =
-          lookupType.run(tcName) getOrElse sys.error(s"$tcName not found")
-        // TODO must use refLookupType in goSdt's dynamic scope
-        goSdt(refSdt).zip(typArgs).foldMap { case (pVariance, aContents) =>
-          val aPositions = goType(aContents)
-          pVariance match {
-            case Covariant => aPositions
-            case Invariant =>
-              aPositions.copy(resolutions =
-                aPositions.resolutions.transform((_, m) => m.transform((_, _) => Invariant))
+        case TypePrim(pt, typArgs) =>
+          import PrimType.{Map => _, _}
+          pt match {
+            case GenMap =>
+              val Seq(kt, vt) = typArgs
+              // we don't need to inspect `kt` any further than enumerating it;
+              // every occurrence therein is invariant
+              goType(dt, seen)(vt) |+| VarianceConstraint.base(
+                Map(dt -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
               )
+            case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
+                Optional | TextMap =>
+              typArgs foldMap goType(dt, seen)
           }
-        }
 
-      case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
-    }
+        case TypeCon(TypeConName(tcName), typArgs) =>
+          val refDdt = lookupType(tcName) getOrElse sys.error(s"$tcName not found")
+          if (seen(tcName)) {
+            VarianceConstraint(
+              resolutions = Map.empty,
+              delayedConstraints = (refDdt.typeVars, typArgs foldMap goType(dt, seen)),
+            )
+          } else {
+            val tcVc = goSdt(tcName, seen + tcName)(refDdt)
+            refDdt.typeVars.zip(typArgs).foldMap { case (paramName, aContents) =>
+              val pVariance = tcVc
+              val aPositions = goType(dt, seen)(aContents)
+              pVariance match {
+                case Covariant => aPositions
+                case Invariant =>
+                  aPositions mapResolutions (_.alter(dt)(
+                    _ map (_ transform ((_, _) => Invariant))
+                  ))
+              }
+            }
+          }
 
-    def goSdt(sdt: ScopedDataType.DT[RF, VF]): DelayedResolution = {
-      val vLookup = sdt.dataType match {
-        case Record(fields) => fields foldMap { case (_, typ) => goType(typ) }
-        case Variant(fields) => fields foldMap { case (_, typ) => goType(typ) }
-        case Enum(_) => mzero[VarianceConstraint]
+        case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
       }
-      Map(sdt.name -> (sdt.typeVars, vLookup))
-    }
 
-    goSdt(sdt)
+      def goSdt(dt: I, seen: Set[I])(sdt: DefDataType[RF, VF]): VarianceConstraint = {
+        val vLookup = sdt.dataType match {
+          case Record(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
+          case Variant(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
+          case Enum(_) => mzero[VarianceConstraint]
+        }
+        vLookup
+      }
+
+      goSdt(sdt)
+    }
+  }
+
+  object ResolvedVariance {
+    val Empty: ResolvedVariance = new ResolvedVariance(Map.empty)
   }
 
   // an implementation tool for covariantVars
@@ -105,6 +122,8 @@ object UsedTypeParams {
       resolutions: BaseResolution,
       delayedConstraints: DelayedResolution,
   ) {
+    def mapResolutions(f: BaseResolution => BaseResolution) =
+      copy(resolutions = f(resolutions))
     def solve: BaseResolution = ???
   }
 
@@ -119,17 +138,13 @@ object UsedTypeParams {
         VarianceConstraint(
           r0 |+| r1,
           d0.unionWithKey(d1) { (name, sr0, sr1) =>
+            val (sb0, c0) = sr0
+            val (sb1, c1) = sr1
             assert(
-              sr0.length == sr1.length,
-              s"type $name yielded different arities; this should never happen",
+              sb0 == sb1,
+              s"type $name yielded different param lists; this should never happen",
             )
-            (sr0 zip sr1) map { case ((v0, c0), (v1, c1)) =>
-              assert(
-                v0 == v1,
-                s"type $name had different parameter names $v0, $v1; this should never happen",
-              )
-              (v0, c0 |+| c1)
-            }
+            (sb0, c0 |+| c1)
           },
         )
       },
