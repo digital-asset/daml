@@ -54,12 +54,16 @@ object RunnerConfig {
     opt[String]("ledger-host")
       .optional()
       .action((t, c) => c.copy(ledgerHost = Some(t)))
-      .text("Ledger hostname. If --json-api is specified, this is used to connect to the JSON API and must include the protocol, e.g. \"http://localhost\".")
+      .text(
+        "Ledger hostname. If --json-api is specified, this is used to connect to the JSON API and must include the protocol, e.g. \"http://localhost\"."
+      )
 
     opt[Int]("ledger-port")
       .optional()
       .action((t, c) => c.copy(ledgerPort = Some(t)))
-      .text("Ledger port. If --json-api is specified, this is the port used to connect to the JSON API.")
+      .text(
+        "Ledger port. If --json-api is specified, this is the port used to connect to the JSON API."
+      )
 
     opt[File]("participant-config")
       .optional()
@@ -112,7 +116,9 @@ object RunnerConfig {
       .action { (_, c) =>
         c.copy(jsonApi = true)
       }
-      .text("Run DAML Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token.")
+      .text(
+        "Run DAML Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token."
+      )
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
