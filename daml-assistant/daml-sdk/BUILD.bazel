@@ -6,21 +6,8 @@ load(
     "da_scala_binary",
     "da_scala_library",
 )
-
-deps = [
-    "//daml-script/runner:script-runner-lib",
-    "//extractor",
-    "//language-support/codegen-main:codegen-main-lib",
-    "//ledger-service/http-json",
-    "//ledger/sandbox",
-    "//ledger/sandbox-classic",
-    "//navigator/backend:navigator-library",
-    "//triggers/runner:trigger-runner-lib",
-    "//triggers/service:trigger-service",
-    "//triggers/service/auth:oauth2-middleware",
-    "//navigator/backend:backend-resources",
-    "//navigator/backend:frontend-resources",
-]
+load("@os_info//:os_info.bzl", "is_windows")
+load(":util.bzl", "deps")
 
 scala_deps = [
     "@maven//:com_typesafe_akka_akka_http_spray_json",
@@ -51,7 +38,7 @@ da_scala_binary(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps,
-    deps = deps,
+    deps = deps("ce"),
 )
 
 da_scala_binary(
@@ -67,5 +54,26 @@ da_scala_binary(
     runtime_deps = runtime_deps + [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
-    deps = deps,
+    deps = deps("ee"),
+)
+
+# This is deliberately an sh_test on the actual SDK jars to test
+# that the class paths end up being resolved properly and we really
+# have the EE artifacts when we want to and only then.
+sh_test(
+    name = "validate",
+    srcs = ["validate.sh"],
+    args = [
+        "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
+        "$(location :sdk_deploy.jar)",
+        "$(location :sdk_ee_deploy.jar)",
+    ],
+    data = [
+        ":sdk_deploy.jar",
+        ":sdk_ee_deploy.jar",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
