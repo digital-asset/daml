@@ -145,6 +145,8 @@
   type: jar-scala
 - target: //ledger/sandbox-common:sandbox-common
   type: jar-scala
+- target: //ledger/sandbox-common:sandbox-common-ce
+  type: jar-scala
 - target: //ledger/sandbox-classic:sandbox-classic-ce
   type: jar-scala
 - target: //ledger-service/db-backend:db-backend

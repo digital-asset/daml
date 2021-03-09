@@ -64,6 +64,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
     ],
+    tags = ["maven_coordinates=com.daml:sandbox-common-ce:__VERSION__"],
     visibility = ["//visibility:public"],
     exports = [":sandbox-common"],
     deps = [
