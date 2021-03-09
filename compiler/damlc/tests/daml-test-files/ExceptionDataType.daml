@@ -73,3 +73,16 @@ mkWithFieldWhereMessage = WithFieldWhereMessage
         f3 = 10
 
 ------
+
+exception WithBracketsNoWhere with { f4 : Int }
+
+mkWithBracketsNoWhere : WithBracketsNoWhere
+mkWithBracketsNoWhere = WithBracketsNoWhere { f4 = 10 }
+
+------
+
+exception WithBracketsWhereMessage with { f5 : Int }
+    where message "Hello"
+
+mkWithBracketsWhereMessage : WithBracketsWhereMessage
+mkWithBracketsWhereMessage = WithBracketsWhereMessage { f5 = 10 }
