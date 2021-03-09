@@ -146,11 +146,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
     val updateCacheRequest = allCompletionsFuture.map { fetchedCompletions =>
       cacheRef.updateAndGet { cache =>
         if (requestedRange.startExclusive > cache.range.endInclusive) {
-          RangeCache
-            .empty[CompletionStreamResponseWithParties](
-              maxItems
-            ) // TODO maybe some private constructor??
-            .append(requestedRange, SortedMap(fetchedCompletions: _*))
+          RangeCache(requestedRange, maxItems, SortedMap(fetchedCompletions: _*))
         } else {
           cache.append(requestedRange, SortedMap(fetchedCompletions: _*))
         }
