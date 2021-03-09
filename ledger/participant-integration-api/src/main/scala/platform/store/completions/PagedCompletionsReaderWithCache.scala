@@ -51,33 +51,19 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       loggingContext: LoggingContext
   ): Future[Seq[(Offset, CompletionStreamResponse)]] = {
     val inMemCache = cacheRef.get()
+    val requestedRange = Range(startExclusive, endInclusive)
     val historicCompletionsFuture =
-      calculateHistoricRangeToFetch(inMemCache.range, startExclusive, endInclusive)
-        .map(historicRangeToFetch =>
-          fetchHistoric(
-            historicRangeToFetch.startExclusive,
-            historicRangeToFetch.endInclusive,
-            applicationId,
-            parties,
-          )
-        )
+      calculateHistoricRangeToFetch(inMemCache.range, requestedRange)
+        .map(fetchHistoric(_, applicationId, parties))
         .getOrElse(futureEmptyList)
 
     val futureCompletionsFuture =
-      calculateFutureRangeToFetch(inMemCache.range, startExclusive, endInclusive)
-        .map(futureRangeToFetch =>
-          fetchFuture(
-            inMemCache,
-            futureRangeToFetch.startExclusive,
-            futureRangeToFetch.endInclusive,
-            applicationId,
-            parties,
-          )
-        )
+      calculateFutureRangeToFetch(inMemCache.range, requestedRange)
+        .map(fetchFuture(_, applicationId, parties))
         .getOrElse(futureEmptyList)
 
     val filteredCache = inMemCache
-      .slice(startExclusive, endInclusive)
+      .slice(requestedRange)
       .map(cache => filterAndMapToResponse(cache.cache.toSeq, applicationId, parties))
       .getOrElse(Seq.empty)
     for {
@@ -89,8 +75,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   /** fetches completions older than start offset of cache
     */
   private def fetchHistoric(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: Range,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
   )(implicit
@@ -98,45 +83,37 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   ): Future[Seq[(Offset, CompletionStreamResponse)]] =
     completionsDao
       .getFilteredCompletions(
-        startExclusive,
-        endInclusive,
+        range.startExclusive,
+        range.endInclusive,
         applicationId,
         parties,
       )
 
   private def calculateHistoricRangeToFetch(
       cachedRange: Range,
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ): Option[Range] = Range(startExclusive, endInclusive).lesserRangeDifference(cachedRange)
+      requestedRange: Range,
+  ): Option[Range] = requestedRange.lesserRangeDifference(cachedRange)
 
   /** fetches completions ahead cache and caches results
     */
   private def fetchFuture(
-      inMemCache: RangeCache[CompletionStreamResponseWithParties],
-      startExclusive: Offset,
-      endInclusive: Offset,
+      rangeToFetch: Range,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
   ): Future[Seq[(Offset, CompletionStreamResponse)]] =
-    synchronized {
+    pendingRequestRef.synchronized {
       val pendingRequest = pendingRequestRef.get()
       if (pendingRequest.isCompleted) {
-        val allCompletionsFuture =
-          createAndSetNewPendingRequest(
-            startExclusive,
-            endInclusive,
-            inMemCache.range.startExclusive,
-          )
+        val allCompletionsFuture = createAndSetNewPendingRequest(rangeToFetch)
         allCompletionsFuture.map(filterAndMapToResponse(_, applicationId, parties))
       } else {
         pendingRequest.flatMap { _ =>
           getCompletionsPage(
-            startExclusive,
-            endInclusive,
+            rangeToFetch.startExclusive,
+            rangeToFetch.endInclusive,
             applicationId,
             parties,
           )
@@ -160,25 +137,25 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       }
 
   private def createAndSetNewPendingRequest(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      cachedStartExclusive: Offset,
+      requestedRange: Range
   )(implicit
       loggingContext: LoggingContext
   ): Future[List[(Offset, CompletionStreamResponseWithParties)]] = {
     val allCompletionsFuture =
-      completionsDao.getAllCompletions(startExclusive, endInclusive)
+      completionsDao.getAllCompletions(requestedRange.startExclusive, requestedRange.endInclusive)
     val updateCacheRequest = allCompletionsFuture.map { fetchedCompletions =>
-      val cacheToUpdate =
-        if (startExclusive > cachedStartExclusive)
-          RangeCache.empty[CompletionStreamResponseWithParties](maxItems)
-        else cacheRef.get()
-      val updatedCache = cacheToUpdate.cache(
-        startExclusive,
-        endInclusive,
-        SortedMap(fetchedCompletions: _*),
-      )
-      cacheRef.set(updatedCache)
+      cacheRef.updateAndGet { cache =>
+        if (requestedRange.startExclusive > cache.range.endInclusive) {
+          RangeCache
+            .empty[CompletionStreamResponseWithParties](
+              maxItems
+            ) // TODO maybe some private constructor??
+            .append(requestedRange, SortedMap(fetchedCompletions: _*))
+        } else {
+          cache.append(requestedRange, SortedMap(fetchedCompletions: _*))
+        }
+      }
+      ()
     }
     pendingRequestRef.set(updateCacheRequest)
     allCompletionsFuture
@@ -186,9 +163,8 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
 
   private def calculateFutureRangeToFetch(
       cachedRange: Range,
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ): Option[Range] = Range(startExclusive, endInclusive).greaterRangeDifference(cachedRange)
+      requestedRange: Range,
+  ): Option[Range] = requestedRange.greaterRangeDifference(cachedRange)
 
   private val futureEmptyList = Future.successful(Nil)
 }

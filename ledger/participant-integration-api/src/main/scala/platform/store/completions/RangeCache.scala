@@ -12,7 +12,7 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
   def isBeforeBegin: Boolean =
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
 
-  /** Relative Complement of range in this (this - range)
+  /** Relative Complement of range in this (this - range) // TODO improve comments
     * @param range
     * @return
     */
@@ -67,33 +67,34 @@ object Range {
 case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T]) {
 
   /** Caches values. This method may remove oldest values (based on offset)
-    * @param startExclusive start of proposed cache
-    * @param endInclusive end of proposed cache
+    * @param appendRange range of proposed cache
     * @param values proposed new values of cache
     * @return new instance of cache containing conjunction of existing cache and proposed cache limited to maxItems
     */
-  def cache(
-      startExclusive: Offset,
-      endInclusive: Offset,
+  def append(
+      appendRange: Range,
       values: SortedMap[Offset, T],
-  ): RangeCache[T] = {
+  ): RangeCache[T] = { // add to cache greaterdiff
     // if cached offset and new offset are disjointed, cache newer one, else cache join
-    if (range.endInclusive < startExclusive) {
-      val start = calculateStartOffset(startExclusive, values)
+    if (range.endInclusive < appendRange.startExclusive) {
+      val start = calculateStartOffset(appendRange.startExclusive, values)
       copy(
-        range = Range(start, endInclusive),
+        range = Range(start, appendRange.endInclusive),
         cache = values.takeRight(maxItems),
       )
-    } else if (range.startExclusive > endInclusive) {
+    } else if (range.startExclusive > appendRange.endInclusive) {
       this
     } else {
       val allValues = values ++ cache
       val start =
-        calculateStartOffset(Range.getLesser(range.startExclusive, startExclusive), allValues)
+        calculateStartOffset(
+          Range.getLesser(range.startExclusive, appendRange.startExclusive),
+          allValues,
+        )
       copy(
         range = Range(
           startExclusive = start,
-          endInclusive = Range.getGreater(range.endInclusive, endInclusive),
+          endInclusive = Range.getGreater(range.endInclusive, appendRange.endInclusive),
         ),
         cache = allValues.takeRight(maxItems),
       )
@@ -101,26 +102,26 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
   }
 
   /** fetches subset of current cache. If cached range and requested one are disjointed, then None is returned.
-    * @param startExclusive requested subset start
-    * @param endInclusive requested subset end
+    * @param sliceRange requested subset range
     * @return optional subset of current cache as new RangeCache instance.
     */
-  def slice(startExclusive: Offset, endInclusive: Offset): Option[RangeCache[T]] =
-    if (range.areDisjointed(Range(startExclusive, endInclusive))) {
+  def slice(sliceRange: Range): Option[RangeCache[T]] =
+    if (range.areDisjointed(sliceRange)) {
       None
     } else {
       Some(
         copy(
           range = Range(
-            startExclusive = Range.getGreater(startExclusive, range.startExclusive),
-            endInclusive = Range.getLesser(endInclusive, range.endInclusive),
+            startExclusive = Range.getGreater(sliceRange.startExclusive, range.startExclusive),
+            endInclusive = Range.getLesser(sliceRange.endInclusive, range.endInclusive),
           ),
           cache = {
-            val cacheWithInvalidStart = cache.range(startExclusive, endInclusive) ++ cache
-              .get(endInclusive)
-              .map(v => SortedMap(endInclusive -> v))
-              .getOrElse(SortedMap.empty[Offset, T])
-            if (cacheWithInvalidStart.contains(startExclusive))
+            val cacheWithInvalidStart =
+              cache.range(sliceRange.startExclusive, sliceRange.endInclusive) ++ cache
+                .get(sliceRange.endInclusive)
+                .map(v => SortedMap(sliceRange.endInclusive -> v))
+                .getOrElse(SortedMap.empty[Offset, T])
+            if (cacheWithInvalidStart.contains(sliceRange.startExclusive))
               cacheWithInvalidStart.tail
             else cacheWithInvalidStart
           },
