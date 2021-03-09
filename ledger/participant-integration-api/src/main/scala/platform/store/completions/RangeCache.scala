@@ -24,7 +24,7 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
       if (startExclusive >= range.startExclusive) {
         None
       } else {
-        Some(Range(startExclusive, Range.getLesser(endInclusive, range.startExclusive)))
+        Some(Range(startExclusive, Range.min(endInclusive, range.startExclusive)))
       }
     }
   }
@@ -36,7 +36,7 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
       if (endInclusive <= range.endInclusive) {
         None
       } else {
-        Some(Range(Range.getGreater(startExclusive, range.endInclusive), endInclusive))
+        Some(Range(Range.max(startExclusive, range.endInclusive), endInclusive))
       }
     }
   }
@@ -53,8 +53,8 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
     } else {
       Some(
         Range(
-          getGreater(startExclusive, range.startExclusive),
-          getLesser(endInclusive, range.endInclusive),
+          max(startExclusive, range.startExclusive),
+          min(endInclusive, range.endInclusive),
         )
       )
     }
@@ -63,10 +63,10 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
 
 object Range {
 
-  def getGreater(offset1: Offset, offset2: Offset): Offset =
+  def max(offset1: Offset, offset2: Offset): Offset =
     if (offset1 > offset2) offset1 else offset2
 
-  def getLesser(offset1: Offset, offset2: Offset): Offset =
+  def min(offset1: Offset, offset2: Offset): Offset =
     if (offset1 < offset2) offset1 else offset2
 }
 
@@ -102,13 +102,13 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
       val allValues = values ++ cache
       val start =
         calculateStartOffset(
-          Range.getLesser(range.startExclusive, appendRange.startExclusive),
+          Range.min(range.startExclusive, appendRange.startExclusive),
           allValues,
         )
       copy(
         range = Range(
           startExclusive = start,
-          endInclusive = Range.getGreater(range.endInclusive, appendRange.endInclusive),
+          endInclusive = Range.max(range.endInclusive, appendRange.endInclusive),
         ),
         cache = allValues.takeRight(maxItems),
       )
@@ -123,18 +123,23 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
     range.intersect(requestedRange).map { sliceRange =>
       copy(
         range = sliceRange,
-        cache = {
-          val cacheWithInvalidStart =
-            cache.range(requestedRange.startExclusive, requestedRange.endInclusive) ++ cache
-              .get(requestedRange.endInclusive)
-              .map(v => SortedMap(requestedRange.endInclusive -> v))
-              .getOrElse(SortedMap.empty[Offset, T])
-          if (cacheWithInvalidStart.contains(requestedRange.startExclusive))
-            cacheWithInvalidStart.tail
-          else cacheWithInvalidStart
-        },
+        cache = rangeCache(requestedRange),
       )
     }
+
+  /** performs range operation on cache SortedMap and applies (startInclusive, endExclusive) boundaries,
+    * instead of used by scala.collection.SortedMap.range (startInclusive, endExclusive) boundaries
+    */
+  private def rangeCache(requestedRange: Range): SortedMap[Offset, T] = {
+    val cacheWithInvalidStart =
+      cache.range(requestedRange.startExclusive, requestedRange.endInclusive) ++ cache
+        .get(requestedRange.endInclusive)
+        .map(v => SortedMap(requestedRange.endInclusive -> v))
+        .getOrElse(SortedMap.empty[Offset, T])
+    if (cacheWithInvalidStart.contains(requestedRange.startExclusive))
+      cacheWithInvalidStart.tail
+    else cacheWithInvalidStart
+  }
 
   private def calculateStartOffset(
       proposedStartOffset: Offset,
