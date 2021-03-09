@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import scala.collection.SortedMap
 
 case class Range(startExclusive: Offset, endInclusive: Offset) {
+  import Range._
 
   def isBeforeBegin: Boolean =
     startExclusive == Offset.beforeBegin && endInclusive == Offset.beforeBegin
@@ -45,6 +46,19 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
 
   def areDisjointed(range: Range): Boolean =
     startExclusive >= range.endInclusive || endInclusive <= range.startExclusive
+
+  def intersect(range: Range): Option[Range] = {
+    if (areDisjointed(range)) {
+      None
+    } else {
+      Some(
+        Range(
+          getGreater(startExclusive, range.startExclusive),
+          getLesser(endInclusive, range.endInclusive),
+        )
+      )
+    }
+  }
 }
 
 object Range {
@@ -102,32 +116,24 @@ case class RangeCache[T](range: Range, maxItems: Int, cache: SortedMap[Offset, T
   }
 
   /** fetches subset of current cache. If cached range and requested one are disjointed, then None is returned.
-    * @param sliceRange requested subset range
+    * @param requestedRange requested subset range
     * @return optional subset of current cache as new RangeCache instance.
     */
-  def slice(sliceRange: Range): Option[RangeCache[T]] =
-    if (range.areDisjointed(sliceRange)) {
-      None
-    } else {
-      Some(
-        copy(
-          range = Range(
-            startExclusive = Range.getGreater(sliceRange.startExclusive, range.startExclusive),
-            endInclusive = Range.getLesser(sliceRange.endInclusive, range.endInclusive),
-          ),
-          cache = {
-            val cacheWithInvalidStart =
-              cache.range(sliceRange.startExclusive, sliceRange.endInclusive) ++ cache
-                .get(sliceRange.endInclusive)
-                .map(v => SortedMap(sliceRange.endInclusive -> v))
-                .getOrElse(SortedMap.empty[Offset, T])
-            if (cacheWithInvalidStart.contains(sliceRange.startExclusive))
-              cacheWithInvalidStart.tail
-            else cacheWithInvalidStart
-          },
-        )
+  def slice(requestedRange: Range): Option[RangeCache[T]] =
+    range.intersect(requestedRange).map { sliceRange =>
+      copy(
+        range = sliceRange,
+        cache = {
+          val cacheWithInvalidStart =
+            cache.range(requestedRange.startExclusive, requestedRange.endInclusive) ++ cache
+              .get(requestedRange.endInclusive)
+              .map(v => SortedMap(requestedRange.endInclusive -> v))
+              .getOrElse(SortedMap.empty[Offset, T])
+          if (cacheWithInvalidStart.contains(requestedRange.startExclusive))
+            cacheWithInvalidStart.tail
+          else cacheWithInvalidStart
+        },
       )
-
     }
 
   private def calculateStartOffset(
