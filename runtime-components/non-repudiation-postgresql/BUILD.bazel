@@ -28,7 +28,9 @@ da_scala_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//libs-scala/resources",
         "//runtime-components/non-repudiation",
+        "//runtime-components/non-repudiation-resources",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:org_flywaydb_flyway_core",
     ],

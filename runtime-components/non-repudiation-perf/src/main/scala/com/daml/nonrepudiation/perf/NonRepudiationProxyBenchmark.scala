@@ -6,8 +6,7 @@ package com.daml.nonrepudiation.perf
 import cats.effect.{ContextShift, IO}
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceBlockingStub
-import com.daml.nonrepudiation.postgresql.Tables
-import com.daml.nonrepudiation.resources.HikariTransactorResourceOwner
+import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.testing._
 import com.daml.resources.Resource
 import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
@@ -20,8 +19,6 @@ import scala.concurrent.{Await, ExecutionContext}
 
 @State(Scope.Benchmark)
 class NonRepudiationProxyBenchmark extends PostgresAround {
-
-  import NonRepudiationProxyBenchmark._
 
   @Param(Array("100000"))
   var commandPayloadSize: Int = _
@@ -55,7 +52,13 @@ class NonRepudiationProxyBenchmark extends PostgresAround {
 
     val stubOwner =
       for {
-        transactor <- ownTransactor(database.url, maxPoolSize = 10)
+        transactor <- createTransactor(
+          database.urlWithoutCredentials,
+          database.userName,
+          database.password,
+          maxPoolSize = 10,
+          factory = Resources,
+        )
         db = Tables.initialize(transactor)
         _ = db.certificates.put(certificate)
         stub <- StubOwner(
@@ -79,12 +82,5 @@ class NonRepudiationProxyBenchmark extends PostgresAround {
     dropDatabase(database)
     disconnectFromPostgresqlServer()
   }
-
-}
-
-object NonRepudiationProxyBenchmark {
-
-  private def ownTransactor(jdbcUrl: String, maxPoolSize: Int)(implicit cs: ContextShift[IO]) =
-    HikariTransactorResourceOwner(Resources)(jdbcUrl, maxPoolSize)
 
 }

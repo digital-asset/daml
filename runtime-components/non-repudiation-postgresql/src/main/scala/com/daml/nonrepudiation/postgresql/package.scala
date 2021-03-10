@@ -6,11 +6,27 @@ package com.daml.nonrepudiation
 import java.io.ByteArrayInputStream
 import java.security.cert.{CertificateFactory, X509Certificate}
 
+import cats.effect.{ContextShift, IO}
+import com.daml.nonrepudiation.resources.HikariTransactorResourceOwner
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceOwnerFactories}
+import doobie.hikari.HikariTransactor
 import doobie.util.{Get, Put, Read}
 
 import scala.collection.compat.immutable.ArraySeq
+import scala.concurrent.ExecutionContext
 
 package object postgresql {
+
+  def createTransactor[Context: HasExecutionContext](
+      jdbcUrl: String,
+      username: String,
+      password: String,
+      maxPoolSize: Int,
+      factory: ResourceOwnerFactories[Context],
+  ): AbstractResourceOwner[Context, HikariTransactor[IO]] = {
+    implicit val shift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+    HikariTransactorResourceOwner(factory)(jdbcUrl, username, password, maxPoolSize)
+  }
 
   implicit def getBytes[Bytes <: ArraySeq.ofByte]: Get[Bytes] =
     Get[Array[Byte]].map(ArraySeq.unsafeWrapArray(_).asInstanceOf[Bytes])
@@ -32,7 +48,7 @@ package object postgresql {
 
   implicit val getCertificate: Get[X509Certificate] =
     Get[Array[Byte]].map { bytes =>
-      val factory = CertificateFactory.getInstance("X.509");
+      val factory = CertificateFactory.getInstance("X.509")
       factory.generateCertificate(new ByteArrayInputStream(bytes)).asInstanceOf[X509Certificate]
     }
 
