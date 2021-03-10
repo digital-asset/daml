@@ -4,19 +4,19 @@
 module DA.Cli.Damlc.DependencyDb
     ( installDependencies
     , dependenciesDir
-    , queryDependencies
-    , queryDependencyDalfs
-    , queryDependencyMain
-    , queryDataDependencies
-    , mainDir
+    , queryDalfsFromDependencies
+    , queryDalfsFromDataDependencies
+    , queryMainDalfs
+    , mainsDir
     , dalfsDir
-    , configDir
+    , configsDir
     , sourcesDir
+    , normalDepsDir
     ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (tryAny)
-import Control.Monad
+import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
@@ -28,15 +28,71 @@ import Data.Aeson (eitherDecodeFileStrict', encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
-import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Development.IDE.Types.Location
 import GHC.Fingerprint
-import "ghc-lib-parser" Module (unitIdString)
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
+
+-- Dependency Database Layout
+-----------------------------
+-- Here is an exemplary dependecy database:
+-- .
+-- ├── data-deps
+-- │   ├── configs
+-- │   │   └── proj2-0.0.1.conf
+-- │   ├── dalfs
+-- │   │   ├── 057eed1fd48c238491b8ea06b9b5bf85a5d4c9275dd3f6183e0e6b01730cc2ba
+-- │   │   │   └── daml-stdlib-DA-Internal-Down-057eed1fd48c238491b8ea06b9b5bf85a5d4c9275dd3f6183e0e6b01730cc2ba.dalf
+-- │   │   ├── 3c1af853a9bc7d6aa214b98f0e4d2099187bd5fa7ab07852b4165b84a82325d3
+-- │   │   │   └── proj2-0.0.1-3c1af853a9bc7d6aa214b98f0e4d2099187bd5fa7ab07852b4165b84a82325d3.dalf
+-- │   │   └── e9eeb8cf890e5a15bc65031f1a8373a4bb7f89229473dabaa595c25d35768b21
+-- │   │       └── daml-prim-e9eeb8cf890e5a15bc65031f1a8373a4bb7f89229473dabaa595c25d35768b21.dalf
+-- │   ├── mains
+-- │   │   └── 3c1af853a9bc7d6aa214b98f0e4d2099187bd5fa7ab07852b4165b84a82325d3
+-- │   │       └── proj2-0.0.1-3c1af853a9bc7d6aa214b98f0e4d2099187bd5fa7ab07852b4165b84a82325d3.dalf
+-- │   ├── sdk-version
+-- │   └── sources
+-- │       └── proj2-0.0.1-3c1af853a9bc7d6aa214b98f0e4d2099187bd5fa7ab07852b4165b84a82325d3
+-- │           ├── Baz.daml
+-- │           ├── Baz.hi
+-- │           └── Baz.hie
+-- ├── deps
+-- │   ├── configs
+-- │   │   └── daml-script-0.0.0.conf
+-- │   ├── dalfs
+-- │   │   ├── 057eed1fd48c238491b8ea06b9b5bf85a5d4c9275dd3f6183e0e6b01730cc2ba
+-- │   │   │   └── daml-stdlib-DA-Internal-Down-057eed1fd48c238491b8ea06b9b5bf85a5d4c9275dd3f6183e0e6b01730cc2ba.dalf
+-- │   │   ├── 40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7
+-- │   │   │   └── daml-prim-DA-Types-40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.dalf
+-- │   ├── mains
+-- │   │   └── bf4a8f6f897b4d9639bab0f384ea7c06a7ad4b6b856cb0b511e1d79c9c46ecf2
+-- │   │       └── daml-script-0.0.0-bf4a8f6f897b4d9639bab0f384ea7c06a7ad4b6b856cb0b511e1d79c9c46ecf2.dalf
+-- │   ├── sdk-version
+-- │   └── sources
+-- │       └── daml-script-0.0.0-bf4a8f6f897b4d9639bab0f384ea7c06a7ad4b6b856cb0b511e1d79c9c46ecf2
+-- │           └── Daml
+-- │               ├── Script
+-- │               │   ├── Free.daml
+-- │               │   ├── Free.hi
+-- │               │   └── Free.hie
+-- │               ├── Script.daml
+-- │               ├── Script.hi
+-- │               └── Script.hie
+-- └── fingerprint.json
+
+-- The database is flattened, meaning that we collect all dalfs/mains under the `dalfs`/`mains`
+-- directory and all sources under the `sources` directory. Dalf filepath are prefixed with their
+-- package id like in `dalfs/package_id/name.dalf`.
+--
+-- The sdk-version file stores the used SDK version.
+-- The fingerprint.json file detects changes to the dependencies/daml-lf-version/sdk-version and is
+-- used for caching.
+--
+-- Normal dependencies are under the `deps` directory, while data-dependencies are under the
+-- `data-deps` directory.
 
 -- Constants / Conventions
 --------------------------
@@ -48,16 +104,14 @@ dependenciesDir opts projRoot =
 fingerprintFile :: FilePath -> FilePath
 fingerprintFile depsDir = depsDir </> "fingerprint.json"
 
-mainDir, dalfsDir, configDir, sourcesDir, sdkVersionFile, depMarkerFile, dataDepMarkerFile :: FilePath -> FilePath
-mainDir depPath = depPath </> "main"
+mainsDir, dalfsDir, configsDir, sourcesDir, sdkVersionFile, dataDepsDir, normalDepsDir :: FilePath -> FilePath
+mainsDir depPath = depPath </> "mains"
 dalfsDir depPath = depPath </> "dalfs"
-configDir depPath = depPath </> "config"
+configsDir depPath = depPath </> "configs"
 sourcesDir depPath = depPath </> "sources"
 sdkVersionFile depPath = depPath </> "sdk-version"
-depMarkerFile depPath = depPath </> "_dependency_"
-dataDepMarkerFile depPath = depPath </> "_data_dependency_"
-
-
+dataDepsDir depPath = depPath </> "data-deps"
+normalDepsDir depPath = depPath </> "deps"
 
 -- Dependency installation
 --------------------------
@@ -103,42 +157,39 @@ checkSdkVersions (PackageSdkVersion thisSdkVer) depsExtracted = do
 -- Install a dar dependency
 installDar :: FilePath -> Bool -> ExtractedDar -> IO ()
 installDar depsPath isDataDep ExtractedDar {..} = do
-    let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-    let fp = ZipArchive.eRelativePath edMain
-    DecodedDalf {decodedUnitId, decodedDalfPkg} <- either fail pure $ decodeDalf Set.empty fp bs
-    let relDepPath =
-            unitIdString decodedUnitId <> "-" <>
-            (T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg)
-    let depPath = depsPath </> relDepPath
-    if isDataDep
-        then write (dataDepMarkerFile depPath) ""
-        else write (depMarkerFile depPath) ""
-    let path = mainDir depPath </> (takeFileName $ ZipArchive.eRelativePath edMain)
-    write path (ZipArchive.fromEntry edMain)
-    forM_ edConfFiles $ \conf ->
+    let depPath
+            | isDataDep = dataDepsDir depsPath
+            | otherwise = normalDepsDir depsPath
+    fp <- dalfFileNameFromEntry edMain
+    write (mainsDir depPath </> fp) (ZipArchive.fromEntry edMain)
+    forM_ edConfFiles $ \conf -> do
         write
-            (configDir depPath </> (takeFileName $ ZipArchive.eRelativePath conf))
+            (configsDir depPath </> (takeFileName $ ZipArchive.eRelativePath conf))
             (ZipArchive.fromEntry conf)
     forM_ edSrcs $ \src ->
-        write
-            (sourcesDir depPath </> ZipArchive.eRelativePath src)
-            (ZipArchive.fromEntry src)
-    forM_ edDalfs $ \dalf ->
-        write
-            (dalfsDir depPath </> ZipArchive.eRelativePath dalf)
-            (ZipArchive.fromEntry dalf)
+        write (sourcesDir depPath </> ZipArchive.eRelativePath src) (ZipArchive.fromEntry src)
+    forM_ edDalfs $ \dalf -> do
+        fp <- dalfFileNameFromEntry dalf
+        write (dalfsDir depPath </> fp) (ZipArchive.fromEntry dalf)
     writeFileUTF8 (sdkVersionFile depPath) edSdkVersions
+
+dalfFileNameFromEntry :: ZipArchive.Entry -> IO FilePath
+dalfFileNameFromEntry entry =
+    dalfFileName (BSL.toStrict $ ZipArchive.fromEntry entry) (ZipArchive.eRelativePath entry)
+
+dalfFileName :: BS.ByteString -> FilePath -> IO FilePath
+dalfFileName bs fp = do
+    DecodedDalf {decodedDalfPkg} <- either fail pure $ decodeDalf Set.empty fp bs
+    let pkgId = T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg
+    pure $ pkgId </> takeFileName fp
 
 installDataDepDalf :: FilePath -> FilePath -> IO ()
 installDataDepDalf depsDir fp = do
     bs <- BS.readFile fp
-    DecodedDalf {decodedUnitId, decodedDalfPkg} <- either fail pure $ decodeDalf Set.empty fp bs
-    let depDir =
-            depsDir </> unitIdString decodedUnitId <> "-" <>
-            (T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg)
-    copy fp (mainDir depDir </> takeFileName fp)
-    copy fp (dalfsDir depDir </> takeFileName fp)
-    write (dataDepMarkerFile depDir) ""
+    fileName <- dalfFileName bs fp
+    let depDir = dataDepsDir depsDir
+    copy fp (mainsDir depDir </> fileName)
+    copy fp (dalfsDir depDir </> fileName)
 
 -- Updating/Fingerprint
 -----------------------
@@ -164,36 +215,27 @@ readDepsFingerprint depsDir = do
 
 -- Queries
 ----------
-queryDependencies :: FilePath -> IO [FilePath]
-queryDependencies depsPath = do
-    allDirs <- listDirectories depsPath
-    filterM (\f -> do doesFileExist $ depMarkerFile f) allDirs
 
-queryDataDependencies :: FilePath -> IO [FilePath]
-queryDataDependencies depsPath = do
-    allDirs <- listDirectories depsPath
-    filterM (\f -> do doesFileExist $ dataDepMarkerFile f) allDirs
+queryDalfs :: FilePath -> Set.Set LF.PackageId -> IO [DecodedDalf]
+queryDalfs dir pkgIds = do
+    ifM (doesDirectoryExist dir)
+        (do dalfs <- listFilesRecursive dir
+            forM dalfs $ \dalf -> do
+                bs <- BS.readFile dalf
+                either fail pure $ decodeDalf pkgIds dalf bs)
+        (pure [])
 
-queryDependencyDalfFiles :: FilePath -> IO [FilePath]
-queryDependencyDalfFiles depPath = do
-    listFilesRecursive $ dalfsDir depPath
+queryDalfsFromDependencies :: FilePath -> Set.Set LF.PackageId -> IO [DecodedDalf]
+queryDalfsFromDependencies = queryDalfs . dalfsDir . normalDepsDir
 
-queryDependencyDalfs :: Set LF.PackageId -> FilePath -> IO [DecodedDalf]
-queryDependencyDalfs pkgs dep = do
-    fs <- queryDependencyDalfFiles dep
-    forM fs $ \f -> do
-        bs <- BS.readFile f
-        either fail pure $ decodeDalf pkgs f bs
+queryDalfsFromDataDependencies :: FilePath -> Set.Set LF.PackageId -> IO [DecodedDalf]
+queryDalfsFromDataDependencies = queryDalfs . dalfsDir . dataDepsDir
 
-queryDependencyMain :: Set LF.PackageId -> FilePath -> IO DecodedDalf
-queryDependencyMain pkgs dep = do
-    fps <- listFilesRecursive $ mainDir dep
-    let fp =
-            headDef
-                (fail "Corrupted dependency database. Please run `daml clean` and try again.")
-                fps
-    bs <- BS.readFile fp
-    either fail pure $ decodeDalf pkgs fp bs
+queryMainDalfs :: FilePath -> Set.Set LF.PackageId -> IO [DecodedDalf]
+queryMainDalfs depsDir pkgIds = do
+    ds0 <- queryDalfs (mainsDir $ normalDepsDir depsDir) pkgIds
+    ds1 <- queryDalfs (mainsDir $ dataDepsDir depsDir) pkgIds
+    pure $ ds0 ++ ds1
 
 -- Utilities
 ------------

@@ -76,8 +76,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
     when needsReinitalization $ do
       clearPackageDb
 
-      deps <- queryDependencies depsDir
-      dataDeps <- queryDataDependencies depsDir
 
       -- Register deps at the very beginning. This allows data-dependencies to
       -- depend on dependencies which is necessary so that we can reconstruct typeclass
@@ -86,7 +84,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- data-dependency but that seems acceptable.
       -- See https://github.com/digital-asset/daml/issues/4218 for more details.
       -- TODO Enforce this with useful error messages
-      forM_ deps $ registerDepInPkgDb dbPath
+      registerDepsInPkgDb (normalDepsDir depsDir) dbPath
 
       loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
@@ -99,15 +97,15 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
               Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
 
       -- This is only used for unit-id collision checks and dependencies on newer LF versions.
-      dalfsFromDependencies <- concatMapM (queryDependencyDalfs dependenciesInPkgDbIds) deps
-      dalfsFromDataDependencies <- concatMapM (queryDependencyDalfs dependenciesInPkgDbIds) dataDeps
-      uids <- forM (deps ++ dataDeps) (fmap decodedUnitId . queryDependencyMain dependenciesInPkgDbIds)
+      dalfsFromDependencies <- queryDalfsFromDependencies depsDir dependenciesInPkgDbIds
+      dalfsFromDataDependencies <- queryDalfsFromDataDependencies depsDir dependenciesInPkgDbIds
+      mainDalfs <- queryMainDalfs depsDir dependenciesInPkgDbIds
 
       let dependencyInfo = DependencyInfo
               { dependenciesInPkgDb
               , dalfsFromDependencies
               , dalfsFromDataDependencies
-              , mainUnitIds = uids
+              , mainUnitIds = map decodedUnitId mainDalfs
               }
 
       -- We perform these check before checking for unit id collisions
@@ -150,8 +148,10 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
                   , not (depPkgId `Set.member` stablePkgIds)
                   ]
           let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+          let dalfDir = dbPath </> pkgIdStr
           createDirectoryIfMissing True workDir
-          BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
+          createDirectoryIfMissing True dalfDir
+          BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
 
           generateAndInstallIfaceFiles
               (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
@@ -298,20 +298,23 @@ settings =
   ]
 
 -- Register a dar dependency in the package database
-registerDepInPkgDb :: FilePath -> FilePath -> IO ()
-registerDepInPkgDb dbPath depPath = do
-    copyDirRec (configDir depPath) (dbPath </> "package.conf.d")
-    copyDirRec (sourcesDir depPath) dbPath
-    copyDirRec (mainDir depPath) dbPath
+registerDepsInPkgDb :: FilePath -> FilePath -> IO ()
+registerDepsInPkgDb depsPath dbPath = do
+    copyDirRec (configsDir depsPath) (dbPath </> "package.conf.d")
+    copyDirRec (sourcesDir depsPath) dbPath
+    copyDirRec (mainsDir depsPath) dbPath
+    -- Note that we're not copying the `dalfs` directory, because we also only have interface files
+    -- for the mains.
     recachePkgDb dbPath
 
 copyDirRec :: FilePath -> FilePath -> IO ()
 copyDirRec from to = do
-    srcs <- listFilesRecursive from
-    forM_ srcs $ \src -> do
-      let fp = to </> makeRelative from src
-      createDirectoryIfMissing True (takeDirectory fp)
-      copyFile src fp
+    whenM (doesDirectoryExist from) $ do
+      srcs <- listFilesRecursive from
+      forM_ srcs $ \src -> do
+        let fp = to </> makeRelative from src
+        createDirectoryIfMissing True (takeDirectory fp)
+        copyFile src fp
 
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
