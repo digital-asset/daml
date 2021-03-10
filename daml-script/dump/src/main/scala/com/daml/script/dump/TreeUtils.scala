@@ -154,6 +154,42 @@ object TreeUtils {
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
 
+  /** A simple event causes the creation of a single contract and returns its contract id.
+    *
+    * A create event is a simple event. An exercise event can be a simple event.
+    */
+  case class SimpleEvent(event: TreeEvent.Kind, contractId: ContractId)
+
+  object SimpleEvent {
+    def fromTreeEvent(event: TreeEvent.Kind, tree: TransactionTree): Option[SimpleEvent] = {
+      event match {
+        case created @ Kind.Created(value) =>
+          Some(SimpleEvent(created, ContractId(value.contractId)))
+        case exercised @ Kind.Exercised(value) =>
+          val result = value.exerciseResult.flatMap {
+            _.sum match {
+              case Sum.ContractId(value) => Some(value)
+              case _ => None
+            }
+          }
+          val creates = {
+            var creates = Seq.empty[String]
+            traverseEventInTree(exercised, tree) {
+              case (_, Kind.Created(value)) => creates ++= Seq(value.contractId)
+              case _ =>
+            }
+            creates
+          }
+          (result, creates) match {
+            case (Some(cid), Seq(createdCid)) if cid == createdCid =>
+              Some(SimpleEvent(exercised, ContractId(cid)))
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+  }
+
   def evParties(ev: TreeEvent.Kind): Seq[Party] = ev match {
     case TreeEvent.Kind.Created(create) => Party.subst(create.signatories)
     case TreeEvent.Kind.Exercised(exercised) => Party.subst(exercised.actingParties)
