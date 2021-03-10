@@ -25,9 +25,9 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import com.daml.platform.store.completions.OffsetsGenerator.genOffset
 
 class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
-  import CompletionsDaoMock.genOffset
 
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
@@ -224,7 +224,6 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
 }
 object CompletionsDaoMock {
-  def genOffset(value: Int): Offset = Offset.fromByteArray(Seq(value.toByte).toArray)
 
   def genCompletions(
       startOffset: Int,
