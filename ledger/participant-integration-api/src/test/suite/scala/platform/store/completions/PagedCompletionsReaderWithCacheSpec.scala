@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.completions
 
-import java.util.UUID
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 
 import com.daml.ledger.ApplicationId
@@ -17,15 +16,16 @@ import com.daml.platform.store.completions.CompletionsDaoMock.{
   GetFilteredCompletionsRequest,
   Request,
 }
+import com.daml.platform.store.completions.OffsetsGenerator.genOffset
 import com.daml.platform.store.dao.CommandCompletionsTable
 import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.immutable.SortedMap
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import com.daml.platform.store.completions.OffsetsGenerator.genOffset
 
 class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
@@ -37,7 +37,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // GIVEN: completions reader and dao mock with 20 completions
     val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(20))
-    val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
+    val reader = new TestablePagedCompletionsReaderWithCache(completionsDao, 10)
 
     // WHEN: completions are requested for the first time
     val cachedCompletions = await(
@@ -51,9 +51,15 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // THEN returned completions size should be 10
     cachedCompletions.size shouldBe 10
-    // AND all completions should be requested from database - proof of caching
+    // AND all completions should be requested from database
     completionsDao.runQueriesJournalToSeq() shouldBe Seq(
       GetAllCompletionsRequest(genOffset(9), genOffset(19))
+    )
+    // AND should be cached
+    reader.getCache shouldBe RangeCache(
+      Range(genOffset(9), genOffset(19)),
+      10,
+      CompletionsDaoMock.genCompletionsMap(10, 20),
     )
 
     // WHEN: completions older than cached are fetched
@@ -86,7 +92,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // GIVEN: completions reader and dao mock with 20 completions
     val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(30))
 
-    val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
+    val reader = new TestablePagedCompletionsReaderWithCache(completionsDao, 10)
 
     // WHEN: not cached completions are fetched
     val cachedCompletions = await(
@@ -103,6 +109,13 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // AND all completions should be requested from database - proof of caching
     completionsDao.runQueriesJournalToSeq() shouldBe Seq(
       GetAllCompletionsRequest(genOffset(9), genOffset(19))
+    )
+
+    // AND should be cached
+    reader.getCache shouldBe RangeCache(
+      Range(genOffset(9), genOffset(19)),
+      10,
+      CompletionsDaoMock.genCompletionsMap(10, 20),
     )
 
     // WHEN: newer completions are queried
@@ -153,7 +166,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // GIVEN: completions reader and dao mock with 40 completions
     val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(40))
-    val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
+    val reader = new TestablePagedCompletionsReaderWithCache(completionsDao, 10)
 
     // WHEN: not cached completions are fetched
     val cachedCompletions = await(
@@ -199,7 +212,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
   it should "fetch each completion exactly once" in {
     // GIVEN: completions reader and dao mock with 20 completions
     val completionsDao = new CompletionsDaoMock(CompletionsDaoMock.genCompletions(20))
-    val reader = new PagedCompletionsReaderWithCache(completionsDao, 10)
+    val reader = new TestablePagedCompletionsReaderWithCache(completionsDao, 10)
 
     // WHEN 10 equal requests are performed concurrently
     val responses = await(Future.sequence((0 until 10).map { _ =>
@@ -223,6 +236,16 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
   private def await[T](f: Future[T]) = Await.result(f, Duration.apply(5, TimeUnit.SECONDS))
 
 }
+
+private class TestablePagedCompletionsReaderWithCache(
+    completionsDao: CompletionsDao,
+    maxItems: Int,
+)(implicit executionContext: ExecutionContext)
+    extends PagedCompletionsReaderWithCache(completionsDao, maxItems)(executionContext) {
+
+  def getCache: RangeCache[CompletionStreamResponseWithParties] = cacheRef.get()
+}
+
 object CompletionsDaoMock {
 
   def genCompletions(
@@ -235,9 +258,9 @@ object CompletionsDaoMock {
           checkpoint = None,
           completions = Seq(
             Completion(
-              commandId = UUID.randomUUID().toString,
+              commandId = s"command_$i",
               status = None,
-              transactionId = UUID.randomUUID().toString,
+              transactionId = s"transaction_$i",
               traceContext = None,
             )
           ),
@@ -250,6 +273,13 @@ object CompletionsDaoMock {
 
   def genCompletions(endOffset: Int): ListBuffer[(Offset, CompletionStreamResponseWithParties)] =
     genCompletions(0, endOffset)
+
+  def genCompletionsMap(
+      startOffset: Int,
+      endOffset: Int,
+  ): SortedMap[Offset, CompletionStreamResponseWithParties] = SortedMap(
+    genCompletions(startOffset, endOffset): _*
+  )
 
   sealed class Request
 
