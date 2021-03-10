@@ -7,7 +7,10 @@ import com.daml.ledger.participant.state.v1.Offset
 
 case class Range(startExclusive: Offset, endInclusive: Offset) {
   import Range._
-  assert(startExclusive <= endInclusive, "Star offset cannot be lesser than end offset")
+  assert(
+    startExclusive <= endInclusive,
+    s"Start offset $startExclusive cannot be lesser than end offset $endInclusive",
+  )
 
   /** Relative complement of given rangeToDiff in this one (this - rangeToDiff) that is lesser than end of given rangeToDiff (this.end < rangeToDiff.start)
     * @return range representing set of offsets that are in this range but not in rangeToDiff where each offset is lesser than rangeToDiff.start
@@ -63,6 +66,12 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
       )
     }
   }
+
+  /**
+   * checks if ranges are consecutive
+   */
+  def areConsecutive(range: Range): Boolean =
+    startExclusive == range.endInclusive || endInclusive == range.startExclusive
 }
 
 object Range {

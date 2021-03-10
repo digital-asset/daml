@@ -17,6 +17,13 @@ import scala.collection.SortedMap
   */
 case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[Offset, T]) {
 
+  assert(
+    !cache.lastOption.exists(_._1 > range.endInclusive) && !cache.headOption.exists(_._1 <= range.startExclusive),
+    "Cached values cannot be outside cache range",
+  )
+
+  assert(cache.size <= maxItems, "Cache size cannot exceeds maxItems param")
+
   /** Caches values. This method may remove oldest values (based on offset)
     * @param appendRange range of proposed cache
     * @param values proposed new values of cache
@@ -25,17 +32,8 @@ case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[
   def append(
       appendRange: Range,
       values: SortedMap[Offset, T],
-  ): RangeCache[T] = { // add to cache greaterdiff
-    // if cached offset and new offset are disjointed, cache newer one, else cache join
-    if (range.endInclusive < appendRange.startExclusive) {
-      val start = RangeCache.calculateStartOffset(maxItems, appendRange.startExclusive, values)
-      copy(
-        range = Range(start, appendRange.endInclusive),
-        cache = values.takeRight(maxItems),
-      )
-    } else if (range.startExclusive > appendRange.endInclusive) {
-      this
-    } else {
+  ): RangeCache[T] = {
+    if(range.areConsecutive(appendRange) || !range.areDisjointed(appendRange)) {
       val allValues = values ++ cache
       val start =
         RangeCache.calculateStartOffset(
@@ -50,6 +48,8 @@ case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[
         ),
         cache = allValues.takeRight(maxItems),
       )
+    } else {
+      if(range.startExclusive > appendRange.startExclusive) this else RangeCache(appendRange, maxItems, values)
     }
   }
 
@@ -102,8 +102,9 @@ object RangeCache {
       proposedStartOffset: Offset,
       proposedCacheUpdate: SortedMap[Offset, T],
   ) = {
-    if (proposedCacheUpdate.size > maxItems)
-      proposedCacheUpdate.toSeq(proposedCacheUpdate.size - maxItems - 1)._1
-    else proposedStartOffset
+    if (proposedCacheUpdate.size > maxItems) {
+      val sortedSeq = proposedCacheUpdate.toSeq.sortBy(_._1)
+      sortedSeq(proposedCacheUpdate.size - maxItems - 1)._1
+    } else proposedStartOffset
   }
 }
