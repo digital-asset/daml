@@ -251,29 +251,22 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[CreatedEvent],
   ): Doc = {
-    encodeSubmitEvents(partyMap, cidMap, cidRefs, evs.map(Kind.Created(_)))
+    encodeSubmitSimpleEvents(
+      partyMap,
+      cidMap,
+      cidRefs,
+      evs.map(ev => SimpleEvent(Kind.Created(ev), ContractId(ev.contractId))),
+    )
   }
 
-  private[dump] def encodeSubmitEvents(
+  private[dump] def encodeSubmitSimpleEvents(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
-      evs: Seq[TreeEvent.Kind],
+      evs: Seq[SimpleEvent],
   ): Doc = {
-    val submitters = evs.flatMap(ev => evParties(ev)).toSet
-    val cids = ContractId.subst(evs.flatMap {
-      case Kind.Created(value) => Some(value.contractId)
-      case Kind.Exercised(value) =>
-        value.exerciseResult match {
-          case Some(value) =>
-            value.sum match {
-              case Sum.ContractId(value) => Some(value)
-              case _ => None
-            }
-          case None => None
-        }
-      case Kind.Empty => None
-    })
+    val submitters = evs.flatMap(ev => evParties(ev.event)).toSet
+    val cids = evs.map(_.contractId)
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
@@ -290,7 +283,7 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val actions = Doc.stack(evs.zip(cids).map { case (ev, cid) =>
+    val actions = Doc.stack(evs.map { case SimpleEvent(ev, cid) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(cid)) {
           encodeCid(cidMap, cid) :+ " <- "
@@ -328,38 +321,13 @@ private[dump] object Encode {
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val createsOnly: Option[List[TreeEvent.Kind]] = {
+    val simpleEventsOnly: Option[List[SimpleEvent]] = {
       import scalaz.Scalaz._
-      rootEvs.toList.traverse {
-        case created @ Kind.Created(_) => Some(created)
-        case exercised @ Kind.Exercised(value) =>
-          for {
-            result <- value.exerciseResult
-            resultCid <- result.sum match {
-              case Sum.ContractId(value) => Some(ContractId(value))
-              case _ => None
-            }
-            creates = {
-              var creates = Seq.empty[CreatedEvent]
-              traverseEventInTree(exercised, tree) { case (_, ev) =>
-                ev match {
-                  case Kind.Created(value) => creates ++= Seq(value)
-                  case _ =>
-                }
-              }
-              creates
-            }
-            created <- creates match {
-              case Seq(created) if ContractId(created.contractId) == resultCid => Some(exercised)
-              case _ => None
-            }
-          } yield created
-        case _ => None
-      }
+      rootEvs.toList.traverse(ev => SimpleEvent.fromTreeEvent(ev, tree))
     }
-    createsOnly match {
+    simpleEventsOnly match {
       case Some(evs) =>
-        encodeSubmitEvents(partyMap, cidMap, cidRefs, evs)
+        encodeSubmitSimpleEvents(partyMap, cidMap, cidRefs, evs)
       case None => {
         val submitters = rootEvs.flatMap(evParties(_)).toSet
         val cids = treeCreatedCids(tree)
