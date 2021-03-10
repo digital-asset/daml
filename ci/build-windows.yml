@@ -34,22 +34,8 @@ steps:
 
   - bash: |
       set -euo pipefail
-      source $(bash-lib)
-      INSTALLER=daml-sdk-${{parameters.release_tag}}-windows.exe
-      mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$(Build.StagingDirectory)/$INSTALLER"
-      chmod +wx "$(Build.StagingDirectory)/$INSTALLER"
-      cleanup () {
-          rm -f signing_key.pfx
-      }
-      trap cleanup EXIT
-      echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
-      MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
-      rm signing_key.pfx
-      trap - EXIT
-      setvar installer "$INSTALLER"
-      TARBALL=daml-sdk-${{parameters.release_tag}}-windows.tar.gz
-      cp bazel-bin/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$TARBALL
-      setvar tarball "$TARBALL"
+      mkdir -p '$(Build.StagingDirectory)'/release
+      ./ci/copy-windows-release-artifacts.sh ${{parameters.release_tag}} '$(Build.StagingDirectory)'/release
     name: publish
     env:
       SIGNING_KEY: $(microsoft-code-signing)
@@ -62,12 +48,5 @@ steps:
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'))
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.installer)
-      artifactName: $(publish.installer)
-  - task: PublishPipelineArtifact@0
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'))
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.tarball)
-      artifactName: $(publish.tarball)
+      targetPath: $(Build.StagingDirectory)/release
+      artifactName: windows-release

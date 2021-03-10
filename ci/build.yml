@@ -174,7 +174,7 @@ jobs:
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
       inputs:
-        pathtoPublish: '$(Build.StagingDirectory)'
+        pathtoPublish: '$(Build.StagingDirectory)/logs'
         artifactName: 'Bazel Logs'
     - template: tell-slack-failed.yml
       parameters:

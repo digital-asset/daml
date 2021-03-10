@@ -51,17 +51,6 @@ jobs:
   pool:
     vmImage: "Ubuntu-16.04"
   variables:
-    linux-tarball: $[ dependencies.Linux.outputs['publish.tarball'] ]
-    macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
-    windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
-    windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
-    protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
-    daml-on-sql: $[ dependencies.Linux.outputs['publish.daml-on-sql'] ]
-    json-api: $[ dependencies.Linux.outputs['publish.json-api'] ]
-    script-runner: $[ dependencies.Linux.outputs['publish.script-runner'] ]
-    trigger-runner: $[ dependencies.Linux.outputs['publish.trigger-runner'] ]
-    trigger-service: $[ dependencies.Linux.outputs['publish.trigger-service'] ]
-    oauth2-middleware: $[ dependencies.Linux.outputs['publish.oauth2-middleware'] ]
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -78,65 +67,25 @@ jobs:
         source $(bash-lib)
         if git tag v$(release_tag) $(release_sha); then
           git push origin v$(release_tag)
-          mkdir $(Build.StagingDirectory)/release
-          mkdir $(Build.StagingDirectory)/artifactory
+          mkdir $(Build.StagingDirectory)/release-artifacts
         else
           setvar skip-github TRUE
         fi
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: $(linux-tarball)
-        targetPath: $(Build.StagingDirectory)/release
+        artifactName: linux-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: not(eq(variables['skip-github'], 'TRUE'))
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: $(macos-tarball)
-        targetPath: $(Build.StagingDirectory)/release
+        artifactName: macos-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: not(eq(variables['skip-github'], 'TRUE'))
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: $(windows-tarball)
-        targetPath: $(Build.StagingDirectory)/release
+        artifactName: windows-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(windows-installer)
-        targetPath: $(Build.StagingDirectory)/release
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(protos-zip)
-        targetPath: $(Build.StagingDirectory)/release
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(daml-on-sql)
-        targetPath: $(Build.StagingDirectory)/release
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(json-api)
-        targetPath: $(Build.StagingDirectory)/release
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(trigger-service)
-        targetPath: $(Build.StagingDirectory)/release
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(oauth2-middleware)
-        targetPath: $(Build.StagingDirectory)/release
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(trigger-runner)
-        targetPath: $(Build.StagingDirectory)/artifactory
-      condition: not(eq(variables['skip-github'], 'TRUE'))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: $(script-runner)
-        targetPath: $(Build.StagingDirectory)/artifactory
       condition: not(eq(variables['skip-github'], 'TRUE'))
     - bash: |
         set -euo pipefail
@@ -148,7 +97,7 @@ jobs:
         trap cleanup EXIT
         echo "$GPG_KEY" | base64 -d > $KEY_FILE
         gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
-        cd $(Build.StagingDirectory)/release
+        cd $(Build.StagingDirectory)/release-artifacts/github
         sha256sum $(find . -type f | sort) > sha256sums
         # Note: relies on our release artifacts not having spaces in their
         # names. Creates a ${f}.asc with the signature for each $f.
@@ -169,7 +118,7 @@ jobs:
         target: '$(release_sha)'
         tagSource: 'manual'
         tag: 'v$(release_tag)'
-        assets: $(Build.StagingDirectory)/release/*
+        assets: $(Build.StagingDirectory)/release-artifacts/github/*
         assetUploadMode: 'replace'
         title: '$(release_tag)'
         addChangeLog: false
@@ -179,27 +128,7 @@ jobs:
       condition: not(eq(variables['skip-github'], 'TRUE'))
     - bash: |
         set -euo pipefail
-
-        push() {
-          local file repository local_path md5 sha1
-          repository=$1
-          file=$2
-          local_path=$(Build.StagingDirectory)/artifactory/${file}
-          md5=$(md5sum ${local_path} | awk '{print $1}')
-          sha1=$(sha1sum ${local_path} | awk '{print $1}')
-          curl -f \
-               -u "$AUTH" \
-               -H "X-Checksum-MD5:${md5}" \
-               -H "X-Checksum-SHA1:${sha1}" \
-               -X PUT \
-               -T ${local_path} \
-               https://digitalasset.jfrog.io/artifactory/${repository}/$(release_tag)/${file}
-        }
-
-        push daml-trigger-runner $(trigger-runner)
-        push daml-trigger-runner $(trigger-runner).asc
-        push daml-script-runner $(script-runner)
-        push daml-script-runner $(script-runner).asc
+        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
       condition: not(eq(variables['skip-github'], 'TRUE'))
