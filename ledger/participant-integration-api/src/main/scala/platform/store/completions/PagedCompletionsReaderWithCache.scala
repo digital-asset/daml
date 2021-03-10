@@ -26,7 +26,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
     executionContext: ExecutionContext
 ) extends PagedCompletionsReader {
 
-  private val cacheRef: AtomicReference[RangeCache[CompletionStreamResponseWithParties]] =
+  protected val cacheRef: AtomicReference[RangeCache[CompletionStreamResponseWithParties]] =
     new AtomicReference(RangeCache.empty[CompletionStreamResponseWithParties](maxItems))
 
   private val pendingRequestRef: AtomicReference[Future[Unit]] =
@@ -154,7 +154,7 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       ()
     }
     pendingRequestRef.set(updateCacheRequest)
-    allCompletionsFuture
+    updateCacheRequest.flatMap(_ => allCompletionsFuture)
   }
 
   private def calculateFutureRangeToFetch(
