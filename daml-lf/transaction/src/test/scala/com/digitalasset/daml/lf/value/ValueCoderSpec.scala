@@ -145,7 +145,7 @@ class ValueCoderSpec
   }
 
   def testRoundTrip(value0: Value[ContractId], version: TransactionVersion): Assertion = {
-    val normalizedValue = Util.normalize(value0, version)
+    val normalizedValue = Util.assertNormalize(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
         .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0))

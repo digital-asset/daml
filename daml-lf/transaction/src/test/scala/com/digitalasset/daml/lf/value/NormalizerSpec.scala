@@ -16,11 +16,13 @@ class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
       forAll(test.ValueGenerators.valueGen, test.ValueGenerators.transactionVersionGen()) {
         (value, version) =>
           val reference = for {
-            encoded <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, value)
-            decoded <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, encoded)
+            encoded <-
+              ValueCoder.encodeValue(ValueCoder.CidEncoder, version, value).left.map(_ => ())
+            decoded <-
+              ValueCoder.decodeValue(ValueCoder.CidDecoder, version, encoded).left.map(_ => ())
           } yield decoded
 
-          Util.normalize(value, version) shouldBe reference
+          Util.normalize(value, version).left.map(_ => ()) shouldBe reference
       }
     }
   }

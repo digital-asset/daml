@@ -6,10 +6,13 @@ package value
 
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
+import scala.Ordering.Implicits.infixOrderingOps
 
 object Util {
 
-  // equivalent to serialization + unserialization.
+  // Equivalent to serialization + unserialization.
+  // Fails if :
+  // - value0 contain GenMap and version < 1.11
   def normalize(
       value0: Value[ContractId],
       version: TransactionVersion,
@@ -20,38 +23,53 @@ object Util {
       case e: IllegalArgumentException => Left(e.getMessage)
     }
 
+  // unsafe version of `normalize`
   @throws[IllegalArgumentException]
   def assertNormalize(value0: Value[ContractId], version: TransactionVersion): Value[ContractId] = {
 
-    val disallowGenMap = version < TransactionVersion.minGenMap
+    val allowGenMap = version >= TransactionVersion.minGenMap
+    val eraseType = version >= TransactionVersion.minTypeErasure
 
-    import scala.Ordering.Implicits._
-
-    def stripTypes(value: Value[ContractId]): Value[ContractId] =
-      value match {
-        case ValueEnum(_, cons) =>
-          ValueEnum(None, cons)
-        case ValueRecord(_, fields) =>
-          ValueRecord(None, fields.map { case (_, value) => None -> stripTypes(value) })
-        case ValueVariant(_, variant, value) =>
-          ValueVariant(None, variant, stripTypes(value))
-        case _: ValueCidlessLeaf | _: ValueContractId[_] => value
-        case ValueList(values) =>
-          ValueList(values.map(stripTypes))
-        case ValueOptional(value) =>
-          ValueOptional(value.map(stripTypes))
-        case ValueTextMap(value) =>
-          ValueTextMap(value.mapValue(stripTypes))
-        case ValueGenMap(entries) =>
-          if (allowGenMap)
-            throw new IllegalArgumentException(s"GenMap are not allowed in LF $version")
-          ValueGenMap(entries.map { case (k, v) => stripTypes(k) -> stripTypes(v) })
+    def handleTypeInfo[X](x: Option[X]) =
+      if (eraseType) {
+        None
+      } else if (x.isEmpty) {
+        throw new IllegalArgumentException(
+          s"Type information is require for transaction version $version"
+        )
+      } else {
+        x
       }
 
-    if (version >= TransactionVersion.minTypeErasure)
-      stripTypes(value0)
-    else
-      value0
+    def go(value: Value[ContractId]): Value[ContractId] =
+      value match {
+        case ValueEnum(tyCon, cons) =>
+          ValueEnum(handleTypeInfo(tyCon), cons)
+        case ValueRecord(tyCon, fields) =>
+          ValueRecord(
+            handleTypeInfo(tyCon),
+            fields.map { case (fieldName, value) => handleTypeInfo(fieldName) -> go(value) },
+          )
+        case ValueVariant(tyCon, variant, value) =>
+          ValueVariant(handleTypeInfo(tyCon), variant, go(value))
+        case _: ValueCidlessLeaf | _: ValueContractId[_] => value
+        case ValueList(values) =>
+          ValueList(values.map(go))
+        case ValueOptional(value) =>
+          ValueOptional(value.map(go))
+        case ValueTextMap(value) =>
+          ValueTextMap(value.mapValue(go))
+        case ValueGenMap(entries) =>
+          if (allowGenMap) {
+            ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
+          } else {
+            throw new IllegalArgumentException(
+              s"GenMap are not allowed in transaction version $version"
+            )
+          }
+      }
+
+    go(value0)
 
   }
 
