@@ -1,13 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.value.test
+package com.daml.lf
+package value
 
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
-object ValueNormalizer {
+object Normalizer {
 
   // equivalent to serialization + unserialization.
   def normalize(value0: Value[ContractId], version: TransactionVersion): Value[ContractId] = {
