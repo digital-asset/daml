@@ -228,14 +228,14 @@ jobs:
         set -euo pipefail
         msg=$(git log -n1 --format=%b HEAD | head -1)
         if [ "$msg" = "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging." ]; then
-            pr_handler=@$(head -1 release/rotation | awk '{print $1}')
+            pr_handler="<@$(head -1 release/rotation | awk '{print $1}')>"
         else
             pr_handler=""
         fi
         curl -XPOST \
              -i \
              -H 'Content-Type: application/json' \
-             --data "{\"text\":\"<${pr_handler}> Release \`$(release_tag)\` is ready for testing. See <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|release instructions>. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+             --data "{\"text\":\"${pr_handler} Release \`$(release_tag)\` is ready for testing. See <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|release instructions>. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
              $(Slack.team-daml)
     - template: ci/tell-slack-failed.yml
       parameters:
