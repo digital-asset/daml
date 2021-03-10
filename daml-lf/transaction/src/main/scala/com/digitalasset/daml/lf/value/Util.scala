@@ -7,7 +7,7 @@ package value
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
 
-object Normalizer {
+object Util {
 
   // equivalent to serialization + unserialization.
   def normalize(value0: Value[ContractId], version: TransactionVersion): Value[ContractId] = {
