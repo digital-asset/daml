@@ -122,9 +122,11 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         forM_ depsExtracted $ installDar depsDir False
         -- install data-dependencies
         ----------------------------
-        let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) pDataDeps
-        forM_ fpDars $ extractDar >=> installDar depsDir True
-        forM_ fpDalfs $ installDataDepDalf depsDir
+        DataDeps{dataDepsDars,dataDepsDalfs, dataDepsPkgIds} <- readDataDeps pDataDeps
+        forM_ dataDepsDars $ extractDar >=> installDar depsDir True
+        forM_ dataDepsDalfs $ BS.readFile >=> installDataDepDalf depsDir
+        bss <- getDalfsFromLedger dataDepsPkgIds
+        forM_ bss $ installDataDepDalf depsDir
         -- write new fingerprint
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
@@ -184,6 +186,34 @@ installDataDepDalf depsDir fp = do
     markDirWith mainMarker targetDir
     markDirWith dataDepMarker targetDir
     copy fp targetFp
+
+data DataDeps = DataDeps
+    { dataDepsDars :: [FilePath]
+    , dataDepsDalfs :: [FilePath]
+    , dataDepsPkgIds :: [LF.PackageId]
+    }
+
+readDataDeps :: [String] -> IO DataDeps
+readDataDeps fpOrIds = do
+    pkgIds <- forM pkgIds0 validatePkgId
+    pure $ DataDeps {dataDepsDars = dars, dataDepsDalfs = dalfs, dataDepsPkgIds = pkgIds}
+  where
+    (dars, rest0) = partition ("dar" `isExtensionOf`) fpOrIds
+    (dalfs, pkgIds0) = partition ("dalf" `isExtensionOf`) rest0
+
+-- | A rudimentary check that no bad package ID's are present in the data-dependency section of
+-- daml.yaml.
+validatePkgId :: String -> IO LF.PackageId
+validatePkgId pkgId = do
+    unless (all (`elem` ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) pkgId) $
+        fail $ "Invalid package ID dependency in daml.yaml: " <> pkgId
+    pure $ LF.PackageId $ T.pack pkgId
+
+-- Ledger interactions
+----------------------
+
+getDalfsFromLedger :: [LF.PackageId] -> IO [BS.ByteString]
+getDalfsFromLedger [pkgId] = undefined
 
 -- Updating/Fingerprint
 -----------------------
