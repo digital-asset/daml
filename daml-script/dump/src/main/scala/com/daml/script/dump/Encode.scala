@@ -328,16 +328,38 @@ private[dump] object Encode {
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val createsOnly = {
+    val createsOnly: Option[List[TreeEvent.Kind]] = {
       import scalaz.Scalaz._
       rootEvs.toList.traverse {
-        case Kind.Created(value) => Some(value)
+        case created @ Kind.Created(_) => Some(created)
+        case exercised @ Kind.Exercised(value) =>
+          for {
+            result <- value.exerciseResult
+            resultCid <- result.sum match {
+              case Sum.ContractId(value) => Some(ContractId(value))
+              case _ => None
+            }
+            creates = {
+              var creates = Seq.empty[CreatedEvent]
+              traverseEventInTree(exercised, tree) { case (_, ev) =>
+                ev match {
+                  case Kind.Created(value) => creates ++= Seq(value)
+                  case _ =>
+                }
+              }
+              creates
+            }
+            created <- creates match {
+              case Seq(created) if ContractId(created.contractId) == resultCid => Some(exercised)
+              case _ => None
+            }
+          } yield created
         case _ => None
       }
     }
     createsOnly match {
       case Some(evs) =>
-        encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, evs)
+        encodeSubmitEvents(partyMap, cidMap, cidRefs, evs)
       case None => {
         val submitters = rootEvs.flatMap(evParties(_)).toSet
         val cids = treeCreatedCids(tree)
