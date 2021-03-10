@@ -321,10 +321,7 @@ private[dump] object Encode {
       tree: TransactionTree,
   ): Doc = {
     val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val simpleEventsOnly: Option[List[SimpleEvent]] = {
-      import scalaz.Scalaz._
-      rootEvs.toList.traverse(ev => SimpleEvent.fromTreeEvent(ev, tree))
-    }
+    val simpleEventsOnly: Option[Seq[SimpleEvent]] = SimpleEvent.fromTree(tree)
     simpleEventsOnly match {
       case Some(evs) =>
         encodeSubmitSimpleEvents(partyMap, cidMap, cidRefs, evs)

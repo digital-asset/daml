@@ -188,6 +188,13 @@ object TreeUtils {
         case _ => None
       }
     }
+
+    def fromTree(tree: TransactionTree): Option[Seq[SimpleEvent]] = {
+      import scalaz.Scalaz._
+      tree.rootEventIds.toList.traverse(id =>
+        SimpleEvent.fromTreeEvent(tree.eventsById(id).kind, tree)
+      )
+    }
   }
 
   def evParties(ev: TreeEvent.Kind): Seq[Party] = ev match {
