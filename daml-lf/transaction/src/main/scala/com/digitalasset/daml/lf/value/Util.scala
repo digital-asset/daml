@@ -10,7 +10,20 @@ import com.daml.lf.value.Value._
 object Util {
 
   // equivalent to serialization + unserialization.
-  def normalize(value0: Value[ContractId], version: TransactionVersion): Value[ContractId] = {
+  def normalize(
+      value0: Value[ContractId],
+      version: TransactionVersion,
+  ): Either[String, Value[ContractId]] =
+    try {
+      Right(assertNormalize(value0, version))
+    } catch {
+      case e: IllegalArgumentException => Left(e.getMessage)
+    }
+
+  @throws[IllegalArgumentException]
+  def assertNormalize(value0: Value[ContractId], version: TransactionVersion): Value[ContractId] = {
+
+    val disallowGenMap = version < TransactionVersion.minGenMap
 
     import scala.Ordering.Implicits._
 
@@ -30,6 +43,8 @@ object Util {
         case ValueTextMap(value) =>
           ValueTextMap(value.mapValue(stripTypes))
         case ValueGenMap(entries) =>
+          if (allowGenMap)
+            throw new IllegalArgumentException(s"GenMap are not allowed in LF $version")
           ValueGenMap(entries.map { case (k, v) => stripTypes(k) -> stripTypes(v) })
       }
 

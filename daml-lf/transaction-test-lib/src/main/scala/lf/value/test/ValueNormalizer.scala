@@ -5,14 +5,14 @@ package com.daml.lf
 package value
 package test
 
-@deprecated("1.12.0", "use com.daml.lf.value.Util")
 object ValueNormalizer {
 
+  @deprecated("1.12.0", "use com.daml.lf.value.Util.assertNormalize")
   def normalize(
       value0: Value[Value.ContractId],
       version: transaction.TransactionVersion,
   ): Value[Value.ContractId] = {
-    Util.normalize(value0, version)
+    Util.assertNormalize(value0, version)
   }
 
 }
