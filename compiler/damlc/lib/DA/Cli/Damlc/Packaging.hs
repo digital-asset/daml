@@ -300,18 +300,18 @@ settings =
 -- Register a dar dependency in the package database
 registerDepInPkgDb :: FilePath -> FilePath -> IO ()
 registerDepInPkgDb dbPath depPath = do
-    linkDirRec (configDir depPath) (dbPath </> "package.conf.d")
-    linkDirRec (sourcesDir depPath) dbPath
-    linkDirRec (mainDir depPath) dbPath
+    copyDirRec (configDir depPath) (dbPath </> "package.conf.d")
+    copyDirRec (sourcesDir depPath) dbPath
+    copyDirRec (mainDir depPath) dbPath
     recachePkgDb dbPath
 
-linkDirRec :: FilePath -> FilePath -> IO ()
-linkDirRec from to = do
+copyDirRec :: FilePath -> FilePath -> IO ()
+copyDirRec from to = do
     srcs <- listFilesRecursive from
     forM_ srcs $ \src -> do
       let fp = to </> makeRelative from src
       createDirectoryIfMissing True (takeDirectory fp)
-      createFileLink src fp
+      copyFile src fp
 
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do

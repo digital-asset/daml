@@ -63,7 +63,12 @@ dataDepMarkerFile depPath = depPath </> "_data_dependency_"
 --------------------------
 -- | Install all dependencies to the .daml/dependencies directory.
 installDependencies ::
-       NormalizedFilePath -> Options -> PackageSdkVersion -> [String] -> [String] -> IO ()
+   NormalizedFilePath
+   -> Options
+   -> PackageSdkVersion
+   -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+   -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+   -> IO ()
 installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pDataDeps = do
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
     (needsUpdate, newFingerprint) <-
