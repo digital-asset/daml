@@ -1,31 +1,32 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 package com.daml.lf
-package value
-
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.Value._
-import scala.Ordering.Implicits.infixOrderingOps
+package transaction
 
 object Util {
 
+  import value.Value
+  import value.Value._
+
   // Equivalent to serialization + unserialization.
   // Fails if :
-  // - value0 contain GenMap and version < 1.11
-  def normalize(
+  // - `value0` contains GenMap and version < 1.11
+  def normalizeValue(
       value0: Value[ContractId],
       version: TransactionVersion,
   ): Either[String, Value[ContractId]] =
     try {
-      Right(assertNormalize(value0, version))
+      Right(assertNormalizeValue(value0, version))
     } catch {
       case e: IllegalArgumentException => Left(e.getMessage)
     }
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
-  def assertNormalize(value0: Value[ContractId], version: TransactionVersion): Value[ContractId] = {
+  def assertNormalizeValue(
+      value0: Value[ContractId],
+      version: TransactionVersion,
+  ): Value[ContractId] = {
+
+    import Ordering.Implicits.infixOrderingOps
 
     val allowGenMap = version >= TransactionVersion.minGenMap
     val eraseType = version >= TransactionVersion.minTypeErasure
@@ -33,10 +34,6 @@ object Util {
     def handleTypeInfo[X](x: Option[X]) =
       if (eraseType) {
         None
-      } else if (x.isEmpty) {
-        throw new IllegalArgumentException(
-          s"Type information is require for transaction version $version"
-        )
       } else {
         x
       }
@@ -72,5 +69,30 @@ object Util {
     go(value0)
 
   }
+
+  def normalizeVersionedValue(
+      value: VersionedValue[ContractId]
+  ): Either[String, VersionedValue[ContractId]] =
+    normalizeValue(value.value, value.version).map(normalized => value.copy(value = normalized))
+
+  def normalizeContract(
+      contract: ContractInst[VersionedValue[ContractId]]
+  ): Either[String, ContractInst[VersionedValue[ContractId]]] =
+    normalizeVersionedValue(contract.arg).map(normalized => contract.copy(arg = normalized))
+
+  def normalizeKey(
+      key: Node.KeyWithMaintainers[Value[ContractId]],
+      version: TransactionVersion,
+  ): Either[String, Node.KeyWithMaintainers[Value[ContractId]]] =
+    normalizeValue(key.key, version).map(normalized => key.copy(key = normalized))
+
+  def normalizeOptKey(
+      key: Option[Node.KeyWithMaintainers[Value[ContractId]]],
+      version: TransactionVersion,
+  ): Either[String, Option[Node.KeyWithMaintainers[Value[ContractId]]]] =
+    key match {
+      case Some(value) => normalizeKey(value, version).map(Some(_))
+      case None => Right(None)
+    }
 
 }

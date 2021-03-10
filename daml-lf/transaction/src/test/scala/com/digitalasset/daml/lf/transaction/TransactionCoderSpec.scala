@@ -744,6 +744,6 @@ class TransactionCoderSpec
   private[this] def normalize(
       value0: Value[ContractId],
       version: TransactionVersion,
-  ): Value[ContractId] = lf.value.Util.assertNormalize(value0, version)
+  ): Value[ContractId] = Util.assertNormalizeValue(value0, version)
 
 }

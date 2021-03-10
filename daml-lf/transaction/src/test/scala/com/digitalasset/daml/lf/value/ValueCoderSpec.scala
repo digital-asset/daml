@@ -1,12 +1,12 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.value
+package com.daml.lf
+package value
 
 import com.daml.lf.EitherAssertions
 import com.daml.lf.data._
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.{Arbitrary, Shrink}
 import org.scalatest.Assertion
@@ -20,6 +20,7 @@ class ValueCoderSpec
     with EitherAssertions
     with ScalaCheckPropertyChecks {
 
+  import Value._
   import test.ValueGenerators._
 
   implicit val noStringShrink: Shrink[String] = Shrink.shrinkAny[String]
@@ -145,7 +146,7 @@ class ValueCoderSpec
   }
 
   def testRoundTrip(value0: Value[ContractId], version: TransactionVersion): Assertion = {
-    val normalizedValue = Util.assertNormalize(value0, version)
+    val normalizedValue = transaction.Util.assertNormalizeValue(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
         .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0))
