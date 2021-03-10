@@ -18,7 +18,9 @@ import scala.collection.SortedMap
 case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[Offset, T]) {
 
   assert(
-    !cache.lastOption.exists(_._1 > range.endInclusive) && !cache.headOption.exists(_._1 <= range.startExclusive),
+    !cache.lastOption.exists(_._1 > range.endInclusive) && !cache.headOption.exists(
+      _._1 <= range.startExclusive
+    ),
     "Cached values cannot be outside cache range",
   )
 
@@ -33,7 +35,7 @@ case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[
       appendRange: Range,
       values: SortedMap[Offset, T],
   ): RangeCache[T] = {
-    if(range.areConsecutive(appendRange) || !range.areDisjointed(appendRange)) {
+    if (range.areConsecutive(appendRange) || !range.areDisjointed(appendRange)) {
       val allValues = values ++ cache
       val start =
         RangeCache.calculateStartOffset(
@@ -49,7 +51,8 @@ case class RangeCache[T] private (range: Range, maxItems: Int, cache: SortedMap[
         cache = allValues.takeRight(maxItems),
       )
     } else {
-      if(range.startExclusive > appendRange.startExclusive) this else RangeCache(appendRange, maxItems, values)
+      if (range.startExclusive > appendRange.startExclusive) this
+      else RangeCache(appendRange, maxItems, values)
     }
   }
 

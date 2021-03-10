@@ -67,9 +67,8 @@ case class Range(startExclusive: Offset, endInclusive: Offset) {
     }
   }
 
-  /**
-   * checks if ranges are consecutive
-   */
+  /** checks if ranges are consecutive
+    */
   def areConsecutive(range: Range): Boolean =
     startExclusive == range.endInclusive || endInclusive == range.startExclusive
 }
