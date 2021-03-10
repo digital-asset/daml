@@ -251,8 +251,29 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[CreatedEvent],
   ): Doc = {
-    val submitters = evs.flatMap(ev => evParties(Kind.Created(ev))).toSet
-    val cids = ContractId.subst(evs.map(_.contractId))
+    encodeSubmitEvents(partyMap, cidMap, cidRefs, evs.map(Kind.Created(_)))
+  }
+
+  private[dump] def encodeSubmitEvents(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      evs: Seq[TreeEvent.Kind],
+  ): Doc = {
+    val submitters = evs.flatMap(ev => evParties(ev)).toSet
+    val cids = ContractId.subst(evs.flatMap {
+      case Kind.Created(value) => Some(value.contractId)
+      case Kind.Exercised(value) =>
+        value.exerciseResult match {
+          case Some(value) =>
+            value.sum match {
+              case Sum.ContractId(value) => Some(value)
+              case _ => None
+            }
+          case None => None
+        }
+      case Kind.Empty => None
+    })
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
@@ -269,8 +290,7 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val actions = Doc.stack(evs.map { ev =>
-      val cid = ContractId(ev.contractId)
+    val actions = Doc.stack(evs.zip(cids).map { case (ev, cid) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(cid)) {
           encodeCid(cidMap, cid) :+ " <- "
@@ -280,7 +300,7 @@ private[dump] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeCreatedEvent(partyMap, cidMap, ev)
+      bind + encodeEv(partyMap, cidMap, ev)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
