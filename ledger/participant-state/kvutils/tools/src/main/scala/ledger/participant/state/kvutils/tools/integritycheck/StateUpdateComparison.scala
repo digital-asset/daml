@@ -191,11 +191,10 @@ object ReadServiceStateUpdateComparison {
       case keep => keep
     }
     val filteredRoots = tx.roots.filter(filteredNodes.contains)
-    // FIXME(miklos): Ordering defined within TransactionVersion is not accessible here.
-    // val version = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-    //   acc max nodes(nodeId).version
-    // )
-    VersionedTransaction(TransactionVersion.maxVersion, filteredNodes, filteredRoots)
+    val version = filteredRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
+      TransactionVersion.Ordering.max(acc, nodes(nodeId).version)
+    )
+    VersionedTransaction(version, filteredNodes, filteredRoots)
   }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
