@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
@@ -55,7 +56,9 @@ da_scala_test(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         "//daml-lf/data",

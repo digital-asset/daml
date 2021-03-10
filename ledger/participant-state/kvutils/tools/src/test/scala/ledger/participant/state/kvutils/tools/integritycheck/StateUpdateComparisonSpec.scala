@@ -19,7 +19,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{BlindingInfo, NodeId}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, NodeId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
@@ -86,6 +86,19 @@ final class StateUpdateComparisonSpec
         .compareUpdates(left, right, NormalizationSettings(ignoreTransactionId = true))
         .map(_ => succeed)
     }
+
+    "ignore fetch and lookup by key nodes for TransactionAccepted updates" in {
+      val left = aTransactionAcceptedUpdate.copy(transaction =
+        buildATransaction(withFetchAndLookupByKeyNodes = true)
+      )
+      val right = aTransactionAcceptedUpdate.copy(transaction =
+        buildATransaction(withFetchAndLookupByKeyNodes = false)
+      )
+
+      ReadServiceStateUpdateComparison
+        .compareUpdates(left, right, NormalizationSettings(ignoreFetchAndLookupByKeyNodes = true))
+        .map(_ => succeed)
+    }
   }
 
   private lazy val aRecordTime = Time.Timestamp.now()
@@ -123,5 +136,50 @@ final class StateUpdateComparisonSpec
       recordTime = aRecordTime,
       divulgedContracts = List.empty,
       blindingInfo = None,
+    )
+  private lazy val aKeyMaintainer = "maintainer"
+  private lazy val aDummyValue = TransactionBuilder.record("field" -> "value")
+
+  def buildATransaction(withFetchAndLookupByKeyNodes: Boolean): CommittedTransaction = {
+    val builder = new TransactionBuilder()
+    val create1 = create("#someContractId")
+    val create2 = create("#otherContractId")
+    val fetch1 = builder.fetch(create1)
+    val lookup1 = builder.lookupByKey(create1, found = true)
+    val fetch2 = builder.fetch(create2)
+    val lookup2 = builder.lookupByKey(create2, found = true)
+    val exercise = builder.exercise(
+      contract = create1,
+      choice = "DummyChoice",
+      consuming = false,
+      actingParties = Set(aKeyMaintainer),
+      argument = aDummyValue,
+      byKey = false,
+    )
+    val exerciseNodeId = builder.add(exercise)
+    if (withFetchAndLookupByKeyNodes) {
+      builder.add(fetch1)
+      builder.add(lookup1)
+      builder.add(fetch2, exerciseNodeId)
+      builder.add(lookup2, exerciseNodeId)
+    }
+    builder.buildCommitted()
+  }
+
+  private def create(
+      contractId: String,
+      signatories: Seq[String] = Seq(aKeyMaintainer),
+      argument: TransactionBuilder.Value = aDummyValue,
+      keyAndMaintainer: Option[(String, String)] = Some("key" -> aKeyMaintainer),
+  ): TransactionBuilder.Create =
+    new TransactionBuilder().create(
+      id = contractId,
+      template = "dummyPackage:DummyModule:DummyTemplate",
+      argument = argument,
+      signatories = signatories,
+      observers = Seq.empty,
+      key = keyAndMaintainer.map { case (key, maintainer) =>
+        TransactionBuilder.record(maintainer -> key)
+      },
     )
 }

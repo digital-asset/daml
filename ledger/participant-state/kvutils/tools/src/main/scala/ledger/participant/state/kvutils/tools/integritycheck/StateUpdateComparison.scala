@@ -186,29 +186,11 @@ object ReadServiceStateUpdateComparison {
     }
     val filteredNodes = nodes.map {
       case (nid, node: Node.NodeExercises[Nid, Cid]) =>
-        // FIXME(miklos): Simple copy doesn't work because of a scalaz.Equals clash on the classpath.
-        // val filteredNode = node.copy(children = node.children.filter(nodes.contains))
-        val filteredNode = Node.NodeExercises(
-          targetCoid = node.targetCoid,
-          templateId = node.templateId,
-          choiceId = node.choiceId,
-          optLocation = node.optLocation,
-          consuming = node.consuming,
-          actingParties = node.actingParties,
-          chosenValue = node.chosenValue,
-          stakeholders = node.stakeholders,
-          signatories = node.signatories,
-          choiceObservers = node.choiceObservers,
-          children = node.children.filter(nodes.contains),
-          exerciseResult = node.exerciseResult,
-          key = node.key,
-          byKey = node.byKey,
-          version = node.version,
-        )
+        val filteredNode = node.copy(children = node.children.filter(nodes.contains))
         (nid, filteredNode)
       case keep => keep
     }
-    val filteredRoots = tx.roots.filter(nodes.contains)
+    val filteredRoots = tx.roots.filter(filteredNodes.contains)
     // FIXME(miklos): Ordering defined within TransactionVersion is not accessible here.
     // val version = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
     //   acc max nodes(nodeId).version
