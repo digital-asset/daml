@@ -23,6 +23,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       ImmArraySeq => IASeq
     }, Ref.Name.{assertFromString => rn}
     val a = rn("a")
+    val b = rn("b")
     val k = rn("k")
     val v = rn("v")
     Map(
@@ -42,6 +43,21 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           )
         ),
       ),
+      // prerequisite
+      "Tuple2" -> DT(IASeq(a, b), Record(IASeq(rn("_1") -> TVar(a), rn("_2") -> TVar(b)))),
+      // self recursion
+      "NonFancyList" -> DT(
+        IASeq(a),
+        Record(
+          IASeq(
+            rn("unwrap") -> iface.TypePrim(
+              iface.PrimType.Optional,
+              IASeq(reftc("Tuple2", TVar(a), reftc("NonFancyList", TVar(a)))),
+            )
+          )
+        ),
+      ),
+      // reductionist case of mutual recursion
       "MyList" -> DT(
         IASeq(a),
         Variant(
@@ -66,6 +82,8 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     Seq(
       "JustMap" -> Seq(Invariant, Covariant),
       "FlippedMap" -> Seq(Covariant, Invariant),
+      "Tuple2" -> Seq(Covariant, Covariant),
+      "NonFancyList" -> Seq(Covariant),
       "MyList" -> Seq(Covariant),
     )
 
