@@ -1,10 +1,6 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Copyright © 2021, `Digital Asset (Switzerland) GmbH
-<https://www.digitalasset.com/>`_ and/or its affiliates.  All rights
-reserved.
-
 Daml-LF experimental Builtin
 ============================
 
@@ -79,4 +75,5 @@ stable or preview archive that contains Experimental builtins.
 .. eval: (flyspell-mode 1)
 .. eval: (set-input-method "TeX")
 .. End:
+
 
