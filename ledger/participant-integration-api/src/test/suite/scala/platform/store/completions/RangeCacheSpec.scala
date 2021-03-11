@@ -5,7 +5,7 @@ package com.daml.platform.store.completions
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.platform.store.completions.OffsetsGenerator.genOffset
+import com.daml.platform.store.completions.RangeGenerator.genOffset
 import com.daml.ledger.participant.state.v1.Offset
 
 import scala.collection.SortedMap

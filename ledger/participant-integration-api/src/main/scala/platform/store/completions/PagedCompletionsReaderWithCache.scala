@@ -15,9 +15,9 @@ import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamRespo
 import scala.collection.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Completions reader implementation that caches maxItems of newest completions in memory.
+/** Paged completions reader implementation that caches maxItems of newest completions in memory.
   * Under concurrent access, requests that miss the cache will be fetching data from database sequentially -
-  * only one request at the time can be executed on database for completions newer than last cached offset.
+  * only one request at the time can be executed on database for completions newer than the last cached offset.
   * @param completionsDao DAO object responsible for fetching completions from datastore
   * @param maxItems maximum amount of completions stored in in-memory cache
   * @param executionContext context in which are run async operations
@@ -48,25 +48,26 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   )(implicit
       loggingContext: LoggingContext
   ): Future[Seq[(Offset, CompletionStreamResponse)]] = {
-    val inMemCache = cacheRef.get()
+    val cache = cacheRef.get()
     val historicCompletionsFuture =
-      calculateHistoricRangeToFetch(inMemCache.range, requestedRange)
-        .map(fetchHistoric(_, applicationId, parties))
+      requestedRange
+        .lesserRangeDifference(cache.range) // calculate historic range to fetch
+        .map(historicRange => fetchHistoric(historicRange, applicationId, parties))
         .getOrElse(futureEmptyList)
 
-    val futureCompletionsFuture =
-      calculateFutureRangeToFetch(inMemCache.range, requestedRange)
-        .map(fetchFuture(_, applicationId, parties))
-        .getOrElse(futureEmptyList)
+    val futureCompletionsFuture = requestedRange
+      .greaterRangeDifference(cache.range) // calculate future range to fetch
+      .map(futureRange => fetchFuture(futureRange, applicationId, parties))
+      .getOrElse(futureEmptyList)
 
-    val filteredCache = inMemCache
+    val cachedCompletions = cache
       .slice(requestedRange)
-      .map(cache => filterAndMapToResponse(cache.cache.toSeq, applicationId, parties))
+      .map(slicedCache => filterAndMapToResponse(slicedCache.cache.toSeq, applicationId, parties))
       .getOrElse(Seq.empty)
     for {
       historicCompletions <- historicCompletionsFuture
       futureCompletions <- futureCompletionsFuture
-    } yield historicCompletions ++ filteredCache ++ futureCompletions
+    } yield historicCompletions ++ cachedCompletions ++ futureCompletions
   }
 
   /** fetches completions older than start offset of cache
@@ -79,11 +80,6 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
       loggingContext: LoggingContext
   ): Future[Seq[(Offset, CompletionStreamResponse)]] =
     completionsDao.getFilteredCompletions(range, applicationId, parties)
-
-  private def calculateHistoricRangeToFetch(
-      cachedRange: Range,
-      requestedRange: Range,
-  ): Option[Range] = requestedRange.lesserRangeDifference(cachedRange)
 
   /** fetches completions ahead cache and caches results
     */
@@ -129,24 +125,13 @@ class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: 
   ): Future[List[(Offset, CompletionStreamResponseWithParties)]] = {
     val allCompletionsFuture =
       completionsDao.getAllCompletions(requestedRange)
-    val updateCacheRequest = allCompletionsFuture.map { fetchedCompletions =>
-      cacheRef.updateAndGet { cache =>
-        if (requestedRange.startExclusive > cache.range.endInclusive) {
-          RangeCache(requestedRange, maxItems, SortedMap(fetchedCompletions: _*))
-        } else {
-          cache.append(requestedRange, SortedMap(fetchedCompletions: _*))
-        }
-      }
+    val updatedCacheRequest = allCompletionsFuture.map { fetchedCompletions =>
+      cacheRef.updateAndGet(_.append(requestedRange, SortedMap(fetchedCompletions: _*)))
       ()
     }
-    pendingRequestRef.set(updateCacheRequest)
-    updateCacheRequest.flatMap(_ => allCompletionsFuture)
+    pendingRequestRef.set(updatedCacheRequest)
+    updatedCacheRequest.flatMap(_ => allCompletionsFuture)
   }
-
-  private def calculateFutureRangeToFetch(
-      cachedRange: Range,
-      requestedRange: Range,
-  ): Option[Range] = requestedRange.greaterRangeDifference(cachedRange)
 
   private val futureEmptyList = Future.successful(Nil)
 }

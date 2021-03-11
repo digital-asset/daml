@@ -13,8 +13,8 @@ import scala.concurrent.Future
 
 trait PagedCompletionsReader {
 
-  /** Returns completions stream filtered based on parameters.
-    * Newest completions read from database are added to cache
+  /** Fetches all completions within the given boundaries that match the given application id
+    * and are visible to at least one of the given parties.
     */
   def getCompletionsPage(
       range: Range,

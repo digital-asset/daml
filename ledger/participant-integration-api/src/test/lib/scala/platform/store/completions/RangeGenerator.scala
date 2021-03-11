@@ -5,6 +5,9 @@ package com.daml.platform.store.completions
 
 import com.daml.ledger.participant.state.v1.Offset
 
-object OffsetsGenerator {
+object RangeGenerator {
   def genOffset(value: Int): Offset = Offset.fromByteArray(Seq(value.toByte).toArray)
+
+  def genRange(startExclusive: Int, endInclusive: Int): Range =
+    Range(genOffset(startExclusive), genOffset(endInclusive))
 }

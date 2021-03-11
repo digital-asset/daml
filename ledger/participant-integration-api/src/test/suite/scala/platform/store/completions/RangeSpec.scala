@@ -5,7 +5,7 @@ package com.daml.platform.store.completions
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.platform.store.completions.OffsetsGenerator.genOffset
+import com.daml.platform.store.completions.RangeGenerator.genOffset
 
 class RangeSpec extends AnyFlatSpec with Matchers {
 

@@ -16,7 +16,7 @@ import scala.concurrent.Future
   */
 trait CompletionsDao {
 
-  /**  Fetches all completions within the given boundaries that match the given application id
+  /** Fetches all completions within the given boundaries that match the given application id
     * and are visible to at least one of the given parties.
     */
   def getFilteredCompletions(
