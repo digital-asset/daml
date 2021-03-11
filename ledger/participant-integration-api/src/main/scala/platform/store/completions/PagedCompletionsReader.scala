@@ -15,16 +15,9 @@ trait PagedCompletionsReader {
 
   /** Returns completions stream filtered based on parameters.
     * Newest completions read from database are added to cache
-    * @param startExclusive
-    * @param endInclusive
-    * @param applicationId
-    * @param parties
-    * @param loggingContext
-    * @return
     */
   def getCompletionsPage(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: Range,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
   )(implicit

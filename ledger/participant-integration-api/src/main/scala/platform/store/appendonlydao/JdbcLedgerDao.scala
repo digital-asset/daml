@@ -626,15 +626,8 @@ private class JdbcLedgerDao(
     new PagedCompletionsReader {
       /** Returns completions stream filtered based on parameters.
        * Newest completions read from database are added to cache
-       *
-       * @param startExclusive
-       * @param endInclusive
-       * @param applicationId
-       * @param parties
-       * @param loggingContext
-       * @return
        */
-      override def getCompletionsPage(startExclusive: Offset, endInclusive: Offset, applicationId: ApplicationId, parties: Set[Party])(implicit loggingContext: LoggingContext): Future[Seq[(Offset, CompletionStreamResponse)]] = ???
+      override def getCompletionsPage(range: com.daml.platform.store.completions.Range, applicationId: ApplicationId, parties: Set[Party])(implicit loggingContext: LoggingContext): Future[Seq[(Offset, CompletionStreamResponse)]] = ???
     }
 
   private val postCommitValidation =

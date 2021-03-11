@@ -25,14 +25,13 @@ class JdbcCompletionsDao(
   private val sqlFunctions = SqlFunctions(dbType)
 
   override def getFilteredCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: Range,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[List[(Offset, CompletionStreamResponse)]] = {
     val query = CommandCompletionsTable.prepareGet(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
+      startExclusive = range.startExclusive,
+      endInclusive = range.endInclusive,
       applicationId = applicationId,
       parties = parties,
       sqlFunctions = sqlFunctions,
@@ -41,9 +40,9 @@ class JdbcCompletionsDao(
       .executeSql(metrics.daml.index.db.getCompletions) { implicit connection =>
         QueryNonPruned.executeSql[List[CompletionStreamResponse]](
           query.as(CommandCompletionsTable.parser.*),
-          startExclusive,
+          range.startExclusive,
           pruned =>
-            s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
+            s"Command completions request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
         )
       }
       .flatMap(eitherToFuture)(executionContext)
@@ -53,21 +52,21 @@ class JdbcCompletionsDao(
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
-  override def getAllCompletions(startExclusive: Offset, endInclusive: Offset)(implicit
+  override def getAllCompletions(range: Range)(implicit
       loggingContext: LoggingContext
   ): Future[List[(Offset, CommandCompletionsTable.CompletionStreamResponseWithParties)]] = {
     val query = CommandCompletionsTable.getStmtForAllParties(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
+      startExclusive = range.startExclusive,
+      endInclusive = range.endInclusive,
     )
     dispatcher
       .executeSql(metrics.daml.index.db.getCompletionsForAllParties) { implicit connection =>
         QueryNonPruned
           .executeSql[List[CommandCompletionsTable.CompletionStreamResponseWithParties]](
             query.as(CommandCompletionsTable.parserWithParties.*),
-            startExclusive,
+            range.startExclusive,
             pruned =>
-              s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
+              s"Command completions request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
           )
       }
       .flatMap(eitherToFuture)(executionContext)
