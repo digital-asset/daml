@@ -20,20 +20,16 @@ trait CompletionsDao {
     * and are visible to at least one of the given parties.
     */
   def getFilteredCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: Range,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
   ): Future[List[(Offset, CompletionStreamResponse)]]
 
-  /** Fetches all completions within the given boundaries.
+  /** Fetches all completions within the given range.
     */
-  def getAllCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  )(implicit
+  def getAllCompletions(range: Range)(implicit
       loggingContext: LoggingContext
   ): Future[List[(Offset, CompletionStreamResponseWithParties)]]
 }

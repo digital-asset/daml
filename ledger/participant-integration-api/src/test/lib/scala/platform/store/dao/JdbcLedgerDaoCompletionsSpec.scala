@@ -12,10 +12,11 @@ import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterI
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.CompletionFromTransaction
-import org.scalatest.{LoneElement, OptionValues}
+import com.daml.platform.store.completions.Range
+import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
+import org.scalatest.{LoneElement, OptionValues}
 
 import scala.concurrent.Future
 
@@ -30,7 +31,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       (offset, tx) <- store(singleCreate)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCompletionsPage(from, to, tx.applicationId.get, tx.actAs.toSet)
+        .getCompletionsPage(Range(from, to), tx.applicationId.get, tx.actAs.toSet)
         .map(_.head)
     } yield {
       offsetOf(response) shouldBe offset
@@ -50,15 +51,15 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
-        .getCompletionsPage(from, to, tx.applicationId.get, tx.actAs.toSet)
+        .getCompletionsPage(Range(from, to), tx.applicationId.get, tx.actAs.toSet)
         .map(_.head)
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
-        .getCompletionsPage(from, to, tx.applicationId.get, Set(tx.actAs.head))
+        .getCompletionsPage(Range(from, to), tx.applicationId.get, Set(tx.actAs.head))
         .map(_.head)
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
-        .getCompletionsPage(from, to, tx.applicationId.get, tx.actAs.toSet + "UNRELATED")
+        .getCompletionsPage(Range(from, to), tx.applicationId.get, tx.actAs.toSet + "UNRELATED")
         .map(_.head)
     } yield {
       response1.completions.loneElement.commandId shouldBe tx.commandId.get
@@ -74,7 +75,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       offset <- storeRejection(RejectionReason.Inconsistent(""), expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, parties)
+        .getCompletionsPage(Range(from, to), applicationId, parties)
         .map(_.head)
     } yield {
       offsetOf(response) shouldBe offset
@@ -95,15 +96,15 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, parties)
+        .getCompletionsPage(Range(from, to), applicationId, parties)
         .map(_.head)
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, Set(parties.head))
+        .getCompletionsPage(Range(from, to), applicationId, Set(parties.head))
         .map(_.head)
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, parties + "UNRELATED")
+        .getCompletionsPage(Range(from, to), applicationId, parties + "UNRELATED")
         .map(_.head)
     } yield {
       response1.completions.loneElement.commandId shouldBe expectedCmdId
@@ -118,7 +119,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId = "WRONG", parties)
+        .getCompletionsPage(Range(from, to), applicationId = "WRONG", parties)
     } yield {
       response shouldBe Seq.empty
     }
@@ -130,9 +131,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, Set("WRONG"))
+        .getCompletionsPage(Range(from, to), applicationId, Set("WRONG"))
       response2 <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
+        .getCompletionsPage(Range(from, to), applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
@@ -145,9 +146,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeMultiPartyRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, Set("WRONG"))
+        .getCompletionsPage(Range(from, to), applicationId, Set("WRONG"))
       response2 <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
+        .getCompletionsPage(Range(from, to), applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
@@ -170,7 +171,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- seq(reasons.map(reason => prepareStoreRejection(reason)))
       to <- ledgerDao.lookupLedgerEnd()
       responses <- ledgerDao.completions
-        .getCompletionsPage(from, to, applicationId, parties)
+        .getCompletionsPage(Range(from, to), applicationId, parties)
         .map(_.map(_._2))
     } yield {
       responses should have length reasons.length.toLong

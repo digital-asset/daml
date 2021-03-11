@@ -17,12 +17,13 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction._
-import com.daml.lf.value.{Value => LfValue}
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.completions.Range
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -795,7 +796,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       parties: Set[Party],
   ): Future[Seq[(String, Int)]] =
     ledgerDao.completions
-      .getCompletionsPage(startExclusive, endInclusive, applicationId, parties)
+      .getCompletionsPage(Range(startExclusive, endInclusive), applicationId, parties)
       .map(_.map { case (_, response) =>
         response.completions.head.commandId -> response.completions.head.status.get.code
       })

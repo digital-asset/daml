@@ -34,6 +34,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.platform.store.completions.Range
 import com.daml.platform.store.dao.LedgerReadDao
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
@@ -96,7 +97,7 @@ private[platform] abstract class BaseLedger(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource((from, to) =>
         futureSeqToSource(
-          ledgerDao.completions.getCompletionsPage(from, to, applicationId.unwrap, parties)
+          ledgerDao.completions.getCompletionsPage(Range(from, to), applicationId.unwrap, parties)
         )
       ),
       endInclusive,
