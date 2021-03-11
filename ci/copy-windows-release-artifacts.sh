@@ -8,15 +8,20 @@ OUTPUT_DIR=$2
 
 mkdir -p $OUTPUT_DIR/github
 INSTALLER=daml-sdk-$RELEASE_TAG-windows.exe
-mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$OUTPUT_DIR/github/$INSTALLER"
+mv "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$OUTPUT_DIR/github/$INSTALLER"
+mv "bazel-bin/release/windows-installer/daml-sdk-installer-ee.exe" "$OUTPUT_DIR/artifactory/$INSTALLER"
 chmod +wx "$OUTPUT_DIR/github/$INSTALLER"
+chmod +wx "$OUTPUT_DIR/artifactory/$INSTALLER"
 cleanup () {
     rm -f signing_key.pfx
 }
 trap cleanup EXIT
 echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
-MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
+for path in "$OUTPUT_DIR/github/$INSTALLER" "$OUTPUT_DIR/artifactory/$INSTALLER"; do
+    MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$path"
+done
 rm signing_key.pfx
 trap - EXIT
 TARBALL=daml-sdk-$RELEASE_TAG-windows.tar.gz
-cp bazel-bin/release/sdk-release-tarball.tar.gz "$OUTPUT_DIR/github/$TARBALL"
+cp bazel-bin/release/sdk-release-tarball-ce.tar.gz "$OUTPUT_DIR/github/$TARBALL"
+cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/artifactory/$TARBALL"

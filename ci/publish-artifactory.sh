@@ -8,7 +8,7 @@ RELEASE_TAG=$2
 
 # We’ve already published to GH so focus on artifactory
 
-INPUTS=$STAGING_DIR/release-artifacts/other
+INPUTS=$STAGING_DIR/release-artifacts/artifactory
 
 push() {
     local file repository local_path md5 sha1
@@ -33,3 +33,12 @@ push daml-trigger-runner $TRIGGER_RUNNER
 push daml-trigger-runner $TRIGGER_RUNNER.asc
 push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
+
+for platform in linux macos windows; do
+    EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform.tar.gz
+    push sdk-ee $EE_TARBALL
+    push sdk-ee $EE_TARBALL.asc
+done
+EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows.exe
+push sdk-ee $EE_INSTALLER
+push sdk-ee $EE_INSTALLER.asc

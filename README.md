@@ -86,7 +86,7 @@ On Windows:
 
 ```
 bazel build //release:sdk-release-tarball
-tar -vxf .\bazel-bin\release\sdk-release-tarball.tar.gz
+tar -vxf .\bazel-bin\release\sdk-release-tarball-ce.tar.gz
 cd sdk-*
 daml\daml.exe install . --activate
 ```

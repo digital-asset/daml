@@ -27,7 +27,7 @@ withSdkResource f =
     withTempDirResource $ \getDir ->
     withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
   where installSdk targetDir = do
-            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
             oldPath <- getSearchPath
             withTempDir $ \cacheDir -> do
             withTempDir $ \extractDir -> do
