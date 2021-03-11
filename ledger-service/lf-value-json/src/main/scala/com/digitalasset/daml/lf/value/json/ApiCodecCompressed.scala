@@ -44,6 +44,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
     case v: V.ValueVariant[Cid] => apiVariantToJsValue(v)
     case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: V.ValueList[Cid] => apiListToJsValue(v)
+    case v: V.ValueBuiltinException[Cid] => apiBuiltinExceptionToJsValue(v)
     case V.ValueText(v) => JsString(v)
     case V.ValueInt64(v) => if (encodeInt64AsString) JsString((v: Long).toString) else JsNumber(v)
     case V.ValueNumeric(v) =>
@@ -72,6 +73,9 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
 
   private[this] def apiListToJsValue(value: V.ValueList[Cid]): JsValue =
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
+
+  private[this] def apiBuiltinExceptionToJsValue(value: V.ValueBuiltinException[Cid]): JsValue =
+    JsonVariant(value.tag, apiValueToJsValue(value.value))
 
   private[this] def apiVariantToJsValue(value: V.ValueVariant[Cid]): JsValue =
     JsonVariant(value.variant, apiValueToJsValue(value.value))

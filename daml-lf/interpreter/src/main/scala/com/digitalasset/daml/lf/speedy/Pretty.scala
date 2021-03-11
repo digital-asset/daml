@@ -396,6 +396,8 @@ private[lf] object Pretty {
               text("")
         }) +
           text(constructor)
+      case ValueBuiltinException(tag, value) =>
+        text(tag) + char('(') + prettyValue(true)(value) + char(')')
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")

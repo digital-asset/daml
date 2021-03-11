@@ -79,6 +79,13 @@ object KeyHasher extends KeyHasher {
         val z1 = op(z, HashTokenCollectionBegin(0))
         op(z1, HashTokenCollectionEnd())
 
+      // Variant: [CollectionBegin(), Text(tag), Token(value), CollectionEnd()]
+      case ValueBuiltinException(tag, v) =>
+        val z1 = op(z, HashTokenCollectionBegin(1))
+        val z2 = op(z1, HashTokenText(tag))
+        val z3 = foldLeft(v, z2, op)
+        op(z3, HashTokenCollectionEnd())
+
       // Variant: [CollectionBegin(), Text(variant), Token(value), CollectionEnd()]
       case ValueVariant(_, variant, v) =>
         val z1 = op(z, HashTokenCollectionBegin(1))

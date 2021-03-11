@@ -76,6 +76,18 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
               go(exceededNesting, errs, values.toImmArray.map(v => (v, newNesting)) ++: vs)
             }
 
+          case ValueBuiltinException(_, value) =>
+            if (newNesting > MAXIMUM_NESTING) {
+              if (exceededNesting) {
+                // we already exceeded the nesting, do not output again
+                go(exceededNesting, errs, vs)
+              } else {
+                go(true, errs :+ exceedsNestingErr, vs)
+              }
+            } else {
+              go(exceededNesting, errs, (value, newNesting) +: vs)
+            }
+
           case ValueVariant(_, _, value) =>
             if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
@@ -158,6 +170,8 @@ object Value extends CidContainer1[Value] {
               (lbl, go(value))
             }),
           )
+        case ValueBuiltinException(tag, value) =>
+          ValueBuiltinException(tag, go(value))
         case ValueVariant(id, variant, value) =>
           ValueVariant(id, variant, go(value))
         case x: ValueCidlessLeaf => x
@@ -180,6 +194,8 @@ object Value extends CidContainer1[Value] {
           f(coid)
         case ValueRecord(id @ _, fs) =>
           fs.foreach { case (_, value) => go(value) }
+        case ValueBuiltinException(tag @ _, value) =>
+          go(value)
         case ValueVariant(id @ _, variant @ _, value) =>
           go(value)
         case _: ValueCidlessLeaf =>
@@ -249,6 +265,7 @@ object Value extends CidContainer1[Value] {
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value[Cid])],
   ) extends Value[Cid]
+  final case class ValueBuiltinException[+Cid](tag: String, value: Value[Cid]) extends Value[Cid]
   final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
   final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf
@@ -274,6 +291,7 @@ object Value extends CidContainer1[Value] {
       if (value) ValueTrue else ValueFalse
   }
   case object ValueUnit extends ValueCidlessLeaf
+
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
   final case class ValueTextMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
   final case class ValueGenMap[+Cid](entries: ImmArray[(Value[Cid], Value[Cid])])
@@ -499,6 +517,13 @@ private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVarian
         },
       )
     case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
+    case ValueBuiltinException(tagA, a) =>
+      (
+        150,
+        k { case ValueBuiltinException(tagB, b) =>
+          tagA ?|? tagB |+| a ?|? b
+        },
+      )
     case ValueVariant(idA, conA, a) =>
       (
         160,
@@ -555,6 +580,10 @@ private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]]
       case r: ValueRecord[Cid] => { case ValueRecord(tycon2, fields2) =>
         import r._
         tycon == tycon2 && fields === fields2
+      }
+      case v: ValueBuiltinException[Cid] => { case ValueBuiltinException(tag2, value2) =>
+        import v._
+        tag == tag2 && value === value2
       }
       case v: ValueVariant[Cid] => { case ValueVariant(tycon2, variant2, value2) =>
         import v._

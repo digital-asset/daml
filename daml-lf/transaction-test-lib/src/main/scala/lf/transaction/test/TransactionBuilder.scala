@@ -274,6 +274,8 @@ object TransactionBuilder {
               case ValueEnum(_, _) =>
                 go(currentVersion, values)
               // for things added after version 10, we raise the minimum if present
+              case ValueBuiltinException(_, arg) =>
+                go(currentVersion max TransactionVersion.minExceptions, arg +: values)
               case ValueGenMap(entries) =>
                 val newValues = entries.iterator.foldLeft(values) { case (acc, (key, value)) =>
                   key +: value +: acc

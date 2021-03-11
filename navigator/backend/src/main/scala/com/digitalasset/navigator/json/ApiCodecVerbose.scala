@@ -50,6 +50,7 @@ object ApiCodecVerbose {
   def apiValueToJsValue(value: Model.ApiValue): JsValue = value match {
     case v: Model.ApiRecord => apiRecordToJsValue(v)
     case v: Model.ApiVariant => apiVariantToJsValue(v)
+    case v: Model.ApiBuiltinException => apiBuiltinExceptionToJsValue(v)
     case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
     case V.ValueText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))
@@ -94,6 +95,13 @@ object ApiCodecVerbose {
       propValue -> JsArray(value.entries.toSeq.toVector.map { case (k, v) =>
         JsObject("key" -> apiValueToJsValue(k), "value" -> apiValueToJsValue(v))
       }),
+    )
+
+  def apiBuiltinExceptionToJsValue(value: Model.ApiBuiltinException): JsValue =
+    JsObject(
+      propType -> JsString(tagVariant), //NICK need tagBuiltinException
+      propConstructor -> JsString(value.tag),
+      propValue -> apiValueToJsValue(value.value),
     )
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =

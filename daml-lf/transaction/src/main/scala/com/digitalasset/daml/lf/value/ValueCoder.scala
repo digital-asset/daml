@@ -432,6 +432,10 @@ object ValueCoder {
               id.foreach(i => recordBuilder.setRecordId(encodeIdentifier(i)))
             builder.setRecord(recordBuilder).build()
 
+          case ValueBuiltinException(_, _) =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            throw Err(s"Exceptions not supported")
+
           case ValueVariant(id, con, arg) =>
             val protoVar = proto.Variant.newBuilder()
             protoVar.setConstructor(con)

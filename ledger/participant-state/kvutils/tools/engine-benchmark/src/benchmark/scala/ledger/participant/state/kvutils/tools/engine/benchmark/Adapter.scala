@@ -80,6 +80,8 @@ private[benchmark] final class Adapter(
         Value.ValueRecord(tycon.map(adapt), fields.map { case (f, v) => f -> adapt(v) })
       case Value.ValueVariant(tycon, variant, value) =>
         Value.ValueVariant(tycon.map(adapt), variant, adapt(value))
+      case Value.ValueBuiltinException(tag, value) =>
+        Value.ValueBuiltinException(tag, adapt(value))
       case Value.ValueList(values) =>
         Value.ValueList(values.map(adapt))
       case Value.ValueOptional(value) =>

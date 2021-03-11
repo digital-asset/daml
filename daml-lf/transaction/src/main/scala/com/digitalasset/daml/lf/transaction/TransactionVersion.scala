@@ -47,6 +47,7 @@ object TransactionVersion {
   private[lf] val minNodeVersion = V11
   private[lf] val minNoVersionValue = V12
   private[lf] val minTypeErasure = V12
+  private[lf] val minExceptions = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._

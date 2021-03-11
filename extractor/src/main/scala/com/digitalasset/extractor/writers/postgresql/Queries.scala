@@ -286,6 +286,8 @@ object Queries {
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ V.ValueRecord(_, _) =>
           fr0"${toJsonString(r)}::jsonb"
+        case v @ V.ValueBuiltinException(_, _) =>
+          fr0"${toJsonString(v)}::jsonb"
         case v @ V.ValueVariant(_, _, _) =>
           fr0"${toJsonString(v)}::jsonb"
         case V.ValueEnum(_, constructor) =>

@@ -136,6 +136,20 @@ object LfEngineToApi {
         vs.toImmArray.toSeq.traverseEitherStrictly(lfValueToApiValue(verbose, _)) map { xs =>
           api.Value(api.Value.Sum.List(api.List(xs)))
         }
+      case Lf.ValueBuiltinException(tag, v) =>
+        lfValueToApiValue(verbose, v) map { x =>
+          api.Value(
+            //NICK: need api.Value.Sum.BuiltinException. hack for now with List/Text
+            api.Value.Sum.List(
+              api.List(
+                List(
+                  api.Value(api.Value.Sum.Text(tag)),
+                  x,
+                )
+              )
+            )
+          )
+        }
       case Lf.ValueVariant(tycon, variant, v) =>
         lfValueToApiValue(verbose, v) map { x =>
           api.Value(
@@ -143,7 +157,7 @@ object LfEngineToApi {
               api.Variant(
                 tycon.filter(_ => verbose).map(toApiIdentifier),
                 variant,
-                Some(x),
+                Some(x), // NICK, why does api.Variant have an optional value here?
               )
             )
           )

@@ -1402,16 +1402,8 @@ private[lf] object SBuiltin {
                 unwindToHandler(machine, payload) //re-throw
               case Some(handler) =>
                 payload match {
-                  case SAnyException(typ, _, sv) =>
-                    // TODO https://github.com/digital-asset/daml/issues/8020
-                    // Must convert speedy value to LF value, but currently this crashes on SBuiltinException
-                    // so make a hack workaround:
-                    val value =
-                      sv match {
-                        case _: SBuiltinException => V.ValueInt64(999)
-                        case _ => sv.toValue
-                      }
-                    onLedger.ptx = onLedger.ptx.rollbackTry(typ, value)
+                  case SAnyException(typ, _, value) =>
+                    onLedger.ptx = onLedger.ptx.rollbackTry(typ, value.toValue)
                   case _ =>
                     crash(s"SBTryHandler, expected payload to be SAnyException: $payload")
                 }
