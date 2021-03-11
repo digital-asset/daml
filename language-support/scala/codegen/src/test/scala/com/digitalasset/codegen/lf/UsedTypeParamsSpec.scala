@@ -31,7 +31,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(k, v),
         Record(
           IASeq(
-            (rn("unwrap"), iface.TypePrim(iface.PrimType.GenMap, IASeq(k, v) map TVar))
+            rn("unwrap") -> iface.TypePrim(iface.PrimType.GenMap, IASeq(k, v) map TVar)
           )
         ),
       ),
@@ -39,7 +39,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(v, k),
         Record(
           IASeq(
-            (rn("unwrap"), reftc("JustMap", TVar(k), TVar(v)))
+            rn("unwrap") -> reftc("JustMap", TVar(k), TVar(v))
           )
         ),
       ),
@@ -62,14 +62,14 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(a),
         Variant(
           IASeq(
-            (rn("Cons"), reftc("MyList_Cons", TVar(a))),
-            (rn("Nil"), reftc("MyList_Nil", TVar(a))),
+            rn("Cons") -> reftc("MyList_Cons", TVar(a)),
+            rn("Nil") -> reftc("MyList_Nil", TVar(a)),
           )
         ),
       ),
       "MyList_Cons" -> DT(
         IASeq(a),
-        Record(IASeq((rn("head"), TVar(a)), (rn("tail"), reftc("MyList", TVar(a))))),
+        Record(IASeq(rn("head") -> TVar(a), rn("tail") -> reftc("MyList", TVar(a)))),
       ),
       "MyList_Nil" -> DT(
         IASeq(a),
