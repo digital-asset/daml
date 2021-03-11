@@ -137,9 +137,9 @@ function cleanup() {
 trap cleanup EXIT
 
 # Building here separately so the user can see the build process which could take a while
-bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:sdk-release-tarball.tar.gz
+bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:sdk-release-tarball-ce.tar.gz
 
-readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/sdk-release-tarball.tar.gz"
+readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/sdk-release-tarball-ce.tar.gz"
 readonly SDK_TEMP_DIR="$(mktemp -d)"
 readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
 mkdir -p "$SDK_DIR"

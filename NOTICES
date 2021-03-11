@@ -44,7 +44,7 @@ Components:
 @wry/context 0.5.2 : MIT License
 @wry/equality 0.3.0 : MIT License
 ASM 5.0.4 : BSD 3-clause "New" or "Revised" License
-Acorn 7.3.1 : MIT License
+Acorn 7.4.1 : MIT License
 Animal Sniffer Annotations 1.19 : MIT License
 Apache Commons Codec 1.14 : Apache License 2.0
 Apache Commons Exec 1.3 : Apache License 2.0
@@ -149,8 +149,8 @@ Jodd Lagarto 5.0.13 : BSD 2-clause "Simplified" License
 Jodd Log 5.0.13 : BSD 2-clause "Simplified" License
 Liftoff 2.5.0 : MIT License
 Lodash 4.17.15 : MIT License
-Lodash 4.17.19 : MIT License
 Lodash 4.17.20 : MIT License
+Lodash 4.17.21 : MIT License
 Logback 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
 Logback Classic Module 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
 Metrics Core 4.1.2 : Apache License 2.0
@@ -208,7 +208,7 @@ TypeScript 3.7.4 : Apache License 2.0
 TypedArray 0.0.6 : MIT License
 UglifyJS 3.4.10 : BSD 2-clause "Simplified" License
 Visionmedia Debug 2.6.9 : MIT License
-Visionmedia Debug 3.2.6 : MIT License
+Visionmedia Debug 3.2.7 : MIT License
 Visionmedia Debug 4.3.1 : MIT License
 Watchify 3.11.1 : MIT License
 XZ for Java 1.8 : Public Domain
@@ -218,7 +218,7 @@ Zipkin 1.31.3 : Apache License 2.0
 Zipkin Reporter: Core 1.0.4 : Apache License 2.0
 abbrev 1.1.1 : ISC License
 acorn-node 1.8.2 : Apache License 2.0
-acorn-walk 7.1.1 : MIT License
+acorn-walk 7.2.0 : MIT License
 aeson 1.0.2.0 : BSD 3-clause "New" or "Revised" License
 aeson 1.5.5.1 : BSD 3-clause "New" or "Revised" License
 aeson-compat 0.3.9 : BSD 3-clause "New" or "Revised" License
@@ -258,7 +258,7 @@ array.prototype.flat 1.2.4 : MIT License
 asn1-encoding 0.9.6 : BSD 3-clause "New" or "Revised" License
 asn1-parse 0.9.5 : BSD 3-clause "New" or "Revised" License
 asn1-types 0.3.4 : BSD 3-clause "New" or "Revised" License
-asn1.js-rfc2560 4.10.1 : MIT License
+asn1.js-rfc2560 v5.4.1 : MIT License
 assign-symbols 1.0.0 : MIT License
 assoc 1.0.2 : BSD 3-clause "New" or "Revised" License
 async-each 1.0.3 : MIT License
@@ -277,7 +277,7 @@ base-compat-batteries 0.11.2 : MIT License
 base-orphans 0.8.4 : MIT License
 base16-bytestring 0.1.1.7 : BSD 3-clause "New" or "Revised" License
 base64-bytestring 1.1.0.0 : BSD 3-clause "New" or "Revised" License
-base64-js v1.3.1 : MIT License
+base64-js 1.5.1 : MIT License
 basvandijk/case-insensitive 1.2.1.0 : BSD 3-clause "New" or "Revised" License
 basvandijk/lifted-base 0.2.3.12 : BSD 3-clause "New" or "Revised" License
 bifunctors 5.5.9 : BSD 3-clause "New" or "Revised" License
@@ -285,8 +285,8 @@ binary-extensions 1.13.1 : MIT License
 blaze-builder 0.4.1.0 : BSD 3-clause "New" or "Revised" License
 blaze-html 0.9.1.2 : BSD 3-clause "New" or "Revised" License
 blaze-markup 0.8.2.7 : BSD 3-clause "New" or "Revised" License
-bn.js v4.11.9 : MIT License
-bn.js v5.1.2 : MIT License
+bn.js v4.12.0 : MIT License
+bn.js v5.2.0 : MIT License
 body v5.1.0 : MIT License
 body-parser 1.19.0 : MIT License
 boolbase 1.0.0 : ISC License
@@ -301,11 +301,11 @@ browserify-aes 1.2.0 : MIT License
 browserify-cache-api 3.0.1 : MIT License
 browserify-cipher 1.0.1 : MIT License
 browserify-incremental 3.1.1 : MIT License
-browserify-rsa 4.0.1 : MIT License
-browserify-sign 4.2.0 : ISC License
+browserify-rsa 4.1.0 : MIT License
+browserify-sign 4.2.1 : ISC License
 browserify-zlib 0.2.0 : MIT License
 browserify/resolve 1.1.7 : MIT License
-browserify/resolve v1.17.0 : MIT License
+browserify/resolve v1.20.0 : MIT License
 buffer-from 1.1.1 : MIT License
 buffer-xor 1.0.3 : MIT License
 builtin-status-codes 3.0.0 : MIT License
@@ -371,7 +371,7 @@ corsis/clock 0.8 : BSD 3-clause "New" or "Revised" License
 cpphs 1.20.9.1 : GNU Lesser General Public License v3.0 or later
 create-hash 1.2.0 : MIT License
 create-hmac 1.1.7 : MIT License
-createecdh 4.0.3 : MIT License
+createecdh 4.0.4 : MIT License
 crypto-browserify 3.12.0 : MIT License
 crypto-browserify/pbkdf2 v3.1.1 : MIT License
 crypto-utils/random-bytes 1.0.0 : MIT License
@@ -424,7 +424,7 @@ doobie-core 0.9.2 : MIT License
 doobie-free 0.9.2 : MIT License
 doobie-hikari 0.9.2 : MIT License
 doobie-postgres 0.9.2 : MIT License
-duplexer 0.1.1 : MIT License
+duplexer v0.1.2 : MIT License
 duplexer2.jbenet 0.1.4 : BSD 3-clause "New" or "Revised" License
 duplexify 3.7.1 : MIT License
 easy-file 0.2.2 : BSD 3-clause "New" or "Revised" License
@@ -436,7 +436,7 @@ ekmett/exceptions 0.10.4 : BSD 3-clause "New" or "Revised" License
 ekmett/free 5.1.5 : BSD 3-clause "New" or "Revised" License
 ekmett/profunctors 5.5.2 : BSD 3-clause "New" or "Revised" License
 ekmett/void v0.7.3 : BSD 3-clause "New" or "Revised" License
-elliptic v6.5.3 : MIT License
+elliptic v6.5.4 : MIT License
 emitter-component 1.3.0 : MIT License
 emoji-regex v8.0.0 : MIT License
 encodeurl 1.0.2 : MIT License
@@ -455,7 +455,7 @@ esutils 2.0.3 : BSD 2-clause "Simplified" License
 etag 1.8.1 : MIT License
 eventemitter2 0.4.14 : MIT License
 eventemitter3 3.1.2 : MIT License
-eventemitter3 4.0.4 : MIT License
+eventemitter3 4.0.7 : MIT License
 evp_bytestokey 1.0.3 : MIT License
 expand-brackets 2.1.4 : MIT License
 expand-tilde 2.0.2 : MIT License
@@ -487,7 +487,7 @@ flagged-respawn 1.0.1 : MIT License
 floatdrop/pinkie 2.0.4 : MIT License
 flyway-core 6.5.0 : Apache License 2.0
 foldl 1.4.10 : BSD 3-clause "New" or "Revised" License
-follow-redirects v1.11.0 : MIT License
+follow-redirects 1.13.3 : MIT License
 for-in 1.0.2 : MIT License
 for-own 1.0.0 : MIT License
 foreach 2.0.5 : MIT License
@@ -613,13 +613,13 @@ http-errors 1.6.3 : MIT License
 http-errors 1.7.2 : MIT License
 http-errors 1.7.3 : MIT License
 http-media 0.8.0.0 : MIT License
-http-parser-js 0.5.2 : MIT License
+http-parser-js 0.5.3 : MIT License
 http-proxy 1.18.1 : MIT License
 http-types 0.12.3 : BSD 3-clause "New" or "Revised" License
 https-browserify 0.0.1 : MIT License
 https-browserify 1.0.0 : MIT License
 iconv-lite v0.4.24 : MIT License
-ieee754 v1.1.13 : BSD 3-clause "New" or "Revised" License
+ieee754 v1.2.1 : BSD 3-clause "New" or "Revised" License
 indent-string 2.1.0 : MIT License
 indexed-profunctors 0.1 : BSD 3-clause "New" or "Revised" License
 indexed-traversable 0.1.1 : BSD 2-clause "Simplified" License
@@ -628,7 +628,7 @@ inherits 2.0.1 : ISC License
 inherits 2.0.3 : ISC License
 inherits v2.0.4 : ISC License
 inline-source-map 0.6.2 : Expat License
-insert-module-globals 7.2.0 : MIT License
+insert-module-globals v7.2.1 : MIT License
 insert-ordered-containers 0.2.3.1 : BSD 3-clause "New" or "Revised" License
 integer-logarithms 1.0.3.1 : MIT License
 interpret v1.1.0 : MIT License
@@ -656,6 +656,7 @@ is-boolean-object 1.0.1 : MIT License
 is-buffer 1.1.6 : MIT License
 is-buffer v2.0.5 : MIT License
 is-callable 1.2.2 : MIT License
+is-core-module 2.2.0 : MIT License
 is-data-descriptor 0.1.4 : MIT License
 is-data-descriptor 1.0.0 : MIT License
 is-date-object 1.0.2 : MIT License
@@ -715,6 +716,7 @@ jsesc v2.5.2 : MIT License
 jshttp/content-type 1.0.4 : MIT License
 jshttp/fresh 0.5.2 : MIT License
 jshttp/mime-types 2.1.27 : MIT License
+jshttp/mime-types 2.1.29 : MIT License
 json-stable-stringify 0.0.1 : MIT License
 jsonify 0.0.0 : Public Domain
 jsonparse 0.0.5 : MIT License
@@ -780,6 +782,7 @@ micromark 2.10.1 : MIT License
 micromatch 3.1.10 : MIT License
 miller-rabin 4.0.1 : MIT License
 mime 1.6.0 : MIT License
+mime-db 1.46.0 : MIT License
 mime-db v1.44.0 : MIT License
 minimalistic-assert 1.0.1 : ISC License
 minimalistic-crypto-utils 1.0.1 : MIT License
@@ -788,7 +791,7 @@ minimist 1.2.5 : MIT License
 mixin-deep 1.3.2 : MIT License
 mkdirp-classic 0.5.3 : MIT License
 mockito-scala 1.16.3 : MIT License
-module-deps v6.2.2 : MIT License
+module-deps 6.2.3 : MIT License
 monad-control 1.0.2.3 : BSD 3-clause "New" or "Revised" License
 monad-logger 0.3.36 : MIT License
 monad-loops 0.4.3 : Public Domain
@@ -800,6 +803,7 @@ mrkkrp/megaparsec 9.0.1 : BSD 2-clause "Simplified" License
 ms.js 2.0.0 : MIT License
 ms.js 2.1.1 : MIT License
 ms.js 2.1.2 : MIT License
+ms.js 2.1.3 : MIT License
 mwc-random 0.14.0.0 : BSD 3-clause "New" or "Revised" License
 nanomatch 1.2.13 : MIT License
 ndmitchell/nsis v0.3.3 : BSD 3-clause "New" or "Revised" License
@@ -808,8 +812,8 @@ network-bsd 2.8.1.0 : BSD 3-clause "New" or "Revised" License
 network-info 0.2.0.10 : BSD 3-clause "New" or "Revised" License
 network-uri 2.6.3.0 : BSD 3-clause "New" or "Revised" License
 nikita-volkov/neat-interpolation 0.5.1.2 : MIT License
-node-browser-resolve 1.11.3 : MIT License
-node-browserify 16.5.1 : MIT License
+node-browser-resolve 2.0.0 : MIT License
+node-browserify v16.5.2 : MIT License
 node-browserify-des 1.0.2 : MIT License
 node-cache 4.2.1 : MIT License
 node-concat-map 0.0.1 : MIT License
@@ -828,10 +832,10 @@ node-findup-sync 2.0.0 : MIT License
 node-glob 5.0.15 : ISC License
 node-glob 7.0.6 : ISC License
 node-glob v7.1.6 : ISC License
-node-graceful-fs v4.2.4 : ISC License
+node-graceful-fs v4.2.6 : ISC License
 node-hooker 0.2.3 : MIT License
 node-http2 4.0.1 : MIT License
-node-ini 1.3.7 : ISC License
+node-ini 1.3.8 : ISC License
 node-lru-cache 2.7.3 : ISC License
 node-matchdep 2.0.0 : MIT License
 node-mkdirp 0.5.5 : MIT License
@@ -909,7 +913,7 @@ paiges-core 0.3.2 : Apache License 2.0
 parallel 3.2.2.0 : BSD 3-clause "New" or "Revised" License
 parameterized 0.5.0.0 : BSD 3-clause "New" or "Revised" License
 parboiled 2.1.8 : Apache License 2.0
-parse-asn1 5.1.5 : ISC License
+parse-asn1 5.1.6 : ISC License
 parse-entities 2.0.0 : MIT License
 parse-filepath 1.0.2 : MIT License
 parse-json 2.2.0 : MIT License
@@ -961,8 +965,8 @@ pureconfig-generic-base 0.14.0 : Mozilla Public License 2.0
 pureconfig-macros 0.14.0 : Mozilla Public License 2.0
 pypa/setuptools 50.3.2 : MIT License
 python-wheel 0.35.1 : MIT License
-qs -  QS Querystring 6.9.4 : BSD 3-clause "New" or "Revised" License
 qs -  QS Querystring v6.7.0 : BSD 3-clause "New" or "Revised" License
+qs -  QS Querystring v6.9.6 : BSD 3-clause "New" or "Revised" License
 querystring-es3 0.2.1 : MIT License
 quickcheck-instances 0.3.25.2 : BSD 3-clause "New" or "Revised" License
 quickcheck-io 0.2.0 : MIT License
@@ -1085,7 +1089,7 @@ side-channel 1.0.3 : MIT License
 signal-exit v3.0.3 : ISC License
 silently 1.2.5.1 : BSD 3-clause "New" or "Revised" License
 simonmar/async 2.2.2 : BSD 3-clause "New" or "Revised" License
-simple-concat 1.0.0 : MIT License
+simple-concat 1.0.1 : MIT License
 simple-smt 0.9.4 : BSD 3-clause "New" or "Revised" License
 simple-swizzle 0.2.2 : MIT License
 sindresorhus/globals 11.12.0 : MIT License
@@ -1105,13 +1109,13 @@ sorted-list 0.2.1.0 : BSD 3-clause "New" or "Revised" License
 source-map 0.5.7 : BSD 3-clause "New" or "Revised" License
 source-map 0.6.1 : BSD 3-clause "New" or "Revised" License
 source-map-resolve 0.5.3 : MIT License
-source-map-url 0.4.0 : MIT License
+source-map-url v0.4.1 : MIT License
 sourcecode 0.2.1 : MIT License
 spark-java 2.9.1 : Apache License 2.0
 spdx-correct.js v3.1.1 : Apache License 2.0
 spdx-exceptions 2.3.0 : Creative Commons Attribution 3.0
 spdx-expression-parse.js 3.0.1 : MIT License
-spdx-license-ids v3.0.5 : The Unlicense
+spdx-license-ids v3.0.7 : The Unlicense
 spl/dlist 0.8.0.8 : BSD 3-clause "New" or "Revised" License
 split 0.2.3.4 : BSD 3-clause "New" or "Revised" License
 split-string 3.1.0 : MIT License
@@ -2208,41 +2212,6 @@ Redistribution and use in source and binary forms, with or without
 ---
 
 BSD 3-clause "New" or "Revised" License
-(qs -  QS Querystring 6.9.4)
-
-BSD 3-Clause License
-
-Copyright (c) 2014, Nathan LaFreniere and other [contributors](https://github.com/ljharb/qs/graphs/contributors)
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-
----
-
-BSD 3-clause "New" or "Revised" License
 (moo 0.5.1)
 
 BSD 3-Clause License
@@ -3114,7 +3083,7 @@ POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD 3-clause "New" or "Revised" License
-(CSSselect 1.2.0, Diff 0.4.0, GaloisInc/cereal 0.5.8.1, Globule 1.3.2, HLint 2.2.11, JLine 3.7.1, JMESPath Core 0.4.0, JMESPath Jackson 0.4.0, Only 0.1, Pebble 3.1.0, Protocol Buffer Java API 3.14.0, Protocol Buffer Java Util Package 3.12.0, QuickCheck 2.14.2, Soostone/retry 0.8.1.2, aeson 1.0.2.0, aeson 1.5.5.1, aeson-compat 0.3.9, aeson-extra 0.4.1.3, aeson-pretty 0.8.8, ansi-terminal 0.10.3, ansi-wl-pprint 0.6.9, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 0.1.1.7, base64-bytestring 1.1.0.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.9, blaze-builder 0.4.1.0, blaze-html 0.9.1.2, blaze-markup 0.8.2.7, bos/attoparsec 0.13.2.4, byteable 0.1.1, cereal-conduit 0.8.0, charset 0.3.7.1, cmark-gfm 0.2.2, cmdargs 0.10.20, comonad 5.0.8, contravariant v1.5.3, cryptohash-md5 0.11.100.1, cryptohash-sha1 0.11.100.1, cryptonite 0.27, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.0, digest 0.0.1.2, distributive 0.6.2.1, either 5.0.1.1, ekmett/exceptions 0.10.4, ekmett/free 5.1.5, ekmett/profunctors 5.5.2, ekmett/void v0.7.3, entropy 0.4.1.6, extra 1.7.1, file-embed 0.0.13.0, filepattern 0.1.2, foldl 1.4.10, ghc-lib-parser-ex 8.8.5.8, haskell TLS 0.11.9, haskell TLS 1.6.11, haskell TLS 1.6.6, haskell TLS 1.6.7, haskell TLS 1.7.5, haskell-foundation/foundation basement-v0.0.11, haskell-lexer 1.1, haskell-opengl/StateVar 1.2.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-vector 0.12.1.2, haskell/network 3.1.1.1, heaps 0.3.6.1, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.3, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.7.4, http-types 0.12.3, indexed-profunctors 0.1, insert-ordered-containers 0.2.3.1, kan-extensions 5.2.1, language-c 0.8.3, lsp-test 0.11.0.7, managed 1.0.8, maoe/lifted-async 0.10.1.2, memory 0.15.0, mwc-random 0.14.0.0, ndmitchell/nsis v0.3.3, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.3.0, old-locale 1.0.0.7, old-time 1.1.0.3, open-browser 0.2.1.0, optics-core 0.3.0.1, optics-extra 0.3, optics-th 0.3.0.2, optional-args 1.0.2, optparse-applicative 0.15.1.0, optparse-generic 1.3.1, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.2.1, path-io 1.6.2, pem 0.2.4, phadej/cabal-doctest 1.0.8, primitive 0.7.1.0, quickcheck-instances 0.3.25.2, random 1.1, refact 0.3.0.2, rope-utf16-splay 0.3.1.0, rst-selector-parser 2.2.3, safe 0.3.19, scala-java8-compat 0.9.0, scalacheck 1.14.0, scalameter 0.19, scalameter-core 0.19, scientific 0.3.6.2, scodec-bits 1.1.16, sebfisch's primes 0.2.1.0, semigroupoids 5.3.5, semigroups 0.19.1, shake 0.18.5, simonmar/async 2.2.2, simple-smt 0.9.4, socks 0.6.1, sorted-list 0.2.1.0, spl/dlist 0.8.0.8, split 0.2.3.4, splitmix 0.1.0.3, stache 2.2.0, stm-chans 3.0.0.4, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.1, tagged v0.8.6.1, tar 0.5.1.1, tasty-ant-xml 1.1.7, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, these 1.1.0.1, these v1.1.1.1, tibbe/hashable 1.3.0.0, time-compat 1.9.5, time-locale-compat 0.1.1.5, transformers-base 0.4.5.2, transformers-compat 0.6.6, turtle 1.5.20, type-equality 1, uniplate 1.6.13, unix-compat 0.5.2, unordered-containers v0.2.13.0, utf8-string v1.0.2, vector-algorithms 0.8.0.4, wcwidth 0.0.2, xml 1.3.14, zip 1.5.0, zlib 0.6.2.2)
+(CSSselect 1.2.0, Diff 0.4.0, GaloisInc/cereal 0.5.8.1, Globule 1.3.2, HLint 2.2.11, JLine 3.7.1, JMESPath Core 0.4.0, JMESPath Jackson 0.4.0, Only 0.1, Pebble 3.1.0, Protocol Buffer Java API 3.14.0, Protocol Buffer Java Util Package 3.12.0, QuickCheck 2.14.2, Soostone/retry 0.8.1.2, aeson 1.0.2.0, aeson 1.5.5.1, aeson-compat 0.3.9, aeson-extra 0.4.1.3, aeson-pretty 0.8.8, ansi-terminal 0.10.3, ansi-wl-pprint 0.6.9, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 0.1.1.7, base64-bytestring 1.1.0.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.9, blaze-builder 0.4.1.0, blaze-html 0.9.1.2, blaze-markup 0.8.2.7, bos/attoparsec 0.13.2.4, byteable 0.1.1, cereal-conduit 0.8.0, charset 0.3.7.1, cmark-gfm 0.2.2, cmdargs 0.10.20, comonad 5.0.8, contravariant v1.5.3, cryptohash-md5 0.11.100.1, cryptohash-sha1 0.11.100.1, cryptonite 0.27, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.0, digest 0.0.1.2, distributive 0.6.2.1, either 5.0.1.1, ekmett/exceptions 0.10.4, ekmett/free 5.1.5, ekmett/profunctors 5.5.2, ekmett/void v0.7.3, entropy 0.4.1.6, extra 1.7.1, file-embed 0.0.13.0, filepattern 0.1.2, foldl 1.4.10, ghc-lib-parser-ex 8.8.5.8, haskell TLS 0.11.9, haskell TLS 1.6.11, haskell TLS 1.6.6, haskell TLS 1.6.7, haskell TLS 1.7.5, haskell-foundation/foundation basement-v0.0.11, haskell-lexer 1.1, haskell-opengl/StateVar 1.2.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-vector 0.12.1.2, haskell/network 3.1.1.1, heaps 0.3.6.1, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.3, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.7.4, http-types 0.12.3, indexed-profunctors 0.1, insert-ordered-containers 0.2.3.1, kan-extensions 5.2.1, language-c 0.8.3, lsp-test 0.11.0.7, managed 1.0.8, maoe/lifted-async 0.10.1.2, memory 0.15.0, mwc-random 0.14.0.0, ndmitchell/nsis v0.3.3, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.3.0, old-locale 1.0.0.7, old-time 1.1.0.3, open-browser 0.2.1.0, optics-core 0.3.0.1, optics-extra 0.3, optics-th 0.3.0.2, optional-args 1.0.2, optparse-applicative 0.15.1.0, optparse-generic 1.3.1, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.2.1, path-io 1.6.2, pem 0.2.4, phadej/cabal-doctest 1.0.8, primitive 0.7.1.0, qs -  QS Querystring v6.9.6, quickcheck-instances 0.3.25.2, random 1.1, refact 0.3.0.2, rope-utf16-splay 0.3.1.0, rst-selector-parser 2.2.3, safe 0.3.19, scala-java8-compat 0.9.0, scalacheck 1.14.0, scalameter 0.19, scalameter-core 0.19, scientific 0.3.6.2, scodec-bits 1.1.16, sebfisch's primes 0.2.1.0, semigroupoids 5.3.5, semigroups 0.19.1, shake 0.18.5, simonmar/async 2.2.2, simple-smt 0.9.4, socks 0.6.1, sorted-list 0.2.1.0, spl/dlist 0.8.0.8, split 0.2.3.4, splitmix 0.1.0.3, stache 2.2.0, stm-chans 3.0.0.4, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.1, tagged v0.8.6.1, tar 0.5.1.1, tasty-ant-xml 1.1.7, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, these 1.1.0.1, these v1.1.1.1, tibbe/hashable 1.3.0.0, time-compat 1.9.5, time-locale-compat 0.1.1.5, transformers-base 0.4.5.2, transformers-compat 0.6.6, turtle 1.5.20, type-equality 1, uniplate 1.6.13, unix-compat 0.5.2, unordered-containers v0.2.13.0, utf8-string v1.0.2, vector-algorithms 0.8.0.4, wcwidth 0.0.2, xml 1.3.14, zip 1.5.0, zlib 0.6.2.2)
 
 Copyright (c) <YEAR>, <OWNER>
 All rights reserved.
@@ -3148,7 +3117,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ---
 
 BSD 3-clause "New" or "Revised" License
-(ieee754 v1.1.13)
+(ieee754 v1.2.1)
 
 Copyright 2008 Fair Oaks Labs, Inc.
 
@@ -6261,7 +6230,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 ISC License
-(browserify-sign 4.2.0)
+(browserify-sign 4.2.1)
 
 Copyright (c) 2014-2015 Calvin Metcalf and browserify-sign contributors
 
@@ -6396,7 +6365,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 ISC License
-(parse-asn1 5.1.5)
+(parse-asn1 5.1.6)
 
 Copyright (c) 2017, crypto-browserify contributors
 
@@ -6467,7 +6436,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 ---
 
 ISC License
-(boolbase 1.0.0, node-ini 1.3.7, th-abstraction 0.4.2.0, y18n 4.0.1)
+(boolbase 1.0.0, node-graceful-fs v4.2.6, node-ini 1.3.8, th-abstraction 0.4.2.0, y18n 4.0.1)
 
 ISC License (ISCL)
 ==================
@@ -6567,27 +6536,6 @@ ISC License
 The ISC License
 
 Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
-
----
-
-ISC License
-(node-graceful-fs v4.2.4)
-
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter, Ben Noordhuis, and Contributors
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -7628,7 +7576,7 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ---
 
 MIT License
-(Visionmedia Debug 2.6.9, Visionmedia Debug 3.2.6, Visionmedia Debug 4.3.1)
+(Visionmedia Debug 2.6.9, Visionmedia Debug 3.2.7, Visionmedia Debug 4.3.1)
 
 (The MIT License)
 
@@ -8195,7 +8143,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(Lodash 4.17.15, Lodash 4.17.19, Lodash 4.17.20, grunt-known-options 1.1.1, gruntjs v1.0.4, lodash.camelcase 4.3.0, lodash.escape 4.0.1, lodash.flattendeep 4.4.0, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
+(Lodash 4.17.15, Lodash 4.17.20, grunt-known-options 1.1.1, gruntjs v1.0.4, lodash.camelcase 4.3.0, lodash.escape 4.0.1, lodash.flattendeep 4.4.0, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
 
 ====
 
@@ -8858,7 +8806,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(body v5.1.0, console-browserify 1.2.0, duplexer 0.1.1)
+(body v5.1.0, console-browserify 1.2.0, duplexer v0.1.2)
 
 Copyright (c) 2012 Raynos.
 
@@ -9040,7 +8988,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Acorn 7.3.1, acorn-walk 7.1.1)
+(acorn-walk 7.2.0)
 
 Copyright (C) 2012-2018 by various contributors (see AUTHORS)
 
@@ -9766,32 +9714,6 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
-(http-parser-js 0.5.2)
-
-Copyright (c) 2015 Tim Caswell (https://github.com/creationix) and other
-contributors. All rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
 
 ---
 
@@ -10524,30 +10446,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ---
 
 MIT License
-(follow-redirects v1.11.0)
-
-Copyright 2014–present Olivier Lalonde <olalonde@gmail.com>, James Talmage <james@talmage.io>, Ruben Verborgh
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (Gozala/events 1.1.1, Gozala/events 2.1.0, nodejs/string_decoder 0.10.31)
 
 Copyright Joyent, Inc. and other Node contributors.
@@ -10870,38 +10768,6 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(module-deps v6.2.2)
-
-Files: debian/*
-Copyright: 2017 Bastien Roucariès <rouca@debian.org>
- 2020 Xavier Guimard <yadd@debian.org>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
 (crypto-browserify 3.12.0)
 
 Files: debian/*
@@ -11044,7 +10910,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(argparse 1.0.10, elliptic v6.5.3, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5)
+(argparse 1.0.10, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5)
 
 License: Expat
 
@@ -11271,7 +11137,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 ---
 
 MIT License
-(node-browserify 16.5.1)
+(node-browserify v16.5.2)
 
 MIT License
 
@@ -11298,11 +11164,11 @@ SOFTWARE
 ---
 
 MIT License
-(browserify/resolve v1.17.0)
+(Acorn 7.4.1)
 
 MIT License
 
-Copyright (c) 2012 James Halliday
+Copyright (C) 2012-2018 by various contributors (see AUTHORS)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -11311,16 +11177,16 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
 
 ---
 
@@ -11709,6 +11575,33 @@ MIT License
 MIT License
 
 Copyright (c) 2017 ECMAScript Shims
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+
+---
+
+MIT License
+(asn1.js-rfc2560 v5.4.1)
+
+MIT License
+
+Copyright (c) 2017 Fedor Indutny
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -12512,7 +12405,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(@apollo/client 3.3.3, @babel/generator 7.12.5, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @types/node 14.14.10, @types/tmp 0.0.29, @types/warning 3.0.0, Animal Sniffer Annotations 1.19, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Modernizr v3.11.4, PCollections 2.1.3, SLF4J API Module 1.7.26, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, base-compat-batteries 0.11.2, base-orphans 0.8.4, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, color-string 1.5.4, cookie 0.4.5, csstype 3.0.5, doobie-core 0.9.2, doobie-free 0.9.2, doobie-hikari 0.9.2, doobie-postgres 0.9.2, error v7.2.1, fansi 0.2.9, fast-uuid 0.1, fastparse 2.3.0, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, geny 0.6.2, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, haskell-lsp 0.23.0.0, haskell-lsp-types 0.23.0.0, hspec 2.7.5, html-to-react 1.4.5, integer-logarithms 1.0.3.1, is-bigint 1.0.1, jwks-rsa 0.11.0, kind-projector 0.11.2, lightning-csv 8.0.3, macros 0.16.2, mockito-scala 1.16.3, monad-logger 0.3.36, nearley 2.19.9, node-deep-equal v2.0.5, node-xml2js 0.4.23, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, org.brotli:dec 0.1.2, os-lib_2.12 0.7.1, parse5 3.0.3, parser 1.0.0, path-platform 0.11.15, pprint 0.6.0, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, resourcet 1.2.4.2, scalatags 0.9.1, scopt 4.0.0, sfm-util 8.0.3, sjsonnet_2.12 0.3.0, sourcecode 0.2.1, string.prototype.trimend 1.0.3, ts-invariant 0.5.1, typed-process 0.2.6.0, typescript-collections 1.3.3, ujson_2.12 1.2.0, uncontrollable 7.1.1, unist-util-is 4.0.4, upickle-core_2.12 1.2.0)
+(@apollo/client 3.3.3, @babel/generator 7.12.5, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @types/node 14.14.10, @types/tmp 0.0.29, @types/warning 3.0.0, Animal Sniffer Annotations 1.19, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Lodash 4.17.21, Modernizr v3.11.4, PCollections 2.1.3, SLF4J API Module 1.7.26, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, base-compat-batteries 0.11.2, base-orphans 0.8.4, bn.js v4.12.0, bn.js v5.2.0, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, browserify-rsa 4.1.0, browserify/resolve v1.20.0, color-string 1.5.4, cookie 0.4.5, csstype 3.0.5, doobie-core 0.9.2, doobie-free 0.9.2, doobie-hikari 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.4, error v7.2.1, fansi 0.2.9, fast-uuid 0.1, fastparse 2.3.0, follow-redirects 1.13.3, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, geny 0.6.2, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, haskell-lsp 0.23.0.0, haskell-lsp-types 0.23.0.0, hspec 2.7.5, html-to-react 1.4.5, http-parser-js 0.5.3, integer-logarithms 1.0.3.1, is-bigint 1.0.1, is-core-module 2.2.0, jshttp/mime-types 2.1.29, jwks-rsa 0.11.0, kind-projector 0.11.2, lightning-csv 8.0.3, macros 0.16.2, mime-db 1.46.0, mockito-scala 1.16.3, monad-logger 0.3.36, ms.js 2.1.3, nearley 2.19.9, node-deep-equal v2.0.5, node-xml2js 0.4.23, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, org.brotli:dec 0.1.2, os-lib_2.12 0.7.1, parse5 3.0.3, parser 1.0.0, path-platform 0.11.15, pprint 0.6.0, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, resourcet 1.2.4.2, scalatags 0.9.1, scopt 4.0.0, sfm-util 8.0.3, sjsonnet_2.12 0.3.0, source-map-url v0.4.1, sourcecode 0.2.1, string.prototype.trimend 1.0.3, ts-invariant 0.5.1, typed-process 0.2.6.0, typescript-collections 1.3.3, ujson_2.12 1.2.0, uncontrollable 7.1.1, unist-util-is 4.0.4, upickle-core_2.12 1.2.0)
 
 The MIT License
 ===============
@@ -12841,6 +12734,33 @@ THE SOFTWARE
 ---
 
 MIT License
+(node-browser-resolve 2.0.0)
+
+The MIT License (MIT)
+
+Copyright (c) 2013-2015 Roman Shtylman <shtylman@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+
+---
+
+MIT License
 (node-findup-sync 2.0.0)
 
 The MIT License (MIT)
@@ -12939,7 +12859,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ---
 
 MIT License
-(eventemitter3 3.1.2, eventemitter3 4.0.4)
+(eventemitter3 3.1.2, eventemitter3 4.0.7)
 
 The MIT License (MIT)
 
@@ -13100,7 +13020,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(base64-js v1.3.1)
+(base64-js 1.5.1)
 
 The MIT License (MIT)
 
@@ -13453,33 +13373,6 @@ SOFTWARE
 ---
 
 MIT License
-(source-map-url 0.4.0)
-
-The MIT License (MIT)
-
-Copyright (c) 2014 Simon Lydell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
 (jwt 0.10.0)
 
 The MIT License (MIT)
@@ -13573,33 +13466,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE
-
----
-
-MIT License
-(browserify-rsa 4.0.1)
-
-The MIT License (MIT)
-
-Copyright (c) 2014-2015 Calvin Metcalf & contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE
 
 ---
 
@@ -13847,7 +13713,7 @@ SOFTWARE
 ---
 
 MIT License
-(createecdh 4.0.3)
+(createecdh 4.0.4)
 
 The MIT License (MIT)
 
@@ -15322,7 +15188,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(simple-concat 1.0.0)
+(simple-concat 1.0.1)
 
 The MIT License (MIT)
 
@@ -15663,34 +15529,6 @@ Permission is hereby granted, free of charge, to any person obtaining a
 ---
 
 MIT License
-(asn1.js-rfc2560 4.10.1)
-
-This software is licensed under the MIT License.
-
-Copyright Fedor Indutny, 2013.
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to permit
-persons to whom the Software is furnished to do so, subject to the
-following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (hash.js 1.1.7)
 
 This software is licensed under the MIT License.
@@ -15719,7 +15557,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(bn.js v4.11.9, bn.js v5.1.2, des.js 1.0.1)
+(des.js 1.0.1)
 
 This software is licensed under the MIT License.
 
@@ -15854,7 +15692,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Watchify 3.11.1, browser-pack 6.1.0, browserify/resolve 1.1.7, camelize 1.0.0, defined 1.0.0, https-browserify 0.0.1, insert-module-globals 7.2.0, json-stable-stringify 0.0.1, minimist 1.2.5, node-concat-map 0.0.1, outpipe 1.1.1, path-browserify 0.0.1, read-only-stream 2.0.0, safe-regex 1.1.0, subarg 1.0.0, tty-browserify 0.0.1)
+(Watchify 3.11.1, browser-pack 6.1.0, browserify/resolve 1.1.7, camelize 1.0.0, defined 1.0.0, https-browserify 0.0.1, insert-module-globals v7.2.1, json-stable-stringify 0.0.1, minimist 1.2.5, module-deps 6.2.3, node-concat-map 0.0.1, outpipe 1.1.1, path-browserify 0.0.1, read-only-stream 2.0.0, safe-regex 1.1.0, subarg 1.0.0, tty-browserify 0.0.1)
 
 This software is released under the MIT license:
 
@@ -16745,44 +16583,6 @@ License: Expat
 
 Files: debian/*
 Copyright: 2016 Pirate Praveen <praveen@debian.org>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
-(node-browser-resolve 1.11.3)
-
-Upstream-Contact: https://github.com/shtylman/node-browser-resolve/issues
-Source: https://github.com/shtylman/node-browser-resolve#readme
-
-Files: *
-Copyright: 2013-2017 Roman Shtylman <shtylman@gmail.com>
-License: Expat
-
-Files: debian/*
-Copyright: 2017 Bastien Roucariès <rouca@debian.org>
 License: Expat
 
 License: Expat
@@ -18128,7 +17928,7 @@ of this License.
 ---
 
 The Unlicense
-(spdx-license-ids v3.0.5)
+(spdx-license-ids v3.0.7)
 
 The Unlicense
 =============

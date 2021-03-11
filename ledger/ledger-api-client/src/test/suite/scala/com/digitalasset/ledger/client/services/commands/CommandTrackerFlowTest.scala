@@ -28,6 +28,7 @@ import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
+import io.grpc.{Status => GrpcStatus}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -60,9 +61,18 @@ class CommandTrackerFlowTest
   private val mrt = Instant.EPOCH.plus(shortDuration)
   private val commandId = "commandId"
   private val context = 1
-  private val submitRequest = Ctx(
+  private val submitRequest = newSubmitRequest(commandId)
+  private def newSubmitRequest(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
     context,
-    SubmitRequest(Some(Commands(commandId = commandId))),
+    SubmitRequest(
+      Some(
+        Commands(
+          commandId = commandId,
+          deduplicationTime =
+            dedupTime.map(t => com.google.protobuf.duration.Duration(t.getSeconds)),
+        )
+      )
+    ),
   )
 
   private case class Handle(
@@ -154,11 +164,7 @@ class CommandTrackerFlowTest
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val otherCommandId = "otherId"
 
-        submissions.sendNext(
-          submitRequest.map(request =>
-            request.copy(commands = request.commands.map(_.copy(commandId = otherCommandId)))
-          )
-        )
+        submissions.sendNext(newSubmitRequest(otherCommandId))
 
         results.cancel()
         whenReady(unhandledF) { unhandled =>
@@ -214,7 +220,7 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "swallow error ifnot terminal" in {
+      "swallow error if not terminal" in {
 
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(Flow[C[SubmitRequest]].map {
@@ -295,6 +301,64 @@ class CommandTrackerFlowTest
         results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
         succeed
       }
+
+      "after the timeout" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+        val timedOutCommandId = "timedOutCommandId"
+        val submitRequestShortDedupTime = newSubmitRequest(timedOutCommandId, Some(shortDuration))
+        submissions.sendNext(submitRequestShortDedupTime)
+
+        results.expectNext(
+          shortDuration.getSeconds.seconds * 3,
+          Ctx(
+            context,
+            Completion(
+              timedOutCommandId,
+              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
+            ),
+          ),
+        )
+
+        // since the command timed out before, the tracker shouldn't send the completion through
+        completionStreamMock.send(successfulCompletion(timedOutCommandId))
+        results.request(1)
+        results.expectNoMessage()
+        succeed
+      }
+
+      "after another command has timed out" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+        val timedOutCommandId = "timedOutCommandId"
+        val submitRequestShortDedupTime = newSubmitRequest(timedOutCommandId, Some(shortDuration))
+
+        // we send 2 requests
+        submissions.sendNext(submitRequestShortDedupTime)
+        submissions.sendNext(submitRequest)
+
+        // the tracker observes the timeout before the completion, thus "consuming" the pull on the result output
+        results.expectNext(
+          3.seconds,
+          Ctx(
+            context,
+            Completion(
+              timedOutCommandId,
+              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
+            ),
+          ),
+        )
+        // we now receive a completion
+        completionStreamMock.send(successfulCompletion(commandId))
+        // because the out-of-band timeout completion consumed the previous pull on `results`,
+        // we don't expect a message until we request one.
+        // The order below is important to reproduce the issue described in DPP-285.
+        results.expectNoMessage()
+        results.request(1)
+        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        succeed
+      }
+
     }
 
     "duplicate completion arrives for a particular command" should {

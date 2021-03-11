@@ -60,6 +60,9 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
+    # FIXME: drop the following line once canton-test-runner supports LF 1.12
+    lf_versions = ["legacy"],
+    # lf_versions = ["stable", "latest"],
     ports = [
         5011,
         5021,
@@ -93,6 +96,9 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
+    # FIXME: drop the following line once canton-test-runner supports LF 1.12
+    lf_versions = ["legacy"],
+    # lf_versions = ["stable", "latest"],
     ports = [
         5011,
         5021,

@@ -111,7 +111,7 @@ withSdkResource f =
     withResource (installSdk =<< getDir) (const $ pure ()) (const $ f getDir)
   where installSdk targetDir = do
             runfiles <- Bazel.Runfiles.create
-            let headSdk = Bazel.Runfiles.rlocation runfiles "head_sdk/sdk-release-tarball.tar.gz"
+            let headSdk = Bazel.Runfiles.rlocation runfiles "head_sdk/sdk-release-tarball-ce.tar.gz"
             let latestStableSdk = Bazel.Runfiles.rlocation runfiles "daml-sdk-tarball-latest-stable/file/downloaded"
             setEnv "DAML_HOME" targetDir True
             withTempDir $ \extractDir -> do

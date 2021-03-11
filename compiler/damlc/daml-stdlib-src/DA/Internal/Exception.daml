@@ -67,7 +67,7 @@ class HasFromAnyException e where
 -- No throw for AnyException.
 
 instance HasMessage AnyException where
-    message = undefined -- primitive @"BEAnyExceptionMessage"
+    message = primitive @"BEAnyExceptionMessage"
 
 instance HasToAnyException AnyException where
     toAnyException e = e
@@ -78,44 +78,44 @@ instance HasFromAnyException AnyException where
 --------------------------------------------------------------
 
 instance HasThrow GeneralError where
-    throwPure = undefined -- primitive @"EThrow"
+    throwPure = primitive @"EThrow"
 
 instance HasMessage GeneralError where
-    message = undefined -- primitive @"BEGeneralErrorMessage"
+    message = primitive @"BEGeneralErrorMessage"
 
 instance HasToAnyException GeneralError where
-    toAnyException = undefined -- primitive @"EToAnyException"
+    toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException GeneralError where
-    fromAnyException = undefined -- primitive @"EFromAnyException"
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 
 instance HasThrow ArithmeticError where
-    throwPure = undefined -- primitive @"EThrow"
+    throwPure = primitive @"EThrow"
 
 instance HasMessage ArithmeticError where
-    message = undefined -- primitive @"BEArithmeticErrorMessage"
+    message = primitive @"BEArithmeticErrorMessage"
 
 instance HasToAnyException ArithmeticError where
-    toAnyException = undefined -- primitive @"EToAnyException"
+    toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ArithmeticError where
-    fromAnyException = undefined -- primitive @"EFromAnyException"
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 
 instance HasThrow ContractError where
-    throwPure = undefined -- primitive @"EThrow"
+    throwPure = primitive @"EThrow"
 
 instance HasMessage ContractError where
-    message = undefined -- primitive @"BEContractErrorMessage"
+    message = primitive @"BEContractErrorMessage"
 
 instance HasToAnyException ContractError where
-    toAnyException = undefined -- primitive @"EToAnyException"
+    toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ContractError where
-    fromAnyException = undefined -- primitive @"EFromAnyException"
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 
@@ -133,7 +133,7 @@ instance ActionThrow Update where
     throw e = pure () >>= \_ -> throwPure e
 
 instance ActionCatch Update where
-    _tryCatch = undefined -- primitive @"UTryCatch"
+    _tryCatch = primitive @"UTryCatch"
 
 --------------------------------------------------------------
 
