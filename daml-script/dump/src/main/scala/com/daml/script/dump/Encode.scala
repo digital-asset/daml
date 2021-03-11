@@ -265,7 +265,7 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[SimpleEvent],
   ): Doc = {
-    val submitters = evs.flatMap(ev => evParties(ev.event)).toSet
+    val submitters: Set[Party] = evs.foldMap(ev => evParties(ev.event).toSet)
     val cids = evs.map(_.contractId)
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
