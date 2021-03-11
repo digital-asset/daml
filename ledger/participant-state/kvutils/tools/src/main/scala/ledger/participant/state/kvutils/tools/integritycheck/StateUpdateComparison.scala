@@ -8,6 +8,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
 import com.daml.lf.transaction.{CommittedTransaction, Node, VersionedTransaction}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -175,18 +176,18 @@ object ReadServiceStateUpdateComparison {
   private def dropFetchAndLookupByKeyNodes[Nid, Cid](
       tx: VersionedTransaction[Nid, Cid]
   ): VersionedTransaction[Nid, Cid] = {
-    val nodes = tx.nodes.filter {
+    val filteredNodes = tx.nodes.filter {
       case (_, _: Node.NodeFetch[Cid] | _: Node.NodeLookupByKey[Cid]) => false
       case _ => true
     }
-    val filteredNodes = nodes.map {
-      case (nid, node: Node.NodeExercises[Nid, Cid]) =>
-        val filteredNode = node.copy(children = node.children.filter(nodes.contains))
-        (nid, filteredNode)
-      case keep => keep
+    val filteredChildNodes = filteredNodes.mapValues {
+      case exercise: Node.NodeExercises[Nid, Cid] =>
+        val filteredNode = exercise.copy(children = exercise.children.filter(filteredNodes.contains))
+        filteredNode
+      case keep@(_: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid]) => keep
     }
-    val filteredRoots = tx.roots.filter(filteredNodes.contains)
-    VersionedTransaction(tx.version, filteredNodes, filteredRoots)
+    val filteredRoots = tx.roots.filter(filteredChildNodes.contains)
+    VersionedTransaction(tx.version, filteredChildNodes, filteredRoots)
   }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
