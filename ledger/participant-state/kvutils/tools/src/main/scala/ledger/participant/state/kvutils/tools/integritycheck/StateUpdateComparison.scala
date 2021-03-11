@@ -8,12 +8,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{
-  CommittedTransaction,
-  Node,
-  TransactionVersion,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{CommittedTransaction, Node, VersionedTransaction}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -191,10 +186,7 @@ object ReadServiceStateUpdateComparison {
       case keep => keep
     }
     val filteredRoots = tx.roots.filter(filteredNodes.contains)
-    val version = filteredRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      TransactionVersion.Ordering.max(acc, nodes(nodeId).version)
-    )
-    VersionedTransaction(version, filteredNodes, filteredRoots)
+    VersionedTransaction(tx.version, filteredNodes, filteredRoots)
   }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
