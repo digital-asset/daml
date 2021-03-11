@@ -17,6 +17,8 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
+rm -rf $HEAD_TARGET_DIR/*
+
 bazel build \
   //release:sdk-release-tarball \
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
