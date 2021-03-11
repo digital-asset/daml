@@ -17,7 +17,7 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
-git clean -fxd $HEAD_TARGET_DIR
+git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
 bazel build \
   //release:sdk-release-tarball \
