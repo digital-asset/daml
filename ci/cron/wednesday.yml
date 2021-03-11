@@ -100,6 +100,7 @@ jobs:
           commit_log=$(git log --pretty=oneline $start..HEAD)
           local changelog
           changelog=$(./unreleased.sh $start..HEAD)
+          # Keep this line in sync with RELEASE_PR_NOTIF in azure-pipelines.yml
           echo "This PR has been created by a script, which is not very smart"
           echo "and does not have all the context. Please do double-check that"
           echo "the version prefix is correct before merging."

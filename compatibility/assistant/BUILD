@@ -8,7 +8,7 @@ da_haskell_test(
     srcs = glob(["src/**/*.hs"]),
     data = [
         "@daml-sdk-tarball-latest-stable//file:downloaded",
-        "@head_sdk//:sdk-release-tarball.tar.gz",
+        "@head_sdk//:sdk-release-tarball-ce.tar.gz",
     ],
     hackage_deps = [
         "base",

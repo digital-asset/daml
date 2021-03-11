@@ -7,6 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.script.dump.TreeUtils.SimpleEvent
 import com.google.protobuf
 
 object TestData {
@@ -19,6 +20,7 @@ object TestData {
       Some(Value().withUnit(protobuf.empty.Empty())),
     )
   )
+  val defaultExerciseResult = Value().withUnit(protobuf.empty.Empty())
 
   sealed trait Event
   sealed case class Created(
@@ -41,6 +43,7 @@ object TestData {
       childEvents: Seq[Event],
       choiceArgument: Value = defaultChoiceArgument,
       actingParties: Seq[Party] = defaultParties,
+      exerciseResult: Option[ContractId] = None,
   ) extends Event
 
   sealed case class ACS(contracts: Seq[Created]) {
@@ -65,7 +68,7 @@ object TestData {
           case event: Created =>
             val treeEvent = TreeEvent(TreeEvent.Kind.Created(event.toCreatedEvent(eventId)))
             (rootEventIds :+ eventId, eventsById + (eventId -> treeEvent))
-          case Exercised(contractId, childEvents, choiceArgument, actingParties) =>
+          case Exercised(contractId, childEvents, choiceArgument, actingParties, exerciseResult) =>
             val (childEventIds, childEventsById) =
               childEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
             val treeEvent = TreeEvent(
@@ -78,7 +81,11 @@ object TestData {
                   choice = "Choice",
                   choiceArgument = Some(choiceArgument),
                   childEventIds = childEventIds,
-                  exerciseResult = Some(Value().withUnit(protobuf.empty.Empty())),
+                  exerciseResult = Some(
+                    exerciseResult
+                      .map(cid => Value().withContractId(ContractId.unwrap(cid)))
+                      .getOrElse(defaultExerciseResult)
+                  ),
                 )
               )
             )
@@ -97,6 +104,9 @@ object TestData {
         rootEventIds = rootEventIds,
         traceContext = None,
       )
+    }
+    def toSimpleEvents: Seq[SimpleEvent] = {
+      SimpleEvent.fromTree(this.toTransactionTree).get
     }
   }
 }

@@ -42,10 +42,15 @@ object HikariTransactorResourceOwner {
 
   def apply[Context: HasExecutionContext](
       factory: ResourceOwnerFactories[Context]
-  )(jdbcUrl: String, maxPoolSize: Int)(implicit
+  )(jdbcUrl: String, username: String, password: String, maxPoolSize: Int)(implicit
       cs: ContextShift[IO]
   ): AbstractResourceOwner[Context, HikariTransactor[IO]] =
-    new HikariTransactorResourceOwner[Context](factory).apply(jdbcUrl, maxPoolSize)
+    new HikariTransactorResourceOwner[Context](factory).apply(
+      jdbcUrl,
+      username,
+      password,
+      maxPoolSize,
+    )
 
 }
 
@@ -70,23 +75,27 @@ final class HikariTransactorResourceOwner[Context: HasExecutionContext] private 
 
   private def managedHikariDataSource(
       jdbcUrl: String,
+      username: String,
+      password: String,
       maxPoolSize: Int,
   ): AbstractResourceOwner[Context, HikariDataSource] =
     resourceOwner.forCloseable { () =>
       val pool = new HikariDataSource()
       pool.setAutoCommit(false)
       pool.setJdbcUrl(jdbcUrl)
+      pool.setUsername(username)
+      pool.setPassword(password)
       pool.setMaximumPoolSize(maxPoolSize)
       pool
     }
 
-  def apply(jdbcUrl: String, maxPoolSize: Int)(implicit
+  def apply(jdbcUrl: String, username: String, password: String, maxPoolSize: Int)(implicit
       cs: ContextShift[IO]
   ): AbstractResourceOwner[Context, HikariTransactor[IO]] =
     for {
       blocker <- managedBlocker
       connector <- managedConnector(size = maxPoolSize)
-      dataSource <- managedHikariDataSource(jdbcUrl, maxPoolSize)
+      dataSource <- managedHikariDataSource(jdbcUrl, username, password, maxPoolSize)
     } yield HikariTransactor[IO](dataSource, connector, blocker)
 
 }

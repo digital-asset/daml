@@ -3,6 +3,7 @@
 
 package com.daml.nonrepudiation.api
 
+import java.net.{InetAddress, InetSocketAddress}
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.UUID
@@ -238,16 +239,18 @@ final class NonRepudiationApiSpec
 
     val port = FreePort.find().value
 
-    val configuration = NonRepudiationApi.Configuration.Default.copy(port = port)
+    val address = new InetSocketAddress(InetAddress.getLoopbackAddress, port)
 
     val api =
       NonRepudiationApi.owner(
-        configuration,
+        address = address,
+        shutdownTimeout = 10.seconds,
         certificates,
         signedPayloads,
+        actorSystem,
       )
 
-    val baseUrl = s"http://${configuration.interface}:${configuration.port}"
+    val baseUrl = s"http://${address.getAddress.getHostAddress}:${address.getPort}"
 
     api.use { _ => test(baseUrl, certificates, signedPayloads) }
 
