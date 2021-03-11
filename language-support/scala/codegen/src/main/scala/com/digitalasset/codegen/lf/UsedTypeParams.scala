@@ -143,15 +143,15 @@ object UsedTypeParams {
           val resAtDtName = resolutions.getOrElse(dtName, Map.empty)
           resolutions |+| paramArgs.foldMap { case (paramName, paramArg) =>
             resAtDtName.getOrElse(paramName, Covariant) match {
-              case Covariant => Map.empty
-              case Invariant => paramArg.transform((_, m) => setAllValues(m)(Invariant))
+              case Covariant => paramArg
+              case Invariant => paramArg.transform((_, m) => setAllValues(m, Invariant))
             }
           }
         }
       }
   }
 
-  private[this] def setAllValues[K, V](m: Map[K, V])(v: V) =
+  private[this] def setAllValues[K, V](m: Map[K, V], v: V) =
     m transform ((_, _) => v)
 
   @tailrec private[this] def fixedPoint[A](init: A)(f: A => A): A = {
