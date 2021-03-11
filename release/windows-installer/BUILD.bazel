@@ -31,10 +31,10 @@ da_haskell_binary(
         outs = ["daml-sdk-installer-{}.exe".format(edition)],
         cmd = """
         set -eou pipefail
-        rm -rf release-dir
-        mkdir -p release-dir
-        tar xf $(location //release:sdk-release-tarball-{edition}.tar.gz) --strip-components=1 -C release-dir
-        $(location :windows-installer-gen) ./installer.nsi release-dir $(location :daml-logo.ico)
+        RELEASE_DIR=$$(mktemp -d)
+        trap "rm -rf $$RELEASE_DIR" EXIT
+        tar xf $(location //release:sdk-release-tarball-{edition}.tar.gz) --strip-components=1 -C $$RELEASE_DIR
+        $(location :windows-installer-gen) ./installer.nsi $$RELEASE_DIR $(location :daml-logo.ico)
         $(location @makensis_dev_env//:makensis) ./installer.nsi
         cp ./daml-sdk-installer.exe $(location daml-sdk-installer-{edition}.exe)
     """.format(edition = edition),
