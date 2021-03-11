@@ -4,6 +4,7 @@
 package com.daml.codegen
 package lf
 
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import org.scalatest.matchers.should.Matchers
@@ -14,6 +15,8 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
   import UsedTypeParams.{ResolvedVariance, Variance}, Variance.{Covariant, Invariant}
 
   private[this] def ref(n: String) = Ref.Identifier.assertFromString(s"abc:Mod:$n")
+  private[this] def reftc(name: String, typArgs: iface.Type*) =
+    iface.TypeCon(iface.TypeConName(ref(name)), ImmArraySeq(typArgs: _*))
 
   private val sampleEi: iface.EnvironmentInterface = iface.EnvironmentInterface {
     import iface.{DefDataType => DT, Record, Variant, TypeVar => TVar}, com.daml.lf.data.ImmArray.{
@@ -35,7 +38,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(v, k),
         Record(
           IASeq(
-            (rn("unwrap"), iface.TypeCon(iface.TypeConName(ref("JustMap")), IASeq(k, v) map TVar))
+            (rn("unwrap"), reftc("JustMap", TVar(k), TVar(v)))
           )
         ),
       ),
@@ -43,16 +46,28 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(a),
         Variant(
           IASeq(
-            (rn("Cons"), iface.TypeCon(iface.TypeConName(ref("MyList_Cons")), IASeq(a) map TVar)),
-            (rn("Nil"), iface.TypeCon(iface.TypeConName(ref("MyList_Nil")), IASeq(a) map TVar)),
+            (rn("Cons"), reftc("MyList_Cons", TVar(a))),
+            (rn("Nil"), reftc("MyList_Nil", TVar(a))),
           )
         ),
+      ),
+      "MyList_Cons" -> DT(
+        IASeq(a),
+        Record(IASeq((rn("head"), TVar(a)), (rn("tail"), reftc("MyList", TVar(a))))),
+      ),
+      "MyList_Nil" -> DT(
+        IASeq(a),
+        Record(IASeq.empty),
       ),
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
 
   private val exVariances =
-    Seq("JustMap" -> Seq(Invariant, Covariant), "FlippedMap" -> Seq(Covariant, Invariant))
+    Seq(
+      "JustMap" -> Seq(Invariant, Covariant),
+      "FlippedMap" -> Seq(Covariant, Invariant),
+      "MyList" -> Seq(Covariant),
+    )
 
   private val exVarianceTable = Table(("type ctor", "positional variances"), exVariances: _*)
 
