@@ -12,8 +12,9 @@ mkdir -p $OUTPUT_DIR/artifactory
 
 
 TARBALL=daml-sdk-$RELEASE_TAG-$NAME.tar.gz
+EE_TARBALL=daml-sdk-$RELEASE_TAG-$NAME-ee.tar.gz
 cp bazel-bin/release/sdk-release-tarball-ce.tar.gz $OUTPUT_DIR/github/$TARBALL
-cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/artifactory/$TARBALL
+cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/artifactory/$EE_TARBALL
 
 # Platform independent artifacts are only built on Linux.
 if [[ "$NAME" == "linux" ]]; then

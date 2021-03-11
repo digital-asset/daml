@@ -35,10 +35,10 @@ push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
 
 for platform in linux macos windows; do
-    EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform.tar.gz
+    EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
     push sdk-ee $EE_TARBALL
     push sdk-ee $EE_TARBALL.asc
 done
-EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows.exe
+EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
 push sdk-ee $EE_INSTALLER
 push sdk-ee $EE_INSTALLER.asc
