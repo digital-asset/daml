@@ -5,10 +5,15 @@ steps:
 - bash: |
     set -euo pipefail
 
+    if [ -f /tmp/shut ]; then
+        cat /tmp/shut
+    fi
+    echo 1 >/tmp/shut
+
     shut_down () {
       echo "error happened, shutting down node"
       sleep 10
-      (sleep 10; sudo /usr/sbin/poweroff) </dev/null &>/dev/null &
+      (sleep 10; sudo /usr/sbin/poweroff &>/tmp/shut ) </dev/null &>/dev/null &
       disown
     }
 
