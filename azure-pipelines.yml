@@ -86,7 +86,6 @@ jobs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: not(eq(variables['skip-github'], 'TRUE'))
-      condition: not(eq(variables['skip-github'], 'TRUE'))
     - bash: |
         set -euo pipefail
         KEY_FILE=$(mktemp)
