@@ -45,6 +45,19 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       ),
       // prerequisite
       "Tuple2" -> DT(IASeq(a, b), Record(IASeq(rn("_1") -> TVar(a), rn("_2") -> TVar(b)))),
+      // degenerate self recursion
+      "Explosion" -> DT(
+        IASeq(a, b),
+        Record(
+          IASeq(
+            rn("unwrap") -> reftc(
+              "Explosion",
+              reftc("Explosion", TVar(a), TVar(b)),
+              reftc("Explosion", TVar(b), TVar(a)),
+            )
+          )
+        ),
+      ),
       // self recursion
       "NonFancyList" -> DT(
         IASeq(a),
@@ -83,6 +96,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       "JustMap" -> Seq(Invariant, Covariant),
       "FlippedMap" -> Seq(Covariant, Invariant),
       "Tuple2" -> Seq(Covariant, Covariant),
+      "Explosion" -> Seq(Covariant, Covariant),
       "NonFancyList" -> Seq(Covariant),
       "MyList" -> Seq(Covariant),
     )
