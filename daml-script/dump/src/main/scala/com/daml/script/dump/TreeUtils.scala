@@ -17,6 +17,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.collection.compat._
+import scala.collection.mutable.ListBuffer
 
 object TreeUtils {
   final case class Selector(i: Int)
@@ -49,20 +50,23 @@ object TreeUtils {
   }
 
   def traverseTree(tree: TransactionTree)(f: (List[Selector], TreeEvent.Kind) => Unit): Unit = {
-    def traverseEv(ev: TreeEvent.Kind, f: (List[Selector], TreeEvent.Kind) => Unit): Unit =
-      ev match {
-        case Kind.Empty =>
-        case created @ Kind.Created(_) =>
-          f(List(), created)
-        case exercised @ Kind.Exercised(value) =>
-          f(List(), exercised)
-          value.childEventIds.map(x => tree.eventsById(x).kind).zipWithIndex.foreach {
-            case (ev, i) =>
-              traverseEv(ev, { case (path, ev) => f(Selector(i) :: path, ev) })
-          }
-      }
     tree.rootEventIds.map(tree.eventsById(_)).zipWithIndex.foreach { case (ev, i) =>
-      traverseEv(ev.kind, { case (path, ev) => f(Selector(i) :: path, ev) })
+      traverseEventInTree(ev.kind, tree) { case (path, ev) => f(Selector(i) :: path, ev) }
+    }
+  }
+
+  def traverseEventInTree(event: TreeEvent.Kind, tree: TransactionTree)(
+      f: (List[Selector], TreeEvent.Kind) => Unit
+  ): Unit = {
+    event match {
+      case Kind.Empty =>
+      case created @ Kind.Created(_) =>
+        f(List(), created)
+      case exercised @ Kind.Exercised(value) =>
+        f(List(), exercised)
+        value.childEventIds.map(x => tree.eventsById(x).kind).zipWithIndex.foreach { case (ev, i) =>
+          traverseEventInTree(ev, tree) { case (path, ev) => f(Selector(i) :: path, ev) }
+        }
     }
   }
 
@@ -133,6 +137,15 @@ object TreeUtils {
     cids
   }
 
+  def treeEventCreatedCids(event: TreeEvent.Kind, tree: TransactionTree): Seq[ContractId] = {
+    val creates = ListBuffer.empty[ContractId]
+    traverseEventInTree(event, tree) {
+      case (_, Kind.Created(value)) => creates += ContractId(value.contractId)
+      case _ =>
+    }
+    creates.toSeq
+  }
+
   def treeReferencedCids(tree: TransactionTree): Set[ContractId] = {
     var cids: Set[ContractId] = Set.empty
     traverseTree(tree) { case (_, kind) =>
@@ -150,6 +163,42 @@ object TreeUtils {
 
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
+
+  /** A simple event causes the creation of a single contract and returns its contract id.
+    *
+    * A create event is a simple event. An exercise event can be a simple event.
+    */
+  case class SimpleEvent(event: TreeEvent.Kind, contractId: ContractId)
+
+  object SimpleEvent {
+    def fromTreeEvent(event: TreeEvent.Kind, tree: TransactionTree): Option[SimpleEvent] = {
+      event match {
+        case created @ Kind.Created(value) =>
+          Some(SimpleEvent(created, ContractId(value.contractId)))
+        case exercised @ Kind.Exercised(value) =>
+          val result = value.exerciseResult.flatMap {
+            _.sum match {
+              case Sum.ContractId(value) => Some(value)
+              case _ => None
+            }
+          }
+          val creates = treeEventCreatedCids(exercised, tree)
+          (result, creates) match {
+            case (Some(cid), Seq(createdCid)) if cid == createdCid =>
+              Some(SimpleEvent(exercised, ContractId(cid)))
+            case _ => None
+          }
+        case Kind.Empty => None
+      }
+    }
+
+    def fromTree(tree: TransactionTree): Option[Seq[SimpleEvent]] = {
+      import scalaz.Scalaz._
+      tree.rootEventIds.toList.traverse(id =>
+        SimpleEvent.fromTreeEvent(tree.eventsById(id).kind, tree)
+      )
+    }
+  }
 
   def evParties(ev: TreeEvent.Kind): Seq[Party] = ev match {
     case TreeEvent.Kind.Created(create) => Party.subst(create.signatories)
