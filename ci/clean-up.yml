@@ -11,7 +11,8 @@ steps:
     # Linux machines don't seem to recover when this script fails, and they get
     # renewed by the instance_group
     if [ "$(uname -s)" == "Linux" ]; then
-        trap "sudo /sbin/poweroff" EXIT
+        trap 'echo "error happened, killing node"; nohub bash -c "sleep 10; sudo /sbin/poweroff" &' EXIT
+        exit 1
     fi
 
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
