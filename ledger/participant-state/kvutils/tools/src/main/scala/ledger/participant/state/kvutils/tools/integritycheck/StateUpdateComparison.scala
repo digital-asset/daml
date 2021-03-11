@@ -182,9 +182,10 @@ object ReadServiceStateUpdateComparison {
     }
     val filteredChildNodes = filteredNodes.mapValues {
       case exercise: Node.NodeExercises[Nid, Cid] =>
-        val filteredNode = exercise.copy(children = exercise.children.filter(filteredNodes.contains))
+        val filteredNode =
+          exercise.copy(children = exercise.children.filter(filteredNodes.contains))
         filteredNode
-      case keep@(_: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid]) => keep
+      case keep @ (_: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid]) => keep
     }
     val filteredRoots = tx.roots.filter(filteredChildNodes.contains)
     VersionedTransaction(tx.version, filteredChildNodes, filteredRoots)
