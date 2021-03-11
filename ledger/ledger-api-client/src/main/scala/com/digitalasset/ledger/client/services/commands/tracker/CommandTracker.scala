@@ -167,6 +167,13 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       )
 
       private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
+        // The command tracker detects timeouts outside the regular pull/push
+        // mechanism of the input/output ports. Basically the timeout
+        // detection jumps the line when emitting outputs on `resultOut`. If it
+        // then processes a regular completion, it tries to push to `resultOut`
+        // even though it hasn't been pulled again in the meantime. Using `emit`
+        // instead of `push` when a completion arrives makes akka take care of
+        // handling the signaling properly.
         compl.fold(if (!hasBeenPulled(commandResultIn)) pull(commandResultIn))(emit(resultOut, _))
       }
 
