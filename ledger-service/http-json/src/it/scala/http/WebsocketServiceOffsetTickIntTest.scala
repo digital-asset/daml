@@ -63,4 +63,24 @@ class WebsocketServiceOffsetTickIntTest
         }
       }
   }
+  "Given an offset to resume at, we should immediately start emitting ticks" in withHttpServiceAndClient {
+    (uri, _, _, client) =>
+      for {
+        ledgerOffset <- client.transactionClient.getLedgerEnd().map(domain.Offset.fromLedgerApi(_))
+        _ = println(ledgerOffset)
+        msgs <- singleClientQueryStream(
+          jwt,
+          uri,
+          """{"templateIds": ["Iou:Iou"]}""",
+          offset = ledgerOffset,
+        )
+          .take(10)
+          .runWith(collectResultsAsTextMessage)
+      } yield {
+        inside(eventsBlockVector(msgs.toVector)) { case \/-(offsetTicks) =>
+          offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
+          offsetTicks should have length 10
+        }
+      }
+  }
 }
