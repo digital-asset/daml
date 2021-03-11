@@ -7,21 +7,13 @@ import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import java.util.UUID
 
-import cats.effect.{ContextShift, IO}
-import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.nonrepudiation.postgresql.Tables
-import com.daml.nonrepudiation.resources.HikariTransactorResourceOwner
-import com.daml.resources.AbstractResourceOwner
 import com.google.protobuf.duration.Duration
-import doobie.util.log.LogHandler
 import sun.security.tools.keytool.CertAndKeyGen
 import sun.security.x509.X500Name
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
 package object testing {
@@ -35,15 +27,6 @@ package object testing {
       1.hour.toSeconds,
     )
     (key, certificate)
-  }
-
-  def initializeDatabase(
-      jdbcUrl: String,
-      maxPoolSize: Int,
-  ): AbstractResourceOwner[ResourceContext, Tables] = {
-    implicit val shift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
-    implicit val logHandler: LogHandler = Slf4jLogHandler(getClass)
-    HikariTransactorResourceOwner(ResourceOwner)(jdbcUrl, maxPoolSize).map(Tables.initialize)
   }
 
   private val LedgerId = UUID.randomUUID.toString

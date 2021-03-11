@@ -5,7 +5,7 @@ package com.daml.nonrepudiation.postgresql
 
 import java.time.Instant
 
-import com.daml.ledger.resources.ResourceContext
+import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{
   AlgorithmString,
@@ -14,10 +14,14 @@ import com.daml.nonrepudiation.{
   SignatureBytes,
   SignedPayload,
 }
+import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories}
 import com.daml.testing.postgresql.PostgresAroundEach
+import doobie.util.log.LogHandler
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.ExecutionContext
 
 final class TablesSpec
     extends AsyncFlatSpec
@@ -27,10 +31,22 @@ final class TablesSpec
 
   behavior of "Tables"
 
-  private implicit val context: ResourceContext = ResourceContext(executionContext)
+  implicit val logHandler: LogHandler = Slf4jLogHandler(getClass)
+
+  private val resourceFactory = new ResourceOwnerFactories[ExecutionContext] {
+    override protected implicit val hasExecutionContext: HasExecutionContext[ExecutionContext] =
+      HasExecutionContext.`ExecutionContext has itself`
+  }
 
   it should "correctly read and write certificates" in {
-    initializeDatabase(postgresDatabase.url, maxPoolSize = 10).use { db =>
+    createTransactor(
+      postgresDatabase.url,
+      postgresDatabase.userName,
+      postgresDatabase.password,
+      maxPoolSize = 10,
+      resourceFactory,
+    ).use { transactor =>
+      val db = Tables.initialize(transactor)
       val (_, expectedCertificate) = generateKeyAndCertificate()
       val fingerprint = db.certificates.put(expectedCertificate)
       val certificate = db.certificates.get(fingerprint)
@@ -39,7 +55,14 @@ final class TablesSpec
   }
 
   it should "guarantee that adding a certificate is idempotent" in {
-    initializeDatabase(postgresDatabase.url, maxPoolSize = 10).use { db =>
+    createTransactor(
+      postgresDatabase.url,
+      postgresDatabase.userName,
+      postgresDatabase.password,
+      maxPoolSize = 10,
+      resourceFactory,
+    ).use { transactor =>
+      val db = Tables.initialize(transactor)
       val (_, expectedCertificate) = generateKeyAndCertificate()
       val fingerprint1 = db.certificates.put(expectedCertificate)
       val fingerprint2 = db.certificates.put(expectedCertificate)
@@ -50,7 +73,14 @@ final class TablesSpec
   }
 
   it should "correctly read and write signed payloads" in {
-    initializeDatabase(postgresDatabase.url, maxPoolSize = 10).use { db =>
+    createTransactor(
+      postgresDatabase.url,
+      postgresDatabase.userName,
+      postgresDatabase.password,
+      maxPoolSize = 10,
+      resourceFactory,
+    ).use { transactor =>
+      val db = Tables.initialize(transactor)
       val (privateKey, expectedCertificate) = generateKeyAndCertificate()
 
       val expectedTimestamp = Instant.ofEpochMilli(42)
