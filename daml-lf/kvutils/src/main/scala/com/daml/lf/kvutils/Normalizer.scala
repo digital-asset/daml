@@ -6,11 +6,11 @@ package com.daml.lf.kvutils
 import com.daml.lf.transaction._
 import com.daml.lf.value.Value.ContractId
 
-object TransactionNormalizer {
+object Normalizer {
 
   // KV specific normalization.
   // drops Fetch and Lookup nodes from a transaction.
-  def normalize(
+  def normalizeTransaction(
                            tx: CommittedTransaction
                          ): CommittedTransaction = {
     val nodes = tx.nodes.filter {
@@ -26,7 +26,7 @@ object TransactionNormalizer {
     }
     val filteredRoots = tx.roots.filter(filteredNodes.contains)
     CommittedTransaction(
-      VersionedTransaction(tx.version, filteredNodes, filteredRoots)
+      VersionedTransaction(tx.version,   filteredNodes, filteredRoots)
     )
   }
 

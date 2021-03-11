@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.v1.Update.{
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.{Bytes, ImmArray, Time}
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionVersion, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
@@ -50,7 +49,9 @@ final class ExecuteUpdateSpec
   private val mockedPreparedInsert = mock[TransactionsWriter.PreparedInsert]
   private val offset = Offset(Bytes.assertFromString("01"))
   private val txId = TransactionId.fromInt(1)
-  private val txMock = transaction.CommittedTransaction(TransactionBuilder.Empty)
+  private val txMock = transaction.CommittedTransaction(
+    VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.empty)
+  )
   private val someMetrics = new Metrics(new MetricRegistry)
   private val someParticipantId = ParticipantId.assertFromString("some-participant")
   private val prepareUpdateParallelism = 2

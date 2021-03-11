@@ -31,7 +31,6 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/kvutils",
         "//daml-lf/transaction",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",

@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
     "lf_scalacopts",
 )
 load("//bazel_tools:scala.bzl", "silencer_plugin")
@@ -13,6 +13,7 @@ da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
+
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -21,5 +22,23 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
+    ],
+)
+
+da_scala_test_suite(
+    name = "kvutils-tests",
+    srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+                        "@maven//:org_scalacheck_scalacheck",
+                        "@maven//:org_scalatest_scalatest",
+                        "@maven//:org_scalatestplus_scalacheck_1_14",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        ":kvutils"
     ],
 )
