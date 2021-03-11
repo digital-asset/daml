@@ -11,7 +11,7 @@ steps:
     # Linux machines don't seem to recover when this script fails, and they get
     # renewed by the instance_group
     if [ "$(uname -s)" == "Linux" ]; then
-        trap "shutdown -h now" EXIT
+        trap "sudo /sbin/poweroff" EXIT
     fi
 
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
