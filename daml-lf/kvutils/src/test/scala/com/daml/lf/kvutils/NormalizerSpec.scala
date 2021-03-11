@@ -30,13 +30,14 @@ class NormalizerSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenProp
         normalized.nodes.keySet shouldBe preservedIds
 
         // Create a preserved such as
-        normalized.nodes.filterKeys(createIds) shouldBe tx.nodes.filterKeys(createIds)
+        normalized.nodes.filter { case (id, _) => createIds(id) } shouldBe
+          tx.nodes.filter { case (id, _) => createIds(id) }
 
         // Exercises a preserved but Fetch and Lookup are filter out from their children
-        normalized.nodes.filterKeys(exeIds) shouldBe tx.nodes.collect {
-          case (nid, exe: Node.NodeExercises[_, _]) =>
+        normalized.nodes.filter { case (id, _) => exeIds(id) } shouldBe
+          tx.nodes.collect { case (nid, exe: Node.NodeExercises[_, _]) =>
             nid -> exe.copy(children = exe.children.filter(preservedIds))
-        }
+          }
       }
     }
   }
