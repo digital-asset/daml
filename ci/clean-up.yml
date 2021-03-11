@@ -11,7 +11,7 @@ steps:
     # Linux machines don't seem to recover when this script fails, and they get
     # renewed by the instance_group
     if [ "$(uname -s)" == "Linux" ]; then
-        trap 'echo "error happened, killing node"; nohup bash -c "sleep 10; sudo /sbin/poweroff" &' EXIT
+        trap 'echo "error happened, killing node"; nohup bash -c "sleep 30; sudo /sbin/poweroff" &' EXIT
         exit 1
     fi
 
