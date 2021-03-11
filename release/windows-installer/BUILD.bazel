@@ -37,7 +37,7 @@ da_haskell_binary(
         $(location :windows-installer-gen) ./installer.nsi release-dir $(location :daml-logo.ico)
         $(location @makensis_dev_env//:makensis) ./installer.nsi
         cp ./daml-sdk-installer.exe $(location daml-sdk-installer-{edition}.exe)
-    """.format(edition),
+    """.format(edition = edition),
         tools = [
             ":windows-installer-gen",
             "@makensis_dev_env//:makensis",
