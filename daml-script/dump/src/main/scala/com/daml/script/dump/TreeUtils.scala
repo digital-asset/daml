@@ -140,7 +140,7 @@ object TreeUtils {
   def treeEventCreatedCids(event: TreeEvent.Kind, tree: TransactionTree): Seq[ContractId] = {
     val creates = ListBuffer.empty[ContractId]
     traverseEventInTree(event, tree) {
-      case (_, Kind.Created(value)) => creates.addOne(ContractId(value.contractId))
+      case (_, Kind.Created(value)) => creates += ContractId(value.contractId)
       case _ =>
     }
     creates.toSeq
