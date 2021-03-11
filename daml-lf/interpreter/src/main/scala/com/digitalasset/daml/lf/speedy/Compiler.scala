@@ -457,6 +457,9 @@ private[lf] final class Compiler(
       case EThrow(_, ty, e) =>
         val messageFunction = compileExceptionType(ty)
         SBThrow(SBToAnyException(ty, messageFunction)(compile(e)))
+      case EExperimental(name, _) =>
+        SBExperimental(name)
+
     }
 
   private def compileExceptionType(ty: Type): SExpr = {

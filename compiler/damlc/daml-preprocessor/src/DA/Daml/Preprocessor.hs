@@ -71,10 +71,16 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Maybe"
     ]
 
+isExperimental :: GHC.ModuleName -> Bool
+isExperimental (GHC.moduleNameString -> x)
+  -- Experimental modules need to import internal modules.
+  = "DA.Experimental." `isPrefixOf` x
+
 shouldSkipPreprocessor :: GHC.ModuleName -> Bool
 shouldSkipPreprocessor name =
     isInternal name
     || Set.member name preprocessorExceptions
+    || isExperimental name
 
 -- | Apply all necessary preprocessors
 damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource

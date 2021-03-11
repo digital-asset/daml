@@ -221,6 +221,9 @@ alphaExpr' env = \case
     ELocation _ e1 -> \case
         ELocation _ e2 -> alphaExpr' env e1 e2
         _ -> False
+    EExperimental n1 t1 -> \case
+        EExperimental n2 t2 -> n1 == n2 && alphaType t1 t2
+        _ -> False
 
 alphaBinding :: AlphaEnv -> Binding -> Binding -> (AlphaEnv -> Bool) -> Bool
 alphaBinding env (Binding (x1,t1) e1) (Binding (x2,t2) e2) k =

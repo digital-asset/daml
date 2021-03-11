@@ -60,7 +60,8 @@ private[daml] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) =>
+        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) |
+            EExperimental(_, _) =>
           x
         case EVal(ref) =>
           EVal(apply(ref))

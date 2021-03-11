@@ -157,6 +157,13 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
+featureExperimental :: Feature
+featureExperimental = Feature
+    { featureName = "DAML Experimental"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_EXPERIMENTAL"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
@@ -172,6 +179,7 @@ allFeatures =
     , featureChoiceObservers
     , featureTypeInterning
     , featureExceptions
+    , featureExperimental
     ]
 
 allFeaturesForVersion :: Version -> [Feature]

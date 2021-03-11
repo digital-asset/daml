@@ -199,6 +199,8 @@ applySubstInExpr subst@Subst{..} = \case
     ELocation l e -> ELocation
         l
         (applySubstInExpr subst e)
+    EExperimental name ty ->
+        EExperimental name (applySubstInType subst ty)
 
 applySubstInAlternative :: Subst -> CaseAlternative -> CaseAlternative
 applySubstInAlternative subst (CaseAlternative p e) =

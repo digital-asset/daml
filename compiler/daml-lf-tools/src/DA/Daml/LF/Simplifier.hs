@@ -222,6 +222,7 @@ safetyStep = \case
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   EThrowF _ _ _ -> Unsafe
+  EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool
 isTypeClassDictionary DefValue{..}
