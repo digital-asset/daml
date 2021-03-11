@@ -17,6 +17,7 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts,
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-kvutils:__VERSION__"],
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
