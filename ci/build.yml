@@ -48,7 +48,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
-      condition: eq(variables.is_release, 'true')
+      condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
@@ -95,7 +95,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
-      condition: eq(variables.is_release, 'true')
+      condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
@@ -129,7 +129,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
-      condition: eq(variables.is_release, 'true')
+      condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
@@ -166,7 +166,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
-      condition: eq(variables.is_release, 'true')
+      condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: build-windows.yml
       parameters:
         release_tag: $(release_tag)
@@ -198,7 +198,7 @@ jobs:
         source dev-env/lib/ensure-nix
         ci/dev-env-push.py
       displayName: 'Push Developer Environment build results'
-      condition: eq(variables['System.PullRequest.IsFork'], 'False')
+      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
       env:
         # to upload to the Nix cache
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
@@ -240,7 +240,7 @@ jobs:
         ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
         ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       displayName: 'Build'
-      condition: eq(variables['System.PullRequest.IsFork'], 'False')
+      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
