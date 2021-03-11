@@ -93,5 +93,15 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     "find each variance set independently" in forEvery(exVarianceTable) { (ctor, variance) =>
       ResolvedVariance.Empty.allCovariantVars(ref(ctor), sampleEi)._2 should ===(variance)
     }
+
+    "find the same variance no matter order of resolution" in forEvery(
+      Table("order", exVariances, exVariances.reverse)
+    ) { order =>
+      order.foldLeft(ResolvedVariance.Empty) { case (st0, (ctor, variance)) =>
+        val (st1, cVariance) = st0.allCovariantVars(ref(ctor), sampleEi)
+        (ctor, cVariance) should ===((ctor, variance))
+        st1
+      }
+    }
   }
 }
