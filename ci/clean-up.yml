@@ -13,7 +13,7 @@ steps:
     shut_down () {
       echo "error happened, shutting down node"
       sleep 10
-      (sleep 10; sudo /usr/sbin/poweroff &>/tmp/shut ) </dev/null &>/dev/null &
+      (echo 3 >> /tmp/shut; sleep 10; echo 2 >>/tmp/shut; sudo /usr/sbin/poweroff &>/tmp/shut ) </dev/null &>/dev/null &
       disown
     }
 
