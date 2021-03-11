@@ -515,13 +515,13 @@ class WebSocketService(
                 Terminates.Never,
               )
               .via(convertFilterContracts(fn))
-            prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered
+            (prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered)
+              .via(emitOffsetTicksAndFilterOutEmptySteps(shiftedPrefix))
           }
         )
         .mapMaterializedValue { _: Future[NotUsed] =>
           NotUsed
         }
-        .via(emitOffsetTicksAndFilterOutEmptySteps)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
@@ -533,10 +533,14 @@ class WebSocketService(
     }
   }
 
-  private def emitOffsetTicksAndFilterOutEmptySteps[Pos]
-      : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
+  private def emitOffsetTicksAndFilterOutEmptySteps[Pos](
+      offset: Option[domain.StartingOffset]
+  ): Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
-    val zero = (Option.empty[BeginBookmark[domain.Offset]], TickTrigger: TickTriggerOrStep[Pos])
+    val zero = (
+      offset.map(o => util.AbsoluteBookmark(o.offset)): Option[BeginBookmark[domain.Offset]],
+      TickTrigger: TickTriggerOrStep[Pos],
+    )
 
     Flow[StepAndErrors[Pos, JsValue]]
       .map(a => Step(a))
