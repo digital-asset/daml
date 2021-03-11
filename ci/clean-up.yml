@@ -4,6 +4,13 @@
 steps:
 - bash: |
     set -euo pipefail
+
+    shut_down () {
+      echo "error happened, shutting down node"
+      nohup bash -c "sleep 10; sudo /sbin/poweroff" &>/dev/null </dev/null &
+      disown
+    }
+
     # Location of the disk cache for CI servers set in their init files:
     # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
     # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
@@ -11,7 +18,7 @@ steps:
     # Linux machines don't seem to recover when this script fails, and they get
     # renewed by the instance_group
     if [ "$(uname -s)" == "Linux" ]; then
-        trap 'echo "error happened, killing node"; (nohup bash -c "sleep 30; sudo /sbin/poweroff" &)' EXIT
+        trap shut_down EXIT
         exit 1
     fi
 
