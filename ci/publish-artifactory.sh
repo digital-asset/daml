@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
+set -euo pipefail
 
 STAGING_DIR=$1
 RELEASE_TAG=$2
@@ -33,4 +33,3 @@ push daml-trigger-runner $TRIGGER_RUNNER
 push daml-trigger-runner $TRIGGER_RUNNER.asc
 push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
-
