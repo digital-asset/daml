@@ -46,13 +46,13 @@ private[app] object OptionParser extends scopt.OptionParser[Configuration](NonRe
   opt[String]("api-host")
     .action(setApiHost)
     .text(
-      s"The interface over which the non-repudiation API will be exposed. Defaults to ${Configuration.Default.proxyAddress.getAddress}."
+      s"The interface over which the non-repudiation API will be exposed. Defaults to ${Configuration.Default.apiAddress.getAddress}."
     )
 
   opt[String]("api-port")
     .action(setApiPort)
     .text(
-      s"The port over which the non-repudiation API will be exposed. Defaults to ${Configuration.Default.proxyAddress.getPort}."
+      s"The port over which the non-repudiation API will be exposed. Defaults to ${Configuration.Default.apiAddress.getPort}."
     )
 
   opt[Int]("database-max-pool-size")
