@@ -16,7 +16,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.daml:daml-lf-kvutil:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [
         "//daml-lf/data",
