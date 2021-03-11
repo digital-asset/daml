@@ -1,0 +1,25 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+load("//bazel_tools:scala.bzl", "silencer_plugin")
+
+da_scala_library(
+    name = "kvutils",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:daml-lf-kvutil:__VERSION__"],
+    visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+    ],
+)

@@ -42,6 +42,13 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
 
 object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
 
+  private[lf] def apply[Nid, Cid](
+      version: TransactionVersion,
+      nodes: Map[Nid, GenNode[Nid, Cid]],
+      roots: ImmArray[Nid],
+  ): VersionedTransaction[Nid, Cid] =
+    new VersionedTransaction(version, nodes, roots)
+
   override private[lf] def map2[A1, B1, A2, B2](
       f1: A1 => A2,
       f2: B1 => B2,
