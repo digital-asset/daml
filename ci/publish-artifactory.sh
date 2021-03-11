@@ -14,7 +14,7 @@ push() {
     local file repository local_path md5 sha1
     repository=$1
     file=$2
-    local_path=$$INPUTS/${file}
+    local_path=$INPUTS/${file}
     md5=$(md5sum ${local_path} | awk '{print $1}')
     sha1=$(sha1sum ${local_path} | awk '{print $1}')
     curl -f \
