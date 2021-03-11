@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 
 class EncodeCreatedSpec extends AnyFreeSpec with Matchers {
   import Encode._
-  "encodeCreatedEvent" - {
+  "encodeSubmitCreatedEvents" - {
     "multi party submissions" in {
       val parties = Map(
         Party("Alice") -> "alice_0",
