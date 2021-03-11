@@ -16,7 +16,7 @@ import com.daml.platform.store.completions.CompletionsDaoMock.{
   GetFilteredCompletionsRequest,
   Request,
 }
-import com.daml.platform.store.completions.OffsetsGenerator.genOffset
+import com.daml.platform.store.completions.RangeGenerator._
 import com.daml.platform.store.dao.CommandCompletionsTable
 import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 import org.scalatest.flatspec.AnyFlatSpec
@@ -42,8 +42,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // WHEN: completions are requested for the first time
     val cachedCompletions = await(
       reader.getCompletionsPage(
-        genOffset(9),
-        genOffset(19),
+        genRange(9, 19),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -53,11 +52,11 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     cachedCompletions.size shouldBe 10
     // AND all completions should be requested from database
     completionsDao.runQueriesJournalToSeq() shouldBe Seq(
-      GetAllCompletionsRequest(genOffset(9), genOffset(19))
+      GetAllCompletionsRequest(genRange(9, 19))
     )
     // AND should be cached
     reader.getCache shouldBe RangeCache(
-      Range(genOffset(9), genOffset(19)),
+      genRange(9, 19),
       10,
       CompletionsDaoMock.genCompletionsMap(10, 20),
     )
@@ -65,8 +64,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // WHEN: completions older than cached are fetched
     val historicCompletions = await(
       reader.getCompletionsPage(
-        Offset.beforeBegin,
-        genOffset(9),
+        Range(Offset.beforeBegin, genOffset(9)),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -77,10 +75,9 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // AND database should be queried with application and parties filter
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
-      GetAllCompletionsRequest(genOffset(9), genOffset(19)),
+      GetAllCompletionsRequest(genRange(9, 19)),
       GetFilteredCompletionsRequest(
-        Offset.beforeBegin,
-        genOffset(9),
+        Range(Offset.beforeBegin, genOffset(9)),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       ),
@@ -97,8 +94,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // WHEN: not cached completions are fetched
     val cachedCompletions = await(
       reader.getCompletionsPage(
-        genOffset(9),
-        genOffset(19),
+        genRange(9, 19),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -108,12 +104,12 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // AND all completions should be requested from database - proof of caching
     completionsDao.runQueriesJournalToSeq() shouldBe Seq(
-      GetAllCompletionsRequest(genOffset(9), genOffset(19))
+      GetAllCompletionsRequest(genRange(9, 19))
     )
 
     // AND should be cached
     reader.getCache shouldBe RangeCache(
-      Range(genOffset(9), genOffset(19)),
+      genRange(9, 19),
       10,
       CompletionsDaoMock.genCompletionsMap(10, 20),
     )
@@ -121,8 +117,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // WHEN: newer completions are queried
     val futureCompletions = await(
       reader.getCompletionsPage(
-        genOffset(9),
-        genOffset(30),
+        genRange(9, 30),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -133,15 +128,14 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // AND previously read completions should be read from cache
     // AND database should be queried only for new completions starting from offset 19
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
-      GetAllCompletionsRequest(genOffset(9), genOffset(19)),
-      GetAllCompletionsRequest(genOffset(19), genOffset(30)),
+      GetAllCompletionsRequest(genRange(9, 19)),
+      GetAllCompletionsRequest(genRange(19, 30)),
     )
 
     // WHEN: completions older than cache are queried
     val pastCompletions = await(
       reader.getCompletionsPage(
-        genOffset(9),
-        genOffset(19),
+        genRange(9, 19),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -151,11 +145,10 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // AND database should be queried with application and parties filter
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
-      GetAllCompletionsRequest(genOffset(9), genOffset(19)),
-      GetAllCompletionsRequest(genOffset(19), genOffset(30)),
+      GetAllCompletionsRequest(genRange(9, 19)),
+      GetAllCompletionsRequest(genRange(19, 30)),
       GetFilteredCompletionsRequest(
-        genOffset(9),
-        genOffset(19),
+        genRange(9, 19),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       ),
@@ -171,8 +164,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // WHEN: not cached completions are fetched
     val cachedCompletions = await(
       reader.getCompletionsPage(
-        genOffset(19),
-        genOffset(29),
+        genRange(19, 29),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -184,8 +176,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // WHEN completions for range bigger than cache size are requested
     val overlappingCompletions = await(
       reader.getCompletionsPage(
-        genOffset(9),
-        genOffset(39),
+        genRange(9, 39),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       )
@@ -198,14 +189,13 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     // AND database should not be queried by cached completions (19, 29]
     // AND database should be queried for all completions newer than 29
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
-      GetAllCompletionsRequest(genOffset(19), genOffset(29)),
+      GetAllCompletionsRequest(genRange(19, 29)),
       GetFilteredCompletionsRequest(
-        genOffset(9),
-        genOffset(19),
+        genRange(9, 19),
         ApplicationId.assertFromString("Application_1_Id"),
         Set(Party.assertFromString("party1")),
       ),
-      GetAllCompletionsRequest(genOffset(29), genOffset(39)),
+      GetAllCompletionsRequest(genRange(29, 39)),
     )
   }
 
@@ -218,8 +208,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
     val responses = await(Future.sequence((0 until 10).map { _ =>
       Future(
         reader.getCompletionsPage(
-          genOffset(9),
-          genOffset(19),
+          genRange(9, 19),
           ApplicationId.assertFromString("Application_1_Id"),
           Set(Party.assertFromString("party1")),
         )
@@ -229,7 +218,7 @@ class PagedCompletionsReaderWithCacheSpec extends AnyFlatSpec with Matchers {
 
     // THEN database should be queried only once
     completionsDao.runQueriesJournalToSeq() shouldBe Seq[Request](
-      GetAllCompletionsRequest(genOffset(9), genOffset(19))
+      GetAllCompletionsRequest(genRange(9, 19))
     )
   }
 
@@ -284,16 +273,12 @@ object CompletionsDaoMock {
   sealed class Request
 
   final case class GetFilteredCompletionsRequest(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: Range,
       applicationId: ApplicationId,
       parties: Set[Party],
   ) extends Request
 
-  final case class GetAllCompletionsRequest(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ) extends Request
+  final case class GetAllCompletionsRequest(range: Range) extends Request
 }
 
 class CompletionsDaoMock(
@@ -308,18 +293,17 @@ class CompletionsDaoMock(
     runQueriesJournal.toArray(new Array[Request](runQueriesJournal.size())).toSeq
 
   override def getFilteredCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: Range,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[List[(Offset, CompletionStreamResponse)]] = {
     runQueriesJournal.add(
-      GetFilteredCompletionsRequest(startExclusive, endInclusive, applicationId, parties)
+      GetFilteredCompletionsRequest(range, applicationId, parties)
     )
     Future(
       sortedCompletions()
         .filter { case (offset, completion) =>
-          offset > startExclusive && offset <= endInclusive &&
+          offset > range.startExclusive && offset <= range.endInclusive &&
             completion.applicationId == applicationId && completion.parties.exists(parties.contains)
         }
         .map { case (offset, completionWithParties) =>
@@ -328,13 +312,13 @@ class CompletionsDaoMock(
     )
   }
 
-  override def getAllCompletions(startExclusive: Offset, endInclusive: Offset)(implicit
+  override def getAllCompletions(range: Range)(implicit
       loggingContext: LoggingContext
   ): Future[List[(Offset, CommandCompletionsTable.CompletionStreamResponseWithParties)]] = {
-    runQueriesJournal.add(GetAllCompletionsRequest(startExclusive, endInclusive))
+    runQueriesJournal.add(GetAllCompletionsRequest(range))
     Future(
       sortedCompletions().filter { case (offset, _) =>
-        offset > startExclusive && offset <= endInclusive
+        offset > range.startExclusive && offset <= range.endInclusive
       }
     )
   }
