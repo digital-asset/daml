@@ -185,7 +185,7 @@ object TreeUtils {
               Some(SimpleEvent(exercised, ContractId(cid)))
             case _ => None
           }
-        case _ => None
+        case Kind.Empty => None
       }
     }
 
