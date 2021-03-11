@@ -43,7 +43,7 @@ bazel build `
   //release:sdk-release-tarball `
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
 
-rm -r -Force compatibility/head_sdk/*
+git clean -fxd compatibility/head_sdk
 
 cp -Force bazel-bin\release\sdk-release-tarball-ce.tar.gz compatibility/head_sdk
 cp -Force bazel-bin\ledger\ledger-api-test-tool\ledger-api-test-tool_deploy.jar compatibility/head_sdk
