@@ -150,6 +150,7 @@ Jodd Log 5.0.13 : BSD 2-clause "Simplified" License
 Liftoff 2.5.0 : MIT License
 Lodash 4.17.15 : MIT License
 Lodash 4.17.20 : MIT License
+Lodash 4.17.21 : MIT License
 Logback 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
 Logback Classic Module 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
 Metrics Core 4.1.2 : Apache License 2.0
@@ -284,6 +285,8 @@ binary-extensions 1.13.1 : MIT License
 blaze-builder 0.4.1.0 : BSD 3-clause "New" or "Revised" License
 blaze-html 0.9.1.2 : BSD 3-clause "New" or "Revised" License
 blaze-markup 0.8.2.7 : BSD 3-clause "New" or "Revised" License
+bn.js v4.12.0 : MIT License
+bn.js v5.2.0 : MIT License
 body v5.1.0 : MIT License
 body-parser 1.19.0 : MIT License
 boolbase 1.0.0 : ISC License
@@ -12402,7 +12405,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(@apollo/client 3.3.3, @babel/generator 7.12.5, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @types/node 14.14.10, @types/tmp 0.0.29, @types/warning 3.0.0, Animal Sniffer Annotations 1.19, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Modernizr v3.11.4, PCollections 2.1.3, SLF4J API Module 1.7.26, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, base-compat-batteries 0.11.2, base-orphans 0.8.4, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, browserify-rsa 4.1.0, browserify/resolve v1.20.0, color-string 1.5.4, cookie 0.4.5, csstype 3.0.5, doobie-core 0.9.2, doobie-free 0.9.2, doobie-hikari 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.4, error v7.2.1, fansi 0.2.9, fast-uuid 0.1, fastparse 2.3.0, follow-redirects 1.13.3, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, geny 0.6.2, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, haskell-lsp 0.23.0.0, haskell-lsp-types 0.23.0.0, hspec 2.7.5, html-to-react 1.4.5, http-parser-js 0.5.3, integer-logarithms 1.0.3.1, is-bigint 1.0.1, is-core-module 2.2.0, jshttp/mime-types 2.1.29, jwks-rsa 0.11.0, kind-projector 0.11.2, lightning-csv 8.0.3, macros 0.16.2, mime-db 1.46.0, mockito-scala 1.16.3, monad-logger 0.3.36, ms.js 2.1.3, nearley 2.19.9, node-deep-equal v2.0.5, node-xml2js 0.4.23, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, org.brotli:dec 0.1.2, os-lib_2.12 0.7.1, parse5 3.0.3, parser 1.0.0, path-platform 0.11.15, pprint 0.6.0, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, resourcet 1.2.4.2, scalatags 0.9.1, scopt 4.0.0, sfm-util 8.0.3, sjsonnet_2.12 0.3.0, source-map-url v0.4.1, sourcecode 0.2.1, string.prototype.trimend 1.0.3, ts-invariant 0.5.1, typed-process 0.2.6.0, typescript-collections 1.3.3, ujson_2.12 1.2.0, uncontrollable 7.1.1, unist-util-is 4.0.4, upickle-core_2.12 1.2.0)
+(@apollo/client 3.3.3, @babel/generator 7.12.5, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @types/node 14.14.10, @types/tmp 0.0.29, @types/warning 3.0.0, Animal Sniffer Annotations 1.19, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Lodash 4.17.21, Modernizr v3.11.4, PCollections 2.1.3, SLF4J API Module 1.7.26, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, base-compat-batteries 0.11.2, base-orphans 0.8.4, bn.js v4.12.0, bn.js v5.2.0, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, browserify-rsa 4.1.0, browserify/resolve v1.20.0, color-string 1.5.4, cookie 0.4.5, csstype 3.0.5, doobie-core 0.9.2, doobie-free 0.9.2, doobie-hikari 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.4, error v7.2.1, fansi 0.2.9, fast-uuid 0.1, fastparse 2.3.0, follow-redirects 1.13.3, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, geny 0.6.2, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, haskell-lsp 0.23.0.0, haskell-lsp-types 0.23.0.0, hspec 2.7.5, html-to-react 1.4.5, http-parser-js 0.5.3, integer-logarithms 1.0.3.1, is-bigint 1.0.1, is-core-module 2.2.0, jshttp/mime-types 2.1.29, jwks-rsa 0.11.0, kind-projector 0.11.2, lightning-csv 8.0.3, macros 0.16.2, mime-db 1.46.0, mockito-scala 1.16.3, monad-logger 0.3.36, ms.js 2.1.3, nearley 2.19.9, node-deep-equal v2.0.5, node-xml2js 0.4.23, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, org.brotli:dec 0.1.2, os-lib_2.12 0.7.1, parse5 3.0.3, parser 1.0.0, path-platform 0.11.15, pprint 0.6.0, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, resourcet 1.2.4.2, scalatags 0.9.1, scopt 4.0.0, sfm-util 8.0.3, sjsonnet_2.12 0.3.0, source-map-url v0.4.1, sourcecode 0.2.1, string.prototype.trimend 1.0.3, ts-invariant 0.5.1, typed-process 0.2.6.0, typescript-collections 1.3.3, ujson_2.12 1.2.0, uncontrollable 7.1.1, unist-util-is 4.0.4, upickle-core_2.12 1.2.0)
 
 The MIT License
 ===============
