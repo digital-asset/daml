@@ -88,6 +88,25 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(a),
         Record(IASeq.empty),
       ),
+      // mutual recursion
+      "FooMapAndBar" -> DT(
+        IASeq(a, b),
+        Record(
+          IASeq(
+            rn("head") -> reftc("JustMap", TVar(a), TVar(b)),
+            rn("tail") -> reftc("BarMapAndFoo", TVar(a), TVar(b)),
+          )
+        ),
+      ),
+      "BarMapAndFoo" -> DT(
+        IASeq(a, b),
+        Record(
+          IASeq(
+            rn("head") -> reftc("FlippedMap", TVar(a), TVar(b)),
+            rn("tail") -> reftc("FooMapAndBar", TVar(a), TVar(b)),
+          )
+        ),
+      ),
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
 
@@ -99,6 +118,8 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       "Explosion" -> Seq(Covariant, Covariant),
       "NonFancyList" -> Seq(Covariant),
       "MyList" -> Seq(Covariant),
+      "FooMapAndBar" -> Seq(Invariant, Invariant),
+      "BarMapAndFoo" -> Seq(Invariant, Invariant),
     )
 
   private val exVarianceTable = Table(("type ctor", "positional variances"), exVariances: _*)
