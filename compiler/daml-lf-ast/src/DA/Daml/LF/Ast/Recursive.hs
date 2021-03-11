@@ -179,7 +179,7 @@ instance Recursive Expr where
     ETyLam      a b   -> ETyLamF        a b
     ENil        a     -> ENilF          a
     ECons       a b c -> EConsF         a b c
-    ECase       a b   -> ECaseF         a (Prelude.map projectCaseAlternative b)
+    ECase       a b   -> ECaseF         a (map projectCaseAlternative b)
     ELet        a b   -> ELetF          (projectBinding a) b
     EUpdate     a     -> EUpdateF       (projectUpdate a)
     EScenario   a     -> EScenarioF     (projectScenario a)
@@ -213,7 +213,7 @@ instance Corecursive Expr where
     ETyLamF      a b   -> ETyLam        a b
     ENilF        a     -> ENil          a
     EConsF       a b c -> ECons         a b c
-    ECaseF       a b   -> ECase         a (Prelude.map embedCaseAlternative b)
+    ECaseF       a b   -> ECase         a (map embedCaseAlternative b)
     ELetF        a b   -> ELet          (embedBinding a) b
     EUpdateF     a     -> EUpdate       (embedUpdate a)
     EScenarioF   a     -> EScenario     (embedScenario a)

@@ -1694,7 +1694,7 @@ private[lf] object SBuiltin {
     def apply(name: String): SExpr =
       mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
 
-    private val mapping =
+    private val mapping: Map[String, SEBuiltin] =
       List[SBExperimental](
         SBExperimentalAnswer
       ).map(x => x.name -> SEBuiltin(x)).toMap
