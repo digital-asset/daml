@@ -7,8 +7,8 @@ steps:
 
     shut_down () {
       echo "error happened, shutting down node"
-      nohup bash -c "sleep 10; sudo /sbin/poweroff" &>/dev/null </dev/null &
-      disown
+      sleep 10
+      /sbin/poweroff
     }
 
     # Location of the disk cache for CI servers set in their init files:
