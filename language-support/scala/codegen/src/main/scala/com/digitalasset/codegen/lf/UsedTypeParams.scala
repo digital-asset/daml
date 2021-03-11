@@ -96,7 +96,7 @@ object UsedTypeParams {
           val argConstraints = VarianceConstraint(
             resolutions = Map.empty,
             delayedConstraints =
-              DelayedResolution(Map(dt -> refDdt.typeVars.zip(argBases))) |+| innerDelays,
+              DelayedResolution(Map(tcName -> refDdt.typeVars.zip(argBases))) |+| innerDelays,
           )
           val refConstraints =
             if (seen(tcName)) mzero[VarianceConstraint] else goSdt(tcName, seen + tcName)(refDdt)
