@@ -7,6 +7,7 @@ RELEASE_TAG=$1
 OUTPUT_DIR=$2
 
 mkdir -p $OUTPUT_DIR/github
+mkdir -p $OUTPUT_DIR/artifactory
 INSTALLER=daml-sdk-$RELEASE_TAG-windows.exe
 EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
 mv "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$OUTPUT_DIR/github/$INSTALLER"
