@@ -24,7 +24,6 @@ import com.daml.platform.sandboxnext.{Runner => Sandbox}
 import com.daml.ports.Port
 import com.daml.nonrepudiation.testing._
 import com.daml.testing.postgresql.PostgresAroundAll
-import doobie.util.log.LogHandler
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.NettyChannelBuilder
 import org.scalatest.OptionValues

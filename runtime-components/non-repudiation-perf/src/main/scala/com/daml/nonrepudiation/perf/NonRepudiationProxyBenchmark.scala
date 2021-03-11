@@ -3,7 +3,6 @@
 
 package com.daml.nonrepudiation.perf
 
-import cats.effect.{ContextShift, IO}
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceBlockingStub
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
@@ -43,7 +42,6 @@ class NonRepudiationProxyBenchmark extends PostgresAround {
     // The global fork-join work-stealing pool should be good enough to be used for both
     // handling resource callbacks and mock command submission calls
     implicit val executionContext: ExecutionContext = ExecutionContext.global
-    implicit val shift: ContextShift[IO] = IO.contextShift(executionContext)
     implicit val logHandler: LogHandler = Slf4jLogHandler(classOf[NonRepudiationProxyBenchmark])
     connectToPostgresqlServer()
     database = createNewRandomDatabase()

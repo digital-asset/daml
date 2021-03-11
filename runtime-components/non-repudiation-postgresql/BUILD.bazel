@@ -44,8 +44,10 @@ da_scala_test(
         "//ledger/test-common:dar-files-stable",
     ],
     scala_deps = [
-        "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_hikari",
+        "@maven//:org_typelevel_cats_effect",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -64,6 +66,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox-common",
+        "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
