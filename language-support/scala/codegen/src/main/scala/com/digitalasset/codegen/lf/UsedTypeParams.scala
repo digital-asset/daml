@@ -108,9 +108,7 @@ object UsedTypeParams {
       def goSdt(dt: I, seen: Set[I])(sdt: DefDataType[RF, VF]): VarianceConstraint =
         prior
           .get(dt)
-          .map { resolved =>
-            VarianceConstraint.base(Map(dt -> sdt.typeVars.view.zip(resolved).toMap))
-          }
+          .map(VarianceConstraint.reresolve(dt, sdt, _))
           .getOrElse {
             val vLookup = sdt.dataType match {
               case Record(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
@@ -165,6 +163,12 @@ object UsedTypeParams {
     type BaseResolution = Map[ScopedDataType.Name, Map[Ref.Name, Variance]]
 
     def base(base: BaseResolution) = VarianceConstraint(base, mzero[DelayedResolution])
+
+    /** Put a resolved variance back in constraint format, so it doesn't have to
+      * be figured again.
+      */
+    def reresolve(dtName: I, dt: iface.DefDataType[_, _], resolved: Seq[Variance]) =
+      VarianceConstraint.base(Map(dtName -> dt.typeVars.view.zip(resolved).toMap))
 
     implicit val `constraint unifier monoid`: Monoid[VarianceConstraint] = Monoid.instance(
       { case (VarianceConstraint(r0, d0), VarianceConstraint(r1, d1)) =>
