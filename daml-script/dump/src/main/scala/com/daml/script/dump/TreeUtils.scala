@@ -17,6 +17,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.collection.compat._
+import scala.collection.mutable.ListBuffer
 
 object TreeUtils {
   final case class Selector(i: Int)
@@ -173,9 +174,9 @@ object TreeUtils {
             }
           }
           val creates = {
-            var creates = Seq.empty[String]
+            val creates = ListBuffer.empty[String]
             traverseEventInTree(exercised, tree) {
-              case (_, Kind.Created(value)) => creates ++= Seq(value.contractId)
+              case (_, Kind.Created(value)) => creates.addOne(value.contractId)
               case _ =>
             }
             creates
