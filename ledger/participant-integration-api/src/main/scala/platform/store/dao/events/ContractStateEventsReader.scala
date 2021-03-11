@@ -32,10 +32,6 @@ object ContractStateEventsReader {
       Offset,
   )
 
-  // TDT Very ugly!!!
-  def ledgerEndMarker(eventSeqId: Long, offset: Offset): RawContractEvent =
-    (null, null, None, None, None, None, eventSeqId, None, Set.empty, -1, offset)
-
   def read(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
   ): Vector[RawContractEvent] =

@@ -160,7 +160,12 @@ private[platform] abstract class BaseLedger(
       loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] =
     contractStateEventsDispatcher
-      .startingAt((startExclusive, 0L), RangeSource((i1, i2) => ledgerDao.getPartyEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)))
+      .startingAt(
+        (startExclusive, 0L),
+        RangeSource((i1, i2) =>
+          ledgerDao.getPartyEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)
+        ),
+      )
       .map { case ((offset, _), s) => (offset, s) }
 
   override def listLfPackages()(implicit
@@ -188,7 +193,9 @@ private[platform] abstract class BaseLedger(
     contractStateEventsDispatcher
       .startingAt(
         (startExclusive, 0L),
-        RangeSource((i1, i2) => ledgerDao.getPackageEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)),
+        RangeSource((i1, i2) =>
+          ledgerDao.getPackageEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)
+        ),
       )
       .map { case ((offset, _), s) => (offset, s) }
 
@@ -203,7 +210,9 @@ private[platform] abstract class BaseLedger(
     contractStateEventsDispatcher
       .startingAt(
         (startExclusive, 0L),
-        RangeSource((i1, i2) => ledgerDao.getConfigurationEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)),
+        RangeSource((i1, i2) =>
+          ledgerDao.getConfigurationEntries(i1._1, i2._1).map(p => (p._1, 0L) -> p._2)
+        ),
       )
       .map { case ((offset, _), s) => (offset, s) }
 

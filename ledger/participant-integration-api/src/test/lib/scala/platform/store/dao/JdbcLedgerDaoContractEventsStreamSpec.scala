@@ -4,7 +4,11 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.store.dao.events.ContractStateEventsReader
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{Archived, Created, LedgerEndMarker}
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
+  Archived,
+  Created,
+  LedgerEndMarker,
+}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -17,14 +21,14 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
 
   it should "return the expected contracts event stream for the specified offset range" in {
     for {
-      before <- ledgerDao.lookupLedgerEnd()
+      before <- ledgerDao.lookupLedgerEndAndEventSequentialId()
       (offset1, t1) <- store(singleCreate)
       (offset2, t2) <- store(singleCreate)
       (offset3, _) <- store(singleExercise(nonTransient(t2).loneElement))
       (offset4, t4) <- store(fullyTransient)
       (offset5, t5) <- store(singleCreate)
       (offset6, t6) <- store(singleCreate)
-      after <- ledgerDao.lookupLedgerEnd()
+      after <- ledgerDao.lookupLedgerEndAndEventSequentialId()
       contractStateEvents <- contractEventsOf(
         ledgerDao.transactionsReader.getContractStateEvents(
           startExclusive = before,
@@ -95,13 +99,13 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           offset6,
           firstEventSeqId + 13,
         ),
-        LedgerEndMarker(offset6, firstEventSeqId + 13)
+        LedgerEndMarker(offset6, firstEventSeqId + 13),
       )
     }
   }
 
   private def contractEventsOf(
-      source: Source[(Offset, ContractStateEventsReader.ContractStateEvent), NotUsed]
+      source: Source[((Offset, Long), ContractStateEventsReader.ContractStateEvent), NotUsed]
   ): Future[immutable.Seq[ContractStateEventsReader.ContractStateEvent]] =
     source
       .runWith(Sink.seq)

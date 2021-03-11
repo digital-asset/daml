@@ -30,41 +30,61 @@ trait StateCache[K, V] {
 
   def feedAsync(key: K, validAt: Long, newUpdate: Future[V])(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] = {
+  ): Unit = {
     logger.debug(s"New pending cache update for key $key at $validAt")
-    val pendingUpdate @ PendingUpdates(pendingCount, highestIndex, effectsChain) = pendingUpdates
-      .getOrElseUpdate(key, PendingUpdates.empty)
-    // We need to synchronize here instead of using a lock-free update
-    // since registering the next update is impure and cannot be retried/cancelled
-    // on thread contention.
-    pendingUpdate.synchronized {
-      if (highestIndex.get() >= validAt) {
-        logger.trace(
-          s"Not registering update for key $key. Highest index ${highestIndex.get()} vs $validAt. Pending updates map $pendingUpdates"
-        )
-        Future.unit
-      } else {
-        logger.trace(
-          s"Registered pending update for key $key. Highest index ${highestIndex.get()} and $validAt. Pending updates map $pendingUpdates"
-        )
-        highestIndex.set(validAt)
-        pendingCount.incrementAndGet()
-        effectsChain.updateAndGet(_.transformWith { _ =>
-          registerEventualCacheUpdate(key, newUpdate).map(_ => ())
-        })
-      }
+    val pendingUpdate @ PendingUpdates(pendingCountRef, latestRef, effectsChain) =
+      pendingUpdates.getOrElseUpdate(key, PendingUpdates.empty)
+
+    /* We need to synchronize here instead of using a lock-free update
+     * since enqueueing the next update in the chain is impure
+     * and cannot be retried/cancelled on thread contention.
+     */
+    val needsRetry = pendingUpdate.synchronized {
+      /* Invalidated by a more recent put or a more recent pending update */
+      if (latestRef.get() >= validAt) false
+      /* Is this the first update in this effect chain? */
+      else if (latestRef.get() == Long.MinValue) {
+        pendingCountRef.set(1L)
+        latestRef.set(validAt)
+        effectsChain
+          .updateAndGet(_.transformWith { _ =>
+            registerEventualCacheUpdate(key, newUpdate, validAt).map(_ => ())
+          })
+        false
+      } else if (othersPending(pendingCountRef, latestRef)) {
+        /* If 0 is returned it means another update is going to delete this entry,
+         * we need to retry.
+         */
+        if (pendingCountRef.getAndIncrement() > 0L) {
+          latestRef.set(validAt)
+          effectsChain.updateAndGet(_.transformWith { _ =>
+            registerEventualCacheUpdate(key, newUpdate, validAt).map(_ => ())
+          })
+          false
+        } else latestRef.get() >= validAt
+      } else true
     }
+    if (needsRetry) {
+      logger.warn(s"Race condition when trying to update cache for $key at $validAt. Retrying..")
+      feedAsync(key, validAt, newUpdate)
+    } else ()
   }
+
+  private def othersPending(pendingCount: AtomicLong, highestIndex: AtomicLong) =
+    highestIndex.get() >= 0L && pendingCount.get() > 0L
 
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
+      validAt: Long,
   )(implicit loggingContext: LoggingContext): Future[V] =
     eventualUpdate.andThen {
       case Success(update) =>
-        // TDT Double-check if we need to update
-        logger.debug(s"Updating cache with $key -> ${update.toString.take(100)}")
-        cache.put(key, update)
+        // Double-check if we need to update
+        if (pendingUpdates(key).latestRef.get() == validAt) {
+          logger.debug(s"Updating cache with $key -> ${update.toString.take(100)}")
+          cache.put(key, update)
+        }
         removeFromPending(key)
       case Failure(e) =>
         removeFromPending(key)
@@ -78,7 +98,7 @@ trait StateCache[K, V] {
 object StateCache {
   case class PendingUpdates(
       pendingCount: AtomicLong,
-      highestIndex: AtomicLong,
+      latestRef: AtomicLong,
       effectsChain: AtomicReference[Future[Unit]],
   )
   object PendingUpdates {

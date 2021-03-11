@@ -6,18 +6,12 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
-
-import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -242,24 +236,4 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
   }
-
-  it should "fetch contract lifecycle events correctly" in {
-    for {
-      ledgerEnd <- ledgerDao.lookupLedgerEnd()
-      events <- contractEvents(
-        ledgerDao.transactionsReader.getContractStateEvents(Offset.beforeBegin, ledgerEnd)
-      )
-    } yield {
-      println(events)
-      succeed
-    }
-  }
-
-  private def contractEvents(
-      source: Source[(Offset, ContractStateEvent), NotUsed]
-  ): Future[Seq[ContractStateEvent]] =
-    source
-      .map(_._2)
-      .runWith(Sink.seq)
-
 }

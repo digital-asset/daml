@@ -52,9 +52,12 @@ private[platform] object ReadOnlySqlLedger {
       for {
         ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        (ledgerEndOffset, ledgerEndSeqId) <- Resource.fromFuture(ledgerDao.lookupLedgerEndAndEventSequentialId())
+        (ledgerEndOffset, ledgerEndSeqId) <- Resource.fromFuture(
+          ledgerDao.lookupLedgerEndAndEventSequentialId()
+        )
         dispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
-        contractStateEventsDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEndOffset, ledgerEndSeqId).acquire()
+        contractStateEventsDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEndOffset, ledgerEndSeqId)
+          .acquire()
         ledger <- ResourceOwner
           .forCloseable(() =>
             new ReadOnlySqlLedger(
@@ -132,14 +135,14 @@ private[platform] object ReadOnlySqlLedger {
       )
 
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
-      implicit val ordering: Ordering[(Offset, Long)] = Ordering.fromLessThan{
+      implicit val ordering: Ordering[(Offset, Long)] = Ordering.fromLessThan {
         case ((fOffset, fSeqId), (sOffset, sSeqId)) =>
           (fOffset < sOffset) || (fOffset == sOffset && fSeqId < sSeqId)
       }
       Dispatcher.owner(
         name = "contract-state-events",
         zeroIndex = (Offset.beforeBegin, -1L),
-        headAtInitialization = (ledgerEnd, evtSeqId)
+        headAtInitialization = (ledgerEnd, evtSeqId),
       )
     }
   }

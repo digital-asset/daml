@@ -9,10 +9,9 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.GenSeq
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
@@ -22,6 +21,21 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
 
   private val `number of competing updates` = 1000
   private val `number of keys in cache` = 1000L
+
+  it should "always store the latest key update in face of conflicting concurrent pending updates" in {
+    val (stateCache, assertionSet) = setup()
+    assertionSet.foreach(_._2.foreach(_.apply()))
+    Thread.sleep(1000L)
+    assertResults(stateCache, assertionSet)
+  }
+
+  it should "always store the latest key update in face of conflicting pending updates with significant duration" in {
+    val (stateCache, assertionSet) = setup()
+    Thread.sleep(1000L)
+    assertionSet.foreach(_._2.foreach(_.apply()))
+    Thread.sleep(1000L)
+    assertResults(stateCache, assertionSet)
+  }
 
   private val caffeineCache: Cache[String, String] = Caffeine
     .newBuilder()
@@ -37,35 +51,42 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
       override def cache: DamlCache[String, String] = provided
     }
 
-  it should "always store the latest key update in face of conflicting pending updates" in {
+  private def setup() = {
+    val stateCache = stateCacheBuilder(cache)
     val assertionSet = (1L to `number of keys in cache`).map { keyIdx =>
       val keyValue = s"some-key-$keyIdx"
-      keyValue -> concurrentForKey(keyValue, `number of competing updates`)
-    }
+      keyValue -> concurrentForKey(keyValue, `number of competing updates`, stateCache)
+    }.par
+    (stateCache, assertionSet)
+  }
 
-    Thread.sleep(1000L)
-    assertionSet.foreach(_._2.foreach(_.apply()))
-    Thread.sleep(1000L)
-
+  private def assertResults(
+      stateCache: StateCache[String, String],
+      assertionSet: GenSeq[(String, GenSeq[() => Promise[String]])],
+  ) = {
     caffeineCache.asMap().asScala should contain theSameElementsAs assertionSet.map {
       case (key, _) => key -> s"completed-${`number of competing updates`}"
     }
+    stateCache.pendingUpdates.size shouldBe 0
   }
 
-  private def concurrentForKey(key: String, concurrency: Int) = {
+  private def concurrentForKey(
+      key: String,
+      concurrency: Int,
+      stateCache: StateCache[String, String],
+  ) = {
     val updates =
       (1 to concurrency).map(idx => (idx.toLong, key, Promise[String]))
     val (indices, _, eventualValues) = updates.unzip3
 
-    val stateCache = stateCacheBuilder(cache)
-    Await.result(
-      Future.sequence(Random.shuffle(updates).map { case (idx, key, eventualValue) =>
-        stateCache.feedAsync(key, idx, eventualValue.future)
-      }),
-      10.seconds,
-    )
-    Random.shuffle(indices zip eventualValues).map { case (idx, promisedString) =>
-      () => promisedString.completeWith(Future.successful(s"completed-$idx"))
+    Random.shuffle(updates).foreach { case (idx, key, eventualValue) =>
+      stateCache.feedAsync(key, idx, eventualValue.future)
     }
+    Random
+      .shuffle(indices zip eventualValues)
+      .map { case (idx, promisedString) =>
+        () => promisedString.completeWith(Future.successful(s"completed-$idx"))
+      }
+      .par
   }
 }
