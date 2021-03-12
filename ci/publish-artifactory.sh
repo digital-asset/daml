@@ -23,7 +23,7 @@ push() {
          -H "X-Checksum-SHA1:${sha1}" \
          -X PUT \
          -T ${local_path} \
-         https://digitalasset.jfrog.io/artifactory/${repository}/$(release_tag)/${file}
+         https://digitalasset.jfrog.io/artifactory/${repository}/$RELEASE_TAG/${file}
 }
 
 TRIGGER_RUNNER=daml-trigger-runner-$RELEASE_TAG.jar
