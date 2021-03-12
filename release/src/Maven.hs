@@ -37,17 +37,14 @@ generateAggregatePom releaseDir artifacts = do
     where
     execution :: (MonadFail m, E.MonadThrow m) => Artifact PomData -> m Text
     execution artifact = do
-        (mainArtifactFile:pomFile:rest) <- map snd <$> artifactFiles artifact
-        let (javadocFile, sourcesFile) = case rest of
-              [javadoc, sources] -> (Just javadoc, Just sources)
-              _ -> (Nothing, Nothing)
+        ArtifactFiles{..} <- fmap snd <$> artifactFiles artifact
         let configuration =
                 map (\(name, value) -> (name, pathToText (releaseDir </> value))) $
                     Maybe.catMaybes
-                        [ Just ("pomFile", pomFile)
-                        , Just ("file", mainArtifactFile)
-                        , ("javadoc", ) <$> javadocFile
-                        , ("sources", ) <$> sourcesFile
+                        [ Just ("pomFile", artifactPom)
+                        , Just ("file", artifactMain)
+                        , ("javadoc", ) <$> artifactJavadoc
+                        , ("sources", ) <$> artifactSources
                         ]
         return $ T.unlines $ map ("                    " <>) $
             [ "<execution>"
