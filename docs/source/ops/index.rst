@@ -6,9 +6,6 @@
 Daml Participant pruning
 ========================
 
-.. HINT::
-   Daml Participant pruning is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`
-
 The Daml Ledger API exposes an append-only ledger model; on the other hand, Daml Participants must be able to operate continuously for an indefinite amount of time on a limited amount of hot storage.
 
 In addition, privacy demands [1]_ may require removing Personally Identifiable Information (PII) upon request.
