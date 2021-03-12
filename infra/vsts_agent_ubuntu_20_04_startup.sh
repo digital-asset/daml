@@ -93,7 +93,6 @@ useradd \
   --shell /bin/bash \
   --uid 3000 \
   vsts
-echo "vsts ALL=NOPASSWD: /usr/sbin/poweroff" >> /etc/sudoers
 #add docker group to user
 usermod -aG docker vsts
 
