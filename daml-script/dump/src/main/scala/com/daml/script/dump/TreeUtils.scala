@@ -147,18 +147,13 @@ object TreeUtils {
   }
 
   def treeReferencedCids(tree: TransactionTree): Set[ContractId] = {
-    var cids: Set[ContractId] = Set.empty
-    traverseTree(tree) { case (_, kind) =>
-      kind match {
-        case Kind.Empty =>
-        case Kind.Exercised(value) =>
-          cids += ContractId(value.contractId)
-          cids ++= value.choiceArgument.foldMap(arg => valueCids(arg.sum))
-        case Kind.Created(value) =>
-          cids ++= createdReferencedCids(value)
-      }
+    tree.rootEventIds.map(tree.eventsById(_).kind).foldMap {
+      case Kind.Empty => Set.empty[ContractId]
+      case Kind.Created(value) =>
+        createdReferencedCids(value)
+      case Kind.Exercised(value) =>
+        value.choiceArgument.foldMap(arg => valueCids(arg.sum)) + ContractId(value.contractId)
     }
-    cids
   }
 
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
