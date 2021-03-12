@@ -186,8 +186,7 @@ object ReadServiceStateUpdateComparison {
           exercise.copy(children = exercise.children.filter(filteredNodes.contains))
         filteredNode
       case keep @ (_: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid]) => keep
-    }
-      .toMap
+    }.toMap
     val filteredRoots = tx.roots.filter(filteredChildNodes.contains)
     VersionedTransaction(tx.version, filteredChildNodes, filteredRoots)
   }
