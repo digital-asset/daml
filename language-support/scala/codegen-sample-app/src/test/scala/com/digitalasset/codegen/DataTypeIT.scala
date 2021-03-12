@@ -73,4 +73,21 @@ class DataTypeIT extends AnyWordSpec with Matchers {
     }
   }
 
+  "variance" should {
+    import MyMain.{Maybe, JustMap}
+    "default to covariant" in {
+      val just = Maybe.Just(42)
+      val nothing = Maybe.Nothing[Nothing](())
+      Seq[Maybe[Any]](just, nothing) // compiles
+    }
+
+    "use invariant where needed" in {
+      val m = JustMap(P.GenMap(1L -> 2L))
+      val vw: JustMap[P.Int64, Any] = m
+      "val kvw: JustMap[Any, Any] = m" shouldNot typeCheck
+      val kevw: JustMap[_ <: P.Int64, Any] = m
+      Seq[JustMap[_ <: P.Int64, Any]](m, vw, kevw)
+    }
+  }
+
 }
