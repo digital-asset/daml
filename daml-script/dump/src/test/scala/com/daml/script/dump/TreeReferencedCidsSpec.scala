@@ -103,5 +103,25 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
         "cid_genmap_value",
       )
     }
+    "only referenced internally" in {
+      val tree = TestData
+        .Tree(
+          Seq(
+            TestData.Exercised(
+              ContractId("cid_exercise_outer"),
+              Seq(
+                TestData.Exercised(
+                  ContractId("cid_exercise_inner"),
+                  Seq.empty[TestData.Event],
+                )
+              ),
+            )
+          )
+        )
+        .toTransactionTree
+      treeReferencedCids(tree) shouldBe Set(
+        "cid_exercise_outer"
+      )
+    }
   }
 }
