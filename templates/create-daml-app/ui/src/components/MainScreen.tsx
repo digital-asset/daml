@@ -23,7 +23,7 @@ const MainScreen: React.FC<Props> = ({onLogout}) => {
             href='https://www.daml.com/'
             target='_blank'
             src='/daml.svg'
-            alt='DAML Logo'
+            alt='Daml Logo'
             size='mini'
           />
         </Menu.Item>
