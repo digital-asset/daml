@@ -11,6 +11,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Exception
 import qualified Control.Exception.Safe as E
+import Data.Foldable (toList)
 import qualified Data.SemVer as SemVer
 import Data.Yaml
 import qualified Data.Set as Set
@@ -78,7 +79,7 @@ copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => BazelLocations ->
 copyArtifacts bazelLocations releaseDir as = do
   mvnFiles <-
     fmap concat $ forM as $ \artifact ->
-    map (artifact,) <$> artifactFiles artifact
+    map (artifact,) . toList <$> artifactFiles artifact
   forM_ mvnFiles $ \(_, (inp, outp)) ->
     copyToReleaseDir bazelLocations releaseDir inp outp
 

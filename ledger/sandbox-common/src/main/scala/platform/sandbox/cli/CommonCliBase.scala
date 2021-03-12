@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.sandbox.cli.CommonCli._
+import com.daml.platform.sandbox.cli.CommonCliBase._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -31,11 +31,12 @@ import scala.util.Try
 // [[SandboxConfig]] should not expose Options for mandatory fields as such validations should not
 // leave this class. Due to the limitations of scopt, we either use nulls or use the mutable builder
 // instead.
-class CommonCli(name: LedgerName) {
+class CommonCliBase(name: LedgerName) {
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
-  val parser: OptionParser[SandboxConfig] =
+  // Def so we can override it
+  def parser: OptionParser[SandboxConfig] =
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
       head(s"$name version ${BuildInfo.Version}")
 
@@ -276,12 +277,6 @@ class CommonCli(name: LedgerName) {
           )
         )
 
-      opt[File]("profile-dir")
-        .hidden()
-        .optional()
-        .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
-        .text("Enable profiling and write the profiles into the given directory.")
-
       opt[Boolean]("stack-traces")
         .hidden()
         .optional()
@@ -322,7 +317,7 @@ class CommonCli(name: LedgerName) {
   def withContractIdSeeding(
       defaultConfig: SandboxConfig,
       seedingModes: Option[Seeding]*
-  ): CommonCli = {
+  ): CommonCliBase = {
     val seedingModesMap =
       seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
     val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
@@ -345,7 +340,7 @@ class CommonCli(name: LedgerName) {
     this
   }
 
-  def withEarlyAccess: CommonCli = {
+  def withEarlyAccess: CommonCliBase = {
     parser
       .opt[Unit]("early-access-unsafe")
       .optional()
@@ -362,7 +357,7 @@ class CommonCli(name: LedgerName) {
     this
   }
 
-  def withDevEngine: CommonCli = {
+  def withDevEngine: CommonCliBase = {
     parser
       .opt[Unit]("daml-lf-dev-mode-unsafe")
       .optional()
@@ -382,7 +377,7 @@ class CommonCli(name: LedgerName) {
 
 }
 
-object CommonCli {
+object CommonCliBase {
 
   private def setTimeProviderType(
       config: SandboxConfig,

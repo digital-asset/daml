@@ -12,6 +12,7 @@ module Util (
 
     Artifact(..),
     ArtifactLocation(..),
+    ArtifactFiles(..),
     BazelLocations(..),
     BazelTarget(..),
     PomData(..),
@@ -265,8 +266,15 @@ javadocJarName Artifact{..}
 customJavadocJarName :: Artifact a -> Maybe Text
 customJavadocJarName Artifact{..} = T.pack . toFilePath <$> artJavadocJar
 
+data ArtifactFiles f = ArtifactFiles
+  { artifactMain :: f
+  , artifactPom :: f
+  , artifactSources :: Maybe f
+  , artifactJavadoc :: Maybe f
+  } deriving (Functor, Foldable)
+
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
-artifactFiles :: E.MonadThrow m => Artifact PomData -> m [(Path Rel File, Path Rel File)]
+artifactFiles :: E.MonadThrow m => Artifact PomData -> m (ArtifactFiles (Path Rel File, Path Rel File))
 artifactFiles artifact@Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
@@ -286,12 +294,12 @@ artifactFiles artifact@Artifact{..} = do
     mbJavadocJarIn <- javadocJarPath artifact
     javadocJarOut <- releaseDocJarPath artMetadata
 
-    pure $
-        [ (directory </> mainArtifactIn, outDir </> mainArtifactOut)
-        , (directory </> pomFileIn, outDir </> pomFileOut)
-        ] <>
-        [(directory </> sourceJarIn, outDir </> sourceJarOut) | Just sourceJarIn <- pure mbSourceJarIn] <>
-        [(directory </> javadocJarIn, outDir </> javadocJarOut) | Just javadocJarIn <- pure mbJavadocJarIn]
+    pure $ ArtifactFiles
+      { artifactMain = (directory </> mainArtifactIn, outDir </> mainArtifactOut)
+      , artifactPom = (directory </> pomFileIn, outDir </> pomFileOut)
+      , artifactSources = fmap (\sourceJarIn -> (directory </> sourceJarIn, outDir </> sourceJarOut)) mbSourceJarIn
+      , artifactJavadoc = fmap (\javadocJarIn -> (directory </> javadocJarIn, outDir </> javadocJarOut)) mbJavadocJarIn
+      }
         -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
 
 mainArtifactPath :: E.MonadThrow m => Text -> Artifact a -> m (Path Rel File)

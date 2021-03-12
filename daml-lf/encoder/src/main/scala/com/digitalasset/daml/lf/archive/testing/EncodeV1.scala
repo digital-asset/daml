@@ -620,6 +620,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case ETypeRep(ty) =>
           assertSince(LV.Features.typeRep, "Expr.TypeRep")
           builder.setTypeRep(ty)
+        case EExperimental(name, ty) =>
+          assertSince(LV.v1_dev, "Expr.experimental")
+          builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
       }
       builder
     }

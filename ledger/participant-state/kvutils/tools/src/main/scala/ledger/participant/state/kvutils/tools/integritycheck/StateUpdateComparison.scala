@@ -8,6 +8,8 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.{CommittedTransaction, Node, VersionedTransaction}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,11 +62,13 @@ object ReadServiceStateUpdateComparison {
   case class NormalizationSettings(
       ignoreBlindingInfo: Boolean = false,
       ignoreTransactionId: Boolean = false,
+      ignoreFetchAndLookupByKeyNodes: Boolean = false,
   )
 
   val DefaultNormalizationSettings: NormalizationSettings = NormalizationSettings(
     ignoreBlindingInfo = true,
     ignoreTransactionId = true,
+    ignoreFetchAndLookupByKeyNodes = true,
   )
 
   private def compareOffsets(expected: Offset, actual: Offset): Future[Unit] =
@@ -108,6 +112,8 @@ object ReadServiceStateUpdateComparison {
   // Normalization settings control whether we ignore the blinding info or the transaction ID in TransactionAccepted
   // updates:
   //   - We may not want to check blinding info as we haven't always populated these.
+  //   - We may not want to care about fetch and lookup-by-key nodes in the transaction tree attached to a
+  //   TransactionAccepted event as in some Daml SDK versions we are dropping them.
   //   - We may not want to check transaction ID as it is generated from the serialized form of a Daml submission which
   //   is not expected to stay the same across Daml SDK versions.
   private def normalizeUpdate(
@@ -146,6 +152,11 @@ object ReadServiceStateUpdateComparison {
             None
           else
             transactionAccepted.blindingInfo,
+        transaction =
+          if (normalizationSettings.ignoreFetchAndLookupByKeyNodes) {
+            CommittedTransaction(dropFetchAndLookupByKeyNodes(transactionAccepted.transaction))
+          } else
+            transactionAccepted.transaction,
       )
     case _ => update
   }
@@ -161,6 +172,26 @@ object ReadServiceStateUpdateComparison {
       case u: Update.TransactionAccepted => u.copy(recordTime = newRecordTime)
       case u: Update.CommandRejected => u.copy(recordTime = newRecordTime)
     }
+
+  private def dropFetchAndLookupByKeyNodes[Nid, Cid](
+      tx: VersionedTransaction[Nid, Cid]
+  ): VersionedTransaction[Nid, Cid] = {
+    val filteredNodes = tx.nodes.filter {
+      case (_, _: Node.NodeFetch[Cid] | _: Node.NodeLookupByKey[Cid]) => false
+      case _ => true
+    }
+    val filteredChildNodes = filteredNodes.map {
+      case (nodeId, exercise: Node.NodeExercises[Nid, Cid]) =>
+        val filteredNode =
+          exercise.copy(children = exercise.children.filter(filteredNodes.contains))
+        nodeId -> filteredNode
+      case keep @ ((_, _: NodeFetch[Cid]) | (_, _: NodeCreate[Cid]) |
+          (_, _: NodeLookupByKey[Cid])) =>
+        keep
+    }
+    val filteredRoots = tx.roots.filter(filteredChildNodes.contains)
+    VersionedTransaction(tx.version, filteredChildNodes, filteredRoots)
+  }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
     reason match {

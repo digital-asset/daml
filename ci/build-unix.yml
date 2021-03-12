@@ -68,50 +68,9 @@ steps:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
-      source $(bash-lib)
       eval "$(./dev-env/bin/dade-assist)"
-
-      TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
-      cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
-      setvar tarball "$TARBALL"
-
-      PROTOS_ZIP=protobufs-${{parameters.release_tag}}.zip
-      cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
-      setvar protos-zip "$PROTOS_ZIP"
-
-      DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
-      ## Not built by default
-      bazel build //ledger/daml-on-sql:daml-on-sql-binary_deploy.jar
-      cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
-      setvar daml-on-sql "$DAML_ON_SQL"
-
-      JSON_API=http-json-${{parameters.release_tag}}.jar
-      ## Not built by default
-      bazel build //ledger-service/http-json:http-json-binary_deploy.jar
-      cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
-      setvar json-api "$JSON_API"
-
-      TRIGGER=daml-trigger-runner-${{parameters.release_tag}}.jar
-      bazel build //triggers/runner:trigger-runner_deploy.jar
-      cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $(Build.StagingDirectory)/$TRIGGER
-      setvar trigger-runner "$TRIGGER"
-
-      TRIGGER_SERVICE=trigger-service-${{parameters.release_tag}}.jar
-      ## Not built by default
-      bazel build //triggers/service:trigger-service-binary_deploy.jar
-      cp bazel-bin/triggers/service/trigger-service-binary_deploy.jar $(Build.StagingDirectory)/$TRIGGER_SERVICE
-      setvar trigger-service "$TRIGGER_SERVICE"
-
-      OAUTH2_MIDDLEWARE=oauth2-middleware-${{parameters.release_tag}}.jar
-      ## Not built by default
-      bazel build //triggers/service/auth:oauth2-middleware-binary_deploy.jar
-      cp bazel-bin/triggers/service/auth/oauth2-middleware-binary_deploy.jar $(Build.StagingDirectory)/$OAUTH2_MIDDLEWARE
-      setvar oauth2-middleware "$OAUTH2_MIDDLEWARE"
-
-      SCRIPT=daml-script-${{parameters.release_tag}}.jar
-      bazel build //daml-script/runner:script-runner_deploy.jar
-      cp bazel-bin/daml-script/runner/script-runner_deploy.jar $(Build.StagingDirectory)/$SCRIPT
-      setvar script-runner "$SCRIPT"
+      mkdir -p $(Build.StagingDirectory)/release
+      ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
@@ -120,64 +79,8 @@ steps:
                    eq(variables['Build.SourceBranchName'], 'main'))
   - task: PublishPipelineArtifact@0
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.tarball)
-      artifactName: $(publish.tarball)
+      targetPath: $(Build.StagingDirectory)/release
+      artifactName: ${{parameters.name}}-release
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
-      artifactName: $(publish.protos-zip)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.daml-on-sql)
-      artifactName: $(publish.daml-on-sql)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.json-api)
-      artifactName: $(publish.json-api)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.trigger-runner)
-      artifactName: $(publish.trigger-runner)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.trigger-service)
-      artifactName: $(publish.trigger-service)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.oauth2-middleware)
-      artifactName: $(publish.oauth2-middleware)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.script-runner)
-      artifactName: $(publish.script-runner)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'main'),
-                   eq('${{parameters.name}}', 'linux'))

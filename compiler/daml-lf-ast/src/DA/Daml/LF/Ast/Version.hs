@@ -41,7 +41,7 @@ version1_12 = V1 $ PointStable 12
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_11
+versionDefault = version1_12
 
 -- | The DAML-LF development version.
 versionDev :: Version
@@ -157,6 +157,13 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
+featureExperimental :: Feature
+featureExperimental = Feature
+    { featureName = "DAML Experimental"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_EXPERIMENTAL"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
@@ -172,6 +179,7 @@ allFeatures =
     , featureChoiceObservers
     , featureTypeInterning
     , featureExceptions
+    , featureExperimental
     ]
 
 allFeaturesForVersion :: Version -> [Feature]

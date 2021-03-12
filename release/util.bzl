@@ -27,8 +27,8 @@ inputs = {
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
     "sdk_deploy_jar": {
-        "community": "//daml-assistant/daml-sdk:sdk_deploy.jar",
-        "enterprise": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
+        "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
+        "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
     },
 }
 

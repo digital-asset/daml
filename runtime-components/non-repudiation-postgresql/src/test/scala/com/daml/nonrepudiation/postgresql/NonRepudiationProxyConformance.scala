@@ -5,6 +5,7 @@ package com.daml.nonrepudiation.postgresql
 
 import java.time.Clock
 
+import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCase,
   LedgerTestCasesRunner,
@@ -69,7 +70,14 @@ final class NonRepudiationProxyConformance
           shutdownTimeout = 5.seconds,
         )
         _ <- MetricsReporterOwner.slf4j[ResourceContext](period = 5.seconds)
-        db <- initializeDatabase(postgresDatabase.url, maxPoolSize = 10)
+        transactor <- createTransactor(
+          postgresDatabase.url,
+          postgresDatabase.userName,
+          postgresDatabase.password,
+          maxPoolSize = 10,
+          ResourceOwner,
+        )
+        db = Tables.initialize(transactor)(Slf4jLogHandler(getClass))
         _ = db.certificates.put(certificate)
         proxy <- NonRepudiationProxy.owner[ResourceContext](
           sandboxChannel,

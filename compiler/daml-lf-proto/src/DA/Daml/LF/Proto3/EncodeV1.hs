@@ -685,6 +685,10 @@ encodeExpr' = \case
         expr_ThrowExceptionType <- encodeType ty2
         expr_ThrowExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
+    EExperimental name ty -> do
+        let expr_ExperimentalName = encodeString name
+        expr_ExperimentalType <- encodeType ty
+        pureExpr $ P.ExprSumExperimental P.Expr_Experimental{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr

@@ -1,13 +1,10 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. ops-ref_index:
+.. _ops-ref_index:
 
 Daml Participant pruning
 ========================
-
-.. HINT::
-   Daml Participant pruning is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`
 
 The Daml Ledger API exposes an append-only ledger model; on the other hand, Daml Participants must be able to operate continuously for an indefinite amount of time on a limited amount of hot storage.
 
