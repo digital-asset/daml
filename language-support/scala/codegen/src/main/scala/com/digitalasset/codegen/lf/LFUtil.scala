@@ -266,6 +266,16 @@ final case class LFUtil(
       case _ => false
     }
   }
+
+  protected[this] override def precacheVariance(interface: Interface) = {
+    import UsedTypeParams.ResolvedVariance
+    val resolved = interface.typeDecls.foldLeft(ResolvedVariance.Empty) {
+      case (resolved, (id, InterfaceType.Template(_, _))) =>
+        resolved.allCovariantVars(id, interface)._1
+      case (resolved, _) => resolved // skip hidden or unreferenced types
+    }
+    id => resolved.allCovariantVars(id, interface)._2
+  }
 }
 
 object LFUtil {

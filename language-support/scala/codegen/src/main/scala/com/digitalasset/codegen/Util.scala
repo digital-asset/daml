@@ -4,6 +4,7 @@
 package com.daml.codegen
 
 import com.daml.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
+import lf.ScopedDataType, lf.UsedTypeParams.Variance
 import com.daml.lf.iface.{Type => IType, _}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.ImmArray.ImmArraySeq
@@ -123,6 +124,15 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   def paramRefAndGenTypeToArgumentValue(paramRef: Tree, genType: IType): Tree
 
   def templateCount(interface: Interface): Int
+
+  protected[this] def precacheVariance(
+      interface: Interface
+  ): ScopedDataType.Name => ImmArraySeq[Variance]
+
+  private[this] lazy val precachedVariance = precacheVariance(iface)
+
+  def variance(sdt: ScopedDataType[_]): Seq[Variance] =
+    precachedVariance(sdt.name)
 }
 
 object Util {
