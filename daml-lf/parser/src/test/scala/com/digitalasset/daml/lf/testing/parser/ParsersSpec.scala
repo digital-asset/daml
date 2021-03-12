@@ -332,6 +332,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
     }
 
+    "parses properly experiment" in {
+      parseExpr("$ ANSWER (Unit -> Int64)") shouldBe Right(
+        EExperimental("ANSWER", t"Unit -> Int64")
+      )
+    }
+
     "parses properly scenarios" in {
       val testCases = Table[String, Scenario](
         "string to parse" ->

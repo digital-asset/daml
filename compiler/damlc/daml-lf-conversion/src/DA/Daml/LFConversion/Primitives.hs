@@ -12,6 +12,7 @@ import           DA.Daml.LFConversion.UtilLF
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
+import qualified Data.List as L
 
 convertPrim :: Version -> String -> Type -> Expr
 -- Update
@@ -404,6 +405,9 @@ convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :
             (EVar (mkVar "t") `ETmApp` EUnit)
             (mkVar "x")
             (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
+
+convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
+    EExperimental (T.pack builtin) typ
 
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty

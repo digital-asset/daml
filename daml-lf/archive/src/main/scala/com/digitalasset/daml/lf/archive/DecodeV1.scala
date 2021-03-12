@@ -1054,6 +1054,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
+
+        case PLF.Expr.SumCase.EXPERIMENTAL =>
+          assertSince(LV.v1_dev, "Expr.experimental")
+          val experimental = lfExpr.getExperimental
+          EExperimental(experimental.getName, decodeType(experimental.getType))
       }
       decodeLocation(lfExpr, definition) match {
         case None => expr

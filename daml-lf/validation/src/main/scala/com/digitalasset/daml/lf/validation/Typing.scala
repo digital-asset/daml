@@ -1054,6 +1054,8 @@ private[validation] object Typing {
         checkExceptionType(typ)
         checkExpr(value, TAnyException)
         TOptional(typ)
+      case EExperimental(_, typ) =>
+        typ
     }
 
     def checkExpr(expr: Expr, typ0: Type): Type = {

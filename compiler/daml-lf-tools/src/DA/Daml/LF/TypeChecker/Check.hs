@@ -715,6 +715,7 @@ typeOf' = \case
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
+  EExperimental _ ty -> pure ty
 
 typeOf :: MonadGamma m => Expr -> m Type
 typeOf expr = do

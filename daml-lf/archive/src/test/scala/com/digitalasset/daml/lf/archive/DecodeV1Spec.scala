@@ -1113,4 +1113,29 @@ class DecodeV1Spec
       }
     }
   }
+
+  s"reject experiment expression if LF version < ${LV.v1_dev}" in {
+
+    val expr = DamlLf1.Expr
+      .newBuilder()
+      .setExperimental(
+        DamlLf1.Expr.Experimental
+          .newBuilder()
+          .setName("ANSWER")
+          .setType(
+            DamlLf1.Type
+              .newBuilder()
+              .setPrim(
+                DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.INT64)
+              )
+          )
+      )
+      .build()
+
+    forEveryVersionSuchThat(_ < LV.v1_dev) { version =>
+      val decoder = moduleDecoder(version)
+      a[ParseError] shouldBe thrownBy(decoder.decodeExpr(expr, "test"))
+    }
+  }
+
 }

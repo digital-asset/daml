@@ -469,6 +469,8 @@ object Ast {
   final case object BTextSplitOn extends BuiltinFunction(2) // : Text → Text → List Text
   final case object BTextIntercalate extends BuiltinFunction(2) // : Text → List Text → Text
 
+  final case class EExperimental(name: String, typ: Type) extends Expr
+
   //
   // Update expressions
   //

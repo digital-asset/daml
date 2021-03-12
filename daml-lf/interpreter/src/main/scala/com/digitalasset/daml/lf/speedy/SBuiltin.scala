@@ -1680,6 +1680,27 @@ private[lf] object SBuiltin {
     }
   }
 
+  object SBExperimental {
+
+    private sealed abstract class SBExperimental(val name: String, arity: Int)
+        extends SBuiltin(arity)
+
+    private object SBExperimentalAnswer extends SBExperimental("ANSWER", 1) {
+      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        machine.returnValue = SInt64(42L)
+      }
+    }
+
+    def apply(name: String): SExpr =
+      mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
+
+    private val mapping: Map[String, SEBuiltin] =
+      List[SBExperimental](
+        SBExperimentalAnswer
+      ).map(x => x.name -> SEBuiltin(x)).toMap
+
+  }
+
   // Helpers
   //
 

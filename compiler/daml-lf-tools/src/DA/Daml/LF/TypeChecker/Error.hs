@@ -72,6 +72,7 @@ data UnserializabilityReason
   | URAnyException -- ^ It contains a value of type AnyException.
   | URTypeRep -- ^ It contains a value of type TypeRep.
   | URTypeSyn  -- ^ It contains a type synonym.
+  | URExperimental -- ^ It contains a experimental type
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -199,6 +200,7 @@ instance Pretty UnserializabilityReason where
     URAnyException -> "AnyException"
     URTypeRep -> "TypeRep"
     URTypeSyn -> "type synonym"
+    URExperimental -> "experimental type"
 
 instance Pretty Error where
   pPrint = \case

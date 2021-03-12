@@ -139,12 +139,12 @@ jobs:
 
         source $(bash-lib)
 
-        cd $(Build.StagingDirectory)/release
+        cd $(Build.StagingDirectory)/release-artifacts/github
         for f in *; do
             gcs "$GCRED" cp "$f" "gs://daml-data/releases/$(release_tag)/github/$f"
         done
 
-        cd $(Build.StagingDirectory)/artifactory
+        cd $(Build.StagingDirectory)/release-artifacts/artifactory
         for f in *; do
             gcs "$GCRED" cp "$f" "gs://daml-data/releases/$(release_tag)/artifactory/$f"
         done

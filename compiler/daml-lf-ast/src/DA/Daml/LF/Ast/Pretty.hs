@@ -514,6 +514,7 @@ instance Pretty Expr where
         [TyArg ty, TmArg val]
     EThrow ty1 ty2 val -> pPrintAppKeyword lvl prec "throw"
         [TyArg ty1, TyArg ty2, TmArg val]
+    EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where
   pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =
