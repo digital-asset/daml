@@ -27,8 +27,12 @@ object SizedCache {
       case Configuration(maximumSize) if maximumSize <= 0 =>
         Cache.none
       case Configuration(maximumSize) =>
-        val builder = caffeine.Caffeine
-          .newBuilder()
+        val initBuilder = caffeine.Caffeine.newBuilder()
+        val builder = metrics
+          .map(cacheMetrics =>
+            initBuilder.recordStats(() => new DropwizardStatsCounter(cacheMetrics))
+          )
+          .getOrElse(initBuilder)
           .maximumSize(maximumSize)
         CaffeineCache[Key, Value](builder, metrics)
     }

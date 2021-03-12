@@ -4,7 +4,7 @@
 package com.daml
 
 import com.codahale.metrics.MetricRegistry.MetricSupplier
-import com.codahale.metrics.{Counter, Gauge, MetricRegistry}
+import com.codahale.metrics.{Gauge, Meter, MetricRegistry}
 import io.opentelemetry.OpenTelemetry
 import io.opentelemetry.trace.Tracer
 
@@ -23,14 +23,14 @@ package object metrics {
       ()
     }
 
-  private[metrics] def registerCounter(
+  private[metrics] def registerMeter(
       name: MetricName,
-      counterSupplier: MetricSupplier[Counter],
+      meterSupplier: MetricSupplier[Meter],
       registry: MetricRegistry,
   ): Unit =
     registry.synchronized {
       registry.remove(name)
-      registry.counter(name, counterSupplier)
+      registry.meter(name, meterSupplier)
       ()
     }
 }
