@@ -43,7 +43,7 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
-import DA.Daml.Compiler.DecodeDar (DecodedDalf(..))
+import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
@@ -71,8 +71,7 @@ import SdkVersion
 createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
-    allDepFiles <- listFilesRecursive depsDir
-    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot allDepFiles
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
     when needsReinitalization $ do
       clearPackageDb
 
@@ -84,7 +83,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- data-dependency but that seems acceptable.
       -- See https://github.com/digital-asset/daml/issues/4218 for more details.
       -- TODO Enforce this with useful error messages
-      registerDepsInPkgDb (normalDepsDir depsDir) dbPath
+      registerDepsInPkgDb depsDir dbPath
 
       loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
@@ -97,9 +96,12 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
               Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
 
       -- This is only used for unit-id collision checks and dependencies on newer LF versions.
-      dalfsFromDependencies <- queryDalfsFromDependencies depsDir dependenciesInPkgDbIds
-      dalfsFromDataDependencies <- queryDalfsFromDataDependencies depsDir dependenciesInPkgDbIds
-      mainDalfs <- queryMainDalfs depsDir dependenciesInPkgDbIds
+      dalfsFromDependencyFps <- queryDalfs (Just [depMarker]) depsDir
+      dalfsFromDependencies <- forM dalfsFromDependencyFps $ decodeDalf_ dependenciesInPkgDbIds
+      dalfsFromDataDependencyFps <- queryDalfs (Just [dataDepMarker]) depsDir
+      dalfsFromDataDependencies <- forM dalfsFromDataDependencyFps $ decodeDalf_ dependenciesInPkgDbIds
+      mainDalfFps <- queryDalfs (Just [mainMarker]) depsDir
+      mainDalfs <- forM mainDalfFps $ decodeDalf_ dependenciesInPkgDbIds
 
       let dependencyInfo = DependencyInfo
               { dependenciesInPkgDb
@@ -173,6 +175,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     depsDir = dependenciesDir opts projectRoot
+    decodeDalf_ pkgIds dalf = do
+        bs <- BS.readFile dalf
+        either fail pure $ decodeDalf pkgIds dalf bs
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
@@ -184,8 +189,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
 -- the package db to decide whether to run reinitialization or not.
 dbNeedsReinitialization ::
-       NormalizedFilePath -> [FilePath] -> IO (Bool, Fingerprint)
-dbNeedsReinitialization projectRoot allDeps  = do
+       NormalizedFilePath -> FilePath -> IO (Bool, Fingerprint)
+dbNeedsReinitialization projectRoot depsDir = do
+    allDeps <- listFilesRecursive depsDir
     fileFingerprints <- mapM getFileHash allDeps
     let depsFingerprint = fingerprintFingerprints fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
@@ -300,17 +306,19 @@ settings =
 -- Register a dar dependency in the package database
 registerDepsInPkgDb :: FilePath -> FilePath -> IO ()
 registerDepsInPkgDb depsPath dbPath = do
-    copyDirRec (configsDir depsPath) (dbPath </> "package.conf.d")
-    copyDirRec (sourcesDir depsPath) dbPath
-    copyDirRec (mainsDir depsPath) dbPath
+    mains <- queryDalfs (Just [mainMarker, depMarker]) depsPath
+    let dirs = map takeDirectory mains
+    forM_ dirs $ \dir -> do
+      files <- listFilesRecursive dir
+      copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
+      copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
+    copyFiles depsPath mains dbPath
     -- Note that we're not copying the `dalfs` directory, because we also only have interface files
     -- for the mains.
     recachePkgDb dbPath
 
-copyDirRec :: FilePath -> FilePath -> IO ()
-copyDirRec from to = do
-    whenM (doesDirectoryExist from) $ do
-      srcs <- listFilesRecursive from
+copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
+copyFiles from srcs to = do
       forM_ srcs $ \src -> do
         let fp = to </> makeRelative from src
         createDirectoryIfMissing True (takeDirectory fp)
