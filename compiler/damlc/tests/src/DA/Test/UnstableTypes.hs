@@ -57,6 +57,7 @@ damlPrimTypes _ver = map (bimap LF.ModuleName LF.TypeConName)
 damlStdlibTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
 damlStdlibTypes ver
     | ver == LF.version1_6 = anyTypes <> damlStdlibTypes LF.version1_7
+    | ver == LF.versionDev = experimentalTypes <> damlStdlibTypes LF.version1_7
     | otherwise = types
   where
     anyTypes = map (bimap LF.ModuleName LF.TypeConName)
@@ -64,6 +65,9 @@ damlStdlibTypes ver
         , (["DA", "Internal", "Any"], ["AnyContractKey"])
         , (["DA", "Internal", "Any"], ["AnyTemplate"])
         , (["DA", "Internal", "Any"], ["TemplateTypeRep"])
+        ]
+    experimentalTypes = map (bimap LF.ModuleName LF.TypeConName)
+        [ (["DA", "Experimental", "DecimalFloat"], ["RoundingMode"])
         ]
     types = map (bimap LF.ModuleName LF.TypeConName)
         [ (["DA", "Random"], ["Minstd"])
