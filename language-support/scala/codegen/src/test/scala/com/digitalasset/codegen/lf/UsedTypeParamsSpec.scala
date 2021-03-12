@@ -88,6 +88,11 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(a),
         Record(IASeq.empty),
       ),
+      // indirect invariant
+      "MapOfAb" -> DT(
+        IASeq(a, b),
+        Record(IASeq(rn("unwrap") -> reftc("JustMap", reftc("Tuple2", TVar(a), TVar(b)), TVar(a)))),
+      ),
       // mutual recursion
       "FooMapAndBar" -> DT(
         IASeq(a, b),
@@ -118,6 +123,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       "Explosion" -> Seq(Covariant, Covariant),
       "NonFancyList" -> Seq(Covariant),
       "MyList" -> Seq(Covariant),
+      "MapOfAb" -> Seq(Invariant, Invariant),
       "FooMapAndBar" -> Seq(Invariant, Invariant),
       "BarMapAndFoo" -> Seq(Invariant, Invariant),
     )
