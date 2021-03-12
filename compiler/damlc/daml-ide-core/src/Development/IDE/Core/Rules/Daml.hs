@@ -473,13 +473,11 @@ generateDocTestModuleRule =
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
 generatePackageMap :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
 generatePackageMap version mbProjRoot userPkgDbs = do
-    versionedPackageDbs <- getPackageDbs version Nothing userPkgDbs
-    depDbs' <- getDependenciesDbs version mbProjRoot
-    let depDbs = versionedPackageDbs ++ depDbs'
+    versionedPackageDbs <- getPackageDbs version mbProjRoot userPkgDbs
     (diags, pkgs) <-
         fmap (partitionEithers . concat) $
-        forM depDbs $ \depDb -> do
-            allFiles <- listFilesRecursive depDb
+        forM versionedPackageDbs $ \db -> do
+            allFiles <- listFilesRecursive db
             let dalfs = filter ((== ".dalf") . takeExtension) allFiles
             forM dalfs $ \dalf -> do
                 dalfPkgOrErr <- readDalfPackage dalf
