@@ -180,7 +180,7 @@ object ReadServiceStateUpdateComparison {
       case (_, _: Node.NodeFetch[Cid] | _: Node.NodeLookupByKey[Cid]) => false
       case _ => true
     }
-    val filteredChildNodes = filteredNodes.mapValues {
+    val filteredChildNodes = filteredNodes.view.mapValues {
       case exercise: Node.NodeExercises[Nid, Cid] =>
         val filteredNode =
           exercise.copy(children = exercise.children.filter(filteredNodes.contains))
