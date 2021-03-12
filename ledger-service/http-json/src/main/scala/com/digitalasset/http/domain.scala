@@ -193,6 +193,11 @@ object domain {
     ): Option[Offset] =
       Option(gacr.offset).filter(_.nonEmpty).map(x => Offset(x))
 
+    def fromLedgerApi(
+        gler: lav1.transaction_service.GetLedgerEndResponse
+    ): Option[Offset] =
+      gler.offset.flatMap(_.value.absolute).filter(_.nonEmpty).map(x => Offset(x))
+
     def fromLedgerApi(tx: lav1.transaction.Transaction): Offset = Offset(tx.offset)
 
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
