@@ -53,7 +53,15 @@ object UsedTypeParams {
         ei: iface.EnvironmentInterface,
     ): (ResolvedVariance, ImmArraySeq[Variance]) = {
       val resolved = covariantVars(dt, (i: I) => ei.typeDecls get i map (_.`type`))
-      (resolved, resolved.prior(dt))
+      (
+        resolved,
+        resolved.prior.getOrElse(
+          dt,
+          ei.typeDecls.getOrElse(dt, sys.error(s"$dt not found")).`type`.typeVars map (_ =>
+            Covariant
+          ),
+        ),
+      )
     }
 
     /** Variance of `sdt.typeVars` in order. */

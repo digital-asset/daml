@@ -112,6 +112,15 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           )
         ),
       ),
+      // no type vars
+      "Concrete" -> DT(
+        IASeq.empty,
+        Record(IASeq(rn("it") -> iface.TypePrim(iface.PrimType.Int64, IASeq.empty))),
+      ),
+      "Phantom" -> DT(
+        IASeq(a),
+        Record(IASeq(rn("it") -> iface.TypePrim(iface.PrimType.Int64, IASeq.empty))),
+      ),
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
 
@@ -126,6 +135,8 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       "MapOfAb" -> Seq(Invariant, Invariant),
       "FooMapAndBar" -> Seq(Invariant, Invariant),
       "BarMapAndFoo" -> Seq(Invariant, Invariant),
+      "Concrete" -> Seq(),
+      "Phantom" -> Seq(Covariant),
     )
 
   private val exVarianceTable = Table(("type ctor", "positional variances"), exVariances: _*)
