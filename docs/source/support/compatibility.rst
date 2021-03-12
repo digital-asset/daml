@@ -67,7 +67,7 @@ Summary of Ledger API Changes
    * - 1.8
      - Introduce Multi-Party Submissions
    * - <= 1.7
-     - See Daml Connect (/SDK) [release notes](https://daml.com/release-notes) of same version number. 
+     - See Daml Connect (/SDK) `release notes <https://daml.com/release-notes>`_ of same version number.
 
 Driver and Participant Compatibility: Network Upgradeability
 ------------------------------------------------------------
