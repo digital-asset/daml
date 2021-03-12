@@ -5,28 +5,9 @@ steps:
 - bash: |
     set -euo pipefail
 
-    if [ -f /tmp/shut ]; then
-        cat /tmp/shut
-    fi
-    echo 1 >/tmp/shut
-
-    shut_down () {
-      echo "error happened, shutting down node"
-      sleep 10
-      ( sudo /usr/sbin/poweroff &>/tmp/shut ) </dev/null &>/dev/null &
-      disown
-    }
-
     # Location of the disk cache for CI servers set in their init files:
     # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
     # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
-
-    # Linux machines don't seem to recover when this script fails, and they get
-    # renewed by the instance_group
-    if [ "$(uname -s)" == "Linux" ]; then
-        trap shut_down EXIT
-        exit 1
-    fi
 
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
         echo "Disk full, cleaning up..."
