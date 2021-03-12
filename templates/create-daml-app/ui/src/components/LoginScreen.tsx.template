@@ -72,7 +72,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
               alt='Daml Logo'
               spaced
               size='small'
-              verticalAlign='middle'
+              verticalAlign='bottom'
             />
             App
           </Header.Content>
