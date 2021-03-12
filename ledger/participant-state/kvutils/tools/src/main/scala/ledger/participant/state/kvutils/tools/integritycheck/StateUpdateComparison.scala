@@ -180,13 +180,14 @@ object ReadServiceStateUpdateComparison {
       case (_, _: Node.NodeFetch[Cid] | _: Node.NodeLookupByKey[Cid]) => false
       case _ => true
     }
-    val filteredChildNodes: Map[Nid, Node.GenNode[Nid, Cid]] = filteredNodes.mapValues {
+    val filteredChildNodes = filteredNodes.mapValues {
       case exercise: Node.NodeExercises[Nid, Cid] =>
         val filteredNode =
           exercise.copy(children = exercise.children.filter(filteredNodes.contains))
         filteredNode
       case keep @ (_: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid]) => keep
     }
+      .toMap
     val filteredRoots = tx.roots.filter(filteredChildNodes.contains)
     VersionedTransaction(tx.version, filteredChildNodes, filteredRoots)
   }
