@@ -15,7 +15,6 @@ import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.traverse._
 import scalaz.syntax.monoid._
-import scalaz.syntax.std.map._
 
 import scala.annotation.tailrec
 
@@ -46,6 +45,7 @@ object UsedTypeParams {
   import VarianceConstraint.BaseResolution
   import ScopedDataType.{Name => I}
   import Variance._
+  private[this] type TVar = Ref.Name
 
   final class ResolvedVariance private (private val prior: Map[I, ImmArraySeq[Variance]]) {
     def allCovariantVars(
@@ -65,11 +65,18 @@ object UsedTypeParams {
 
       def lookupOrFail(i: I) = lookupType(i) getOrElse sys.error(s"$i not found")
 
-      def goType(dt: I, seen: Set[I])(typ: iface.Type): VarianceConstraint = typ match {
+      def goType(dt: I, seen: Set[I], contexts: Map[I, Set[TVar]])(
+          typ: iface.Type
+      ): VarianceConstraint = typ match {
         case TypeVar(name) =>
           // while we default to Covariant at a later step,
           // absence *does not* mean set-to-Covariant at this step
-          VarianceConstraint.base(Map(dt -> Map(name -> Covariant)))
+          VarianceConstraint(
+            Map(dt -> Map(name -> Covariant)),
+            DelayedResolution(
+              if (contexts.nonEmpty) Map(dt -> Map(name -> contexts)) else Map.empty
+            ),
+          )
 
         case TypePrim(pt, typArgs) =>
           import PrimType.{Map => _, _}
@@ -78,26 +85,20 @@ object UsedTypeParams {
               val Seq(kt, vt) = typArgs
               // we don't need to inspect `kt` any further than enumerating it;
               // every occurrence therein is invariant
-              goType(dt, seen)(vt) |+| VarianceConstraint.base(
+              goType(dt, seen, contexts)(vt) |+| VarianceConstraint.base(
                 Map(dt -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
               )
             case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
                 Optional | TextMap =>
               // this is only safe for all-params-covariant cases
-              typArgs foldMap goType(dt, seen)
+              typArgs foldMap goType(dt, seen, contexts)
           }
 
         case TypeCon(TypeConName(tcName), typArgs) =>
           val refDdt = lookupOrFail(tcName)
-          val (innerDelays, argBases) = typArgs traverse { typArg =>
-            val avc = goType(dt, seen)(typArg)
-            (avc.delayedConstraints, avc.resolutions)
+          val argConstraints = refDdt.typeVars zip typArgs foldMap { case (tv, ta) =>
+            goType(dt, seen, contexts |+| Map(tcName -> Set(tv)))(ta)
           }
-          val argConstraints = VarianceConstraint(
-            resolutions = Map.empty,
-            delayedConstraints =
-              DelayedResolution(Map(tcName -> refDdt.typeVars.zip(argBases))) |+| innerDelays,
-          )
           val refConstraints =
             if (seen(tcName)) mzero[VarianceConstraint] else goSdt(tcName, seen + tcName)(refDdt)
           argConstraints |+| refConstraints
@@ -111,8 +112,10 @@ object UsedTypeParams {
           .map(VarianceConstraint.reresolve(dt, sdt, _))
           .getOrElse {
             val vLookup = sdt.dataType match {
-              case Record(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
-              case Variant(fields) => fields foldMap { case (_, typ) => goType(dt, seen)(typ) }
+              case Record(fields) =>
+                fields foldMap { case (_, typ) => goType(dt, seen, Map.empty)(typ) }
+              case Variant(fields) =>
+                fields foldMap { case (_, typ) => goType(dt, seen, Map.empty)(typ) }
               case Enum(_) => mzero[VarianceConstraint]
             }
             vLookup
@@ -138,21 +141,23 @@ object UsedTypeParams {
     def mapResolutions(f: BaseResolution => BaseResolution) =
       copy(resolutions = f(resolutions))
     def solve: BaseResolution =
-      fixedPoint(resolutions) {
-        delayedConstraints.constraints.foldLeft(_) { case (resolutions, (dtName, paramArgs)) =>
-          val resAtDtName = resolutions.getOrElse(dtName, Map.empty)
-          resolutions |+| paramArgs.foldMap { case (paramName, paramArg) =>
-            resAtDtName.getOrElse(paramName, Covariant) match {
-              case Covariant => paramArg
-              case Invariant => paramArg.transform((_, m) => setAllValues(m, Invariant))
+      fixedPoint(resolutions) { resolutions =>
+        resolutions |+| delayedConstraints.contexts.transform { (_, argVars) =>
+          argVars.transform { (_, argContexts) =>
+            import scalaz.std.iterable._
+            // What we're really doing here is *multiplying* the variances.  So
+            // whereas the monoid would yield (contravariant, contravariant) => contravariant,
+            // we would want (contravariant, contravariant) => covariant.  However,
+            // the multiplication monoid happens to equal the addition monoid for now,
+            // so there is no need to complicate things by defining both.
+            (argContexts: Iterable[(I, Set[TVar])]) foldMap { case (ctxI, ctxVs) =>
+              val resAtCtxI = resolutions.getOrElse(ctxI, Map.empty)
+              (ctxVs: Iterable[TVar]) foldMap (resAtCtxI.getOrElse(_, Covariant))
             }
           }
         }
       }
   }
-
-  private[this] def setAllValues[K, V](m: Map[K, V], v: V) =
-    m transform ((_, _) => v)
 
   @tailrec private[this] def fixedPoint[A](init: A)(f: A => A): A = {
     val next = f(init)
@@ -160,7 +165,7 @@ object UsedTypeParams {
   }
 
   private[this] object VarianceConstraint {
-    type BaseResolution = Map[ScopedDataType.Name, Map[Ref.Name, Variance]]
+    type BaseResolution = Map[ScopedDataType.Name, Map[TVar, Variance]]
 
     def base(base: BaseResolution) = VarianceConstraint(base, mzero[DelayedResolution])
 
@@ -178,22 +183,15 @@ object UsedTypeParams {
     )
   }
 
+  // the outer (I.TVar) occurs in the argument position of the inner (I.TVar)s
   private[this] final case class DelayedResolution(
-      constraints: Map[ScopedDataType.Name, ImmArraySeq[(Ref.Name, BaseResolution)]]
+      contexts: Map[I, Map[TVar, Map[I, Set[TVar]]]]
   )
 
   private[this] object DelayedResolution {
     implicit val `ref apps monoid`: Monoid[DelayedResolution] = Monoid.instance(
       { case (DelayedResolution(d0), DelayedResolution(d1)) =>
-        DelayedResolution(d0.unionWithKey(d1) { (name, sr0, sr1) =>
-          assert(
-            sr0.length == sr1.length,
-            s"type $name yielded different param lists; this should never happen",
-          )
-          sr0 zip sr1 map { case ((p0, a0), (_, a1)) =>
-            (p0, a0 |+| a1)
-          }
-        })
+        DelayedResolution(d0 |+| d1)
       },
       DelayedResolution(Map.empty),
     )
