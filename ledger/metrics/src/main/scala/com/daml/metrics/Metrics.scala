@@ -475,7 +475,7 @@ final class Metrics(val registry: MetricRegistry) {
           "lookup_flat_transaction_by_id"
         )
         val getTransactionTrees: DatabaseMetrics = createDbMetrics("get_transaction_trees")
-        val getContractLifecycleEvents: DatabaseMetrics = createDbMetrics(
+        val getContractStateEvents: DatabaseMetrics = createDbMetrics(
           "get_contract_lifecycle_events"
         )
         val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(

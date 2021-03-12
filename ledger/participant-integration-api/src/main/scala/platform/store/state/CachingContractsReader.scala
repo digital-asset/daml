@@ -66,14 +66,11 @@ private[platform] class CachingContractsReader private[store] (
         case el @ ContractStateEvent.Archived(
               contractId,
               _,
-              globalKey,
-              _,
-              createdAt,
               eventOffset,
               eventSequentialId,
             ) =>
           logger.debug(
-            s"State events update: Archived(contractId=$contractId, globalKey=$globalKey, createdAt=$createdAt, offset=$eventOffset, eventSequentialId=$eventSequentialId"
+            s"State events update: Archived(contractId=$contractId, offset=$eventOffset, eventSequentialId=$eventSequentialId"
           )
           el
         case el @ LedgerEndMarker(eventOffset, eventSequentialId) =>
@@ -95,7 +92,7 @@ private[platform] class CachingContractsReader private[store] (
             keyCache.feedAsync(
               _,
               eventSequentialId,
-              Future.successful(Assigned(contractId, flatEventWitnesses)),
+              Future.successful(Assigned(eventSequentialId, contractId, flatEventWitnesses)),
             )
           )
           contractsCache.feedAsync(
@@ -106,24 +103,14 @@ private[platform] class CachingContractsReader private[store] (
           eventSequentialId
         case ContractStateEvent.Archived(
               contractId,
-              contract,
-              globalKey,
               stakeholders,
-              _,
               _,
               eventSequentialId,
             ) =>
-          globalKey.foreach(
-            keyCache.feedAsync(
-              _,
-              eventSequentialId,
-              Future.successful(Unassigned),
-            )
-          )
           contractsCache.feedAsync(
             contractId,
             eventSequentialId,
-            Future.successful(Archived(contract, stakeholders)),
+            Future.successful(Archived(eventSequentialId, stakeholders)),
           )
           eventSequentialId
         case other => other.eventSequentialId // Just pass the seq id downstream
@@ -152,10 +139,20 @@ private[platform] class CachingContractsReader private[store] (
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     keyCache.fetch(key) match {
-      case Some(Assigned(contractId, parties)) if `intersection non-empty`(readers, parties) =>
-        Future.successful(Some(contractId))
-      case Some(_) =>
-        Future.successful(None)
+      case Some(Assigned(_, contractId, parties)) if `intersection non-empty`(readers, parties) =>
+        lookupActiveContract(readers, contractId)
+          .map(
+            _.map(_ => contractId)
+          )
+          .flatMap {
+            case None =>
+              readThroughKeyCache(key).map(_.collect {
+                case (id, parties) if `intersection non-empty`(readers, parties) =>
+                  id
+              })
+            case Some(contractId) => Future.successful(Some(contractId))
+          }
+      case Some(_) => Future.successful(None)
       case None =>
         readThroughKeyCache(key).map(_.collect {
           case (id, parties) if `intersection non-empty`(readers, parties) =>
@@ -176,46 +173,50 @@ private[platform] class CachingContractsReader private[store] (
         case NotFound =>
           logger.warn(s"Contract not found for $contractId")
           Future.successful(Option.empty)
-        case state: ExistingContractValue =>
+        case _: ExistingContractValue =>
           logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
-          store.checkDivulgenceVisibility(contractId, readers).map {
-            case true => Some(state.contract)
-            case false => Option.empty
-          }
+          store.lookupActiveContractAndLoadArgument(readers, contractId)
       }
       .getOrElse {
-        val currentCacheOffset = cacheIndex.get()
-        val eventualResult =
-          Timed.future(
-            metrics.daml.index.lookupContract,
-            store.lookupContract(contractId, currentCacheOffset),
-          )
-        contractsCache.feedAsync(
-          key = contractId,
-          validAt = currentCacheOffset,
-          newUpdate = eventualResult.collect {
-            case Some((contract, stakeholders, _, Some(_))) =>
-              ContractsStateCache.Archived(contract, stakeholders)
-            case Some((contract, stakeholders, _, _)) =>
-              ContractsStateCache.Active(contract, stakeholders)
-          },
-        )
-
-        eventualResult.flatMap[Option[Contract]] {
-          case Some((contract, stakeholders, _, maybeArchival))
-              if `intersection non-empty`(stakeholders, readers) =>
-            Future.successful(
-              if (maybeArchival.nonEmpty) Option.empty[Contract]
-              else Some(contract)
-            )
-          case Some((contract, _, _, _)) =>
-            store.checkDivulgenceVisibility(contractId, readers).map {
-              case true => Some(contract)
-              case false => Option.empty[Contract]
-            }
-          case None => Future.successful(Option.empty[Contract])
-        }
+        readThroughStateCache(contractId, readers)
       }
+
+  private def readThroughStateCache(contractId: ContractId, readers: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ) = {
+    val currentCacheOffset = cacheIndex.get()
+    val eventualResult =
+      Timed.future(
+        metrics.daml.index.lookupContract,
+        store.lookupContract(contractId, currentCacheOffset),
+      )
+    contractsCache.feedAsync(
+      key = contractId,
+      validAt = currentCacheOffset,
+      newUpdate = eventualResult.collect {
+        case Some((_, stakeholders, _, Some(archivedAt))) =>
+          // consider optimization of skipping deserialization of the create arg for archivals
+          ContractsStateCache.Archived(archivedAt, stakeholders)
+        case Some((contract, stakeholders, _, _)) =>
+          ContractsStateCache.Active(contract, stakeholders)
+      },
+    )
+
+    eventualResult.flatMap[Option[Contract]] {
+      case Some((contract, stakeholders, _, maybeArchival))
+          if `intersection non-empty`(stakeholders, readers) =>
+        Future.successful(
+          if (maybeArchival.nonEmpty) Option.empty[Contract]
+          else Some(contract)
+        )
+      case Some((contract, _, _, _)) =>
+        store.checkDivulgenceVisibility(contractId, readers).map {
+          case true => Some(contract)
+          case false => Option.empty[Contract]
+        }
+      case None => Future.successful(Option.empty[Contract])
+    }
+  }
 
   private def readThroughKeyCache(
       key: GlobalKey
@@ -227,7 +228,8 @@ private[platform] class CachingContractsReader private[store] (
       key,
       currentCacheOffset,
       eventualResult.map {
-        case Some((contractId, stakeholders)) => Assigned(contractId, stakeholders)
+        case Some((contractId, stakeholders)) =>
+          Assigned(currentCacheOffset, contractId, stakeholders)
         case None => Unassigned
       },
     )

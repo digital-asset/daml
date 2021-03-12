@@ -97,14 +97,14 @@ private[dao] final class TransactionsReader(
     )
 
     streamEvents(
-      dbMetrics.getContractLifecycleEvents,
+      dbMetrics.getContractStateEvents,
       query,
       nextPageRangeContracts(endInclusive),
     )(EventsRange(startExclusive, endInclusive)).async
       .mapAsync(4) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
-          Future(ContractStateEventsReader.toContractStateEvent(raw)),
+          Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
         )
       }
       .map(event => (event.eventOffset, event.eventSequentialId) -> event)
@@ -349,7 +349,7 @@ private[dao] final class TransactionsReader(
       a: RawContractEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
-      startExclusive = (a._11, a._8.getOrElse(a._7)), /* TDT Use an intermediary DTO */
+      startExclusive = (a._10, a._7), /* TDT Use an intermediary DTO */
       endInclusive = endEventSeqId,
     )
 

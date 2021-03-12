@@ -19,14 +19,11 @@ object ContractsStateCache {
   // -- This situation is outside the happy flow, but it may indicate an bug
   final case object NotFound extends ContractCacheValue
 
-  sealed trait ExistingContractValue extends ContractCacheValue {
-    def contract: Contract
-    def stakeholders: Set[Party]
-  }
+  sealed trait ExistingContractValue extends ContractCacheValue
   final case class Active(contract: Contract, stakeholders: Set[Party])
       extends ExistingContractValue
   // For archivals we need the contract still so it can be served to divulgees that did not observe the archival
-  final case class Archived(contract: Contract, stakeholders: Set[Party])
+  final case class Archived(archivedAt: Long, stakeholders: Set[Party])
       extends ExistingContractValue
 
   def apply(metrics: Metrics)(implicit

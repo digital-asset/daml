@@ -15,7 +15,7 @@ case class ContractsKeyCache(cache: Cache[GlobalKey, KeyStateUpdate])(implicit
 
 object ContractsKeyCache {
   sealed trait KeyStateUpdate extends Product with Serializable
-  final case class Assigned(contractId: ContractId, createWitnesses: Set[Party])
+  final case class Assigned(assignedAt: Long, contractId: ContractId, createWitnesses: Set[Party])
       extends KeyStateUpdate
   final case object Unassigned extends KeyStateUpdate
 
