@@ -163,7 +163,7 @@ object Config {
               .map(Duration.parse)
               .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
             val shardName = kv.get("shard-name")
-            val keyStateCacheSize = kv.get("key-state-cache-size").map(_.toInt).getOrElse(100000)
+            val keyStateCacheSize = kv.get("contract-key-cache-size").map(_.toInt).getOrElse(100000)
             val contractStateCacheSize =
               kv.get("contract-state-cache-size").map(_.toInt).getOrElse(100000)
             val partConfig = ParticipantConfig(

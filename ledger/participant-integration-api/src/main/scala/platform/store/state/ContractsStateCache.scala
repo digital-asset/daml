@@ -28,10 +28,13 @@ object ContractsStateCache {
 
   def apply(metrics: Metrics, cacheSize: Long = 500000L)(implicit
       ec: ExecutionContext
-  ): ContractsStateCache = new ContractsStateCache(
-    SizedCache.from[ContractId, ContractCacheValue](
-      SizedCache.Configuration(cacheSize),
-      metrics.daml.execution.contractsStateCache,
+  ): ContractsStateCache = {
+    println(s"Initializing contracts state cache with size $cacheSize")
+    new ContractsStateCache(
+      SizedCache.from[ContractId, ContractCacheValue](
+        SizedCache.Configuration(cacheSize),
+        metrics.daml.execution.contractsStateCache,
+      )
     )
-  )
+  }
 }

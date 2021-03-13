@@ -32,27 +32,25 @@ sealed class ContractsReader(
     extends ContractStore {
   def lookupContract(contractId: ContractId, before: Long)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(Contract, Set[Party], Long, Option[Long])]] =
+  ): Future[Option[Either[(Contract, Set[Party], Long), (Long, Set[Party])]]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
         SQL"""
-   SELECT create_event.template_id as template_id,
-          create_event.flat_event_witnesses as flat_event_witnesses,
-          create_event.create_argument as create_argument,
-          create_event.create_argument_compression as create_argument_compression,
-          create_event.event_sequential_id as create_sequential_id,
-          archival_event.event_sequential_id as archival_sequential_id
-   FROM (participant_events create_event
-        LEFT JOIN participant_events archival_event
-        ON create_event.contract_id = archival_event.contract_id
-        ), parameters
-   WHERE create_event.event_sequential_id <= $before
-          AND archival_event.event_sequential_id <= $before
-          AND create_event.contract_id = $contractId
-          AND archival_event.contract_id = $contractId
-          AND create_event.event_kind = 10 -- create
-          AND archival_event.event_kind = 20 -- consuming exercise
-   LIMIT 1;"""
+           SELECT
+             template_id,
+             flat_event_witnesses,
+             create_argument,
+             create_argument_compression,
+             event_sequential_id,
+             event_kind
+           FROM participant_events
+           WHERE
+             contract_id = $contractId
+             AND event_sequential_id <= $before
+             AND (event_kind = 10 OR event_kind = 20)
+           ORDER BY event_sequential_id DESC
+           LIMIT 1;
+           """
           .as(fullDetailsContractRowParser.singleOpt)
       }
       .map(_.map {
@@ -61,38 +59,43 @@ sealed class ContractsReader(
               stakeholders,
               createArgument,
               createArgumentCompression,
-              createSequentialId,
-              maybeArchivalSequentialId,
+              eventSequentialId,
+              10,
             ) =>
-          (
-            toContract(
-              contractId = contractId,
-              templateId = templateId,
-              createArgument = createArgument,
-              createArgumentCompression =
-                Compression.Algorithm.assertLookup(createArgumentCompression),
-              decompressionTimer =
-                metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
-              deserializationTimer =
-                metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
-            ),
-            stakeholders,
-            createSequentialId,
-            maybeArchivalSequentialId,
+          Left(
+            (
+              toContract(
+                contractId = contractId,
+                templateId = templateId.get,
+                createArgument = createArgument.get,
+                createArgumentCompression =
+                  Compression.Algorithm.assertLookup(createArgumentCompression),
+                decompressionTimer =
+                  metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
+                deserializationTimer =
+                  metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
+              ),
+              stakeholders,
+              eventSequentialId,
+            )
           )
+        case (_, stakeholders, _, _, eventSequentialId, 20) =>
+          Right((eventSequentialId, stakeholders))
+        case (_, _, _, _, _, kind) => throw new RuntimeException(s"Unexpected kind $kind")
       })
 
   val committedContracts: PostCommitValidationData = ContractsTable
 
   import ContractsReader._
 
-  private val fullDetailsContractRowParser
-      : RowParser[(String, Set[Party], InputStream, Option[Int], Long, Option[Long])] =
-    str("template_id") ~ flatEventWitnessesColumn("flat_event_witnesses") ~ binaryStream(
+  private val fullDetailsContractRowParser: RowParser[
+    (Option[String], Set[Party], Option[InputStream], Option[Int], Long, Int)
+  ] =
+    str("template_id").? ~ flatEventWitnessesColumn("flat_event_witnesses") ~ binaryStream(
       "create_argument"
-    ) ~ int(
+    ).? ~ int(
       "create_argument_compression"
-    ).? ~ long("create_sequential_id") ~ long("archival_sequential_id").? map SqlParser.flatten
+    ).? ~ long("event_sequential_id") ~ int("event_kind") map SqlParser.flatten
 
   private val contractRowParser: RowParser[(String, InputStream, Option[Int])] =
     str("template_id") ~ binaryStream("create_argument") ~ int(

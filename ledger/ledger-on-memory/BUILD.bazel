@@ -134,7 +134,7 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865,server-jdbc-url=jdbc:postgresql://localhost:5432/indexdb?user=indexdb",
+        "--participant=participant-id=example,port=6865,server-jdbc-url=jdbc:postgresql://localhost:5432/indexdb?user=indexdb,contract-state-cache-size=1,contract-key-cache-size=1",
     ],
     test_tool_args = [
         "--verbose",

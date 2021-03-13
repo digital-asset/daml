@@ -21,10 +21,13 @@ object ContractsKeyCache {
 
   def apply(metrics: Metrics, cacheSize: Long = 500000L)(implicit
       executionContext: ExecutionContext
-  ): ContractsKeyCache = ContractsKeyCache(
-    SizedCache.from[GlobalKey, KeyStateUpdate](
-      SizedCache.Configuration(cacheSize),
-      metrics.daml.execution.contractsKeyStateCache,
+  ): ContractsKeyCache = {
+    println(s"Initializing contracts key cache with size $cacheSize")
+    ContractsKeyCache(
+      SizedCache.from[GlobalKey, KeyStateUpdate](
+        SizedCache.Configuration(cacheSize),
+        metrics.daml.execution.contractsKeyStateCache,
+      )
     )
-  )
+  }
 }

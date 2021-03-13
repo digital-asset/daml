@@ -186,27 +186,23 @@ private[platform] class CachingContractsReader private[store] (
       key = contractId,
       validAt = currentCacheOffset,
       eventualValue = eventualResult.collect {
-        case Some((_, stakeholders, _, Some(archivedAt))) =>
-          // consider optimization of skipping deserialization of the create arg for archivals
-          ContractsStateCache.Archived(archivedAt, stakeholders)
-        case Some((contract, stakeholders, _, _)) =>
+        case Some(Left((contract, stakeholders, _))) =>
           ContractsStateCache.Active(contract, stakeholders)
+        case Some(Right((archivedAt, stakeholders))) =>
+          ContractsStateCache.Archived(archivedAt, stakeholders)
         case None => NotFound
       },
     )
 
     eventualResult.flatMap[Option[Contract]] {
-      case Some((contract, stakeholders, _, maybeArchival))
+      case Some(Left((contract, stakeholders, _)))
           if `intersection non-empty`(stakeholders, readers) =>
-        Future.successful(
-          if (maybeArchival.nonEmpty) Option.empty[Contract]
-          else Some(contract)
-        )
-      case Some((contract, _, _, _)) =>
-        store.checkDivulgenceVisibility(contractId, readers).map {
-          case true => Some(contract)
-          case false => Option.empty[Contract]
-        }
+        Future.successful(Some(contract))
+      case Some(Right((_, stakeholders))) if `intersection non-empty`(stakeholders, readers) =>
+        Future.successful(Option.empty[Contract])
+      case Some(_) =>
+        //  Use optimized lookup only for divulgence
+        store.lookupActiveContractAndLoadArgument(readers, contractId)
       case None => Future.successful(Option.empty[Contract])
     }
   }
