@@ -80,7 +80,7 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     val (indices, _, eventualValues) = updates.unzip3
 
     Random.shuffle(updates).foreach { case (idx, key, eventualValue) =>
-      stateCache.feedAsync(key, idx, eventualValue.future)
+      stateCache.putAsync(key, idx, eventualValue.future)
     }
     Random
       .shuffle(indices zip eventualValues)

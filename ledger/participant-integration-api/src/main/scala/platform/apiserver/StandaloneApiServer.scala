@@ -25,7 +25,7 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
   ServerRole,
 }
-import com.daml.platform.index.JdbcIndex
+import com.daml.platform.index.{JdbcIndex, MutableContractStateCacheConfig}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -80,6 +80,10 @@ final class StandaloneApiServer(
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
           enricher = valueEnricher,
+          mutableContractStateCacheConfig = MutableContractStateCacheConfig(
+            stateCacheSize = config.stateCacheSize,
+            keyCacheSize = config.keyCacheSize,
+          ),
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)

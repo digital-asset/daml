@@ -89,13 +89,13 @@ private[platform] class CachingContractsReader private[store] (
               eventSequentialId,
             ) =>
           globalKey.foreach(
-            keyCache.feedAsync(
+            keyCache.putAsync(
               _,
               eventSequentialId,
               Future.successful(Assigned(eventSequentialId, contractId, flatEventWitnesses)),
             )
           )
-          contractsCache.feedAsync(
+          contractsCache.putAsync(
             contractId,
             eventSequentialId,
             Future.successful(Active(contract, flatEventWitnesses)),
@@ -107,7 +107,7 @@ private[platform] class CachingContractsReader private[store] (
               _,
               eventSequentialId,
             ) =>
-          contractsCache.feedAsync(
+          contractsCache.putAsync(
             contractId,
             eventSequentialId,
             Future.successful(Archived(eventSequentialId, stakeholders)),
@@ -138,33 +138,25 @@ private[platform] class CachingContractsReader private[store] (
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    keyCache.fetch(key) match {
+    keyCache.get(key) match {
       case Some(Assigned(_, contractId, parties)) if `intersection non-empty`(readers, parties) =>
         lookupActiveContract(readers, contractId)
           .map(
             _.map(_ => contractId)
           )
           .flatMap {
-            case None =>
-              readThroughKeyCache(key).map(_.collect {
-                case (id, parties) if `intersection non-empty`(readers, parties) =>
-                  id
-              })
+            case None => readThroughKeyCache(key, readers)
             case Some(contractId) => Future.successful(Some(contractId))
           }
       case Some(_) => Future.successful(None)
-      case None =>
-        readThroughKeyCache(key).map(_.collect {
-          case (id, parties) if `intersection non-empty`(readers, parties) =>
-            id
-        })
+      case None => readThroughKeyCache(key, readers)
     }
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
     contractsCache
-      .fetch(contractId)
+      .get(contractId)
       .map {
         case Active(contract, stakeholders) if `intersection non-empty`(stakeholders, readers) =>
           Future.successful(Some(contract))
@@ -190,15 +182,16 @@ private[platform] class CachingContractsReader private[store] (
         metrics.daml.index.lookupContract,
         store.lookupContract(contractId, currentCacheOffset),
       )
-    contractsCache.feedAsync(
+    contractsCache.putAsync(
       key = contractId,
       validAt = currentCacheOffset,
-      newUpdate = eventualResult.collect {
+      eventualValue = eventualResult.collect {
         case Some((_, stakeholders, _, Some(archivedAt))) =>
           // consider optimization of skipping deserialization of the create arg for archivals
           ContractsStateCache.Archived(archivedAt, stakeholders)
         case Some((contract, stakeholders, _, _)) =>
           ContractsStateCache.Active(contract, stakeholders)
+        case None => NotFound
       },
     )
 
@@ -219,12 +212,13 @@ private[platform] class CachingContractsReader private[store] (
   }
 
   private def readThroughKeyCache(
-      key: GlobalKey
-  )(implicit loggingContext: LoggingContext): Future[Option[(ContractId, Set[Party])]] = {
+      key: GlobalKey,
+      readers: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] = {
     val currentCacheOffset = cacheIndex.get()
     val eventualResult = store.lookupContractKey(key, currentCacheOffset)
 
-    keyCache.feedAsync(
+    keyCache.putAsync(
       key,
       currentCacheOffset,
       eventualResult.map {
@@ -234,7 +228,10 @@ private[platform] class CachingContractsReader private[store] (
       },
     )
 
-    eventualResult
+    eventualResult.map(_.collect {
+      case (id, parties) if `intersection non-empty`(readers, parties) =>
+        id
+    })
   }
 
   private def `intersection non-empty`[T](one: Set[T], other: Set[T]): Boolean =
@@ -247,14 +244,20 @@ private[platform] class CachingContractsReader private[store] (
 }
 
 object CachingContractsReader {
-  def apply(store: ContractsReader, metrics: Metrics, globallySignalNewLedgerEnd: Offset => Unit)(
-      implicit executionContext: ExecutionContext
+  def apply(
+      store: ContractsReader,
+      metrics: Metrics,
+      globallySignalNewLedgerEnd: Offset => Unit,
+      stateCacheSize: Long = 100000L,
+      keyCacheSize: Long = 100000L,
+  )(implicit
+      executionContext: ExecutionContext
   ): CachingContractsReader =
     new CachingContractsReader(
       metrics,
       store,
-      ContractsKeyCache(metrics),
-      ContractsStateCache(metrics),
+      ContractsKeyCache(metrics, keyCacheSize),
+      ContractsStateCache(metrics, stateCacheSize),
       globallySignalNewLedgerEnd,
     )
 }

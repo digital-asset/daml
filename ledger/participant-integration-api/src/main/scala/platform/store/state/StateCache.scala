@@ -18,7 +18,7 @@ trait StateCache[K, V] {
   private[store] val pendingUpdates =
     collection.concurrent.TrieMap.empty[K, PendingUpdates]
 
-  def fetch(key: K)(implicit loggingContext: LoggingContext): Option[V] =
+  def get(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
       case Some(value) =>
         logger.debug(s"Cache hit for $key -> ${value.toString.take(100)}")
@@ -28,7 +28,7 @@ trait StateCache[K, V] {
         None
     }
 
-  def feedAsync(key: K, validAt: Long, newUpdate: Future[V])(implicit
+  def putAsync(key: K, validAt: Long, eventualValue: Future[V])(implicit
       loggingContext: LoggingContext
   ): Unit = {
     logger.debug(s"New pending cache update for key $key at $validAt")
@@ -48,7 +48,7 @@ trait StateCache[K, V] {
         latestRef.set(validAt)
         effectsChain
           .updateAndGet(_.transformWith { _ =>
-            registerEventualCacheUpdate(key, newUpdate, validAt).map(_ => ())
+            registerEventualCacheUpdate(key, eventualValue, validAt).map(_ => ())
           })
         false
       } else if (othersPending(pendingCountRef, latestRef)) {
@@ -58,7 +58,7 @@ trait StateCache[K, V] {
         if (pendingCountRef.getAndIncrement() > 0L) {
           latestRef.set(validAt)
           effectsChain.updateAndGet(_.transformWith { _ =>
-            registerEventualCacheUpdate(key, newUpdate, validAt).map(_ => ())
+            registerEventualCacheUpdate(key, eventualValue, validAt).map(_ => ())
           })
           false
         } else latestRef.get() >= validAt
@@ -66,7 +66,7 @@ trait StateCache[K, V] {
     }
     if (needsRetry) {
       logger.warn(s"Race condition when trying to update cache for $key at $validAt. Retrying..")
-      feedAsync(key, validAt, newUpdate)
+      putAsync(key, validAt, eventualValue)
     } else ()
   }
 

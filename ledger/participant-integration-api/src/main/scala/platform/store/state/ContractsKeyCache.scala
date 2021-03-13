@@ -19,11 +19,11 @@ object ContractsKeyCache {
       extends KeyStateUpdate
   final case object Unassigned extends KeyStateUpdate
 
-  def apply(metrics: Metrics)(implicit
+  def apply(metrics: Metrics, cacheSize: Long = 500000L)(implicit
       executionContext: ExecutionContext
   ): ContractsKeyCache = ContractsKeyCache(
     SizedCache.from[GlobalKey, KeyStateUpdate](
-      SizedCache.Configuration(500000L),
+      SizedCache.Configuration(cacheSize),
       metrics.daml.execution.contractsKeyStateCache,
     )
   )

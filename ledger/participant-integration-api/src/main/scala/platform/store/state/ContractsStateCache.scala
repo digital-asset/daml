@@ -26,11 +26,11 @@ object ContractsStateCache {
   final case class Archived(archivedAt: Long, stakeholders: Set[Party])
       extends ExistingContractValue
 
-  def apply(metrics: Metrics)(implicit
+  def apply(metrics: Metrics, cacheSize: Long = 500000L)(implicit
       ec: ExecutionContext
   ): ContractsStateCache = new ContractsStateCache(
     SizedCache.from[ContractId, ContractCacheValue](
-      SizedCache.Configuration(500000L),
+      SizedCache.Configuration(cacheSize),
       metrics.daml.execution.contractsStateCache,
     )
   )

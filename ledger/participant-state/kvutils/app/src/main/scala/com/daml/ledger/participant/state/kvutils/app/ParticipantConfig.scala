@@ -27,6 +27,8 @@ final case class ParticipantConfig(
       ParticipantConfig.defaultIndexerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionPoolSize: Int =
       ParticipantConfig.defaultApiServerDatabaseConnectionPoolSize,
+    keyStateCacheSize: Int = 100000,
+    contractStateCacheSize: Int = 100000,
 )
 
 object ParticipantConfig {

@@ -26,4 +26,6 @@ case class ApiServerConfig(
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,
+    stateCacheSize: Int,
+    keyCacheSize: Int,
 )

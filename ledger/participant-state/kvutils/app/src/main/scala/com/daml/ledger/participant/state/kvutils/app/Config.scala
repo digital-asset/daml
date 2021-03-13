@@ -163,6 +163,9 @@ object Config {
               .map(Duration.parse)
               .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
             val shardName = kv.get("shard-name")
+            val keyStateCacheSize = kv.get("key-state-cache-size").map(_.toInt).getOrElse(100000)
+            val contractStateCacheSize =
+              kv.get("contract-state-cache-size").map(_.toInt).getOrElse(100000)
             val partConfig = ParticipantConfig(
               runMode,
               participantId,
@@ -176,6 +179,8 @@ object Config {
               allowExistingSchemaForIndex = false,
               maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
+              keyStateCacheSize = keyStateCacheSize,
+              contractStateCacheSize = contractStateCacheSize,
             )
             config.copy(participants = config.participants :+ partConfig)
           })

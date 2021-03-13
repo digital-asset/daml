@@ -46,6 +46,7 @@ private[platform] object ReadOnlySqlLedger {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       enricher: ValueEnricher,
+      cacheConfig: MutableContractStateCacheConfig,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
@@ -67,6 +68,7 @@ private[platform] object ReadOnlySqlLedger {
               contractStateEventsDispatcher,
               metrics,
               servicesExecutionContext,
+              cacheConfig,
             )
           )
           .acquire()
@@ -146,7 +148,6 @@ private[platform] object ReadOnlySqlLedger {
       )
     }
   }
-
 }
 
 private final class ReadOnlySqlLedger(
@@ -156,6 +157,7 @@ private final class ReadOnlySqlLedger(
     contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     metrics: Metrics,
     executionContext: ExecutionContext,
+    cacheConfig: MutableContractStateCacheConfig = MutableContractStateCacheConfig.default,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher, contractStateEventsDispatcher) {
 
@@ -166,6 +168,8 @@ private final class ReadOnlySqlLedger(
         store = ledgerDao.contractsReader,
         metrics = metrics,
         globallySignalNewLedgerEnd = dispatcher.signalNewHead, // TDT
+        keyCacheSize = cacheConfig.keyCacheSize.toLong,
+        stateCacheSize = cacheConfig.stateCacheSize.toLong,
       )(executionContext)
     contractLifecycleEvents
       .map(_._2)
