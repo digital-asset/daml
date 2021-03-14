@@ -58,6 +58,10 @@ jobs:
     - template: ci/report-start.yml
     - checkout: self
       persistCredentials: true
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
     - template: ci/clean-up.yml
     - template: ci/bash-lib.yml
       parameters:
