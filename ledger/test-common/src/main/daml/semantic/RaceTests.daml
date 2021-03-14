@@ -1,0 +1,61 @@
+module RaceTests where
+
+type RaceKey = Text
+
+-- TODO: try to reduce number of templates
+template ContractWithKey with
+    owner : Party
+  where
+    signatory owner
+    key owner: Party
+    maintainer key
+    controller owner can
+      ContractWithKey_Archive : ()
+        do
+          return ()
+
+template ContractWithChoices with
+    owner : Party
+  where
+    signatory owner
+
+    controller owner can
+      ContractWithChoices_Archive : ()
+        do
+          return ()
+
+    controller owner can
+      nonconsuming ContractWithChoices_Exercise : ()
+        do
+          return ()
+
+template FetchContractWithChoices with
+    fetcher : Party
+    contractId: ContractId ContractWithChoices
+  where 
+    signatory fetcher
+    controller fetcher can
+      FetchContractWithChoices_Fetch: ContractWithChoices
+        do fetch contractId
+
+template LookerUpByKey with
+    owner : Party
+  where
+    signatory owner
+
+    controller owner can
+      nonconsuming Lookup : ()
+        do
+          _ <- lookupByKey @ContractWithKey owner
+          pure ()
+
+template TransientWrapper with
+    owner : Party
+  where
+    signatory owner
+    controller owner can
+      nonconsuming CreateTransientContract : ()
+        do
+          contract <- create ContractWithKey with owner
+          _ <- exercise contract ContractWithKey_Archive
+          return ()

@@ -32,6 +32,7 @@ object Tests {
       new PackageManagementServiceIT,
       new PackageServiceIT,
       new PartyManagementServiceIT,
+      new RaceConditionIT,
       new SemanticTests,
       new TransactionServiceIT,
       new WitnessesIT,
