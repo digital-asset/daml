@@ -135,9 +135,6 @@ jobs:
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
       condition: not(eq(variables['skip-github'], 'TRUE'))
-    - template: ci/bash-lib.yml
-      parameters:
-        var_name: bash-lib
     - bash: |
         set -euo pipefail
 
