@@ -95,6 +95,44 @@ useradd \
   vsts
 #add docker group to user
 usermod -aG docker vsts
+# let vsts user mount/unmount cache folders
+echo "/tmp/bazel_cache /home/vsts/.cache/bazel auto rw,user,exec" >> /etc/fstab
+echo "/tmp/disk_cache /home/vsts/.bazel-cache auto rw,user,exec" >> /etc/fstab
+
+CACHE_SCRIPT=/home/vsts/reset_caches.sh
+
+cat <<'RESET_CACHES' > $CACHE_SCRIPT
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+reset_cache() {
+    local file mount_point
+    file=$1
+    mount_point=$2
+
+    echo "Cleaning up '$mount_point'..."
+    if [ -d "$mount_point" ]; then
+        for pid in $(pgrep -a -f bazel | awk '{print $1}'); do
+            echo "Killing $pid..."
+            kill -s KILL $pid
+        done
+        umount $mount_point
+    fi
+
+    rm -f $file
+    truncate -s 200g $file
+    mkfs.ext2 -E root_owner=$(id -u):$(id -g) $file
+    mkdir -p $mount_point
+    mount $mount_point
+    echo "Done."
+}
+
+reset_cache /tmp/bazel_cache /home/vsts/.cache/bazel
+reset_cache /tmp/disk_cache /home/vsts/.bazel-cache
+RESET_CACHES
+chown vsts:vsts $CACHE_SCRIPT
+chmod +x $CACHE_SCRIPT
 
 su --login vsts <<'AGENT_SETUP'
 set -euo pipefail
@@ -170,6 +208,8 @@ systemctl restart nix-daemon
 su --login vsts <<'CACHE_WARMUP'
 # user-wide bazel disk cache override
 echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
+# set up cache folders
+/home/vsts/reset_caches.sh
 
 # clone and build
 (
