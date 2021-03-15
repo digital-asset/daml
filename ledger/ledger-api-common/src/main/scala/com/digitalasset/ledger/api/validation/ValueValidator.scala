@@ -68,6 +68,11 @@ object ValueValidator {
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
       validateRecord(rec)
+    case Sum.BuiltinException(api.BuiltinException(tag, value)) =>
+      for {
+        v <- requirePresence(value, "value")
+        validatedValue <- validateValue(v)
+      } yield Lf.ValueBuiltinException(tag, validatedValue)
     case Sum.Variant(api.Variant(variantId, constructor, value)) =>
       for {
         validatedVariantId <- validateOptionalIdentifier(variantId)

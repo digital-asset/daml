@@ -139,14 +139,8 @@ object LfEngineToApi {
       case Lf.ValueBuiltinException(tag, v) =>
         lfValueToApiValue(verbose, v) map { x =>
           api.Value(
-            //NICK: need api.Value.Sum.BuiltinException. hack for now with List/Text
-            api.Value.Sum.List(
-              api.List(
-                List(
-                  api.Value(api.Value.Sum.Text(tag)),
-                  x,
-                )
-              )
+            api.Value.Sum.BuiltinException(
+              api.BuiltinException(tag, Some(x))
             )
           )
         }
@@ -157,7 +151,7 @@ object LfEngineToApi {
               api.Variant(
                 tycon.filter(_ => verbose).map(toApiIdentifier),
                 variant,
-                Some(x), // NICK, why does api.Variant have an optional value here?
+                Some(x),
               )
             )
           )

@@ -72,6 +72,9 @@ object ValuePrimitiveEncoding {
       case GenMap(_) => Some(valueGenMap(valueText, valueText))
       // types that represent non-primitives only
       case Record(_) | Variant(_) | Enum(_) | Empty => None
+      case BuiltinException(_) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exceptions not supported")
     }
   }
 
