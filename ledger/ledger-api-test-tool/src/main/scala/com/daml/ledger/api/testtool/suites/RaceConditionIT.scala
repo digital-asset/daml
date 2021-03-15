@@ -172,15 +172,15 @@ final class RaceConditionIT extends LedgerTestSuite {
     case Participants(Participant(ledger, alice)) =>
       val ArchiveAt = 5
       val Attempts = 10
-      val ArchivalChoiceName = "ContractWithChoices_Archive"
-      val ExerciseChoiceName = "ContractWithChoices_Exercise"
+      val ArchivalChoiceName = "ContractWithKey_Archive"
+      val ExerciseChoiceName = "ContractWithKey_Exercise"
       for {
-        contract <- ledger.create(alice, ContractWithChoices(alice))
+        contract <- ledger.create(alice, ContractWithKey(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
           if (attempt == ArchiveAt) {
-            ledger.exercise(alice, contract.exerciseContractWithChoices_Archive).transform(Success(_))
+            ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
           } else {
-            ledger.exercise(alice, contract.exerciseContractWithChoices_Exercise).transform(Success(_))
+            ledger.exercise(alice, contract.exerciseContractWithKey_Exercise).transform(Success(_))
           }
         }
         transactions <- ledger.transactionTrees(alice)
@@ -221,16 +221,16 @@ final class RaceConditionIT extends LedgerTestSuite {
           val ArchiveAt = 400
           val Attempts = 500
           // TODO: create a helper module for this
-          val ArchivalChoiceName = "ContractWithChoices_Archive"
-          val FetchChoiceName = "FetchContractWithChoices_Fetch"
+          val ArchivalChoiceName = "ContractWithKey_Archive"
+          val FetchChoiceName = "FetchContractWithKey_Fetch"
           for {
-            contract <- ledger.create(alice, ContractWithChoices(alice))
-            fetchConract <- ledger.create(alice, FetchContractWithChoices(alice, contract))
+            contract <- ledger.create(alice, ContractWithKey(alice))
+            fetchConract <- ledger.create(alice, FetchContractWithKey(alice, contract))
             _ <- Future.traverse(1 to Attempts) { attempt =>
               if (attempt == ArchiveAt) {
-                ledger.exercise(alice, contract.exerciseContractWithChoices_Archive).transform(Success(_))
+                ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
               } else {
-                ledger.exercise(alice, fetchConract.exerciseFetchContractWithChoices_Fetch).transform(Success(_))
+                ledger.exercise(alice, fetchConract.exerciseFetchContractWithKey_Fetch).transform(Success(_))
               }
             }
             transactions <- ledger.transactionTrees(alice)

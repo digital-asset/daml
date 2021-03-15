@@ -9,33 +9,24 @@ template ContractWithKey with
     signatory owner
     key owner: Party
     maintainer key
+
     controller owner can
       ContractWithKey_Archive : ()
         do
           return ()
 
-template ContractWithChoices with
-    owner : Party
-  where
-    signatory owner
-
     controller owner can
-      ContractWithChoices_Archive : ()
+      nonconsuming ContractWithKey_Exercise : ()
         do
           return ()
 
-    controller owner can
-      nonconsuming ContractWithChoices_Exercise : ()
-        do
-          return ()
-
-template FetchContractWithChoices with
+template FetchContractWithKey with
     fetcher : Party
-    contractId : ContractId ContractWithChoices
+    contractId : ContractId ContractWithKey
   where 
     signatory fetcher
     controller fetcher can
-      FetchContractWithChoices_Fetch: ContractWithChoices
+      FetchContractWithKey_Fetch: ContractWithKey
         do fetch contractId
 
 template LookupResult with
