@@ -102,40 +102,6 @@ sealed class ContractsReader(
       "create_argument_compression"
     ).? map SqlParser.flatten
 
-  def checkDivulgenceVisibility(contractId: ContractId, readers: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Boolean] = {
-    val tree_event_witnessesWhere =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
-    dispatcher
-      .executeSql(metrics.daml.index.db.lookupDivulgenceVisibility) { implicit connection =>
-        SQL"""
-       WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere  -- only use visible archivals
-          LIMIT 1
-       ),
-       divulged_contract AS (
-         SELECT divulgence_events.contract_id
-           FROM participant_events AS divulgence_events, parameters
-          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-            AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          ORDER BY divulgence_events.event_sequential_id
-          LIMIT 1
-       )
-        SELECT COUNT(*) as count
-          FROM divulged_contract
-         WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   """.as(int("count").single.map(_ == 1))
-      }
-  }
-
   /** Lookup of a contract in the case the contract value is not already known */
   def lookupActiveContractAndLoadArgument(
       readers: Set[Party],

@@ -171,7 +171,7 @@ private final class ReadOnlySqlLedger(
         keyCacheSize = cacheConfig.keyCacheSize.toLong,
         stateCacheSize = cacheConfig.stateCacheSize.toLong,
       )(executionContext)
-    contractLifecycleEvents
+    contractStateEvents
       .map(_._2)
       .via(cachingLayer.consumeFrom)
       .run()

@@ -92,7 +92,7 @@ private[platform] class CachingContractsReader private[store] (
             keyCache.putAsync(
               _,
               eventSequentialId,
-              Future.successful(Assigned(eventSequentialId, contractId, flatEventWitnesses)),
+              Future.successful(Assigned(contractId, flatEventWitnesses)),
             )
           )
           contractsCache.putAsync(
@@ -139,7 +139,7 @@ private[platform] class CachingContractsReader private[store] (
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     keyCache.get(key) match {
-      case Some(Assigned(_, contractId, parties)) if `intersection non-empty`(readers, parties) =>
+      case Some(Assigned(contractId, parties)) if `intersection non-empty`(readers, parties) =>
         lookupActiveContract(readers, contractId)
           .map(
             _.map(_ => contractId)
@@ -219,7 +219,7 @@ private[platform] class CachingContractsReader private[store] (
       currentCacheOffset,
       eventualResult.map {
         case Some((contractId, stakeholders)) =>
-          Assigned(currentCacheOffset, contractId, stakeholders)
+          Assigned(contractId, stakeholders)
         case None => Unassigned
       },
     )

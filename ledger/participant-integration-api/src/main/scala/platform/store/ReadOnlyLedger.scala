@@ -172,7 +172,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
     */
   def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
 
-  def contractLifecycleEvents(implicit
+  def contractStateEvents(implicit
       loggineContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed]
 }

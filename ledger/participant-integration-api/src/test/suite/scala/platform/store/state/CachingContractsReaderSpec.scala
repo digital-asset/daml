@@ -72,12 +72,14 @@ class CachingContractsReaderSpec
   private val contractIdRef = new AtomicLong(0L)
 
   override def beforeAll(): Unit = {
-    // Don't test divulgence
     when(
-      contractsReaderMock.checkDivulgenceVisibility(*[ContractId], *[Set[Party]], anyLong)(
+      // This method is only used for visibility checks
+      // We don't assert visibility in this test
+      // TDT Add visibility tests
+      contractsReaderMock.lookupActiveContractAndLoadArgument(*[Set[Party]], *[ContractId])(
         *[LoggingContext]
       )
-    ).thenReturn(Future.successful(false))
+    ).thenReturn(Future.successful(Option.empty))
     ()
   }
 
@@ -105,7 +107,7 @@ class CachingContractsReaderSpec
 
     for {
       _ <- assertCreated(contractEventsStream, created1)
-      _ <- assertArchived(contractEventsStream, archived1)
+      _ <- assertArchived(contractEventsStream, created1.globalKey.get, archived1)
       created2 = created(Some("global-key-1"), defaultStakeholders)
       _ <- assertCreated(contractEventsStream, created2)
       created3 = created(Some("global-key-2"), defaultStakeholders)
@@ -118,7 +120,7 @@ class CachingContractsReaderSpec
   it should "assert contract events stream population correctness in 1000 create and archive cycles" in {
     indexReturnsNotFound()
     `assert multiple create-archive cycles for the same key`("global-key-1", defaultStakeholders)(
-      10000
+      100
     )
   }
 
@@ -132,7 +134,7 @@ class CachingContractsReaderSpec
         )
       ).thenReturn(
         Future.successful(
-          Some((created.contractId, created.flatEventWitnesses))
+          Some((created.contractId, created.stakeholders))
         )
       )
 
@@ -143,7 +145,7 @@ class CachingContractsReaderSpec
         _ <- eventually {
           contractsKeyCache.cache.cache.getIfPresent(created.globalKey.get) shouldBe Assigned(
             created.contractId,
-            created.flatEventWitnesses,
+            created.stakeholders,
           )
         }
       } yield succeed
@@ -165,7 +167,7 @@ class CachingContractsReaderSpec
       case (c, a) =>
         for {
           _ <- assertCreated(contractEventsStream, c)
-          _ <- assertArchived(contractEventsStream, a)
+          _ <- assertArchived(contractEventsStream, c.globalKey.get, a)
         } yield succeed
     }
 
@@ -182,11 +184,11 @@ class CachingContractsReaderSpec
             )(*[LoggingContext])
           )
             .thenReturn(
-              Future.successful(Some((indexState._1.contractId, indexState._1.flatEventWitnesses)))
+              Future.successful(Some((indexState._1.contractId, indexState._1.stakeholders)))
             )
           when(
             contractsReaderMock.lookupContractKey(
-              eqTo(indexState._2.globalKey.get),
+              eqTo(indexState._1.globalKey.get),
               eqTo(indexState._2.eventSequentialId),
             )(*[LoggingContext])
           )
@@ -200,11 +202,12 @@ class CachingContractsReaderSpec
             .thenReturn(
               Future.successful(
                 Some(
-                  (
-                    indexState._1.contract,
-                    indexState._1.flatEventWitnesses,
-                    indexState._1.eventSequentialId,
-                    None,
+                  Left(
+                    (
+                      indexState._1.contract,
+                      indexState._1.stakeholders,
+                      indexState._1.eventSequentialId,
+                    )
                   )
                 )
               )
@@ -218,11 +221,11 @@ class CachingContractsReaderSpec
             .thenReturn(
               Future.successful(
                 Some(
-                  (
-                    indexState._2.contract,
-                    indexState._2.flatEventWitnesses,
-                    indexState._2.createdAt,
-                    Some(indexState._2.eventSequentialId),
+                  Right(
+                    (
+                      indexState._2.eventSequentialId,
+                      indexState._2.stakeholders,
+                    )
                   )
                 )
               )
@@ -241,14 +244,14 @@ class CachingContractsReaderSpec
       _ <- eventually {
         contractsKeyCache.cache.cache.getIfPresent(createdEvent.globalKey.get) shouldBe Assigned(
           createdEvent.contractId,
-          createdEvent.flatEventWitnesses,
+          createdEvent.stakeholders,
         )
       }
       _ <- withCacheContext {
         eventually {
           // Key Cache hit (assigned)
           cachingContractsStore
-            .lookupContractKey(createdEvent.flatEventWitnesses, createdEvent.globalKey.get)
+            .lookupContractKey(createdEvent.stakeholders, createdEvent.globalKey.get)
             .map(_ shouldBe Some(createdEvent.contractId))
         }
       }
@@ -256,7 +259,7 @@ class CachingContractsReaderSpec
         eventually {
           // ContractId cache hit
           cachingContractsStore
-            .lookupActiveContract(createdEvent.flatEventWitnesses, createdEvent.contractId)
+            .lookupActiveContract(createdEvent.stakeholders, createdEvent.contractId)
             .map(_ shouldBe Some(createdEvent.contract))
         }
       }
@@ -271,6 +274,7 @@ class CachingContractsReaderSpec
 
   private def assertArchived(
       contractEventsStream: BoundedSourceQueue[ContractStateEvent],
+      key: GlobalKey,
       archivedEvent: ContractStateEvent.Archived,
   ): Future[Assertion] =
     for {
@@ -280,8 +284,8 @@ class CachingContractsReaderSpec
           // Contract key de-assigned
           cachingContractsStore
             .lookupContractKey(
-              archivedEvent.flatEventWitnesses,
-              archivedEvent.globalKey.get,
+              archivedEvent.stakeholders,
+              key,
             )
             .map(_ shouldBe None)
         }
@@ -291,7 +295,7 @@ class CachingContractsReaderSpec
         eventually {
           // Contract not active anymore
           cachingContractsStore
-            .lookupActiveContract(archivedEvent.flatEventWitnesses, archivedEvent.contractId)
+            .lookupActiveContract(archivedEvent.stakeholders, archivedEvent.contractId)
             .map(_ shouldBe None)
         }
       }
@@ -312,7 +316,7 @@ class CachingContractsReaderSpec
       contractId = contractId(cIdx),
       contract = contract(s"payload-$cIdx"),
       globalKey = maybeKey.map(globalKey),
-      flatEventWitnesses = stakeholders.map(party),
+      stakeholders = stakeholders.map(party),
       eventOffset = Offset.beforeBegin, // Not used
       eventSequentialId = testEventSequentialId.incrementAndGet(),
     )
@@ -322,10 +326,7 @@ class CachingContractsReaderSpec
   ): ContractStateEvent.Archived =
     ContractStateEvent.Archived(
       contractId = created.contractId,
-      contract = created.contract,
-      globalKey = created.globalKey,
-      flatEventWitnesses = created.flatEventWitnesses,
-      createdAt = created.eventSequentialId,
+      stakeholders = created.stakeholders,
       eventOffset = Offset.beforeBegin, // Not used
       eventSequentialId = testEventSequentialId.incrementAndGet(),
     )

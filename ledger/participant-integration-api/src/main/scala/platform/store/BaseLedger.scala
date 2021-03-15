@@ -71,7 +71,7 @@ private[platform] abstract class BaseLedger(
       endInclusive,
     )
 
-  override def contractLifecycleEvents(implicit
+  override def contractStateEvents(implicit
       loggineContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
     contractStateEventsDispatcher.startingAt(

@@ -310,7 +310,6 @@ final class ContractKeysIT extends LedgerTestSuite {
         "TextKeyChoice",
         Value(Value.Sum.Record(Record())),
       )
-      // TDT crude way of making sure the cache is up to date
       failureAfterConsuming <- ledger
         .exerciseByKey(
           party,

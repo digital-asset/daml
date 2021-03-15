@@ -21,43 +21,35 @@ final class WitnessesIT extends LedgerTestSuite {
         alice,
         WitnessesTemplate(alice, bob, charlie),
       )
-      _ = println(s"Checkpoint 1")
       witnessesTransaction <- ledger.transactionTreeById(
         witnessesTransactionId,
         alice,
         bob,
         charlie,
       )
-      _ = println(s"Checkpoint 2")
       // Charlie is not a stakeholder of Witnesses and thus cannot see any such contract unless divulged.
       // Such contract is divulged by creating a DivulgeWitness with Charlie as a signatory and exercising
       // a choice as Alice that causes divulgence (in this case, the Witnesses instance previously
       // created is fetched as part of the transaction).
       divulgeWitness <- ledger.create(charlie, DivulgeWitnesses(alice, charlie))
-      _ = println(s"Checkpoint 3")
       _ <- ledger.exercise(alice, divulgeWitness.exerciseDivulge(_, witnesses))
-      _ = println(s"Checkpoint 4")
 
       // A non-consuming choice is exercised with the expectation
       // that Charlie is now able to exercise a choice on the divulged contract
       // The tree is fetched from the identifier to ensure we get the witnesses as seen by all parties
       nonConsuming <- ledger.exercise(charlie, witnesses.exerciseWitnessesNonConsumingChoice)
-      _ = println(s"Checkpoint 5")
       nonConsumingTree <- ledger.transactionTreeById(
         nonConsuming.transactionId,
         alice,
         bob,
         charlie,
       )
-      _ = println(s"Checkpoint 6")
 
       // A consuming choice is exercised with the expectation
       // that Charlie is now able to exercise a choice on the divulged contract
       // The tree is fetched from the identifier to ensure we get the witnesses as seen by all parties
       consuming <- ledger.exercise(charlie, witnesses.exerciseWitnessesChoice)
-      _ = println(s"Checkpoint 7")
       consumingTree <- ledger.transactionTreeById(consuming.transactionId, alice, bob, charlie)
-      _ = println(s"Checkpoint 8")
     } yield {
 
       assert(

@@ -59,10 +59,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
         ),
         Archived(
           nonTransient(t2).loneElement,
-          contract,
-          None,
           Set(alice, bob),
-          firstEventSeqId + 2,
           offset3,
           firstEventSeqId + 4,
         ),
@@ -76,10 +73,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
         ),
         Archived(
           transient(t4).loneElement,
-          contract,
-          None,
           Set(alice, bob),
-          firstEventSeqId + 7,
           offset4,
           firstEventSeqId + 8,
         ),
@@ -99,7 +93,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           offset6,
           firstEventSeqId + 13,
         ),
-        LedgerEndMarker(offset6, firstEventSeqId + 13),
+        LedgerEndMarker(offset6, firstEventSeqId + 14),
       )
     }
   }

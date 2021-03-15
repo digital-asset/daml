@@ -28,6 +28,10 @@ trait StateCache[K, V] {
         None
     }
 
+  def put(key: K, validAt: Long, value: V)(implicit
+      loggingContext: LoggingContext
+  ): Unit = putAsync(key, validAt, Future.successful(value))
+
   def putAsync(key: K, validAt: Long, eventualValue: Future[V])(implicit
       loggingContext: LoggingContext
   ): Unit = {
@@ -52,9 +56,7 @@ trait StateCache[K, V] {
           })
         false
       } else if (othersPending(pendingCountRef, latestRef)) {
-        /* If 0 is returned it means another update is going to delete this entry,
-         * we need to retry.
-         */
+        /* If 0, another update is going to delete this entry, go for a retry. */
         if (pendingCountRef.getAndIncrement() > 0L) {
           latestRef.set(validAt)
           effectsChain.updateAndGet(_.transformWith { _ =>
@@ -81,21 +83,30 @@ trait StateCache[K, V] {
     eventualUpdate.andThen {
       case Success(update) =>
         // Double-check if we need to update
-        if (pendingUpdates(key).latestRef.get() == validAt) {
-          logger.debug(s"Updating cache with $key -> ${update.toString.take(100)}")
-          cache.put(key, update)
-        }
+        if (pendingUpdates(key).latestRef.get() == validAt)
+          updateCache(key, update)
         removeFromPending(key)
       case Failure(e) =>
         removeFromPending(key)
         logger.warn(s"Failure in pending cache update for key $key", e)
     }
 
+  private def updateCache(key: K, value: V)(implicit loggingContext: LoggingContext): Unit = {
+    logger.debug(s"Updating cache with $key -> ${value.toString.take(100)}")
+    cache.put(key, value)
+  }
+
   private def removeFromPending(key: K): Unit =
     if (pendingUpdates(key).pendingCount.updateAndGet(_ - 1) == 0L) pendingUpdates -= key
 }
 
 object StateCache {
+
+  /** Tracks competing updates to the cache.
+    * @param pendingCount The number of in-progress updates.
+    * @param latestRef Highest version of any pending update.
+    * @param effectsChain Effectful chain of updates.
+    */
   case class PendingUpdates(
       pendingCount: AtomicLong,
       latestRef: AtomicLong,

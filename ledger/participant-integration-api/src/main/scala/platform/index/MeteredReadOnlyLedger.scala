@@ -202,10 +202,10 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       ledger.prune(pruneUpToInclusive),
     )
 
-  override def contractLifecycleEvents(implicit
+  override def contractStateEvents(implicit
       loggineContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
-    ledger.contractLifecycleEvents
+    ledger.contractStateEvents
 }
 
 private[platform] object MeteredReadOnlyLedger {

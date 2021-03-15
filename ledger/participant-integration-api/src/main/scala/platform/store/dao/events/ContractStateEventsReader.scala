@@ -89,7 +89,7 @@ object ContractStateEventsReader {
             contract = contract,
             globalKey =
               maybeGlobalKey, // TDT Look into using the retrieving the cached value for global key
-            flatEventWitnesses = flatEventWitnesses,
+            stakeholders = flatEventWitnesses,
             eventOffset = offset,
             eventSequentialId = eventSequentialId,
           )
@@ -175,7 +175,7 @@ object ContractStateEventsReader {
         contractId: ContractId,
         contract: Contract,
         globalKey: Option[GlobalKey],
-        flatEventWitnesses: Set[Party],
+        stakeholders: Set[Party],
         eventOffset: Offset,
         eventSequentialId: Long,
     ) extends ContractStateEvent
