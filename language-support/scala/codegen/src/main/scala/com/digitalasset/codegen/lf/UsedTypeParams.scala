@@ -48,6 +48,7 @@ object UsedTypeParams {
   private[this] type TVar = Ref.Name
 
   final class ResolvedVariance private (private val prior: Map[I, ImmArraySeq[Variance]]) {
+
     /** The variance of each type parameter of `dt` in `ei`, in order,
       * and an updated copy of the receiver that may contain more cached
       * resolved variances from `ei`.
@@ -76,45 +77,48 @@ object UsedTypeParams {
 
       def lookupOrFail(i: I) = lookupType(i) getOrElse sys.error(s"$i not found")
 
-      def goType(dt: I, seen: Set[I], contexts: Map[I, Set[TVar]])(
+      def goTypeDefn(dt: I, seen: Set[I])(
           typ: iface.Type
-      ): VarianceConstraint = typ match {
-        case TypeVar(name) =>
-          // while we default to Covariant at a later step,
-          // absence *does not* mean set-to-Covariant at this step
-          VarianceConstraint(
-            Map(dt -> Map(name -> Covariant)),
-            DelayedResolution(
-              if (contexts.nonEmpty) Map(dt -> Map(name -> contexts)) else Map.empty
-            ),
-          )
+      ): VarianceConstraint = {
+        def goType(contexts: Map[I, Set[TVar]])(typ: iface.Type): VarianceConstraint = typ match {
+          case TypeVar(name) =>
+            // while we default to Covariant at a later step,
+            // absence *does not* mean set-to-Covariant at this step
+            VarianceConstraint(
+              Map(dt -> Map(name -> Covariant)),
+              DelayedResolution(
+                if (contexts.nonEmpty) Map(dt -> Map(name -> contexts)) else Map.empty
+              ),
+            )
 
-        case TypePrim(pt, typArgs) =>
-          import PrimType.{Map => _, _}
-          pt match {
-            case GenMap =>
-              val Seq(kt, vt) = typArgs
-              // we don't need to inspect `kt` any further than enumerating it;
-              // every occurrence therein is invariant
-              goType(dt, seen, contexts)(vt) |+| VarianceConstraint.base(
-                Map(dt -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
-              )
-            case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
-                Optional | TextMap =>
-              // this is only safe for all-params-covariant cases
-              typArgs foldMap goType(dt, seen, contexts)
-          }
+          case TypePrim(pt, typArgs) =>
+            import PrimType.{Map => _, _}
+            pt match {
+              case GenMap =>
+                val Seq(kt, vt) = typArgs
+                // we don't need to inspect `kt` any further than enumerating it;
+                // every occurrence therein is invariant
+                goType(contexts)(vt) |+| VarianceConstraint.base(
+                  Map(dt -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
+                )
+              case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
+                  Optional | TextMap =>
+                // this is only safe for all-params-covariant cases
+                typArgs foldMap goType(contexts)
+            }
 
-        case TypeCon(TypeConName(tcName), typArgs) =>
-          val refDdt = lookupOrFail(tcName)
-          val argConstraints = refDdt.typeVars zip typArgs foldMap { case (tv, ta) =>
-            goType(dt, seen, contexts |+| Map(tcName -> Set(tv)))(ta)
-          }
-          val refConstraints =
-            if (seen(tcName)) mzero[VarianceConstraint] else goSdt(tcName, seen + tcName)(refDdt)
-          argConstraints |+| refConstraints
+          case TypeCon(TypeConName(tcName), typArgs) =>
+            val refDdt = lookupOrFail(tcName)
+            val argConstraints = refDdt.typeVars zip typArgs foldMap { case (tv, ta) =>
+              goType(contexts |+| Map(tcName -> Set(tv)))(ta)
+            }
+            val refConstraints =
+              if (seen(tcName)) mzero[VarianceConstraint] else goSdt(tcName, seen + tcName)(refDdt)
+            argConstraints |+| refConstraints
 
-        case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
+          case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
+        }
+        goType(Map.empty)(typ)
       }
 
       def goSdt(dt: I, seen: Set[I])(sdt: DefDataType[RF, VF]): VarianceConstraint =
@@ -124,9 +128,9 @@ object UsedTypeParams {
           .getOrElse {
             sdt.dataType match {
               case Record(fields) =>
-                fields foldMap { case (_, typ) => goType(dt, seen, Map.empty)(typ) }
+                fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
               case Variant(fields) =>
-                fields foldMap { case (_, typ) => goType(dt, seen, Map.empty)(typ) }
+                fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
               case Enum(_) => mzero[VarianceConstraint]
             }
           }
