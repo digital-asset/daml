@@ -61,6 +61,64 @@ final class RaceConditionIT extends LedgerTestSuite {
   })
 
   test(
+    "WWArchiveVsNonTransientCreate",
+    "Cannot re-create a contract if it hasn't yet been archived",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, alice)) =>
+      val Attempts = 100
+      val ArchivalChoiceName = "ContractWithKey_Archive"
+      val CreatedContractTemplateName = "ContractWithKey"
+      for {
+        contract <- ledger.create(alice, ContractWithKey(alice))
+        _ <- Future.traverse(1 to Attempts) { attempt =>
+          if (attempt % 2 == 1) {
+            ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
+          } else {
+            ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
+          }
+        }
+        transactions <- ledger.transactionTrees(alice)
+      } yield  {
+        def txLt(tx1: TransactionTree, tx2: TransactionTree): Boolean =
+          offsetLessThan(tx1.offset, tx2.offset)
+
+        def isNonTransientCreate(transactionTree: TransactionTree): Boolean = {
+          transactionTree.eventsById.values.toList match {
+            case List(event) if event.kind.isCreated =>
+              event.getCreated.templateId.exists(_.entityName == CreatedContractTemplateName)
+            case _ => false
+          }
+        }
+
+        def isArchival(transactionTree: TransactionTree): Boolean = {
+          transactionTree.eventsById.values.toList match {
+            case List(event) if event.kind.isExercised =>
+              event.getExercised.choice == ArchivalChoiceName
+            case _ => false
+          }
+        }
+
+        val sorted = transactions.sortWith(txLt)
+
+        assert(isNonTransientCreate(sorted.head), "The first transaction is expected to be a contract creation")
+        assert(sorted.tail.nonEmpty, "Several transactions expected")
+
+        val (_, valid) = sorted.tail.foldLeft((sorted.head, true)) {
+          case ((previousTx, validUntilNow), currentTx) =>
+            if (validUntilNow) {
+              val valid = (isArchival(previousTx) && isNonTransientCreate(currentTx)) || (isNonTransientCreate(previousTx) && isArchival(currentTx))
+              (currentTx, valid)
+            } else {
+              (previousTx, validUntilNow)
+            }
+        }
+
+        if (!valid) fail(s"""Invalid transaction sequence: ${sorted.map(printTransaction).mkString("\n")}""")
+      }
+  })
+
+  test(
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
     allocate(SingleParty),
