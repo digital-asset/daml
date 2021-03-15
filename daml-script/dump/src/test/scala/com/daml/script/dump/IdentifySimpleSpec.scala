@@ -37,22 +37,22 @@ class IdentifySimpleSpec extends AnyFreeSpec with Matchers with OptionValues {
         .toTransactionTree
       SimpleEvent.fromTree(events) should be(Symbol("defined"))
     }
-  }
-  "complex exercisedEvent" in {
-    val events = TestData
-      .Tree(
-        Seq(
-          TestData.Exercised(
-            ContractId("cid1"),
-            Seq(
-              TestData.Created(ContractId("cid2")),
-              TestData.Created(ContractId("cid3")),
-            ),
-            exerciseResult = Some(ContractId("cid2")),
+    "complex exercisedEvent" in {
+      val events = TestData
+        .Tree(
+          Seq(
+            TestData.Exercised(
+              ContractId("cid1"),
+              Seq(
+                TestData.Created(ContractId("cid2")),
+                TestData.Created(ContractId("cid3")),
+              ),
+              exerciseResult = Some(ContractId("cid2")),
+            )
           )
         )
-      )
-      .toTransactionTree
-    SimpleEvent.fromTree(events) should be(None)
+        .toTransactionTree
+      SimpleEvent.fromTree(events) should be(None)
+    }
   }
 }
