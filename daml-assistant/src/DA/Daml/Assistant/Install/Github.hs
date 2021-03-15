@@ -4,8 +4,9 @@
 
 -- | Discover releases from the digital-asset/daml github.
 module DA.Daml.Assistant.Install.Github
-    ( versionURL
+    ( versionLocation
     , tagToVersion
+    , osName
     ) where
 
 import DA.Daml.Assistant.Types
@@ -45,14 +46,17 @@ osName = case System.Info.os of
     "mingw32" -> "windows"
     p -> error ("daml: Unknown operating system " ++ p)
 
--- | Install URL for particular version.
-versionURL :: SdkVersion -> InstallURL
-versionURL v = InstallURL $ T.concat
-    [ "https://github.com/digital-asset/daml/releases/download/"
-    , unTag (versionToTag v)
-    , "/daml-sdk-"
-    , versionToText v
-    , "-"
-    , osName
-    , ".tar.gz"
-    ]
+-- | Install location for particular version.
+versionLocation :: SdkVersion -> InstallLocation
+versionLocation v = InstallLocation
+    { ilUrl = T.concat
+        [ "https://github.com/digital-asset/daml/releases/download/"
+        , unTag (versionToTag v)
+        , "/daml-sdk-"
+        , versionToText v
+        , "-"
+        , osName
+        , ".tar.gz"
+        ]
+    , ilHeaders = []
+    }

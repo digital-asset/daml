@@ -135,6 +135,7 @@ autoInstall env@Env{..} = do
     damlConfigE <- tryConfig $ readDamlConfig envDamlPath
     let doAutoInstallE = queryDamlConfigRequired ["auto-install"] =<< damlConfigE
         doAutoInstall = fromRight True doAutoInstallE
+        artifactoryApiKeyM = queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
 
     if doAutoInstall && isJust envSdkVersion && isNothing envSdkPath then do
         -- sdk is missing, so let's install it!
@@ -158,6 +159,7 @@ autoInstall env@Env{..} = do
                 , installingFromOutside = False
                 , projectPathM = Nothing
                 , assistantVersion = envDamlAssistantSdkVersion
+                , artifactoryApiKeyM
                 , output = hPutStrLn stderr
                     -- Print install messages to stderr since the install
                     -- is only happening because of some other command,

@@ -5,17 +5,19 @@
 
 module DA.Daml.Assistant.Install
     ( InstallOptions (..)
-    , InstallURL (..)
     , InstallEnv (..)
+    , Artifactory.ArtifactoryApiKey(..)
     , versionInstall
     , install
     , uninstallVersion
+    , Artifactory.queryArtifactoryApiKey
     , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
+import qualified DA.Daml.Assistant.Install.Artifactory as Artifactory
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
@@ -23,11 +25,14 @@ import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseV
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
+import Data.Maybe
 import Data.List
 import Conduit
 import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
+import Data.Either.Extra
+import Network.HTTP.Client.Conduit (HttpExceptionContent(StatusCodeException))
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
@@ -78,6 +83,8 @@ data InstallEnv = InstallEnv
         -- (e.g. when running install script).
     , projectPathM :: Maybe ProjectPath
         -- ^ project path (for "daml install project")
+    , artifactoryApiKeyM :: Maybe Artifactory.ArtifactoryApiKey
+        -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
         -- ^ output an informative message
     }
@@ -300,20 +307,34 @@ extractAndInstall env source =
     where throwError msg e = liftIO $ throwIO $ assistantErrorBecause ("Invalid SDK release: " <> msg) e
 
 -- | Download an sdk tarball and install it.
-httpInstall :: InstallEnv -> InstallURL -> IO ()
-httpInstall env@InstallEnv{..} (InstallURL url) = do
+httpInstall :: InstallEnv -> SdkVersion -> IO ()
+httpInstall env@InstallEnv{..} version = do
     unlessQuiet env $ output "Downloading SDK release."
-    request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
-    requiredAny "Failed to download SDK release." $ withResponse request $ \response -> do
-        when (getResponseStatusCode response /= 200) $
-            throwIO . assistantErrorBecause "Failed to download release."
-                    . pack . show $ getResponseStatus response
-        let totalSizeM = readMay . BS.UTF8.toString =<< headMay
-                (getResponseHeader "Content-Length" response)
-        extractAndInstall env
-            . maybe id (\s -> (.| observeProgress s)) totalSizeM
-            $ getResponseBody response
+    requiredAny "Failed to download SDK release." $
+        firstNon404 (map tryLocation (maybeToList (fmap (Artifactory.versionLocation version) artifactoryApiKeyM) <> [Github.versionLocation version]))
     where
+        firstNon404 :: [IO ()] -> IO ()
+        firstNon404 as =
+            foldr1 (\a acc -> catchJust toStatusCode a (handle acc)) as
+        handle :: IO () -> Int -> IO ()
+        -- Try next url on 404
+        handle next 404 = next
+        -- Fail on anything else
+        handle _ status =
+            throwIO . assistantErrorBecause "Failed to download release."
+            . pack . show $ status
+        toStatusCode :: HttpException -> Maybe Int
+        toStatusCode (HttpExceptionRequest _ (StatusCodeException resp _)) =
+            Just (getResponseStatusCode resp)
+        toStatusCode _ = Nothing
+        tryLocation :: InstallLocation -> IO ()
+        tryLocation (InstallLocation url headers) = do
+            request <- requiredAny "Failed to parse HTTPS request." $ parseRequestThrow ("GET " <> unpack url)
+            withResponse (setRequestHeaders headers request) $ \response -> do
+                let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
+                extractAndInstall env
+                    . maybe id (\s -> (.| observeProgress s)) totalSizeM
+                    $ getResponseBody response
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
         observeProgress totalSize = do
@@ -359,8 +380,7 @@ versionInstall env@InstallEnv{..} version = do
             ]
 
     when performInstall $
-        httpInstall env { targetVersionM = Just version }
-            (Github.versionURL version)
+        httpInstall env { targetVersionM = Just version } version
 
     -- Need to activate here if we aren't performing the full install.
     when (not performInstall && shouldInstallAssistant env version) $ do
@@ -411,10 +431,12 @@ install options damlPath projectPathM assistantVersion = do
 
     missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
     execPath <- getExecutablePath
+    damlConfigE <- tryConfig $ readDamlConfig damlPath
     let installingFromOutside = not $
             isPrefixOf (unwrapDamlPath damlPath </> "") execPath
         targetVersionM = Nothing -- determined later
         output = putStrLn -- Output install messages to stdout.
+        artifactoryApiKeyM = Artifactory.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do
