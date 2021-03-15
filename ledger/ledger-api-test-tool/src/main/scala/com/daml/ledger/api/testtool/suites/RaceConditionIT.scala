@@ -223,6 +223,52 @@ final class RaceConditionIT extends LedgerTestSuite {
       }
   })
 
+  test(
+    "RWArchiveVsFailedLookupByKey",
+    "Lookup by key cannot fail after a contract creation",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, alice)) =>
+      val CreateAt = 90
+      val Attempts = 100
+      val CreateNonTransientTemplateName = "ContractWithKey"
+      val LookupResultTemplateName = "LookupResult"
+      for {
+        looker <- ledger.create(alice, LookerUpByKey(alice))
+        _ <- Future.traverse(1 to Attempts) { attempt =>
+          if (attempt == CreateAt) {
+            ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
+          } else {
+            ledger.exercise(alice, looker.exerciseLookup).transform(Success(_))
+          }
+        }
+        transactions <- ledger.transactionTrees(alice)
+      } yield {
+        //TODO: factor out containEvent(): TreeEvent => Boolean
+        def isCreateNonTransient(transactionTree: TransactionTree): Boolean = {
+          transactionTree.eventsById.values.toList.exists { event =>
+            event.kind.isCreated && event.getCreated.templateId.get.entityName == CreateNonTransientTemplateName
+          }
+        }
+        def isFailedContractLookup(transactionTree: TransactionTree): Boolean = {
+          def isNotFoundContractField(field: RecordField) = {
+            field.label == "found" && field.value.exists(_.getBool == false)
+          }
+
+          transactionTree.eventsById.values.toList.exists { event =>
+            event.kind.isCreated && event.getCreated.templateId.get.entityName == LookupResultTemplateName &&
+              event.getCreated.getCreateArguments.fields.exists(isNotFoundContractField)
+          }
+        }
+
+        val createNonTransientTransaction = transactions.find(isCreateNonTransient).getOrElse(fail("No create-non-transient transaction found"))
+
+        transactions
+          .filter(isFailedContractLookup)
+          .foreach(assertTransactionOrder(_, createNonTransientTransaction))
+      }
+  })
+
   def assertTransactionOrder(expectedFirst: TransactionTree, expectedSecond: TransactionTree) = {
     if (offsetLessThan(expectedFirst.offset, expectedSecond.offset)) ()
     else fail(
