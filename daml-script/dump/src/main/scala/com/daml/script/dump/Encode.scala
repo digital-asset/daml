@@ -8,7 +8,6 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
@@ -279,11 +278,11 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[CreatedEvent],
   ): Doc = {
-    encodeSubmitSimpleEvents(
+    encodeSubmitSimpleCommands(
       partyMap,
       cidMap,
       cidRefs,
-      evs.map(ev => SimpleEvent(Kind.Created(ev), ContractId(ev.contractId))),
+      evs.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId))),
     )
   }
 
