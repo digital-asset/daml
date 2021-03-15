@@ -158,7 +158,7 @@ jobs:
   timeoutInMinutes: 360
   pool:
     name: 'windows-pool'
-    demands: assignment -equals windows-debug
+    demands: assignment -equals default
   steps:
     - template: report-start.yml
     - checkout: self
