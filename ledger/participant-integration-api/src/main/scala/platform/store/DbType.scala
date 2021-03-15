@@ -40,4 +40,17 @@ private[platform] object DbType {
     case _ =>
       sys.error(s"JDBC URL doesn't match any supported databases (h2, pg)")
   }
+
+  sealed trait AsyncCommitMode {
+    def setting: String
+  }
+  object SynchronousCommit extends AsyncCommitMode {
+    override val setting: String = "ON"
+  }
+  object AsynchronousCommit extends AsyncCommitMode {
+    override val setting: String = "OFF"
+  }
+  object LocalSynchronousCommit extends AsyncCommitMode {
+    override val setting: String = "LOCAL"
+  }
 }
