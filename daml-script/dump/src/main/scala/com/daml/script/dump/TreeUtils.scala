@@ -3,8 +3,8 @@
 
 package com.daml.script.dump
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, EventId, Party}
+import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
@@ -17,6 +17,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.collection.compat._
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object TreeUtils {
@@ -158,6 +159,49 @@ object TreeUtils {
 
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
+
+  sealed trait Command
+  final case class CreateCommand(createdEvent: CreatedEvent) extends Command
+  final case class ExerciseCommand(exercisedEvent: ExercisedEvent) extends Command
+  final case class CreateAndExerciseCommand(
+      createdEvent: CreatedEvent,
+      exercisedEvent: ExercisedEvent,
+  ) extends Command
+
+  object Command {
+    def fromTree(tree: TransactionTree): Seq[Command] = {
+      val commands = mutable.LinkedHashMap.empty[EventId, Command]
+      val created = mutable.HashMap.empty[ContractId, EventId]
+      tree.rootEventIds.foreach { eventId =>
+        val event = tree.eventsById(eventId)
+        event.kind match {
+          case Kind.Empty =>
+          case Kind.Created(createdEvent) =>
+            commands += EventId(eventId) -> CreateCommand(createdEvent)
+            created += ContractId(createdEvent.contractId) -> EventId(eventId)
+          case Kind.Exercised(exercisedEvent) =>
+            created.get(ContractId(exercisedEvent.contractId)) match {
+              case None =>
+                commands += EventId(eventId) -> ExerciseCommand(exercisedEvent)
+              case Some(createdEventId) =>
+                commands.get(createdEventId) match {
+                  case Some(CreateCommand(createdEvent)) =>
+                    // Replace the original CreateCommand
+                    commands += createdEventId -> CreateAndExerciseCommand(
+                      createdEvent,
+                      exercisedEvent,
+                    )
+                  case _ =>
+                    throw new RuntimeException(
+                      "Internal error: Encountered `created` entry without corresponding `commands` entry."
+                    )
+                }
+            }
+        }
+      }
+      commands.valuesIterator.toSeq
+    }
+  }
 
   /** A simple event causes the creation of a single contract and returns its contract id.
     *
