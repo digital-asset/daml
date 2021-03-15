@@ -40,6 +40,7 @@ final case class Config[Extra](
     trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
     extra: Extra,
+    useCompletionsCache: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -69,6 +70,7 @@ object Config {
       trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       engineMode = EngineMode.Stable,
       extra = extra,
+      useCompletionsCache = true,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =

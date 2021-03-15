@@ -8,7 +8,6 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
-import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.index.v2
@@ -18,12 +17,13 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction._
-import com.daml.lf.value.{Value => LfValue}
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.completions.Range
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -796,10 +796,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       parties: Set[Party],
   ): Future[Seq[(String, Int)]] =
     ledgerDao.completions
-      .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
-      .map(_._2.completions.head)
-      .map(c => c.commandId -> c.status.get.code)
-      .runWith(Sink.seq)
+      .getCompletionsPage(Range(startExclusive, endInclusive), applicationId, parties)
+      .map(_.map { case (_, response) =>
+        response.completions.head.commandId -> response.completions.head.status.get.code
+      })
 
   def nextOffsetStep(offset: Offset): OffsetStep =
     OffsetStep(previousOffset.getAndSet(Some(offset)), offset)

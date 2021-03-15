@@ -5,18 +5,18 @@ package com.daml.platform.store.dao
 
 import java.time.Instant
 
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo, TransactionId}
-import com.daml.ledger.participant.state.v1.RejectionReason._
-import com.daml.lf.data.Ref
+import anorm.{Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.participant.state.v1.RejectionReason._
+import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo, TransactionId}
+import com.daml.lf.data.Ref
 import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.SqlFunctions
-import io.grpc.Status.Code
 import com.google.rpc.status.Status
+import io.grpc.Status.Code
 
 private[platform] object CommandCompletionsTable {
 
@@ -43,7 +43,36 @@ private[platform] object CommandCompletionsTable {
         )
     }
 
+  private val acceptedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
+    acceptedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
+      case completionStreamResponse ~ submitters ~ applicationId =>
+        CompletionStreamResponseWithParties(
+          completion = completionStreamResponse,
+          parties = submitters.map(Ref.Party.assertFromString).toSet,
+          applicationId = ApplicationId.assertFromString(applicationId),
+        )
+    }
+
+  private val rejectedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
+    rejectedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
+      case completionStreamResponse ~ submitters ~ applicationId =>
+        CompletionStreamResponseWithParties(
+          completion = completionStreamResponse,
+          parties = submitters.map(Ref.Party.assertFromString).toSet,
+          applicationId = ApplicationId.assertFromString(applicationId),
+        )
+    }
+
+  case class CompletionStreamResponseWithParties(
+      completion: CompletionStreamResponse,
+      parties: Set[Ref.Party],
+      applicationId: ApplicationId,
+  )
+
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
+
+  val parserWithParties: RowParser[CompletionStreamResponseWithParties] =
+    acceptedCommandWithPartiesParser | rejectedCommandWithPartiesParser
 
   def prepareGet(
       startExclusive: Offset,
@@ -56,6 +85,20 @@ private[platform] object CommandCompletionsTable {
       sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
     SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and #$submittersInPartiesClause order by completion_offset asc"
   }
+
+  private val getForAllPartiesQuery = SQL(
+    """select completion_offset, record_time, command_id, transaction_id, status_code, status_message,
+           submitters, application_id
+         from participant_command_completions
+         where completion_offset > {startExclusive} and completion_offset <= {endInclusive}
+         order by completion_offset asc"""
+  )
+
+  def getStmtForAllParties(
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): SimpleSql[Row] =
+    getForAllPartiesQuery.on("startExclusive" -> startExclusive, "endInclusive" -> endInclusive)
 
   def prepareCompletionInsert(
       submitterInfo: SubmitterInfo,

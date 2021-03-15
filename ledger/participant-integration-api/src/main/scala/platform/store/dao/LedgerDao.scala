@@ -28,6 +28,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.completions.PagedCompletionsReader
 import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
@@ -118,7 +119,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed]
 
-  def completions: CommandCompletionsReader
+  def completions: PagedCompletionsReader
 
   /** Deduplicates commands.
     *

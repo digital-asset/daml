@@ -18,6 +18,7 @@ case class IndexerConfig(
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
+    useCompletionsCache: Boolean = true,
 )
 
 object IndexerConfig {

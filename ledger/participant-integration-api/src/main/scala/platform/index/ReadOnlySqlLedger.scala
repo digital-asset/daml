@@ -44,6 +44,7 @@ private[platform] object ReadOnlySqlLedger {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       enricher: ValueEnricher,
+      useCompletionsCache: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
@@ -110,6 +111,7 @@ private[platform] object ReadOnlySqlLedger {
         metrics,
         lfValueTranslationCache,
         Some(enricher),
+        useCompletionsCache,
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
