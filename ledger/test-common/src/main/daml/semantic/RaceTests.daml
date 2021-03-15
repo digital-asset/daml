@@ -20,13 +20,13 @@ template ContractWithKey with
         do
           return ()
 
-template FetchContractWithKey with
+template FetchWrapper with
     fetcher : Party
     contractId : ContractId ContractWithKey
   where 
     signatory fetcher
     controller fetcher can
-      FetchContractWithKey_Fetch: ContractWithKey
+      FetchWrapper_Fetch: ContractWithKey
         do fetch contractId
 
 template LookupResult with
@@ -40,24 +40,24 @@ foundContract (result : Optional (ContractId ContractWithKey)) : Bool =
     Some val -> True
     None -> False
 
-template LookerUpByKey with
+template LookupWrapper with
     owner : Party
   where
     signatory owner
 
     controller owner can
-      nonconsuming Lookup : ()
+      nonconsuming LookupWrapper_Lookup : ()
         do
           optionalContractId <- lookupByKey @ContractWithKey owner
           create LookupResult with owner = owner, found = foundContract(optionalContractId)
           pure ()
 
-template TransientWrapper with
+template CreateWrapper with
     owner : Party
   where
     signatory owner
     controller owner can
-      nonconsuming CreateTransientContract : ()
+      nonconsuming CreateWrapper_CreateTransient : ()
         do
           contract <- create ContractWithKey with owner
           _ <- exercise contract ContractWithKey_Archive

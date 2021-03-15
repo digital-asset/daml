@@ -132,12 +132,12 @@ final class RaceConditionIT extends LedgerTestSuite {
       val ActionAt = 90
       val CreatedContractTemplateName = "ContractWithKey"
       for {
-        wrapper <- ledger.create(alice, TransientWrapper(alice))
+        wrapper <- ledger.create(alice, CreateWrapper(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
           if (attempt == ActionAt) {
             ledger.create(alice, ContractWithKey(alice)).map(_ => ()).transform(Success(_))
           } else {
-            ledger.exercise(alice, wrapper.exerciseCreateTransientContract).map(_ => ()).transform(Success(_))
+            ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateTransient).map(_ => ()).transform(Success(_))
           }
         }
         transactions <- ledger.transactionTrees(alice)
@@ -225,12 +225,12 @@ final class RaceConditionIT extends LedgerTestSuite {
           val FetchChoiceName = "FetchContractWithKey_Fetch"
           for {
             contract <- ledger.create(alice, ContractWithKey(alice))
-            fetchConract <- ledger.create(alice, FetchContractWithKey(alice, contract))
+            fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
             _ <- Future.traverse(1 to Attempts) { attempt =>
               if (attempt == ArchiveAt) {
                 ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
               } else {
-                ledger.exercise(alice, fetchConract.exerciseFetchContractWithKey_Fetch).transform(Success(_))
+                ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch).transform(Success(_))
               }
             }
             transactions <- ledger.transactionTrees(alice)
@@ -273,12 +273,12 @@ final class RaceConditionIT extends LedgerTestSuite {
       val LookupResultTemplateName = "LookupResult"
       for {
         contract <- ledger.create(alice, ContractWithKey(alice))
-        looker <- ledger.create(alice, LookerUpByKey(alice))
+        looker <- ledger.create(alice, LookupWrapper(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
           if (attempt == ArchiveAt) {
             ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
           } else {
-            ledger.exercise(alice, looker.exerciseLookup).transform(Success(_))
+            ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
           }
         }
         transactions <- ledger.transactionTrees(alice)
@@ -321,12 +321,12 @@ final class RaceConditionIT extends LedgerTestSuite {
       val CreateNonTransientTemplateName = "ContractWithKey"
       val LookupResultTemplateName = "LookupResult"
       for {
-        looker <- ledger.create(alice, LookerUpByKey(alice))
+        looker <- ledger.create(alice, LookupWrapper(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
           if (attempt == CreateAt) {
             ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
           } else {
-            ledger.exercise(alice, looker.exerciseLookup).transform(Success(_))
+            ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
           }
         }
         transactions <- ledger.transactionTrees(alice)
