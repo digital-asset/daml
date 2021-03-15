@@ -224,7 +224,7 @@ object ApiCodecVerbose {
   def jsValueToApiVariant(value: JsValue): Model.ApiVariant =
     strField(value, propType, "ApiVariant") match {
       case `tagVariant` =>
-        V.ValueVariant(
+        V.ValueVariant( //NICK: model for ValueBuiltinException
           asObject(value, "ApiVariant").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),

@@ -107,6 +107,7 @@ object ValueGenerators {
       .map(Time.Timestamp.assertFromLong)
 
   // generate a variant with arbitrary value
+  // NICK: use as model for ValueBuiltinException
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
     for {
       id <- idGen

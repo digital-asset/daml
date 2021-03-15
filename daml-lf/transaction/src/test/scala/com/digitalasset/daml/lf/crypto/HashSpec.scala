@@ -602,6 +602,7 @@ class HashSpec extends AnyWordSpec with Matchers {
           |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
           |""".stripMargin
+      //NICK: add some cases for ValueBuiltinException
 
       val sep = System.getProperty("line.separator")
       val actualOutput = testCases
