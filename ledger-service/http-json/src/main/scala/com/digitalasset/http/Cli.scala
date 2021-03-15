@@ -34,7 +34,7 @@ object Cli extends StrictLogging {
   private def parseJdbcConfig(s: String): Either[String, JdbcConfig] =
     for {
       m <- Try(implicitly[Read[Map[String, String]]].reads(s)).toEither.left.map(_ =>
-        s"Failed to parse $s into a commat-separated key-value map"
+        s"Failed to parse $s into a comma-separated key-value map"
       )
       conf <- JdbcConfig.create(m)
     } yield conf
