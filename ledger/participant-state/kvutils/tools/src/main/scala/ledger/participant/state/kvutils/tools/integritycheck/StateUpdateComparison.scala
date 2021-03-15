@@ -8,8 +8,8 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
-import com.daml.lf.transaction.{CommittedTransaction, Node, VersionedTransaction}
+import com.daml.lf.kv.Normalizer
+import com.daml.lf.transaction.CommittedTransaction
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -154,7 +154,7 @@ object ReadServiceStateUpdateComparison {
             transactionAccepted.blindingInfo,
         transaction =
           if (normalizationSettings.ignoreFetchAndLookupByKeyNodes) {
-            CommittedTransaction(dropFetchAndLookupByKeyNodes(transactionAccepted.transaction))
+            CommittedTransaction(Normalizer.normalizeTransaction(transactionAccepted.transaction))
           } else
             transactionAccepted.transaction,
       )
@@ -172,26 +172,6 @@ object ReadServiceStateUpdateComparison {
       case u: Update.TransactionAccepted => u.copy(recordTime = newRecordTime)
       case u: Update.CommandRejected => u.copy(recordTime = newRecordTime)
     }
-
-  private def dropFetchAndLookupByKeyNodes[Nid, Cid](
-      tx: VersionedTransaction[Nid, Cid]
-  ): VersionedTransaction[Nid, Cid] = {
-    val filteredNodes = tx.nodes.filter {
-      case (_, _: Node.NodeFetch[Cid] | _: Node.NodeLookupByKey[Cid]) => false
-      case _ => true
-    }
-    val filteredChildNodes = filteredNodes.map {
-      case (nodeId, exercise: Node.NodeExercises[Nid, Cid]) =>
-        val filteredNode =
-          exercise.copy(children = exercise.children.filter(filteredNodes.contains))
-        nodeId -> filteredNode
-      case keep @ ((_, _: NodeFetch[Cid]) | (_, _: NodeCreate[Cid]) |
-          (_, _: NodeLookupByKey[Cid])) =>
-        keep
-    }
-    val filteredRoots = tx.roots.filter(filteredChildNodes.contains)
-    VersionedTransaction(tx.version, filteredChildNodes, filteredRoots)
-  }
 
   private def discardRejectionReasonDescription(reason: RejectionReason): RejectionReason =
     reason match {
