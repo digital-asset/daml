@@ -32,6 +32,35 @@ final class RaceConditionIT extends LedgerTestSuite {
   })
 
   test(
+    "WWDoubleArchive",
+    "Cannot concurrently create multiple non-transient contracts with the same key",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, alice)) =>
+      val Attempts = 100
+      val ExpectedNumberOfSuccessfulArchivals = 1
+      val ArchivalChoiceName = "ContractWithKey_Archive"
+      for {
+        contract <- ledger.create(alice, ContractWithKey(alice))
+        _ <- Future.traverse(1 to Attempts) { _ =>
+          ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
+        }
+        transactions <- ledger.transactionTrees(alice)
+      } yield  {
+        def isArchival(transactionTree: TransactionTree): Boolean = {
+          transactionTree.eventsById.values.toList match {
+            case List(event) if event.kind.isExercised =>
+              event.getExercised.choice == ArchivalChoiceName
+            case _ => false
+          }
+        }
+
+        assertLength("Successful contract archivals", ExpectedNumberOfSuccessfulArchivals, transactions.filter(isArchival))
+        ()
+      }
+  })
+
+  test(
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
     allocate(SingleParty),
