@@ -625,10 +625,10 @@ final class Conversions(
             .build
         )
       case V.ValueBuiltinException(tag, value) =>
-        val vbuilder = proto.Variant.newBuilder
-        builder.setVariant( //NICK need new: setBuiltinException ? NICK
+        val vbuilder = proto.BuiltinException.newBuilder
+        builder.setBuiltinException(
           vbuilder
-            .setConstructor(tag)
+            .setTag(tag)
             .setValue(convertValue(value))
             .build
         )
