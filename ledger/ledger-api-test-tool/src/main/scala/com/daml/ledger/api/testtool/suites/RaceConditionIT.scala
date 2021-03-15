@@ -67,15 +67,13 @@ final class RaceConditionIT extends LedgerTestSuite {
           }
         }
 
-        val nonTransientCreateOffset = transactions
+        val nonTransientCreateTransaction = transactions
           .find(isNonTransientCreate)
-          .map(_.offset)
           .getOrElse(fail("No non-transient create transaction found"))
 
         transactions
           .filter(isTransientCreate)
-          .map(_.offset)
-          .foreach(assertOffsetOrder(_, nonTransientCreateOffset))
+          .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
       }
   })
 
@@ -116,15 +114,13 @@ final class RaceConditionIT extends LedgerTestSuite {
           }
         }
 
-        val archivalOffset = transactions
+        val archivalTransaction = transactions
           .find(isArchival)
-          .map(_.offset)
           .getOrElse(fail("No archival transaction found"))
 
         transactions
           .filter(isNonConsumingExercise)
-          .map(_.offset)
-          .foreach(assertOffsetOrder(_, archivalOffset))
+          .foreach(assertTransactionOrder(_, archivalTransaction))
 
       }
   })
@@ -152,12 +148,6 @@ final class RaceConditionIT extends LedgerTestSuite {
             }
             transactions <- ledger.transactionTrees(alice)
           } yield {
-//                    println(s"TRANSACTIONS: ${transactions.length}")
-//                    transactions.filter(isFetch).sortBy(_.offset).foreach { tx =>
-//                      val events = tx.eventsById.values.map { x => x.kind}.mkString(" , ")
-//                      println(s"EVENTS ${tx.eventsById.size}: ${tx.offset} ${events}")
-//                    }
-
             // TODO: deduplicate these two
             def isArchival(transactionTree: TransactionTree): Boolean = {
               transactionTree.eventsById.values.toList match {
@@ -174,15 +164,13 @@ final class RaceConditionIT extends LedgerTestSuite {
               }
             }
 
-            val archivalOffset = transactions
+            val archivalTransaction = transactions
               .find(isArchival)
-              .map(_.offset)
               .getOrElse(fail("No archival transaction found"))
 
             transactions
               .filter(isFetch)
-              .map(_.offset)
-              .foreach(assertOffsetOrder(_, archivalOffset))
+              .foreach(assertTransactionOrder(_, archivalTransaction))
           }
   })
 
@@ -252,11 +240,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     s"""Offset: ${transactionTree.offset}, number of events: ${transactionTree.eventsById.size}
        |${transactionTree.eventsById.values.map(e => s" -> $e").mkString("\n")}
        |""".stripMargin
-  }
-
-  def assertOffsetOrder(a: String, b: String): Unit = {
-    if (Bytes.ordering.lt(offsetBytes(a), offsetBytes(b))) ()
-    else fail(s"Offset $a is not before $b")
   }
 
   def offsetBytes(offset: String) = {
