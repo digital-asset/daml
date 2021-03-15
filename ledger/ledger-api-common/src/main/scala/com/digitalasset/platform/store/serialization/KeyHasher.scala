@@ -80,11 +80,13 @@ object KeyHasher extends KeyHasher {
         op(z1, HashTokenCollectionEnd())
 
       // Variant: [CollectionBegin(), Text(tag), Token(value), CollectionEnd()]
-      case ValueBuiltinException(tag, v) =>
-        val z1 = op(z, HashTokenCollectionBegin(1))
+      case ValueBuiltinException(tag @ _, v @ _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        /*val z1 = op(z, HashTokenCollectionBegin(1))
         val z2 = op(z1, HashTokenText(tag))
         val z3 = foldLeft(v, z2, op)
-        op(z3, HashTokenCollectionEnd())
+        op(z3, HashTokenCollectionEnd())*/
+        sys.error("exceptions not supported")
 
       // Variant: [CollectionBegin(), Text(variant), Token(value), CollectionEnd()]
       case ValueVariant(_, variant, v) =>

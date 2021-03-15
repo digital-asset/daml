@@ -50,7 +50,10 @@ object ApiCodecVerbose {
   def apiValueToJsValue(value: Model.ApiValue): JsValue = value match {
     case v: Model.ApiRecord => apiRecordToJsValue(v)
     case v: Model.ApiVariant => apiVariantToJsValue(v)
-    case v: Model.ApiBuiltinException => apiBuiltinExceptionToJsValue(v)
+    case _: Model.ApiBuiltinException =>
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      //apiBuiltinExceptionToJsValue(v)
+      sys.error("exceptions not supported")
     case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
     case V.ValueText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))
@@ -97,12 +100,14 @@ object ApiCodecVerbose {
       }),
     )
 
-  def apiBuiltinExceptionToJsValue(value: Model.ApiBuiltinException): JsValue =
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  /*def apiBuiltinExceptionToJsValue(value: Model.ApiBuilt
+    inException): JsValue =
     JsObject(
-      propType -> JsString(tagVariant), //NICK need tagBuiltinException
+      propType -> JsString(tagBuiltinException), //needs tagBuiltinException
       propConstructor -> JsString(value.tag),
       propValue -> apiValueToJsValue(value.value),
-    )
+    )*/
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(
@@ -145,6 +150,8 @@ object ApiCodecVerbose {
     strField(value, propType, "ApiValue") match {
       case `tagRecord` => jsValueToApiRecord(value)
       case `tagVariant` => jsValueToApiVariant(value)
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      //   case `tagBuiltinException` => ...
       case `tagEnum` => jsValueToApiEnum(value)
       case `tagList` =>
         V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to(FrontStack))
@@ -224,7 +231,7 @@ object ApiCodecVerbose {
   def jsValueToApiVariant(value: JsValue): Model.ApiVariant =
     strField(value, propType, "ApiVariant") match {
       case `tagVariant` =>
-        V.ValueVariant( //NICK: model for ValueBuiltinException
+        V.ValueVariant(
           asObject(value, "ApiVariant").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),

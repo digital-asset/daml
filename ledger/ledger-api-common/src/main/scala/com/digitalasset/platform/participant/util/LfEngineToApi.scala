@@ -138,14 +138,14 @@ object LfEngineToApi {
         }
       case Lf.ValueBuiltinException(tag @ _, v @ _) =>
         // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("exceptions not supported")
-      /*lfValueToApiValue(verbose, v) map { x =>
+        /*lfValueToApiValue(verbose, v) map { x =>
           api.Value(
             api.Value.Sum.BuiltinException(
               api.BuiltinException(tag, Some(x))
             )
           )
-        }*/
+         }*/
+        sys.error("exceptions not supported")
       case Lf.ValueVariant(tycon, variant, v) =>
         lfValueToApiValue(verbose, v) map { x =>
           api.Value(

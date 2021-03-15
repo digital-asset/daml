@@ -266,7 +266,7 @@ object TypedValueGenerators {
           override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
           override def inj[Cid: IntroCtx](cp: Inj[Cid]) = {
             val (ctor, v) = spec.injVar(cp)
-            ValueVariant(Some(name), ctor, v) //NICK: model for ValueBuiltinException
+            ValueVariant(Some(name), ctor, v)
           }
           override def prj[Cid] = {
             case ValueVariant(_, name, vv) =>
