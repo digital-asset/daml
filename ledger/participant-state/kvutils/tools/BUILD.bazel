@@ -22,7 +22,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
@@ -31,6 +30,7 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/kv-transaction-support",
         "//daml-lf/transaction",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",

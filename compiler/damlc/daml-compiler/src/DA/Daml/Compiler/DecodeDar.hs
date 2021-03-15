@@ -89,4 +89,3 @@ decodeDalf dependenciesInPkgDb path bytes = do
         { decodedDalfPkg = LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bytes
         , decodedUnitId = pkgNameVersion name mbVersion
         }
-
