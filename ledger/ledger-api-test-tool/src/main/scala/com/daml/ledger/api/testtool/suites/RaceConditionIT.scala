@@ -33,7 +33,7 @@ final class RaceConditionIT extends LedgerTestSuite {
 
   test(
     "WWDoubleArchive",
-    "Cannot concurrently create multiple non-transient contracts with the same key",
+    "Cannot archive the same contract multiple times",
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, alice)) =>
