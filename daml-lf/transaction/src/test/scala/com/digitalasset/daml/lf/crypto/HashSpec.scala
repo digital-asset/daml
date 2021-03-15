@@ -467,8 +467,15 @@ class HashSpec extends AnyWordSpec with Matchers {
         List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj(_)) ++
           List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
+      val builtinExceptions =
+        List(
+          ValueBuiltinException("", ValueText("")),
+          ValueBuiltinException("someTag", ValueText("someMessage")),
+          ValueBuiltinException("differentTag", ValueInt64(42)),
+        )
+
       val testCases: List[V] =
-        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
+        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants ++ builtinExceptions
 
       val expectedOut =
         """ValueUnit
@@ -601,8 +608,13 @@ class HashSpec extends AnyWordSpec with Matchers {
           | bd89c47c2379a69e8e0d46ff634c533449e8e7e532e84def4e2b2e168bc786e7
           |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
           | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
+          |ValueBuiltinException(,ValueText())
+          | 13c6a7b85fcb0443c1d31dafe22561aac714fbaa99d3b9a56474d8dda0c9aee0
+          |ValueBuiltinException(someTag,ValueText(someMessage))
+          | c7e681e156c80b804a4b105419564e3deb801f3be7ca2ca08fbd81da7a520323
+          |ValueBuiltinException(differentTag,ValueInt64(42))
+          | c086e55d65a985baaa8d46503905f3711b7390add30d7811f7a7cf93ce6394ad
           |""".stripMargin
-      //NICK: add some cases for ValueBuiltinException
 
       val sep = System.getProperty("line.separator")
       val actualOutput = testCases
