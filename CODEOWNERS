@@ -27,20 +27,22 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
+/daml-lf/ @remyhaemmerle-da
 /daml-lf/governance.rst @hurryabit @S11001001
-/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @cocreature
+/daml-lf/archive/da/ @remyhaemmerle-da @hurryabit @cocreature
 /daml-lf/engine/ @hurryabit @remyhaemmerle-da @cocreature
 /daml-lf/interpreter/ @hurryabit @remyhaemmerle-da @cocreature
 /daml-lf/repl/ @hurryabit @remyhaemmerle-da @cocreature
 /daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da @cocreature
 /daml-lf/spec/value.rst @S11001001 @hurryabit @cocreature
 /daml-lf/spec/transaction.rst @S11001001 @hurryabit @cocreature
-/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @cocreature
+/daml-lf/spec/daml-lf-1.rst @hurryabit @cocreature
 /daml-lf/data-scalacheck/  @S11001001 @cocreature
 /daml-lf/transaction-test-lib/  @S11001001 @cocreature
-/daml-lf/validation/    @remyhaemmerle-da @cocreature
+/daml-lf/validation/ @cocreature
 /daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001 @cocreature
 /daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001 @cocreature
+/daml-lf/kv-transaction-support/ @cocreature @gerolf-da @miklos-da
 
 /ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 

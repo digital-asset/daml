@@ -41,7 +41,7 @@
   type: jar-scala
 - target: //daml-lf/language:language
   type: jar-scala
-- target: //daml-lf/kvutils:kvutils
+- target: //daml-lf/kv-transaction-support:kv-transaction-support
   type: jar-scala
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
   type: jar-scala
