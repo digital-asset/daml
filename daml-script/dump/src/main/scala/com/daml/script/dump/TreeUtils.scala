@@ -239,6 +239,42 @@ object TreeUtils {
     }
   }
 
+  /** A simple command causes the creation of a single contract and returns its contract id.
+    *
+    * A create command is a simple command. An exercise command can be a simple command.
+    */
+  case class SimpleCommand(command: Command, contractId: ContractId)
+
+  object SimpleCommand {
+    def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
+      command match {
+        case CreateCommand(createdEvent) =>
+          Some(SimpleCommand(command, ContractId(createdEvent.contractId)))
+        case ExerciseCommand(exercisedEvent) =>
+          val result = exercisedEvent.exerciseResult.flatMap {
+            _.sum match {
+              case Sum.ContractId(value) => Some(value)
+              case _ => None
+            }
+          }
+          val creates = treeEventCreatedCids(Kind.Exercised(exercisedEvent), tree)
+          (result, creates) match {
+            case (Some(cid), Seq(createdCid)) if cid == createdCid =>
+              Some(SimpleCommand(command, ContractId(cid)))
+            case _ => None
+          }
+        case _: CreateAndExerciseCommand =>
+          // TODO[AH] Identify simple createAndExercise commands.
+          None
+      }
+    }
+
+    def fromCommands(commands: Seq[Command], tree: TransactionTree): Option[Seq[SimpleCommand]] = {
+      import scalaz.Scalaz._
+      commands.toList.traverse(SimpleCommand.fromCommand(_, tree))
+    }
+  }
+
   def evParties(ev: TreeEvent.Kind): Seq[Party] = ev match {
     case TreeEvent.Kind.Created(create) => Party.subst(create.signatories)
     case TreeEvent.Kind.Exercised(exercised) => Party.subst(exercised.actingParties)
