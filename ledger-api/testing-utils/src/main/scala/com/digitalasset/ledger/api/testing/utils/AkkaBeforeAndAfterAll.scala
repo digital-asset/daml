@@ -23,7 +23,7 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
 
   private implicit lazy val executionContext: ExecutionContext =
     ExecutionContext.fromExecutorService(
-      Executors.newSingleThreadExecutor(
+      Executors.newCachedThreadPool(
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
