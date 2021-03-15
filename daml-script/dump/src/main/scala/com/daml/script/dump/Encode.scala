@@ -8,7 +8,7 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Time.{Date, Timestamp}
@@ -210,25 +210,6 @@ private[dump] object Encode {
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
-  private def encodeEv(
-      partyMap: Map[Party, String],
-      cidMap: Map[ContractId, String],
-      ev: TreeEvent.Kind,
-  ): Doc = ev match {
-    case TreeEvent.Kind.Created(created) =>
-      encodeCreatedEvent(partyMap, cidMap, created)
-    case TreeEvent.Kind.Exercised(exercised @ _) =>
-      Doc.text("exerciseCmd ") + encodeCid(
-        cidMap,
-        ContractId(exercised.contractId),
-      ) + Doc.space + encodeValue(
-        partyMap,
-        cidMap,
-        exercised.getChoiceArgument.sum,
-      )
-    case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
-  }
-
   private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -284,46 +265,6 @@ private[dump] object Encode {
       cidRefs,
       evs.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId))),
     )
-  }
-
-  private[dump] def encodeSubmitSimpleEvents(
-      partyMap: Map[Party, String],
-      cidMap: Map[ContractId, String],
-      cidRefs: Set[ContractId],
-      evs: Seq[SimpleEvent],
-  ): Doc = {
-    val submitters: Set[Party] = evs.foldMap(ev => evParties(ev.event).toSet)
-    val cids = evs.map(_.contractId)
-    val referencedCids = cids.filter(cid => cidRefs.contains(cid))
-    val (bind, returnStmt) = referencedCids match {
-      case Seq() if cids.length == 1 =>
-        (Doc.text("_ <- "), Doc.empty)
-      case Seq() =>
-        (Doc.empty, Doc.text("pure ()"))
-      case Seq(cid) if cids.length == 1 =>
-        val encodedCid = encodeCid(cidMap, cid)
-        (encodedCid :+ " <- ", Doc.empty)
-      case Seq(cid) =>
-        val encodedCid = encodeCid(cidMap, cid)
-        (encodedCid :+ " <- ", "pure " +: encodedCid)
-      case _ =>
-        val encodedCids = referencedCids.map(encodeCid(cidMap, _))
-        (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
-    }
-    val actions = Doc.stack(evs.map { case SimpleEvent(ev, cid) =>
-      val bind = if (returnStmt.nonEmpty) {
-        if (cidRefs.contains(cid)) {
-          encodeCid(cidMap, cid) :+ " <- "
-        } else {
-          Doc.text("_ <- ")
-        }
-      } else {
-        Doc.empty
-      }
-      bind + encodeEv(partyMap, cidMap, ev)
-    })
-    val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-    ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
   }
 
   private[dump] def encodeSubmitSimpleCommands(
