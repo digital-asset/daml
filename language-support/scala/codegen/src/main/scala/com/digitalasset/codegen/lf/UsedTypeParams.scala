@@ -83,7 +83,7 @@ object UsedTypeParams {
         def goType(contexts: Map[I, Set[TVar]])(typ: iface.Type): VarianceConstraint = typ match {
           case TypeVar(name) =>
             // while we default to Covariant at a later step,
-            // absence *does not* mean set-to-Covariant at this step
+            // absence in this map *does not* mean set-to-Covariant at this step
             VarianceConstraint(
               Map(dt -> Map(name -> Covariant)),
               DelayedResolution(
