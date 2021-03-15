@@ -68,9 +68,9 @@ object UsedTypeParams {
       )
     }
 
-    private[this] def covariantVars[RF <: iface.Type, VF <: iface.Type](
+    private[this] def covariantVars(
         dt: Identifier,
-        lookupType: Identifier => Option[iface.DefDataType[RF, VF]],
+        lookupType: Identifier => Option[iface.DefDataType.FWT],
     ): ResolvedVariance = {
       import iface._
 
@@ -123,19 +123,18 @@ object UsedTypeParams {
       }
 
       def goSdt(dt: Identifier, seen: Set[Identifier])(
-          sdt: DefDataType[RF, VF]
+          sdt: DefDataType.FWT
       ): VarianceConstraint =
         prior
           .get(dt)
           .map(VarianceConstraint.reresolve(dt, sdt, _))
           .getOrElse {
-            sdt.dataType match {
-              case Record(fields) =>
-                fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
-              case Variant(fields) =>
-                fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
-              case Enum(_) => mzero[VarianceConstraint]
+            val fields = sdt.dataType match {
+              case Record(fields) => fields
+              case Variant(fields) => fields
+              case Enum(_) => ImmArraySeq.empty
             }
+            fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
           }
 
       val solved = goSdt(dt, Set(dt))(lookupOrFail(dt)).solve
