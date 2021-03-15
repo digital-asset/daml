@@ -16,8 +16,27 @@ object Cli extends StrictLogging {
   private[http] def parseConfig(
       args: collection.Seq[String],
       getEnvVar: String => Option[String] = sys.env.get,
-  ): Option[Config] =
-    configParser(getEnvVar).parse(args, Config.Empty)
+  ): Option[Config] = {
+    configParser(getEnvVar).parse(args, configFromEnv(getEnvVar))
+  }
+
+  private def configFromEnv(
+      env: String => Option[String]
+  ): Config = {
+    // Make all options optional, else we can't construct a partial config
+    val ods = configParser(env).optionDefs.map(_.optional)
+    val cliFromEnvVars = ods
+      .map(_.fullName)
+      .filter(_.length > 0)
+      .filter(_ != "--help")
+      .map(cli => (cli, "DAML_SDK_" + cli.toUpperCase.replaceAll("-", "_").substring(2)))
+      .map({ case (cli, n) => (cli, n, env(n))})
+      .filter({ case (_, _, o) => o.isDefined})
+      .flatMap({ case (cli, _, o) => Seq(cli, o.get)})
+    val (config, _) = scopt.OParser.runParser(scopt.OParser(ods.head, ods.tail.toList), cliFromEnvVars, Config.Empty)
+
+    config.getOrElse(Config.Empty)
+  }
 
   private def setJdbcConfig(
       config: Config,
@@ -48,9 +67,13 @@ object Cli extends StrictLogging {
       conf <- parseJdbcConfig(v)
     } yield conf
 
+  trait ExposeData[C] {
+    def optionDefs: Seq[scopt.OptionDef[_, C]]
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  private def configParser(getEnvVar: String => Option[String]): scopt.OptionParser[Config] =
-    new scopt.OptionParser[Config]("http-json-binary") {
+  private def configParser(getEnvVar: String => Option[String]): scopt.OptionParser[Config] with ExposeData[Config] =
+    new scopt.OptionParser[Config]("http-json-binary") with ExposeData[Config] {
 
       override def renderingMode: RenderingMode = RenderingMode.OneColumn
 
@@ -166,5 +189,7 @@ object Cli extends StrictLogging {
         .optional()
         .valueName(WebsocketConfig.usage)
         .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
+
+      override def optionDefs = options.toSeq
     }
 }
