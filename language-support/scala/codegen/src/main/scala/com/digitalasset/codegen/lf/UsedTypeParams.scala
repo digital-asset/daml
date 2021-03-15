@@ -122,14 +122,13 @@ object UsedTypeParams {
           .get(dt)
           .map(VarianceConstraint.reresolve(dt, sdt, _))
           .getOrElse {
-            val vLookup = sdt.dataType match {
+            sdt.dataType match {
               case Record(fields) =>
                 fields foldMap { case (_, typ) => goType(dt, seen, Map.empty)(typ) }
               case Variant(fields) =>
                 fields foldMap { case (_, typ) => goType(dt, seen, Map.empty)(typ) }
               case Enum(_) => mzero[VarianceConstraint]
             }
-            vLookup
           }
 
       val solved = goSdt(dt, Set(dt))(lookupOrFail(dt)).solve
