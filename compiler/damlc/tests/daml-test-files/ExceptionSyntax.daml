@@ -6,28 +6,18 @@
 -- @WARN Modules compiled with the DatatypeContexts language extension
 {-# LANGUAGE DatatypeContexts #-}
 
--- | Test that desugared exceptions are picked up during LF conversion.
--- This is the "desugared" counterpart to ExceptionSyntax.
-module ExceptionDesugared where
+-- | Test that exception syntax is correctly handled.
+-- This is the "sugared" counterpart to ExceptionDesugared.
+module ExceptionSyntax where
 
 import DA.Exception (throw)
 import DA.Assert ((===))
 
-data DA.Internal.Desugar.DamlException => MyException =
-    MyException with
+exception MyException
+    with
         m : Text
-
-instance DA.Internal.Desugar.HasMessage MyException where
-    message (MyException m) = m
-
-instance DA.Internal.Desugar.HasThrow MyException where
-    throwPure = GHC.Types.primitive @"EThrow"
-
-instance DA.Internal.Desugar.HasToAnyException MyException where
-    toAnyException = GHC.Types.primitive @"EToAnyException"
-
-instance DA.Internal.Desugar.HasFromAnyException MyException where
-    fromAnyException = GHC.Types.primitive @"EFromAnyException"
+    where
+        message m
 
 tryCatchExample = scenario do
     p <- getParty "Alice"
