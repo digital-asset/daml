@@ -48,6 +48,10 @@ object UsedTypeParams {
   private[this] type TVar = Ref.Name
 
   final class ResolvedVariance private (private val prior: Map[I, ImmArraySeq[Variance]]) {
+    /** The variance of each type parameter of `dt` in `ei`, in order,
+      * and an updated copy of the receiver that may contain more cached
+      * resolved variances from `ei`.
+      */
     def allCovariantVars(
         dt: I,
         ei: iface.EnvironmentInterface,
@@ -64,7 +68,6 @@ object UsedTypeParams {
       )
     }
 
-    /** Variance of `sdt.typeVars` in order. */
     private[this] def covariantVars[RF <: iface.Type, VF <: iface.Type](
         dt: I,
         lookupType: I => Option[iface.DefDataType[RF, VF]],
