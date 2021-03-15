@@ -16,6 +16,7 @@ import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
+import DA.Daml.Helper.Ledger
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -25,7 +26,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import qualified Data.Set as Set
-import qualified Data.Text.Extended as T
+import qualified Data.Text as T
 import Development.IDE.Types.Location
 import GHC.Fingerprint
 import System.Directory.Extra
@@ -110,8 +111,14 @@ installDependencies ::
    -> IO ()
 installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pDataDeps = do
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
+    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds} <- readDataDeps pDataDeps
     (needsUpdate, newFingerprint) <-
-        depsNeedUpdate depsDir (deps ++ pDataDeps) thisSdkVer (show $ optDamlLfVersion opts)
+        depsNeedUpdate
+            depsDir
+            (deps ++ dataDepsDalfs)
+            dataDepsPkgIds
+            thisSdkVer
+            (show $ optDamlLfVersion opts)
     when needsUpdate $ do
         removePathForcibly depsDir
         createDirectoryIfMissing True depsDir
@@ -122,11 +129,11 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         forM_ depsExtracted $ installDar depsDir False
         -- install data-dependencies
         ----------------------------
-        DataDeps{dataDepsDars,dataDepsDalfs, dataDepsPkgIds} <- readDataDeps pDataDeps
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
-        forM_ dataDepsDalfs $ BS.readFile >=> installDataDepDalf depsDir
-        bss <- getDalfsFromLedger dataDepsPkgIds
-        forM_ bss $ installDataDepDalf depsDir
+        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
+        rdalfs <- getDalfsFromLedger dataDepsPkgIds
+        forM_ rdalfs $ \RemoteDalf {..} ->
+            installDataDepDalf remoteDalfIsMain depsDir remoteDalfFp remoteDalfBs
         -- write new fingerprint
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
@@ -177,15 +184,15 @@ dalfFileName bs fp = do
     let pkgId = T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg
     pure $ pkgId </> takeFileName fp
 
-installDataDepDalf :: FilePath -> FilePath -> IO ()
-installDataDepDalf depsDir fp = do
-    bs <- BS.readFile fp
+installDataDepDalf :: Bool -> FilePath -> FilePath -> BS.ByteString -> IO ()
+installDataDepDalf isMain depsDir fp bs = do
     fileName <- dalfFileName bs fp
     let targetFp = depsDir </> fileName
     let targetDir = takeDirectory targetFp
-    markDirWith mainMarker targetDir
+    unlessM (doesDirectoryExist targetDir) $ write targetFp $ BSL.fromStrict bs
+    -- if the directory exists, the dalf got already installed as a dependency
+    when isMain $ markDirWith mainMarker targetDir
     markDirWith dataDepMarker targetDir
-    copy fp targetFp
 
 data DataDeps = DataDeps
     { dataDepsDars :: [FilePath]
@@ -198,8 +205,8 @@ readDataDeps fpOrIds = do
     pkgIds <- forM pkgIds0 validatePkgId
     pure $ DataDeps {dataDepsDars = dars, dataDepsDalfs = dalfs, dataDepsPkgIds = pkgIds}
   where
-    (dars, rest0) = partition ("dar" `isExtensionOf`) fpOrIds
-    (dalfs, pkgIds0) = partition ("dalf" `isExtensionOf`) rest0
+    (dars, rest) = partition ("dar" `isExtensionOf`) fpOrIds
+    (dalfs, pkgIds0) = partition ("dalf" `isExtensionOf`) rest
 
 -- | A rudimentary check that no bad package ID's are present in the data-dependency section of
 -- daml.yaml.
@@ -212,17 +219,23 @@ validatePkgId pkgId = do
 -- Ledger interactions
 ----------------------
 
-getDalfsFromLedger :: [LF.PackageId] -> IO [BS.ByteString]
-getDalfsFromLedger [pkgId] = undefined
+getDalfsFromLedger :: [LF.PackageId] -> IO [RemoteDalf]
+getDalfsFromLedger pkgIds
+    | null pkgIds = pure []
+    | otherwise = runLedgerGetDalfs (defaultLedgerFlags Grpc) pkgIds
 
 -- Updating/Fingerprint
 -----------------------
-depsNeedUpdate :: FilePath -> [FilePath] -> String -> String -> IO (Bool, Fingerprint)
-depsNeedUpdate depsDir depFps sdkVersion damlLfVersion = do
+depsNeedUpdate ::
+       FilePath -> [FilePath] -> [LF.PackageId] -> String -> String -> IO (Bool, Fingerprint)
+depsNeedUpdate depsDir depFps dataDepsPkgIds sdkVersion damlLfVersion = do
     depsFps <- mapM getFileHash depFps
     let sdkVersionFp = fingerprintString sdkVersion
     let damlLfFp = fingerprintString damlLfVersion
-    let fp = fingerprintFingerprints $ sdkVersionFp : damlLfFp : depsFps
+    let dataDepsPkgIdsFp =
+            fingerprintFingerprints $
+            [fingerprintString $ T.unpack $ LF.unPackageId d | d <- dataDepsPkgIds]
+    let fp = fingerprintFingerprints $ sdkVersionFp : damlLfFp : dataDepsPkgIdsFp : depsFps
   -- Read the metadata of an already existing package database and see if wee need to reinitialize.
     errOrFingerprint <- tryAny $ readDepsFingerprint depsDir
     pure $
@@ -260,11 +273,6 @@ lfVersionString = DA.Pretty.renderPretty
 
 write :: FilePath -> BSL.ByteString -> IO ()
 write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
-
-copy :: FilePath -> FilePath -> IO ()
-copy src target = do
-  createDirectoryIfMissing True (takeDirectory target)
-  copyFile src target
 
 markDirWith :: FilePath -> FilePath -> IO ()
 markDirWith marker fp = write (fp </> marker) ""

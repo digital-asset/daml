@@ -5,7 +5,9 @@
 
 module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
+    RemoteDalf(..),
     defaultLedgerFlags,
+    getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
     L.ClientSSLKeyCertPair(..),
@@ -18,6 +20,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerFetchDar,
     runLedgerNavigator,
     runLedgerReset,
+    runLedgerGetDalfs
     ) where
 
 import Control.Exception (SomeException(..), catch)
@@ -33,6 +36,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Data.Maybe
 import Data.String (IsString, fromString)
 import qualified Data.Text as T
@@ -252,7 +256,7 @@ runLedgerFetchDar flags pidString saveAs = do
 -- | Reconstruct a DAR file by downloading packages from a ledger. Returns how many packages fetched.
 fetchDar :: LedgerArgs -> LF.PackageId -> FilePath -> IO Int
 fetchDar args rootPid saveAs = do
-  pkgs <- downloadAllReachablePackages args rootPid
+  pkgs <- downloadAllReachablePackages args [rootPid]
   let rootPkg = pkgs Map.! rootPid
   let (dalf,pkgId) = LFArchive.encodeArchiveAndHash rootPkg
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
@@ -282,8 +286,8 @@ recoverPackageName pkg (tag,pid)= do
     Nothing -> T.pack (tag <> "-" <> T.unpack (LF.unPackageId pid))
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
-downloadAllReachablePackages :: LedgerArgs -> LF.PackageId -> IO (Map LF.PackageId LF.Package)
-downloadAllReachablePackages args pid = loop Map.empty [pid]
+downloadAllReachablePackages :: LedgerArgs -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
+downloadAllReachablePackages args pids = loop Map.empty pids
   where
     loop :: Map LF.PackageId LF.Package -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
     loop acc = \case
@@ -293,9 +297,9 @@ downloadAllReachablePackages args pid = loop Map.empty [pid]
         then loop acc morePids
         else do
           pkg <- downloadPackage args pid
-          loop (Map.insert pid pkg acc) (packageRefs pkg ++ morePids)
+          loop (Map.insert pid pkg acc) (nubSort $ packageRefs pkg ++ morePids)
 
-    packageRefs pkg = nubSort [ pid | LF.PRImport pid <- toListOf LF.packageRefs pkg ]
+    packageRefs pkg = [ pid | LF.PRImport pid <- toListOf LF.packageRefs pkg ]
 
 -- | Download the Package identified by a PackageId; fail if it doesn't exist or can't be decoded.
 downloadPackage :: LedgerArgs -> LF.PackageId -> IO LF.Package
@@ -322,6 +326,24 @@ downloadPackage args pid = do
   where
     convPid :: LF.PackageId -> L.PackageId
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
+
+data RemoteDalf = RemoteDalf
+    { remoteDalfFp :: FilePath
+    , remoteDalfBs :: BS.ByteString
+    , remoteDalfIsMain :: Bool
+    }
+runLedgerGetDalfs :: LedgerFlags -> [LF.PackageId] -> IO [RemoteDalf]
+runLedgerGetDalfs lflags pkgIds = do
+    args <- getDefaultArgs lflags
+    m <- downloadAllReachablePackages args pkgIds
+    pure
+        [ RemoteDalf {..}
+        | (i :: Int, (_pid, pkg)) <- zip [0 ..] $ Map.toList m
+        , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
+        , let remoteDalfFp = (T.unpack $ recoverPackageName pkg ("dep" <> show i, pid)) <.> "dalf"
+        , let remoteDalfBs = BSL.toStrict bsl
+        , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
+        ]
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =
