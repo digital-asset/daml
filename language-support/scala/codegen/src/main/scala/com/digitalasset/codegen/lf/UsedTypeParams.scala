@@ -4,7 +4,7 @@
 package com.daml.codegen.lf
 
 import com.daml.codegen.lf.DamlDataTypeGen.{DataType, VariantField}
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref, Ref.Identifier
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.iface
 import scalaz.Monoid
@@ -43,21 +43,20 @@ object UsedTypeParams {
   )
 
   import VarianceConstraint.BaseResolution
-  import ScopedDataType.{Name => I}
   import Variance._
   private[this] type TVar = Ref.Name
 
-  final class ResolvedVariance private (private val prior: Map[I, ImmArraySeq[Variance]]) {
+  final class ResolvedVariance private (private val prior: Map[Identifier, ImmArraySeq[Variance]]) {
 
     /** The variance of each type parameter of `dt` in `ei`, in order,
       * and an updated copy of the receiver that may contain more cached
       * resolved variances from `ei`.
       */
     def allCovariantVars(
-        dt: I,
+        dt: Identifier,
         ei: iface.EnvironmentInterface,
     ): (ResolvedVariance, ImmArraySeq[Variance]) = {
-      val resolved = covariantVars(dt, (i: I) => ei.typeDecls get i map (_.`type`))
+      val resolved = covariantVars(dt, (i: Identifier) => ei.typeDecls get i map (_.`type`))
       (
         resolved,
         resolved.prior.getOrElse(
@@ -70,58 +69,62 @@ object UsedTypeParams {
     }
 
     private[this] def covariantVars[RF <: iface.Type, VF <: iface.Type](
-        dt: I,
-        lookupType: I => Option[iface.DefDataType[RF, VF]],
+        dt: Identifier,
+        lookupType: Identifier => Option[iface.DefDataType[RF, VF]],
     ): ResolvedVariance = {
       import iface._
 
-      def lookupOrFail(i: I) = lookupType(i) getOrElse sys.error(s"$i not found")
+      def lookupOrFail(i: Identifier) = lookupType(i) getOrElse sys.error(s"$i not found")
 
-      def goTypeDefn(dt: I, seen: Set[I])(
+      def goTypeDefn(dt: Identifier, seen: Set[Identifier])(
           typ: iface.Type
       ): VarianceConstraint = {
-        def goType(contexts: Map[I, Set[TVar]])(typ: iface.Type): VarianceConstraint = typ match {
-          case TypeVar(name) =>
-            // while we default to Covariant at a later step,
-            // absence in this map *does not* mean set-to-Covariant at this step
-            VarianceConstraint(
-              Map(dt -> Map(name -> Covariant)),
-              DelayedResolution(
-                if (contexts.nonEmpty) Map(dt -> Map(name -> contexts)) else Map.empty
-              ),
-            )
+        def goType(contexts: Map[Identifier, Set[TVar]])(typ: iface.Type): VarianceConstraint =
+          typ match {
+            case TypeVar(name) =>
+              // while we default to Covariant at a later step,
+              // absence in this map *does not* mean set-to-Covariant at this step
+              VarianceConstraint(
+                Map(dt -> Map(name -> Covariant)),
+                DelayedResolution(
+                  if (contexts.nonEmpty) Map(dt -> Map(name -> contexts)) else Map.empty
+                ),
+              )
 
-          case TypePrim(pt, typArgs) =>
-            import PrimType.{Map => _, _}
-            pt match {
-              case GenMap =>
-                val Seq(kt, vt) = typArgs
-                // we don't need to inspect `kt` any further than enumerating it;
-                // every occurrence therein is invariant
-                goType(contexts)(vt) |+| VarianceConstraint.base(
-                  Map(dt -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
-                )
-              case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
-                  Optional | TextMap =>
-                // this is only safe for all-params-covariant cases
-                typArgs foldMap goType(contexts)
-            }
+            case TypePrim(pt, typArgs) =>
+              import PrimType.{Map => _, _}
+              pt match {
+                case GenMap =>
+                  val Seq(kt, vt) = typArgs
+                  // we don't need to inspect `kt` any further than enumerating it;
+                  // every occurrence therein is invariant
+                  goType(contexts)(vt) |+| VarianceConstraint.base(
+                    Map(dt -> collectTypeParams(kt).view.map((_, Invariant)).toMap)
+                  )
+                case Bool | Int64 | Text | Date | Timestamp | Party | ContractId | List | Unit |
+                    Optional | TextMap =>
+                  // this is only safe for all-params-covariant cases
+                  typArgs foldMap goType(contexts)
+              }
 
-          case TypeCon(TypeConName(tcName), typArgs) =>
-            val refDdt = lookupOrFail(tcName)
-            val argConstraints = refDdt.typeVars zip typArgs foldMap { case (tv, ta) =>
-              goType(contexts |+| Map(tcName -> Set(tv)))(ta)
-            }
-            val refConstraints =
-              if (seen(tcName)) mzero[VarianceConstraint] else goSdt(tcName, seen + tcName)(refDdt)
-            argConstraints |+| refConstraints
+            case TypeCon(TypeConName(tcName), typArgs) =>
+              val refDdt = lookupOrFail(tcName)
+              val argConstraints = refDdt.typeVars zip typArgs foldMap { case (tv, ta) =>
+                goType(contexts |+| Map(tcName -> Set(tv)))(ta)
+              }
+              val refConstraints =
+                if (seen(tcName)) mzero[VarianceConstraint]
+                else goSdt(tcName, seen + tcName)(refDdt)
+              argConstraints |+| refConstraints
 
-          case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
-        }
+            case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
+          }
         goType(Map.empty)(typ)
       }
 
-      def goSdt(dt: I, seen: Set[I])(sdt: DefDataType[RF, VF]): VarianceConstraint =
+      def goSdt(dt: Identifier, seen: Set[Identifier])(
+          sdt: DefDataType[RF, VF]
+      ): VarianceConstraint =
         prior
           .get(dt)
           .map(VarianceConstraint.reresolve(dt, sdt, _))
@@ -164,7 +167,7 @@ object UsedTypeParams {
             // we would want (contravariant, contravariant) => covariant.  However,
             // the multiplication monoid happens to equal the addition monoid for now,
             // so there is no need to complicate things by defining both.
-            (argContexts: Iterable[(I, Set[TVar])]) foldMap { case (ctxI, ctxVs) =>
+            (argContexts: Iterable[(Identifier, Set[TVar])]) foldMap { case (ctxI, ctxVs) =>
               val resAtCtxI = resolutions.getOrElse(ctxI, Map.empty)
               (ctxVs: Iterable[TVar]) foldMap (resAtCtxI.getOrElse(_, Covariant))
             }
@@ -186,7 +189,7 @@ object UsedTypeParams {
     /** Put a resolved variance back in constraint format, so it doesn't have to
       * be figured again.
       */
-    def reresolve(dtName: I, dt: iface.DefDataType[_, _], resolved: Seq[Variance]) =
+    def reresolve(dtName: Identifier, dt: iface.DefDataType[_, _], resolved: Seq[Variance]) =
       VarianceConstraint.base(Map(dtName -> dt.typeVars.view.zip(resolved).toMap))
 
     implicit val `constraint unifier monoid`: Monoid[VarianceConstraint] = Monoid.instance(
@@ -199,7 +202,7 @@ object UsedTypeParams {
 
   // the outer (I.TVar) occurs in the argument position of the inner (I.TVar)s
   private[this] final case class DelayedResolution(
-      contexts: Map[I, Map[TVar, Map[I, Set[TVar]]]]
+      contexts: Map[Identifier, Map[TVar, Map[Identifier, Set[TVar]]]]
   )
 
   private[this] object DelayedResolution {
