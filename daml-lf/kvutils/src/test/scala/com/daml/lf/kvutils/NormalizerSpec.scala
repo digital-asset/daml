@@ -23,17 +23,17 @@ class NormalizerSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenProp
 
         // version is not modified
         //  normalized.version shouldBe tx.version
-        // Fetch and Lookup are filter out from roots
+        // Fetch and Lookup are filtered out from roots
         normalized.roots shouldBe tx.roots.filter(preservedIds)
 
-        // Fetch and Lookup are filter out from nodes
+        // Fetch and Lookup are filtered out from nodes
         normalized.nodes.keySet shouldBe preservedIds
 
-        // Create a preserved such as
+        // Create nodes are preserved.
         normalized.nodes.filter { case (id, _) => createIds(id) } shouldBe
           tx.nodes.filter { case (id, _) => createIds(id) }
 
-        // Exercises a preserved but Fetch and Lookup are filter out from their children
+        // Exercises are preserved but Fetch and Lookup nodes are filtered out from their children.
         normalized.nodes.filter { case (id, _) => exeIds(id) } shouldBe
           tx.nodes.collect { case (nid, exe: Node.NodeExercises[_, _]) =>
             nid -> exe.copy(children = exe.children.filter(preservedIds))
