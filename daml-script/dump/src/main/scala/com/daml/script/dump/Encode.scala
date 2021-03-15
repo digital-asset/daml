@@ -388,21 +388,23 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       tree: TransactionTree,
   ): Doc = {
-    val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val simpleEventsOnly: Option[Seq[SimpleEvent]] = SimpleEvent.fromTree(tree)
-    simpleEventsOnly match {
-      case Some(evs) =>
-        encodeSubmitSimpleEvents(partyMap, cidMap, cidRefs, evs)
-      case None => {
-        val submitters = rootEvs.flatMap(evParties(_)).toSet
+    val commands = Command.fromTree(tree)
+    val simpleCommandsOnly: Option[Seq[SimpleCommand]] = SimpleCommand.fromCommands(commands, tree)
+    simpleCommandsOnly match {
+      case Some(simpleCommands) =>
+        encodeSubmitSimpleCommands(partyMap, cidMap, cidRefs, simpleCommands)
+      case None =>
+        val submitters = commands.foldMap(cmdParties(_).toSet)
         val cids = treeCreatedCids(tree)
         val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
-        val treeBind =
-          (("tree <- " +: submit(partyMap, submitters, isTree = true) :+ " do") /
-            Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
+        val treeBind = Doc
+          .stack(
+            ("tree <-" &: submit(partyMap, submitters, isTree = true) :& "do") +:
+              commands.map(encodeCmd(partyMap, cidMap, _))
+          )
+          .hang(2)
         val cidBinds = referencedCids.map(bindCid(cidMap, _))
         Doc.stack(treeBind +: cidBinds)
-      }
     }
   }
 
