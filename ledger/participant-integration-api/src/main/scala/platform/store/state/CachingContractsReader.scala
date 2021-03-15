@@ -89,17 +89,9 @@ private[platform] class CachingContractsReader private[store] (
               eventSequentialId,
             ) =>
           globalKey.foreach(
-            keyCache.putAsync(
-              _,
-              eventSequentialId,
-              Future.successful(Assigned(contractId, flatEventWitnesses)),
-            )
+            keyCache.put(_, eventSequentialId, Assigned(contractId, flatEventWitnesses))
           )
-          contractsCache.putAsync(
-            contractId,
-            eventSequentialId,
-            Future.successful(Active(contract, flatEventWitnesses)),
-          )
+          contractsCache.put(contractId, eventSequentialId, Active(contract, flatEventWitnesses))
           eventSequentialId
         case ContractStateEvent.Archived(
               contractId,
@@ -107,10 +99,10 @@ private[platform] class CachingContractsReader private[store] (
               _,
               eventSequentialId,
             ) =>
-          contractsCache.putAsync(
+          contractsCache.put(
             contractId,
             eventSequentialId,
-            Future.successful(Archived(eventSequentialId, stakeholders)),
+            Archived(eventSequentialId, stakeholders),
           )
           eventSequentialId
         case other => other.eventSequentialId // Just pass the seq id downstream
@@ -140,14 +132,7 @@ private[platform] class CachingContractsReader private[store] (
   ): Future[Option[ContractId]] =
     keyCache.get(key) match {
       case Some(Assigned(contractId, parties)) if `intersection non-empty`(readers, parties) =>
-        lookupActiveContract(readers, contractId)
-          .map(
-            _.map(_ => contractId)
-          )
-          .flatMap {
-            case None => readThroughKeyCache(key, readers)
-            case Some(contractId) => Future.successful(Some(contractId))
-          }
+        lookupActiveContract(readers, contractId).map(_.map(_ => contractId))
       case Some(_) => Future.successful(None)
       case None => readThroughKeyCache(key, readers)
     }
