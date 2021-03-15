@@ -4,6 +4,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.transaction.TransactionTree
+import com.daml.ledger.api.v1.value.RecordField
 import com.daml.ledger.test.semantic.RaceTests._
 import com.daml.lf.data.{Bytes, Ref}
 
@@ -185,56 +186,73 @@ final class RaceConditionIT extends LedgerTestSuite {
           }
   })
 
-//  test(
-//    "RWArchiveVsLookupByKey",
-//    "Cannot successfully lookup by key an archived contract",
-//    allocate(SingleParty),
-//  )(implicit ec => {
-//    case Participants(Participant(ledger, alice)) =>
-//      val ArchiveAt = 50
-//      val Attempts = 100
-//      for {
-//        contract <- ledger.create(alice, ContractWithChoices(alice))
-//        looker <- ledger.create(alice, LookerUpByKey(alice))
-//        results <- Future.traverse(1 to Attempts) { attempt =>
-//          if (attempt == ArchiveAt) {
-//            ledger.exercise(alice, contract.exerciseContractWithChoices_Archive).transform(Success(_))
-//          } else {
-//            ledger.exercise(alice, looker.exerciseLookup).transform(Success(_))
-//          }
-//        }
-//        transactions <- ledger.transactionTrees(alice)
-//      } yield {
-//        println(s"TRANSACTIONS: ${transactions.length}")
-//        transactions.sortBy(_.offset).foreach { tx =>
-//          val events = tx.eventsById.values.map { x => x.kind}.mkString(" , ")
-//          println(s"EVENTS ${tx.eventsById.size}: ${tx.offset} ${events}")
-//        }
-//
-////        val ArchivalChoiceName = "ContractWithChoices_Archive"
-//        val LookupChoiceName = "Lookup"
-//        val successResults: Seq[TransactionTree] = results.collect {
-//          case Success(result) => result
-//        }
-//
-////        val archivalTree: TransactionTree = successResults
-////          .find(headExerciseChoice(_) == ArchivalChoiceName)
-////          .getOrElse(fail(s"Not found successful event named: $ArchivalChoiceName"))
-//
-//        successResults
-//          .filter(headExerciseChoice(_) == LookupChoiceName)
-//          .foreach { tree =>
-//            tree.eventsById.values.foreach { event =>
-//              println(s"${event.getExercised.choice} ${event.getExercised.exerciseResult}")
-//            }
-//            println("----------------")
-////            assertOffsetOrder(tree.offset, archivalTree.offset)
-//          }
-//        results.filter(_.isFailure).foreach { result =>
-//          assertGrpcError(result.failed.get, Status.Code.INVALID_ARGUMENT, "Unknown contract")
-//        }
-//      }
-//  })
+  test(
+    "RWArchiveVsLookupByKey",
+    "Cannot successfully lookup by key an archived contract",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, alice)) =>
+      val ArchiveAt = 90
+      val Attempts = 100
+      val ArchivalChoiceName = "ContractWithKey_Archive"
+      val LookupResultTemplateName = "LookupResult"
+      for {
+        contract <- ledger.create(alice, ContractWithKey(alice))
+        looker <- ledger.create(alice, LookerUpByKey(alice))
+        _ <- Future.traverse(1 to Attempts) { attempt =>
+          if (attempt == ArchiveAt) {
+            ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
+          } else {
+            ledger.exercise(alice, looker.exerciseLookup).transform(Success(_))
+          }
+        }
+        transactions <- ledger.transactionTrees(alice)
+      } yield {
+        // TODO: deduplicate these two
+        def isArchival(transactionTree: TransactionTree): Boolean = {
+          transactionTree.eventsById.values.toList match {
+            case List(event) if event.kind.isExercised =>
+              event.getExercised.choice == ArchivalChoiceName
+            case _ => false
+          }
+        }
+        def isSuccessfulContractLookup(transactionTree: TransactionTree): Boolean = {
+          def isFoundContractField(field: RecordField) = {
+            field.label == "found" && field.value.exists(_.getBool == true)
+          }
+
+          transactionTree.eventsById.values.toList.exists { event =>
+            event.kind.isCreated && event.getCreated.templateId.get.entityName == LookupResultTemplateName &&
+              event.getCreated.getCreateArguments.fields.exists(isFoundContractField)
+          }
+        }
+
+        val archivalTransaction = transactions.find(isArchival).getOrElse(fail("No archival transaction found"))
+
+        transactions
+          .filter(isSuccessfulContractLookup)
+          .foreach(assertTransactionOrder(_, archivalTransaction))
+      }
+  })
+
+  def assertTransactionOrder(expectedFirst: TransactionTree, expectedSecond: TransactionTree) = {
+    if (offsetLessThan(expectedFirst.offset, expectedSecond.offset)) ()
+    else fail(
+      s"""Offset ${expectedFirst.offset} is not before ${expectedSecond.offset}
+         |
+         |Expected first: ${printTransaction(expectedFirst)}
+         |Expected second: ${printTransaction(expectedSecond)}
+         |""".stripMargin)
+  }
+
+  def offsetLessThan(a: String, b: String): Boolean =
+    Bytes.ordering.lt(offsetBytes(a), offsetBytes(b))
+
+  def printTransaction(transactionTree: TransactionTree) = {
+    s"""Offset: ${transactionTree.offset}, number of events: ${transactionTree.eventsById.size}
+       |${transactionTree.eventsById.values.map(e => s" -> $e").mkString("\n")}
+       |""".stripMargin
+  }
 
   def assertOffsetOrder(a: String, b: String): Unit = {
     if (Bytes.ordering.lt(offsetBytes(a), offsetBytes(b))) ()

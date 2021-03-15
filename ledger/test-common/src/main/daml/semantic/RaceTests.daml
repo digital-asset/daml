@@ -31,12 +31,23 @@ template ContractWithChoices with
 
 template FetchContractWithChoices with
     fetcher : Party
-    contractId: ContractId ContractWithChoices
+    contractId : ContractId ContractWithChoices
   where 
     signatory fetcher
     controller fetcher can
       FetchContractWithChoices_Fetch: ContractWithChoices
         do fetch contractId
+
+template LookupResult with
+    owner : Party
+    found : Bool
+  where
+    signatory owner
+
+foundContract (result : Optional (ContractId ContractWithKey)) : Bool =
+  case result of
+    Some val -> True
+    None -> False
 
 template LookerUpByKey with
     owner : Party
@@ -46,7 +57,8 @@ template LookerUpByKey with
     controller owner can
       nonconsuming Lookup : ()
         do
-          _ <- lookupByKey @ContractWithKey owner
+          optionalContractId <- lookupByKey @ContractWithKey owner
+          create LookupResult with owner = owner, found = foundContract(optionalContractId)
           pure ()
 
 template TransientWrapper with
