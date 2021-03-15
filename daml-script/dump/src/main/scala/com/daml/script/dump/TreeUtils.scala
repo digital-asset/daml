@@ -281,6 +281,15 @@ object TreeUtils {
     case TreeEvent.Kind.Empty => Seq()
   }
 
+  def cmdParties(cmd: Command): Seq[Party] = {
+    cmd match {
+      case CreateCommand(createdEvent) => evParties(Kind.Created(createdEvent))
+      case ExerciseCommand(exercisedEvent) => evParties(Kind.Exercised(exercisedEvent))
+      case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+        evParties(Kind.Created(createdEvent)) ++ evParties(Kind.Exercised(exercisedEvent))
+    }
+  }
+
   def treeRefs(t: TransactionTree): Set[Identifier] =
     t.eventsById.values.foldMap(e => evRefs(e.kind))
 

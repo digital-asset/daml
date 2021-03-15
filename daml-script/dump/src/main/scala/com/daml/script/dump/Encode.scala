@@ -230,6 +230,34 @@ private[dump] object Encode {
     case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
   }
 
+  private def encodeCmd(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cmd: Command,
+  ): Doc = cmd match {
+    case CreateCommand(createdEvent) =>
+      encodeCreatedEvent(partyMap, cidMap, createdEvent)
+    case ExerciseCommand(exercisedEvent) =>
+      Doc.text("exerciseCmd ") + encodeCid(
+        cidMap,
+        ContractId(exercisedEvent.contractId),
+      ) + Doc.space + encodeValue(
+        partyMap,
+        cidMap,
+        exercisedEvent.getChoiceArgument.sum,
+      )
+    case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+      Doc
+        .stack(
+          Seq(
+            Doc.text("createAndExerciseCmd"),
+            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
+            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
+          )
+        )
+        .hang(2)
+  }
+
   private def encodeCreatedEvent(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -294,6 +322,46 @@ private[dump] object Encode {
         Doc.empty
       }
       bind + encodeEv(partyMap, cidMap, ev)
+    })
+    val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
+    ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
+  }
+
+  private[dump] def encodeSubmitSimpleCommands(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      commands: Seq[SimpleCommand],
+  ): Doc = {
+    val submitters: Set[Party] = commands.foldMap(sc => cmdParties(sc.command).toSet)
+    val cids = commands.map(_.contractId)
+    val referencedCids = cids.filter(cid => cidRefs.contains(cid))
+    val (bind, returnStmt) = referencedCids match {
+      case Seq() if cids.length == 1 =>
+        (Doc.text("_ <- "), Doc.empty)
+      case Seq() =>
+        (Doc.empty, Doc.text("pure ()"))
+      case Seq(cid) if cids.length == 1 =>
+        val encodedCid = encodeCid(cidMap, cid)
+        (encodedCid :+ " <- ", Doc.empty)
+      case Seq(cid) =>
+        val encodedCid = encodeCid(cidMap, cid)
+        (encodedCid :+ " <- ", "pure " +: encodedCid)
+      case _ =>
+        val encodedCids = referencedCids.map(encodeCid(cidMap, _))
+        (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
+    }
+    val actions = Doc.stack(commands.map { case SimpleCommand(cmd, cid) =>
+      val bind = if (returnStmt.nonEmpty) {
+        if (cidRefs.contains(cid)) {
+          encodeCid(cidMap, cid) :+ " <- "
+        } else {
+          Doc.text("_ <- ")
+        }
+      } else {
+        Doc.empty
+      }
+      bind + encodeCmd(partyMap, cidMap, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
