@@ -40,6 +40,13 @@ import qualified SdkVersion
 scalaVersions :: [T.Text]
 scalaVersions = ["2.12.12", "2.13.3"]
 
+-- Build-time dependencies to exclude
+depsToExclude :: T.Text
+depsToExclude = T.intercalate " + " [
+   "//compiler/scenario-service/protos:scenario_service_java_proto",
+   "//compiler/repl-service/protos:repl_service_java_proto",
+   "//daml-script/runner:script-runner-lib-ce"]
+
 buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
 buildAndCopyArtifacts mvnVersion bazelLocations releaseDir artifacts = do
       let targets = concatMap buildTargets artifacts
@@ -72,7 +79,7 @@ checkForMissingDeps jars = do
   where
     allArtifacts = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) jars
     bazelQueryDeps target =
-      let query = "kind(\"(java|scala)_library\", deps(" <> target <> ")) intersect //..."
+      let query = "kind(\"(java|scala)_library\", deps(" <> target <> ")) intersect //... except (" <> T.unpack depsToExclude <> ")"
       in liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
 
 copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => BazelLocations -> Path Abs Dir -> [Artifact PomData] -> m ()

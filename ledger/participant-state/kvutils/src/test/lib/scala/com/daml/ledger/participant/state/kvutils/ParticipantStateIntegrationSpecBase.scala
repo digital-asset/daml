@@ -3,22 +3,21 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.File
 import java.time.{Clock, Duration}
 import java.util.UUID
+import java.util.zip.ZipInputStream
 
 import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party.ordering
@@ -45,9 +44,10 @@ import scala.util.{Failure, Success, Try}
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(implicit
     testExecutionContext: ExecutionContext = ExecutionContext.global
 ) extends AsyncWordSpec
-    with TestResourceContext
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
+
+  implicit private val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
@@ -713,11 +713,17 @@ object ParticipantStateIntegrationSpecBase {
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  val archives = {
+  private val archives = {
     val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
-    val Success(testDar) = reader.readArchiveFromFile(fileName)
-    testDar.all
+    val fileName = com.daml.ledger.test.TestDars.fileNames("model")
+    reader
+      .readArchive(
+        fileName,
+        new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream(fileName)),
+      )
+      .get
+      .asInstanceOf[Dar[DamlLf.Archive]]
+      .all
   }
 
   // 2 self consistent archives

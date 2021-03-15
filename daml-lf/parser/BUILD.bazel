@@ -20,6 +20,7 @@ da_scala_library(
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=standardInterpolator",
     ],
+    tags = ["maven_coordinates=com.daml:daml-lf-parser:__VERSION__"],
     visibility = [
         "//daml-lf:__subpackages__",
         "//ledger:__subpackages__",

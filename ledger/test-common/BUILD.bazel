@@ -141,6 +141,7 @@ EOF
             generated_srcs = [":dar-file-names-scala-%s" % target],
             # generated_srcs is required for scaladoc
             resources = ["dar-files-%s" % target],
+            tags = ["maven_coordinates=com.daml:test-dar-files-%s-lib:__VERSION__" % target],
             visibility = ["//ledger:__subpackages__"],
         ),
         filegroup(
