@@ -229,7 +229,9 @@ private[lf] final class Compiler(
       case otherwise => SEAbs(1, otherwise)
     }
 
-  private[this] def labeledUnaryFunction(label: String)(body: Position => SExpr): SExpr =
+  private[this] def labeledUnaryFunction[L: Profile.LabelModule.Allowed](label: L with AnyRef)(
+      body: Position => SExpr
+  ): SExpr =
     unaryFunction(pos => withLabel(label, body(pos)))
 
   private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
@@ -836,7 +838,7 @@ private[lf] final class Compiler(
     withEnv { _ =>
       let(compile(partyE)) { partyPos =>
         let(compile(updateE)) { updatePos =>
-          labeledUnaryFunction("submit") { tokenPos =>
+          labeledUnaryFunction(Profile.SubmitLabel) { tokenPos =>
             let(SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))) { _ =>
               let(app(svar(updatePos), svar(tokenPos))) { resultPos =>
                 SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
@@ -854,7 +856,7 @@ private[lf] final class Compiler(
     //       <r> = $catch ([update] <token>) true false
     //   in $endCommit(mustFail = true) <r> <token>
     withEnv { _ =>
-      labeledUnaryFunction("submitMustFail") { tokenPos =>
+      labeledUnaryFunction(Profile.SubmitMustFailLabel) { tokenPos =>
         let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
           let(
             SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
@@ -867,13 +869,13 @@ private[lf] final class Compiler(
 
   @inline
   private[this] def compileGetParty(expr: Expr): SExpr =
-    labeledUnaryFunction("getParty") { tokenPos =>
+    labeledUnaryFunction(Profile.GetPartyLabel) { tokenPos =>
       SBSGetParty(compile(expr), svar(tokenPos))
     }
 
   @inline
   private[this] def compilePass(time: Expr): SExpr =
-    labeledUnaryFunction("pass") { tokenPos =>
+    labeledUnaryFunction(Profile.PassLabel) { tokenPos =>
       SBSPass(compile(time), svar(tokenPos))
     }
 
@@ -1510,7 +1512,7 @@ private[lf] final class Compiler(
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): SExpr =
-    labeledUnaryFunction(s"createAndExercise @${tmplId.qualifiedName} ${choiceId}") { tokenPos =>
+    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId)) { tokenPos =>
       let(CreateDefRef(tmplId)(SEValue(createArg), svar(tokenPos))) { cidPos =>
         app(
           compileExercise(
