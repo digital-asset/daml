@@ -39,7 +39,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     case Participants(Participant(ledger, alice)) =>
       val Attempts = 100
       val ExpectedNumberOfSuccessfulArchivals = 1
-      val ArchivalChoiceName = "ContractWithKey_Archive"
       for {
         contract <- ledger.create(alice, ContractWithKey(alice))
         _ <- Future.traverse(1 to Attempts) { _ =>
@@ -47,14 +46,7 @@ final class RaceConditionIT extends LedgerTestSuite {
         }
         transactions <- ledger.transactionTrees(alice)
       } yield  {
-        def isArchival(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isExercised =>
-              event.getExercised.choice == ArchivalChoiceName
-            case _ => false
-          }
-        }
-
+        import TransactionUtil._
         assertLength("Successful contract archivals", ExpectedNumberOfSuccessfulArchivals, transactions.filter(isArchival))
         ()
       }
@@ -67,8 +59,6 @@ final class RaceConditionIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(ledger, alice)) =>
       val Attempts = 100
-      val ArchivalChoiceName = "ContractWithKey_Archive"
-      val CreatedContractTemplateName = "ContractWithKey"
       for {
         contract <- ledger.create(alice, ContractWithKey(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
@@ -80,34 +70,19 @@ final class RaceConditionIT extends LedgerTestSuite {
         }
         transactions <- ledger.transactionTrees(alice)
       } yield  {
+        import TransactionUtil._
         def txLt(tx1: TransactionTree, tx2: TransactionTree): Boolean =
           offsetLessThan(tx1.offset, tx2.offset)
 
-        def isNonTransientCreate(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isCreated =>
-              event.getCreated.templateId.exists(_.entityName == CreatedContractTemplateName)
-            case _ => false
-          }
-        }
-
-        def isArchival(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isExercised =>
-              event.getExercised.choice == ArchivalChoiceName
-            case _ => false
-          }
-        }
-
         val sorted = transactions.sortWith(txLt)
 
-        assert(isNonTransientCreate(sorted.head), "The first transaction is expected to be a contract creation")
+        assert(isCreateNonTransient(sorted.head), "The first transaction is expected to be a contract creation")
         assert(sorted.tail.nonEmpty, "Several transactions expected")
 
         val (_, valid) = sorted.tail.foldLeft((sorted.head, true)) {
           case ((previousTx, validUntilNow), currentTx) =>
             if (validUntilNow) {
-              val valid = (isArchival(previousTx) && isNonTransientCreate(currentTx)) || (isNonTransientCreate(previousTx) && isArchival(currentTx))
+              val valid = (isArchival(previousTx) && isCreateNonTransient(currentTx)) || (isCreateNonTransient(previousTx) && isArchival(currentTx))
               (currentTx, valid)
             } else {
               (previousTx, validUntilNow)
@@ -130,7 +105,6 @@ final class RaceConditionIT extends LedgerTestSuite {
       // The non-transient contract creation is fired almost at the end of all attempts to allow several transient creations
       // to be processed before the non-transient creation
       val ActionAt = 90
-      val CreatedContractTemplateName = "ContractWithKey"
       for {
         wrapper <- ledger.create(alice, CreateWrapper(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
@@ -142,20 +116,10 @@ final class RaceConditionIT extends LedgerTestSuite {
         }
         transactions <- ledger.transactionTrees(alice)
       } yield {
-        // TODO: add conditions on event template names
-        def isTransientCreate(transactionTree: TransactionTree): Boolean =
-          transactionTree.eventsById.size == 3
-
-        def isNonTransientCreate(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isCreated =>
-              event.getCreated.templateId.exists(_.entityName == CreatedContractTemplateName)
-            case _ => false
-          }
-        }
+        import TransactionUtil._
 
         val nonTransientCreateTransaction = transactions
-          .find(isNonTransientCreate)
+          .find(isCreateNonTransient)
           .getOrElse(fail("No non-transient create transaction found"))
 
         transactions
@@ -172,8 +136,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     case Participants(Participant(ledger, alice)) =>
       val ArchiveAt = 5
       val Attempts = 10
-      val ArchivalChoiceName = "ContractWithKey_Archive"
-      val ExerciseChoiceName = "ContractWithKey_Exercise"
       for {
         contract <- ledger.create(alice, ContractWithKey(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
@@ -185,21 +147,7 @@ final class RaceConditionIT extends LedgerTestSuite {
         }
         transactions <- ledger.transactionTrees(alice)
       } yield {
-        // TODO: deduplicate these two
-        def isArchival(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isExercised =>
-              event.getExercised.choice == ArchivalChoiceName
-            case _ => false
-          }
-        }
-        def isNonConsumingExercise(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isExercised =>
-              event.getExercised.choice == ExerciseChoiceName
-            case _ => false
-          }
-        }
+        import TransactionUtil._
 
         val archivalTransaction = transactions
           .find(isArchival)
@@ -220,9 +168,6 @@ final class RaceConditionIT extends LedgerTestSuite {
         case Participants(Participant(ledger, alice)) =>
           val ArchiveAt = 400
           val Attempts = 500
-          // TODO: create a helper module for this
-          val ArchivalChoiceName = "ContractWithKey_Archive"
-          val FetchChoiceName = "FetchContractWithKey_Fetch"
           for {
             contract <- ledger.create(alice, ContractWithKey(alice))
             fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
@@ -235,21 +180,7 @@ final class RaceConditionIT extends LedgerTestSuite {
             }
             transactions <- ledger.transactionTrees(alice)
           } yield {
-            // TODO: deduplicate these two
-            def isArchival(transactionTree: TransactionTree): Boolean = {
-              transactionTree.eventsById.values.toList match {
-                case List(event) if event.kind.isExercised =>
-                  event.getExercised.choice == ArchivalChoiceName
-                case _ => false
-              }
-            }
-            def isFetch(transactionTree: TransactionTree): Boolean = {
-              transactionTree.eventsById.values.toList match {
-                case List(event) if event.kind.isExercised =>
-                  event.getExercised.choice == FetchChoiceName
-                case _ => false
-              }
-            }
+            import TransactionUtil._
 
             val archivalTransaction = transactions
               .find(isArchival)
@@ -269,8 +200,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     case Participants(Participant(ledger, alice)) =>
       val ArchiveAt = 90
       val Attempts = 100
-      val ArchivalChoiceName = "ContractWithKey_Archive"
-      val LookupResultTemplateName = "LookupResult"
       for {
         contract <- ledger.create(alice, ContractWithKey(alice))
         looker <- ledger.create(alice, LookupWrapper(alice))
@@ -283,24 +212,7 @@ final class RaceConditionIT extends LedgerTestSuite {
         }
         transactions <- ledger.transactionTrees(alice)
       } yield {
-        // TODO: deduplicate these two
-        def isArchival(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList match {
-            case List(event) if event.kind.isExercised =>
-              event.getExercised.choice == ArchivalChoiceName
-            case _ => false
-          }
-        }
-        def isSuccessfulContractLookup(transactionTree: TransactionTree): Boolean = {
-          def isFoundContractField(field: RecordField) = {
-            field.label == "found" && field.value.exists(_.getBool == true)
-          }
-
-          transactionTree.eventsById.values.toList.exists { event =>
-            event.kind.isCreated && event.getCreated.templateId.get.entityName == LookupResultTemplateName &&
-              event.getCreated.getCreateArguments.fields.exists(isFoundContractField)
-          }
-        }
+        import TransactionUtil._
 
         val archivalTransaction = transactions.find(isArchival).getOrElse(fail("No archival transaction found"))
 
@@ -318,8 +230,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     case Participants(Participant(ledger, alice)) =>
       val CreateAt = 90
       val Attempts = 100
-      val CreateNonTransientTemplateName = "ContractWithKey"
-      val LookupResultTemplateName = "LookupResult"
       for {
         looker <- ledger.create(alice, LookupWrapper(alice))
         _ <- Future.traverse(1 to Attempts) { attempt =>
@@ -331,22 +241,7 @@ final class RaceConditionIT extends LedgerTestSuite {
         }
         transactions <- ledger.transactionTrees(alice)
       } yield {
-        //TODO: factor out containEvent(): TreeEvent => Boolean
-        def isCreateNonTransient(transactionTree: TransactionTree): Boolean = {
-          transactionTree.eventsById.values.toList.exists { event =>
-            event.kind.isCreated && event.getCreated.templateId.get.entityName == CreateNonTransientTemplateName
-          }
-        }
-        def isFailedContractLookup(transactionTree: TransactionTree): Boolean = {
-          def isNotFoundContractField(field: RecordField) = {
-            field.label == "found" && field.value.exists(_.getBool == false)
-          }
-
-          transactionTree.eventsById.values.toList.exists { event =>
-            event.kind.isCreated && event.getCreated.templateId.get.entityName == LookupResultTemplateName &&
-              event.getCreated.getCreateArguments.fields.exists(isNotFoundContractField)
-          }
-        }
+        import TransactionUtil._
 
         val createNonTransientTransaction = transactions.find(isCreateNonTransient).getOrElse(fail("No create-non-transient transaction found"))
 
@@ -355,6 +250,69 @@ final class RaceConditionIT extends LedgerTestSuite {
           .foreach(assertTransactionOrder(_, createNonTransientTransaction))
       }
   })
+
+  object TransactionUtil {
+    //TODO: factor out containEvent(): TreeEvent => Boolean
+    def isCreateNonTransient(transactionTree: TransactionTree): Boolean = {
+      transactionTree.eventsById.size == 1 &&
+        transactionTree.eventsById.values.toList.exists { event =>
+        event.kind.isCreated && event.getCreated.templateId.exists(_.entityName == RaceTests.ContractWithKey.TemplateName)
+      }
+    }
+
+    // TODO: use checking event content
+    def isTransientCreate(transactionTree: TransactionTree): Boolean = {
+      transactionTree.eventsById.size == 3
+    }
+
+    def isArchival(transactionTree: TransactionTree): Boolean = {
+      transactionTree.eventsById.values.toList match {
+        case List(event) if event.kind.isExercised =>
+          event.getExercised.choice == RaceTests.ContractWithKey.ChoiceArchive
+        case _ => false
+      }
+    }
+
+    def isNonConsumingExercise(transactionTree: TransactionTree): Boolean = {
+      transactionTree.eventsById.values.toList match {
+        case List(event) if event.kind.isExercised =>
+          event.getExercised.choice == RaceTests.ContractWithKey.ChoiceExercise
+        case _ => false
+      }
+    }
+
+    def isFetch(transactionTree: TransactionTree): Boolean = {
+      transactionTree.eventsById.values.toList match {
+        case List(event) if event.kind.isExercised =>
+          event.getExercised.choice == RaceTests.FetchWrapper.ChoiceFetch
+        case _ => false
+      }
+    }
+
+    // TODO: deduplicate following two
+    def isSuccessfulContractLookup(transactionTree: TransactionTree): Boolean = {
+      def isFoundContractField(field: RecordField) = {
+        field.label == "found" && field.value.exists(_.getBool == true)
+      }
+
+      transactionTree.eventsById.values.toList.exists { event =>
+        event.kind.isCreated && event.getCreated.templateId.get.entityName == RaceTests.LookupResult.TemplateName &&
+          event.getCreated.getCreateArguments.fields.exists(isFoundContractField)
+      }
+    }
+
+    def isFailedContractLookup(transactionTree: TransactionTree): Boolean = {
+      def isNotFoundContractField(field: RecordField) = {
+        field.label == "found" && field.value.exists(_.getBool == false)
+      }
+
+      transactionTree.eventsById.values.toList.exists { event =>
+        event.kind.isCreated && event.getCreated.templateId.get.entityName == RaceTests.LookupResult.TemplateName &&
+          event.getCreated.getCreateArguments.fields.exists(isNotFoundContractField)
+      }
+    }
+
+  }
 
   def assertTransactionOrder(expectedFirst: TransactionTree, expectedSecond: TransactionTree) = {
     if (offsetLessThan(expectedFirst.offset, expectedSecond.offset)) ()
@@ -377,6 +335,23 @@ final class RaceConditionIT extends LedgerTestSuite {
 
   def offsetBytes(offset: String) = {
     Bytes.fromHexString(Ref.HexString.assertFromString(offset))
+  }
+
+  object RaceTests {
+    object ContractWithKey {
+      val TemplateName = "ContractWithKey"
+      val ChoiceArchive = "ContractWithKey_Archive"
+      val ChoiceExercise = "ContractWithKey_Exercise"
+    }
+
+    object FetchWrapper {
+      //TODO rename this choice to FetchWrapper_Fetch
+      val ChoiceFetch = "FetchContractWithKey_Fetch"
+    }
+
+    object LookupResult {
+      val TemplateName = "LookupResult"
+    }
   }
 
 }
