@@ -1027,7 +1027,6 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
-      jdbcAsyncCommits = false,
       idempotentEventInserts = false,
       enricher = enricher,
     ).map(new MeteredLedgerReadDao(_, metrics))
@@ -1041,7 +1040,7 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-      jdbcAsyncCommits: Boolean,
+      jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
@@ -1054,7 +1053,8 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
-      jdbcAsyncCommits = jdbcAsyncCommits && dbType.supportsAsynchronousCommits,
+      jdbcAsyncCommitMode =
+        if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       idempotentEventInserts = dbType == DbType.Postgres,
       enricher = enricher,
     ).map(new MeteredLedgerDao(_, metrics))
@@ -1082,7 +1082,6 @@ private[platform] object JdbcLedgerDao {
       metrics,
       lfValueTranslationCache,
       validatePartyAllocation,
-      jdbcAsyncCommits = false,
       idempotentEventInserts = false,
       enricher = enricher,
     ).map(new MeteredLedgerDao(_, metrics))
@@ -1122,7 +1121,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       validatePartyAllocation: Boolean = false,
-      jdbcAsyncCommits: Boolean,
+      jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       idempotentEventInserts: Boolean,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
@@ -1133,7 +1132,7 @@ private[platform] object JdbcLedgerDao {
         connectionPoolSize,
         250.millis,
         metrics,
-        jdbcAsyncCommits,
+        jdbcAsyncCommitMode,
       )
     } yield new JdbcLedgerDao(
       connectionPoolSize,

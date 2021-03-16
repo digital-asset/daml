@@ -224,7 +224,7 @@ final class SqlLedgerSpec
         val hikariDataSourceLogs =
           LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
         hikariDataSourceLogs should contain(
-          Level.INFO -> "Creating Hikari connections with asynchronous commit disabled"
+          Level.INFO -> "Creating Hikari connections with synchronous commit ON"
         )
       }
     }
