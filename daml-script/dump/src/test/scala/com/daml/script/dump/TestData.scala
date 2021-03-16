@@ -44,6 +44,7 @@ object TestData {
       choiceArgument: Value = defaultChoiceArgument,
       actingParties: Seq[Party] = defaultParties,
       exerciseResult: Option[ContractId] = None,
+      consuming: Boolean = true,
   ) extends Event
 
   sealed case class ACS(contracts: Seq[Created]) {
@@ -68,7 +69,14 @@ object TestData {
           case event: Created =>
             val treeEvent = TreeEvent(TreeEvent.Kind.Created(event.toCreatedEvent(eventId)))
             (rootEventIds :+ eventId, eventsById + (eventId -> treeEvent))
-          case Exercised(contractId, childEvents, choiceArgument, actingParties, exerciseResult) =>
+          case Exercised(
+                contractId,
+                childEvents,
+                choiceArgument,
+                actingParties,
+                exerciseResult,
+                consuming,
+              ) =>
             val (childEventIds, childEventsById) =
               childEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
             val treeEvent = TreeEvent(
@@ -86,6 +94,7 @@ object TestData {
                       .map(cid => Value().withContractId(ContractId.unwrap(cid)))
                       .getOrElse(defaultExerciseResult)
                   ),
+                  consuming = consuming,
                 )
               )
             )
