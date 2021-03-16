@@ -596,26 +596,37 @@ private object OracleQueries extends Queries {
       pvs: Put[Vector[String]],
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     val Seq((tpid, predicate @ _)) = queries // TODO SC handle more than one
-    val _ = parties
     println("selecting")
-    val q = sql"""SELECT contract_id, key, payload, agreement_text
-                  FROM contract
-                  WHERE tpid = $tpid""" // TODO SC AND (""" ++ predicate ++ sql")"
+    import Queries.CompatImplicits.catsReducibleFromFoldable1
+    // % is explicitly reserved by specification as a delimiter
+    val q = sql"""SELECT c.contract_id, key, payload, agreement_text,
+                         LISTAGG(sd.party, '%'), LISTAGG(od.party, '%')
+                  FROM contract c, signatories sm, observers om
+                       LEFT JOIN signatories sd ON (c.contract_id = sd.contract_id)
+                       LEFT JOIN observers od ON (c.contract_id = od.contract_id)
+                  WHERE c.contract_id = sm.contract_id AND c.contract_id = om.contract_id
+                        AND (""" ++ Fragments.in(fr"sm.party", parties) ++
+      fr" OR " ++ Fragments.in(fr"om.party", parties) ++ sql""")
+                        AND tpid = $tpid
+                  ORDER BY contract_id""" // TODO SC AND (""" ++ predicate ++ sql")"
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
       case MatchedQueryMarker.Unused =>
-        q.query[(String, JsValue, JsValue, Option[String])].map {
-          case (cid, key, payload, agreement) =>
+        q.query[(String, JsValue, JsValue, Option[String], Option[String], Option[String])].map {
+          case (cid, key, payload, agreement, pctSignatories, pctObservers) =>
             DBContract(
               contractId = cid,
               templateId = tpid,
               key = key,
               payload = payload,
-              signatories = Vector(),
-              observers = Vector(),
+              signatories = unpct(pctSignatories),
+              observers = unpct(pctObservers),
               agreementText = agreement getOrElse "",
             )
         }
     }
   }
+
+  private[this] def unpct(s: Option[String]) =
+    s.cata(_.split('%').filter(_.nonEmpty).toVector, Vector.empty)
 }
