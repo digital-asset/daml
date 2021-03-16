@@ -3,7 +3,6 @@
 
 -- @SINCE-LF 1.dev
 -- @QUERY-LF [ .modules[].exceptions[] ] | length == 1
--- @WARN Modules compiled with the DatatypeContexts language extension
 
 -- | Test that exception syntax is correctly handled.
 -- This is the "sugared" counterpart to ExceptionDesugared.
