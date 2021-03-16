@@ -4,6 +4,8 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 import java.lang.System
 import java.nio.file.{Files, Path}
 import java.util.ArrayList
@@ -166,6 +168,15 @@ object Profile {
     }
   }
 
+  final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
+
+  sealed trait ScenarioLabel
+
+  final case object SubmitLabel extends ScenarioLabel
+  final case object SubmitMustFailLabel extends ScenarioLabel
+  final case object PassLabel extends ScenarioLabel
+  final case object GetPartyLabel extends ScenarioLabel
+
   type Label = LabelModule.Module.T
   val LabelUnset: Label = LabelModule.Module(null)
 
@@ -204,9 +215,11 @@ object Profile {
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
+      implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
       implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
-      implicit val str: Allowed[String] = allowAll
+      implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
+      implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 
       // below cases must cover above set
 
@@ -222,11 +235,20 @@ object Profile {
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"
           case FetchByKeyDefRef(tmplRef) => s"fetchByKey @${tmplRef.qualifiedName}"
           case LookupByKeyDefRef(tmplRef) => s"lookupByKey @${tmplRef.qualifiedName}"
+          case CreateAndExerciseLabel(tmplRef, name) =>
+            s"createAndExercise @${tmplRef.qualifiedName} ${name}"
           case ExceptionMessageDefRef(typeId) => s"message @${typeId.qualifiedName}"
           case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
-          case str: String => str
+          case SubmitLabel => "submit"
+          case SubmitMustFailLabel => "submitMustFail"
+          case PassLabel => "pass"
+          case GetPartyLabel => "getParty"
+          // This is only used for ExprVarName but we cannot do a runtime check due to
+          // type erasure.
+          case v: String => v
           case any => s"<unknown ${any}>"
         }
     }
+
   }
 }
