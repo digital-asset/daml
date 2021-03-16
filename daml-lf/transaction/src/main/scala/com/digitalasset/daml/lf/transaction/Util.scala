@@ -50,6 +50,8 @@ object Util {
             handleTypeInfo(tyCon),
             fields.map { case (fieldName, value) => handleTypeInfo(fieldName) -> go(value) },
           )
+        case ValueBuiltinException(tag, value) =>
+          ValueBuiltinException(tag, go(value))
         case ValueVariant(tyCon, variant, value) =>
           ValueVariant(handleTypeInfo(tyCon), variant, go(value))
         case _: ValueCidlessLeaf | _: ValueContractId[_] => value

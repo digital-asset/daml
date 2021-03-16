@@ -313,6 +313,7 @@ object ScenarioLedger {
           fs.foreach { case (_, v) =>
             collect(v)
           }
+        case ValueBuiltinException(_, arg) => collect(arg)
         case ValueVariant(_, _, arg) => collect(arg)
         case _: ValueEnum => ()
         case ValueList(vs) =>
