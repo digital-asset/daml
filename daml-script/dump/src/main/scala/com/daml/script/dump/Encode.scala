@@ -239,7 +239,7 @@ private[dump] object Encode {
             encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
           )
         )
-        .hang(2)
+        .nested(2)
   }
 
   private def encodeCreatedEvent(
