@@ -21,7 +21,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     case Participants(Participant(ledger, alice)) =>
       val Attempts = 100
       val ExpectedNumberOfSuccessfulCreations = 1
-      println(s"$ledger $alice $Attempts")
       Future.traverse(1 to Attempts) {
         case _ =>
           ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
