@@ -47,6 +47,8 @@ The Daml assistant and the SDK are configured using two files:
 - The global config file, one per installation, which controls some options regarding SDK installation and updates
 - The project config file, one per Daml project, which controls how the SDK builds and interacts with the project
 
+.. _global_daml_config:
+
 Global config file (``daml-config.yaml``)
 =========================================
 
@@ -60,6 +62,10 @@ By default it's blank, and you usually won't need to edit it. It recognizes the 
    This setting is only used to inform you when an update is available.
 
    Set ``update-check: <number>`` to check for new versions every N seconds. Set ``update-check: never`` to never check for new versions.
+- ``artifactory-api-key``: If you have a license for Daml Connect EE,
+  you can use this to specify the Artifactory API key displayed in
+  your user profile. The assistant will use this to download the EE
+  edition.
 
 Here is an example ``daml-config.yaml``:
 
