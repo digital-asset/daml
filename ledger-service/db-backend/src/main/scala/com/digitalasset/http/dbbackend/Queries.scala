@@ -378,6 +378,25 @@ object Queries {
 
   private[http] val Postgres: Queries = PostgresQueries
   private[http] val Oracle: Queries = OracleQueries
+
+  private[dbbackend] object CompatImplicits {
+    implicit def catsReducibleFromFoldable1[F[_]](implicit
+        F: scalaz.Foldable1[F]
+    ): cats.Reducible[F] = new cats.Reducible[F] {
+      import cats.Eval
+
+      override def foldLeft[A, B](fa: F[A], z: B)(f: (B, A) => B) = F.foldLeft(fa, z)(f)
+
+      override def foldRight[A, B](fa: F[A], z: Eval[B])(f: (A, Eval[B]) => Eval[B]) =
+        F.foldRight(fa, z)((a, eb) => f(a, Eval defer eb))
+
+      override def reduceLeftTo[A, B](fa: F[A])(z: A => B)(f: (B, A) => B) =
+        F.foldMapLeft1(fa)(z)(f)
+
+      override def reduceRightTo[A, B](fa: F[A])(z: A => B)(f: (A, Eval[B]) => Eval[B]) =
+        F.foldMapRight1(fa)(a => Eval later z(a))((a, eb) => f(a, Eval defer eb))
+    }
+  }
 }
 
 private object PostgresQueries extends Queries {
