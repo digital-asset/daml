@@ -214,25 +214,33 @@ object TreeUtils {
 
   object SimpleCommand {
     def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
+      def simpleExercise(exercisedEvent: ExercisedEvent): Option[ContractId] = {
+        val result = exercisedEvent.exerciseResult.flatMap {
+          _.sum match {
+            case Sum.ContractId(value) => Some(value)
+            case _ => None
+          }
+        }
+        val creates = treeEventCreatedCids(Kind.Exercised(exercisedEvent), tree)
+        (result, creates) match {
+          case (Some(cid), Seq(createdCid)) if cid == createdCid =>
+            Some(ContractId(cid))
+          case _ => None
+        }
+      }
       command match {
         case CreateCommand(createdEvent) =>
           Some(SimpleCommand(command, ContractId(createdEvent.contractId)))
         case ExerciseCommand(exercisedEvent) =>
-          val result = exercisedEvent.exerciseResult.flatMap {
-            _.sum match {
-              case Sum.ContractId(value) => Some(value)
-              case _ => None
-            }
+          simpleExercise(exercisedEvent).map(SimpleCommand(command, _))
+        case CreateAndExerciseCommand(_, exercisedEvent) =>
+          if (exercisedEvent.consuming) {
+            // If the choice is not consuming then we have two resulting contracts:
+            // The created one and the result of the exercise. I.e. not a simple command.
+            simpleExercise(exercisedEvent).map(SimpleCommand(command, _))
+          } else {
+            None
           }
-          val creates = treeEventCreatedCids(Kind.Exercised(exercisedEvent), tree)
-          (result, creates) match {
-            case (Some(cid), Seq(createdCid)) if cid == createdCid =>
-              Some(SimpleCommand(command, ContractId(cid)))
-            case _ => None
-          }
-        case _: CreateAndExerciseCommand =>
-          // TODO[AH] Identify simple createAndExercise commands.
-          None
       }
     }
 
