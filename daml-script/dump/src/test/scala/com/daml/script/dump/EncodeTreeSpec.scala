@@ -166,6 +166,36 @@ class EncodeTreeSpec extends AnyFreeSpec with Matchers {
             "\n",
           )
       }
+      "unreferenced createAndExercise" in {
+        val parties = Map(Party("Alice") -> "alice_0")
+        val cidMap = Map(
+          ContractId("cid0") -> "contract_0_0",
+          ContractId("cid1") -> "contract_1_0",
+          ContractId("cid1") -> "contract_1_1",
+        )
+        val cidRefs = Set.empty[ContractId]
+        val tree = TestData
+          .Tree(
+            Seq[TestData.Event](
+              TestData.Created(ContractId("cid0")),
+              TestData.Exercised(
+                ContractId("cid0"),
+                Seq(
+                  TestData.Created(ContractId("cid1"))
+                ),
+              ),
+            )
+          )
+          .toTransactionTree
+        encodeTree(parties, cidMap, cidRefs, tree).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  createAndExerciseCmd
+            |    Module.Template
+            |    (Module.Choice ())""".stripMargin.replace(
+            "\r\n",
+            "\n",
+          )
+      }
     }
   }
 }
