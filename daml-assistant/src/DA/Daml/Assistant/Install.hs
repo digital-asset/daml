@@ -25,14 +25,13 @@ import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseV
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
-import Data.Maybe
 import Data.List
 import Conduit
 import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
 import Data.Either.Extra
-import Network.HTTP.Client.Conduit (HttpExceptionContent(StatusCodeException))
+import qualified Data.SemVer as SemVer
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
@@ -311,26 +310,23 @@ httpInstall :: InstallEnv -> SdkVersion -> IO ()
 httpInstall env@InstallEnv{..} version = do
     unlessQuiet env $ output "Downloading SDK release."
     requiredAny "Failed to download SDK release." $
-        firstNon404 (map tryLocation (maybeToList (fmap (Artifactory.versionLocation version) artifactoryApiKeyM) <> [Github.versionLocation version]))
+        downloadLocation location
     where
-        firstNon404 :: [IO ()] -> IO ()
-        firstNon404 as =
-            foldr1 (\a acc -> catchJust toStatusCode a (handle acc)) as
-        handle :: IO () -> Int -> IO ()
-        -- Try next url on 404
-        handle next 404 = next
-        -- Fail on anything else
-        handle _ status =
-            throwIO . assistantErrorBecause "Failed to download release."
-            . pack . show $ status
-        toStatusCode :: HttpException -> Maybe Int
-        toStatusCode (HttpExceptionRequest _ (StatusCodeException resp _)) =
-            Just (getResponseStatusCode resp)
-        toStatusCode _ = Nothing
-        tryLocation :: InstallLocation -> IO ()
-        tryLocation (InstallLocation url headers) = do
-            request <- requiredAny "Failed to parse HTTPS request." $ parseRequestThrow ("GET " <> unpack url)
+        location = case artifactoryApiKeyM of
+            Nothing -> Github.versionLocation version
+            Just apiKey
+              | version >= firstEEVersion -> Artifactory.versionLocation version apiKey
+              | otherwise -> Github.versionLocation version
+        !firstEEVersion =
+            let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
+            in SdkVersion (either error id (SemVer.fromText verStr))
+        downloadLocation :: InstallLocation -> IO ()
+        downloadLocation (InstallLocation url headers) = do
+            request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
             withResponse (setRequestHeaders headers request) $ \response -> do
+                when (getResponseStatusCode response /= 200) $
+                    throwIO . assistantErrorBecause "Failed to download release."
+                            . pack . show $ getResponseStatus response
                 let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
                 extractAndInstall env
                     . maybe id (\s -> (.| observeProgress s)) totalSizeM
