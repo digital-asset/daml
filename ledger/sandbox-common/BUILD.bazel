@@ -69,12 +69,8 @@ da_scala_library(
     exports = [":sandbox-common"],
     deps = [
         ":sandbox-common",
-        "//daml-lf/data",
-        "//ledger/caching",
         "//ledger/ledger-api-common",
-        "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//libs-scala/ports",
     ],
 )
 
