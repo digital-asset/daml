@@ -12,7 +12,7 @@ import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
-class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
+class CmdReferencedCidsSpec extends AnyFreeSpec with Matchers {
   import TreeUtils._
   "cmdReferencedCids" - {
     "empty" in {
