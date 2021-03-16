@@ -36,6 +36,20 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
         .toCommands
       cmds.foldMap(cmdReferencedCids) shouldBe Set("cid")
     }
+    "createAndExercise" in {
+      val (cmds, _) = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(ContractId("cid")),
+            TestData.Exercised(
+              ContractId("cid"),
+              Seq(),
+            ),
+          )
+        )
+        .toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set.empty
+    }
     "referenced" in {
       val variant = v.Value(
         v.Value.Sum.Variant(
