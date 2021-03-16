@@ -5,7 +5,6 @@ module RaceTests where
 
 type RaceKey = Text
 
--- TODO: try to reduce number of templates
 template ContractWithKey with
     owner : Party
   where
