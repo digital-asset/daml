@@ -105,9 +105,13 @@ object TestData {
         traceContext = None,
       )
     }
-    def toSimpleCommands: Seq[SimpleCommand] = {
+    def toCommands: (Seq[Command], TransactionTree) = {
       val tree = this.toTransactionTree
-      SimpleCommand.fromCommands(Command.fromTree(tree), tree).get
+      (Command.fromTree(tree), tree)
+    }
+    def toSimpleCommands: Seq[SimpleCommand] = {
+      val (cmds, tree) = this.toCommands
+      SimpleCommand.fromCommands(cmds, tree).get
     }
   }
 }

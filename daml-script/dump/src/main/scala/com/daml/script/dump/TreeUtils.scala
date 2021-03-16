@@ -160,6 +160,21 @@ object TreeUtils {
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
 
+  def cmdReferencedCids(cmd: Command): Set[ContractId] = {
+    cmd match {
+      case CreateCommand(createdEvent) =>
+        createdReferencedCids(createdEvent)
+      case ExerciseCommand(exercisedEvent) =>
+        exercisedEvent.choiceArgument.foldMap(arg => valueCids(arg.sum)) + ContractId(
+          exercisedEvent.contractId
+        )
+      case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+        createdReferencedCids(createdEvent) ++ exercisedEvent.choiceArgument.foldMap(arg =>
+          valueCids(arg.sum)
+        )
+    }
+  }
+
   sealed trait Command
   final case class CreateCommand(createdEvent: CreatedEvent) extends Command
   final case class ExerciseCommand(exercisedEvent: ExercisedEvent) extends Command
