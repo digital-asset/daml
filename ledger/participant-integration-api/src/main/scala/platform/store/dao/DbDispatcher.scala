@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.DbType
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -87,7 +88,7 @@ private[platform] object DbDispatcher {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
-      connectionAsyncCommit: Boolean,
+      connectionAsyncCommitMode: DbType.AsyncCommitMode,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(
@@ -96,7 +97,7 @@ private[platform] object DbDispatcher {
         connectionPoolSize,
         connectionTimeout,
         metrics.registry,
-        connectionAsyncCommit,
+        connectionAsyncCommitMode,
       )
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>

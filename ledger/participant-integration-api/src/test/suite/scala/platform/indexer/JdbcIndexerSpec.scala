@@ -33,6 +33,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -110,18 +111,15 @@ final class JdbcIndexerSpec
   }
 
   it should "use asynchronous commits with PostgreSQL" in {
-    val participantId = "the-participant"
-    for {
-      indexer <- initializeIndexer(participantId)
-      _ = LogCollector.clear[this.type]
-      _ <- runAndShutdown(indexer)
-    } yield {
-      val hikariDataSourceLogs =
-        LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
-      hikariDataSourceLogs should contain(
-        Level.INFO -> "Creating Hikari connections with asynchronous commit enabled"
-      )
-    }
+    asyncCommitTest(DbType.AsynchronousCommit)
+  }
+
+  it should "use local synchronous commits with PostgreSQL when configured to do so" in {
+    asyncCommitTest(DbType.LocalSynchronousCommit)
+  }
+
+  it should "use synchronous commits with PostgreSQL when configured to do so" in {
+    asyncCommitTest(DbType.SynchronousCommit)
   }
 
   /** This test is agnostic of the PostgreSQL LedgerDao and can be factored out */
@@ -155,6 +153,21 @@ final class JdbcIndexerSpec
       .map(_ => captureBuffer should contain theSameElementsInOrderAs expected)
   }
 
+  private def asyncCommitTest(mode: DbType.AsyncCommitMode): Future[Assertion] = {
+    val participantId = "the-participant"
+    for {
+      indexer <- initializeIndexer(participantId, jdbcAsyncCommitMode = mode)
+      _ = LogCollector.clear[this.type]
+      _ <- runAndShutdown(indexer)
+    } yield {
+      val hikariDataSourceLogs =
+        LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
+      hikariDataSourceLogs should contain(
+        Level.INFO -> s"Creating Hikari connections with synchronous commit ${mode.setting}"
+      )
+    }
+  }
+
   private def runAndShutdown[A](owner: ResourceOwner[A]): Future[Unit] =
     owner.use(_ => Future.unit)
 
@@ -164,6 +177,7 @@ final class JdbcIndexerSpec
   private def initializeIndexer(
       participantId: String,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed] = noOpFlow,
+      jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
   ): Future[ResourceOwner[JdbcIndexer]] = {
     val config = IndexerConfig(
       participantId = v1.ParticipantId.assertFromString(participantId),
@@ -179,7 +193,7 @@ final class JdbcIndexerSpec
       materializer.executionContext,
       metrics,
       LfValueTranslation.Cache.none,
-      jdbcAsyncCommits = true,
+      jdbcAsyncCommitMode = jdbcAsyncCommitMode,
       enricher = None,
     )
     new indexer.JdbcIndexer.Factory(

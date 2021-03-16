@@ -6,6 +6,7 @@ package com.daml.platform.indexer
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig._
+import com.daml.platform.store.DbType
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
@@ -18,6 +19,7 @@ case class IndexerConfig(
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
+    asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
 )
 
 object IndexerConfig {
@@ -26,5 +28,6 @@ object IndexerConfig {
   val DefaultRestartDelay: FiniteDuration = 10.seconds
   // Should be greater than or equal to the number of pipline stages
   val DefaultDatabaseConnectionPoolSize: Int = 3
+  val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
 }
