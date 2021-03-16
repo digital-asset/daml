@@ -29,7 +29,11 @@ private[dump] object Encode {
     val partyMap = partyMapping(parties)
 
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    val treeCidRefs = trees.foldMap(treeReferencedCids)
+    // TODO[AH] Avoid constructing Commands twice. Currently we do this once here and once more in encodeTree.
+    val treeCidRefs = trees.foldMap { tree =>
+      val cmds = Command.fromTree(tree)
+      cmds.foldMap(cmdReferencedCids)
+    }
     val cidRefs = acsCidRefs ++ treeCidRefs
 
     val unknownCidRefs = acsCidRefs -- acs.keySet
