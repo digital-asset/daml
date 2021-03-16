@@ -325,8 +325,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
 
     object FetchWrapper {
-      //TODO rename this choice to FetchWrapper_Fetch
-      val ChoiceFetch = "FetchContractWithKey_Fetch"
+      val ChoiceFetch = "FetchWrapper_Fetch"
     }
 
     object LookupResult {
