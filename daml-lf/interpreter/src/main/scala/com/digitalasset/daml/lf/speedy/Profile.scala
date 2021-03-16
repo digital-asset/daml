@@ -38,7 +38,7 @@ object Profile {
     def label: String = LabelModule.Allowed.renderLabel(rawLabel)
   }
 
-  private def unmangleLenient(str: String): String = {
+  private[speedy] def unmangleLenient(str: String): String = {
     val builder = new StringBuilder(str.length)
     var i = 0
     while (i < str.length) {
