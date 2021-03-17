@@ -7,6 +7,7 @@ import java.io.File
 
 import com.daml.codegen.Util
 import com.daml.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
+import UsedTypeParams.Variance.{Covariant, Invariant}
 import com.daml.lf.iface
 import com.daml.lf.data.Ref
 import com.typesafe.scalalogging.Logger
@@ -69,7 +70,10 @@ object DamlDataTypeGen {
     val typeVarsInUse: Set[String] = UsedTypeParams.collectTypeParamsInUse(typeDecl)
     val typeParams: List[TypeDef] = typeVars.map(LFUtil.toTypeDef)
     val typeArgs: List[TypeName] = typeVars.map(TypeName(_))
-    val covariantTypeParams: List[TypeDef] = typeVars map LFUtil.toCovariantTypeDef
+    val covariantTypeParams: List[TypeDef] = (typeVars zip util.variance(typeDecl)) map {
+      case (v, Covariant) => LFUtil.toCovariantTypeDef(v)
+      case (v, Invariant) => LFUtil.toTypeDef(v)
+    }
 
     val Ref.Identifier(_, Ref.QualifiedName(moduleName, baseName)) = name
 
