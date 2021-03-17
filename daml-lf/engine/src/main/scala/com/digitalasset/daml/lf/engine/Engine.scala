@@ -363,10 +363,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
         )
         config.profileDir.foreach { dir =>
-          val hash = meta.nodeSeeds(0)._2.toHexString
           val desc = Engine.profileDesc(tx)
-          machine.profile.name = s"$desc-${hash.substring(0, 6)}"
-          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc-$hash.json")
+          machine.profile.name = s"${meta.submissionTime}-$desc"
+          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
           machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
