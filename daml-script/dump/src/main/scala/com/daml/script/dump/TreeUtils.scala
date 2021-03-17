@@ -3,7 +3,7 @@
 
 package com.daml.script.dump
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, EventId, Party}
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
@@ -17,7 +17,6 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.collection.compat._
-import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object TreeUtils {
@@ -185,36 +184,25 @@ object TreeUtils {
 
   object Command {
     def fromTree(tree: TransactionTree): Seq[Command] = {
-      val commands = mutable.LinkedHashMap.empty[EventId, Command]
-      val created = mutable.HashMap.empty[ContractId, EventId]
-      tree.rootEventIds.foreach { eventId =>
-        val event = tree.eventsById(eventId)
-        event.kind match {
-          case Kind.Empty =>
-          case Kind.Created(createdEvent) =>
-            commands += EventId(eventId) -> CreateCommand(createdEvent)
-            created += ContractId(createdEvent.contractId) -> EventId(eventId)
-          case Kind.Exercised(exercisedEvent) =>
-            created.get(ContractId(exercisedEvent.contractId)) match {
-              case None =>
-                commands += EventId(eventId) -> ExerciseCommand(exercisedEvent)
-              case Some(createdEventId) =>
-                commands.get(createdEventId) match {
-                  case Some(CreateCommand(createdEvent)) =>
-                    // Replace the original CreateCommand
-                    commands += createdEventId -> CreateAndExerciseCommand(
-                      createdEvent,
-                      exercisedEvent,
-                    )
-                  case _ =>
-                    throw new RuntimeException(
-                      "Internal error: Encountered `created` entry without corresponding `commands` entry."
-                    )
-                }
-            }
-        }
+      val rootEvents = tree.rootEventIds.map(tree.eventsById(_).kind)
+      val commands = ListBuffer.empty[Command]
+      rootEvents.foreach {
+        case Kind.Empty =>
+        case Kind.Created(createdEvent) =>
+          commands += CreateCommand(createdEvent)
+        case Kind.Exercised(exercisedEvent) =>
+          commands.lastOption match {
+            case Some(CreateCommand(createdEvent))
+                if createdEvent.contractId == exercisedEvent.contractId =>
+              commands.update(
+                commands.length - 1,
+                CreateAndExerciseCommand(createdEvent, exercisedEvent),
+              )
+            case _ =>
+              commands += ExerciseCommand(exercisedEvent)
+          }
       }
-      commands.valuesIterator.toSeq
+      commands
     }
   }
 
