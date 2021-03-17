@@ -6,7 +6,7 @@ load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
 _damlc = attr.label(
     allow_single_file = True,
-    default = Label("//compiler/damlc"),
+    default = Label("//compiler/damlc:damlc-compile-only"),
     executable = True,
     cfg = "host",
     doc = "The DAML compiler.",
@@ -213,7 +213,7 @@ def _daml_validate_test(
         name,
         dar,
         **kwargs):
-    damlc = "//compiler/damlc"
+    damlc = "//compiler/damlc:damlc-compile-only"
     sh_inline_test(
         name = name,
         data = [damlc, dar],
@@ -236,10 +236,10 @@ def _inspect_dar(base):
         name = name,
         srcs = [
             dar,
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
         ],
         outs = [pp],
-        cmd = "$(location //compiler/damlc) inspect $(location :" + dar + ") > $@",
+        cmd = "$(location //compiler/damlc:damlc-compile-only) inspect $(location :" + dar + ") > $@",
     )
 
 _default_project_version = "1.0.0"
@@ -323,7 +323,7 @@ def daml_test(
         srcs = [],
         deps = [],
         data_deps = [],
-        damlc = "//compiler/damlc",
+        damlc = "//compiler/damlc:damlc",
         target = None,
         **kwargs):
     sh_inline_test(
@@ -377,7 +377,7 @@ def daml_doc_test(
         ignored_srcs = [],
         flags = [],
         cpp = "@stackage-exe//hpp",
-        damlc = "//compiler/damlc",
+        damlc = "//compiler/damlc:damlc",
         **kwargs):
     sh_inline_test(
         name = name,

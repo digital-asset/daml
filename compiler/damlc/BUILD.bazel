@@ -23,6 +23,18 @@ damlc_data = [
 ]
 
 add_data(
+    name = "damlc-compile-only",
+    data = [
+        ghc_pkg,
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
+        "//compiler/damlc/pkg-db",
+    ],
+    executable = ":damlc-bootstrap",
+    visibility = ["//visibility:public"],
+)
+
+add_data(
     name = "damlc",
     data = damlc_data,
     executable = ":damlc-bootstrap",
