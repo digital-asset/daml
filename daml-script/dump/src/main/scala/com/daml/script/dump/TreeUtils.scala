@@ -202,7 +202,7 @@ object TreeUtils {
               commands += ExerciseCommand(exercisedEvent)
           }
       }
-      commands
+      commands.toSeq
     }
   }
 
