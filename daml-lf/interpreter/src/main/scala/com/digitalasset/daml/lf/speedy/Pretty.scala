@@ -56,8 +56,8 @@ private[lf] object Pretty {
         text(prettyFailedAuthorization(nid, fa))
       case DamlEArithmeticError(message) =>
         text(message)
-      case DamlEUnhandledException(message) =>
-        text(s"unhandled exception: $message")
+      case DamlEUnhandledException(_, exc) =>
+        text(s"unhandled exception:") & prettyValue(true)(exc)
       case DamlEUserError(message) =>
         text(s"User abort: $message")
       case DamlETransactionError(reason) =>
@@ -396,6 +396,8 @@ private[lf] object Pretty {
               text("")
         }) +
           text(constructor)
+      case ValueBuiltinException(tag, value) =>
+        text(tag) + char('(') + prettyValue(true)(value) + char(')')
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")

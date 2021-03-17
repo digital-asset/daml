@@ -702,6 +702,8 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
        then \fs -> prettyMay "" (prettyDefName world) mbRecordId <-> keyword_ "with" $$ nest 2 fs
        else id)
       (sep (punctuate ";" (mapV prettyField fields)))
+  ValueSumBuiltinException(BuiltinException tag mbValue) ->
+    ltext tag <> char '(' <> prettyMay "<missing value>" (prettyValue' True prec world) mbValue <> char ')'
   ValueSumVariant (Variant mbVariantId ctor mbValue) ->
         prettyMay "" (\v -> prettyDefName world v <> ":") mbVariantId <> ltext ctor
     <-> prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue

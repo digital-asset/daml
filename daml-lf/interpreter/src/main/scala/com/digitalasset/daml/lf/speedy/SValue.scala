@@ -60,16 +60,14 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
+      case SBuiltinException(tag, value) =>
+        V.ValueBuiltinException(tag, value.toValue)
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
       case SAnyException(_, _, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAnyException")
-      case SBuiltinException(_, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        // builtin exceptions values are serializable, so this should work
-        throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
       case STypeRep(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STypeRep")
       case STNat(_) =>

@@ -213,6 +213,8 @@ object Hash {
           iterateOver(xs.toImmArray)((acc, x) => acc.add(x._1).addTypedValue(x._2))
         case Value.ValueRecord(_, fs) =>
           iterateOver(fs)(_ addTypedValue _._2)
+        case Value.ValueBuiltinException(tag, v) =>
+          add(tag).addTypedValue(v)
         case Value.ValueVariant(_, variant, v) =>
           add(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>

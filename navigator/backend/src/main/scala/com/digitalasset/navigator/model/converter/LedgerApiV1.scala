@@ -430,6 +430,9 @@ case object LedgerApiV1 {
       case v: Model.ApiList => fillInListTI(v, typ, ctx)
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
+      case _: Model.ApiBuiltinException =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        Left(GenericConversionError(s"Exceptions not supported"))
     }
 
   def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {

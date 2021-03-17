@@ -5,6 +5,7 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
+import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
@@ -42,11 +43,9 @@ object SError {
   sealed abstract class SErrorDamlException extends SError
 
   /** Unhandled exceptions */
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  // Have the unhandled-exception contain directly the original payload value & type
-  // as well as (or perhaps instead of) the computed message text
-  final case class DamlEUnhandledException(message: String) extends SErrorDamlException {
-    override def toString: String = message
+  final case class DamlEUnhandledException(ty: Ast.Type, exception: Value[ContractId])
+      extends SErrorDamlException {
+    override def toString: String = s"Unhandled exception: $exception of type $ty"
   }
 
   /** Arithmetic error such as division by zero */

@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data
-import com.daml.lf.language.Ast.{Expr, Package}
+import com.daml.lf.language.Ast._
+import com.daml.lf.value.Value._
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
 import com.daml.lf.speedy.SError.DamlEUnhandledException
@@ -169,12 +170,43 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        }
       """)
 
+    val e1 =
+      data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:M:E1")
+    val e2 =
+      data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:M:E2")
+
     val testCases = Table[String, SResult](
       ("expression", "expected"),
-      ("M:unhandled1", SResultError(DamlEUnhandledException("oops1"))),
-      ("M:unhandled2", SResultError(DamlEUnhandledException("oops2"))),
-      ("M:unhandled3", SResultError(DamlEUnhandledException("E1"))),
-      ("M:unhandled4", SResultError(DamlEUnhandledException("E1"))),
+      (
+        "M:unhandled1",
+        SResultError(
+          DamlEUnhandledException(
+            TBuiltin(BTGeneralError),
+            ValueBuiltinException("GeneralError", ValueText("oops1")),
+          )
+        ),
+      ),
+      (
+        "M:unhandled2",
+        SResultError(
+          DamlEUnhandledException(
+            TBuiltin(BTGeneralError),
+            ValueBuiltinException("GeneralError", ValueText("oops2")),
+          )
+        ),
+      ),
+      (
+        "M:unhandled3",
+        SResultError(
+          DamlEUnhandledException(TTyCon(e1), ValueRecord(Some(e1), data.ImmArray.empty))
+        ),
+      ),
+      (
+        "M:unhandled4",
+        SResultError(
+          DamlEUnhandledException(TTyCon(e2), ValueRecord(Some(e2), data.ImmArray.empty))
+        ),
+      ),
     )
 
     forEvery(testCases) { (exp: String, expected: SResult) =>
