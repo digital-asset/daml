@@ -255,13 +255,82 @@ object TreeUtils {
     }
   }
 
-  def evParties(ev: TreeEvent.Kind): Seq[Party] = ev match {
-    case TreeEvent.Kind.Created(create) => Party.subst(create.signatories)
-    case TreeEvent.Kind.Exercised(exercised) => Party.subst(exercised.actingParties)
-    case TreeEvent.Kind.Empty => Seq()
+  sealed trait Submit {
+    def submitters: Set[Party]
+    def commands: Seq[Command]
   }
 
-  def cmdParties(cmd: Command): Seq[Party] = {
+  sealed trait SubmitSingle extends Submit {
+    def submitter: Party
+    override def submitters: Set[Party] = Set(submitter)
+  }
+  sealed trait SubmitMulti extends Submit
+
+  sealed trait SubmitSimple extends Submit {
+    def simpleCommands: Seq[SimpleCommand]
+    def commands: Seq[Command] = simpleCommands.map(_.command)
+  }
+  sealed trait SubmitTree extends Submit {
+    def tree: TransactionTree
+  }
+
+  final case class SubmitSimpleSingle(simpleCommands: Seq[SimpleCommand], submitter: Party)
+      extends Submit
+      with SubmitSimple
+      with SubmitSingle
+  final case class SubmitSimpleMulti(simpleCommands: Seq[SimpleCommand], submitters: Set[Party])
+      extends Submit
+      with SubmitSimple
+      with SubmitMulti
+  final case class SubmitTreeSingle(commands: Seq[Command], tree: TransactionTree, submitter: Party)
+      extends Submit
+      with SubmitTree
+      with SubmitSingle
+  final case class SubmitTreeMulti(
+      commands: Seq[Command],
+      tree: TransactionTree,
+      submitters: Set[Party],
+  ) extends Submit
+      with SubmitTree
+      with SubmitMulti
+
+  object Submit {
+    def fromTree(tree: TransactionTree): Submit = {
+      val commands = Command.fromTree(tree)
+      val submitters = commands.foldMap(cmdParties)
+      val optSimpleCommands = SimpleCommand.fromCommands(commands, tree)
+      (submitters.toSeq, optSimpleCommands) match {
+        case (Seq(submitter), Some(simpleCommands)) =>
+          SubmitSimpleSingle(simpleCommands, submitter)
+        case (_, Some(simpleCommands)) =>
+          SubmitSimpleMulti(simpleCommands, submitters)
+        case (Seq(submitter), None) =>
+          SubmitTreeSingle(commands, tree, submitter)
+        case (_, None) =>
+          SubmitTreeMulti(commands, tree, submitters)
+      }
+    }
+  }
+
+  object SubmitSimple {
+    def fromCreatedEvents(createdEvents: Seq[CreatedEvent]): SubmitSimple = {
+      val simpleCommands =
+        createdEvents.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId)))
+      val submitters = Party.subst(createdEvents.foldMap(_.signatories.toSet))
+      submitters.toSeq match {
+        case Seq(submitter) => SubmitSimpleSingle(simpleCommands, submitter)
+        case _ => SubmitSimpleMulti(simpleCommands, submitters)
+      }
+    }
+  }
+
+  def evParties(ev: TreeEvent.Kind): Set[Party] = ev match {
+    case TreeEvent.Kind.Created(create) => Party.subst(create.signatories).toSet
+    case TreeEvent.Kind.Exercised(exercised) => Party.subst(exercised.actingParties).toSet
+    case TreeEvent.Kind.Empty => Set.empty[Party]
+  }
+
+  def cmdParties(cmd: Command): Set[Party] = {
     cmd match {
       case CreateCommand(createdEvent) => evParties(Kind.Created(createdEvent))
       case ExerciseCommand(exercisedEvent) => evParties(Kind.Exercised(exercisedEvent))
