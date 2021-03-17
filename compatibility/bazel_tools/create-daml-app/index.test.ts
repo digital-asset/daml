@@ -218,9 +218,10 @@ const newUiPage = async (): Promise<Page> => {
 
 const waitForNSelector = async (page: Page, selector: string, n: number) => {
   await page.waitForFunction(
-      (n) => document.querySelectorAll(selector).length == n,
+      (n, selector) => document.querySelectorAll(selector).length == n,
       {},
-      n
+      n,
+      selector
   );
 }
 
