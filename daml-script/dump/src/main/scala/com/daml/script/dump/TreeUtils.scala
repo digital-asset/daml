@@ -4,7 +4,7 @@
 package com.daml.script.dump
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
@@ -159,39 +159,86 @@ object TreeUtils {
   def createdReferencedCids(ev: CreatedEvent): Set[ContractId] =
     ev.createArguments.foldMap(args => args.fields.foldMap(f => valueCids(f.getValue.sum)))
 
-  /** A simple event causes the creation of a single contract and returns its contract id.
-    *
-    * A create event is a simple event. An exercise event can be a simple event.
-    */
-  case class SimpleEvent(event: TreeEvent.Kind, contractId: ContractId)
+  def cmdReferencedCids(cmd: Command): Set[ContractId] = {
+    cmd match {
+      case CreateCommand(createdEvent) =>
+        createdReferencedCids(createdEvent)
+      case ExerciseCommand(exercisedEvent) =>
+        exercisedEvent.choiceArgument.foldMap(arg => valueCids(arg.sum)) + ContractId(
+          exercisedEvent.contractId
+        )
+      case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+        createdReferencedCids(createdEvent) ++ exercisedEvent.choiceArgument.foldMap(arg =>
+          valueCids(arg.sum)
+        )
+    }
+  }
 
-  object SimpleEvent {
-    def fromTreeEvent(event: TreeEvent.Kind, tree: TransactionTree): Option[SimpleEvent] = {
-      event match {
-        case created @ Kind.Created(value) =>
-          Some(SimpleEvent(created, ContractId(value.contractId)))
-        case exercised @ Kind.Exercised(value) =>
-          val result = value.exerciseResult.flatMap {
+  sealed trait Command
+  final case class CreateCommand(createdEvent: CreatedEvent) extends Command
+  final case class ExerciseCommand(exercisedEvent: ExercisedEvent) extends Command
+  final case class CreateAndExerciseCommand(
+      createdEvent: CreatedEvent,
+      exercisedEvent: ExercisedEvent,
+  ) extends Command
+
+  object Command {
+    def fromTree(tree: TransactionTree): Seq[Command] = {
+      val rootEvents = tree.rootEventIds.map(tree.eventsById(_).kind)
+      val commands = ListBuffer.empty[Command]
+      rootEvents.foreach {
+        case Kind.Empty =>
+        case Kind.Created(createdEvent) =>
+          commands += CreateCommand(createdEvent)
+        case Kind.Exercised(exercisedEvent) =>
+          commands.lastOption match {
+            case Some(CreateCommand(createdEvent))
+                if createdEvent.contractId == exercisedEvent.contractId =>
+              commands.update(
+                commands.length - 1,
+                CreateAndExerciseCommand(createdEvent, exercisedEvent),
+              )
+            case _ =>
+              commands += ExerciseCommand(exercisedEvent)
+          }
+      }
+      commands.toSeq
+    }
+  }
+
+  /** A simple command causes the creation of a single contract and returns its contract id.
+    *
+    * A create command is a simple command. An exercise command can be a simple command.
+    */
+  case class SimpleCommand(command: Command, contractId: ContractId)
+
+  object SimpleCommand {
+    def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
+      command match {
+        case CreateCommand(createdEvent) =>
+          Some(SimpleCommand(command, ContractId(createdEvent.contractId)))
+        case ExerciseCommand(exercisedEvent) =>
+          val result = exercisedEvent.exerciseResult.flatMap {
             _.sum match {
               case Sum.ContractId(value) => Some(value)
               case _ => None
             }
           }
-          val creates = treeEventCreatedCids(exercised, tree)
+          val creates = treeEventCreatedCids(Kind.Exercised(exercisedEvent), tree)
           (result, creates) match {
             case (Some(cid), Seq(createdCid)) if cid == createdCid =>
-              Some(SimpleEvent(exercised, ContractId(cid)))
+              Some(SimpleCommand(command, ContractId(cid)))
             case _ => None
           }
-        case Kind.Empty => None
+        case _: CreateAndExerciseCommand =>
+          // TODO[AH] Identify simple createAndExercise commands.
+          None
       }
     }
 
-    def fromTree(tree: TransactionTree): Option[Seq[SimpleEvent]] = {
+    def fromCommands(commands: Seq[Command], tree: TransactionTree): Option[Seq[SimpleCommand]] = {
       import scalaz.Scalaz._
-      tree.rootEventIds.toList.traverse(id =>
-        SimpleEvent.fromTreeEvent(tree.eventsById(id).kind, tree)
-      )
+      commands.toList.traverse(SimpleCommand.fromCommand(_, tree))
     }
   }
 
@@ -199,6 +246,15 @@ object TreeUtils {
     case TreeEvent.Kind.Created(create) => Party.subst(create.signatories)
     case TreeEvent.Kind.Exercised(exercised) => Party.subst(exercised.actingParties)
     case TreeEvent.Kind.Empty => Seq()
+  }
+
+  def cmdParties(cmd: Command): Seq[Party] = {
+    cmd match {
+      case CreateCommand(createdEvent) => evParties(Kind.Created(createdEvent))
+      case ExerciseCommand(exercisedEvent) => evParties(Kind.Exercised(exercisedEvent))
+      case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+        evParties(Kind.Created(createdEvent)) ++ evParties(Kind.Exercised(exercisedEvent))
+    }
   }
 
   def treeRefs(t: TransactionTree): Set[Identifier] =

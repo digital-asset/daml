@@ -7,7 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.daml.script.dump.TreeUtils.SimpleEvent
+import com.daml.script.dump.TreeUtils.{Command, SimpleCommand}
 import com.google.protobuf
 
 object TestData {
@@ -105,8 +105,13 @@ object TestData {
         traceContext = None,
       )
     }
-    def toSimpleEvents: Seq[SimpleEvent] = {
-      SimpleEvent.fromTree(this.toTransactionTree).get
+    def toCommands: (Seq[Command], TransactionTree) = {
+      val tree = this.toTransactionTree
+      (Command.fromTree(tree), tree)
+    }
+    def toSimpleCommands: Seq[SimpleCommand] = {
+      val (cmds, tree) = this.toCommands
+      SimpleCommand.fromCommands(cmds, tree).get
     }
   }
 }

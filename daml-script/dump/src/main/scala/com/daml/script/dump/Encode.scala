@@ -8,8 +8,7 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Time.{Date, Timestamp}
@@ -30,7 +29,11 @@ private[dump] object Encode {
     val partyMap = partyMapping(parties)
 
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    val treeCidRefs = trees.foldMap(treeReferencedCids)
+    // TODO[AH] Avoid constructing Commands twice. Currently we do this once here and once more in encodeTree.
+    val treeCidRefs = trees.foldMap { tree =>
+      val cmds = Command.fromTree(tree)
+      cmds.foldMap(cmdReferencedCids)
+    }
     val cidRefs = acsCidRefs ++ treeCidRefs
 
     val unknownCidRefs = acsCidRefs -- acs.keySet
@@ -211,23 +214,32 @@ private[dump] object Encode {
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
-  private def encodeEv(
+  private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
-      ev: TreeEvent.Kind,
-  ): Doc = ev match {
-    case TreeEvent.Kind.Created(created) =>
-      encodeCreatedEvent(partyMap, cidMap, created)
-    case TreeEvent.Kind.Exercised(exercised @ _) =>
+      cmd: Command,
+  ): Doc = cmd match {
+    case CreateCommand(createdEvent) =>
+      encodeCreatedEvent(partyMap, cidMap, createdEvent)
+    case ExerciseCommand(exercisedEvent) =>
       Doc.text("exerciseCmd ") + encodeCid(
         cidMap,
-        ContractId(exercised.contractId),
+        ContractId(exercisedEvent.contractId),
       ) + Doc.space + encodeValue(
         partyMap,
         cidMap,
-        exercised.getChoiceArgument.sum,
+        exercisedEvent.getChoiceArgument.sum,
       )
-    case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
+    case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+      Doc
+        .stack(
+          Seq(
+            Doc.text("createAndExerciseCmd"),
+            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
+            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
+          )
+        )
+        .nested(2)
   }
 
   private def encodeCreatedEvent(
@@ -251,22 +263,22 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[CreatedEvent],
   ): Doc = {
-    encodeSubmitSimpleEvents(
+    encodeSubmitSimpleCommands(
       partyMap,
       cidMap,
       cidRefs,
-      evs.map(ev => SimpleEvent(Kind.Created(ev), ContractId(ev.contractId))),
+      evs.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId))),
     )
   }
 
-  private[dump] def encodeSubmitSimpleEvents(
+  private[dump] def encodeSubmitSimpleCommands(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
-      evs: Seq[SimpleEvent],
+      commands: Seq[SimpleCommand],
   ): Doc = {
-    val submitters: Set[Party] = evs.foldMap(ev => evParties(ev.event).toSet)
-    val cids = evs.map(_.contractId)
+    val submitters: Set[Party] = commands.foldMap(sc => cmdParties(sc.command).toSet)
+    val cids = commands.map(_.contractId)
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
@@ -283,7 +295,7 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val actions = Doc.stack(evs.map { case SimpleEvent(ev, cid) =>
+    val actions = Doc.stack(commands.map { case SimpleCommand(cmd, cid) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(cid)) {
           encodeCid(cidMap, cid) :+ " <- "
@@ -293,7 +305,7 @@ private[dump] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeEv(partyMap, cidMap, ev)
+      bind + encodeCmd(partyMap, cidMap, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
@@ -320,21 +332,23 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       tree: TransactionTree,
   ): Doc = {
-    val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val simpleEventsOnly: Option[Seq[SimpleEvent]] = SimpleEvent.fromTree(tree)
-    simpleEventsOnly match {
-      case Some(evs) =>
-        encodeSubmitSimpleEvents(partyMap, cidMap, cidRefs, evs)
-      case None => {
-        val submitters = rootEvs.flatMap(evParties(_)).toSet
+    val commands = Command.fromTree(tree)
+    val simpleCommandsOnly: Option[Seq[SimpleCommand]] = SimpleCommand.fromCommands(commands, tree)
+    simpleCommandsOnly match {
+      case Some(simpleCommands) =>
+        encodeSubmitSimpleCommands(partyMap, cidMap, cidRefs, simpleCommands)
+      case None =>
+        val submitters = commands.foldMap(cmdParties(_).toSet)
         val cids = treeCreatedCids(tree)
         val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
-        val treeBind =
-          (("tree <- " +: submit(partyMap, submitters, isTree = true) :+ " do") /
-            Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
+        val treeBind = Doc
+          .stack(
+            ("tree <-" &: submit(partyMap, submitters, isTree = true) :& "do") +:
+              commands.map(encodeCmd(partyMap, cidMap, _))
+          )
+          .hang(2)
         val cidBinds = referencedCids.map(bindCid(cidMap, _))
         Doc.stack(treeBind +: cidBinds)
-      }
     }
   }
 

@@ -8,19 +8,23 @@ import com.daml.ledger.api.v1.{value => v}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
+import scalaz.std.iterable._
+import scalaz.std.set._
+import scalaz.syntax.foldable._
+
+class CmdReferencedCidsSpec extends AnyFreeSpec with Matchers {
   import TreeUtils._
-  "treeReferencedCids" - {
+  "cmdReferencedCids" - {
     "empty" in {
-      val tree = TestData.Tree(Seq()).toTransactionTree
-      treeReferencedCids(tree) shouldBe Set.empty
+      val (cmds, _) = TestData.Tree(Seq()).toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set.empty
     }
     "created only" in {
-      val tree = TestData.Tree(Seq(TestData.Created(ContractId("cid")))).toTransactionTree
-      treeReferencedCids(tree) shouldBe Set.empty
+      val (cmds, _) = TestData.Tree(Seq(TestData.Created(ContractId("cid")))).toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set.empty
     }
     "exercised" in {
-      val tree = TestData
+      val (cmds, _) = TestData
         .Tree(
           Seq(
             TestData.Exercised(
@@ -29,8 +33,22 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
             )
           )
         )
-        .toTransactionTree
-      treeReferencedCids(tree) shouldBe Set("cid")
+        .toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set("cid")
+    }
+    "createAndExercise" in {
+      val (cmds, _) = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(ContractId("cid")),
+            TestData.Exercised(
+              ContractId("cid"),
+              Seq(),
+            ),
+          )
+        )
+        .toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set.empty
     }
     "referenced" in {
       val variant = v.Value(
@@ -77,7 +95,7 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
           )
         )
       )
-      val tree = TestData
+      val (cmds, _) = TestData
         .Tree(
           Seq[TestData.Event](
             TestData.Created(
@@ -91,8 +109,8 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
             ),
           )
         )
-        .toTransactionTree
-      treeReferencedCids(tree) shouldBe Set(
+        .toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set(
         "cid_create_arg",
         "cid_exercise",
         "cid_variant",
@@ -104,7 +122,7 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
       )
     }
     "only referenced internally" in {
-      val tree = TestData
+      val (cmds, _) = TestData
         .Tree(
           Seq(
             TestData.Exercised(
@@ -118,8 +136,8 @@ class TreeReferencedCidsSpec extends AnyFreeSpec with Matchers {
             )
           )
         )
-        .toTransactionTree
-      treeReferencedCids(tree) shouldBe Set(
+        .toCommands
+      cmds.foldMap(cmdReferencedCids) shouldBe Set(
         "cid_exercise_outer"
       )
     }
