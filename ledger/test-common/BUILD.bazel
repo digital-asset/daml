@@ -53,6 +53,7 @@ alias(
 da_scala_library(
     name = "test-common",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:test-common:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
