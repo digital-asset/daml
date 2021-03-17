@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import java.math.BigDecimal
 import java.util
 import java.util.regex.Pattern
 
@@ -191,12 +192,19 @@ private[lf] object SBuiltin {
         Numeric.divide(scale, x, y),
       )
 
+  def asNumeric(x: BigDecimal) = {
+    if (0 <= x.scale && x.scale < Numeric.maxPrecision && x.precision() < Numeric.maxPrecision)
+      x.asInstanceOf[Numeric]
+    else
+      crash("sanity check fails")
+  }
+
   sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric)
       extends SBuiltinPure(3) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val scale = args.get(0).asInstanceOf[STNat].n
-      val a = args.get(1).asInstanceOf[SNumeric].value
-      val b = args.get(2).asInstanceOf[SNumeric].value
+      val a = asNumeric(args.get(1).asInstanceOf[SNumeric].value)
+      val b = asNumeric(args.get(2).asInstanceOf[SNumeric].value)
       assert(a.scale == scale && b.scale == scale)
       SNumeric(op(a, b))
     }
@@ -208,8 +216,8 @@ private[lf] object SBuiltin {
       val scaleA = args.get(0).asInstanceOf[STNat].n
       val scaleB = args.get(1).asInstanceOf[STNat].n
       val scale = args.get(2).asInstanceOf[STNat].n
-      val a = args.get(3).asInstanceOf[SNumeric].value
-      val b = args.get(4).asInstanceOf[SNumeric].value
+      val a = asNumeric(args.get(3).asInstanceOf[SNumeric].value)
+      val b = asNumeric(args.get(4).asInstanceOf[SNumeric].value)
       assert(a.scale == scaleA && b.scale == scaleB)
       SNumeric(op(scale, a, b))
     }
@@ -226,7 +234,10 @@ private[lf] object SBuiltin {
       val prec = args.get(1).asInstanceOf[SInt64].value
       val x = args.get(2).asInstanceOf[SNumeric].value
       SNumeric(
-        rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x))
+        rightOrArithmeticError(
+          s"Error while rounding (Numeric $scale)",
+          Numeric.round(prec, asNumeric(x)),
+        )
       )
     }
   }
@@ -315,7 +326,7 @@ private[lf] object SBuiltin {
         case SParty(p) => p
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
-        case SContractId(_) | SNumeric(_) | SExperimental(_) =>
+        case SContractId(_) | SNumeric(_) =>
           crash("litToText: literal not supported")
       })
     }
@@ -342,7 +353,7 @@ private[lf] object SBuiltin {
   final case object SBToTextNumeric extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val x = args.get(1).asInstanceOf[SNumeric].value
-      SText(Numeric.toUnscaledString(x))
+      SText(Numeric.toUnscaledString(asNumeric(x)))
     }
   }
 
@@ -413,7 +424,7 @@ private[lf] object SBuiltin {
             // "1." followed by millions of '0's
             val newString = s"$signPart$intPart.${Option(decPartOrNull).getOrElse("")}"
             SOptional(
-              Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))
+              Some(SNumeric(Numeric.assertFromBigDecimal(scale, new BigDecimal(newString))))
             )
           } else {
             SV.None
@@ -614,7 +625,7 @@ private[lf] object SBuiltin {
       SInt64(
         rightOrArithmeticError(
           s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
-          Numeric.toLong(x),
+          Numeric.toLong(asNumeric(x)),
         )
       )
     }
@@ -1680,7 +1691,31 @@ private[lf] object SBuiltin {
     import java.math._
 
     private sealed abstract class SBExperimental(val name: String, arity: Int)
-        extends SBuiltin(arity)
+        extends SBuiltin(arity) {
+
+      def toLong(v: SValue) =
+        v match {
+          case SInt64(i) => i
+          case _ =>
+            crash(s"$name: expected SInt64 but got $v")
+        }
+
+      def toBigDecimal(v: SValue): java.math.BigDecimal =
+        v match {
+          case SNumeric(x) =>
+            x
+          case _ =>
+            crash(s"$name: expected Numeric but got $v")
+        }
+
+      def toRoundingMode(v: SValue) =
+        v match {
+          case SEnum(_, _, rank) =>
+            RoundingMode.valueOf(rank)
+          case _ =>
+            crash(s"$name: expected RoundingMode but got $v")
+        }
+    }
 
     private object SBExperimentalAnswer extends SBExperimental("ANSWER", 1) {
       override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
@@ -1688,108 +1723,179 @@ private[lf] object SBuiltin {
       }
     }
 
-    object DecimalFloat {
-
-      val MaxExponent = 1000
-      val MaxPrecision = 10000
-
-      private[SBExperimental] def toBigDecimal(builtin: String, x: SValue) =
-        x match {
-          case SExperimental(x: BigDecimal) => x
-          case _ =>
-            crash(s"type mismatch $builtin: $x")
-        }
-
-      private[SBExperimental] def checkPrecision(i: Long): Int = {
-        if (i <= 0 || MaxPrecision < i) {
-          crash("invalide precision")
-        } else {
-          i.toInt
-        }
+    private object SBExperimentalLog extends SBExperimental("LOG", 1) {
+      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+        import java.nio.file._
+        Files.write(
+          Paths.get("/tmp/log"),
+          List(args.get(0).toString).asJava,
+          StandardOpenOption.APPEND,
+        )
+        machine.returnValue = SUnit
       }
+    }
 
-      private[SBExperimental] def checkExponent(i: Long): Int = {
-        if (i < MaxExponent || MaxExponent < i) {
-          crash("invalide exponent")
-        } else {
-          i.toInt
-        }
-      }
+    private object BigNumeric {
 
-      private[SBExperimental] def check(x: => BigDecimal): BigDecimal = {
-        val normalized = {
+      private val MaxPrecision = 1000
+
+//      private def checkPrecision(p: Long): Int =
+//        if (0 < p && p <= MaxPrecision) p.toInt
+//        else crash("invalid precision")
+
+      private def checkScale(s: Long): Int =
+        if (0 <= s && s < MaxPrecision) s.toInt
+        else crash("invalid scale")
+
+      private def check(x: => BigDecimal) = {
+        val uncheck =
           try {
-            x.stripTrailingZeros()
+            x
           } catch {
             case _: ArithmeticException =>
               crash("arithmetic exception")
           }
-        }
-        val e = x.precision - 1 - x.scale
-        if (e < -MaxExponent)
-          crash("underflow")
-        else if (e > MaxExponent)
+        if (MaxPrecision < x.precision)
+          crash("overflow")
+        else if (x.scale < 0)
+          crash("overflow")
+        else if (MaxPrecision <= x.scale)
           crash("overflow")
         else
-          normalized
+          SNumeric(uncheck)
       }
-    }
 
-    private object SBExponentDecimalFloat extends SBExperimental("EXPONENT_DECIMALFLOAT", 1) {
-      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
-        val x = DecimalFloat.toBigDecimal(name, args.get(2))
-        machine.returnValue = SInt64((x.precision - 1 - x.scale).toLong)
+      object SBScale extends SBExperimental("SCALE_BIGNUMERIC", 1) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          machine.returnValue = SInt64(toBigDecimal(args.get(0)).scale.toLong)
+        }
       }
-    }
 
-    private object SBFromIntDecimalFloat extends SBExperimental("FROM_INT_DECIMALFLOAT", 1) {
-      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
-        val a = args.get(0).asInstanceOf[SInt64].value
-        machine.returnValue = SExperimental(BigDecimal.valueOf(a))
+      object SBPrecision extends SBExperimental("PRECISION_BIGNUMERIC", 1) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          machine.returnValue = SInt64(toBigDecimal(args.get(0)).precision.toLong)
+        }
       }
-    }
 
-    private sealed abstract class SBBinaryOpDecimalFloat(
-        name: String,
-        op: (BigDecimal, BigDecimal, MathContext) => BigDecimal,
-    ) extends SBExperimental(name, 4) {
-      override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine) = {
-        val precision = DecimalFloat.checkPrecision(args.get(0).asInstanceOf[SInt64].value)
-        val roundingMode = args.get(1).asInstanceOf[SEnum].constructorRank
-        val a = DecimalFloat.toBigDecimal(name, args.get(2))
-        val b = DecimalFloat.toBigDecimal(name, args.get(3))
-        val c = DecimalFloat.check(
-          op(a, b, new MathContext(precision, RoundingMode.valueOf(roundingMode)))
+      object SBFromNumeric extends SBExperimental("FROM_NUMERIC_BIGNUMERIC", 1) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          machine.returnValue = args.get(0) match {
+            case x: SNumeric => x
+            case v => crash(s"$name: expected Numeric but got $v")
+          }
+        }
+      }
+
+      object SBToNumeric extends SBExperimental("TO_NUMERIC_BIGNUMERIC", 2) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          val scale = args.get(0) match {
+            case STNat(n) => n
+            case v => crash(s"$name: expected Nat but got $v")
+          }
+          machine.returnValue = SNumeric(asNumeric(toBigDecimal(args.get(1)).setScale(scale)))
+        }
+      }
+
+      object SBAdd extends SBExperimental("ADD_BIGNUMERIC", 2) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          val x = toBigDecimal(args.get(0))
+          val y = toBigDecimal(args.get(1))
+          machine.returnValue = check(x add y)
+        }
+      }
+
+      object SBSub extends SBExperimental("SUB_BIGNUMERIC", 2) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          val x = toBigDecimal(args.get(0))
+          val y = toBigDecimal(args.get(1))
+          machine.returnValue = check(x subtract y)
+        }
+      }
+
+      object SBMult extends SBExperimental("MULT_BIGNUMERIC", 2) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          val x = toBigDecimal(args.get(0))
+          val y = toBigDecimal(args.get(1))
+          machine.returnValue = check(x multiply y)
+        }
+      }
+
+      object SBShift extends SBExperimental("SHIFT_BIGNUMERIC", 2) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          val i = Math.toIntExact(toLong(args.get(0)))
+          val x = toBigDecimal(args.get(1))
+          machine.returnValue = SNumeric(x.scaleByPowerOfTen(i))
+        }
+      }
+
+      object SBDiv extends SBExperimental("DIV_BIGNUMERIC", 4) {
+        override private[speedy] def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ): Unit = {
+          val scale = checkScale(toLong(args.get(0)))
+          val rounding = toRoundingMode(args.get(1))
+          val x = toBigDecimal(args.get(2))
+          val y = toBigDecimal(args.get(3))
+          machine.returnValue = check(x.divide(y, scale, rounding))
+        }
+      }
+
+      object SBCompare extends SBExperimental("COMPARE_BIGNUMERIC", 2) {
+        private[this] val orderingNames = Ref.Name.Array(
+          Ref.Name.assertFromString("LT"),
+          Ref.Name.assertFromString("EQ"),
+          Ref.Name.assertFromString("GT"),
         )
-        machine.returnValue = SExperimental(c)
+        private[this] val dummyId =
+          Identifier.assertFromString("dummyPackage:dummyModule:dummyConstructor")
+
+        override private[speedy] final def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ) = {
+          val a = toBigDecimal(args.get(0))
+          val b = toBigDecimal(args.get(1))
+          val rank = (a compareTo b) + 1
+          machine.returnValue = SEnum(dummyId, orderingNames(rank), rank)
+        }
       }
-    }
-    private object SBAddDecimalFloat extends SBBinaryOpDecimalFloat("ADD_DECIMALFLOAT", _.add(_, _))
-    private object SBSubtractDecimalFloat
-        extends SBBinaryOpDecimalFloat("SUB_DECIMALFLOAT", _.subtract(_, _))
-    private object SBMultiplyDecimalFloat
-        extends SBBinaryOpDecimalFloat("MULT_DECIMALFLOAT", _.multiply(_, _))
-    private object SBDivideDecimalFloat
-        extends SBBinaryOpDecimalFloat("DIV_DECIMALFLOAT", _.divide(_, _))
-    private object SBCompareDecimalFloat extends SBExperimental("COMPARE_DECIMALFLOAT", 2) {
-      private[this] val orderingNames = Ref.Name.Array(
-        Ref.Name.assertFromString("LT"),
-        Ref.Name.assertFromString("EQ"),
-        Ref.Name.assertFromString("GT"),
-      )
-      private[this] val dummyId =
-        Identifier.assertFromString("dummyPackage:dummyModule:dummyConstructor")
-      override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine) = {
-        val a = DecimalFloat.toBigDecimal(name, args.get(0))
-        val b = DecimalFloat.toBigDecimal(name, args.get(1))
-        val rank = (a compareTo b) + 1
-        machine.returnValue = SEnum(dummyId, orderingNames(rank), rank)
+
+      final case object SBToText extends SBExperimental("TO_TEXT_BIGNUMERIC", 1) {
+        override private[speedy] final def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ) = {
+          val x = args.get(0).asInstanceOf[SNumeric].value
+          val s = x.toPlainString
+          machine.returnValue = SText(if (s.contains(".")) s else s + ".0")
+        }
       }
-    }
-    private[this] object SBToTextDecimalFloat extends SBExperimental("TO_TEXT_DECIMALFLOAT", 1) {
-      override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine) = {
-        machine.returnValue = SText(DecimalFloat.toBigDecimal(name, args.get(0)).toString)
-      }
+
     }
 
     def apply(name: String): SExpr =
@@ -1798,14 +1904,18 @@ private[lf] object SBuiltin {
     private val mapping: Map[String, SEBuiltin] =
       List[SBExperimental](
         SBExperimentalAnswer,
-        SBAddDecimalFloat,
-        SBSubtractDecimalFloat,
-        SBMultiplyDecimalFloat,
-        SBDivideDecimalFloat,
-        SBExponentDecimalFloat,
-        SBFromIntDecimalFloat,
-        SBCompareDecimalFloat,
-        SBToTextDecimalFloat,
+        SBExperimentalLog,
+        BigNumeric.SBScale,
+        BigNumeric.SBPrecision,
+        BigNumeric.SBFromNumeric,
+        BigNumeric.SBToNumeric,
+        BigNumeric.SBAdd,
+        BigNumeric.SBSub,
+        BigNumeric.SBMult,
+        BigNumeric.SBDiv,
+        BigNumeric.SBToText,
+        BigNumeric.SBShift,
+        BigNumeric.SBCompare,
       ).map(x => x.name -> SEBuiltin(x)).toMap
 
   }

@@ -1107,7 +1107,7 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SGenMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | _: SValue.SPAP | SValue.SToken | SValue.SBuiltinException(_, _) |
-          SValue.SAnyException(_, _, _) | SValue.SExperimental(_) =>
+          SValue.SAnyException(_, _, _) =>
         crash("Match on non-matchable value")
     }
 

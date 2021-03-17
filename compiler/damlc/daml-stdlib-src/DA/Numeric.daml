@@ -5,7 +5,48 @@
 
 module DA.Numeric where
 
-#ifdef DAML_NUMERIC
+#ifdef DAML_EXPERIMENTAL
+import qualified DA.Experimental.BigNumeric as BN
+import DA.Experimental.RoundingMode
+
+multiply : forall n1 n2 n3. NumericScale n3 => RoundingMode -> Numeric n1 -> Numeric n2 -> Numeric n3
+multiply rounding x y =
+    BN.toNumeric $ BN.setScale scale rounding $ BN.multiply bY bX
+  where
+    scale = numericScale (BN.toNumeric $ BN.zero : Numeric n3)
+    bX = BN.fromNumeric x
+    bY = BN.fromNumeric y
+
+divide : forall n1 n2 n3. NumericScale n3 => RoundingMode -> Numeric n1 -> Numeric n2 -> Numeric n3
+divide rounding x y =
+    BN.toNumeric $ BN.divide scale rounding bY bX
+  where
+    scale = numericScale (BN.toNumeric BN.zero : Numeric n3)
+    bX = BN.fromNumeric x
+    bY = BN.fromNumeric y
+
+cast : forall n2 n1. NumericScale n2 => Numeric n1 -> Numeric n2
+cast x = BN.toNumeric $ BN.fromNumeric x
+
+roundAndCast: forall n2 n1. NumericScale n2 => RoundingMode -> Numeric n1 -> Numeric n2
+roundAndCast rounding x =
+    BN.toNumeric $ BN.setScale scale rounding bX
+  where
+    scale = numericScale (BN.toNumeric BN.zero : Numeric n2)
+    bX = BN.fromNumeric x
+
+shift : forall n2 n1. NumericScale n1 => NumericScale n2 => Numeric n1 -> Numeric n2
+shift x =
+   BN.toNumeric $ BN.shift shifting bX
+ where
+   shifting = (numericScale (BN.toNumeric BN.zero : Numeric n2)) - (numericScale x)
+   bX = BN.fromNumeric x
+
+pi : forall n. NumericScale n => Numeric n
+pi = roundAndCast HalfUp (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
+
+#elifdef DAML_NUMERIC
+
 import GHC.Types (primitive)
 
 -- | Multiply two numerics. Both inputs and the output may have

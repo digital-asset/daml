@@ -26,7 +26,8 @@ sealed trait SValue {
   def toValue: V[V.ContractId] =
     this match {
       case SInt64(x) => V.ValueInt64(x)
-      case SNumeric(x) => V.ValueNumeric(x)
+      case SNumeric(x) =>
+        V.ValueNumeric(Numeric.assertFromBigDecimal(Numeric.Scale.assertFromInt(x.scale), x))
       case SText(x) => V.ValueText(x)
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
@@ -76,8 +77,6 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SPAP")
       case SToken =>
         throw SErrorCrash("SValue.toValue: unexpected SToken")
-      case SExperimental(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected SExperimental")
     }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
@@ -212,7 +211,7 @@ object SValue {
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
-  final case class SNumeric(value: Numeric) extends SPrimLit
+  final case class SNumeric(value: java.math.BigDecimal) extends SPrimLit
   final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
@@ -226,7 +225,6 @@ object SValue {
   final case class STypeRep(ty: Type) extends SValue
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
-  final case class SExperimental(x: Any) extends SPrimLit
 
   object SValue {
     val Unit = SUnit

@@ -9,8 +9,9 @@ module DA.Experimental.BigNumeric (
     , multiply
     , one
     , precision
-    , round
     , scale
+    , setScale
+    , shift
     , subtract
     , toNumeric
     , toText
@@ -31,7 +32,7 @@ instance Eq BigNumeric where
 fromNumeric: forall n. Numeric n -> BigNumeric
 fromNumeric = primitive @"$FROM_NUMERIC_BIGNUMERIC"
 
-toNumeric: forall n. BigNumeric -> Optional (Numeric n)
+toNumeric: forall n. BigNumeric -> Numeric n
 toNumeric = primitive @"$TO_NUMERIC_BIGNUMERIC"
 
 zero, one: BigNumeric
@@ -42,19 +43,35 @@ scale, precision: BigNumeric -> Int
 scale = primitive @"$SCALE_BIGNUMERIC"
 precision = primitive @"$PRECISION_BIGNUMERIC"
 
-add, subtract, multiply: BigNumeric -> BigNumeric -> BigNumeric
+-- can overflow
+-- scale (add x y) == min (scale x) (scale y)
+add, subtract: BigNumeric -> BigNumeric -> BigNumeric
 add = primitive @"$ADD_BIGNUMERIC"
 subtract = primitive @"$SUB_BIGNUMERIC"
+
+-- can under/overflow
+-- scale (add x y) == (scale x) + (scale y)
+multiply: BigNumeric -> BigNumeric -> BigNumeric
 multiply = primitive @"$MULT_BIGNUMERIC"
 
 divide: Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
 divide = primitive @"$DIV_BIGNUMERIC"
 
-round: Int -> RoundingMode -> BigNumeric -> BigNumeric
-round scale rounding x = divide scale rounding x one
+setScale: Int -> RoundingMode -> BigNumeric -> BigNumeric
+setScale scale rounding x = divide scale rounding x one
 
+-- sensitive to scale
 toText: BigNumeric -> Text
 toText = primitive @"$TO_TEXT_BIGNUMERIC"
 
+-- in final version we will use standard LF-buitlin comparisons
 compare: BigNumeric -> BigNumeric ->  Ordering
 compare = primitive @"$COMPARE_BIGNUMERIC"
+
+-- can overflow
+stripTrailingZero: BigNumeric -> BigNumeric
+stripTrailingZero = primitive @"$STRIP_TRAILING_ZERO_BIGNUMERIC"
+
+-- can under/overflow
+shift: Int -> BigNumeric -> BigNumeric
+shift = primitive @"$SHIFT_BIGNUMERIC"

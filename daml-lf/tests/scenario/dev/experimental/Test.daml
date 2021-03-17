@@ -4,15 +4,14 @@
 module Test where
 
 import DA.Experimental.Example
-import qualified DA.Experimental.DecimalFloat as DF
+import qualified DA.Experimental.BigNumeric as BN
+import qualified DA.Experimental.RoundingMode as Rounding
 import qualified DA.List as L
+import DA.Experimental.Log
 
-test1 =
-    assert $ answer () == 42
+type BN = BN.BigNumeric
 
-type DF = DF.DecimalFloat
-
-m = 1
+m = 1000
 n = 16
 s = 4
 
@@ -52,42 +51,26 @@ sumProduct fromInt add mult l1 l2 =
 
 ---
 
-rounding = DF.HalfDown
-precision: Int
-precision = 9 * n * 2 + 1
+fromInt: Int -> BN
+fromInt i = BN.fromNumeric ((intToNumeric i): Numeric 0)
 
-add: DF -> DF -> DF
-add = DF.add precision rounding
+one = fromInt 1
+ten = fromInt 10
 
-mult: DF -> DF -> DF
-mult = DF.multiply precision rounding
+add, mult: BN -> BN -> BN
+add = BN.add
+mult = BN.multiply
 
-div: DF -> DF -> DF
-div = DF.divide precision rounding
+l1 = map (BN.shift (-s*n)) $ init_list fromInt add mult $ snd $ makeIntListList 0 m n []
+l2 = map (BN.shift (-s*n)) $ init_list fromInt add mult $ snd $ makeIntListList 1 m n []
 
-power: Int -> DF -> DF -> DF
-power i x y
-    | i > 0     = power (i - 1) x (mult y x)
-    | i < 0     = power (i + 1) x (div y x)
-    | otherwise = y
-
-multiplicant: DF
-multiplicant = power (-s * n) DF.ten DF.one
-
-fromInt: Int -> DF
-fromInt = DF.fromInt
-
-l1 = map (mult multiplicant) $ init_list fromInt add mult $ snd $ makeIntListList 0 m n []
-l2 = map (mult multiplicant) $ init_list fromInt add mult $ snd $ makeIntListList 1 m n []
-
-test2 =
-    assert $ (show result) == expectedResult
+run = scenario do assert $ (show result) == expectedResult
   where
     result = sumProduct fromInt add mult l1 l2
-    expectedResult = "1450217779520750740114092380580385102254679792467957306117851438396993788199700305751646428787424195732704751052050966978275850133986934529263614704650144019569.20833148101522975056791659892644969632853668544525204891091757299111295248528097097528474679896104565590131733691455520063083792"
+    _ = log (show result)
+    expectedResult =
+      -- when m = 1
+      -- "1450217779520750740114092380580385102254679792467957306117851438396993788199700305751646428787424195732704751052050966978275850133986934529263614704650144019569.20833148101522975056791659892644969632853668544525204891091757299111295248528097097528474679896104565590131733691455520063083792"
+      -- when m = 1000
+      "2452480261697618782037651040173687334078043709917566298246607061482061240357147437008275001199990643139763813080367109990237870262202299888046550575279784694841354.09085623238906136263283348635971139821404128423336932627714970176849009427033491200991325895319635198030635240154820650021432000"
 
-
-run = scenario do
-    _ <- test1
-    _ <- test2
-    pure ()
