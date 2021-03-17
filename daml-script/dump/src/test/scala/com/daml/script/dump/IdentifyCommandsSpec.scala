@@ -53,5 +53,21 @@ class IdentifyCommandsSpec extends AnyFreeSpec with Matchers with OptionValues {
       commands should have length 1
       commands.head shouldBe a[CreateAndExerciseCommand]
     }
+    "non-adjacent Create and Exercise commands" in {
+      val events = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(ContractId("cid1")),
+            TestData.Created(ContractId("cid2")),
+            TestData.Exercised(ContractId("cid1"), Seq()),
+          )
+        )
+        .toTransactionTree
+      val commands = Command.fromTree(events)
+      commands should have length 3
+      commands(0) shouldBe a[CreateCommand]
+      commands(1) shouldBe a[CreateCommand]
+      commands(2) shouldBe an[ExerciseCommand]
+    }
   }
 }
