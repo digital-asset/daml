@@ -216,6 +216,14 @@ const newUiPage = async (): Promise<Page> => {
   return page;
 };
 
+const waitForNSelector = async (page: Page, selector: string, n: number) => {
+  await page.waitForFunction(
+      (n) => document.querySelectorAll(string).length == n,
+      {},
+      n
+  );
+}
+
 // Note that Follow is a consuming choice on a contract
 // with a contract key so it is crucial to wait between follows.
 // Otherwise, you get errors due to contention.
@@ -223,11 +231,7 @@ const newUiPage = async (): Promise<Page> => {
 // but that is not the underlying error (the JSON API will
 // output the contention errors as well so look through the log).
 const waitForFollowers = async (page: Page, n: number) => {
-  await page.waitForFunction(
-      (n) => document.querySelectorAll(".test-select-following").length == n,
-      {},
-      n
-  );
+  await waitForNSelector(page, ".test-select-following", n);
 }
 
 // LOGIN_FUNCTION_BEGIN
@@ -391,7 +395,8 @@ test("log in as three different users and start following each other", async () 
   expect(noFollowing3).toEqual([]);
 
   // However, Party 3 should see both Party 1 and Party 2 in the network.
-  await page3.waitForSelector(".test-select-user-in-network");
+  await waitForNSelector(page3, ".test-select-user-in-network", 2);
+
   const network3 = await page3.$$eval(
     ".test-select-user-in-network",
     (following) => following.map((e) => e.innerHTML)
