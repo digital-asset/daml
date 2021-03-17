@@ -4,107 +4,41 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.testing.Encode
-import com.daml.lf.command.{
-  Command,
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseByKeyCommand,
-  ExerciseCommand,
-}
+import com.daml.lf.archive.Decode
+import com.daml.lf.command._
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ValueParty, ValueUnit}
+import com.daml.lf.value.Value.{ValueParty, ValueRecord}
+import com.daml.platform.testing.TestDarReader
 
-import scala.Ordering.Implicits.infixOrderingOps
+import scala.util.Success
 
-class SimplePackage(additionalContractDataType: String) {
-  val damlPackageWithContractData: Ast.Package =
-    p"""
-      module DA.Types {
-        record @serializable Tuple2 (a: *) (b: *) = { x1: a, x2: b } ;
+class SimplePackage(testDarName: String) {
 
-        record @serializable FetchedContract (a: *) = { contract: a, contractId: ContractId a } ;
+  private val Success(dar) = TestDarReader.read(testDarName)
+
+  val archives: Map[Ref.PackageId, DamlLf.Archive] = dar.all.map { archive =>
+    (Ref.PackageId.assertFromString(archive.getHash), archive)
+  }.toMap
+
+  val packages: Map[Ref.PackageId, Ast.Package] = dar.all.map(Decode.decodeArchive).toMap
+
+  val mainArchive: DamlLf.Archive = dar.main
+
+  val mainPackageId: Ref.PackageId = Ref.PackageId.assertFromString(mainArchive.getHash)
+
+  def typeConstructorId(typeConstructor: String): Ref.Identifier = {
+    val qualifiedName = QualifiedName.assertFromString(typeConstructor)
+    val packageId = packages
+      .find { case (_, pkg) =>
+        pkg.lookupDataType(qualifiedName).isRight
       }
-
-      module Simple {
-        record @serializable SimpleTemplate = { owner: Party, observer: Party, contractData: $additionalContractDataType } ;
-        variant @serializable SimpleVariant = SV: Party ;
-        template (this : SimpleTemplate) = {
-          precondition True,
-          signatories Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party),
-          observers Cons @Party [Simple:SimpleTemplate {observer} this] (Nil @Party),
-          agreement "",
-          choices {
-            choice Consume (self) (x: Unit) : Unit,
-              controllers Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to
-                upure @Unit (),
-            choice Replace (self) (x: Unit) : ContractId Simple:SimpleTemplate,
-              controllers Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to
-                create @Simple:SimpleTemplate (Simple:SimpleTemplate {
-                  owner = Simple:SimpleTemplate {owner} this,
-                  observer = Simple:SimpleTemplate {observer} this,
-                  contractData = Simple:SimpleTemplate {contractData} this
-                })
-          },
-          key @Party (Simple:SimpleTemplate {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
-        } ;
-
-        record @serializable SimpleTemplateHolder = { owner: Party } ;
-        template (this : SimpleTemplateHolder) = {
-          precondition True,
-          signatories Cons @Party [Simple:SimpleTemplateHolder {owner} this] (Nil @Party),
-          observers Nil @Party,
-          agreement "",
-          choices {
-            choice @nonConsuming ReplaceHeldByKey (self) (x: Unit) : Unit,
-              controllers Cons @Party [Simple:SimpleTemplateHolder {owner} this] (Nil @Party) to
-                ubind
-                  fetched: <contractId: ContractId Simple:SimpleTemplate, contract: Simple:SimpleTemplate> <- fetch_by_key @Simple:SimpleTemplate (Simple:SimpleTemplateHolder {owner} this) ;
-                  consumed: Unit <- exercise @Simple:SimpleTemplate Consume (fetched).contractId () ;
-                  created: ContractId Simple:SimpleTemplate <- create @Simple:SimpleTemplate (Simple:SimpleTemplate {
-                    owner = Simple:SimpleTemplate {owner} (fetched).contract,
-                    observer = Simple:SimpleTemplate {observer} (fetched).contract,
-                    contractData = Simple:SimpleTemplate {contractData} (fetched).contract
-                  })
-                in
-                  upure @Unit ()
-          }
-        } ;
-      }
-    """
-
-  val packageId: Ref.PackageId =
-    defaultParserParameters.defaultPackageId
-
-  val decodedPackage: Ast.Package = {
-    val metadata =
-      if (defaultParserParameters.languageVersion >= LanguageVersion.Features.packageMetadata) {
-        Some(
-          Ast.PackageMetadata(
-            Ref.PackageName.assertFromString("kvutils-tests"),
-            Ref.PackageVersion.assertFromString("1.0.0"),
-          )
-        )
-      } else None
-    damlPackageWithContractData.copy(metadata = metadata)
+      .map(_._1)
+      .get
+    Ref.Identifier(packageId, qualifiedName)
   }
-
-  val archive: DamlLf.Archive = {
-    Encode.encodeArchive(
-      packageId -> decodedPackage,
-      defaultParserParameters.languageVersion,
-    )
-  }
-
-  val archiveHash: String =
-    archive.getHash
-
-  def typeConstructorId(typeConstructor: String): Ref.Identifier =
-    Ref.Identifier(packageId, QualifiedName.assertFromString(typeConstructor))
 
   def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): Command =
     CreateCommand(templateId, templateArg)
@@ -114,25 +48,40 @@ class SimplePackage(additionalContractDataType: String) {
       templateId: Ref.Identifier,
       choiceName: Ref.ChoiceName,
   ): Command =
-    ExerciseCommand(templateId, contractId, choiceName, ValueUnit)
+    ExerciseCommand(
+      templateId,
+      contractId,
+      choiceName,
+      ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty),
+    )
 
   def exerciseByKeyCmd(
       partyKey: Ref.Party,
       templateId: Ref.Identifier,
       choiceName: Ref.ChoiceName,
   ): Command =
-    ExerciseByKeyCommand(templateId, ValueParty(partyKey), choiceName, ValueUnit)
+    ExerciseByKeyCommand(
+      templateId,
+      ValueParty(partyKey),
+      choiceName,
+      ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty),
+    )
 
   def createAndExerciseCmd(
       templateId: Ref.Identifier,
       templateArg: Value[Value.ContractId],
       choiceName: Ref.ChoiceName,
   ): Command =
-    CreateAndExerciseCommand(templateId, templateArg, choiceName, ValueUnit)
+    CreateAndExerciseCommand(
+      templateId,
+      templateArg,
+      choiceName,
+      ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty),
+    )
 
   private val simpleTemplateId: Ref.Identifier =
     Ref.Identifier(
-      packageId,
+      mainPackageId,
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString("Simple"),
         Ref.DottedName.assertFromString("SimpleTemplate"),
@@ -141,7 +90,7 @@ class SimplePackage(additionalContractDataType: String) {
 
   private val simpleHolderTemplateId: Ref.Identifier =
     Ref.Identifier(
-      packageId,
+      mainPackageId,
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString("Simple"),
         Ref.DottedName.assertFromString("SimpleTemplateHolder"),

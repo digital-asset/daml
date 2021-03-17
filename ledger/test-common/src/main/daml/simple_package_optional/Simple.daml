@@ -1,0 +1,30 @@
+module Simple where
+data SimpleVariant = SV Party
+template SimpleTemplate
+   with
+     owner : Party
+     observer : Party
+     contractData : Optional Party
+   where
+     signatory owner
+     observer  observer
+     key owner : Party
+     maintainer key
+     choice Consume : ()
+       controller owner
+       do pure ()
+     choice Replace : ContractId SimpleTemplate
+       controller owner
+       do create this
+
+template SimpleTemplateHolder
+  with
+    owner : Party
+  where
+    signatory owner
+    nonconsuming choice ReplaceHeldByKey : ()
+      controller owner
+      do (cid, c) <- fetchByKey @SimpleTemplate owner
+         exercise cid Consume
+         create c
+         pure ()

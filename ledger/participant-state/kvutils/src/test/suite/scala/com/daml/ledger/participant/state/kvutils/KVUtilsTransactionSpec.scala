@@ -45,31 +45,31 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   "transaction" should {
 
     val templateArgs: Map[String, SimplePackage => Value[ContractId]] = Map(
-      "Party" -> (_ => bobValue),
-      "Option Party" -> (_ => ValueOptional(Some(bobValue))),
-      "List Party" -> (_ => ValueList(FrontStack(bobValue))),
-      "TextMap Party" -> (_ => ValueTextMap(SortedLookupList(Map("bob" -> bobValue)))),
-      "Simple:SimpleVariant" -> (simplePackage =>
+      "party" -> (_ => bobValue),
+      "optional" -> (_ => ValueOptional(Some(bobValue))),
+      "list" -> (_ => ValueList(FrontStack(bobValue))),
+      "text_map" -> (_ => ValueTextMap(SortedLookupList(Map("bob" -> bobValue)))),
+      "variant" -> (simplePackage =>
         ValueVariant(
           Some(simplePackage.typeConstructorId("Simple:SimpleVariant")),
           name("SV"),
           bobValue,
         )
       ),
-      "DA.Types:Tuple2 Party Unit" -> (simplePackage =>
+      "tuple" -> (simplePackage =>
         ValueRecord(
           Some(simplePackage.typeConstructorId("DA.Types:Tuple2")),
           FrontStack(
-            Some(name("x1")) -> bobValue,
-            Some(name("x2")) -> ValueUnit,
+            Some(name("_1")) -> bobValue,
+            Some(name("_2")) -> ValueUnit,
           ).toImmArray,
         )
       ),
-      // Not yet supported in DAML:
+      // Types not yet supported in DAML:
       //
-      // "<party: Party>" -> Value.ValueStruct(FrontStack(Ref.Name.assertFromString("party") -> bobValue).toImmArray),
-      // "GenMap Party Unit" -> Value.ValueGenMap(FrontStack(bobValue -> ValueUnit).toImmArray),
-      // "GenMap Unit Party" -> Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
+      // "<party: Party>": "Value.ValueStruct(FrontStack(Ref.Name.assertFromString("party") -> bobValue).toImmArray),
+      // "GenMap Party Unit": Value.ValueGenMap(FrontStack(bobValue -> ValueUnit).toImmArray),
+      // "GenMap Unit Party": Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
     )
 
     val p0 = mkParticipantId(0)
@@ -361,7 +361,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
     for ((additionalContractDataType, additionalContractValue) <- templateArgs) {
       s"accept transactions with unallocated parties in values: $additionalContractDataType" in {
-        val simplePackage = new SimplePackage(additionalContractDataType)
+        val simplePackage = new SimplePackage(s"simple_package_$additionalContractDataType")
         val command = simplePackage.simpleCreateCmd(
           simplePackage.mkSimpleTemplateArg("Alice", "Eve", additionalContractValue(simplePackage))
         )

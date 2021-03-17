@@ -33,8 +33,6 @@
   type: jar-scala
 - target: //daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
-- target: //daml-lf/encoder:encoder
-  type: jar-scala
 - target: //daml-lf/engine:engine
   type: jar-scala
 - target: //daml-lf/interface:interface
@@ -44,8 +42,6 @@
 - target: //daml-lf/kv-transaction-support:kv-transaction-support
   type: jar-scala
 - target: //daml-lf/language:language
-  type: jar-scala
-- target: //daml-lf/parser:parser
   type: jar-scala
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
   type: jar-scala

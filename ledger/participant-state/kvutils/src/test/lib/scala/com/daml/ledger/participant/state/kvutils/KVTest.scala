@@ -48,10 +48,7 @@ object KVTest {
     Reader(f).state
 
   private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
-  private[this] val DefaultAdditionalContractDataType: String = "Party"
-  private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage(
-    DefaultAdditionalContractDataType
-  )
+  private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage("simple_package_party")
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
@@ -95,14 +92,11 @@ object KVTest {
     for {
       archiveLogEntry <- submitArchives(
         "simple-archive-submission",
-        simplePackage.archive,
+        simplePackage.archives.values.toSeq: _*
       ).map(_._2)
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
       _ <- modify[KVTestState](state =>
-        state.copy(
-          uploadedPackages =
-            state.uploadedPackages + (simplePackage.packageId -> simplePackage.damlPackageWithContractData)
-        )
+        state.copy(uploadedPackages = state.uploadedPackages ++ simplePackage.packages)
       )
     } yield ()
 

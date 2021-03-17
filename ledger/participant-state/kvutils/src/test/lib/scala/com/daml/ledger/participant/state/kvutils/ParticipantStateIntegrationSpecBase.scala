@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Clock, Duration}
 import java.util.UUID
-import java.util.zip.ZipInputStream
 
 import akka.Done
 import akka.stream.scaladsl.Sink
@@ -17,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.Decode
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party.ordering
@@ -27,10 +26,11 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
+import com.daml.platform.testing.TestDarReader
 import org.scalatest.Inside._
 import org.scalatest.matchers.should.Matchers._
-import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.collection.compat._
 import scala.collection.mutable
@@ -38,7 +38,7 @@ import scala.collection.immutable.SortedSet
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 //noinspection DuplicatedCode
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(implicit
@@ -713,18 +713,7 @@ object ParticipantStateIntegrationSpecBase {
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  private val archives = {
-    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = com.daml.ledger.test.TestDars.fileNames("model")
-    reader
-      .readArchive(
-        fileName,
-        new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream(fileName)),
-      )
-      .get
-      .asInstanceOf[Dar[DamlLf.Archive]]
-      .all
-  }
+  private val archives = TestDarReader.read("model").get.all
 
   // 2 self consistent archives
   protected val List(anArchive, anotherArchive) =

@@ -57,6 +57,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//ledger/test-common:dar-files-stable-lib",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
@@ -109,6 +112,12 @@ da_scala_library(
         ),
         ("performance", []),
         ("package_management", []),
+        ("simple_package_party", []),
+        ("simple_package_optional", []),
+        ("simple_package_list", []),
+        ("simple_package_text_map", []),
+        ("simple_package_variant", []),
+        ("simple_package_tuple", []),
     ]
     for target in lf_version_configuration_versions
 ]
@@ -128,6 +137,12 @@ object TestDars {
         "performance",
         "semantic",
         "package_management",
+        "simple_package_party",
+        "simple_package_optional",
+        "simple_package_list",
+        "simple_package_text_map",
+        "simple_package_variant",
+        "simple_package_tuple",
       )
       .map(name => name -> ("ledger/test-common/" + name + "-tests-%s.dar"))
       .toMap
@@ -151,6 +166,12 @@ EOF
                 ":performance-tests-%s.dar" % target,
                 ":semantic-tests-%s.dar" % target,
                 ":package_management-tests-%s.dar" % target,
+                ":simple_package_party-tests-%s.dar" % target,
+                ":simple_package_optional-tests-%s.dar" % target,
+                ":simple_package_list-tests-%s.dar" % target,
+                ":simple_package_text_map-tests-%s.dar" % target,
+                ":simple_package_variant-tests-%s.dar" % target,
+                ":simple_package_tuple-tests-%s.dar" % target,
             ],
             visibility = ["//visibility:public"],
         ),
