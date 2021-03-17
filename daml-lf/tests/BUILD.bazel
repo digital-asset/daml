@@ -38,11 +38,11 @@ daml_compile(
         srcs = ["daml-lf-test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc)",
+            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s.dar)" % name,
         ],
         data = [
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             ":%s.dar" % name,
         ],
@@ -60,13 +60,13 @@ daml_compile(
         srcs = ["scenario/test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc)",
+            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s)" % file,
             "$(POSIX_DIFF)",
             "false",
         ],
         data = [
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
@@ -88,13 +88,13 @@ daml_compile(
         srcs = ["scenario/test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc)",
+            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s)" % file,
             "$(POSIX_DIFF)",
             "true",
         ],
         data = [
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
