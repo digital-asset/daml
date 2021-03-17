@@ -260,6 +260,9 @@ object TransactionCoder {
         nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
+        case _: NodeRollback[_, _] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
           val builder = TransactionOuterClass.NodeCreate.newBuilder()
           nc.stakeholders.foreach(builder.addStakeholders)

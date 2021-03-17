@@ -692,6 +692,9 @@ class TransactionCoderSpec
 
   private[this] def normalizeNode[Nid](node: Node.GenNode[Nid, ContractId]) =
     node match {
+      case _: NodeRollback[_, _] =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case exe: NodeExercises[Nid, ContractId] => normalizeExe(exe)
       case fetch: NodeFetch[ContractId] => normalizeFetch(fetch)
       case create: NodeCreate[ContractId] => normalizeCreate(create)

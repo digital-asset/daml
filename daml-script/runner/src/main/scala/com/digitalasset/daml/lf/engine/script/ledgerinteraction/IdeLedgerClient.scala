@@ -16,7 +16,13 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.{Machine, OffLedger, OnLedger}
 import com.daml.lf.speedy.{PartialTransaction, SValue, ScenarioRunner, TraceLog}
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.Node.{
+  NodeRollback,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey,
+}
 import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -237,6 +243,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         machine.clearCommit
         def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = transaction.nodes
           .getOrElse(id, throw new IllegalArgumentException(s"Unknown root node id $id")) match {
+          case _: NodeRollback[_, _] =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
           case create: NodeCreate[ContractId] => ScriptLedgerClient.CreateResult(create.coid)
           case exercise: NodeExercises[NodeId, ContractId] =>
             ScriptLedgerClient.ExerciseResult(
@@ -289,6 +298,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         val transaction = richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
+            case _: NodeRollback[_, _] =>
+              sys.error("rollback nodes are not supported")
             case create: NodeCreate[ContractId] =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
             case exercise: NodeExercises[NodeId, ContractId] =>

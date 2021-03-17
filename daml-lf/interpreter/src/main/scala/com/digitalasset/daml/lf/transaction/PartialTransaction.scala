@@ -214,6 +214,11 @@ private[lf] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
+
+          case _: Node.NodeRollback[_, _] =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
+
           case _: Node.LeafOnlyNode[_] => Nil
           case ex: Node.NodeExercises[NodeId, _] => ex.children.toSeq
         }.toSet

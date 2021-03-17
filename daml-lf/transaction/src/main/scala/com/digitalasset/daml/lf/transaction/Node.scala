@@ -56,6 +56,9 @@ object Node {
         f1: A1 => B1,
         f2: A2 => B2,
     ): GenNode[A1, A2] => GenNode[B1, B2] = {
+      case _: NodeRollback[_, _] =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case self @ NodeCreate(
             coid,
             _,
@@ -128,6 +131,9 @@ object Node {
         f1: A => Unit,
         f2: B => Unit,
     ): GenNode[A, B] => Unit = {
+      case _: NodeRollback[_, _] =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case NodeCreate(
             coid,
             templateI @ _,
@@ -335,6 +341,44 @@ object Node {
 
     override private[lf] def foreach1[A](f: A => Unit): KeyWithMaintainers[A] => Unit =
       x => f(x.key)
+
+  }
+
+  final case class NodeRollback[+Nid, +Cid](
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      // Figure-out what information needs to be contained in a Rollback node.
+      // For the moment, we just have the children.
+      children: ImmArray[Nid]
+  ) extends GenNode[Nid, Cid]
+      with NodeInfo.Rollback {
+
+    def templateId: TypeConName =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
+
+    def version: TransactionVersion =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
+
+    private[lf] def updateVersion(version: TransactionVersion): NodeLookupByKey[Cid] =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
+
+    def byKey: Boolean =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
+
+    def versionedChosenValue: Value.VersionedValue[Cid] =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
+
+    def versionedExerciseResult: Option[Value.VersionedValue[Cid]] =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
+
+    def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback nodes are not supported")
 
   }
 
