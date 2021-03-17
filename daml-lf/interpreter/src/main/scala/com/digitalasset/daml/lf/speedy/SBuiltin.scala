@@ -1896,6 +1896,15 @@ private[lf] object SBuiltin {
         }
       }
 
+      final case object SBToIntNat extends SBExperimental("TO_INT_NAT", 1) {
+        override private[speedy] final def execute(
+            args: util.ArrayList[SValue],
+            machine: Machine,
+        ) = {
+          machine.returnValue = SInt64(args.get(0).asInstanceOf[STNat].n.toLong)
+        }
+      }
+
     }
 
     def apply(name: String): SExpr =
@@ -1916,6 +1925,7 @@ private[lf] object SBuiltin {
         BigNumeric.SBToText,
         BigNumeric.SBShift,
         BigNumeric.SBCompare,
+        BigNumeric.SBToIntNat,
       ).map(x => x.name -> SEBuiltin(x)).toMap
 
   }

@@ -8,45 +8,32 @@ module DA.Numeric where
 #ifdef DAML_EXPERIMENTAL
 import qualified DA.Experimental.BigNumeric as BN
 import DA.Experimental.RoundingMode
-import GHC.Types (Nat)
+import GHC.Types (Nat, primitive)
 
-
-
-reify: NumericScale n3 => forall n. Int
+reify: forall (n: Nat). Int
 reify = primitive @"$TO_INT_NAT"
 
 multiply : forall n1 n2 n3. NumericScale n3 => RoundingMode -> Numeric n1 -> Numeric n2 -> Numeric n3
 multiply rounding x y =
-    BN.toNumeric $ BN.setScale scale rounding $ BN.multiply bY bX
+    BN.toNumeric $ BN.setScale (reify @n3) rounding $ BN.multiply bY bX
   where
-    scale = reify @n3
     bX = BN.fromNumeric x
     bY = BN.fromNumeric y
 
 divide : forall n1 n2 n3. NumericScale n3 => RoundingMode -> Numeric n1 -> Numeric n2 -> Numeric n3
 divide rounding x y =
-    BN.toNumeric $ BN.divide scale rounding bY bX
-  where
-    scale = reify @n3
-    bX = BN.fromNumeric x
-    bY = BN.fromNumeric y
+    BN.toNumeric $ BN.divide (reify @n3) rounding (BN.fromNumeric x) (BN.fromNumeric y)
 
 cast : forall n2 n1. NumericScale n2 => Numeric n1 -> Numeric n2
 cast x = BN.toNumeric $ BN.fromNumeric x
 
 roundAndCast: forall n2 n1. NumericScale n2 => RoundingMode -> Numeric n1 -> Numeric n2
 roundAndCast rounding x =
-    BN.toNumeric $ BN.setScale scale rounding bX
-  where
-    scale = reify @n3
-    bX = BN.fromNumeric x
+    BN.toNumeric $ BN.setScale (reify @n2) rounding (BN.fromNumeric x)
 
-shift : forall n2 n1. NumericScale n1 => NumericScale n2 => Numeric n1 -> Numeric n2
+shift : forall n2 n1. NumericScale n2 => Numeric n1 -> Numeric n2
 shift x =
-   BN.toNumeric $ BN.shift shifting bX
- where
-   shifting = (reify @n2) - (reify @n1)
-   bX = BN.fromNumeric x
+   BN.toNumeric $ BN.shift ((reify @n2) - (reify @n1)) (BN.fromNumeric x)
 
 pi : forall n. NumericScale n => Numeric n
 pi = roundAndCast HalfUp (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
