@@ -601,14 +601,15 @@ private object OracleQueries extends Queries {
     // % is explicitly reserved by specification as a delimiter
     val q = sql"""SELECT c.contract_id, key, payload, agreement_text,
                          LISTAGG(sd.party, '%'), LISTAGG(od.party, '%')
-                  FROM contract c, signatories sm, observers om
+                  FROM (contract c
+                        JOIN signatories sm ON (c.contract_id = sm.contract_id)
+                        JOIN observers om ON (c.contract_id = om.contract_id))
                        LEFT JOIN signatories sd ON (c.contract_id = sd.contract_id)
                        LEFT JOIN observers od ON (c.contract_id = od.contract_id)
-                  WHERE c.contract_id = sm.contract_id AND c.contract_id = om.contract_id
-                        AND (""" ++ Fragments.in(fr"sm.party", parties) ++
+                  WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
       fr" OR " ++ Fragments.in(fr"om.party", parties) ++ sql""")
                         AND tpid = $tpid
-                  ORDER BY contract_id""" // TODO SC AND (""" ++ predicate ++ sql")"
+                  GROUP BY c.contract_id, key, payload, agreement_text""" // TODO SC AND (""" ++ predicate ++ sql")"
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
       case MatchedQueryMarker.Unused =>
