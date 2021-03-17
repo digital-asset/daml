@@ -1,3 +1,6 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 
 
 module DA.Experimental.BigNumeric (
@@ -75,3 +78,4 @@ stripTrailingZero = primitive @"$STRIP_TRAILING_ZERO_BIGNUMERIC"
 -- can under/overflow
 shift: Int -> BigNumeric -> BigNumeric
 shift = primitive @"$SHIFT_BIGNUMERIC"
+
