@@ -40,7 +40,7 @@ import qualified SdkVersion
 scalaVersions :: [T.Text]
 scalaVersions = ["2.12.12", "2.13.3"]
 
--- Build-time dependencies to exclude
+-- Hack: the logic that looks for missing transitive dependencies is broken, as it checks all build-time dependencies with `bazel query`
 depsToExclude :: T.Text
 depsToExclude = T.intercalate " + " [
    "//compiler/scenario-service/protos:scenario_service_java_proto",
