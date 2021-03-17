@@ -5,25 +5,31 @@ steps:
 - bash: |
     set -euo pipefail
 
+    exec 1> >(while IFS= read -r line; do echo "$(date -Is) [out]: $line"; done)
+    exec 2> >(while IFS= read -r line; do echo "$(date -Is) [err]: $line"; done >&2)
+
     # Location of the disk cache for CI servers set in their init files:
     # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
     # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 
+    df -h .
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
         echo "Disk full, cleaning up..."
-        disk_cache="$HOME/.bazel-cache"
-        rm -rf "$disk_cache"
-        echo "removed '$disk_cache'"
-        local_cache="$HOME/.cache/bazel"
-        if [ -d "$local_cache" ]; then
-            for pid in $(pgrep -a -f bazel | awk '{print $1}'); do
-                kill -s KILL $pid
-            done
-            chmod -R +w "$local_cache"
-            rm -rf "$local_cache"
-            echo "removed '$local_cache'"
-        fi
+        case $(uname) in
+        Linux)
+            $HOME/reset_caches.sh
+        ;;
+        Darwin)
+            # Only clean up disk cache
+            disk_cache="$HOME/.bazel-cache"
+            rm -rf "$disk_cache"
+            echo "removed '$disk_cache'"
+        ;;
+        *)
+            echo "Unknown uname: '$(uname)'."
+            exit 1
+        ;;
+        esac
+        df -h .
     fi
-    df -h .
-    trap - EXIT
   displayName: clean-up disk cache

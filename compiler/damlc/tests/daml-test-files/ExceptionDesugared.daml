@@ -7,6 +7,7 @@
 {-# LANGUAGE DatatypeContexts #-}
 
 -- | Test that desugared exceptions are picked up during LF conversion.
+-- This is the "desugared" counterpart to ExceptionSyntax.
 module ExceptionDesugared where
 
 import DA.Exception (throw)

@@ -26,6 +26,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
@@ -227,7 +228,7 @@ class RecoveringIndexerIntegrationSpec
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
-      jdbcAsyncCommits = true,
+      jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = None,
     )
   }

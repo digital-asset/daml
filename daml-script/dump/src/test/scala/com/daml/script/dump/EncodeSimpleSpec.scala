@@ -9,8 +9,8 @@ import org.scalatest.matchers.should.Matchers
 
 class EncodeSimpleSpec extends AnyFreeSpec with Matchers {
   import Encode._
-  "encodeSubmitSimpleEvents" - {
-    "mixed create and exercise events" in {
+  "encodeSubmitSimpleCommands" - {
+    "mixed create and exercise commands" in {
       val parties = Map(
         Party("Alice") -> "alice_0",
         Party("Bob") -> "bob_0",
@@ -21,7 +21,7 @@ class EncodeSimpleSpec extends AnyFreeSpec with Matchers {
         ContractId("cid3") -> "contract_0_2",
       )
       val cidRefs = Set(ContractId("cid1"), ContractId("cid3"))
-      val events = TestData
+      val commands = TestData
         .Tree(
           Seq[TestData.Event](
             TestData.Created(ContractId("cid1"), submitters = Seq(Party("Alice"))),
@@ -35,8 +35,9 @@ class EncodeSimpleSpec extends AnyFreeSpec with Matchers {
             ),
           )
         )
-        .toSimpleEvents
-      encodeSubmitSimpleEvents(parties, cidMap, cidRefs, events).render(80) shouldBe
+        .toSimpleCommands
+      // TODO[AH] Encode simple createAndExercise commands.
+      encodeSubmitSimpleCommands(parties, cidMap, cidRefs, commands).render(80) shouldBe
         """(contract_0_0, contract_0_2) <- submitMulti [alice_0, bob_0] [] do
           |  contract_0_0 <- createCmd Module.Template
           |  contract_0_2 <- exerciseCmd contract_0_1 (Module.Choice ())

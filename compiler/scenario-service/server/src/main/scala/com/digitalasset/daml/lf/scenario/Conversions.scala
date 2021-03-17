@@ -87,8 +87,10 @@ final class Conversions(
         setCrash(reason)
       case SError.DamlEArithmeticError(reason) =>
         setCrash(reason)
-      case SError.DamlEUnhandledException(message) =>
-        setCrash(message)
+      case SError.DamlEUnhandledException(_, exc) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        // Add an error case for unhandled exceptions to the scenario proto.
+        setCrash(exc.toString)
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
 
@@ -622,6 +624,14 @@ final class Conversions(
                   .build
               }.asJava
             )
+            .build
+        )
+      case V.ValueBuiltinException(tag, value) =>
+        val vbuilder = proto.BuiltinException.newBuilder
+        builder.setBuiltinException(
+          vbuilder
+            .setTag(tag)
+            .setValue(convertValue(value))
             .build
         )
       case V.ValueVariant(tycon, variant, value) =>

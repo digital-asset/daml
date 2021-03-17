@@ -1326,33 +1326,10 @@ private[lf] object Speedy {
     }
   }
 
-  /** If unwinding the kont-stack fails to find a KTryCatchHandler, we initiate evaluation
-    * of the messageFunction contained in the exception payload to produce a text
-    * message, after first pushing a KUnhandledException continuation which will
-    * actually throw the scala exception DamlEUnhandledException containing the message.
-    */
-  private[speedy] final case class KUnhandledException(
-      machine: Machine
-  ) extends Kont
-      with SomeArrayEquals {
-    def execute(payload: SValue) = {
-      payload match {
-        case SValue.SText(message) =>
-          throw DamlEUnhandledException(message)
-        case x =>
-          throw SErrorCrash(s"KUnhandledException, expected Text got $x")
-      }
-    }
-  }
-
-  private[speedy] def throwUnhandledException(machine: Machine, payload: SValue) = {
+  private[speedy] def throwUnhandledException(payload: SValue) = {
     payload match {
-      case SValue.SAnyException(_, messageFunction, innerValue) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        // If the evaluation of message function throws (again),
-        // perhaps the constructed message should still refer to the original exception
-        machine.pushKont(KUnhandledException(machine))
-        machine.ctrl = SEApp(messageFunction, Array(SEValue(innerValue)))
+      case SValue.SAnyException(ty, _, innerValue) =>
+        throw DamlEUnhandledException(ty, innerValue.toValue)
       case v =>
         crash(s"throwUnhandledException, applied to non-AnyException: $v")
     }
@@ -1393,7 +1370,7 @@ private[lf] object Speedy {
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0
-        throwUnhandledException(machine, payload)
+        throwUnhandledException(payload)
     }
   }
 

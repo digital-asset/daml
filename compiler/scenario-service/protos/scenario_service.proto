@@ -287,6 +287,11 @@ message Variant {
   Value value = 3;
 }
 
+message BuiltinException {
+  string tag = 1;
+  Value value = 2;
+}
+
 message Enum {
   Identifier enum_id = 1;
   string constructor = 2;
@@ -327,6 +332,8 @@ message Value {
 
     // An unserializable value, e.g. closure. Contains a description of the value.
     string unserializable = 17;
+
+    BuiltinException builtin_exception = 18;
   }
 }
 

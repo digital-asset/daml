@@ -106,6 +106,15 @@ object ValueGenerators {
       .chooseNum(Time.Timestamp.MinValue.micros, Time.Timestamp.MaxValue.micros)
       .map(Time.Timestamp.assertFromLong)
 
+  // generate a builtinException with arbitrary value
+  private def builtinExceptionGen(nesting: Int): Gen[ValueBuiltinException[ContractId]] =
+    for {
+      tag <- Gen.alphaStr
+      value <- Gen.lzy(valueGen(nesting))
+    } yield ValueBuiltinException(tag, value)
+
+  def builtinExceptionGen: Gen[ValueBuiltinException[ContractId]] = builtinExceptionGen(0)
+
   // generate a variant with arbitrary value
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
     for {
@@ -213,6 +222,9 @@ object ValueGenerators {
       val nested = List(
         (sz / 2 + 1, Gen.resize(sz / 5, valueListGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, variantGen(newNesting))),
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        //   test must work when we enable the following line:
+        //(sz / 2 + 1, Gen.resize(sz / 5, builtinExceptionGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, recordGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, valueOptionalGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, valueMapGen(newNesting))),

@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.DbType
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -45,6 +46,7 @@ class HikariConnectionSpec
       maxPoolSize = 2,
       connectionTimeout = 5.seconds,
       metrics = None,
-      connectionAsyncCommit = asyncCommitEnabled,
+      connectionAsyncCommitMode =
+        if (asyncCommitEnabled) DbType.AsynchronousCommit else DbType.SynchronousCommit,
     )(LoggingContext.ForTesting)
 }

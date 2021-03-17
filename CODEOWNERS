@@ -31,17 +31,17 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /daml-lf/archive/da/ @cocreature @hurryabit
 /daml-lf/data-scalacheck/ @S11001001 @cocreature
 /daml-lf/engine/ @cocreature @hurryabit
-/daml-lf/governance.rst @S11001001 @hurryabit
+/daml-lf/governance.rst @hurryabit
 /daml-lf/interpreter/ @cocreature @hurryabit
 /daml-lf/kv-transaction-support/ @cocreature @gerolf-da @miklos-da
 /daml-lf/repl/ @cocreature @hurryabit
 /daml-lf/scenario-interpreter/ @hurryabit @cocreature
 /daml-lf/spec/daml-lf-1.rst @cocreature @hurryabit
-/daml-lf/spec/transaction.rst @S11001001 @cocreature @hurryabit
-/daml-lf/spec/value.rst @S11001001 @cocreature @hurryabit
+/daml-lf/spec/transaction.rst @cocreature @hurryabit
+/daml-lf/spec/value.rst @cocreature @hurryabit
 /daml-lf/transaction-test-lib/ @S11001001 @cocreature
-/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001 @cocreature
-/daml-lf/transaction/src/main/scala/com/daml/lf/value/ @S11001001 @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/value/ @cocreature
 /daml-lf/validation/ @cocreature
 
 /ledger-service/    @S11001001 @cocreature @stefanobaghino-da
@@ -63,7 +63,11 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 # Tools
 /extractor/         @S11001001 @stefanobaghino-da
 /navigator/         @cocreature @stefanobaghino-da
+/navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
 /docs/              @bame-da @nemanja-da @hurryabit
 /libs-scala/        @stefanobaghino-da @SamirTalwar-DA
+/libs-scala/contextualized-logging/    @S11001001
+/libs-scala/scala-utils/    @S11001001
+/libs-scala/scalatest-utils/    @S11001001

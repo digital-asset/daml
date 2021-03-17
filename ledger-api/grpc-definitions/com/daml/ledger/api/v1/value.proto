@@ -81,6 +81,9 @@ message Value {
     // The GenMap type
     GenMap gen_map = 18;
 
+// TODO https://github.com/digital-asset/daml/issues/8020
+//    // The BuiltinException type
+//    BuiltinException builtin_exception = 19;
   }
 }
 
@@ -147,6 +150,18 @@ message Variant {
   // Required
   Value value = 3;
 }
+
+// // A builtin exception value
+// message BuiltinException {
+//
+//   // Determines the kind of builtin exception: ArithmeticError, GeneralError etc
+//   // Required
+//   string tag = 1;
+//
+//   // The value encoded within the Variant.
+//   // Required
+//   Value value = 2;
+// }
 
 // A value with finite set of alternative representations.
 message Enum {

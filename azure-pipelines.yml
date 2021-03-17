@@ -62,7 +62,6 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
-    - template: ci/clean-up.yml
     - template: ci/bash-lib.yml
       parameters:
         var_name: bash-lib
@@ -79,17 +78,17 @@ jobs:
       inputs:
         artifactName: linux-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: not(eq(variables['skip-github'], 'TRUE'))
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: macos-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: not(eq(variables['skip-github'], 'TRUE'))
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: not(eq(variables['skip-github'], 'TRUE'))
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
         KEY_FILE=$(mktemp)
@@ -128,13 +127,13 @@ jobs:
         isPrerelease: true
         releaseNotesSource: 'input'
         releaseNotes: "This is a pre-release. Use at your own risk."
-      condition: not(eq(variables['skip-github'], 'TRUE'))
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-      condition: not(eq(variables['skip-github'], 'TRUE'))
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
 
@@ -152,7 +151,7 @@ jobs:
       name: backup_to_gcs
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      condition: not(eq(variables['skip-github'], 'TRUE'))
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
         msg=$(git log -n1 --format=%b HEAD | head -1)
