@@ -243,7 +243,7 @@ private[lf] final class Compiler(
     ref ->
       SDefinition(
         unsafeClosureConvert(
-          SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
+          withLabel(ref, SEAbs(arity, body(List.fill(arity)(nextPosition()))))
         )
       )
 
