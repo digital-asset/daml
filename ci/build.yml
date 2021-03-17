@@ -250,6 +250,8 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
+  condition: and(succeeded(),
+                 not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
   timeoutInMinutes: 360
   pool:
     name: ubuntu_20_04
