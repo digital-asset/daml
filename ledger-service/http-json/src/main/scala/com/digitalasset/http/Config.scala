@@ -35,6 +35,9 @@ private[http] final case class Config(
     allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
+    nonRepudiationCertificateFile: Option[Path] = None,
+    nonRepudiationPrivateKeyFile: Option[Path] = None,
+    nonRepudiationPrivateKeyAlgorithm: Option[String] = None,
 ) extends HttpService.StartSettings
 
 private[http] object Config {

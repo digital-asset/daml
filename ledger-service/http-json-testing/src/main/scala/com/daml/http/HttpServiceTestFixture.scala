@@ -4,6 +4,7 @@
 package com.daml.http
 
 import java.io.File
+import java.nio.file.Path
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -68,6 +69,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
       useTls: UseTls = UseTls.NoTls,
       wsConfig: Option[WebsocketConfig] = None,
+      nonRepudiation: Option[(Path, Path, String)] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
@@ -93,6 +95,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,
         packageReloadInterval = doNotReloadPackages,
+        nonRepudiationCertificateFile = nonRepudiation.map(_._1),
+        nonRepudiationPrivateKeyFile = nonRepudiation.map(_._2),
+        nonRepudiationPrivateKeyAlgorithm = nonRepudiation.map(_._3),
       )
       httpService <- stripLeft(
         HttpService.start(
