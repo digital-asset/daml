@@ -1,0 +1,34 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+-- @QUERY-LF [ .modules[].exceptions[] ] | length == 1
+
+-- | Test that exception syntax is correctly handled.
+-- This is the "sugared" counterpart to ExceptionDesugared.
+module ExceptionSyntax where
+
+import DA.Exception (throw)
+import DA.Assert ((===))
+
+exception MyException
+    with
+        m : Text
+    where
+        message m
+
+tryCatchExample = scenario do
+    p <- getParty "Alice"
+    x <- submit p do
+        DA.Internal.Desugar._tryCatch
+            (\() -> do
+                throw (MyException "ok")
+                pure "err"
+            )
+            (\case
+                (DA.Internal.Desugar.fromAnyException -> Some (MyException m)) ->
+                    Some (pure m)
+                _ ->
+                    None
+            )
+    x === "ok"
