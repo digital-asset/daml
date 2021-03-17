@@ -19,7 +19,7 @@ assistant. We first create the project and build the DAR.
 
 .. code-block:: sh
 
-  daml new profile-tutorial
+  daml new profile-tutorial --template skeleton
   cd profile-tutorial
   daml build
 
@@ -47,7 +47,7 @@ file has a name of the form ``$timestamp-$command.json`` where
 produced the transaction (for multi-command submissions, only the
 first one will be in the file name).
 
-.. code-block::
+.. code-block:: sh
 
    $ ls profile-results
    2021-03-17T12:32:16.846404Z-create:Asset.json
@@ -56,11 +56,12 @@ first one will be in the file name).
 
 At this point, you can stop Sandbox.
 
-To view the profiling results you can use `speedscope
-<https://github.com/jlfwong/speedscope>`_. The easiest option is to
+To view the profiling results you can use
+`speedscope <https://github.com/jlfwong/speedscope>`_.
+The easiest option is to
 use the `web version <https://www.speedscope.app/>`_ but you can also
-install it `locally
-<https://github.com/jlfwong/speedscope#command-line-usage>`_.
+install it
+`locally <https://github.com/jlfwong/speedscope#command-line-usage>`_.
 
 Let’s open the first exercise profile above ``2021-03-17T12:32:17.361596Z-exercise:Asset:Give.json``:
 
@@ -75,9 +76,9 @@ simple example, nothing obvious stands out that we could do to
 optimize further.
 
 Speedscope provides a few other views that can be useful depending on
-your profile. Refer to the `documentation
-<https://github.com/jlfwong/speedscope#views>`_ for more information
-on that.
+your profile. Refer to the
+`documentation <https://github.com/jlfwong/speedscope#views>`_
+for more information on that.
 
 Caveats
 =======
