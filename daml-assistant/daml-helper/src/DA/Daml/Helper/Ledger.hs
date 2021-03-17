@@ -262,7 +262,7 @@ fetchDar args rootPid saveAs = do
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
         | (pid,pkg) <- Map.toList (Map.delete rootPid pkgs)
-        , let txt = recoverPackageName pkg ("dep",pid)
+        , let txt = recoverPackageName pkg pid
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
@@ -277,29 +277,32 @@ fetchDar args rootPid saveAs = do
   createDarFile saveAs za
   return $ Map.size pkgs
 
-recoverPackageName :: LF.Package -> (String,LF.PackageId) -> T.Text
-recoverPackageName pkg (tag,pid)= do
+recoverPackageName :: LF.Package -> LF.PackageId -> T.Text
+recoverPackageName pkg pid= do
   let LF.Package {packageMetadata} = pkg
   case packageMetadata of
     Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName
     -- fallback, manufacture a name from the pid
-    Nothing -> T.pack (tag <> "-" <> T.unpack (LF.unPackageId pid))
+    Nothing -> LF.unPackageId pid
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
 downloadAllReachablePackages :: LedgerArgs -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
-downloadAllReachablePackages args pids = loop Map.empty pids
+downloadAllReachablePackages args pids = loop Map.empty (Set.fromList pids)
   where
-    loop :: Map LF.PackageId LF.Package -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
-    loop acc = \case
-      [] -> return acc
-      pid:morePids ->
-        if pid `Map.member` acc
-        then loop acc morePids
-        else do
-          pkg <- downloadPackage args pid
-          loop (Map.insert pid pkg acc) (nubSort $ packageRefs pkg ++ morePids)
-
-    packageRefs pkg = [ pid | LF.PRImport pid <- toListOf LF.packageRefs pkg ]
+    loop :: Map LF.PackageId LF.Package -> Set.Set LF.PackageId -> IO (Map LF.PackageId LF.Package)
+    loop acc pkgIds =
+        case Set.minView pkgIds of
+            Nothing -> return acc
+            Just (pid, morePids) ->
+                if pid `Map.member` acc
+                    then loop acc morePids
+                    else do
+                        pkg <- downloadPackage args pid
+                        loop (Map.insert pid pkg acc) (packageRefs pkg `Set.union` morePids)
+      where
+        packageRefs pkg =
+            Set.fromList
+                [pid | LF.PRImport pid <- toListOf LF.packageRefs pkg, not $ pid `Map.member` acc]
 
 -- | Download the Package identified by a PackageId; fail if it doesn't exist or can't be decoded.
 downloadPackage :: LedgerArgs -> LF.PackageId -> IO LF.Package
@@ -328,22 +331,24 @@ downloadPackage args pid = do
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
 data RemoteDalf = RemoteDalf
-    { remoteDalfFp :: FilePath
+    { remoteDalfName :: String
     , remoteDalfBs :: BS.ByteString
     , remoteDalfIsMain :: Bool
     }
 runLedgerGetDalfs :: LedgerFlags -> [LF.PackageId] -> IO [RemoteDalf]
-runLedgerGetDalfs lflags pkgIds = do
-    args <- getDefaultArgs lflags
-    m <- downloadAllReachablePackages args pkgIds
-    pure
-        [ RemoteDalf {..}
-        | (i :: Int, (_pid, pkg)) <- zip [0 ..] $ Map.toList m
-        , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
-        , let remoteDalfFp = (T.unpack $ recoverPackageName pkg ("dep" <> show i, pid)) <.> "dalf"
-        , let remoteDalfBs = BSL.toStrict bsl
-        , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
-        ]
+runLedgerGetDalfs lflags pkgIds
+    | null pkgIds = pure []
+    | otherwise = do
+        args <- getDefaultArgs lflags
+        m <- downloadAllReachablePackages args pkgIds
+        pure
+            [ RemoteDalf {..}
+            | (_pid, pkg) <- Map.toList m
+            , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
+            , let remoteDalfName = T.unpack $ recoverPackageName pkg pid
+            , let remoteDalfBs = BSL.toStrict bsl
+            , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
+            ]
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =

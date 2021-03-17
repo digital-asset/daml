@@ -39,6 +39,7 @@ testsForRemoteDataDependencies damlc dar =
               withTempDir $ \projDir -> do
                   InspectInfo {mainPackageId} <- getDarInfo dar
                   let mainPkgId = T.unpack $ LF.unPackageId mainPackageId
+                  putStrLn mainPkgId
                   sandboxPort <- getSandboxPort
                   writeFileUTF8 (projDir </> "daml.yaml") $
                       unlines
@@ -62,7 +63,7 @@ testsForRemoteDataDependencies damlc dar =
                           ]
                   setEnv "DAML_PROJECT" projDir True
                   (exitCode, _stdout, stderr) <-
-                      readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+                      readProcessWithExitCode damlc ["build"] ""
                   stderr @?= ""
                   exitCode @?= ExitSuccess
             ]

@@ -24,9 +24,11 @@ import qualified DA.Pretty
 import Data.Aeson (eitherDecodeFileStrict', encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Char
 import Data.List.Extra
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Encoding.Base64 as Base64
 import Development.IDE.Types.Location
 import GHC.Fingerprint
 import System.Directory.Extra
@@ -115,7 +117,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
             depsDir
-            (deps ++ dataDepsDalfs)
+            (deps ++ dataDepsDars ++ dataDepsDalfs)
             dataDepsPkgIds
             thisSdkVer
             (show $ optDamlLfVersion opts)
@@ -133,7 +135,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
         rdalfs <- getDalfsFromLedger dataDepsPkgIds
         forM_ rdalfs $ \RemoteDalf {..} ->
-            installDataDepDalf remoteDalfIsMain depsDir remoteDalfFp remoteDalfBs
+            installDataDepDalf remoteDalfIsMain depsDir (remoteDalfName <.> "dalf") remoteDalfBs
         -- write new fingerprint
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
@@ -208,11 +210,10 @@ readDataDeps fpOrIds = do
     (dars, rest) = partition ("dar" `isExtensionOf`) fpOrIds
     (dalfs, pkgIds0) = partition ("dalf" `isExtensionOf`) rest
 
--- | A rudimentary check that no bad package ID's are present in the data-dependency section of
--- daml.yaml.
+-- | A check that no bad package ID's are present in the data-dependency section of daml.yaml.
 validatePkgId :: String -> IO LF.PackageId
 validatePkgId pkgId = do
-    unless (all (`elem` ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) pkgId) $
+    unless ((Base64.isBase64 $ T.pack pkgId) && all isLower (filter isAlpha pkgId)) $
         fail $ "Invalid package ID dependency in daml.yaml: " <> pkgId
     pure $ LF.PackageId $ T.pack pkgId
 
@@ -220,9 +221,7 @@ validatePkgId pkgId = do
 ----------------------
 
 getDalfsFromLedger :: [LF.PackageId] -> IO [RemoteDalf]
-getDalfsFromLedger pkgIds
-    | null pkgIds = pure []
-    | otherwise = runLedgerGetDalfs (defaultLedgerFlags Grpc) pkgIds
+getDalfsFromLedger pkgIds = runLedgerGetDalfs (defaultLedgerFlags Grpc) pkgIds
 
 -- Updating/Fingerprint
 -----------------------
