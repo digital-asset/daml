@@ -57,8 +57,10 @@ import DA.Tuple
 import DA.Validation
 
 #ifdef DAML_EXPERIMENTAL
+import DA.Experimental.BigNumeric
 import DA.Experimental.Example
-import DA.Experimental.DecimalFloat
+import DA.Experimental.Log
+import DA.Experimental.RoundingMode
 #endif
 
 import Prelude

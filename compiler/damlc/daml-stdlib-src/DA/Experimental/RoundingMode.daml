@@ -1,0 +1,16 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | HIDE
+module DA.Experimental.RoundingMode( RoundingMode(..) ) where
+
+-- should match the order of java.math.RoundingMode
+data RoundingMode =
+      Up
+    | Down
+    | Ceiling
+    | Floor
+    | HalfUp
+    | HalfDown
+    | HalfEven
+    | Unnecessary

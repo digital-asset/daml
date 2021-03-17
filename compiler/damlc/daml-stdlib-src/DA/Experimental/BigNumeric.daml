@@ -1,0 +1,60 @@
+
+
+module DA.Experimental.BigNumeric (
+      BigNumeric
+    , add
+    , compare
+    , divide
+    , fromNumeric
+    , multiply
+    , one
+    , precision
+    , round
+    , scale
+    , subtract
+    , toNumeric
+    , toText
+    , zero
+) where
+
+import GHC.Types (primitive)
+import DA.Experimental.RoundingMode
+import Prelude hiding (compare, round, subtract, toText)
+
+data BigNumeric
+
+instance Show BigNumeric where
+    show = toText
+instance Eq BigNumeric where
+    x ==  y = (compare x y) == EQ
+
+fromNumeric: forall n. Numeric n -> BigNumeric
+fromNumeric = primitive @"$FROM_NUMERIC_BIGNUMERIC"
+
+toNumeric: forall n. BigNumeric -> Optional (Numeric n)
+toNumeric = primitive @"$TO_NUMERIC_BIGNUMERIC"
+
+zero, one: BigNumeric
+zero = fromNumeric (0.0 : Numeric 0)
+one = fromNumeric (1.0 : Numeric 0)
+
+scale, precision: BigNumeric -> Int
+scale = primitive @"$SCALE_BIGNUMERIC"
+precision = primitive @"$PRECISION_BIGNUMERIC"
+
+add, subtract, multiply: BigNumeric -> BigNumeric -> BigNumeric
+add = primitive @"$ADD_BIGNUMERIC"
+subtract = primitive @"$SUB_BIGNUMERIC"
+multiply = primitive @"$MULT_BIGNUMERIC"
+
+divide: Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
+divide = primitive @"$DIV_BIGNUMERIC"
+
+round: Int -> RoundingMode -> BigNumeric -> BigNumeric
+round scale rounding x = divide scale rounding x one
+
+toText: BigNumeric -> Text
+toText = primitive @"$TO_TEXT_BIGNUMERIC"
+
+compare: BigNumeric -> BigNumeric ->  Ordering
+compare = primitive @"$COMPARE_BIGNUMERIC"
