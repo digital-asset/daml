@@ -12,7 +12,7 @@ import qualified DA.Experimental.BigNumeric as BN
 import DA.Experimental.RoundingMode
 import GHC.Types (Nat, primitive)
 
-B-- Not compile properly
+-- Not compile properly
 -- Do not manage to workaround
 -- this would allows conversion of scale into Int without type class lookup
 reify: forall (n: Nat). Int
