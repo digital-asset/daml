@@ -78,6 +78,7 @@ da_scala_dar_resources_library(
     daml_dir_names = test_names_with_dependencies.keys(),
     lf_versions = lf_version_configuration_versions,
     add_maven_tag = True,
+    maven_name_prefix = "test",
     visibility = ["//visibility:public"],
 )
 

@@ -198,6 +198,7 @@ da_scala_dar_resources_library(
     ],
     lf_versions = ["1.dev"],
     add_maven_tag = True,
+    maven_name_prefix = "kvutils-tests",
     visibility = ["//visibility:__subpackages__"],
 )
 

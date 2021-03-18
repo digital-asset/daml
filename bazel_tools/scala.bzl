@@ -663,7 +663,7 @@ def da_scala_dar_resources_library(
         daml_dir_names,
         lf_versions,
         add_maven_tag = False,
-        maven_name_prefix = "test",
+        maven_name_prefix = "",
         **kwargs):
     """
     Define a Scala library with dar files as resources.
