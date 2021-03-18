@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "silencer_plugin",
+    "da_scala_dar_resources_library",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -114,6 +115,8 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
+        "//ledger/test-common:dar-files-stable-lib",
         "//ledger/test-common:test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
@@ -170,7 +173,9 @@ da_scala_test_suite(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/test-common:dar-files-stable-lib",
         "//ledger/test-common:test-common",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",
@@ -179,6 +184,20 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
+)
+
+da_scala_dar_resources_library(
+    daml_root_dir = "src/test/lib/daml",
+    daml_dir_names = [
+        "simple_package_party",
+        "simple_package_optional",
+        "simple_package_list",
+        "simple_package_text_map",
+        "simple_package_variant",
+        "simple_package_tuple",
+    ],
+    lf_versions = ["1.dev"],
+    visibility = ["//visibility:__subpackages__"],
 )
 
 proto_jars(
@@ -214,9 +233,6 @@ client_server_build(
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
         "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
-    ],
-    data = [
-        "//ledger/test-common:dar-files-stable",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     runner = "@//bazel_tools/client_server/runner_with_port_check:runner",

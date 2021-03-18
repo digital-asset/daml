@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPackageUploadRejectionEntry,
 }
+import com.daml.ledger.test.{ModelTestDar, SimplePackagePartyTestDar}
 import com.daml.platform.testing.TestDarReader
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -19,8 +20,8 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
   import KVTest._
   import TestHelpers._
 
-  private[this] val Success(testStablePackages) = TestDarReader.read("model")
-  private val simplePackage = new SimplePackage("simple_package_party")
+  private[this] val Success(testStablePackages) = TestDarReader.readCommonTestDar(ModelTestDar)
+  private val simplePackage = new SimplePackage(SimplePackagePartyTestDar)
   private val simpleArchive = simplePackage.mainArchive
 
   "packages" should {

@@ -10,6 +10,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.test.SimplePackagePartyTestDar
 import com.daml.lf.command.{Command, Commands}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
@@ -48,7 +49,9 @@ object KVTest {
     Reader(f).state
 
   private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
-  private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage("simple_package_party")
+  private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage(
+    SimplePackagePartyTestDar
+  )
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
 

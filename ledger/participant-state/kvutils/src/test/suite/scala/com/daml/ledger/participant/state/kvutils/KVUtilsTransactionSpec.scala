@@ -10,6 +10,15 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.{Party, Update}
+import com.daml.ledger.test.{
+  SimplePackageListTestDar,
+  SimplePackageOptionalTestDar,
+  SimplePackagePartyTestDar,
+  SimplePackageTextMapTestDar,
+  SimplePackageTupleTestDar,
+  SimplePackageVariantTestDar,
+  TestDar,
+}
 import com.daml.lf.command.Command
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -44,19 +53,19 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   "transaction" should {
 
-    val templateArgs: Map[String, SimplePackage => Value[ContractId]] = Map(
-      "party" -> (_ => bobValue),
-      "optional" -> (_ => ValueOptional(Some(bobValue))),
-      "list" -> (_ => ValueList(FrontStack(bobValue))),
-      "text_map" -> (_ => ValueTextMap(SortedLookupList(Map("bob" -> bobValue)))),
-      "variant" -> (simplePackage =>
+    val templateArgs: Map[TestDar, SimplePackage => Value[ContractId]] = Map(
+      SimplePackagePartyTestDar -> (_ => bobValue),
+      SimplePackageOptionalTestDar -> (_ => ValueOptional(Some(bobValue))),
+      SimplePackageListTestDar -> (_ => ValueList(FrontStack(bobValue))),
+      SimplePackageTextMapTestDar -> (_ => ValueTextMap(SortedLookupList(Map("bob" -> bobValue)))),
+      SimplePackageVariantTestDar -> (simplePackage =>
         ValueVariant(
           Some(simplePackage.typeConstructorId("Simple:SimpleVariant")),
           name("SV"),
           bobValue,
         )
       ),
-      "tuple" -> (simplePackage =>
+      SimplePackageTupleTestDar -> (simplePackage =>
         ValueRecord(
           Some(simplePackage.typeConstructorId("DA.Types:Tuple2")),
           FrontStack(
@@ -359,9 +368,9 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         }
     }
 
-    for ((additionalContractDataType, additionalContractValue) <- templateArgs) {
-      s"accept transactions with unallocated parties in values: $additionalContractDataType" in {
-        val simplePackage = new SimplePackage(s"simple_package_$additionalContractDataType")
+    for ((testDar, additionalContractValue) <- templateArgs) {
+      s"accept transactions with unallocated parties in values: $testDar" in {
+        val simplePackage = new SimplePackage(testDar)
         val command = simplePackage.simpleCreateCmd(
           simplePackage.mkSimpleTemplateArg("Alice", "Eve", additionalContractValue(simplePackage))
         )

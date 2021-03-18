@@ -2,12 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
-load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_dar_resources_library",
     "silencer_plugin",
 )
 load(
@@ -20,7 +17,6 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
     "lf_version_configuration_versions",
-    "mangle_for_java",
 )
 
 alias(
@@ -69,113 +65,51 @@ da_scala_library(
     ],
 )
 
-[
-    [
-        daml_compile(
-            name = "%s-tests-%s" % (test_name, target),
-            srcs = glob(["src/main/daml/%s/*.daml" % test_name]),
-            project_name = "%s-tests" % test_name,
-            target = target,
-            visibility = ["//visibility:public"],
-        ),
-        dar_to_scala(
-            name = "%s-tests-%s.scala-codegen" % (test_name, target),
-            srcs = [":%s-tests-%s.dar" % (test_name, target)],
-            package_prefix = "com.daml.ledger.test.%s" % test_name,
-            srcjar_out = "%s-%s.scala.srcjar" % (test_name, target),
-            verbosity = 2,
-            visibility = ["//visibility:public"],
-        ),
-        da_scala_library(
-            name = "%s-tests-%s.scala" % (test_name, target),
-            srcs = [
-                ":%s-tests-%s.scala-codegen" % (test_name, target),
-            ],
-            plugins = [silencer_plugin],
-            scala_deps = extra_deps,
-            scalacopts = [
-                "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
-            ],
-            visibility = ["//visibility:public"],
-            deps = [
-                "//language-support/scala/bindings",
-            ],
-        ),
-    ]
-    for (test_name, extra_deps) in [
-        (
-            "model",
-            ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-        ),
-        (
-            "semantic",
-            ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-        ),
-        ("performance", []),
-        ("package_management", []),
-        ("simple_package_party", []),
-        ("simple_package_optional", []),
-        ("simple_package_list", []),
-        ("simple_package_text_map", []),
-        ("simple_package_variant", []),
-        ("simple_package_tuple", []),
-    ]
-    for target in lf_version_configuration_versions
-]
+# Correspond to the directories under src/test/lib/daml
+test_names_with_dependencies = {
+    "model": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    "semantic": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    "performance": [],
+    "package_management": [],
+}
+
+da_scala_dar_resources_library(
+    daml_root_dir = "src/main/daml",
+    daml_dir_names = test_names_with_dependencies.keys(),
+    lf_versions = lf_version_configuration_versions,
+    add_maven_tag = True,
+    maven_name_prefix = "test",
+    visibility = ["//visibility:public"],
+)
 
 [
     [
-        genrule(
-            name = "dar-files-lookup-%s.scala" % target,
-            outs = ["Dars-%s.scala" % mangle_for_java(target)],
-            cmd = """
-cat > $@ <<EOF
-package com.daml.ledger.test
-object TestDars {
-    val fileNames: Map[String, String] =
-      List(
-        "model",
-        "performance",
-        "semantic",
-        "package_management",
-        "simple_package_party",
-        "simple_package_optional",
-        "simple_package_list",
-        "simple_package_text_map",
-        "simple_package_variant",
-        "simple_package_tuple",
-      )
-      .map(name => name -> ("ledger/test-common/" + name + "-tests-%s.dar"))
-      .toMap
-}
-EOF
-""" % target,
-        ),
-        da_scala_library(
-            name = "dar-files-%s-lib" % target,
-            srcs = [":dar-files-lookup-%s.scala" % target],
-            generated_srcs = [":dar-file-names-scala-%s" % target],
-            # generated_srcs is required for scaladoc
-            resources = ["dar-files-%s" % target],
-            tags = ["maven_coordinates=com.daml:test-dar-files-%s-lib:__VERSION__" % target],
-            visibility = ["//ledger:__subpackages__"],
-        ),
-        filegroup(
-            name = "dar-files-%s" % target,
-            srcs = [
-                ":model-tests-%s.dar" % target,
-                ":performance-tests-%s.dar" % target,
-                ":semantic-tests-%s.dar" % target,
-                ":package_management-tests-%s.dar" % target,
-                ":simple_package_party-tests-%s.dar" % target,
-                ":simple_package_optional-tests-%s.dar" % target,
-                ":simple_package_list-tests-%s.dar" % target,
-                ":simple_package_text_map-tests-%s.dar" % target,
-                ":simple_package_variant-tests-%s.dar" % target,
-                ":simple_package_tuple-tests-%s.dar" % target,
-            ],
-            visibility = ["//visibility:public"],
-        ),
+        [
+            dar_to_scala(
+                name = "%s-tests-%s.scala-codegen" % (test_name, target),
+                srcs = [":%s-tests-%s.dar" % (test_name, target)],
+                package_prefix = "com.daml.ledger.test.%s" % test_name,
+                srcjar_out = "%s-%s.scala.srcjar" % (test_name, target),
+                verbosity = 2,
+                visibility = ["//visibility:public"],
+            ),
+            da_scala_library(
+                name = "%s-tests-%s.scala" % (test_name, target),
+                srcs = [
+                    ":%s-tests-%s.scala-codegen" % (test_name, target),
+                ],
+                plugins = [silencer_plugin],
+                scala_deps = extra_deps,
+                scalacopts = [
+                    "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+                ],
+                visibility = ["//visibility:public"],
+                deps = [
+                    "//language-support/scala/bindings",
+                ],
+            ),
+        ]
+        for (test_name, extra_deps) in test_names_with_dependencies.items()
     ]
     for target in lf_version_configuration_versions
 ]

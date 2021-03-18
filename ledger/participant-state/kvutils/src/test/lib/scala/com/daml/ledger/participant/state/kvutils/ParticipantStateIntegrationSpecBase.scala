@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.Decode
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
@@ -713,7 +714,7 @@ object ParticipantStateIntegrationSpecBase {
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  private val archives = TestDarReader.read("model").get.all
+  private val archives = TestDarReader.readCommonTestDar(ModelTestDar).get.all
 
   // 2 self consistent archives
   protected val List(anArchive, anotherArchive) =

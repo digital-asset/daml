@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.test.TestDar
 import com.daml.lf.archive.Decode
 import com.daml.lf.command._
 import com.daml.lf.data.Ref.{ChoiceName, QualifiedName}
@@ -15,9 +16,9 @@ import com.daml.platform.testing.TestDarReader
 
 import scala.util.Success
 
-class SimplePackage(testDarName: String) {
+class SimplePackage(testDar: TestDar) {
 
-  private val Success(dar) = TestDarReader.read(testDarName)
+  private val Success(dar) = TestDarReader.readCommonTestDar(testDar)
 
   val archives: Map[Ref.PackageId, DamlLf.Archive] = dar.all.map { archive =>
     (Ref.PackageId.assertFromString(archive.getHash), archive)
