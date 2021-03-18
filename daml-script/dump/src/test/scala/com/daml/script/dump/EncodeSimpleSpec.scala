@@ -19,8 +19,10 @@ class EncodeSimpleSpec extends AnyFreeSpec with Matchers {
         ContractId("cid1") -> "contract_0_0",
         ContractId("cid2") -> "contract_0_1",
         ContractId("cid3") -> "contract_0_2",
+        ContractId("cid4") -> "contract_0_3",
+        ContractId("cid5") -> "contract_0_4",
       )
-      val cidRefs = Set(ContractId("cid1"), ContractId("cid3"))
+      val cidRefs = Set(ContractId("cid1"), ContractId("cid3"), ContractId("cid5"))
       val commands = TestData
         .Tree(
           Seq[TestData.Event](
@@ -33,15 +35,26 @@ class EncodeSimpleSpec extends AnyFreeSpec with Matchers {
               exerciseResult = Some(ContractId("cid3")),
               actingParties = Seq(Party("Bob")),
             ),
+            TestData.Created(ContractId("cid4"), submitters = Seq(Party("Alice"))),
+            TestData.Exercised(
+              ContractId("cid4"),
+              Seq(
+                TestData.Created(ContractId("cid5"))
+              ),
+              exerciseResult = Some(ContractId("cid5")),
+              actingParties = Seq(Party("Bob")),
+            ),
           )
         )
         .toSimpleCommands
-      // TODO[AH] Encode simple createAndExercise commands.
       encodeSubmitSimpleCommands(parties, cidMap, cidRefs, commands).render(80) shouldBe
-        """(contract_0_0, contract_0_2) <- submitMulti [alice_0, bob_0] [] do
+        """(contract_0_0, contract_0_2, contract_0_4) <- submitMulti [alice_0, bob_0] [] do
           |  contract_0_0 <- createCmd Module.Template
           |  contract_0_2 <- exerciseCmd contract_0_1 (Module.Choice ())
-          |  pure (contract_0_0, contract_0_2)""".stripMargin.replace(
+          |  contract_0_4 <- createAndExerciseCmd
+          |    Module.Template
+          |    (Module.Choice ())
+          |  pure (contract_0_0, contract_0_2, contract_0_4)""".stripMargin.replace(
           "\r\n",
           "\n",
         )
