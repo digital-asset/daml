@@ -94,8 +94,6 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
 
 private[platform] trait LedgerReadDao extends ReportsHealth {
 
-  def maxConcurrentConnections: Int
-
   /** Looks up the ledger id */
   def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]]
 
@@ -227,7 +225,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
-  def maxConcurrentConnections: Int
 
   /** Initializes the ledger. Must be called only once.
     *

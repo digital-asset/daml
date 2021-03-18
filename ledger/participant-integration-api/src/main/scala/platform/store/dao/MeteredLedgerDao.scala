@@ -35,8 +35,6 @@ import scala.concurrent.Future
 private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
     extends LedgerReadDao {
 
-  override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
-
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
