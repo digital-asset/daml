@@ -241,6 +241,7 @@ object TreeUtils {
           if (exercisedEvent.consuming) {
             // If the choice is not consuming then we have two resulting contracts:
             // The created one and the result of the exercise. I.e. not a simple command.
+            // A child exercised event might still consume the contract, but this heuristic is kept simple for now.
             simpleExercise(exercisedEvent).map(SimpleCommand(command, _))
           } else {
             None
