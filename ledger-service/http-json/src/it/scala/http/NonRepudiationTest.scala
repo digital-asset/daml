@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest,
 }
 import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{RecordField, Value}
+import com.daml.ledger.api.v1.value.{RecordField, Value, Variant}
 import com.daml.ledger.client.LedgerClient
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.testing.generateKeyAndCertificate
@@ -103,9 +103,9 @@ final class NonRepudiationTest
   // Doesn't aim at being complete, neither in stripping identifiers recursively
   // Only covers variant because it's the only case interesting for the test cases here
   private def stripIdentifiers(value: Value): Value =
-    value.sum match {
-      case _: Sum.Variant =>
-        value.copy(sum = Value.Sum.Variant(value.sum.variant.get.copy(variantId = None)))
+    value match {
+      case Value(Sum.Variant(Variant(Some(_), constructor, value))) =>
+        Value(Sum.Variant(Variant(None, constructor, value)))
       case _ => value
     }
 
