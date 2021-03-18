@@ -373,31 +373,21 @@ object HttpService extends StrictLogging {
   }
 
   private def validateNonRepudiationConfiguration(
-      nonRepudiationCertificateFile: Option[Path],
-      nonRepudiationPrivateKeyFile: Option[Path],
-      nonRepudiationPrivateKeyAlgorithm: Option[String],
+      certificateFile: Option[Path],
+      privateKeyFile: Option[Path],
+      privateKeyAlgorithm: Option[String],
   ): Future[Option[(Path, Path, String)]] =
-    if (
-      (nonRepudiationCertificateFile.isDefined &&
-        nonRepudiationPrivateKeyFile.isDefined &&
-        nonRepudiationPrivateKeyAlgorithm.isDefined) ||
-      (nonRepudiationCertificateFile.isEmpty
-        && nonRepudiationPrivateKeyFile.isEmpty
-        && nonRepudiationPrivateKeyAlgorithm.isEmpty)
-    ) {
-      Future.successful {
-        for {
-          certificatePath <- nonRepudiationCertificateFile
-          privateKeyPath <- nonRepudiationPrivateKeyFile
-          privateKeyAlgorithm <- nonRepudiationPrivateKeyAlgorithm
-        } yield (certificatePath, privateKeyPath, privateKeyAlgorithm)
-      }
-    } else {
-      Future.failed(
-        new IllegalArgumentException(
-          "Either all or none of the non-repudiation options must be passed"
+    (certificateFile, privateKeyFile, privateKeyAlgorithm) match {
+      case (None, None, None) =>
+        Future.successful(None)
+      case (Some(cf), Some(kf), Some(ka)) =>
+        Future.successful(Some((cf, kf, ka)))
+      case _ =>
+        Future.failed(
+          new IllegalArgumentException(
+            "Either all or none of the non-repudiation options must be passed"
+          )
         )
-      )
     }
 
   private def channelBuilder(
