@@ -24,11 +24,9 @@ import qualified DA.Pretty
 import Data.Aeson (eitherDecodeFileStrict', encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import Data.Char
 import Data.List.Extra
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import qualified Data.Text.Encoding.Base64 as Base64
 import Development.IDE.Types.Location
 import GHC.Fingerprint
 import System.Directory.Extra
@@ -213,7 +211,7 @@ readDataDeps fpOrIds = do
 -- | A check that no bad package ID's are present in the data-dependency section of daml.yaml.
 validatePkgId :: String -> IO LF.PackageId
 validatePkgId pkgId = do
-    unless ((Base64.isBase64 $ T.pack pkgId) && all isLower (filter isAlpha pkgId)) $
+    unless (length pkgId == 64 && all (`elem` (['a' .. 'f'] ++ ['0' .. '9'])) pkgId) $
         fail $ "Invalid package ID dependency in daml.yaml: " <> pkgId
     pure $ LF.PackageId $ T.pack pkgId
 
