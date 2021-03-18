@@ -10,9 +10,6 @@ template SimpleTemplate
      observer  observer
      key owner : Party
      maintainer key
-     choice Consume : ()
-       controller owner
-       do pure ()
      choice Replace : ContractId SimpleTemplate
        controller owner
        do create this
@@ -25,6 +22,6 @@ template SimpleTemplateHolder
     nonconsuming choice ReplaceHeldByKey : ()
       controller owner
       do (cid, c) <- fetchByKey @SimpleTemplate owner
-         exercise cid Consume
+         exercise cid Archive
          create c
          pure ()

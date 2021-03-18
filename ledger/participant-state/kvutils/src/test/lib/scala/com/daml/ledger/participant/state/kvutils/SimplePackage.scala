@@ -7,7 +7,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.test.TestDar
 import com.daml.lf.archive.Decode
 import com.daml.lf.command._
-import com.daml.lf.data.Ref.{ChoiceName, QualifiedName}
+import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
@@ -53,7 +53,7 @@ class SimplePackage(testDar: TestDar) {
       templateId,
       contractId,
       choiceName,
-      choiceArgument(choiceName),
+      choiceArgument,
     )
 
   def exerciseByKeyCmd(
@@ -65,7 +65,7 @@ class SimplePackage(testDar: TestDar) {
       templateId,
       ValueParty(partyKey),
       choiceName,
-      choiceArgument(choiceName),
+      choiceArgument,
     )
 
   def createAndExerciseCmd(
@@ -77,12 +77,10 @@ class SimplePackage(testDar: TestDar) {
       templateId,
       templateArg,
       choiceName,
-      choiceArgument(choiceName),
+      choiceArgument,
     )
 
-  private def choiceArgument(choiceName: ChoiceName) = {
-    ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty)
-  }
+  private val choiceArgument = ValueRecord(None, ImmArray.empty)
 
   private val simpleTemplateId: Ref.Identifier =
     Ref.Identifier(
@@ -102,8 +100,8 @@ class SimplePackage(testDar: TestDar) {
       ),
     )
 
-  private val simpleConsumeChoiceName: Ref.ChoiceName =
-    Ref.ChoiceName.assertFromString("Consume")
+  private val simpleArchiveChoiceName: Ref.ChoiceName =
+    Ref.ChoiceName.assertFromString("Archive")
 
   private val simpleReplaceChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Replace")
@@ -111,11 +109,11 @@ class SimplePackage(testDar: TestDar) {
   def simpleCreateCmd(templateArg: Value[Value.ContractId]): Command =
     createCmd(simpleTemplateId, templateArg)
 
-  def simpleExerciseConsumeCmd(contractId: Value.ContractId): Command =
-    exerciseCmd(contractId, simpleTemplateId, simpleConsumeChoiceName)
+  def simpleExerciseArchiveCmd(contractId: Value.ContractId): Command =
+    exerciseCmd(contractId, simpleTemplateId, simpleArchiveChoiceName)
 
-  def simpleCreateAndExerciseConsumeCmd(templateArg: Value[Value.ContractId]): Command =
-    createAndExerciseCmd(simpleTemplateId, templateArg, simpleConsumeChoiceName)
+  def simpleCreateAndExerciseArchiveCmd(templateArg: Value[Value.ContractId]): Command =
+    createAndExerciseCmd(simpleTemplateId, templateArg, simpleArchiveChoiceName)
 
   def simpleExerciseReplaceByKeyCmd(partyKey: Ref.Party): Command =
     exerciseByKeyCmd(partyKey, simpleTemplateId, simpleReplaceChoiceName)

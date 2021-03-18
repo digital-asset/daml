@@ -106,7 +106,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         transaction2 <- runSimpleCommand(
           alice,
           seed1,
-          simplePackage.simpleExerciseConsumeCmd(contractId),
+          simplePackage.simpleExerciseArchiveCmd(contractId),
         )
         submission <- prepareTransactionSubmission(
           submitter = alice,
@@ -192,7 +192,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           contractId <- preExecuteCreateSimpleContract(alice, seed(0), simplePackage)
           preparedSubmissions <- inParallelReadOnly(
             Seq(
-              prepareExerciseConsumeCmd(alice, simplePackage, contractId)(seed(1)),
+              prepareExerciseArchiveCmd(alice, simplePackage, contractId)(seed(1)),
               prepareExerciseReplaceByKey(alice, simplePackage)(seed(2)),
             )
           )
@@ -323,7 +323,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         transaction2 <- runSimpleCommand(
           alice,
           seeds(1),
-          simplePackage.simpleExerciseConsumeCmd(contractId),
+          simplePackage.simpleExerciseArchiveCmd(contractId),
         )
         logEntry2 <- submitTransaction(
           submitter = alice,
@@ -486,7 +486,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .map(i => seed(i))
 
       val simpleCreateAndExerciseCmd =
-        simplePackage.simpleCreateAndExerciseConsumeCmd(mkSimpleCreateArg(simplePackage))
+        simplePackage.simpleCreateAndExerciseArchiveCmd(mkSimpleCreateArg(simplePackage))
 
       for {
         tx1 <- runSimpleCommand(alice, seeds.head, simpleCreateAndExerciseCmd)
@@ -586,7 +586,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       )
     } yield submission
 
-  private def prepareExerciseConsumeCmd(
+  private def prepareExerciseArchiveCmd(
       submitter: Party,
       simplePackage: SimplePackage,
       contractId: ContractId,
@@ -597,7 +597,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       exerciseTransaction <- runSimpleCommand(
         submitter,
         seed,
-        simplePackage.simpleExerciseConsumeCmd(contractId),
+        simplePackage.simpleExerciseArchiveCmd(contractId),
       )
       submission <- prepareTransactionSubmission(
         submitter = submitter,
