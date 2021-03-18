@@ -17,6 +17,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.collection.compat._
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object TreeUtils {
@@ -198,22 +199,35 @@ object TreeUtils {
 
   object Command {
     def fromTree(tree: TransactionTree): Seq[Command] = {
+      val contractKeys = mutable.HashMap.empty[ContractId, Value]
       val rootEvents = tree.rootEventIds.map(tree.eventsById(_).kind)
       val commands = ListBuffer.empty[Command]
       rootEvents.foreach {
         case Kind.Empty =>
         case Kind.Created(createdEvent) =>
+          createdEvent.contractKey.foreach { contractKey =>
+            contractKeys += ContractId(createdEvent.contractId) -> contractKey
+          }
           commands += CreateCommand(createdEvent)
         case Kind.Exercised(exercisedEvent) =>
-          commands.lastOption match {
-            case Some(CreateCommand(createdEvent))
+          lazy val optCreateAndExercise = commands.lastOption.flatMap {
+            case CreateCommand(createdEvent)
                 if createdEvent.contractId == exercisedEvent.contractId =>
-              commands.update(
-                commands.length - 1,
-                CreateAndExerciseCommand(createdEvent, exercisedEvent),
-              )
-            case _ =>
-              commands += ExerciseCommand(exercisedEvent)
+              Some(CreateAndExerciseCommand(createdEvent, exercisedEvent))
+            case _ => None
+          }
+          lazy val optExerciseByKey =
+            for {
+              contractKey <- contractKeys.get(ContractId(exercisedEvent.contractId))
+              templateId <- exercisedEvent.templateId
+            } yield ExerciseByKeyCommand(exercisedEvent, templateId, contractKey)
+          optCreateAndExercise match {
+            case Some(command) => commands.update(commands.length - 1, command)
+            case None =>
+              optExerciseByKey match {
+                case Some(command) => commands += command
+                case None => commands += ExerciseCommand(exercisedEvent)
+              }
           }
       }
       commands.toSeq
