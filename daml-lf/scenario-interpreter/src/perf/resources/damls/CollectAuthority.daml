@@ -50,3 +50,32 @@ test = scenario do
   agreementId <- submit operator do create Agreement with operator; signatories = []
   agreementId <- submit operator do exercise agreementId (AddTokens with tokenIds)
   pure ()
+
+template T
+  with
+    p : Party
+  where
+    signatory p, p
+    observer p, p
+    nonconsuming choice Noop : ()
+      controller p
+      do pure ()
+
+template Worker
+  with
+    p : Party
+  where
+    signatory p
+    choice Do : ()
+      controller p
+      do cid <- create T with ..
+         doN 1000 (exercise cid Noop)
+         archive cid
+
+doN : Int -> Update () -> Update ()
+doN 0 x = pure ()
+doN n x = x >>= \_ -> doN (n - 1) x
+
+testNew = scenario do
+  p <- getParty "p"
+  submit p $ createAndExercise (Worker p) Do
