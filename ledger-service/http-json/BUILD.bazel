@@ -67,6 +67,7 @@ da_scala_library(
         "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/scala-utils",
+        "//runtime-components/non-repudiation-client",
     ],
 )
 
@@ -248,6 +249,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_tpolecat_doobie_hikari",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
@@ -269,9 +271,15 @@ da_scala_test(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/resources-grpc",
         "//libs-scala/scala-utils",
+        "//runtime-components/non-repudiation",
+        "//runtime-components/non-repudiation-postgresql",
+        "//runtime-components/non-repudiation-testing",
     ],
 )
 
