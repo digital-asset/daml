@@ -418,6 +418,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "attoparsec",
             "base",
             "base16-bytestring",
+            "base64",
             "base64-bytestring",
             "binary",
             "blaze-html",
