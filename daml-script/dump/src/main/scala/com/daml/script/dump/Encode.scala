@@ -29,12 +29,9 @@ private[dump] object Encode {
     val partyMap = partyMapping(parties)
 
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    // TODO[AH] Avoid constructing Commands twice. Currently we do this once here and once more in encodeTree.
-    val treeCidRefs = trees.foldMap { tree =>
-      val cmds = Command.fromTree(tree)
-      cmds.foldMap(cmdReferencedCids)
-    }
-    val cidRefs = acsCidRefs ++ treeCidRefs
+    val submits = trees.map(Submit.fromTree)
+    val submitCidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
+    val cidRefs = acsCidRefs ++ submitCidRefs
 
     val unknownCidRefs = acsCidRefs -- acs.keySet
     if (unknownCidRefs.nonEmpty) {
@@ -74,7 +71,7 @@ private[dump] object Encode {
       (Doc.text("dump Parties{..} = do") /
         stackNonEmpty(
           encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize)
-            +: trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
+            +: submits.map(encodeSubmit(partyMap, cidMap, cidRefs, _))
             :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -263,22 +260,21 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[CreatedEvent],
   ): Doc = {
-    encodeSubmitSimpleCommands(
+    encodeSubmitSimple(
       partyMap,
       cidMap,
       cidRefs,
-      evs.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId))),
+      SubmitSimple.fromCreatedEvents(evs),
     )
   }
 
-  private[dump] def encodeSubmitSimpleCommands(
+  private def encodeSubmitSimple(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
-      commands: Seq[SimpleCommand],
+      submit: SubmitSimple,
   ): Doc = {
-    val submitters: Set[Party] = commands.foldMap(sc => cmdParties(sc.command).toSet)
-    val cids = commands.map(_.contractId)
+    val cids = submit.simpleCommands.map(_.contractId)
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
@@ -295,7 +291,7 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val actions = Doc.stack(commands.map { case SimpleCommand(cmd, cid) =>
+    val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, cid) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(cid)) {
           encodeCid(cidMap, cid) :+ " <- "
@@ -308,7 +304,7 @@ private[dump] object Encode {
       bind + encodeCmd(partyMap, cidMap, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-    ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
+    ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
   }
 
   private[dump] def encodeACS(
@@ -326,40 +322,48 @@ private[dump] object Encode {
     )
   }
 
-  private[dump] def encodeTree(
+  private[dump] def encodeSubmit(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
-      tree: TransactionTree,
+      submit: Submit,
   ): Doc = {
-    val commands = Command.fromTree(tree)
-    val simpleCommandsOnly: Option[Seq[SimpleCommand]] = SimpleCommand.fromCommands(commands, tree)
-    simpleCommandsOnly match {
-      case Some(simpleCommands) =>
-        encodeSubmitSimpleCommands(partyMap, cidMap, cidRefs, simpleCommands)
-      case None =>
-        val submitters = commands.foldMap(cmdParties(_).toSet)
-        val cids = treeCreatedCids(tree)
-        val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
-        val treeBind = Doc
-          .stack(
-            ("tree <-" &: submit(partyMap, submitters, isTree = true) :& "do") +:
-              commands.map(encodeCmd(partyMap, cidMap, _))
-          )
-          .hang(2)
-        val cidBinds = referencedCids.map(bindCid(cidMap, _))
-        Doc.stack(treeBind +: cidBinds)
+    submit match {
+      case simple: SubmitSimple => encodeSubmitSimple(partyMap, cidMap, cidRefs, simple)
+      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, tree)
     }
+  }
+
+  private def encodeSubmitTree(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      submit: SubmitTree,
+  ): Doc = {
+    val cids = treeCreatedCids(submit.tree)
+    val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
+    val treeBind = Doc
+      .stack(
+        ("tree <-" &: encodeSubmitCall(partyMap, submit) :& "do") +:
+          submit.commands.map(encodeCmd(partyMap, cidMap, _))
+      )
+      .hang(2)
+    val cidBinds = referencedCids.map(bindCid(cidMap, _))
+    Doc.stack(treeBind +: cidBinds)
   }
 
   private def encodeSelector(selector: Selector): Doc = Doc.str(selector.i)
 
-  private def submit(partyMap: Map[Party, String], submitters: Set[Party], isTree: Boolean): Doc = {
-    val tree = if (isTree) { Doc.text("Tree") }
-    else { Doc.empty }
-    submitters.toList match {
-      case ::(submitter, Nil) => "submit" +: tree & encodeParty(partyMap, submitter)
-      case _ => "submit" +: tree :+ "Multi" & encodeParties(partyMap, submitters) :+ " []"
+  private def encodeSubmitCall(partyMap: Map[Party, String], submit: Submit): Doc = {
+    val parties = submit match {
+      case single: SubmitSingle => encodeParty(partyMap, single.submitter)
+      case multi: SubmitMulti => encodeParties(partyMap, multi.submitters)
+    }
+    submit match {
+      case _: SubmitSimpleSingle => "submit" &: parties
+      case _: SubmitSimpleMulti => "submitMulti" &: parties :& "[]"
+      case _: SubmitTreeSingle => "submitTree" &: parties
+      case _: SubmitTreeMulti => "submitTreeMulti" &: parties :& "[]"
     }
   }
 
