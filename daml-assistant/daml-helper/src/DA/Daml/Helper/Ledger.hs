@@ -20,7 +20,9 @@ module DA.Daml.Helper.Ledger (
     runLedgerFetchDar,
     runLedgerNavigator,
     runLedgerReset,
-    runLedgerGetDalfs
+    runLedgerGetDalfs,
+    -- exported for testing
+    downloadAllReachablePackages
     ) where
 
 import Control.Exception (SomeException(..), catch)
@@ -256,12 +258,13 @@ runLedgerFetchDar flags pidString saveAs = do
 -- | Reconstruct a DAR file by downloading packages from a ledger. Returns how many packages fetched.
 fetchDar :: LedgerArgs -> LF.PackageId -> FilePath -> IO Int
 fetchDar args rootPid saveAs = do
-  pkgs <- downloadAllReachablePackages args [rootPid]
-  let rootPkg = pkgs Map.! rootPid
+  pkgs <- downloadAllReachablePackages (downloadPackage args) [rootPid] []
+  let rootPkg = fromMaybe (error "damlc: fetchDar: internal error") $ pkgs Map.! rootPid
+  -- It's always a `Just` because we exclude no package ids.
   let (dalf,pkgId) = LFArchive.encodeArchiveAndHash rootPkg
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
-        | (pid,pkg) <- Map.toList (Map.delete rootPid pkgs)
+        | (pid,Just pkg) <- Map.toList (Map.delete rootPid pkgs)
         , let txt = recoverPackageName pkg pid
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
@@ -286,19 +289,39 @@ recoverPackageName pkg pid= do
     Nothing -> LF.unPackageId pid
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
-downloadAllReachablePackages :: LedgerArgs -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
-downloadAllReachablePackages args pids = loop Map.empty (Set.fromList pids)
+downloadAllReachablePackages ::
+       (LF.PackageId -> IO LF.Package)
+    -- ^ An IO action to download a package.
+    -> [LF.PackageId]
+    -- ^ The roots of the dependency tree we want to download.
+    -> [LF.PackageId]
+    -- ^ Exclude these package ids from downloading, because they are already present.
+    -> IO (Map LF.PackageId (Maybe LF.Package))
+    -- ^ Return a map of dependency package ids and maybe the downloaded package or Nothing, if the
+    -- package is needed but already present.
+downloadAllReachablePackages downloadPkg pids exclPids =
+    loop Map.empty (Set.fromList pids) (Set.fromList exclPids)
   where
-    loop :: Map LF.PackageId LF.Package -> Set.Set LF.PackageId -> IO (Map LF.PackageId LF.Package)
-    loop acc pkgIds =
+    loop ::
+           Map LF.PackageId (Maybe LF.Package)
+        -> Set.Set LF.PackageId
+        -> Set.Set LF.PackageId
+        -> IO (Map LF.PackageId (Maybe LF.Package))
+    loop acc pkgIds exclPids = do
         case Set.minView pkgIds of
             Nothing -> return acc
             Just (pid, morePids) ->
                 if pid `Map.member` acc
-                    then loop acc morePids
+                    then loop acc morePids exclPids
                     else do
-                        pkg <- downloadPackage args pid
-                        loop (Map.insert pid pkg acc) (packageRefs pkg `Set.union` morePids)
+                        if pid `Set.member` exclPids
+                            then loop (Map.insert pid Nothing acc) morePids exclPids
+                            else do
+                                pkg <- downloadPkg pid
+                                loop
+                                    (Map.insert pid (Just pkg) acc)
+                                    (packageRefs pkg `Set.union` morePids)
+                                    exclPids
       where
         packageRefs pkg =
             Set.fromList
@@ -334,17 +357,27 @@ data RemoteDalf = RemoteDalf
     { remoteDalfName :: String
     , remoteDalfBs :: BS.ByteString
     , remoteDalfIsMain :: Bool
+    , remoteDalfPkgId :: LF.PackageId
     }
-runLedgerGetDalfs :: LedgerFlags -> [LF.PackageId] -> IO [RemoteDalf]
-runLedgerGetDalfs lflags pkgIds
+-- | Fetch remote packages.
+runLedgerGetDalfs ::
+       LedgerFlags
+       -> [LF.PackageId]
+       -- ^ Packages to be fetched.
+       -> [LF.PackageId]
+       -- ^ Packages that should _not_ be fetched because they are already present.
+       -> IO [RemoteDalf]
+       -- ^ Returns the fetched packages.
+runLedgerGetDalfs lflags pkgIds exclPkgIds
     | null pkgIds = pure []
     | otherwise = do
         args <- getDefaultArgs lflags
-        m <- downloadAllReachablePackages args pkgIds
+        m <- downloadAllReachablePackages (downloadPackage args) pkgIds exclPkgIds
         pure
             [ RemoteDalf {..}
-            | (_pid, pkg) <- Map.toList m
+            | (_pid, Just pkg) <- Map.toList m
             , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
+            , let remoteDalfPkgId = pid
             , let remoteDalfName = T.unpack $ recoverPackageName pkg pid
             , let remoteDalfBs = BSL.toStrict bsl
             , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds

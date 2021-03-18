@@ -12,12 +12,15 @@ module DA.Cli.Damlc.DependencyDb
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (tryAny)
+import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Helper.Ledger
 import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Optics as LF
+import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import qualified DA.Pretty
@@ -133,12 +136,40 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         ----------------------------
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
-        rdalfs <- getDalfsFromLedger dataDepsPkgIds
-        forM_ rdalfs $ \RemoteDalf {..} ->
+        exclPkgIds <- queryPkgIds Nothing depsDir
+        rdalfs <- getDalfsFromLedger dataDepsPkgIds exclPkgIds
+        forM_ rdalfs $ \RemoteDalf {..} -> do
             installDataDepDalf remoteDalfIsMain depsDir (remoteDalfName <.> "dalf") remoteDalfBs
+        -- Mark received packages as well as their transitiv dependencies as data dependencies.
+        markAsDataRec
+            (Set.fromList [remoteDalfPkgId | RemoteDalf {remoteDalfPkgId} <- rdalfs])
+            Set.empty
         -- write new fingerprint
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
+    markAsDataRec :: Set.Set LF.PackageId -> Set.Set LF.PackageId -> IO ()
+    markAsDataRec pkgIds processed = do
+        case Set.minView pkgIds of
+            Nothing -> pure ()
+            Just (pkgId, rest) -> do
+                if pkgId `Set.member` processed
+                    then markAsDataRec rest processed
+                    else do
+                        let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+                        let depDir = depsDir </> pkgIdStr
+                        markDirWith dataDepMarker depDir
+                        fs <- filter ("dalf" `isExtensionOf`) <$> listFilesRecursive depDir
+                        forM_ fs $ \fp -> do
+                            bs <- BS.readFile fp
+                            (_pid, pkg) <-
+                                either
+                                    (const $ fail $ "Failed to decode dalf package " <> pkgIdStr)
+                                    pure $
+                                Archive.decodeArchive Archive.DecodeAsDependency bs
+                            markAsDataRec
+                                (packageRefs pkg `Set.union` rest)
+                                (Set.insert pkgId processed)
+    packageRefs pkg = Set.fromList [pid | LF.PRImport pid <- toListOf LF.packageRefs pkg]
     depsDir = dependenciesDir opts projRoot
 
 -- | Check that only one sdk version is present in dependencies and it equals this sdk version.
@@ -220,8 +251,8 @@ validatePkgId pkgId = do
 -- Ledger interactions
 ----------------------
 
-getDalfsFromLedger :: [LF.PackageId] -> IO [RemoteDalf]
-getDalfsFromLedger pkgIds = runLedgerGetDalfs (defaultLedgerFlags Grpc) pkgIds
+getDalfsFromLedger :: [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
+getDalfsFromLedger = runLedgerGetDalfs (defaultLedgerFlags Grpc)
 
 -- Updating/Fingerprint
 -----------------------
@@ -264,6 +295,15 @@ queryDalfs markersM dir = do
                          fmap and $
                          forM markers $ \marker -> doesFileExist $ takeDirectory fp </> marker)
                     dalfs
+
+queryPkgIds :: Maybe [FilePath] -> FilePath -> IO [LF.PackageId]
+queryPkgIds markersM dir = do
+    fps <- queryDalfs markersM dir
+    pure
+        [ LF.PackageId $ T.pack pkgId
+        | fp <- fps
+        , _dalf:pkgId:_rest <- [reverse $ splitDirectories fp]
+        ]
 
 -- Utilities
 ------------
