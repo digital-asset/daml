@@ -959,15 +959,16 @@ private[lf] final class Compiler(
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ) =
-    let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
+    let(SBUMyFetch(tmplId)(svar(cidPos))) { tmplArgPos0 =>
+    let(SBStructProj(0)(svar(tmplArgPos0))) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
       SEScopeExercise(
         let(
           SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
             svar(choiceArgPos),
             svar(cidPos),
-            compile(tmpl.signatories),
-            compile(tmpl.observers), //
+            SBStructProj(1)(svar(tmplArgPos0)),
+            SBStructProj(2)(svar(tmplArgPos0)),
             {
               addExprVar(choice.argBinder._1, choiceArgPos)
               compile(choice.controllers)
@@ -985,6 +986,7 @@ private[lf] final class Compiler(
           app(compile(choice.update), svar(tokenPos))
         }
       )
+    }
     }
 
   private[this] def compileChoice(

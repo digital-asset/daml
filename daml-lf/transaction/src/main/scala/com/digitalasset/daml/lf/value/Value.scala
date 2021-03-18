@@ -315,7 +315,7 @@ object Value extends CidContainer1[Value] {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
+  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String, signatories: Option[Set[Ref.Party]], stakeholders: Option[Set[Ref.Party]])
       extends value.CidContainer[ContractInst[Val]] {
 
     override protected def self: this.type = this
@@ -331,7 +331,7 @@ object Value extends CidContainer1[Value] {
     implicit def equalInstance[Val: Equal]: Equal[ContractInst[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
-        val ContractInst(bTemplate, bArg, bAgreementText) = b
+        val ContractInst(bTemplate, bArg, bAgreementText, _, _) = b
         template == bTemplate && arg === bArg && agreementText == bAgreementText
       }
 

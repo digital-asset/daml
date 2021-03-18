@@ -174,6 +174,8 @@ private[dao] object ContractsReader {
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
       agreementText = "",
+      None,
+      None
     )
   }
 
@@ -185,5 +187,7 @@ private[dao] object ContractsReader {
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
       agreementText = "",
+      None,
+      None
     )
 }

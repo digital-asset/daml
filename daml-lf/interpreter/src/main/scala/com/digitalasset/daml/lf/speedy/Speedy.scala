@@ -111,7 +111,7 @@ private[lf] object Speedy {
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
       // local contracts, that are contracts created in the current transaction)
-      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
+      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue, SValue, SValue)],
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
   ) extends LedgerMode
@@ -329,14 +329,16 @@ private[lf] object Speedy {
         }
       }
 
-    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, v: SValue, signatories: Set[Party], observers: Set[Party]) =
       withOnLedger("addLocalContract") { onLedger =>
         coid match {
           case V.ContractId.V1(discriminator, _)
               if onLedger.globalDiscriminators.contains(discriminator) =>
             crash("Conflicting discriminators between a global and local contract ID.")
           case _ =>
-            onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
+            val sigs = SValue.SList(signatories.map(SValue.SParty(_)).to(FrontStack))
+            val obs = SValue.SList(observers.map(SValue.SParty(_)).to(FrontStack))
+            onLedger.localContracts = onLedger.localContracts.updated(coid, (templateId, v, sigs, obs))
         }
       }
 

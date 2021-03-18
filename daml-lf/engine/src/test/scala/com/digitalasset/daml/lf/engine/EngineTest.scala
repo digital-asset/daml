@@ -103,6 +103,8 @@ class EngineTest
         )
       ),
       "",
+      None,
+      None
     )
 
   val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] =
@@ -117,6 +119,8 @@ class EngineTest
             )
           ),
           "",
+          None,
+          None
         ),
       toContractId("#BasicTests:CallablePayout:1") ->
         ContractInst(
@@ -131,6 +135,8 @@ class EngineTest
             )
           ),
           "",
+          None,
+          None
         ),
       toContractId("#BasicTests:WithKey:1") ->
         withKeyContractInst,
@@ -1381,6 +1387,8 @@ class EngineTest
         TypeConName(basicTestsPkgId, tid),
         assertAsVersionedValue(ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs)),
         "",
+        None,
+        None
       )
 
     def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue[ContractId]]] = {
@@ -1496,6 +1504,8 @@ class EngineTest
         )
       ),
       "",
+      None,
+      None
     )
 
     def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue[ContractId]]] = {
@@ -1546,6 +1556,8 @@ class EngineTest
         ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))
       ),
       "",
+      None,
+      None
     )
 
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
@@ -1751,6 +1763,8 @@ class EngineTest
           ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))
         ),
         "",
+        None,
+        None
       )
 
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {

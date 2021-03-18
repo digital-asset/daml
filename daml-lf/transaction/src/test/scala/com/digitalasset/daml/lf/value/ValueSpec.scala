@@ -60,7 +60,7 @@ class ValueSpec
 
       "ensureNoCid is used " in {
         val value = VersionedValue[ContractId](TransactionVersion.minVersion, ValueUnit)
-        val contract = ContractInst(tmplId, value, "agreed")
+        val contract = ContractInst(tmplId, value, "agreed", None, None)
         value.ensureNoCid.map(_.version) shouldBe Right(TransactionVersion.minVersion)
         contract.ensureNoCid.map(_.arg.version) shouldBe Right(TransactionVersion.minVersion)
 

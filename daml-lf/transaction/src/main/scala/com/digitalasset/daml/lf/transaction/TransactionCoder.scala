@@ -154,7 +154,7 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield Value.ContractInst(id, value, (protoCoinst.getAgreement))
+    } yield Value.ContractInst(id, value, (protoCoinst.getAgreement), None, None)
 
   private[this] def decodeContractInstance[Cid](
       decodeCid: ValueCoder.DecodeCid[Cid],
@@ -164,7 +164,7 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- decodeValue(decodeCid, nodeVersion, protoCoinst.getArgVersioned)
-    } yield Value.ContractInst(id, value, protoCoinst.getAgreement)
+    } yield Value.ContractInst(id, value, protoCoinst.getAgreement, None, None)
 
   def decodeVersionedContractInstance[Cid](
       decodeCid: ValueCoder.DecodeCid[Cid],
@@ -173,7 +173,7 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield Value.ContractInst(id, value, (protoCoinst.getAgreement))
+    } yield Value.ContractInst(id, value, (protoCoinst.getAgreement), None, None)
 
   private[this] def encodeKeyWithMaintainers[Cid](
       encodeCid: ValueCoder.EncodeCid[Cid],
@@ -458,7 +458,7 @@ object TransactionCoder {
               for {
                 tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
                 arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
-              } yield Value.ContractInst(tmplId, arg, protoCreate.getAgreement)
+              } yield Value.ContractInst(tmplId, arg, protoCreate.getAgreement, None, None)
             }
           stakeholders <- toPartySet(protoCreate.getStakeholdersList)
           signatories <- toPartySet(protoCreate.getSignatoriesList)

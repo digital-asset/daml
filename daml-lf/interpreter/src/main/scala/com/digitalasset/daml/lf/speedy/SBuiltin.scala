@@ -916,7 +916,7 @@ private[lf] object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
-      machine.addLocalContract(coid, templateId, createArg)
+      machine.addLocalContract(coid, templateId, createArg, sigs, obs)
       onLedger.ptx = newPtx
       checkAborted(onLedger.ptx)
       machine.returnValue = SContractId(coid)
@@ -998,7 +998,7 @@ private[lf] object SBuiltin {
       }
 
       onLedger.localContracts.get(coid) match {
-        case Some((tmplId, contract)) =>
+        case Some((tmplId, contract, _, _)) =>
           if (tmplId != templateId)
             crash(s"contract $coid ($templateId) not found from partial transaction")
           else
@@ -1010,7 +1010,7 @@ private[lf] object SBuiltin {
               templateId,
               onLedger.committers,
               cbMissing = _ => machine.tryHandleSubmitMustFail(),
-              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
+              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _, _, _) =>
                 // Note that we cannot throw in this continuation -- instead
                 // set the control appropriately which will crash the machine
                 // correctly later.
@@ -1019,6 +1019,67 @@ private[lf] object SBuiltin {
                     SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
                   else
                     SEImportValue(typ, arg)
+              },
+            )
+          )
+      }
+    }
+  }
+
+  /** $fetch[T]
+    *    :: ContractId a
+    *    -> a
+    */
+  final case class SBUMyFetch(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    private[this] val typ = Ast.TTyCon(templateId)
+    override protected final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Unit = {
+      val coid = args.get(0) match {
+        case SContractId(coid) => coid
+        case v => crash(s"expected contract id, got: $v")
+      }
+
+      onLedger.localContracts.get(coid) match {
+        case Some((tmplId, contract, signatories, stakeholders)) =>
+          if (tmplId != templateId)
+            crash(s"contract $coid ($templateId) not found from partial transaction")
+          else {
+            val args = new util.ArrayList[SValue](3)
+          args.add(contract)
+          args.add(signatories)
+          args.add(stakeholders)
+            machine.returnValue =                     SStruct(Struct.assertFromNameSeq(
+                      List(
+                        Name.assertFromString("arg"),
+                        Name.assertFromString("signatories"),
+                        Name.assertFromString("stakeholders"))), args)
+          }
+        case None =>
+          throw SpeedyHungry(
+            SResultNeedContract(
+              coid,
+              templateId,
+              onLedger.committers,
+              cbMissing = _ => machine.tryHandleSubmitMustFail(),
+              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _, signatories, stakeholders) =>
+                // Note that we cannot throw in this continuation -- instead
+                // set the control appropriately which will crash the machine
+                // correctly later.
+                machine.ctrl =
+                  if (actualTmplId != templateId)
+                    SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                  else
+                    SBStructCon(Struct.assertFromSeq(
+                      List(
+                        Name.assertFromString("arg"),
+                        Name.assertFromString("signatories"),
+                        Name.assertFromString("stakeholders")).zipWithIndex)).apply(
+                  SEImportValue(typ, arg),
+                  SEValue(SList(signatories.get.map(SParty(_)).to(FrontStack))),
+                  SEValue(SList(stakeholders.get.map(SParty(_)).to(FrontStack))))
               },
             )
           )
