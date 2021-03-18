@@ -673,16 +673,29 @@ def da_scala_dar_resources_library(daml_root_dir, daml_dir_names, lf_versions, a
             }
             daml_compile_kwargs.update(kwargs)
             daml_compile(name = daml_compile_name, **daml_compile_kwargs)
+
         # 2. Generate lookup objects
         genrule_name = "test-dar-lookup-%s" % lf_version
-        genrule_kwargs = {
-            "outs": ["TestDar-%s.scala" % mangle_for_java(lf_version)],
-            "cmd": """
-echo "package com.daml.ledger.test" > $@
-echo "sealed trait TestDar { val path: String }" >> $@
+        genrule_command = """
+cat > $@ <<EOF
+package com.daml.ledger.test
+
+sealed trait TestDar { val path: String }
+
+object TestDar {
+  val paths: List[String] = List(
+EOF
+""" + "\n".join(["""
+echo "    \\"%s/%s-tests-%s.dar\\"," >> $@
+""" % (native.package_name(), test_name, lf_version) for test_name in daml_dir_names]) + """
+echo "  )\n}\n" >> $@
 """ + "\n".join(["""
 echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\" }" >> $@
 """ % (to_camel_case(test_name), native.package_name(), test_name, lf_version) for test_name in daml_dir_names])
+
+        genrule_kwargs = {
+            "outs": ["TestDar-%s.scala" % mangle_for_java(lf_version)],
+            "cmd": genrule_command
         }
         genrule_kwargs.update(kwargs)
         native.genrule(name = genrule_name, **genrule_kwargs)

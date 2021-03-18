@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.sandbox.services.TestCommands
 import org.openjdk.jmh.annotations.{Benchmark, Level, Setup}
 
@@ -35,8 +36,7 @@ class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File =
-    new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
+  override protected def darFile: File = new File(rlocation(ModelTestDar.path))
 
   private def generateCommand(
       sequenceNumber: Int,

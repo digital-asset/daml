@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.test.PackageManagementTestDar
 import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate
 import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate._
 import com.google.protobuf.ByteString
@@ -15,8 +16,7 @@ import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class PackageManagementServiceIT extends LedgerTestSuite {
-  private[this] val testPackageResourcePath =
-    com.daml.ledger.test.TestDars.fileNames("package_management")
+  private[this] val testPackageResourcePath = PackageManagementTestDar.path
 
   private def loadTestPackage()(implicit ec: ExecutionContext): Future[ByteString] = {
     val testPackage = Future {

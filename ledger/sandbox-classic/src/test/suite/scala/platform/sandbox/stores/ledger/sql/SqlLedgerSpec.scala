@@ -14,6 +14,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
+import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
@@ -320,7 +321,7 @@ object SqlLedgerSpec {
 
   private val Success(testDar) = {
     val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
+    val fileName = new File(rlocation(ModelTestDar.path))
     reader.readArchiveFromFile(fileName)
   }
 }

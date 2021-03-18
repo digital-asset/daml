@@ -29,6 +29,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.service.MetadataReader
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.participant.util.LfEngineToApi
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
@@ -51,7 +52,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 
-  private[http] val dar3 = requiredResource(com.daml.ledger.test.TestDars.fileNames("model"))
+  private[http] val dar3 = requiredResource(ModelTestDar.path)
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest
