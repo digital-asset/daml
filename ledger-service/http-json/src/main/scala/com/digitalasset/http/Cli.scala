@@ -173,12 +173,7 @@ object Cli extends StrictLogging {
             config.nonRepudiation.copy(certificateFile = Some(Paths.get(path)))
           )
         )
-        .text(
-          """EARLY ACCESS FEATURE
-            |Must be used alongside --non-repudiation-private-key-path and --non-repudiation-private-key-algorithm.
-            |All commands issued by the HTTP JSON API will be signed with the private key and the X.509 certificate at the provided paths.
-            |This is relevant exclusively if you are using the non-repudiation middleware.""".stripMargin
-        )
+        .text(nonRepudiationText)
 
       opt[String]("non-repudiation-private-key-path")
         .action((path, config) =>
@@ -186,12 +181,7 @@ object Cli extends StrictLogging {
             config.nonRepudiation.copy(privateKeyFile = Some(Paths.get(path)))
           )
         )
-        .text(
-          """EARLY ACCESS FEATURE
-            |Must be used alongside --non-repudiation-certificate-path and --non-repudiation-private-key-algorithm.
-            |All commands issued by the HTTP JSON API will be signed with the private key and the X.509 certificate at the provided paths.
-            |This is relevant exclusively if you are using the non-repudiation middleware.""".stripMargin
-        )
+        .text(nonRepudiationText)
 
       opt[String]("non-repudiation-private-key-algorithm")
         .action((algorithm, config) =>
@@ -199,11 +189,13 @@ object Cli extends StrictLogging {
             config.nonRepudiation.copy(privateKeyAlgorithm = Some(algorithm))
           )
         )
-        .text(
-          """EARLY ACCESS FEATURE
-            |Must be used alongside --non-repudiation-private-key-path and --non-repudiation-certificate-path.
-            |All commands issued by the HTTP JSON API will be signed with the private key and the X.509 certificate at the provided paths.
-            |This is relevant exclusively if you are using the non-repudiation middleware.""".stripMargin
-        )
+        .text(nonRepudiationText)
     }
+
+  private val nonRepudiationText: String =
+    """EARLY ACCESS FEATURE
+      |--non-repudiation-certificate-path, --non-repudiation-private-key-path and --non-repudiation-certificate-path must be passed together.
+      |All commands issued by the HTTP JSON API will be signed with the private key and the X.509 certificate at the provided paths.
+      |This is relevant exclusively if you are using the non-repudiation middleware.""".stripMargin
+
 }
