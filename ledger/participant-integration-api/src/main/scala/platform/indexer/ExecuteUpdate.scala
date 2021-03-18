@@ -33,7 +33,7 @@ import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
 import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
 import com.daml.platform.indexer.PipelinedExecuteUpdate.PipelinedUpdateWithTimer
 import com.daml.platform.store.DbType
-import com.daml.platform.store.dao.{LedgerDao, PersistenceResponse}
+import com.daml.platform.store.dao.{LedgerWriteDao, PersistenceResponse}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,7 +43,7 @@ object ExecuteUpdate {
   type FlowOwnerBuilder =
     (
         DbType,
-        LedgerDao,
+        LedgerWriteDao,
         Metrics,
         v1.ParticipantId,
         Int,
@@ -53,7 +53,7 @@ object ExecuteUpdate {
 
   def owner(
       dbType: DbType,
-      ledgerDao: LedgerDao,
+      ledgerDao: LedgerWriteDao,
       metrics: Metrics,
       participantId: v1.ParticipantId,
       updatePreparationParallelism: Int,
@@ -90,7 +90,7 @@ trait ExecuteUpdate {
 
   private[indexer] def participantId: v1.ParticipantId
 
-  private[indexer] def ledgerDao: LedgerDao
+  private[indexer] def ledgerDao: LedgerWriteDao
 
   private[indexer] def metrics: Metrics
 
@@ -350,7 +350,7 @@ trait ExecuteUpdate {
 }
 
 class PipelinedExecuteUpdate(
-    private[indexer] val ledgerDao: LedgerDao,
+    private[indexer] val ledgerDao: LedgerWriteDao,
     private[indexer] val metrics: Metrics,
     private[indexer] val participantId: v1.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
@@ -441,7 +441,7 @@ class PipelinedExecuteUpdate(
 
 object PipelinedExecuteUpdate {
   def owner(
-      ledgerDao: LedgerDao,
+      ledgerDao: LedgerWriteDao,
       metrics: Metrics,
       participantId: v1.ParticipantId,
       updatePreparationParallelism: Int,
@@ -463,7 +463,7 @@ object PipelinedExecuteUpdate {
 }
 
 class AtomicExecuteUpdate(
-    private[indexer] val ledgerDao: LedgerDao,
+    private[indexer] val ledgerDao: LedgerWriteDao,
     private[indexer] val metrics: Metrics,
     private[indexer] val participantId: v1.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
@@ -523,7 +523,7 @@ class AtomicExecuteUpdate(
 
 object AtomicExecuteUpdate {
   def owner(
-      ledgerDao: LedgerDao,
+      ledgerDao: LedgerWriteDao,
       metrics: Metrics,
       participantId: v1.ParticipantId,
       updatePreparationParallelism: Int,
