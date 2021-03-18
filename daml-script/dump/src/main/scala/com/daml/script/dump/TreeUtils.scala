@@ -174,6 +174,8 @@ object TreeUtils {
         exercisedEvent.choiceArgument.foldMap(arg => valueCids(arg.sum)) + ContractId(
           exercisedEvent.contractId
         )
+      case ExerciseByKeyCommand(exercisedEvent, _, _) =>
+        exercisedEvent.choiceArgument.foldMap(arg => valueCids(arg.sum))
       case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
         createdReferencedCids(createdEvent) ++ exercisedEvent.choiceArgument.foldMap(arg =>
           valueCids(arg.sum)
@@ -184,6 +186,11 @@ object TreeUtils {
   sealed trait Command
   final case class CreateCommand(createdEvent: CreatedEvent) extends Command
   final case class ExerciseCommand(exercisedEvent: ExercisedEvent) extends Command
+  final case class ExerciseByKeyCommand(
+      exercisedEvent: ExercisedEvent,
+      templateId: Identifier,
+      contractKey: Value,
+  ) extends Command
   final case class CreateAndExerciseCommand(
       createdEvent: CreatedEvent,
       exercisedEvent: ExercisedEvent,
@@ -243,6 +250,8 @@ object TreeUtils {
         case CreateCommand(createdEvent) =>
           Some(SimpleCommand(command, ContractId(createdEvent.contractId)))
         case ExerciseCommand(exercisedEvent) =>
+          simpleExercise(exercisedEvent, Set.empty).map(SimpleCommand(command, _))
+        case ExerciseByKeyCommand(exercisedEvent, _, _) =>
           simpleExercise(exercisedEvent, Set.empty).map(SimpleCommand(command, _))
         case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
           // We count the contract created by the created event into the set of created contracts.
@@ -337,6 +346,7 @@ object TreeUtils {
     cmd match {
       case CreateCommand(createdEvent) => evParties(Kind.Created(createdEvent))
       case ExerciseCommand(exercisedEvent) => evParties(Kind.Exercised(exercisedEvent))
+      case ExerciseByKeyCommand(exercisedEvent, _, _) => evParties(Kind.Exercised(exercisedEvent))
       case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
         evParties(Kind.Created(createdEvent)) ++ evParties(Kind.Exercised(exercisedEvent))
     }
