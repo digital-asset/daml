@@ -131,6 +131,8 @@
   type: jar-proto
 - target: //ledger/participant-state/kvutils:kvutils
   type: jar-scala
+- target: //ledger/participant-state/kvutils:dar-files-1.dev-lib
+  type: jar-scala
 - target: //ledger/participant-state/kvutils:kvutils-tests-lib
   type: jar-scala
 - target: //ledger/participant-state/kvutils/app:app

@@ -658,7 +658,7 @@ def da_scala_benchmark_jmh(
 def to_camel_case(name):
     return "".join([ part.capitalize() for part in name.split("_") ])
 
-def da_scala_dar_resources_library(daml_root_dir, daml_dir_names, lf_versions, add_maven_tag = False, maven_name_prefix = "", **kwargs):
+def da_scala_dar_resources_library(daml_root_dir, daml_dir_names, lf_versions, add_maven_tag = False, maven_name_prefix = "test", **kwargs):
     """
     Define a Scala library with dar files as resources.
     """

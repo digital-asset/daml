@@ -197,6 +197,7 @@ da_scala_dar_resources_library(
         "simple_package_tuple",
     ],
     lf_versions = ["1.dev"],
+    add_maven_tag = True,
     visibility = ["//visibility:__subpackages__"],
 )
 
