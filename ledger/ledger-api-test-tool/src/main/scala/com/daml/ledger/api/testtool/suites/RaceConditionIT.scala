@@ -63,13 +63,20 @@ final class RaceConditionIT extends LedgerTestSuite {
 
   test(
     "WWArchiveVsNonTransientCreate",
-    "Cannot re-create a contract if it hasn't yet been archived",
+    "Cannot create a contract with a key if that key is still used by another contract",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 100
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       _ <- Future.traverse(1 to Attempts) { attempt =>
+        /*
+        This test case is intended to catch a race condition ending up in two consecutive successful contract
+        create or archive commands. E.g.:
+        [create]  <wait>  [archive]-race-[create]
+        In case of a bug causing the second [create] to see a partial result of [archive] command we could end up
+        with two consecutive successful contract creations.
+         */
         if (attempt % 2 == 1) {
           ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
         } else {
@@ -138,7 +145,7 @@ final class RaceConditionIT extends LedgerTestSuite {
 
   test(
     "RWArchiveVsNonConsumingChoice",
-    "Cannot exercise a non-consuming choice after a contract archival",
+    "Cannot exercise a choice after a contract archival",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 5
