@@ -8,6 +8,7 @@ import qualified DA.Experimental.BigNumeric as BN
 import qualified DA.Experimental.RoundingMode as Rounding
 import qualified DA.List as L
 import DA.Experimental.Log
+import qualified DA.Numeric as Numeric
 
 type BN = BN.BigNumeric
 
@@ -64,7 +65,7 @@ mult = BN.multiply
 l1 = map (BN.shift (-s*n)) $ init_list fromInt add mult $ snd $ makeIntListList 0 m n []
 l2 = map (BN.shift (-s*n)) $ init_list fromInt add mult $ snd $ makeIntListList 1 m n []
 
-run = scenario do assert $ (show result) == expectedResult
+run2 = scenario do assert $ (show result) == expectedResult
   where
     result = sumProduct fromInt add mult l1 l2
     _ = log (show result)
@@ -74,3 +75,14 @@ run = scenario do assert $ (show result) == expectedResult
       -- when m = 1000
       "2452480261697618782037651040173687334078043709917566298246607061482061240357147437008275001199990643139763813080367109990237870262202299888046550575279784694841354.09085623238906136263283348635971139821404128423336932627714970176849009427033491200991325895319635198030635240154820650021432000"
 
+
+run = scenario do
+    assert ("1000.000000" == (show bX))
+  where
+    a: Numeric 2
+    a = 10.0
+    b: Numeric 3
+    b = 100.0
+    x: Numeric 6
+    x = Numeric.mul Rounding.Unnecessary a b
+    bX = BN.fromNumeric x

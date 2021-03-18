@@ -1802,6 +1802,8 @@ private[lf] object SBuiltin {
         ): Unit = {
           val scale = args.get(0) match {
             case STNat(n) => n
+            // workaround because experimental builtins ignore type quatifier.
+            case SInt64(n) => Numeric.Scale.assertFromLong(n)
             case v => crash(s"$name: expected Nat but got $v")
           }
           machine.returnValue = SNumeric(asNumeric(toBigDecimal(args.get(1)).setScale(scale)))
@@ -1891,8 +1893,8 @@ private[lf] object SBuiltin {
             machine: Machine,
         ) = {
           val x = args.get(0).asInstanceOf[SNumeric].value
-          val s = x.toPlainString
-          machine.returnValue = SText(if (s.contains(".")) s else s + ".0")
+          val s = x.toString
+          machine.returnValue = SText(s)
         }
       }
 

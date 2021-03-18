@@ -21,11 +21,19 @@ module DA.Experimental.BigNumeric (
     , zero
 ) where
 
-import GHC.Types (primitive)
+import GHC.Types (Nat, primitive)
 import DA.Experimental.RoundingMode
 import Prelude hiding (compare, round, subtract, toText)
 
+
+-- A BigNumeric is basically a java BigDecimal with the extra constraint
+-- that scale and precision are explicitly bounded.
+-- In the current implementation we have
+--  - 0 < precsion < MaxPrecision
+--  - 0 <= scale < MaxScale
 data BigNumeric
+
+data Proxy (n : GHC.Types.Nat) = Proxy {}
 
 instance Show BigNumeric where
     show = toText
@@ -35,8 +43,11 @@ instance Eq BigNumeric where
 fromNumeric: forall n. Numeric n -> BigNumeric
 fromNumeric = primitive @"$FROM_NUMERIC_BIGNUMERIC"
 
-toNumeric: forall n. BigNumeric -> Numeric n
-toNumeric = primitive @"$TO_NUMERIC_BIGNUMERIC"
+toNumeric: forall n. NumericScale n => BigNumeric -> Numeric n
+ -- The scale is pass explicitly because experimental builtins ignore type quantifiers
+toNumeric = primitive @"$TO_NUMERIC_BIGNUMERIC" scale
+  where
+    scale = numericScale (Proxy : Proxy n)
 
 zero, one: BigNumeric
 zero = fromNumeric (0.0 : Numeric 0)
@@ -53,7 +64,7 @@ add = primitive @"$ADD_BIGNUMERIC"
 subtract = primitive @"$SUB_BIGNUMERIC"
 
 -- can under/overflow
--- scale (add x y) == (scale x) + (scale y)
+-- scale (mul x y) == (scale x) + (scale y)
 multiply: BigNumeric -> BigNumeric -> BigNumeric
 multiply = primitive @"$MULT_BIGNUMERIC"
 
@@ -71,7 +82,8 @@ toText = primitive @"$TO_TEXT_BIGNUMERIC"
 compare: BigNumeric -> BigNumeric ->  Ordering
 compare = primitive @"$COMPARE_BIGNUMERIC"
 
--- can overflow
+-- ! can overflow !
+-- like in java
 stripTrailingZero: BigNumeric -> BigNumeric
 stripTrailingZero = primitive @"$STRIP_TRAILING_ZERO_BIGNUMERIC"
 
