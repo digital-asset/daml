@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.command._
-import com.daml.lf.data.Ref.QualifiedName
+import com.daml.lf.data.Ref.{ChoiceName, QualifiedName}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
@@ -52,7 +52,7 @@ class SimplePackage(testDarName: String) {
       templateId,
       contractId,
       choiceName,
-      ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty),
+      choiceArgument(choiceName),
     )
 
   def exerciseByKeyCmd(
@@ -64,7 +64,7 @@ class SimplePackage(testDarName: String) {
       templateId,
       ValueParty(partyKey),
       choiceName,
-      ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty),
+      choiceArgument(choiceName),
     )
 
   def createAndExerciseCmd(
@@ -76,8 +76,12 @@ class SimplePackage(testDarName: String) {
       templateId,
       templateArg,
       choiceName,
-      ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty),
+      choiceArgument(choiceName),
     )
+
+  private def choiceArgument(choiceName: ChoiceName) = {
+    ValueRecord(Some(typeConstructorId(s"Simple:$choiceName")), ImmArray.empty)
+  }
 
   private val simpleTemplateId: Ref.Identifier =
     Ref.Identifier(
