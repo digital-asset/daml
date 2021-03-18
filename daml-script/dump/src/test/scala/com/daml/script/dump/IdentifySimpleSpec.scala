@@ -119,6 +119,29 @@ class IdentifySimpleSpec extends AnyFreeSpec with Matchers with OptionValues {
       val commands = Command.fromTree(events)
       SimpleCommand.fromCommands(commands, events) should be(None)
     }
+    "nested consuming createAndExerciseCommand" in {
+      val events = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(ContractId("cid1")),
+            TestData.Exercised(
+              ContractId("cid1"),
+              Seq[TestData.Event](
+                TestData.Created(ContractId("cid2")),
+                TestData.Exercised(
+                  ContractId("cid1"),
+                  Seq(),
+                ),
+              ),
+              exerciseResult = Some(ContractId("cid2")),
+              consuming = false,
+            ),
+          )
+        )
+        .toTransactionTree
+      val commands = Command.fromTree(events)
+      SimpleCommand.fromCommands(commands, events) should be(Symbol("defined"))
+    }
     "complex createAndExerciseCommand" in {
       val events = TestData
         .Tree(
