@@ -52,9 +52,9 @@ object Main extends StrictLogging {
         s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
         s", wsConfig=${config.wsConfig.shows}" +
-        s", nonRepudiationCertificateFile=${config.nonRepudiationCertificateFile: Option[Path]}" +
-        s", nonRepudiationPrivateKeyFile=${config.nonRepudiationPrivateKeyFile: Option[Path]}" +
-        s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiationPrivateKeyAlgorithm: Option[String]}" +
+        s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +
+        s", nonRepudiationPrivateKeyFile=${config.nonRepudiation.privateKeyFile: Option[Path]}" +
+        s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiation.privateKeyAlgorithm: Option[String]}" +
         ")"
     )
 

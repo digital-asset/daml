@@ -169,7 +169,9 @@ object Cli extends StrictLogging {
 
       opt[String]("non-repudiation-certificate-path")
         .action((path, config) =>
-          config.copy(nonRepudiationCertificateFile = Some(Paths.get(path)))
+          config.copy(nonRepudiation =
+            config.nonRepudiation.copy(certificateFile = Some(Paths.get(path)))
+          )
         )
         .text(
           """EARLY ACCESS FEATURE
@@ -179,7 +181,11 @@ object Cli extends StrictLogging {
         )
 
       opt[String]("non-repudiation-private-key-path")
-        .action((path, config) => config.copy(nonRepudiationPrivateKeyFile = Some(Paths.get(path))))
+        .action((path, config) =>
+          config.copy(nonRepudiation =
+            config.nonRepudiation.copy(privateKeyFile = Some(Paths.get(path)))
+          )
+        )
         .text(
           """EARLY ACCESS FEATURE
             |Must be used alongside --non-repudiation-certificate-path and --non-repudiation-private-key-algorithm.
@@ -189,7 +195,9 @@ object Cli extends StrictLogging {
 
       opt[String]("non-repudiation-private-key-algorithm")
         .action((algorithm, config) =>
-          config.copy(nonRepudiationPrivateKeyAlgorithm = Some(algorithm))
+          config.copy(nonRepudiation =
+            config.nonRepudiation.copy(privateKeyAlgorithm = Some(algorithm))
+          )
         )
         .text(
           """EARLY ACCESS FEATURE

@@ -83,9 +83,7 @@ object HttpService extends StrictLogging {
     val packageMaxInboundMessageSize: Option[Int]
     val maxInboundMessageSize: Int
     val healthTimeoutSeconds: Int
-    val nonRepudiationCertificateFile: Option[Path]
-    val nonRepudiationPrivateKeyFile: Option[Path]
-    val nonRepudiationPrivateKeyAlgorithm: Option[String]
+    val nonRepudiation: nonrepudiation.Configuration.Cli
   }
 
   trait DefaultStartSettings extends StartSettings {
@@ -152,9 +150,7 @@ object HttpService extends StrictLogging {
           ledgerHost,
           ledgerPort,
           clientConfig,
-          startSettings.nonRepudiationCertificateFile,
-          startSettings.nonRepudiationPrivateKeyFile,
-          startSettings.nonRepudiationPrivateKeyAlgorithm,
+          startSettings.nonRepudiation,
         )
       ): ET[LedgerClient]
 
@@ -165,9 +161,7 @@ object HttpService extends StrictLogging {
           packageMaxInboundMessageSize.fold(clientConfig)(size =>
             clientConfig.copy(maxInboundMessageSize = size)
           ),
-          None,
-          None,
-          None,
+          startSettings.nonRepudiation,
         )
       ): ET[LedgerClient]
 
@@ -372,53 +366,29 @@ object HttpService extends StrictLogging {
     })
   }
 
-  private def validateNonRepudiationConfiguration(
-      certificateFile: Option[Path],
-      privateKeyFile: Option[Path],
-      privateKeyAlgorithm: Option[String],
-  ): Future[Option[(Path, Path, String)]] =
-    (certificateFile, privateKeyFile, privateKeyAlgorithm) match {
-      case (None, None, None) =>
-        Future.successful(None)
-      case (Some(cf), Some(kf), Some(ka)) =>
-        Future.successful(Some((cf, kf, ka)))
-      case _ =>
-        Future.failed(
-          new IllegalArgumentException(
-            "Either all or none of the non-repudiation options must be passed"
-          )
-        )
-    }
-
   private def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
-      nonRepudiationCertificateFile: Option[Path],
-      nonRepudiationPrivateKeyFile: Option[Path],
-      nonRepudiationPrivateKeyAlgorithm: Option[String],
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit executionContext: ExecutionContext): Future[NettyChannelBuilder] = {
     val base = NettyChannelBuilder.forAddress(ledgerHost, ledgerPort)
-    validateNonRepudiationConfiguration(
-      nonRepudiationCertificateFile,
-      nonRepudiationPrivateKeyFile,
-      nonRepudiationPrivateKeyAlgorithm,
-    ).map(_.fold(base) { case (certificatePath, privateKeyPath, privateKeyAlgorithm) =>
-      val channelWithInterceptor =
-        for {
-          certificate <- loadCertificate(certificatePath)
-          key <- loadPrivateKey(privateKeyPath, privateKeyAlgorithm)
-        } yield base.intercept(SigningInterceptor.signCommands(key, certificate))
-      channelWithInterceptor.get
-    })
+    Future
+      .fromTry(nonRepudiationConfig.validated)
+      .map(_.fold(base) { config =>
+        val channelWithInterceptor =
+          for {
+            certificate <- loadCertificate(config.certificateFile)
+            key <- loadPrivateKey(config.privateKeyFile, config.privateKeyAlgorithm)
+          } yield base.intercept(SigningInterceptor.signCommands(key, certificate))
+        channelWithInterceptor.get
+      })
   }
 
   private def ledgerClient(
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
-      nonRepudiationCertificateFile: Option[Path],
-      nonRepudiationPrivateKeyFile: Option[Path],
-      nonRepudiationPrivateKeyAlgorithm: Option[String],
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
@@ -427,9 +397,7 @@ object HttpService extends StrictLogging {
       builder <- channelBuilder(
         ledgerHost,
         ledgerPort,
-        nonRepudiationCertificateFile,
-        nonRepudiationPrivateKeyFile,
-        nonRepudiationPrivateKeyAlgorithm,
+        nonRepudiationConfig,
       )
       client <- LedgerClient.fromBuilder(builder, clientConfig)
     } yield client

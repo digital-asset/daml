@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 import java.security.cert.X509Certificate
 import java.time.Clock
 import java.util.UUID
@@ -46,26 +46,25 @@ final class NonRepudiationTest
 
   import HttpServiceTestFixture._
 
-  private var certificatePath: Path = _
-  private var privateKeyPath: Path = _
-  private var privateKeyAlgorithm: String = _
+  private var nonRepudiation: nonrepudiation.Configuration.Cli = _
   private var certificate: X509Certificate = _
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     val (key, cert) = generateKeyAndCertificate()
     certificate = cert
-    certificatePath = Files.createTempFile("non-repudiation-test", "certificate")
-    privateKeyPath = Files.createTempFile("non-repudiation-test", "key")
+    val certificatePath = Files.createTempFile("non-repudiation-test", "certificate")
+    val privateKeyPath = Files.createTempFile("non-repudiation-test", "key")
     Files.write(certificatePath, cert.getEncoded)
     Files.write(privateKeyPath, key.getEncoded)
-    privateKeyAlgorithm = key.getAlgorithm
+    nonRepudiation =
+      nonrepudiation.Configuration.Cli(certificatePath, privateKeyPath, key.getAlgorithm)
   }
 
   override protected def afterEach(): Unit = {
     super.afterEach()
-    Files.delete(certificatePath)
-    Files.delete(privateKeyPath)
+    nonRepudiation.certificateFile.foreach(Files.delete)
+    nonRepudiation.privateKeyFile.foreach(Files.delete)
   }
 
   override val jdbcConfig: Option[JdbcConfig] = None
@@ -121,7 +120,7 @@ final class NonRepudiationTest
       LeakPasswords.No,
       useTls,
       wsConfig,
-      Some((certificatePath, privateKeyPath, privateKeyAlgorithm)),
+      nonRepudiation,
     ) _
 
   private def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
