@@ -174,6 +174,7 @@ object Cli extends StrictLogging {
           )
         )
         .text(nonRepudiationText)
+        .hidden()
 
       opt[String]("non-repudiation-private-key-path")
         .action((path, config) =>
@@ -182,6 +183,7 @@ object Cli extends StrictLogging {
           )
         )
         .text(nonRepudiationText)
+        .hidden()
 
       opt[String]("non-repudiation-private-key-algorithm")
         .action((algorithm, config) =>
@@ -190,6 +192,7 @@ object Cli extends StrictLogging {
           )
         )
         .text(nonRepudiationText)
+        .hidden()
     }
 
   private val nonRepudiationText: String =
