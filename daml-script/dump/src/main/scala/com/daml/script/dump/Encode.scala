@@ -219,14 +219,10 @@ private[dump] object Encode {
     case CreateCommand(createdEvent) =>
       encodeCreatedEvent(partyMap, cidMap, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
-      Doc.text("exerciseCmd ") + encodeCid(
-        cidMap,
-        ContractId(exercisedEvent.contractId),
-      ) + Doc.space + encodeValue(
-        partyMap,
-        cidMap,
-        exercisedEvent.getChoiceArgument.sum,
-      )
+      val command = Doc.text("exerciseCmd")
+      val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+      command & cid & choice
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
       val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
