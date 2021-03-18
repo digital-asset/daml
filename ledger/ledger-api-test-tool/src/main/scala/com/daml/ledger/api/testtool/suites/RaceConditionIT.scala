@@ -79,18 +79,14 @@ final class RaceConditionIT extends LedgerTestSuite {
       transactions <- ledger.transactionTrees(alice)
     } yield {
       import TransactionUtil._
-      def txLt(tx1: TransactionTree, tx2: TransactionTree): Boolean =
-        offsetLessThan(tx1.offset, tx2.offset)
-
-      val sorted = transactions.sortWith(txLt)
 
       assert(
-        isCreateNonTransient(sorted.head),
+        isCreateNonTransient(transactions.head),
         "The first transaction is expected to be a contract creation",
       )
-      assert(sorted.tail.nonEmpty, "Several transactions expected")
+      assert(transactions.tail.nonEmpty, "Several transactions expected")
 
-      val (_, valid) = sorted.tail.foldLeft((sorted.head, true)) {
+      val (_, valid) = transactions.tail.foldLeft((transactions.head, true)) {
         case ((previousTx, validUntilNow), currentTx) =>
           if (validUntilNow) {
             val valid = (isArchival(previousTx) && isCreateNonTransient(
@@ -103,7 +99,7 @@ final class RaceConditionIT extends LedgerTestSuite {
       }
 
       if (!valid)
-        fail(s"""Invalid transaction sequence: ${sorted.map(printTransaction).mkString("\n")}""")
+        fail(s"""Invalid transaction sequence: ${transactions.map(printTransaction).mkString("\n")}""")
     }
   })
 
