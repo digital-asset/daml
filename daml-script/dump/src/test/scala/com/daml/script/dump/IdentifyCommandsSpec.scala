@@ -4,10 +4,12 @@
 package com.daml.script.dump
 
 import com.daml.ledger.api.refinements.ApiTypes.ContractId
+import com.daml.ledger.api.v1.value.Value
 import com.daml.script.dump.TreeUtils.{
   Command,
   CreateAndExerciseCommand,
   CreateCommand,
+  ExerciseByKeyCommand,
   ExerciseCommand,
 }
 import org.scalatest.freespec.AnyFreeSpec
@@ -68,6 +70,41 @@ class IdentifyCommandsSpec extends AnyFreeSpec with Matchers with OptionValues {
       commands(0) shouldBe a[CreateCommand]
       commands(1) shouldBe a[CreateCommand]
       commands(2) shouldBe an[ExerciseCommand]
+    }
+    "ExerciseByKeyCommand" in {
+      val events = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(
+              ContractId("cid1"),
+              contractKey = Some(Value().withParty("Alice")),
+            ),
+            TestData.Created(ContractId("cid2")),
+            TestData.Exercised(ContractId("cid1"), Seq()),
+          )
+        )
+        .toTransactionTree
+      val commands = Command.fromTree(events)
+      commands should have length 3
+      commands(0) shouldBe a[CreateCommand]
+      commands(1) shouldBe a[CreateCommand]
+      commands(2) shouldBe an[ExerciseByKeyCommand]
+    }
+    "adjacent create and exercise with key" in {
+      val events = TestData
+        .Tree(
+          Seq[TestData.Event](
+            TestData.Created(
+              ContractId("cid1"),
+              contractKey = Some(Value().withParty("Alice")),
+            ),
+            TestData.Exercised(ContractId("cid1"), Seq()),
+          )
+        )
+        .toTransactionTree
+      val commands = Command.fromTree(events)
+      commands should have length 1
+      commands(0) shouldBe a[CreateAndExerciseCommand]
     }
   }
 }

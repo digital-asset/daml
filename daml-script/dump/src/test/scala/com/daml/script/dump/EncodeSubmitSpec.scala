@@ -4,6 +4,7 @@
 package com.daml.script.dump
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.v1.value.Value
 import com.daml.script.dump.TreeUtils.SubmitSimpleMulti
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -163,6 +164,39 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             |  exerciseCmd contract_0_0 (Module.Choice ())
             |let contract_1_0 = createdCid @Module.Template [0, 0] tree
             |let contract_1_1 = createdCid @Module.Template [0, 1] tree""".stripMargin.replace(
+            "\r\n",
+            "\n",
+          )
+      }
+      "referenced exerciseByKey" in {
+        val parties = Map(Party("Alice") -> "alice_0")
+        val cidMap = Map(
+          ContractId("cid0") -> "contract_0_0",
+          ContractId("cid1") -> "contract_1_0",
+          ContractId("cid2") -> "contract_1_1",
+        )
+        val cidRefs = Set(ContractId("cid1"), ContractId("cid2"))
+        val submit = TestData
+          .Tree(
+            Seq[TestData.Event](
+              TestData.Created(ContractId("cid0"), contractKey = Some(Value().withParty("Alice"))),
+              TestData.Created(ContractId("cid1")),
+              TestData.Exercised(
+                ContractId("cid0"),
+                Seq(
+                  TestData.Created(ContractId("cid2"))
+                ),
+              ),
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  createCmd Module.Template
+            |  createCmd Module.Template
+            |  exerciseByKeyCmd @Module.Template alice_0 (Module.Choice ())
+            |let contract_1_0 = createdCid @Module.Template [1] tree
+            |let contract_1_1 = createdCid @Module.Template [2, 0] tree""".stripMargin.replace(
             "\r\n",
             "\n",
           )
