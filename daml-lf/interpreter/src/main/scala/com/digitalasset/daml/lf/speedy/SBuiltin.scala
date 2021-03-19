@@ -1050,8 +1050,8 @@ private[lf] object SBuiltin {
           else {
             val args = new util.ArrayList[SValue](3)
             args.add(contract)
-            args.add(signatories)
-            args.add(stakeholders)
+            args.add(SList(signatories.view.map(SParty(_)).to(FrontStack)))
+            args.add(SList(stakeholders.view.map(SParty(_)).to(FrontStack)))
             machine.returnValue = SStruct(fetchStructNames, args)
           }
         case None =>
@@ -1078,8 +1078,8 @@ private[lf] object SBuiltin {
                     else
                       fetchStructCon(
                         SEImportValue(typ, arg),
-                        SEValue(SList(signatories.get.map(SParty(_)).to(FrontStack))),
-                        SEValue(SList(stakeholders.get.map(SParty(_)).to(FrontStack))),
+                        SEValue(SList(signatories.get.view.map(SParty(_)).to(FrontStack))),
+                        SEValue(SList(stakeholders.get.view.map(SParty(_)).to(FrontStack))),
                       )
               },
             )
