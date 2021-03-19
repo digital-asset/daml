@@ -37,7 +37,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
@@ -118,7 +118,7 @@ private[sandbox] object SqlLedger {
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
     private def initialize(
-        dao: LedgerDao
+        dao: LedgerWriteDao
     )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
       val ledgerId = providedLedgerId.or(LedgerIdGenerator.generateRandomId(name))
       logger.info(s"Initializing node with ledger id '$ledgerId'")
@@ -172,7 +172,7 @@ private[sandbox] object SqlLedger {
         initialLedgerEntries: ImmArray[LedgerEntryOrBump],
         timeProvider: TimeProvider,
         packages: InMemoryPackageStore,
-        ledgerDao: LedgerDao,
+        ledgerDao: LedgerWriteDao,
     )(implicit executionContext: ExecutionContext): Future[Unit] = {
       if (initialLedgerEntries.nonEmpty) {
         logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
@@ -202,7 +202,7 @@ private[sandbox] object SqlLedger {
 
     private def copyPackages(
         store: InMemoryPackageStore,
-        ledgerDao: LedgerDao,
+        ledgerDao: LedgerWriteDao,
         knownSince: Instant,
         newLedgerEnd: Offset,
     ): Future[Unit] = {
