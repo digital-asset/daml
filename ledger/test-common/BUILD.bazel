@@ -3,7 +3,6 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_dar_resources_library",
     "da_scala_library",
     "silencer_plugin",
 )
@@ -18,6 +17,7 @@ load(
     "lf_version_configuration",
     "lf_version_configuration_versions",
 )
+load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 alias(
     name = "dar-files",
@@ -72,7 +72,7 @@ alias(
                 "@maven//:ch_qos_logback_logback_core",
                 "@maven//:io_grpc_grpc_context",
             ],
-        )
+        ),
     ]
     for target in lf_version_configuration_versions
 ]

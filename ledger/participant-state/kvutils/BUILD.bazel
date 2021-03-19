@@ -4,7 +4,6 @@
 load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_dar_resources_library",
     "da_scala_library",
     "da_scala_test_suite",
     "silencer_plugin",
@@ -20,6 +19,7 @@ load(
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
+load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 da_scala_library(
     name = "kvutils",
