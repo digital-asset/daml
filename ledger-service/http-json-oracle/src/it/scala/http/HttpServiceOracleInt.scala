@@ -3,24 +3,21 @@
 
 package com.daml.http
 
+import com.daml.testing.oracle.OracleAroundAll
+
 import org.scalatest.Inside
 import org.scalatest.AsyncTestSuite
 import org.scalatest.matchers.should.Matchers
 
-trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns {
+trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with OracleAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  import sys.env
-  private[this] def oraclePort = env("ORACLE_PORT")
-  private[this] def oraclePwd = env("ORACLE_PWD")
-  private[this] def oracleUsername = env("ORACLE_USERNAME")
-
   protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "oracle.jdbc.OracleDriver",
     url = s"jdbc:oracle:thin:@//localhost:$oraclePort/XEPDB1",
-    user = oracleUsername,
+    user = oracleUser,
     password = oraclePwd,
     createSchema = true,
   )
