@@ -992,6 +992,8 @@ object Ast {
   val maintainersFieldName = Name.assertFromString("maintainers")
   val contractIdFieldName = Name.assertFromString("contractId")
   val contractFieldName = Name.assertFromString("contract")
+  val signatoriesFieldName = Name.assertFromString("signatories")
+  val observersFieldName = Name.assertFromString("observers")
 
   final case class PackageError(error: String) extends RuntimeException(error)
 

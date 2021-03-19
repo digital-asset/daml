@@ -150,6 +150,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       onLedger.commitLocation = optLocation
       onLedger.localContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
+      onLedger.cachedContracts = Map.empty
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
       machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
