@@ -210,7 +210,7 @@ object TreeUtils {
           }
           commands += CreateCommand(createdEvent)
         case Kind.Exercised(exercisedEvent) =>
-          lazy val optCreateAndExercise = commands.lastOption.flatMap {
+          val optCreateAndExercise = commands.lastOption.flatMap {
             case CreateCommand(createdEvent)
                 if createdEvent.contractId == exercisedEvent.contractId =>
               Some(CreateAndExerciseCommand(createdEvent, exercisedEvent))
