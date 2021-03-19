@@ -3,8 +3,8 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_library",
     "da_scala_dar_resources_library",
+    "da_scala_library",
     "silencer_plugin",
 )
 load(
@@ -56,8 +56,8 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//ledger/test-common:dar-files-stable-lib",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -74,10 +74,10 @@ test_names_with_dependencies = {
 }
 
 da_scala_dar_resources_library(
-    daml_root_dir = "src/main/daml",
-    daml_dir_names = test_names_with_dependencies.keys(),
-    lf_versions = lf_version_configuration_versions,
     add_maven_tag = True,
+    daml_dir_names = test_names_with_dependencies.keys(),
+    daml_root_dir = "src/main/daml",
+    lf_versions = lf_version_configuration_versions,
     maven_name_prefix = "test",
     visibility = ["//visibility:public"],
 )

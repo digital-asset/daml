@@ -4,10 +4,10 @@
 load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_dar_resources_library",
     "da_scala_library",
     "da_scala_test_suite",
     "silencer_plugin",
-    "da_scala_dar_resources_library",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -116,8 +116,8 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
+        "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
-        "//ledger/test-common:test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -175,8 +175,8 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
-        "//ledger/test-common:test-common",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -187,7 +187,7 @@ da_scala_test_suite(
 )
 
 da_scala_dar_resources_library(
-    daml_root_dir = "src/test/lib/daml",
+    add_maven_tag = True,
     daml_dir_names = [
         "simple_package_party",
         "simple_package_optional",
@@ -196,8 +196,8 @@ da_scala_dar_resources_library(
         "simple_package_variant",
         "simple_package_tuple",
     ],
+    daml_root_dir = "src/test/lib/daml",
     lf_versions = ["1.dev"],
-    add_maven_tag = True,
     maven_name_prefix = "kvutils-tests",
     visibility = ["//visibility:__subpackages__"],
 )

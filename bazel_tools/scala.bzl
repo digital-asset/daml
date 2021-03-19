@@ -656,7 +656,7 @@ def da_scala_benchmark_jmh(
     _wrap_rule_no_plugins(scala_benchmark_jmh, deps, runtime_deps, **kwargs)
 
 def to_camel_case(name):
-    return "".join([ part.capitalize() for part in name.split("_") ])
+    return "".join([part.capitalize() for part in name.split("_")])
 
 def da_scala_dar_resources_library(
         daml_root_dir,
@@ -701,7 +701,7 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
 
         genrule_kwargs = {
             "outs": ["TestDar-%s.scala" % mangle_for_java(lf_version)],
-            "cmd": genrule_command
+            "cmd": genrule_command,
         }
         genrule_kwargs.update(kwargs)
         native.genrule(name = genrule_name, **genrule_kwargs)
@@ -709,7 +709,7 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
         # 3. Build a Scala library with the above
         filegroup_name = "dar-files-%s" % lf_version
         filegroup_kwargs = {
-            "srcs": [ "%s-tests-%s.dar" % (dar_name, lf_version) for dar_name in daml_dir_names ],
+            "srcs": ["%s-tests-%s.dar" % (dar_name, lf_version) for dar_name in daml_dir_names],
         }
         filegroup_kwargs.update(kwargs)
         native.filegroup(name = filegroup_name, **filegroup_kwargs)
@@ -719,7 +719,7 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
         da_scala_library_kwargs.update(default_compile_arguments)
         da_scala_library_kwargs.update({
             "srcs": [":test-dar-lookup-%s" % lf_version],
-            "generated_srcs": [":test-dar-files-%s.scala" % lf_version], # required for scaladoc
+            "generated_srcs": [":test-dar-files-%s.scala" % lf_version],  # required for scaladoc
             "resources": ["dar-files-%s" % lf_version],
         })
         if add_maven_tag:
