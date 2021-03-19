@@ -10,8 +10,6 @@ import scala.util.{Random, Using}
 private[oracle] final case class User(name: String, pwd: String)
 
 trait OracleAround {
-  Class.forName("oracle.jdbc.OracleDriver")
-
   @volatile
   private var systemUser: String = _
   @volatile
@@ -34,9 +32,8 @@ trait OracleAround {
     createNewUser(u)
   }
 
-  private val pwd = "hunter2"
-
   protected def createNewUser(name: String): User = {
+    val pwd = "hunter2"
     Using.Manager { use =>
       val con = use(
         DriverManager.getConnection(

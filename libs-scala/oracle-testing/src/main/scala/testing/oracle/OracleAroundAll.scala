@@ -9,6 +9,7 @@ trait OracleAroundAll extends OracleAroundSuite with BeforeAndAfterAll {
   self: Suite =>
 
   override protected def beforeAll(): Unit = {
+    Class.forName("oracle.jdbc.OracleDriver")
     createNewUser()
     super.beforeAll()
   }
