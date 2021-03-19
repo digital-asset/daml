@@ -23,6 +23,7 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.DbInfo
@@ -39,8 +40,7 @@ import scala.util.Try
 trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def darFile =
-    new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
+  protected def darFile = new File(rlocation(ModelTestDar.path))
 
   protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(

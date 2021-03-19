@@ -10,6 +10,15 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.{Party, Update}
+import com.daml.ledger.test.{
+  SimplePackageListTestDar,
+  SimplePackageOptionalTestDar,
+  SimplePackagePartyTestDar,
+  SimplePackageTextMapTestDar,
+  SimplePackageTupleTestDar,
+  SimplePackageVariantTestDar,
+  TestDar,
+}
 import com.daml.lf.command.Command
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -44,32 +53,32 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   "transaction" should {
 
-    val templateArgs: Map[String, SimplePackage => Value[ContractId]] = Map(
-      "Party" -> (_ => bobValue),
-      "Option Party" -> (_ => ValueOptional(Some(bobValue))),
-      "List Party" -> (_ => ValueList(FrontStack(bobValue))),
-      "TextMap Party" -> (_ => ValueTextMap(SortedLookupList(Map("bob" -> bobValue)))),
-      "Simple:SimpleVariant" -> (simplePackage =>
+    val templateArgs: Map[TestDar, SimplePackage => Value[ContractId]] = Map(
+      SimplePackagePartyTestDar -> (_ => bobValue),
+      SimplePackageOptionalTestDar -> (_ => ValueOptional(Some(bobValue))),
+      SimplePackageListTestDar -> (_ => ValueList(FrontStack(bobValue))),
+      SimplePackageTextMapTestDar -> (_ => ValueTextMap(SortedLookupList(Map("bob" -> bobValue)))),
+      SimplePackageVariantTestDar -> (simplePackage =>
         ValueVariant(
           Some(simplePackage.typeConstructorId("Simple:SimpleVariant")),
           name("SV"),
           bobValue,
         )
       ),
-      "DA.Types:Tuple2 Party Unit" -> (simplePackage =>
+      SimplePackageTupleTestDar -> (simplePackage =>
         ValueRecord(
           Some(simplePackage.typeConstructorId("DA.Types:Tuple2")),
           FrontStack(
-            Some(name("x1")) -> bobValue,
-            Some(name("x2")) -> ValueUnit,
+            Some(name("_1")) -> bobValue,
+            Some(name("_2")) -> ValueUnit,
           ).toImmArray,
         )
       ),
-      // Not yet supported in DAML:
+      // Types not yet supported in DAML:
       //
-      // "<party: Party>" -> Value.ValueStruct(FrontStack(Ref.Name.assertFromString("party") -> bobValue).toImmArray),
-      // "GenMap Party Unit" -> Value.ValueGenMap(FrontStack(bobValue -> ValueUnit).toImmArray),
-      // "GenMap Unit Party" -> Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
+      // "<party: Party>": "Value.ValueStruct(FrontStack(Ref.Name.assertFromString("party") -> bobValue).toImmArray),
+      // "GenMap Party Unit": Value.ValueGenMap(FrontStack(bobValue -> ValueUnit).toImmArray),
+      // "GenMap Unit Party": Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
     )
 
     val p0 = mkParticipantId(0)
@@ -97,7 +106,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         transaction2 <- runSimpleCommand(
           alice,
           seed1,
-          simplePackage.simpleExerciseConsumeCmd(contractId),
+          simplePackage.simpleExerciseArchiveCmd(contractId),
         )
         submission <- prepareTransactionSubmission(
           submitter = alice,
@@ -183,7 +192,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           contractId <- preExecuteCreateSimpleContract(alice, seed(0), simplePackage)
           preparedSubmissions <- inParallelReadOnly(
             Seq(
-              prepareExerciseConsumeCmd(alice, simplePackage, contractId)(seed(1)),
+              prepareExerciseArchiveCmd(alice, simplePackage, contractId)(seed(1)),
               prepareExerciseReplaceByKey(alice, simplePackage)(seed(2)),
             )
           )
@@ -314,7 +323,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         transaction2 <- runSimpleCommand(
           alice,
           seeds(1),
-          simplePackage.simpleExerciseConsumeCmd(contractId),
+          simplePackage.simpleExerciseArchiveCmd(contractId),
         )
         logEntry2 <- submitTransaction(
           submitter = alice,
@@ -359,9 +368,9 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         }
     }
 
-    for ((additionalContractDataType, additionalContractValue) <- templateArgs) {
-      s"accept transactions with unallocated parties in values: $additionalContractDataType" in {
-        val simplePackage = new SimplePackage(additionalContractDataType)
+    for ((testDar, additionalContractValue) <- templateArgs) {
+      s"accept transactions with unallocated parties in values: $testDar" in {
+        val simplePackage = new SimplePackage(testDar)
         val command = simplePackage.simpleCreateCmd(
           simplePackage.mkSimpleTemplateArg("Alice", "Eve", additionalContractValue(simplePackage))
         )
@@ -477,7 +486,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .map(i => seed(i))
 
       val simpleCreateAndExerciseCmd =
-        simplePackage.simpleCreateAndExerciseConsumeCmd(mkSimpleCreateArg(simplePackage))
+        simplePackage.simpleCreateAndExerciseArchiveCmd(mkSimpleCreateArg(simplePackage))
 
       for {
         tx1 <- runSimpleCommand(alice, seeds.head, simpleCreateAndExerciseCmd)
@@ -577,7 +586,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       )
     } yield submission
 
-  private def prepareExerciseConsumeCmd(
+  private def prepareExerciseArchiveCmd(
       submitter: Party,
       simplePackage: SimplePackage,
       contractId: ContractId,
@@ -588,7 +597,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       exerciseTransaction <- runSimpleCommand(
         submitter,
         seed,
-        simplePackage.simpleExerciseConsumeCmd(contractId),
+        simplePackage.simpleExerciseArchiveCmd(contractId),
       )
       submission <- prepareTransactionSubmission(
         submitter = submitter,

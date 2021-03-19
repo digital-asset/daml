@@ -10,6 +10,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.test.SimplePackagePartyTestDar
 import com.daml.lf.command.{Command, Commands}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
@@ -48,9 +49,8 @@ object KVTest {
     Reader(f).state
 
   private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
-  private[this] val DefaultAdditionalContractDataType: String = "Party"
   private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage(
-    DefaultAdditionalContractDataType
+    SimplePackagePartyTestDar
   )
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
@@ -95,14 +95,11 @@ object KVTest {
     for {
       archiveLogEntry <- submitArchives(
         "simple-archive-submission",
-        simplePackage.archive,
+        simplePackage.archives.values.toSeq: _*
       ).map(_._2)
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
       _ <- modify[KVTestState](state =>
-        state.copy(
-          uploadedPackages =
-            state.uploadedPackages + (simplePackage.packageId -> simplePackage.damlPackageWithContractData)
-        )
+        state.copy(uploadedPackages = state.uploadedPackages ++ simplePackage.packages)
       )
     } yield ()
 
