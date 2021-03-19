@@ -59,12 +59,26 @@ final class LedgerTestCasesRunner(
   private def start(test: LedgerTestCase, session: LedgerSession)(implicit
       executionContext: ExecutionContext
   ): Future[Duration] = {
+    def logAndStart(repetition: Int): Future[Duration] = {
+      logger.info(s"Starting '${test.description}'. Run: $repetition out of ${test.repeated}")
+      startSingle(test, session, repetition)
+    }
+
+    // TODO: make it return all/mean of all durations, not only the last duration
+    (2 to test.repeated).foldLeft(logAndStart(1)) { (result, repetition) =>
+      result.flatMap(_ => logAndStart(repetition))
+    }
+  }
+
+  private def startSingle(test: LedgerTestCase, session: LedgerSession, repetition: Int)(implicit
+      executionContext: ExecutionContext
+  ): Future[Duration] = {
     val execution = Promise[Duration]()
     val scaledTimeout = DefaultTimeout * timeoutScaleFactor * test.timeoutScale
 
     val startedTest =
       session
-        .createTestContext(test.shortIdentifier, identifierSuffix)
+        .createTestContext(s"${test.shortIdentifier}_$repetition", identifierSuffix)
         .flatMap { context =>
           val start = System.nanoTime()
           val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
