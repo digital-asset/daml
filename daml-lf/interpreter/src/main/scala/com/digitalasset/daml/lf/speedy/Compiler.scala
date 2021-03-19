@@ -960,33 +960,32 @@ private[lf] final class Compiler(
       tokenPos: Position,
   ) =
     let(SBUMyFetch(tmplId)(svar(cidPos))) { tmplArgPos0 =>
-    let(SBStructProj(0)(svar(tmplArgPos0))) { tmplArgPos =>
-      addExprVar(tmpl.param, tmplArgPos)
-      SEScopeExercise(
-        let(
-          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
-            svar(choiceArgPos),
-            svar(cidPos),
-            SBStructProj(1)(svar(tmplArgPos0)),
-            SBStructProj(2)(svar(tmplArgPos0)),
-            {
-              addExprVar(choice.argBinder._1, choiceArgPos)
-              compile(choice.controllers)
-            }, //
-            {
-              choice.choiceObservers match {
-                case Some(observers) => compile(observers)
-                case None => SEValue.EmptyList
-              }
-            },
-            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
-          )
-        ) { _ =>
-          addExprVar(choice.selfBinder, cidPos)
-          app(compile(choice.update), svar(tokenPos))
-        }
-      )
-    }
+      let(SBStructProj(0)(svar(tmplArgPos0))) { tmplArgPos =>
+        addExprVar(tmpl.param, tmplArgPos)
+        SEScopeExercise(
+          let(
+            SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
+              svar(choiceArgPos),
+              svar(cidPos),
+              SBStructProj(1)(svar(tmplArgPos0)),
+              SBStructProj(2)(svar(tmplArgPos0)), {
+                addExprVar(choice.argBinder._1, choiceArgPos)
+                compile(choice.controllers)
+              }, //
+              {
+                choice.choiceObservers match {
+                  case Some(observers) => compile(observers)
+                  case None => SEValue.EmptyList
+                }
+              },
+              mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
+            )
+          ) { _ =>
+            addExprVar(choice.selfBinder, cidPos)
+            app(compile(choice.update), svar(tokenPos))
+          }
+        )
+      }
     }
 
   private[this] def compileChoice(

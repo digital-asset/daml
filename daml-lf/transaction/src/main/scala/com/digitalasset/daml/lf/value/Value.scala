@@ -315,8 +315,13 @@ object Value extends CidContainer1[Value] {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String, signatories: Option[Set[Ref.Party]], stakeholders: Option[Set[Ref.Party]])
-      extends value.CidContainer[ContractInst[Val]] {
+  final case class ContractInst[+Val](
+      template: Identifier,
+      arg: Val,
+      agreementText: String,
+      signatories: Option[Set[Ref.Party]],
+      stakeholders: Option[Set[Ref.Party]],
+  ) extends value.CidContainer[ContractInst[Val]] {
 
     override protected def self: this.type = this
 

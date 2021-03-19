@@ -1031,6 +1031,7 @@ private[lf] object SBuiltin {
     *    -> a
     */
   final case class SBUMyFetch(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    import SBUMyFetch._
     private[this] val typ = Ast.TTyCon(templateId)
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -1048,14 +1049,10 @@ private[lf] object SBuiltin {
             crash(s"contract $coid ($templateId) not found from partial transaction")
           else {
             val args = new util.ArrayList[SValue](3)
-          args.add(contract)
-          args.add(signatories)
-          args.add(stakeholders)
-            machine.returnValue =                     SStruct(Struct.assertFromNameSeq(
-                      List(
-                        Name.assertFromString("arg"),
-                        Name.assertFromString("signatories"),
-                        Name.assertFromString("stakeholders"))), args)
+            args.add(contract)
+            args.add(signatories)
+            args.add(stakeholders)
+            machine.returnValue = SStruct(fetchStructNames, args)
           }
         case None =>
           throw SpeedyHungry(
@@ -1064,27 +1061,50 @@ private[lf] object SBuiltin {
               templateId,
               onLedger.committers,
               cbMissing = _ => machine.tryHandleSubmitMustFail(),
-              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _, signatories, stakeholders) =>
-                // Note that we cannot throw in this continuation -- instead
-                // set the control appropriately which will crash the machine
-                // correctly later.
-                machine.ctrl =
-                  if (actualTmplId != templateId)
-                    SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                  else
-                    SBStructCon(Struct.assertFromSeq(
-                      List(
-                        Name.assertFromString("arg"),
-                        Name.assertFromString("signatories"),
-                        Name.assertFromString("stakeholders")).zipWithIndex)).apply(
-                  SEImportValue(typ, arg),
-                  SEValue(SList(signatories.get.map(SParty(_)).to(FrontStack))),
-                  SEValue(SList(stakeholders.get.map(SParty(_)).to(FrontStack))))
+              cbPresent = {
+                case V.ContractInst(
+                      actualTmplId,
+                      V.VersionedValue(_, arg),
+                      _,
+                      signatories,
+                      stakeholders,
+                    ) =>
+                  // Note that we cannot throw in this continuation -- instead
+                  // set the control appropriately which will crash the machine
+                  // correctly later.
+                  machine.ctrl =
+                    if (actualTmplId != templateId)
+                      SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                    else
+                      fetchStructCon(
+                        SEImportValue(typ, arg),
+                        SEValue(SList(signatories.get.map(SParty(_)).to(FrontStack))),
+                        SEValue(SList(stakeholders.get.map(SParty(_)).to(FrontStack))),
+                      )
               },
             )
           )
       }
     }
+  }
+
+  object SBUMyFetch {
+    private val fetchStructNames = Struct.assertFromNameSeq(
+      List(
+        Name.assertFromString("arg"),
+        Name.assertFromString("signatories"),
+        Name.assertFromString("stakeholders"),
+      )
+    )
+    private val fetchStructCon = SBStructCon(
+      Struct.assertFromSeq(
+        Seq(
+          Name.assertFromString("arg"),
+          Name.assertFromString("signatories"),
+          Name.assertFromString("stakeholders"),
+        ).zipWithIndex
+      )
+    )
   }
 
   /** $insertFetch[tid]

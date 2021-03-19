@@ -329,7 +329,13 @@ private[lf] object Speedy {
         }
       }
 
-    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, v: SValue, signatories: Set[Party], observers: Set[Party]) =
+    def addLocalContract(
+        coid: V.ContractId,
+        templateId: Ref.TypeConName,
+        v: SValue,
+        signatories: Set[Party],
+        observers: Set[Party],
+    ) =
       withOnLedger("addLocalContract") { onLedger =>
         coid match {
           case V.ContractId.V1(discriminator, _)
@@ -338,7 +344,8 @@ private[lf] object Speedy {
           case _ =>
             val sigs = SValue.SList(signatories.map(SValue.SParty(_)).to(FrontStack))
             val obs = SValue.SList(observers.map(SValue.SParty(_)).to(FrontStack))
-            onLedger.localContracts = onLedger.localContracts.updated(coid, (templateId, v, sigs, obs))
+            onLedger.localContracts =
+              onLedger.localContracts.updated(coid, (templateId, v, sigs, obs))
         }
       }
 

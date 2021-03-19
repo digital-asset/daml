@@ -175,7 +175,7 @@ private[dao] object ContractsReader {
       arg = deserialized,
       agreementText = "",
       None,
-      None
+      None,
     )
   }
 
@@ -188,6 +188,6 @@ private[dao] object ContractsReader {
       arg = createArgument,
       agreementText = "",
       None,
-      None
+      None,
     )
 }

@@ -216,7 +216,13 @@ object Node {
       Value.ContractInst(templateId, arg, agreementText, Some(signatories), Some(stakeholders))
 
     def versionedCoinst: Value.ContractInst[Value.VersionedValue[Cid]] =
-      Value.ContractInst(templateId, versionValue(arg), agreementText, Some(signatories), Some(stakeholders))
+      Value.ContractInst(
+        templateId,
+        versionValue(arg),
+        agreementText,
+        Some(signatories),
+        Some(stakeholders),
+      )
 
     def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
       key.map(KeyWithMaintainers.map1(versionValue))

@@ -102,7 +102,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       TransactionBuilder.assertAsVersionedValue(contractRecord(party, idx, cids)),
       "Agreement",
       None,
-      None
+      None,
     )
 
   private def globalKey(party: Ref.Party, idx: Int) =
