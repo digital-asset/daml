@@ -69,23 +69,22 @@ final class RaceConditionIT extends LedgerTestSuite {
     allocate(SingleParty),
     repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
-    val Attempts = 100
+    /*
+    This test case is intended to catch a race condition ending up in two consecutive successful contract
+    create or archive commands. E.g.:
+    [create]  <wait>  [archive]-race-[create]
+    In case of a bug causing the second [create] to see a partial result of [archive] command we could end up
+    with two consecutive successful contract creations.
+     */
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
-      _ <- Future.traverse(1 to Attempts) { attempt =>
-        /*
-        This test case is intended to catch a race condition ending up in two consecutive successful contract
-        create or archive commands. E.g.:
-        [create]  <wait>  [archive]-race-[create]
-        In case of a bug causing the second [create] to see a partial result of [archive] command we could end up
-        with two consecutive successful contract creations.
-         */
-        if (attempt % 2 == 1) {
-          ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
-        } else {
-          ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
-        }
-      }
+      _ = Thread.sleep(1000)
+      createFuture = ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
+      exerciseFuture = ledger
+        .exercise(alice, contract.exerciseContractWithKey_Archive)
+        .transform(Success(_))
+      _ <- createFuture
+      _ <- exerciseFuture
       transactions <- ledger.transactionTrees(alice)
     } yield {
       import TransactionUtil._
