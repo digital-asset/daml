@@ -20,11 +20,12 @@ final class RaceConditionIT extends LedgerTestSuite {
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
-    val Attempts = 100
+    val Attempts = 5
     val ExpectedNumberOfSuccessfulCreations = 1
     Future
-      .traverse(1 to Attempts) { case _ =>
+      .traverse(1 to Attempts) { _ =>
         ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
       }
       .map { results =>
@@ -41,8 +42,9 @@ final class RaceConditionIT extends LedgerTestSuite {
     "WWDoubleArchive",
     "Cannot archive the same contract multiple times",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
-    val Attempts = 100
+    val Attempts = 5
     val ExpectedNumberOfSuccessfulArchivals = 1
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
@@ -65,6 +67,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "WWArchiveVsNonTransientCreate",
     "Cannot create a contract with a key if that key is still used by another contract",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 100
     for {
@@ -106,7 +109,9 @@ final class RaceConditionIT extends LedgerTestSuite {
       }
 
       if (!valid)
-        fail(s"""Invalid transaction sequence: ${transactions.map(printTransaction).mkString("\n")}""")
+        fail(
+          s"""Invalid transaction sequence: ${transactions.map(printTransaction).mkString("\n")}"""
+        )
     }
   })
 
@@ -114,6 +119,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 100
     val ActionAt = 90
@@ -147,6 +153,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsNonConsumingChoice",
     "Cannot exercise a choice after a contract archival",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 5
     val Attempts = 10
@@ -178,6 +185,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFetch",
     "Cannot fetch an archived contract",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 400
     val Attempts = 500
@@ -209,6 +217,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 90
     val Attempts = 100
@@ -239,6 +248,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
     allocate(SingleParty),
+    repeated = 5,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val CreateAt = 90
     val Attempts = 100
