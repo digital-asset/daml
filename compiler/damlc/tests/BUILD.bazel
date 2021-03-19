@@ -902,6 +902,43 @@ da_haskell_test(
     ],
 )
 
+da_haskell_test(
+    name = "package-manager",
+    srcs = ["src/DamlcPkgManager.hs"],
+    data = [
+        ":pkg-manager-test.dar",
+        "//compiler/damlc",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "DamlcPkgManager.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+daml_compile(
+    name = "pkg-manager-test",
+    srcs = glob(["PkgManagerTest.daml"]),
+)
+
 sh_test(
     name = "stable-packages",
     srcs = ["src/stable-packages.sh"],

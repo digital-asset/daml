@@ -22,14 +22,14 @@ private[dao] final class CommandCompletionsReader(
     dbType: DbType,
     metrics: Metrics,
     executionContext: ExecutionContext,
-) {
+) extends LedgerDaoCommandCompletionsReader {
 
   private val sqlFunctions = SqlFunctions(dbType)
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
-  def getCommandCompletions(
+  override def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,

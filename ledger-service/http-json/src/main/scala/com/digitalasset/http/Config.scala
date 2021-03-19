@@ -35,6 +35,7 @@ private[http] final case class Config(
     allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
+    nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
 ) extends HttpService.StartSettings
 
 private[http] object Config {

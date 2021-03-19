@@ -7,7 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.daml.script.dump.TreeUtils.{Command, SimpleCommand}
+import com.daml.script.dump.TreeUtils.{Command, SimpleCommand, Submit}
 import com.google.protobuf
 
 object TestData {
@@ -27,6 +27,7 @@ object TestData {
       contractId: ContractId,
       createArguments: Seq[RecordField] = Seq.empty,
       submitters: Seq[Party] = defaultParties,
+      contractKey: Option[Value] = None,
   ) extends Event {
     def toCreatedEvent(eventId: String): CreatedEvent = {
       CreatedEvent(
@@ -34,7 +35,9 @@ object TestData {
         templateId = Some(defaultTemplateId),
         contractId = ContractId.unwrap(contractId),
         signatories = Party.unsubst(submitters),
-        createArguments = Some(Record(recordId = Some(defaultTemplateId), fields = createArguments)),
+        createArguments =
+          Some(Record(recordId = Some(defaultTemplateId), fields = createArguments)),
+        contractKey = contractKey,
       )
     }
   }
@@ -44,6 +47,7 @@ object TestData {
       choiceArgument: Value = defaultChoiceArgument,
       actingParties: Seq[Party] = defaultParties,
       exerciseResult: Option[ContractId] = None,
+      consuming: Boolean = true,
   ) extends Event
 
   sealed case class ACS(contracts: Seq[Created]) {
@@ -68,7 +72,14 @@ object TestData {
           case event: Created =>
             val treeEvent = TreeEvent(TreeEvent.Kind.Created(event.toCreatedEvent(eventId)))
             (rootEventIds :+ eventId, eventsById + (eventId -> treeEvent))
-          case Exercised(contractId, childEvents, choiceArgument, actingParties, exerciseResult) =>
+          case Exercised(
+                contractId,
+                childEvents,
+                choiceArgument,
+                actingParties,
+                exerciseResult,
+                consuming,
+              ) =>
             val (childEventIds, childEventsById) =
               childEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
             val treeEvent = TreeEvent(
@@ -86,6 +97,7 @@ object TestData {
                       .map(cid => Value().withContractId(ContractId.unwrap(cid)))
                       .getOrElse(defaultExerciseResult)
                   ),
+                  consuming = consuming,
                 )
               )
             )
@@ -112,6 +124,9 @@ object TestData {
     def toSimpleCommands: Seq[SimpleCommand] = {
       val (cmds, tree) = this.toCommands
       SimpleCommand.fromCommands(cmds, tree).get
+    }
+    def toSubmit: Submit = {
+      Submit.fromTree(this.toTransactionTree)
     }
   }
 }

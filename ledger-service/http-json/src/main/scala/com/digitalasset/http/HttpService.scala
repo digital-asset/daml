@@ -3,7 +3,10 @@
 
 package com.daml.http
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
+import java.security.cert.{CertificateFactory, X509Certificate}
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.{KeyFactory, PrivateKey}
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
@@ -35,15 +38,18 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.nonrepudiation.client.SigningInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
+import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
 import scalaz._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 import scala.util.control.NonFatal
 
 object HttpService extends StrictLogging {
@@ -77,6 +83,7 @@ object HttpService extends StrictLogging {
     val packageMaxInboundMessageSize: Option[Int]
     val maxInboundMessageSize: Int
     val healthTimeoutSeconds: Int
+    val nonRepudiation: nonrepudiation.Configuration.Cli
   }
 
   trait DefaultStartSettings extends StartSettings {
@@ -86,6 +93,31 @@ object HttpService extends StrictLogging {
     override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
     override val healthTimeoutSeconds: Int = DefaultHealthTimeoutSeconds
   }
+
+  def loadCertificate(
+      path: Path
+  ): Try[X509Certificate] = {
+    val newInputStream = Try(Files.newInputStream(path))
+    val certificate =
+      for {
+        input <- newInputStream
+        factory <- Try(CertificateFactory.getInstance("X.509"))
+        certificate <- Try(factory.generateCertificate(input).asInstanceOf[X509Certificate])
+      } yield certificate
+    newInputStream.foreach(_.close())
+    certificate
+  }
+
+  def loadPrivateKey(
+      path: Path,
+      algorithm: String,
+  ): Try[PrivateKey] =
+    for {
+      bytes <- Try(Files.readAllBytes(path))
+      keySpec <- Try(new PKCS8EncodedKeySpec(bytes))
+      factory <- Try(KeyFactory.getInstance(algorithm))
+      key <- Try(factory.generatePrivate(keySpec))
+    } yield key
 
   def start(
       startSettings: StartSettings,
@@ -114,7 +146,12 @@ object HttpService extends StrictLogging {
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       client <- eitherT(
-        ledgerClient(ledgerHost, ledgerPort, clientConfig)
+        ledgerClient(
+          ledgerHost,
+          ledgerPort,
+          clientConfig,
+          startSettings.nonRepudiation,
+        )
       ): ET[LedgerClient]
 
       pkgManagementClient <- eitherT(
@@ -124,6 +161,7 @@ object HttpService extends StrictLogging {
           packageMaxInboundMessageSize.fold(clientConfig)(size =>
             clientConfig.copy(maxInboundMessageSize = size)
           ),
+          startSettings.nonRepudiation,
         )
       ): ET[LedgerClient]
 
@@ -328,17 +366,48 @@ object HttpService extends StrictLogging {
     })
   }
 
+  private def channelBuilder(
+      ledgerHost: String,
+      ledgerPort: Int,
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
+  )(implicit executionContext: ExecutionContext): Future[NettyChannelBuilder] = {
+    val base = NettyChannelBuilder.forAddress(ledgerHost, ledgerPort)
+    Future
+      .fromTry(nonRepudiationConfig.validated)
+      .map(_.fold(base) { config =>
+        val channelWithInterceptor =
+          for {
+            certificate <- loadCertificate(config.certificateFile)
+            key <- loadPrivateKey(config.privateKeyFile, config.privateKeyAlgorithm)
+          } yield base.intercept(SigningInterceptor.signCommands(key, certificate))
+        channelWithInterceptor.get
+      })
+  }
+
   private def ledgerClient(
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
-  )(implicit ec: ExecutionContext, aesf: ExecutionSequencerFactory): Future[Error \/ LedgerClient] =
-    LedgerClient
-      .singleHost(ledgerHost, ledgerPort, clientConfig)
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
+  )(implicit
+      ec: ExecutionContext,
+      aesf: ExecutionSequencerFactory,
+  ): Future[Error \/ LedgerClient] = {
+    val client = for {
+      builder <- channelBuilder(
+        ledgerHost,
+        ledgerPort,
+        nonRepudiationConfig,
+      )
+      client <- LedgerClient.fromBuilder(builder, clientConfig)
+    } yield client
+
+    client
       .map(_.right)
       .recover { case NonFatal(e) =>
         \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
+  }
 
   private def createPortFile(
       file: Path,
