@@ -3,10 +3,11 @@
 
 package com.daml.platform.store
 
-import java.sql.{PreparedStatement, Timestamp}
+import java.sql.{Connection, JDBCType, PreparedStatement, Timestamp, Types}
 import java.time.Instant
 import java.util.Date
 
+import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.EventId
 import com.daml.ledger.api.domain
@@ -16,9 +17,191 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value
+import com.zaxxer.hikari.pool.HikariProxyConnection
 import io.grpc.Status.Code
 
 import scala.language.implicitConversions
+
+private[platform] object OracleArrayConversions {
+  import oracle.jdbc.OracleConnection
+
+//    @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+//    implicit def arrayToParameter[A <: AnyRef](implicit m: ParameterMetaData[A]): ToStatement[Array[A]] =
+//      new ToStatement[Array[A]] {
+//        def set(s: PreparedStatement, i: Int, arr: Array[A]) = {
+//          val OracleArrayName = m.sqlType match {
+//            case "VARCHAR" => "VARCHAR_ARRAY"
+////              SYS.ODCIVARCHAR2LIST
+//            case "SMALLINT" => "SMALLINT_ARRAY"
+//            case "BYTEA" => "BYTE_ARRAY_ARRAY"
+//            case "LONGVARBINARY" => "BYTE_ARRAY_ARRAY"
+//            case "TIMESTAMP" => "TIMESTAMP_ARRAY"
+//            case "BOOLEAN" => "BOOLEAN_ARRAY"
+//          }
+//          if (arr == (null: AnyRef)) {
+//            s.setNull(i, JDBCType.ARRAY.getVendorTypeNumber, OracleArrayName)
+//          }
+//          else {
+//            s.setObject(
+//              i,
+//              unwrapConnection(s).createARRAY(OracleArrayName, arr.map(a => a: AnyRef)),
+//              JDBCType.ARRAY.getVendorTypeNumber,
+//            )
+//          }
+//        }
+//      }
+
+  implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
+    override def sqlType: String = "ARRAY"
+    override def jdbcType: Int = java.sql.Types.ARRAY
+  }
+
+  // Oracle does not support the boolean SQL type, so we need to treat it as integer
+  // when setting nulls
+  implicit object BooleanParameterMetaData extends ParameterMetaData[Boolean] {
+    val sqlType = "INTEGER"
+    val jdbcType = Types.INTEGER
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  abstract sealed class ArrayToStatement[T](oracleTypeName: String)
+      extends ToStatement[Array[T]]
+      with NotNullGuard {
+    private val OracleArrayName: String = oracleTypeName match {
+      case "VARCHAR" => "VARCHAR_ARRAY"
+      case "SMALLINT" => "SMALLINT_ARRAY"
+      case "LONGVARBINARY" => "BYTE_ARRAY_ARRAY"
+      case "TIMESTAMP" => "TIMESTAMP_ARRAY"
+      case "BOOLEAN" => "BOOLEAN_ARRAY"
+      case s: String => throw new IllegalArgumentException(s)
+    }
+
+    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
+      if (v == (null: AnyRef)) {
+        s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, OracleArrayName)
+      } else {
+        s.setObject(
+          index,
+          unwrapConnection(s).createARRAY(OracleArrayName, v.asInstanceOf[Array[AnyRef]]),
+          JDBCType.ARRAY.getVendorTypeNumber,
+        )
+      }
+    }
+  }
+
+  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("LONGVARBINARY")
+
+  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
+
+  implicit object RefPartyArrayToStatement extends ArrayToStatement[Ref.Party]("VARCHAR")
+
+  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
+
+  implicit object IntegerArrayToStatement extends ArrayToStatement[Integer]("SMALLINT")
+
+  implicit object BooleanArrayToStatement extends ArrayToStatement[java.lang.Boolean]("BOOLEAN")
+
+  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
+      s.setObject(
+        index,
+        unwrapConnection(s).createARRAY("TIMESTAMP_ARRAY", v.map(java.sql.Timestamp.from)),
+        JDBCType.ARRAY.getVendorTypeNumber,
+      )
+    }
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  implicit object StringOptionArrayArrayToStatement extends ToStatement[Option[Array[String]]] {
+    override def set(s: PreparedStatement, index: Int, stringOpts: Option[Array[String]]): Unit = {
+      stringOpts match {
+        case None => s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, "VARCHAR_ARRAY")
+        case Some(arr) =>
+          s.setObject(
+            index,
+            unwrapConnection(s)
+              .createARRAY("VARCHAR_ARRAY", arr.asInstanceOf[Array[AnyRef]]),
+            JDBCType.ARRAY.getVendorTypeNumber,
+          )
+      }
+    }
+  }
+
+  object IntToSmallIntConversions {
+
+    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
+      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
+        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
+        s.setObject(
+          index,
+          unwrapConnection(s)
+            .createARRAY("SMALLINT_ARRAY", intOrNullsArray.asInstanceOf[Array[AnyRef]]),
+          JDBCType.ARRAY.getVendorTypeNumber,
+        )
+      }
+    }
+  }
+
+  private def unwrapConnection[T](s: PreparedStatement): OracleConnection = {
+    s.getConnection match {
+      case hikari: HikariProxyConnection =>
+        hikari.unwrap(classOf[OracleConnection])
+      case oracle: OracleConnection =>
+        oracle
+      case c: Connection =>
+        sys.error(
+          s"Unsupported connection type for creating Oracle integer array: ${c.getClass.getSimpleName}"
+        )
+    }
+  }
+}
+
+private[platform] object JdbcArrayConversions {
+
+  // Array[String]
+
+  implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
+    override def sqlType: String = "ARRAY"
+    override def jdbcType: Int = java.sql.Types.ARRAY
+  }
+
+  abstract sealed class ArrayToStatement[T](postgresTypeName: String)
+      extends ToStatement[Array[T]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
+      val conn = s.getConnection
+      val ts = conn.createArrayOf(postgresTypeName, v.asInstanceOf[Array[AnyRef]])
+      s.setArray(index, ts)
+    }
+  }
+
+  object IntToSmallIntConversions {
+
+    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
+      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
+        val conn = s.getConnection
+        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
+        val ts = conn.createArrayOf("SMALLINT", intOrNullsArray.asInstanceOf[Array[AnyRef]])
+        s.setArray(index, ts)
+      }
+    }
+
+  }
+
+  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
+
+  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
+
+  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
+
+  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
+    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
+      val conn = s.getConnection
+      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
+      s.setArray(index, ts)
+    }
+  }
+
+}
 
 private[platform] object Conversions {
 
@@ -56,6 +239,16 @@ private[platform] object Conversions {
   def party(columnName: String): RowParser[Ref.Party] =
     SqlParser.get[Ref.Party](columnName)(columnToParty)
 
+  // booleans are stored as BigDecimal 0/1 in oracle, need to do implicit conversion when reading from db
+  implicit val bigDecimalColumnToBoolean: Column[Boolean] = nonNull { (value, meta) =>
+    val MetaDataItem(qualified, _, _) = meta
+    value match {
+      case bd: java.math.BigDecimal => Right(bd.equals(new java.math.BigDecimal(1)))
+      case bool: Boolean => Right(bool)
+      case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to Boolean for column $qualified"))
+    }
+  }
+
   // PackageId
 
   implicit val columnToPackageId: Column[Ref.PackageId] =
@@ -80,6 +273,20 @@ private[platform] object Conversions {
 
   implicit val ledgerStringMetaParameter: ParameterMetaData[Ref.LedgerString] =
     new SubTypeOfStringMetaParameter[Ref.LedgerString]
+
+  // HexString
+
+  implicit val columnToHexString: Column[Ref.HexString] =
+    stringColumnToX(Ref.HexString.fromString)
+
+  implicit val hexStringToStatement: ToStatement[Ref.HexString] =
+    new SubTypeOfStringToStatement[Ref.HexString]
+
+  def hexString(columnName: String): RowParser[Ref.HexString] =
+    SqlParser.get[Ref.HexString](columnName)(columnToHexString)
+
+  implicit val hexStringMetaParameter: ParameterMetaData[Ref.HexString] =
+    new SubTypeOfStringMetaParameter[Ref.HexString]
 
   // EventId
 
@@ -199,46 +406,6 @@ private[platform] object Conversions {
     override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
   }
 
-  // Array[String]
-
-  implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
-    override def sqlType: String = "ARRAY"
-    override def jdbcType: Int = java.sql.Types.ARRAY
-  }
-
-  abstract sealed class ArrayToStatement[T](postgresTypeName: String)
-      extends ToStatement[Array[T]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf(postgresTypeName, v.asInstanceOf[Array[AnyRef]])
-      s.setArray(index, ts)
-    }
-  }
-
-  object IntToSmallIntConversions {
-    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
-      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
-        val conn = s.getConnection
-        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
-        val ts = conn.createArrayOf("SMALLINT", intOrNullsArray.asInstanceOf[Array[AnyRef]])
-        s.setArray(index, ts)
-      }
-    }
-  }
-
-  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
-
-  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
-
-  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
-
-  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
-      s.setArray(index, ts)
-    }
-  }
   // RejectionReason
 
   implicit def domainRejectionReasonToErrorCode(reason: domain.RejectionReason): Code =

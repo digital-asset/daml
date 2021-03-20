@@ -50,8 +50,8 @@ object ContractsTablePostgres extends ContractsTable {
       contractsInfo: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
   ): Executable = {
-    import com.daml.platform.store.Conversions._
-    import com.daml.platform.store.Conversions.IntToSmallIntConversions._
+    import com.daml.platform.store.JdbcArrayConversions._
+    import com.daml.platform.store.JdbcArrayConversions.IntToSmallIntConversions._
 
     val netCreatesSize = contractsInfo.netCreates.size
     val divulgedSize = contractsInfo.divulgedContracts.size

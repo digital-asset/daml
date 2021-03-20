@@ -4,6 +4,8 @@ package com.daml.platform.store.dao
 
 import java.sql.Connection
 import java.time.Instant
+
+import com.daml.platform.store.DbType.Oracle
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -93,7 +95,10 @@ private class JdbcLedgerDao(
   private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
+    case DbType.Oracle => OracleQueries
   }
+
+  private val PageSize = 100
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -147,10 +152,6 @@ private class JdbcLedgerDao(
       ParametersTable.setParticipantId(participantId.unwrap)(connection)
     }
 
-  private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    "select * from configuration_entries where ledger_offset > {startExclusive} and ledger_offset <= {endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
-  )
-
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
@@ -199,7 +200,7 @@ private class JdbcLedgerDao(
       withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           implicit connection =>
-            SQL_GET_CONFIGURATION_ENTRIES
+            SQL(queries.SQL_GET_CONFIGURATION_ENTRIES)
               .on(
                 "startExclusive" -> startExclusive,
                 "endInclusive" -> endInclusive,
@@ -250,7 +251,7 @@ private class JdbcLedgerDao(
               rejectionReason
           }
 
-        ParametersTable.updateLedgerEnd(offsetStep)
+        ParametersTable.updateLedgerEnd(offsetStep, dbType)
         val savepoint = conn.setSavepoint()
         val configurationBytes = Configuration.encode(configuration).toByteArray
         val typ = if (finalRejectionReason.isEmpty) {
@@ -305,7 +306,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      ParametersTable.updateLedgerEnd(offsetStep)
+      ParametersTable.updateLedgerEnd(offsetStep, dbType)
       val savepoint = conn.setSavepoint()
 
       partyEntry match {
@@ -326,6 +327,7 @@ private class JdbcLedgerDao(
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
                 "ledger_offset" -> offsetStep.offset,
+                "explicit" -> true,
                 "is_local" -> partyDetails.isLocal,
               )
               .execute()
@@ -352,10 +354,6 @@ private class JdbcLedgerDao(
     }
 
   }
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    "select * from party_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
-  )
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] =
     (offset("ledger_offset") ~
@@ -410,7 +408,7 @@ private class JdbcLedgerDao(
     PaginatingAsyncStream(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries) { implicit connection =>
-          SQL_GET_PARTY_ENTRIES
+          SQL(queries.SQL_GET_PARTY_ENTRIES)
             .on(
               "startExclusive" -> startExclusive,
               "endInclusive" -> endInclusive,
@@ -451,7 +449,7 @@ private class JdbcLedgerDao(
       rejectionReason: RejectionReason,
   )(implicit connection: Connection): Unit = {
     stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
-    prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
+    prepareRejectionInsert(info, offset, recordTime, rejectionReason, dbType).execute()
     ()
   }
 
@@ -536,14 +534,14 @@ private class JdbcLedgerDao(
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
       submitterInfo
-        .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
+        .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime, dbType))
         .foreach(_.execute()),
     )
 
   private def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-      ParametersTable.updateLedgerEnd(offsetStep),
+      ParametersTable.updateLedgerEnd(offsetStep, dbType),
     )
 
   override def storeRejection(
@@ -557,7 +555,7 @@ private class JdbcLedgerDao(
       for (info <- submitterInfo) {
         handleError(offsetStep.offset, info, recordTime, reason)
       }
-      ParametersTable.updateLedgerEnd(offsetStep)
+      ParametersTable.updateLedgerEnd(offsetStep, dbType)
       Ok
     }
   }
@@ -591,7 +589,7 @@ private class JdbcLedgerDao(
                 blindingInfo = None,
               ).write(metrics)
               submitterInfo
-                .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
+                .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt, dbType))
                 .foreach(_.execute())
             case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
               val _ = prepareRejectionInsert(
@@ -599,14 +597,13 @@ private class JdbcLedgerDao(
                 offset = offset,
                 recordTime = recordTime,
                 reason = reason,
+                dbType,
               ).execute()
           }
         }
-        ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
+        ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd), dbType)
     }
   }
-
-  private val PageSize = 100
 
   private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
@@ -635,12 +632,21 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit, is_local)
-        |values ({party}, {display_name}, {ledger_offset}, 'true', {is_local})""".stripMargin)
+        |values ({party}, {display_name}, {ledger_offset}, {explicit}, {is_local})""".stripMargin)
 
-  private val SQL_SELECT_PACKAGES =
-    SQL("""select package_id, source_description, known_since, size
-        |from packages
-        |""".stripMargin)
+  private val SQL_SELECT_PACKAGES = {
+    dbType match {
+      case Oracle =>
+        SQL("""select package_id, source_description, known_since, "size"
+            |from packages
+            |""".stripMargin)
+      case _ =>
+        SQL("""select package_id, source_description, known_since, size
+            |from packages
+            |""".stripMargin)
+    }
+
+  }
 
   private val SQL_SELECT_PACKAGE =
     SQL("""select package
@@ -690,9 +696,11 @@ private class JdbcLedgerDao(
       )
 
   private val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
-    SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
+    SQL(
+      """insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
         |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
-        |""".stripMargin)
+        |""".stripMargin
+    )
 
   private val SQL_INSERT_PACKAGE_ENTRY_REJECT =
     SQL(
@@ -709,7 +717,7 @@ private class JdbcLedgerDao(
     logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        ParametersTable.updateLedgerEnd(offsetStep)
+        ParametersTable.updateLedgerEnd(offsetStep, dbType)
 
         if (packages.nonEmpty) {
           val uploadId =
@@ -757,10 +765,6 @@ private class JdbcLedgerDao(
     val _ = executeBatchSql(queries.SQL_INSERT_PACKAGE, params)
   }
 
-  private val SQL_GET_PACKAGE_ENTRIES = SQL(
-    "select * from package_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
-  )
-
   private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
     (offset("ledger_offset") ~
       date("recorded_at") ~
@@ -786,7 +790,7 @@ private class JdbcLedgerDao(
     PaginatingAsyncStream(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries) { implicit connection =>
-          SQL_GET_PACKAGE_ENTRIES
+          SQL(queries.SQL_GET_PACKAGE_ENTRIES)
             .on(
               "startExclusive" -> startExclusive,
               "endInclusive" -> endInclusive,
@@ -1120,8 +1124,26 @@ private[platform] object JdbcLedgerDao {
 
     protected[JdbcLedgerDao] def SQL_TRUNCATE_TABLES: String
 
+    protected[JdbcLedgerDao] def SQL_GET_PACKAGE_ENTRIES: String =
+      """select * from package_entries
+        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
+
+    protected[JdbcLedgerDao] def SQL_GET_PARTY_ENTRIES: String =
+      """select * from party_entries
+        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
+
+    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES =
+      """select * from configuration_entries where
+        |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
+        |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
+
     // TODO: Avoid brittleness of error message checks
     protected[JdbcLedgerDao] def DUPLICATE_KEY_ERROR: String
+
+    //TODO BH: figure out why protected mechanism is not working here
+    def limit(numberOfItems: Int): String
   }
 
   object PostgresQueries extends Queries {
@@ -1155,6 +1177,8 @@ private[platform] object JdbcLedgerDao {
         |truncate table parties cascade;
         |truncate table party_entries cascade;
       """.stripMargin
+
+    override def limit(numberOfItems: Int): String = s"limit $numberOfItems"
 
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
@@ -1204,9 +1228,80 @@ private[platform] object JdbcLedgerDao {
         |set referential_integrity true;
       """.stripMargin
 
+    override def limit(numberOfItems: Int): String = s"limit $numberOfItems"
+
     /** H2 does not support asynchronous commits */
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
     ): Unit = ()
   }
+
+  object OracleQueries extends Queries {
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String = {
+      """merge into packages p using (select ledger_end from parameters) par
+              |on (p.package_id = {package_id})
+              |when not matched then
+              |insert (package_id, upload_id, source_description, "size", known_since, ledger_offset, package)
+              |values ({package_id}, {upload_id}, {source_description}, {size}, {known_since}, par.ledger_end, {package})
+              |""".stripMargin
+    }
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
+      """merge into participant_command_submissions pcs
+        |using dual
+        |on (pcs.deduplication_key ={deduplicationKey})
+        |when matched then
+        |  update set pcs.deduplicate_until={deduplicateUntil}
+        |  where pcs.pcs.deduplicate_until < {submittedAt}
+        |when not matched then
+        | insert (pcs.deduplication_key, pcs.deduplicate_until)
+        |  values ({deduplicationKey}, {deduplicateUntil})
+""".stripMargin
+
+    override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
+      "unique constraint"
+
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """truncate table configuration_entries cascade;
+        |truncate table package_entries cascade;
+        |truncate table parameters cascade;
+        |truncate table participant_command_completions cascade;
+        |truncate table participant_command_submissions cascade;
+        |truncate table participant_events cascade;
+        |truncate table participant_contracts cascade;
+        |truncate table participant_contract_witnesses cascade;
+        |truncate table parties cascade;
+        |truncate table party_entries cascade;
+      """.stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_GET_PACKAGE_ENTRIES: String =
+      """select * from package_entries where
+        |({startExclusive} is null or dbms_lob.compare(ledger_offset, {startExclusive}) = 1) and
+        |(dbms_lob.compare(ledger_offset, {endInclusive}) IN (0, -1))
+        |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_GET_PARTY_ENTRIES: String =
+      """select * from party_entries where
+        |({startExclusive} is null or dbms_lob.compare(ledger_offset, {startExclusive}) = 1) and
+        |(dbms_lob.compare(ledger_offset, {endInclusive}) IN (0, -1))
+        |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES =
+      """select * from configuration_entries where
+        |({startExclusive} is null or dbms_lob.compare(ledger_offset, {startExclusive}) = 1) and
+        |(dbms_lob.compare(ledger_offset, {endInclusive}) IN (0, -1))
+        |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
+
+    override def limit(numberOfItems: Int): String = s"fetch next $numberOfItems rows only"
+
+    override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
+        conn: Connection
+    ): Unit = {
+      // TODO BH: figure out if Oracle has equivalent to synchronous commit
+      // For now do nothing
+      ()
+    }
+  }
+
 }

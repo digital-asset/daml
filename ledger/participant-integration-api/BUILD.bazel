@@ -61,6 +61,8 @@ compile_deps = [
     "@maven//:io_prometheus_simpleclient",
     "@maven//:io_prometheus_simpleclient_dropwizard",
     "@maven//:io_prometheus_simpleclient_httpserver",
+    # this oracle import is problematic for daml assistant build
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 scala_compile_deps = [
@@ -77,6 +79,7 @@ runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 da_scala_library(
@@ -149,6 +152,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
@@ -175,6 +179,7 @@ da_scala_library(
         "//ledger/participant-state-index",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -226,6 +231,7 @@ test_deps = [
     "//libs-scala/concurrent",
     "//libs-scala/grpc-utils",
     "//libs-scala/ports",
+    "//libs-scala/oracle-testing",
     "//libs-scala/postgresql-testing",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
@@ -269,7 +275,10 @@ da_scala_test_suite(
     size = "large",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
-        exclude = ["src/test/suite/**/ResetService*IT.scala"],
+        exclude = [
+            "src/test/suite/**/ResetService*IT.scala",
+            "**/*Oracle*",
+        ],
     ),
     data = [
         "//ledger/test-common:model-tests-stable.dar",
@@ -281,6 +290,30 @@ da_scala_test_suite(
     ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = scala_test_deps,
+    deps = test_deps,
+)
+
+da_scala_test_suite(
+    name = "participant-integration-api-tests-oracle",
+    size = "large",
+    srcs = glob(["src/test/suite/**/*Oracle*.scala"]),
+    data = [
+        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common/test-certificates",
+        openssl_executable,
+    ],
+    jvm_flags = [
+        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = scala_test_deps,
+    target_compatible_with = select({
+        "//:oracle_available": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
     deps = test_deps,
 )
 

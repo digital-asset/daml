@@ -10,6 +10,7 @@ import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.{EventId, TransactionId}
 import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.JdbcArrayConversions.StringArrayParameterMetadata
 
 object EventsTableH2Database extends EventsTable {
 

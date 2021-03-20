@@ -5,7 +5,7 @@ package com.daml.platform.store.dao.events
 
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.TransactionId
-import com.daml.platform.store.Conversions._
+import com.daml.platform.store.Conversions.ledgerStringToStatement
 
 import scala.collection.compat.immutable.ArraySeq
 
@@ -73,32 +73,34 @@ private[events] object EventsTableTreeEvents {
   val rawTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent]] =
     createdTreeEventParser | exercisedTreeEventParser
 
-  private val selectColumns = Seq(
-    "event_offset",
-    "transaction_id",
-    "node_index",
-    "event_sequential_id",
-    "participant_events.event_id",
-    "contract_id",
-    "ledger_effective_time",
-    "template_id",
-    "workflow_id",
-    "create_argument",
-    "create_argument_compression",
-    "create_signatories",
-    "create_observers",
-    "create_agreement_text",
-    "create_key_value",
-    "create_key_value_compression",
-    "exercise_consuming",
-    "exercise_choice",
-    "exercise_argument",
-    "exercise_argument_compression",
-    "exercise_result",
-    "exercise_result_compression",
-    "exercise_actors",
-    "exercise_child_event_ids",
-  ).mkString(", ")
+  private val selectColumns = {
+    Seq(
+      "event_offset",
+      "transaction_id",
+      "node_index",
+      "event_sequential_id",
+      "participant_events.event_id",
+      "contract_id",
+      "ledger_effective_time",
+      "template_id",
+      "workflow_id",
+      "create_argument",
+      "create_argument_compression",
+      "create_signatories",
+      "create_observers",
+      "create_agreement_text",
+      "create_key_value",
+      "create_key_value_compression",
+      "exercise_consuming",
+      "exercise_choice",
+      "exercise_argument",
+      "exercise_argument_compression",
+      "exercise_result",
+      "exercise_result_compression",
+      "exercise_actors",
+      "exercise_child_event_ids",
+    ).mkString(", ")
+  }
 
   def prepareLookupTransactionTreeById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
@@ -115,12 +117,18 @@ private[events] object EventsTableTreeEvents {
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
-    SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
+    SQL"""select #$selectColumns, #${sqlFunctions.toArray(requestingParty)} as event_witnesses,
+                 case when #${sqlFunctions.arrayIntersectionWhereClause(
+      "submitters",
+      requestingParty,
+    )} then command_id else '' end as command_id
           from participant_events
           join parameters on
-              (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
-              and event_offset <= ledger_end
+            (participant_pruned_up_to_inclusive is null OR
+            #${sqlFunctions.greaterThanClause(
+      "event_offset",
+      "participant_pruned_up_to_inclusive",
+    )}) and #${sqlFunctions.lessThanOrEqualToClause("event_offset", "ledger_end")}
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by node_index asc"""
   }
@@ -139,8 +147,11 @@ private[events] object EventsTableTreeEvents {
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on
-              (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
-              and event_offset <= ledger_end
+              (participant_pruned_up_to_inclusive is null or #${sqlFunctions.greaterThanClause(
+      "event_offset",
+      "participant_pruned_up_to_inclusive",
+    )})
+              and #${sqlFunctions.lessThanOrEqualToClause("event_offset", "ledger_end")}
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by node_index asc"""
   }
@@ -163,14 +174,16 @@ private[events] object EventsTableTreeEvents {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
     EventsRange.readPage(
-      read = (range, limitExpr) => SQL"""
-        select #$selectColumns, array[$requestingParty] as event_witnesses,
-               case when submitters = array[$requestingParty] then command_id else '' end as command_id
+      read = (range, _) =>
+        SQL"""
+        select #$selectColumns, #${sqlFunctions.toArray(requestingParty)} as event_witnesses,
+               case when #${sqlFunctions
+          .arrayIntersectionWhereClause("submitters", requestingParty)} then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
               and #$witnessesWhereClause
-        order by event_sequential_id #$limitExpr""",
+        order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}""",
       rawTreeEventParser,
       range,
       pageSize,
@@ -189,14 +202,14 @@ private[events] object EventsTableTreeEvents {
     val submittersInPartiesClause =
       sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     EventsRange.readPage(
-      read = (range, limitExpr) => SQL"""
+      read = (range, _) => SQL"""
         select #$selectColumns, #$filteredWitnesses as event_witnesses,
                case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
               and #$witnessesWhereClause
-        order by event_sequential_id #$limitExpr""",
+        order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}""",
       rawTreeEventParser,
       range,
       pageSize,

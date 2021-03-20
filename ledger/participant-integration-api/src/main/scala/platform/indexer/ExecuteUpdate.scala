@@ -79,6 +79,15 @@ object ExecuteUpdate {
           executionContext,
           loggingContext,
         )
+      case DbType.Oracle =>
+        PipelinedExecuteUpdate.owner(
+          ledgerDao,
+          metrics,
+          participantId,
+          updatePreparationParallelism,
+          executionContext,
+          loggingContext,
+        )
     }
 }
 

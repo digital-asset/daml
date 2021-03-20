@@ -97,6 +97,7 @@ private class JdbcLedgerDao(
   private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
+    case DbType.Oracle => throw new NotImplementedError("not yet supported")
   }
 
   private val logger = ContextualizedLogger.get(this.getClass)

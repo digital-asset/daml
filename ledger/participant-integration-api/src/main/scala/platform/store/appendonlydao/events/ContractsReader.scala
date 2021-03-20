@@ -17,6 +17,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.appendonlydao.events.SqlFunctions.{
   H2SqlFunctions,
+  OracleSqlFunctions,
   PostgresSqlFunctions,
 }
 import com.daml.platform.store.appendonlydao.DbDispatcher
@@ -401,6 +402,7 @@ private[appendonlydao] object ContractsReader {
     def sqlFunctions = dbType match {
       case DbType.Postgres => PostgresSqlFunctions
       case DbType.H2Database => H2SqlFunctions
+      case DbType.Oracle => OracleSqlFunctions
     }
     new ContractsReader(
       committedContracts = ContractsTable,

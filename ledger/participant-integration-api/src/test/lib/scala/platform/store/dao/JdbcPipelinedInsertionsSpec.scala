@@ -19,7 +19,7 @@ import scala.concurrent.Future
 trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers with LoneElement {
   self: AsyncFlatSpec with JdbcLedgerDaoSuite =>
 
-  behavior of "JdbcLedgerDao (on PostgreSQL)"
+  behavior of "JdbcLedgerDao (Pipelined Insertions)"
 
   it should "allow idempotent transaction insertions" in {
     val key = "some-key"

@@ -11,6 +11,8 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions.{OffsetToStatement, ledgerString, offset, participantId}
+import com.daml.platform.store.DbType
+import com.daml.platform.store.DbType.Oracle
 import com.daml.scalautil.Statement.discard
 
 private[dao] object ParametersTable {
@@ -84,16 +86,29 @@ private[dao] object ParametersTable {
     * @param offsetStep The offset step.
     * @param connection The SQL connection.
     */
-  def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
+
+  def updateLedgerEnd(offsetStep: OffsetStep, dbType: DbType)(implicit
+      connection: Connection
+  ): Unit =
     offsetStep match {
       case CurrentOffset(ledgerEnd) =>
-        discard(
-          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
-            .execute()
-        )
+        val sqlQuery =
+          dbType match {
+            case Oracle =>
+              // dbms_lob compares two binary fields, returns -1 if the first is less than the second
+              SQL"update #$TableName set ledger_end = $ledgerEnd where (#$LedgerEndColumnName is null or dbms_lob.compare(#$LedgerEndColumnName, $ledgerEnd) = -1)"
+            case _ =>
+              SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
+          }
+        discard(sqlQuery.execute())
       case IncrementalOffsetStep(previousOffset, ledgerEnd) =>
-        val sqlStatement =
-          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where #$LedgerEndColumnName = $previousOffset"
+        val sqlStatement = dbType match {
+          case Oracle =>
+            //returns 0 if the two binary values are equal
+            SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (dbms_lob.compare(#$LedgerEndColumnName, $previousOffset) = 0)"
+          case _ =>
+            SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where #$LedgerEndColumnName = $previousOffset"
+        }
         if (sqlStatement.executeUpdate() == 0) {
           throw LedgerEndUpdateError(previousOffset)
         }
@@ -113,4 +128,5 @@ private[dao] object ParametersTable {
       extends RuntimeException(
         s"Could not update ledger end. Previous ledger end does not match expected ${expected.toHexString}"
       )
+
 }

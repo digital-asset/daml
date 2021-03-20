@@ -22,6 +22,7 @@ private[appendonlydao] object SqlFunctions {
   def apply(dbType: DbType): SqlFunctions = dbType match {
     case DbType.Postgres => PostgresSqlFunctions
     case DbType.H2Database => H2SqlFunctions
+    case DbType.Oracle => OracleSqlFunctions
   }
 
   object PostgresSqlFunctions extends SqlFunctions {
@@ -42,4 +43,17 @@ private[appendonlydao] object SqlFunctions {
     def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"array_intersection($arrayColumn, array[${format(parties)}])"
   }
+
+  //TODO need to implement
+  object OracleSqlFunctions extends SqlFunctions {
+    override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
+      if (parties.isEmpty)
+        "false"
+      else
+        parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
+
+    def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
+      s"array_intersection($arrayColumn, array[${format(parties)}])"
+  }
+
 }
