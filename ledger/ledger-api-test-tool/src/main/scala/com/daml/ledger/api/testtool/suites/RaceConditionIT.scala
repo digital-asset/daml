@@ -6,21 +6,28 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.RecordField
+import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.RaceTests._
 import com.daml.lf.data.{Bytes, Ref}
+import com.daml.timer.Delayed
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.Success
 
 final class RaceConditionIT extends LedgerTestSuite {
+
+  private val DefaultRepetitionsNumber: Int = 5
+  private val WaitBeforeGettingTransactions = 500.millis
 
   test(
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 5
     val ExpectedNumberOfSuccessfulCreations = 1
@@ -42,7 +49,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "WWDoubleArchive",
     "Cannot archive the same contract multiple times",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 5
     val ExpectedNumberOfSuccessfulArchivals = 1
@@ -51,7 +58,7 @@ final class RaceConditionIT extends LedgerTestSuite {
       _ <- Future.traverse(1 to Attempts) { _ =>
         ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
       }
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
       assertLength(
@@ -67,7 +74,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "WWArchiveVsNonTransientCreate",
     "Cannot create a contract with a key if that key is still used by another contract",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     /*
     This test case is intended to catch a race condition ending up in two consecutive successful contract
@@ -85,7 +92,7 @@ final class RaceConditionIT extends LedgerTestSuite {
         .transform(Success(_))
       _ <- createFuture
       _ <- exerciseFuture
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
@@ -118,7 +125,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 100
     val ActionAt = 90
@@ -134,7 +141,7 @@ final class RaceConditionIT extends LedgerTestSuite {
             .transform(Success(_))
         }
       }
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
@@ -152,7 +159,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsNonConsumingChoice",
     "Cannot exercise a choice after a contract archival",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 5
     val Attempts = 10
@@ -165,7 +172,7 @@ final class RaceConditionIT extends LedgerTestSuite {
           ledger.exercise(alice, contract.exerciseContractWithKey_Exercise).transform(Success(_))
         }
       }
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
@@ -184,7 +191,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFetch",
     "Cannot fetch an archived contract",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 400
     val Attempts = 500
@@ -198,7 +205,7 @@ final class RaceConditionIT extends LedgerTestSuite {
           ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch).transform(Success(_))
         }
       }
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
@@ -216,7 +223,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 90
     val Attempts = 100
@@ -230,7 +237,7 @@ final class RaceConditionIT extends LedgerTestSuite {
           ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
         }
       }
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
@@ -247,7 +254,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
     allocate(SingleParty),
-    repeated = 5,
+    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val CreateAt = 90
     val Attempts = 100
@@ -260,7 +267,7 @@ final class RaceConditionIT extends LedgerTestSuite {
           ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
         }
       }
-      transactions <- ledger.transactionTrees(alice)
+      transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
@@ -320,6 +327,11 @@ final class RaceConditionIT extends LedgerTestSuite {
       }
 
   }
+
+  private def transactions(ledger: ParticipantTestContext, party: Primitive.Party)(implicit
+      ec: ExecutionContext
+  ) =
+    Delayed.by(WaitBeforeGettingTransactions)(()).flatMap(_ => ledger.transactionTrees(party))
 
   private def assertTransactionOrder(
       expectedFirst: TransactionTree,
