@@ -31,7 +31,6 @@ Please make sure that you have the DAML Connect SDK, Java 8 or higher, and Visua
 
 You will also need some common software tools to build and interact with the template project.
 
-- `Git <https://git-scm.com/downloads>`_ version control system
 - `Node <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>`_ package manager for JavaScript.
   Note: On Ubuntu 18.04, NodeJS 8.10 will be installed but its too old.
 - A terminal application for command line interaction
