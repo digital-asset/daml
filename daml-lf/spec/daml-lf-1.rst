@@ -239,12 +239,6 @@ Version: 1.dev (development)
 ............................
 
   + **Add** exception handling.
-  + **Add** BigDecimal type.
-
-    - add `BigDecimal` primitive type
-    - Add `bigdecimal` primitive literal
-    - add `MathContext` primitive type
-    - add `RoundingMode` primitive type
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -465,16 +459,16 @@ Literals
 
 We now define all the literals that a program can handle::
 
-  Nat type literals:                                 -- LitNatType
+  Nat type literals:                                -- LitNatType
        n ∈  \d+
 
   64-bit integer literals:
         LitInt64  ∈  (-?)\d+                         -- LitInt64
 
   Numeric literals:
-      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*         -- LitNumeric
+      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
 
-   Date literals:
+  Date literals:
          LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
 
   UTC timestamp literals:
@@ -489,17 +483,6 @@ We now define all the literals that a program can handle::
   Contract ID literals:
         cid   ::= cidV0 | cidV1                      -- LitCid
 
-  Rounding Mode Literals:
-        LitRoundingMode ::=
-          | 'RoundingCeiling'
-          | 'RoundingFloor'
-          | 'RoundingDown'
-          | 'RoundingUp'
-          | 'RoundingHalfDown'
-          | 'RoundingHalfEven'
-          | 'RoundingHalfUp'
-          | 'RoundingHalfUnnecessary'
-
 The literals represent actual Daml-LF values:
 
 * A ``LitNatType`` represents a natural number between ``0`` and
@@ -508,24 +491,10 @@ The literals represent actual Daml-LF values:
   between ``−2⁶³`` to ``2⁶³−1``).
 * A ``LitNumeric`` represents a signed number that can be represented
   in base-10 without loss of precision with at most 38 digits
-  (ignoring possible leading 0) and with a scale (the number of
+  (ignoring possible leading 0 and with a scale (the number of
   significant digits on the right of the decimal point) between ``0``
   and ``37`` (bounds inclusive). In the following, we will use
   ``scale(LitNumeric)`` to denote the scale of the decimal number.
-
-* A ``LitBigNumeric`` represents a signed number that can be represented
-  as a product `i * 10^-s` where `i` (the *unscaled value* of the number) is a
-  integer not divisible by ten and `s` (the *scale* of the number) is a arbitrary integer.
-  The *precision* of such number is the number of digit in base-10 of its
-  unscaled value. By convention the scale and the precision of zero are 0.
-
-.. TODO specify when a numeric is valid.
-   For now we assume there is some predicate `valid` that checks a number
-   is within a subset of all the possible BiNumeric numbers and that:
-   - java BigDecimal operation never underflow/overflow
-   - It is not too expensive to create any of those number for actual testing.
-
-
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -547,7 +516,7 @@ The literals represent actual Daml-LF values:
    valid ``LitDate`` because there are only 12 months in a year.
 
 Number-like literals (``LitNatTyp``, ``LitInt64``,
-``LitNumeric``, ``LitBigNumeric``, ``LitDate``, ``LitTimestamp``) are ordered by natural
+``LitNumeric``,``LitDate``, ``LitTimestamp``) are ordered by natural
 ordering. Text-like literals (``LitText``, ``LitParty``, and
 ``Contract ID``) are ordered lexicographically. Note that in the ASCII
 encoding, the character ``#`` comes before digits, meaning V0 Contract
@@ -582,8 +551,6 @@ Then we can define our kinds, types, and expressions::
       ::= 'TArrow'                                  -- BTArrow: Arrow type
        |  'Int64'                                   -- BTyInt64: 64-bit integer
        |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 37
-       |  'BigNumeric'                              -- BTyBigNumeric: arbitrary precision decimal
-       |  'RoundingMode'                            -- BTyRoundingMode: rounding mode to control BigNumeric operations.
        |  'Text'                                    -- BTyText: UTF-8 string
        |  'Date'                                    -- BTyDate
        |  'Timestamp'                               -- BTyTime: UTC timestamp
@@ -629,13 +596,11 @@ Then we can define our kinds, types, and expressions::
        |  'False'                                   -- ExpFalse
        |  LitInt64                                  -- ExpLitInt64: 64-bit integer literal
        |  LitNumeric                                -- ExpLitNumeric: Numeric literal
-       |  LitBigNumeric                             -- ExpLitBigNumeric: BigNumeric literal
        |  t                                         -- ExpLitText: UTF-8 string literal
        |  LitDate                                   -- ExpLitDate: Date literal
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
        |  cid                                       -- ExpLitContractId: Contract identifiers
-       |  LitRoundingMode                           -- ExpLitRoundingMode: Rounding Mode
        |  F                                         -- ExpBuiltin: Builtin function
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
@@ -926,12 +891,6 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyNumeric
      Γ  ⊢  'Numeric' : 'nat' → ⋆
 
-   ————————————————————————————————————————————— TyBigNumeric
-     Γ  ⊢  'BigNumeric' : ⋆
-
-   ————————————————————————————————————————————— TyRoundingMode
-     Γ  ⊢  'RoundingMode' : ⋆
-
    ————————————————————————————————————————————— TyText
      Γ  ⊢  'Text' : ⋆
 
@@ -1125,9 +1084,6 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpLitNumeric
       Γ  ⊢  LitNumeric  :  'Numeric' n
 
-    ——————————————————————————————————————————————————————————————— ExpBigNumeric
-      Γ  ⊢  LitBigNumeric  :  'BigNumeric'
-
     ——————————————————————————————————————————————————————————————— ExpLitText
       Γ  ⊢  t  :  'Text'
 
@@ -1143,9 +1099,6 @@ Then we define *well-formed expressions*. ::
       'tpl' (x : T) ↦ { … }  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpLitContractId
       Γ  ⊢  cid  :  'ContractId' Mod:T
-
-    ——————————————————————————————————————————————————————————————— ExpLitRoundingMode
-      Γ  ⊢  LitRoundingMode  :  'RoundingMode'
 
       τ  ↠  τ'      'val' W : τ ↦ …  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpVal
@@ -1843,9 +1796,6 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpLitNumeric
      ⊢ᵥ  LitNumeric
 
-   ——————————————————————————————————————————————————— ValExpLitBigNumeric
-     ⊢ᵥ  LitBigDecimal
-
    ——————————————————————————————————————————————————— ValExpLitText
      ⊢ᵥ  t
 
@@ -1947,9 +1897,6 @@ need to be evaluated further. ::
      ⊢ᵥₛ  s
    ——————————————————————————————————————————————————— ValScenario
      ⊢ᵥ  s
-
-   ——————————————————————————————————————————————————— ValUnBondedMathContext
-     ⊢ᵥ  LitRoundingMode
 
 
                            ┌────────┐
@@ -2189,14 +2136,8 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
     'ArithmeticError' <ₜ 'ContractError'
 
-  ——————————————————————————————————————————————————— TypeOrderContractErrorBigNumeric
-    'ContractError' <ₜ 'BigNumeric'
-
-  ——————————————————————————————————————————————————— TypeOrderBigNumericRoundingMode
-    'BigNumeric' <ₜ 'RoundingMode'
-
-  ——————————————————————————————————————————————————— TypeOrderRoundingModeTyCon
-    'RoundingMode' <ₜ Mod:T
+  —————————————————————————————————————————————————— TypeOrderContractErrorTyCon
+    'ContractError' <ₜ Mod:T
 
     PkgId₁ comes lexicographically before PkgId₂
   ——————————————————————————————————————————————————— TypeOrderTyConPackageId
@@ -3376,11 +3317,6 @@ updates.
     —————————————————————————————————————————————————————————————————————— EvLessEqNumeric
       𝕆('LESS_EQ' @σ LitNumeric₁ LitNumeric₂) =
           Ok (LitNumeric₁ ≤ₗ LitNumeric₂)
-
-    —————————————————————————————————————————————————————————————————————— EvLessEqBigNumeric
-      𝕆('LESS_EQ' @σ LitBigNumeric₁ LitBigNumeric₂) =
-          Ok (LitBigNumeric₁ ≤ₗ LitBigNumeric₂)
-
     —————————————————————————————————————————————————————————————————————— EvLessEqContractId
       𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
@@ -3515,6 +3451,7 @@ updates.
 ..
   FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs
+
 
 * ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
 
@@ -3697,6 +3634,7 @@ Numeric functions
   `α₂`, `α` define the scale of the first input, the second input, and
   the output, respectively. Throws an error in case of overflow.
 
+
 * ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
@@ -3754,74 +3692,6 @@ Numeric functions
   be mapped into a decimal without loss of precision, returns
   ``None``.  The scale of the output is given by the type parameter
   `α`.
-
-BigNumeric functions
-~~~~~~~~~~~~~~~~~~~~
-
-* ``ADD_BIGNUMERIC : 'BigNumeric' → 'BigNumeric'  → 'BigNumeric'``
-
-  Adds the two decimals. Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
-
-* ``SUB_BIGDECIMAL : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
-
-  Subtracts the two decimals. Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
-
-* ``MUL_BIGDECIMAL : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
-
-  Multiplies the two numerics. Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
-
-* ``DIV_BIGDECIMAL : 'RoundingMode' → 'Int' → 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
-
-  Divides the first decimal by the second one and rounds the result according the rounding mode.
-  The scale of the output is given by the second argument.
-  If the result cannot be represented exactly in at most ``precision`` digits, the result is
-  rounded to ``precision`` accordingly the ``roundingMode`` as follows:
-
-  - ``'RoundingCeiling'`` : Rounds towards positive infinity.
-
-  - ``'RoundingFloor'`` : Rounds towards negative infinity
-
-  - ``'RoundingDown'`` : Rounds towards towards zero
-
-  - ``'RoundingUp'`` : Round towards away from zero
-
-  - ``'RoundingHalfDown'`` : Round towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round towards zero.
-
-  - ``'RoundingHalfEven'`` : Rounds towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round towards the even
-    neighbor.
-
-  - ``'RoundingHalfUp'`` : Round towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round away from zero.
-
-  - ``'RoundingUnnecessary'`` : Throw if the exact result cannot be
-    represented.
-
-  Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
-
-* ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
-
-  return the scale of the BigNumeric
-
-* ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
-
-  return the precision of the BigNumeric
-
-* ``TO_TEXT_BIGNUMERIC : 'BigNumeric' → 'Text'``
-
-  Returns the numeric string representation of the BigNumeric. The result
-  will be returned at the smallest precision that can represent the result exactly, i.e.,
-  without any trailing zeroes.
-
-* ``'TO_NUMERIC_BIGNUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
-
-  Convert the ``BigNumeric`` to a ``Numeric α`` value with scale ``α``.
-  Throws an ``ArithmeticError`` in case the result cannot be represented without loss of precision.
-
-* ``'TO_BIGNUMERIC_NUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
-
-  Convert the ``Numeric`` to a ``BigDecimal``. This is always exact.
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -4792,22 +4662,6 @@ program exception using
   ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
   ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
   ``ARITHMETIC_ERROR_MESSAGE`.
-
-BigDecimal
-..........
-
-Daml-LF 1.7 is the first version that supports BigDecimal.
-
-The program serialization format does not provide any direct way to
-encode `MathContext`. Daml-LF programs can create such
-objects only dynamically using the `MathContext functions`_.
-
-The deserialization process will reject any Daml-LF 1.11 (or earlier)
-program exception using:
-
-.. TODO https://github.com/digital-asset/daml/issues/8719
-
-
 
 
 
