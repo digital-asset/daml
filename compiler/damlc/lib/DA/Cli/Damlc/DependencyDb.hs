@@ -140,7 +140,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         rdalfs <- getDalfsFromLedger dataDepsPkgIds exclPkgIds
         forM_ rdalfs $ \RemoteDalf {..} -> do
             installDataDepDalf remoteDalfIsMain depsDir (remoteDalfName <.> "dalf") remoteDalfBs
-        -- Mark received packages as well as their transitiv dependencies as data dependencies.
+        -- Mark received packages as well as their transitive dependencies as data dependencies.
         markAsDataRec
             (Set.fromList [remoteDalfPkgId | RemoteDalf {remoteDalfPkgId} <- rdalfs])
             Set.empty
