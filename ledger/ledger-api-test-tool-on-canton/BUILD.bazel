@@ -78,7 +78,8 @@ conformance_test(
         "--exclude=ContractKeysIT,ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
         ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
         ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
-        ",ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+        ",ClosedWorldIT" + # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+        ",RaceConditionIT", # Not yet adapted for Canton
     ],
 ) if not is_windows else None
 
