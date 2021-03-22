@@ -504,17 +504,18 @@ The literals represent actual Daml-LF values:
   ``38``, bounds inclusive.
 * A ``LitInt64`` represents a standard signed 64-bit integer (integer
   between ``−2⁶³`` to ``2⁶³−1``).
-* A decimal numbers is signed number that can be
-  represented as a product `i * 10^-s` where `i` (the *unscaled value*
-  of the number) is a signed integer not divisible by ten and `s` (the
-  *scale* of the number). By convention the scale and the precision of zero are 0.
-  Valid BigNumeric are those numeric.
+* A decimal numbers is a signed number that can be represented as a
+  product `i * 10^-s` where `i` (the *unscaled value* of the number)
+  is a signed integer not divisible by ten and `s` (the *scale* of the
+  number) is a signed integer. The *precision* of a decimal numbers
+  if the number of digits of its unscaled value (ignoring possible
+  leading zeros). By convention the scale and the precision of zero
+  are 0.  Daml-LF distinguishes two kinds of decimal numbers:
   + A ``LitNumeric`` represents those decimal numbers that have a
     precision of at most 38 and a scale between ``0`` and ``37``
     (bounds inclusive).
   + A ``LitBigNumeric`` represents those decimal numbers smaller than
-    `10^(-MaxScale+1)` and have a scale between ``MaxScale`` and
-    ``MacScale`` (bounds inclusive).
+    `10^(-MaxScale+1)` that have a scale of at least ``MaxScale``.
 .. TODO specify the actual value of ``MaxScale``
 
 
