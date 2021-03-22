@@ -302,7 +302,7 @@ queryPkgIds markersM dir = do
     pure
         [ LF.PackageId $ T.pack pkgId
         | fp <- fps
-        , _dalf:pkgId:_rest <- [reverse $ splitDirectories fp]
+        , _dalf:pkgId:_rest <- [splitDirectories fp]
         ]
 
 -- Utilities
