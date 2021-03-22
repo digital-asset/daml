@@ -951,7 +951,8 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val cached = onLedger.cachedContracts.get(coid).get
+      val cached =
+        onLedger.cachedContracts.get(coid).getOrElse(crash(s"Contract $coid is missing from cache"))
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(args.get(2))
@@ -1070,7 +1071,8 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val cached = onLedger.cachedContracts.get(coid).get
+      val cached =
+        onLedger.cachedContracts.get(coid).getOrElse(crash(s"Contract $coid is missing from cache"))
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
