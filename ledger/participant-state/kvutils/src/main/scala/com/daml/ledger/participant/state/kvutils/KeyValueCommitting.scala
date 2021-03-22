@@ -90,7 +90,6 @@ class KeyValueCommitting private[daml] (
         participantId,
         inputState,
       )
-      Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
       verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, submission)
       (logEntry, outputState)
     } catch {
