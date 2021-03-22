@@ -1806,6 +1806,63 @@ class EngineTest
     }
   }
 
+  "wrongly typed contract id" should {
+    val withKeyId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+    val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
+    val cid = toContractId("#BasicTests:WithKey:1")
+    val fetcherCid = toContractId("#42")
+    val fetcherInst = ContractInst(
+      fetcherId,
+      assertAsVersionedValue(
+        ValueRecord(
+          None,
+          ImmArray((None, ValueParty(alice)), (None, ValueParty(alice)), (None, ValueParty(alice))),
+        )
+      ),
+      "",
+    )
+    val contracts = defaultContracts + (fetcherCid -> fetcherInst)
+    val lookupContract = contracts.get(_)
+    val correctCommand =
+      ExerciseCommand(withKeyId, cid, "SumToK", ValueRecord(None, ImmArray((None, ValueInt64(42)))))
+    val incorrectCommand =
+      ExerciseCommand(simpleId, cid, "Hello", ValueRecord(None, ImmArray.empty))
+    val incorrectFetch =
+      ExerciseCommand(
+        fetcherId,
+        fetcherCid,
+        "DoFetch",
+        ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+      )
+
+    val now = Time.Timestamp.now()
+    val submissionSeed = hash("wrongly-typed cid")
+    def run(cmds: ImmArray[Command]) =
+      engine
+        .submit(Set(alice), Commands(cmds, now, ""), participant, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+    "error on fetch" in {
+      val result = run(ImmArray(incorrectFetch))
+      inside(result) { case Left(e) =>
+        e.msg should include("wrongly typed contract id")
+      }
+    }
+    "error on exercise" in {
+      val result = run(ImmArray(incorrectCommand))
+      inside(result) { case Left(e) =>
+        e.msg should include("wrongly typed contract id")
+      }
+    }
+    "error on exercise even if used correctly before" in {
+      val result = run(ImmArray(correctCommand, incorrectCommand))
+      inside(result) { case Left(e) =>
+        e.msg should include("wrongly typed contract id")
+      }
+    }
+  }
+
   "nested transactions" should {
 
     val forkableTemplate = "BasicTests:Forkable"

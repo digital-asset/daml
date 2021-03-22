@@ -292,6 +292,9 @@ private[lf] final class Compiler(
       val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
       builder += compileCreate(identifier, tmpl)
       builder += compileFetch(identifier, tmpl)
+      builder += compileKey(identifier, tmpl)
+      builder += compileSignatories(identifier, tmpl)
+      builder += compileObservers(identifier, tmpl)
 
       tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
 
@@ -958,17 +961,18 @@ private[lf] final class Compiler(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ) =
-    let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
+  ) = {
+    let(
+      SBUFetch(
+        tmplId
+      )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
+    ) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
       SEScopeExercise(
         let(
           SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
             svar(choiceArgPos),
-            svar(cidPos),
-            compile(tmpl.signatories),
-            compile(tmpl.observers), //
-            {
+            svar(cidPos), {
               addExprVar(choice.argBinder._1, choiceArgPos)
               compile(choice.controllers)
             }, //
@@ -978,7 +982,6 @@ private[lf] final class Compiler(
                 case None => SEValue.EmptyList
               }
             },
-            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
           )
         ) { _ =>
           addExprVar(choice.selfBinder, cidPos)
@@ -986,6 +989,7 @@ private[lf] final class Compiler(
         }
       )
     }
+  }
 
   private[this] def compileChoice(
       tmplId: TypeConName,
@@ -1426,14 +1430,15 @@ private[lf] final class Compiler(
       tokenPos: Position,
   ) =
     withEnv { _ =>
-      let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
+      let(
+        SBUFetch(
+          tmplId
+        )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
+      ) { tmplArgPos =>
         addExprVar(tmpl.param, tmplArgPos)
         let(
           SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(
-            svar(cidPos),
-            compile(tmpl.signatories),
-            compile(tmpl.observers),
-            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(p => SBSome(svar(p))),
+            svar(cidPos)
           )
         ) { _ =>
           svar(tmplArgPos)
@@ -1452,6 +1457,33 @@ private[lf] final class Compiler(
     //   in <tmplArg>
     topLevelFunction(FetchDefRef(tmplId), 2) { case List(cidPos, tokenPos) =>
       compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
+    }
+
+  private[this] def compileKey(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(KeyDefRef(tmplId), 1) { case List(tmplArgPos) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      compileKeyWithMaintainers(tmpl.key)
+    }
+
+  private[this] def compileSignatories(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(SignatoriesDefRef(tmplId), 1) { case List(tmplArgPos) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      compile(tmpl.signatories)
+    }
+
+  private[this] def compileObservers(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ObserversDefRef(tmplId), 1) { case List(tmplArgPos) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      compile(tmpl.observers)
     }
 
   private[this] def compileCreate(

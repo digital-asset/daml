@@ -41,4 +41,26 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         assertGrpcError(fetchFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
       }
   })
+
+  test(
+    "WTMultipleExerciseFails",
+    "Exercising on a wrong type fails after correct exercise in same transaction",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      dummy <- ledger.create(party, Dummy(party))
+      fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
+      failure <- ledger
+        .submitAndWait(
+          ledger.submitAndWaitRequest(
+            party,
+            dummy.exerciseClone(party).command,
+            fakeDummyWithParam.exerciseDummyChoice2(party, "").command,
+          )
+        )
+        .mustFail("exercising on a wrong type")
+    } yield {
+      assertGrpcError(failure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
+    }
+  })
 }
