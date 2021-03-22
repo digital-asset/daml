@@ -10,7 +10,8 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.collection.immutable.{Iterable, Seq => ISeq}
-import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
+import scalaz.{-\/, @@, Foldable, Functor, OneAnd, Tag, \/, \/-}
+import scalaz.Digit._0
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -23,6 +24,7 @@ import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.syntax.functor._
+import com.daml.lf.data.Ref
 
 sealed abstract class Queries {
   import Queries._, InitDdl._
@@ -278,6 +280,16 @@ sealed abstract class Queries {
   private[http] def keyEquality(key: JsValue): Fragment =
     sql"key = $key::jsonb"
 
+  private[http] def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment
+
+  private[http] def containsAtContractPath(path: JsonPath, literal: JsValue): Fragment
+
+  private[http] def cmpContractPathToScalar(
+      path: JsonPath,
+      op: OrderOperator,
+      literalScalar: JsValue,
+  ): Fragment
+
   object Implicits {
     implicit val `JsValue put`: Meta[JsValue] =
       Meta[String].timap(_.parseJson)(_.compactPrint)
@@ -338,6 +350,20 @@ object Queries {
   private[http] object MatchedQueryMarker {
     case object ByInt extends MatchedQueryMarker[Seq, Int]
     case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
+  }
+
+  /** Path to a location in a JSON tree. */
+  private[http] final case class JsonPath(elems: Vector[Ref.Name \/ _0.type]) {
+    def arrayAt(i: _0.type) = JsonPath(elems :+ \/-(i))
+    def objectAt(k: Ref.Name) = JsonPath(elems :+ -\/(k))
+  }
+
+  private[http] sealed abstract class OrderOperator extends Product with Serializable
+  private[http] object OrderOperator {
+    case object LT extends OrderOperator
+    case object LTEQ extends OrderOperator
+    case object GT extends OrderOperator
+    case object GTEQ extends OrderOperator
   }
 
   private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
@@ -490,10 +516,40 @@ private object PostgresQueries extends Queries {
         query(OneAnd(predHd, predTl), identity)
     }
   }
+
+  private[this] def fragmentContractPath(path: JsonPath) =
+    concatFragment(
+      OneAnd(
+        contractColumnName,
+        path.elems.map(_.fold(k => sql"->${k: String}", (_: _0.type) => sql"->0")),
+      )
+    )
+
+  private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue) =
+    fragmentContractPath(path) ++ sql" = ${literal}::jsonb"
+
+  private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) =
+    fragmentContractPath(path) ++ sql" @> ${literal}::jsonb"
+
+  private[http] override def cmpContractPathToScalar(
+      path: JsonPath,
+      op: OrderOperator,
+      literalScalar: JsValue,
+  ) = {
+    import OrderOperator._
+    val opc = op match {
+      case LT => sql"<"
+      case LTEQ => sql"<="
+      case GT => sql">"
+      case GTEQ => sql">="
+    }
+    fragmentContractPath(path) ++ sql" " ++ opc ++ sql" ${literalScalar}::jsonb"
+  }
 }
 
 private object OracleQueries extends Queries {
-  import Queries.{DBContract, MatchedQueryMarker, SurrogateTpId}, Queries.InitDdl.CreateTable
+  import Queries.{DBContract, MatchedQueryMarker, JsonPath, OrderOperator, SurrogateTpId},
+  Queries.InitDdl.CreateTable
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
@@ -611,7 +667,7 @@ private object OracleQueries extends Queries {
                               ON (c.contract_id = od.contract_id)
                   WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
       fr" OR " ++ Fragments.in(fr"om.party", parties) ++ sql""")
-                        AND tpid = $tpid""" // TODO SC AND (""" ++ predicate ++ sql")"
+                        AND tpid = $tpid AND (""" ++ predicate ++ sql")"
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
       case MatchedQueryMarker.Unused =>
@@ -632,4 +688,21 @@ private object OracleQueries extends Queries {
 
   private[this] def unpct(s: Option[String]) =
     s.cata(_.split('%').filter(_.nonEmpty).toVector, Vector.empty)
+
+  private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
+    import scalaz.Cord
+    val opath: String =
+      path.elems.foldMap[Cord](_.fold(k => (".": Cord) ++ k, (_: _0.type) => "[0]")).toString
+    sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", $opath), ${literal.compactPrint: String})"
+  }
+
+  private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) =
+    sql"1 = 1" // TODO SC
+
+  private[http] override def cmpContractPathToScalar(
+      path: JsonPath,
+      op: OrderOperator,
+      literalScalar: JsValue,
+  ) =
+    sql"1 = 1" // TODO SC
 }

@@ -35,6 +35,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//daml-lf/data",
         "//libs-scala/scala-utils",
     ],
 )
