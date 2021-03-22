@@ -490,7 +490,7 @@ message DamlContractKeyState {
   google.protobuf.Timestamp active_at = 2;
 }
 
-// A v3 export of a "kvutils" ledger. Used by the integrity checker to test that a new version of
+// A v3 export of a KV ledger. Used by the integrity checker to test that a new version of
 // kvutils can process older ledgers.
 message LedgerExportEntry {
   // Information about the submission.
