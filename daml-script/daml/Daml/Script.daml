@@ -39,6 +39,12 @@ module Daml.Script
   , TreeEvent(..)
   , Created(..)
   , Exercised(..)
+  , TreeIndex
+  , fromTree
+  , created
+  , createdN
+  , exercised
+  , exercisedN
   , AnyContractId
   , fromAnyContractId
   ) where
@@ -565,6 +571,81 @@ instance Show Exercised where
     showString "childEvents = " .
     showsPrec 0 childEvents .
     showString "}"
+
+-- | HIDE This is an early access feature.
+data TreeIndex t
+  = CreatedIndex (CreatedIndexPayload t)
+  | ExercisedIndex (ExercisedIndexPayload t)
+
+-- | HIDE This is an early access feature.
+data CreatedIndexPayload t = CreatedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    offset : Int
+
+-- | HIDE This is an early access feature.
+data ExercisedIndexPayload t = ExercisedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    choice : Text
+    offset : Int
+    child : TreeIndex t
+
+-- | HIDE This is an early access feature.
+fromTree : Template t => TransactionTree -> TreeIndex t -> ContractId t
+fromTree tree index = fromTreeGo index tree.rootEvents
+
+fromTreeGo : Template t => TreeIndex t -> [TreeEvent] -> ContractId t
+fromTreeGo (CreatedIndex index) events =
+  case mapOptional fromCreated events of
+    [] -> error "No created events for the requested template id found"
+    contractIds ->
+      let msg = "CreatedIndex out of bound" in
+      fromSomeNote msg $ contractIds !! index.offset
+  where
+    fromCreated : Template t => TreeEvent -> Optional (ContractId t)
+    fromCreated (CreatedEvent created) = fromAnyContractId created.contractId
+    fromCreated (ExercisedEvent _) = None
+fromTreeGo (ExercisedIndex index) events =
+  case mapOptional fromExercised events of
+    [] -> error $ "No exercised events for choice " <> index.choice <> " found"
+    childEventsList ->
+      let msg = "ExercisedIndex on choice " <> index.choice <> " out of bound"
+          childEvents = fromSomeNote msg $ childEventsList !! index.offset in
+      fromTreeGo index.child childEvents
+  where
+    fromExercised : TreeEvent -> Optional [TreeEvent]
+    fromExercised (CreatedEvent _) = None
+    fromExercised (ExercisedEvent exercised)
+      | exercised.contractId.templateId == index.templateId &&
+        exercised.choice == index.choice
+      = Some exercised.childEvents
+      | otherwise
+      = None
+
+-- | HIDE This is an early access feature.
+created : forall t. HasTemplateTypeRep t => TreeIndex t
+created = createdN 0
+
+-- | HIDE This is an early access feature.
+createdN : forall t. HasTemplateTypeRep t => Int -> TreeIndex t
+createdN offset = CreatedIndex CreatedIndexPayload
+  with
+    templateId = templateTypeRep @t
+    offset
+
+-- | HIDE This is an early access feature.
+exercised : forall t t'. HasTemplateTypeRep t => Text -> TreeIndex t' -> TreeIndex t'
+exercised choice = exercisedN @t choice 0
+
+-- | HIDE This is an early access feature.
+exercisedN : forall t t'. HasTemplateTypeRep t => Text -> Int -> TreeIndex t' -> TreeIndex t'
+exercisedN choice offset child = ExercisedIndex ExercisedIndexPayload
+  with
+    templateId = templateTypeRep @t
+    choice
+    offset
+    child
 
 -- | HIDE This is an early access feature
 data AnyContractId = AnyContractId
