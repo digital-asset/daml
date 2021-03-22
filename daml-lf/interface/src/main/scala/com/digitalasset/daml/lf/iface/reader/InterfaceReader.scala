@@ -246,8 +246,8 @@ object InterfaceReader {
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTTextMap => \/-((1, PrimType.TextMap))
         case Ast.BTGenMap => \/-((2, PrimType.GenMap))
-        case Ast.BTAnyException | Ast.BTGeneralError | Ast.BTArithmeticError |
-            Ast.BTContractError =>
+        case Ast.BTAnyException | Ast.BTGeneralError | Ast.BTArithmeticError | Ast.BTContractError |
+            Ast.BTBigNumeric | Ast.BTRoundingMode =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           // Add exception types to the interface reader
           unserializableDataType(

@@ -146,6 +146,9 @@ object Ast {
   /** Unique textual representation of template Id * */
   final case class ETypeRep(typ: Type) extends Expr
 
+  /** Map java rounding Mode */
+  final case class ERoundingMode(rounding: java.math.RoundingMode) extends Expr
+
   /** Throw an exception */
   final case class EThrow(returnType: Type, exceptionType: Type, exception: Expr) extends Expr
 
@@ -307,6 +310,8 @@ object Ast {
   case object BTGeneralError extends BuiltinType
   case object BTArithmeticError extends BuiltinType
   case object BTContractError extends BuiltinType
+  case object BTRoundingMode extends BuiltinType
+  case object BTBigNumeric extends BuiltinType
 
   //
   // Primitive literals
@@ -447,6 +452,19 @@ object Ast {
   final case object BGeneralErrorMessage extends BuiltinFunction // GeneralError → Text
   final case object BArithmeticErrorMessage extends BuiltinFunction // ArithmeticError → Text
   final case object BContractErrorMessage extends BuiltinFunction // ContractError → Text
+
+  // Numeric arithmetic
+  final case object BScaleBigNumeric extends BuiltinFunction // : BigNumeric → Int64
+  final case object BPrecisionBigNumeric extends BuiltinFunction // : BigNumeric → Int64
+  final case object BAddBigNumeric extends BuiltinFunction // : BigNumeric → BigNumeric → BigNumeric
+  final case object BSubBigNumeric
+      extends BuiltinFunction // :  BigNumeric → BigNumeric → BigNumeric
+  final case object BMulBigNumeric extends BuiltinFunction // : BigNumeric → BigNumeric → BigNumeric
+  final case object BDivBigNumeric
+      extends BuiltinFunction // : Int64 -> RoundingMode → BigNumeric → BigNumeric → BigNumeric s
+  final case object BShiftBigNumeric extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
+  final case object BToNumericBigNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
+  final case object BToBigNumericNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
 
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction // Text → Text
