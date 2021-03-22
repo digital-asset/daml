@@ -531,8 +531,8 @@ The literals represent actual Daml-LF values:
 * A ``LitText`` represents a `UTF8 string
   <https://en.wikipedia.org/wiki/UTF-8>`_.
 * A ``LitParty`` represents a *party*.
-* A ``LitRoundingMode`` represents a *rounding mode* use by numerical
-  operation.
+* A ``LitRoundingMode`` represents a *rounding mode* used by numerical
+  operations.
 
 .. note:: A literal which is not backed by an actual value is not
    valid and is implicitly rejected by the syntax presented here.
@@ -548,9 +548,9 @@ natural ordering. Text-like literals (``LitText``, ``LitParty``, and
 encoding, the character ``#`` comes before digits, meaning V0 Contract
 ID are ordered before V1 Contract ID. In the following we will denote
 the corresponding (non-strict) order by ``≤ₗ``.  RoundingMode literals
-are ordered as they appears in the definition ``LitRoundingMode``,
+are ordered as they appear in the definition of ``LitRoundingMode``,
 e.g. ``ROUNDING_UP`` and ``ROUNDING_UNNECESSARY`` are the smallest and
-greastest rounding mode.
+greatest rounding mode.
 
 Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3786,40 +3786,43 @@ BigNumeric functions
 
   Divides the first decimal by the second one and rounds the result
   according the rounding mode.  The scale of the output is given by
-  the second argument.  If the result cannot be represented exactly in
-  at most ``precision`` digits, the result is rounded to ``precision``
-  accordingly the ``roundingMode`` as follows:
+  the second argument.  If the result cannot be represented exactly at
+  the given scale, the result is rounded accordingly the
+  ``roundingMode`` as follows:
 
-  - ``'RoundingCeiling'`` : Rounds towards positive infinity.
+  - ``'ROUNDING_CEILING'`` : Rounds towards positive infinity.
 
-  - ``'RoundingFloor'`` : Rounds towards negative infinity
+  - ``'ROUNDING_FLOOR'`` : Rounds towards negative infinity
 
-  - ``'RoundingDown'`` : Rounds towards towards zero
+  - ``'ROUNDING_DOWN'`` : Rounds towards towards zero
 
-  - ``'RoundingUp'`` : Round towards away from zero
+  - ``'ROUNDING_UP'`` : Round towards away from zero
 
-  - ``'RoundingHalfDown'`` : Round towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round towards zero.
+  - ``'ROUNDING_HALF_DOWN'`` : Round towards the nearest neighbor
+    unless both neighbors are equidistant, in which case round towards
+    zero.
 
-  - ``'RoundingHalfEven'`` : Rounds towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round towards the even
-    neighbor.
+  - ``'ROUNDING_HALF_EVEN'`` : Rounds towards the nearest neighbor
+    unless both neighbors are equidistant, in which case round towards
+    the even neighbor.
 
-  - ``'RoundingHalfUp'`` : Round towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round away from zero.
+  - ``'ROUNDING_HALF_UP'`` : Round towards the nearest neighbor unless
+    both neighbors are equidistant, in which case round away from
+    zero.
 
-  - ``'RoundingUnnecessary'`` : Throw if the exact result cannot be
+  - ``'ROUNDING_UNNECESSARY'`` : Throw if the exact result cannot be
     represented.
 
-  Throws an ``ArithmeticError`` if the output is not a valid BigNumeric.
+  Throws an ``ArithmeticError`` if the output is not a valid
+  BigNumeric.
 
 * ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
 
-  return the scale of the BigNumeric
+  Returns the scale of the BigNumeric
 
 * ``PRECISION_BIGNUMERIC : 'BigNumeric' → 'Int64'``
 
-  return the precision of the BigNumeric
+  Returns the precision of the BigNumeric
 
 * ``TO_TEXT_BIGNUMERIC : 'BigNumeric' → 'Text'``
 
@@ -3829,13 +3832,13 @@ BigNumeric functions
 
 * ``'TO_NUMERIC_BIGNUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
 
-  Convert the ``BigNumeric`` to a ``Numeric α`` value with scale
+  Converts the ``BigNumeric`` to a ``Numeric α`` value with scale
   ``α``.  Throws an ``ArithmeticError`` in case the result cannot be
   represented without loss of precision.
 
 * ``'TO_BIGNUMERIC_NUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
 
-  Convert the ``Numeric`` to a ``BigNumeric``. This is always exact.
+  Converts the ``Numeric`` to a ``BigNumeric``. This is always exact.
 
 String functions
 ~~~~~~~~~~~~~~~~
