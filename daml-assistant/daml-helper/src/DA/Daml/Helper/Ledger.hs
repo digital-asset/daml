@@ -21,6 +21,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerNavigator,
     runLedgerReset,
     runLedgerGetDalfs,
+    runLedgerListPackages,
     -- exported for testing
     downloadAllReachablePackages
     ) where
@@ -352,7 +353,8 @@ downloadPackage args pid = do
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
 data RemoteDalf = RemoteDalf
-    { remoteDalfName :: String
+    { remoteDalfName :: LF.PackageName
+    , remoteDalfVersion :: Maybe LF.PackageVersion
     , remoteDalfBs :: BS.ByteString
     , remoteDalfIsMain :: Bool
     , remoteDalfPkgId :: LF.PackageId
@@ -360,11 +362,11 @@ data RemoteDalf = RemoteDalf
 -- | Fetch remote packages.
 runLedgerGetDalfs ::
        LedgerFlags
-       -> [LF.PackageId]
+    -> [LF.PackageId]
        -- ^ Packages to be fetched.
-       -> [LF.PackageId]
+    -> [LF.PackageId]
        -- ^ Packages that should _not_ be fetched because they are already present.
-       -> IO [RemoteDalf]
+    -> IO [RemoteDalf]
        -- ^ Returns the fetched packages.
 runLedgerGetDalfs lflags pkgIds exclPkgIds
     | null pkgIds = pure []
@@ -375,11 +377,22 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
             [ RemoteDalf {..}
             | (_pid, Just pkg) <- Map.toList m
             , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
+            , let LF.Package {packageMetadata} = pkg
             , let remoteDalfPkgId = pid
-            , let remoteDalfName = T.unpack $ recoverPackageName pkg pid
+            , let remoteDalfName =
+                      maybe (LF.PackageName $ LF.unPackageId pid) LF.packageName packageMetadata
             , let remoteDalfBs = BSL.toStrict bsl
             , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
+            , let remoteDalfVersion = LF.packageVersion <$> packageMetadata
             ]
+
+runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
+runLedgerListPackages lflags = do
+    args <- getDefaultArgs lflags
+    runWithLedgerArgs args $ do
+        lid <- L.getLedgerIdentity
+        pkgIds <- L.listPackages lid
+        pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =

@@ -15,6 +15,7 @@ import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
+import Data.Char
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Helper.Ledger
@@ -24,14 +25,18 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import qualified DA.Pretty
+import qualified Data.Aeson as Aeson
 import Data.Aeson (eitherDecodeFileStrict', encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
+import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Yaml as Yaml
 import Development.IDE.Types.Location
 import GHC.Fingerprint
+import GHC.Generics
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
@@ -87,6 +92,9 @@ dependenciesDir opts projRoot =
     fromNormalizedFilePath projRoot </> projectDependenciesDatabase </>
     lfVersionString (optDamlLfVersion opts)
 
+lockFile :: FilePath
+lockFile = "daml.lock"
+
 fingerprintFile :: FilePath
 fingerprintFile = "fingerprint.json"
 
@@ -114,12 +122,13 @@ installDependencies ::
    -> IO ()
 installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pDataDeps = do
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
-    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds} <- readDataDeps pDataDeps
+    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
             depsDir
             (deps ++ dataDepsDars ++ dataDepsDalfs)
             dataDepsPkgIds
+            dataDepsNameVersion
             thisSdkVer
             (show $ optDamlLfVersion opts)
     when needsUpdate $ do
@@ -133,11 +142,16 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         -- install data-dependencies
         ----------------------------
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
-        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
+        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
+        resolvedPkgIds <- resolvePkgs projRoot opts dataDepsNameVersion
         exclPkgIds <- queryPkgIds Nothing depsDir
-        rdalfs <- getDalfsFromLedger dataDepsPkgIds exclPkgIds
+        rdalfs <- getDalfsFromLedger (dataDepsPkgIds ++ M.elems resolvedPkgIds) exclPkgIds
         forM_ rdalfs $ \RemoteDalf {..} -> do
-            installDataDepDalf remoteDalfIsMain depsDir (remoteDalfName <.> "dalf") remoteDalfBs
+            installDataDepDalf
+                remoteDalfIsMain
+                depsDir
+                (packageNameToFp remoteDalfName)
+                remoteDalfBs
         -- Mark received packages as well as their transitive dependencies as data dependencies.
         markAsDataRec
             (Set.fromList [remoteDalfPkgId | RemoteDalf {remoteDalfPkgId} <- rdalfs])
@@ -216,28 +230,47 @@ dalfFileName bs fp = do
     pure $ pkgId </> takeFileName fp
 
 installDataDepDalf :: Bool -> FilePath -> FilePath -> BS.ByteString -> IO ()
-installDataDepDalf isMain depsDir fp bs = do
+installDataDepDalf isMain = installDalf ([dataDepMarker] ++ [mainMarker | isMain])
+
+installDalf :: [FilePath] -> FilePath -> FilePath -> BS.ByteString -> IO ()
+installDalf markers depsDir fp bs = do
     fileName <- dalfFileName bs fp
     let targetFp = depsDir </> fileName
     let targetDir = takeDirectory targetFp
     unlessM (doesDirectoryExist targetDir) $ write targetFp $ BSL.fromStrict bs
-    -- if the directory exists, the dalf got already installed as a dependency
-    when isMain $ markDirWith mainMarker targetDir
-    markDirWith dataDepMarker targetDir
+    forM_ markers $ \marker -> markDirWith marker targetDir
 
 data DataDeps = DataDeps
     { dataDepsDars :: [FilePath]
     , dataDepsDalfs :: [FilePath]
     , dataDepsPkgIds :: [LF.PackageId]
+    , dataDepsNameVersion :: [FullPkgName]
     }
 
 readDataDeps :: [String] -> IO DataDeps
 readDataDeps fpOrIds = do
     pkgIds <- forM pkgIds0 validatePkgId
-    pure $ DataDeps {dataDepsDars = dars, dataDepsDalfs = dalfs, dataDepsPkgIds = pkgIds}
+    pure $
+        DataDeps
+            { dataDepsDars = dars
+            , dataDepsDalfs = dalfs
+            , dataDepsPkgIds = pkgIds
+            , dataDepsNameVersion = pkgNameVersions
+            }
   where
     (dars, rest) = partition ("dar" `isExtensionOf`) fpOrIds
-    (dalfs, pkgIds0) = partition ("dalf" `isExtensionOf`) rest
+    (dalfs, rest1) = partition ("dalf" `isExtensionOf`) rest
+    (pkgNameVersions0, pkgIds0) = partition (':' `elem`) rest1
+    pkgNameVersions =
+        [ FullPkgName
+            { pkgName = LF.PackageName $ T.pack $ strip pkgName
+            , pkgVersion = LF.PackageVersion $ T.pack $ strip version
+            }
+        | pkgNameVersion <- pkgNameVersions0
+        , (pkgName, _colon:version) <- [breakOn ":" pkgNameVersion]
+        ]
+    strip = dropWhileEnd isSpace . dropWhile isSpace
+
 
 -- | A check that no bad package ID's are present in the data-dependency section of daml.yaml.
 validatePkgId :: String -> IO LF.PackageId
@@ -246,24 +279,143 @@ validatePkgId pkgId = do
         fail $ "Invalid package ID dependency in daml.yaml: " <> pkgId
     pure $ LF.PackageId $ T.pack pkgId
 
+-- Package resolution
+---------------------
+
+data FullPkgName = FullPkgName
+    { pkgName :: LF.PackageName
+    , pkgVersion :: LF.PackageVersion
+    } deriving (Eq, Ord, Show)
+
+data LockFile = LockFile
+    { dependencies :: [DependencyInfo]
+    } deriving Generic
+instance Aeson.FromJSON LockFile
+instance Aeson.ToJSON LockFile
+data DependencyInfo = DependencyInfo
+    { name :: String
+    , version :: String
+    , pkgId :: String
+    } deriving Generic
+instance Aeson.FromJSON DependencyInfo
+instance Aeson.ToJSON DependencyInfo
+
+resolvePkgs :: NormalizedFilePath -> Options -> [FullPkgName] -> IO (M.Map FullPkgName LF.PackageId)
+resolvePkgs projRoot opts pkgs
+    | null pkgs = pure M.empty
+    | otherwise = do
+        mbRes <- resolvePkgsWithLockFile lockFp pkgs
+        resOrErr <- case mbRes of
+          Nothing -> resolvePkgsWithLedger depsDir pkgs
+          Just res -> pure $ Right res
+        case resOrErr of
+            Left missing ->
+                fail $
+                unlines $
+                "Unable to resolve the following packages in daml.yaml:" :
+                [ (T.unpack $ LF.unPackageName pkgName) <> "-" <>
+                (T.unpack $ LF.unPackageVersion pkgVersion)
+                | FullPkgName {pkgName, pkgVersion} <- missing
+                ]
+            Right result -> do
+              writeLockFile lockFile result
+              pure result
+  where
+    depsDir = dependenciesDir opts projRoot
+    lockFp = fromNormalizedFilePath projRoot </> lockFile
+
+writeLockFile :: FilePath -> M.Map FullPkgName LF.PackageId -> IO ()
+writeLockFile lockFp resolvedPkgs = do
+    Yaml.encodeFile lockFp $
+        LockFile
+            [ DependencyInfo
+                { name = T.unpack $ LF.unPackageName pkgName
+                , version = T.unpack $ LF.unPackageVersion pkgVersion
+                , pkgId = T.unpack $ LF.unPackageId pkgId
+                }
+            | (FullPkgName {pkgName, pkgVersion}, pkgId) <- M.toList resolvedPkgs
+            ]
+
+-- | Read the package lock file and resolve the given packages. Returns a list of unresolved
+-- packages together with the resolved ones.
+resolvePkgsWithLockFile :: FilePath -> [FullPkgName] -> IO (Maybe (M.Map FullPkgName LF.PackageId))
+resolvePkgsWithLockFile lockFp pkgs = do
+    hasLockFile <- doesFileExist lockFp
+    if hasLockFile
+        then do
+            errOrLock <- Yaml.decodeFileEither lockFp
+            case errOrLock of
+                Left err ->
+                    fail $
+                    "Failed to parse daml.lock: " <> show err <> "\nTry to delete it an run again."
+                Right LockFile {dependencies} -> do
+                    let m =
+                            M.fromList
+                                [ ( FullPkgName
+                                        { pkgName = LF.PackageName $ T.pack $ name d
+                                        , pkgVersion = LF.PackageVersion $ T.pack $ version d
+                                        }
+                                  , LF.PackageId $ T.pack $ pkgId d)
+                                | d <- dependencies
+                                ]
+                    pure $
+                        if Set.fromList pkgs `Set.isSubsetOf` M.keysSet m
+                            then Just $ M.restrictKeys m (Set.fromList pkgs)
+                            else Nothing
+        else pure Nothing
+
+-- | Query the ledger for available packages and try to resolve the given packages. Returns either
+-- the missing packages or a map from package names to package id.
+resolvePkgsWithLedger ::
+       FilePath -> [FullPkgName] -> IO (Either [FullPkgName] (M.Map FullPkgName LF.PackageId))
+resolvePkgsWithLedger depsDir pkgs = do
+    ledgerPkgIds <- listLedgerPackages
+    rdalfs <- getDalfsFromLedger ledgerPkgIds []
+    forM_ rdalfs $ \RemoteDalf {..} ->
+        installDalf [] depsDir (packageNameToFp remoteDalfName) remoteDalfBs
+    let m =
+            M.fromList
+                [ (FullPkgName {pkgName = remoteDalfName, pkgVersion = version}, remoteDalfPkgId)
+                | RemoteDalf {..} <- rdalfs
+                , Just version <- [remoteDalfVersion]
+                ]
+    let m0 = M.restrictKeys m $ Set.fromList pkgs
+    pure $
+        if M.size m0 == length pkgs -- check that we resolved all packages.
+            then Right m0
+            else Left $ filter (\p -> p `M.notMember` m) pkgs
+
 -- Ledger interactions
 ----------------------
 
 getDalfsFromLedger :: [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
 getDalfsFromLedger = runLedgerGetDalfs (defaultLedgerFlags Grpc)
 
+listLedgerPackages :: IO [LF.PackageId]
+listLedgerPackages = runLedgerListPackages (defaultLedgerFlags Grpc)
+
 -- Updating/Fingerprint
 -----------------------
 depsNeedUpdate ::
-       FilePath -> [FilePath] -> [LF.PackageId] -> String -> String -> IO (Bool, Fingerprint)
-depsNeedUpdate depsDir depFps dataDepsPkgIds sdkVersion damlLfVersion = do
+       FilePath
+    -> [FilePath]
+    -> [LF.PackageId]
+    -> [FullPkgName]
+    -> String
+    -> String
+    -> IO (Bool, Fingerprint)
+depsNeedUpdate depsDir depFps dataDepsPkgIds dataDepsNameVersion sdkVersion damlLfVersion = do
     depsFps <- mapM getFileHash depFps
     let sdkVersionFp = fingerprintString sdkVersion
     let damlLfFp = fingerprintString damlLfVersion
+    let dataDepsNameVersionFp =
+            fingerprintFingerprints [fingerprintString $ show d | d <- dataDepsNameVersion]
     let dataDepsPkgIdsFp =
             fingerprintFingerprints $
             [fingerprintString $ T.unpack $ LF.unPackageId d | d <- dataDepsPkgIds]
-    let fp = fingerprintFingerprints $ sdkVersionFp : damlLfFp : dataDepsPkgIdsFp : depsFps
+    let fp =
+            fingerprintFingerprints $
+            sdkVersionFp : damlLfFp : dataDepsPkgIdsFp : dataDepsNameVersionFp : depsFps
   -- Read the metadata of an already existing package database and see if wee need to reinitialize.
     errOrFingerprint <- tryAny $ readDepsFingerprint depsDir
     pure $
@@ -316,3 +468,6 @@ markDirWith marker fp = write (fp </> marker) ""
 
 guardDefM :: Monad m => a -> m Bool -> m a -> m a
 guardDefM def pM m = ifM pM m (pure def)
+
+packageNameToFp :: LF.PackageName -> FilePath
+packageNameToFp n = (T.unpack $ LF.unPackageName n) <.> "dalf"
