@@ -300,28 +300,26 @@ downloadAllReachablePackages ::
     -- ^ Return a map of dependency package ids and maybe the downloaded package or Nothing, if the
     -- package is needed but already present.
 downloadAllReachablePackages downloadPkg pids exclPids =
-    loop Map.empty (Set.fromList pids) (Set.fromList exclPids)
+    loop Map.empty (Set.fromList pids)
   where
     loop ::
            Map LF.PackageId (Maybe LF.Package)
         -> Set.Set LF.PackageId
-        -> Set.Set LF.PackageId
         -> IO (Map LF.PackageId (Maybe LF.Package))
-    loop acc pkgIds exclPids = do
+    loop acc pkgIds = do
         case Set.minView pkgIds of
             Nothing -> return acc
             Just (pid, morePids) ->
                 if pid `Map.member` acc
-                    then loop acc morePids exclPids
+                    then loop acc morePids
                     else do
-                        if pid `Set.member` exclPids
-                            then loop (Map.insert pid Nothing acc) morePids exclPids
+                        if pid `Set.member` Set.fromList exclPids
+                            then loop (Map.insert pid Nothing acc) morePids
                             else do
                                 pkg <- downloadPkg pid
                                 loop
                                     (Map.insert pid (Just pkg) acc)
                                     (packageRefs pkg `Set.union` morePids)
-                                    exclPids
       where
         packageRefs pkg =
             Set.fromList
