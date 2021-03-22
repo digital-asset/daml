@@ -1024,8 +1024,6 @@ private[lf] object SBuiltin {
                     if (actualTmplId != templateId) {
                       machine.ctrl =
                         SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                    } else if (onLedger.cachedContracts.contains(coid)) {
-                      machine.ctrl = SEImportValue(typ, arg)
                     } else {
                       val keyExpr = args.get(1) match {
                         // No by-key operation, we have to recompute.
