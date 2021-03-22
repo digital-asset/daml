@@ -99,6 +99,7 @@ private[lf] object Speedy {
   private[lf] sealed trait LedgerMode
 
   private[lf] final case class CachedContract(
+      templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
       observers: Set[Party],
@@ -354,7 +355,7 @@ private[lf] object Speedy {
             onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
             onLedger.cachedContracts = onLedger.cachedContracts.updated(
               coid,
-              CachedContract(SValue, signatories, observers, key),
+              CachedContract(templateId, SValue, signatories, observers, key),
             )
         }
       }
@@ -1303,11 +1304,12 @@ private[lf] object Speedy {
 
   private[speedy] final case class KCacheContract(
       machine: Machine,
+      templateId: Ref.TypeConName,
       cid: V.ContractId,
   ) extends Kont {
 
     def execute(sv: SValue): Unit = {
-      val cached = SBuiltin.extractCachedContract(sv)
+      val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value

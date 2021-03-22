@@ -1010,7 +1010,13 @@ private[lf] object SBuiltin {
         case None =>
           onLedger.cachedContracts.get(coid) match {
             case Some(cached) =>
-              machine.returnValue = cached.value
+              if (cached.templateId != templateId) {
+                machine.ctrl = SEDamlException(
+                  DamlEWronglyTypedContract(coid, templateId, cached.templateId)
+                )
+              } else {
+                machine.returnValue = cached.value
+              }
             case None =>
               throw SpeedyHungry(
                 SResultNeedContract(
@@ -1034,7 +1040,7 @@ private[lf] object SBuiltin {
                         case key @ SOptional(Some(_)) => SEValue(key)
                         case v => crash(s"Expected SOptional, got: $v")
                       }
-                      machine.pushKont(KCacheContract(machine, coid))
+                      machine.pushKont(KCacheContract(machine, templateId, coid))
                       machine.ctrl = SELet1(
                         SEImportValue(typ, arg),
                         cachedContractStruct(
@@ -1818,11 +1824,13 @@ private[lf] object SBuiltin {
     cachedContractStructFields.indexOf(Ast.observersFieldName)
 
   private[speedy] def extractCachedContract(
-      v: SValue
+      templateId: Ref.TypeConName,
+      v: SValue,
   ): CachedContract =
     v match {
       case SStruct(_, vals) if vals.size == cachedContractStructFields.size =>
         CachedContract(
+          templateId,
           value = vals.get(cachedContractArgIdx),
           signatories = extractParties(vals.get(cachedContractSignatoriesIdx)),
           observers = extractParties(vals.get(cachedContractObserversIdx)),
