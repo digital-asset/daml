@@ -1830,7 +1830,7 @@ private[lf] object SBuiltin {
     v match {
       case SStruct(_, vals) if vals.size == cachedContractStructFields.size =>
         CachedContract(
-          templateId,
+          templateId = templateId,
           value = vals.get(cachedContractArgIdx),
           signatories = extractParties(vals.get(cachedContractSignatoriesIdx)),
           observers = extractParties(vals.get(cachedContractObserversIdx)),
