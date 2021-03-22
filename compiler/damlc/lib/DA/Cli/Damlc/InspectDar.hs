@@ -6,6 +6,7 @@ module DA.Cli.Damlc.InspectDar
     , getDarInfo
     , inspectDar
     , InspectInfo(..)
+    , DalfInfo(..)
     , collectInfo
     ) where
 
@@ -51,6 +52,7 @@ data DalfInfo = DalfInfo
   { dalfFilePath :: FilePath
   , dalfPackageName :: Maybe LF.PackageName
   , dalfPackageVersion :: Maybe LF.PackageVersion
+  , dalfPackage :: LF.Package
   }
 
 instance ToJSON DalfInfo where
@@ -78,6 +80,7 @@ collectInfo archive = do
               path
               (LF.packageName <$> LF.packageMetadata pkg)
               (LF.packageVersion <$> LF.packageMetadata pkg)
+              pkg
         )
     decodeEntry :: FilePath -> Either String (LF.PackageId, LF.Package)
     decodeEntry path = do

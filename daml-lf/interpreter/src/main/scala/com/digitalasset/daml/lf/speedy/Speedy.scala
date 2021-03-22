@@ -17,7 +17,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -98,6 +98,14 @@ private[lf] object Speedy {
 
   private[lf] sealed trait LedgerMode
 
+  private[lf] final case class CachedContract(
+      templateId: Ref.TypeConName,
+      value: SValue,
+      signatories: Set[Party],
+      observers: Set[Party],
+      key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+  )
+
   private[lf] final case class OnLedger(
       val validating: Boolean,
       /* Controls if authorization checks are performed during evaluation */
@@ -114,6 +122,7 @@ private[lf] object Speedy {
       var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
+      var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode
 
   private[lf] final case object OffLedger extends LedgerMode
@@ -329,7 +338,14 @@ private[lf] object Speedy {
         }
       }
 
-    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+    def addLocalContract(
+        coid: V.ContractId,
+        templateId: Ref.TypeConName,
+        SValue: SValue,
+        signatories: Set[Party],
+        observers: Set[Party],
+        key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+    ) =
       withOnLedger("addLocalContract") { onLedger =>
         coid match {
           case V.ContractId.V1(discriminator, _)
@@ -337,6 +353,10 @@ private[lf] object Speedy {
             crash("Conflicting discriminators between a global and local contract ID.")
           case _ =>
             onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
+            onLedger.cachedContracts = onLedger.cachedContracts.updated(
+              coid,
+              CachedContract(templateId, SValue, signatories, observers, key),
+            )
         }
       }
 
@@ -808,6 +828,7 @@ private[lf] object Speedy {
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
             discriminator
           },
+          cachedContracts = Map.empty,
         ),
         traceLog = traceLog,
         compiledPackages = compiledPackages,
@@ -1278,6 +1299,21 @@ private[lf] object Speedy {
       v.setCached(sv, stack_trace)
       defn.setCached(sv, stack_trace)
       machine.returnValue = sv
+    }
+  }
+
+  private[speedy] final case class KCacheContract(
+      machine: Machine,
+      templateId: Ref.TypeConName,
+      cid: V.ContractId,
+  ) extends Kont {
+
+    def execute(sv: SValue): Unit = {
+      val cached = SBuiltin.extractCachedContract(templateId, sv)
+      machine.withOnLedger("KCacheContract") { onLedger =>
+        onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
+        machine.returnValue = cached.value
+      }
     }
   }
 

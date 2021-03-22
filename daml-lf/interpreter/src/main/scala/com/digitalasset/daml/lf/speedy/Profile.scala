@@ -233,6 +233,9 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
+      implicit val keyDefRef: Allowed[KeyDefRef] = allowAll
+      implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
+      implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
       implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
@@ -252,6 +255,9 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
+          case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
+          case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
+          case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
