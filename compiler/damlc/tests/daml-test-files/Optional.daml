@@ -76,3 +76,13 @@ testWhenSome = scenario do
   submit p (fetch cid)
   whenSome (Some 5) (\x -> submit p $ exercise cid $ ConsumeIfPositive x cid)
   submitMustFail p (fetch cid)
+
+testFindOptional = scenario do
+  findOptional toLeft [] === (None : Optional ())
+  findOptional toLeft [Right 1] === (None : Optional ())
+  findOptional toLeft [Right 1, Left 2] === Some 2
+  findOptional toLeft [Right 1, Left 2, Left 3] === Some 2
+
+toLeft : Either a b -> Optional a
+toLeft (Left a) = Some a
+toLeft (Right _) = None
