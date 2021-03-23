@@ -448,6 +448,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setString(party, builder.setPartyStr, builder.setPartyInternedStr)
         case PLDate(date) =>
           builder.setDate(date.days)
+        case PLRoundingMode(rounding) =>
+          builder.setRoundingModeValue(rounding.ordinal())
       }
       builder.build()
     }

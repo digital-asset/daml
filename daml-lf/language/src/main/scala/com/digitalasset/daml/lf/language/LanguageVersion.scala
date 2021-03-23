@@ -45,6 +45,7 @@ object LanguageVersion {
     val exerciseByKey = v1_11
     val internedTypes = v1_11
     val choiceObservers = v1_11
+    val bigNumeric = v1_dev
     val exceptions = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.

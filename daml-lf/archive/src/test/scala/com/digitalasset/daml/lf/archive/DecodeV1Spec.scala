@@ -13,6 +13,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.daml_lf_dev.DamlLf1
+import com.daml.lf.language.Ast.{EPrimLit, PLRoundingMode}
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -217,6 +218,22 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.anyType) { version =>
         val decoder = moduleDecoder(version)
         decoder.uncheckedDecodeType(buildPrimType(ANY)) shouldBe TAny
+      }
+    }
+
+    s"reject BigNumeric and RoundingMode if version < ${LV.Features.bigNumeric}" in {
+      forEveryVersionSuchThat(_ < LV.Features.bigNumeric) { version =>
+        val decoder = moduleDecoder(version)
+        a[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(buildPrimType(BIGNUMERIC)))
+        a[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(buildPrimType(ROUNDING_MODE)))
+      }
+    }
+
+    s"accept BigNumeric and RoundingMode if version >= ${LV.Features.bigNumeric}" in {
+      forEveryVersionSuchThat(_ >= LV.Features.bigNumeric) { version =>
+        val decoder = moduleDecoder(version)
+        decoder.uncheckedDecodeType(buildPrimType(BIGNUMERIC)) shouldBe TBigNumeric
+        decoder.uncheckedDecodeType(buildPrimType(ROUNDING_MODE)) shouldBe TRoundingMode
       }
     }
 
@@ -756,6 +773,71 @@ class DecodeV1Spec
           a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
+    }
+
+    s"translate BigNumeric builtins iff version >= ${LV.Features.bigNumeric}" in {
+      val exceptionBuiltinCases = Table(
+        "exception builtins" -> "expected output",
+        DamlLf1.BuiltinFunction.SCALE_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BScaleBigNumeric),
+        DamlLf1.BuiltinFunction.PRECISION_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BPrecisionBigNumeric),
+        DamlLf1.BuiltinFunction.ADD_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BAddBigNumeric),
+        DamlLf1.BuiltinFunction.SUB_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BSubBigNumeric),
+        DamlLf1.BuiltinFunction.MUL_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BMulBigNumeric),
+        DamlLf1.BuiltinFunction.DIV_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BDivBigNumeric),
+        DamlLf1.BuiltinFunction.TO_BIGNUMERIC_NUMERIC ->
+          Ast.EBuiltin(Ast.BToBigNumericNumeric),
+        DamlLf1.BuiltinFunction.TO_NUMERIC_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BToNumericBigNumeric),
+      )
+
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(exceptionBuiltinCases) { (proto, scala) =>
+          val result = Try(decoder.decodeExpr(toProtoExpr(proto), "test"))
+
+          if (version >= LV.Features.bigNumeric)
+            result shouldBe Success(scala)
+          else
+            inside(result) { case Failure(error) => error shouldBe a[ParseError] }
+        }
+      }
+    }
+
+    val roundingModeTestCases = Table(
+      "proto" -> "expected rounding Mode",
+      DamlLf1.PrimLit.RoundingMode.UP -> java.math.RoundingMode.UP,
+      DamlLf1.PrimLit.RoundingMode.DOWN -> java.math.RoundingMode.DOWN,
+      DamlLf1.PrimLit.RoundingMode.CEILING -> java.math.RoundingMode.CEILING,
+      DamlLf1.PrimLit.RoundingMode.FLOOR -> java.math.RoundingMode.FLOOR,
+      DamlLf1.PrimLit.RoundingMode.HALF_UP -> java.math.RoundingMode.HALF_UP,
+      DamlLf1.PrimLit.RoundingMode.HALF_DOWN -> java.math.RoundingMode.HALF_DOWN,
+      DamlLf1.PrimLit.RoundingMode.HALF_EVEN -> java.math.RoundingMode.HALF_EVEN,
+      DamlLf1.PrimLit.RoundingMode.UNNECESSARY -> java.math.RoundingMode.UNNECESSARY,
+    )
+
+    def roundingToProtoExpr(s: DamlLf1.PrimLit.RoundingMode): DamlLf1.Expr =
+      DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setRoundingMode(s)).build()
+
+    s"translate RoundingMode iff version  >= ${LV.Features.bigNumeric}" in {
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(roundingModeTestCases) { (proto, scala) =>
+          val result =
+            Try(decoder.decodeExpr(roundingToProtoExpr(proto), "test"))
+
+          if (version >= LV.Features.bigNumeric)
+            result shouldBe Success(EPrimLit(PLRoundingMode(scala)))
+          else
+            inside(result) { case Failure(error) => error shouldBe a[ParseError] }
+        }
+      }
+
     }
 
     s"translate exception builtins as is iff version >= ${LV.Features.exceptions}" in {
