@@ -108,7 +108,7 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case _: NodeRollback[NodeId, Value.ContractId] =>
+      case _: NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         sys.error("rollback nodes are not supported")
       case create: NodeCreate[Value.ContractId] =>
@@ -254,7 +254,7 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case _: NodeRollback[NodeId, ContractId] =>
+      case _: NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         sys.error("rollback nodes are not supported")
       case create: NodeCreate[ContractId] =>

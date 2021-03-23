@@ -215,7 +215,7 @@ private[lf] case class PartialTransaction(
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
 
-          case _: Node.NodeRollback[_, _] =>
+          case _: Node.NodeRollback[_] =>
             // TODO https://github.com/digital-asset/daml/issues/8020
             sys.error("rollback nodes are not supported")
 

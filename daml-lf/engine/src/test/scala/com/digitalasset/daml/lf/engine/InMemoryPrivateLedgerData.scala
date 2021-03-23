@@ -38,7 +38,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
           val node = tx.nodes(nodeId)
           node match {
             // TODO https://github.com/digital-asset/daml/issues/8020
-            case _: NodeRollback[_, _] =>
+            case _: NodeRollback[_] =>
               sys.error("rollback nodes are not supported")
             case nc: NodeCreate[ContractId] =>
               pcs.put(nc.coid, nc.versionedCoinst)

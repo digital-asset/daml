@@ -101,7 +101,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               }
 
             node match {
-              case _: N.NodeRollback[_, _] =>
+              case _: N.NodeRollback[_] =>
                 // TODO https://github.com/digital-asset/daml/issues/8020
                 sys.error("rollback nodes are not supported")
               case nf: N.NodeFetch[ContractId] =>

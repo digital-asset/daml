@@ -78,7 +78,7 @@ object BlindingTransaction {
       val state = state0.discloseNode(witnesses, nodeId)
 
       node match {
-        case _: NodeRollback[NodeId, ContractId] =>
+        case _: NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           sys.error("rollback nodes are not supported")
 

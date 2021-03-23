@@ -35,7 +35,7 @@ private[preprocessing] final class TransactionPreprocessor(
     val (localCids, globalCids) = acc
 
     node match {
-      case _: Node.NodeRollback[_, _] =>
+      case _: Node.NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         sys.error("rollback nodes are not supported")
       case Node.NodeCreate(

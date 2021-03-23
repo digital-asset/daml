@@ -78,7 +78,7 @@ private[kvutils] object InputsAndEffects {
 
     tx.foreach { case (_, node) =>
       node match {
-        case _: Node.NodeRollback[_, _] =>
+        case _: Node.NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           sys.error("rollback nodes are not supported")
         case fetch: Node.NodeFetch[Value.ContractId] =>
@@ -117,7 +117,7 @@ private[kvutils] object InputsAndEffects {
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(Effects.empty) { case (effects, (_, node)) =>
       node match {
-        case _: Node.NodeRollback[_, _] =>
+        case _: Node.NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           sys.error("rollback nodes are not supported")
         case _: Node.NodeFetch[Value.ContractId] =>

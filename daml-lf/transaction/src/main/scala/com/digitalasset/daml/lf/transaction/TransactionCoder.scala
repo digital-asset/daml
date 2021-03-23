@@ -260,7 +260,7 @@ object TransactionCoder {
         nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
-        case _: NodeRollback[_, _] =>
+        case _: NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           sys.error("rollback nodes are not supported")
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>

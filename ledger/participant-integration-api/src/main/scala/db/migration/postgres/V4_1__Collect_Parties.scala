@@ -107,7 +107,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     transaction
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {
-          case _: NodeRollback[_, _] =>
+          case _: NodeRollback[_] =>
             // TODO https://github.com/digital-asset/daml/issues/8020
             sys.error("rollback nodes are not supported")
           case nf: NodeFetch[ContractId] =>

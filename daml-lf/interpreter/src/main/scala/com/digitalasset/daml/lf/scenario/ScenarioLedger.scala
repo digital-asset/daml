@@ -427,7 +427,7 @@ object ScenarioLedger {
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
 
                   node match {
-                    case _: NodeRollback[NodeId, ContractId] =>
+                    case _: NodeRollback[_] =>
                       // TODO https://github.com/digital-asset/daml/issues/8020
                       sys.error("rollback nodes are not supported")
 
@@ -603,7 +603,7 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case _: NodeRollback[NodeId, ContractId] =>
+          case _: NodeRollback[_] =>
             // TODO https://github.com/digital-asset/daml/issues/8020
             sys.error("rollback nodes are not supported")
 

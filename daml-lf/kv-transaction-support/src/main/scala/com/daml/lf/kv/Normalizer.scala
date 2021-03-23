@@ -14,7 +14,7 @@ object Normalizer {
       tx: CommittedTransaction
   ): CommittedTransaction = {
     val nodes = tx.nodes.filter {
-      case (_, _: Node.NodeRollback[_, _]) =>
+      case (_, _: Node.NodeRollback[_]) =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         sys.error("rollback nodes are not supported")
       case (_, _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => false
