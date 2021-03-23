@@ -118,8 +118,8 @@ private[lf] object Speedy {
       var commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
-      // local contracts, that are contracts created in the current transaction)
-      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
+      // local contracts, that are contracts created in the current transaction, values are stored in cachedContracts
+      var localContracts: Set[V.ContractId],
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
@@ -341,7 +341,7 @@ private[lf] object Speedy {
     def addLocalContract(
         coid: V.ContractId,
         templateId: Ref.TypeConName,
-        SValue: SValue,
+        arg: SValue,
         signatories: Set[Party],
         observers: Set[Party],
         key: Option[Node.KeyWithMaintainers[V[Nothing]]],
@@ -352,10 +352,10 @@ private[lf] object Speedy {
               if onLedger.globalDiscriminators.contains(discriminator) =>
             crash("Conflicting discriminators between a global and local contract ID.")
           case _ =>
-            onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
+            onLedger.localContracts = onLedger.localContracts + coid
             onLedger.cachedContracts = onLedger.cachedContracts.updated(
               coid,
-              CachedContract(templateId, SValue, signatories, observers, key),
+              CachedContract(templateId, arg, signatories, observers, key),
             )
         }
       }
@@ -364,7 +364,7 @@ private[lf] object Speedy {
       withOnLedger("addGlobalCid") { onLedger =>
         cid match {
           case V.ContractId.V1(discriminator, _) =>
-            if (onLedger.localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
+            if (onLedger.localContracts.contains(V.ContractId.V1(discriminator)))
               crash("Conflicting discriminators between a global and local contract ID.")
             else
               onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
@@ -824,7 +824,7 @@ private[lf] object Speedy {
           committers = committers,
           commitLocation = None,
           dependsOnTime = false,
-          localContracts = Map.empty,
+          localContracts = Set.empty,
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
             discriminator
           },
