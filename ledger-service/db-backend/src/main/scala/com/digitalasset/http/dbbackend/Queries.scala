@@ -269,16 +269,18 @@ sealed abstract class Queries {
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"c.contract_id = $contractId").option
 
-  private[http] def fetchByKey(parties: OneAnd[Set, String], tpid: SurrogateTpId, key: JsValue)(
-      implicit
+  private[http] final def fetchByKey(
+      parties: OneAnd[Set, String],
+      tpid: SurrogateTpId,
+      key: JsValue,
+  )(implicit
       log: LogHandler,
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
-    selectContracts(parties, tpid, sql"key = $key::jsonb").option
+    selectContracts(parties, tpid, keyEquality(key)).option
 
-  private[http] def keyEquality(key: JsValue): Fragment =
-    sql"key = $key::jsonb"
+  private[http] def keyEquality(key: JsValue): Fragment
 
   private[http] def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment
 
@@ -525,6 +527,9 @@ private object PostgresQueries extends Queries {
       )
     )
 
+  private[http] override def keyEquality(key: JsValue): Fragment =
+    sql"key = $key::jsonb"
+
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue) =
     fragmentContractPath(path) ++ sql" = ${literal}::jsonb"
 
@@ -602,7 +607,7 @@ private object OracleQueries extends Queries {
 
   protected[this] type DBContractKey = JsValue
 
-  protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) =
+  protected[this] override def toDBContractKey[CK: JsonWriter](x: CK): DBContractKey =
     JsObject(Map("key" -> x.toJson))
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
@@ -689,6 +694,11 @@ private object OracleQueries extends Queries {
 
   private[this] def unpct(s: Option[String]) =
     s.cata(_.split('%').filter(_.nonEmpty).toVector, Vector.empty)
+
+  private[http] override def keyEquality(key: JsValue): Fragment = {
+    import spray.json.DefaultJsonProtocol.JsValueFormat
+    sql"key = ${toDBContractKey(key)}"
+  }
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     import scalaz.Cord
