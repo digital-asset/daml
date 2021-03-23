@@ -368,6 +368,7 @@ concat = mconcat
 infixr 5 ++
 -- | Concatenate two lists.
 (++) : [a] -> [a] -> [a]
+xs ++ [] = xs
 xs ++ ys = foldr (::) ys xs
 
 -- | Flip the order of the arguments of a two argument function.
