@@ -29,7 +29,9 @@ fromSomeNote n None = error n
 -- | The `catOptionals` function takes a list of `Optionals` and returns a
 -- list of all the `Some` values.
 catOptionals : [Optional a] -> [a]
-catOptionals = concatMap optionalToList
+catOptionals = foldr f []
+  where f None acc = acc
+        f (Some x) acc = x :: acc
 
 -- | The `listToOptional` function returns `None` on an empty list or
 -- `Some` a where a is the first element of the list.
