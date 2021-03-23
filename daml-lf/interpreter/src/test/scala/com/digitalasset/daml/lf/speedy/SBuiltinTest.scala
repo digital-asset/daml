@@ -440,29 +440,30 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           }
         }
       }
+    }
 
-      "SHIFT_BIGNUMERIC" - {
+    "SHIFT_BIGNUMERIC" - {
+      import java.math.BigDecimal
+      import SBigNumeric.assertFromBigDecimal
 
-        "returns proper result" in {
-          val testCases = Table[Int, Int, String, String](
-            ("input scale", "output scale", "input", "output"),
-            (0, 1, s(0, Numeric.maxValue(0)), s(1, Numeric.maxValue(1))),
-            (0, 37, tenPowerOf(1, 0), tenPowerOf(-36, 37)),
-            (20, 30, tenPowerOf(15, 20), tenPowerOf(5, 30)),
-            (20, 10, tenPowerOf(15, 20), tenPowerOf(25, 10)),
-            (10, 20, tenPowerOf(-5, 10), tenPowerOf(-15, 20)),
-            (20, 10, tenPowerOf(-5, 20), tenPowerOf(5, 10)),
-            (10, 20, tenPowerOf(10, 10), tenPowerOf(0, 20)),
-            (20, 10, tenPowerOf(10, 20), tenPowerOf(20, 10)),
-          )
-          forEvery(testCases) { (inputScale, outputScale, input, output) =>
-            eval(e"SHIFT_BIGNUMERIC  $input") shouldBe Right(
-              SNumeric(n(outputScale, output))
-            )
-          }
+      "returns proper result" in {
+        val testCases = Table[Int, Int, String, String](
+          ("input scale", "output scale", "input", "output"),
+          (0, 1, s(0, Numeric.maxValue(0)), s(1, Numeric.maxValue(1))),
+          (0, 37, tenPowerOf(1, 0), tenPowerOf(-36, 37)),
+          (20, 10, tenPowerOf(15, 20), tenPowerOf(5, 30)),
+          (20, -10, tenPowerOf(15, 20), tenPowerOf(25, 10)),
+          (10, 10, tenPowerOf(-5, 10), tenPowerOf(-15, 20)),
+          (20, -10, tenPowerOf(-5, 20), tenPowerOf(5, 10)),
+          (10, 10, tenPowerOf(10, 10), tenPowerOf(0, 20)),
+          (20, -10, tenPowerOf(10, 20), tenPowerOf(20, 10)),
+        )
+        forEvery(testCases) { (inputScale, shifting, input, output) =>
+          eval(
+            e"SHIFT_BIGNUMERIC $shifting (TO_BIGNUMERIC_NUMERIC @$inputScale $input)"
+          ) shouldBe Right(assertFromBigDecimal(new BigDecimal(output)))
         }
       }
-
     }
 
     "TO_TEXT_NUMERIC" - {
