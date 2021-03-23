@@ -20,15 +20,9 @@ exception MyException
 tryCatchExample = scenario do
     p <- getParty "Alice"
     x <- submit p do
-        DA.Internal.Desugar._tryCatch
-            (\() -> do
-                throw (MyException "ok")
-                pure "err"
-            )
-            (\case
-                (DA.Internal.Desugar.fromAnyException -> Some (MyException m)) ->
-                    Some (pure m)
-                _ ->
-                    None
-            )
+        try do
+            throw (MyException "ok")
+            pure "err"
+        catch
+            MyException m -> pure m
     x === "ok"
