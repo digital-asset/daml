@@ -610,9 +610,10 @@ private object OracleQueries extends Queries {
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
     println("insert contracts")
     println(dbcs)
-    val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
+    val r = Update[(String, String, SurrogateTpId, JsValue, JsValue, String)](
       """
-        INSERT INTO contract(contract_id, tpid, key, payload, agreement_text)
+        MERGE INTO contract USING (SELECT 1 FROM DUAL) ON (contract_id = ?)
+        WHEN NOT MATCHED THEN INSERT (contract_id, tpid, key, payload, agreement_text)
         VALUES (?, ?, ?, ?, ?)
       """,
       logHandler0 = log,
@@ -620,7 +621,7 @@ private object OracleQueries extends Queries {
       dbcs
         .map { c =>
 //          println(c)
-          (c.contractId, c.templateId, c.key, c.payload, c.agreementText)
+          (c.contractId, c.contractId, c.templateId, c.key, c.payload, c.agreementText)
         }
     )
     println("inserted")
