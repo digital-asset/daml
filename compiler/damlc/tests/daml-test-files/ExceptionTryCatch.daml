@@ -1,0 +1,41 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+
+-- | Test the try-catch syntax.
+module ExceptionTryCatch where
+
+import DA.Exception
+
+test1 : ActionCatch m => m Int
+test1 =
+    try
+        pure (10 / 0)
+    catch
+        (_: ArithmeticError) -> pure 0
+
+test2 : ActionCatch m => m Int
+test2 = do
+    try
+        pure (10 / 0)
+    catch
+        (_: ArithmeticError) -> pure 0
+
+test3 : ActionCatch m => m Int
+test3 = do
+    x <- try
+            pure (10 / 0)
+        catch
+            (_: ArithmeticError) -> pure 0
+    pure (x+1)
+
+{- fails for now
+test4 : ActionCatch m => m Int
+tert4 = do
+    x <- try
+        pure (10 / 0)
+    catch
+        (_: ArithmeticError) -> pure 0
+    pure (x+1)
+-}
