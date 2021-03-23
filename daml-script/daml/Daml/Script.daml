@@ -10,7 +10,6 @@ module Daml.Script
   , submitMultiMustFail
   , submitTree
   , submitTreeMulti
-  , createdCid
   , query
   , queryContractId
   , queryContractKey
@@ -500,34 +499,6 @@ data TransactionTree = TransactionTree
   with
     rootEvents: [TreeEvent]
   deriving Show
-
--- | HIDE Select a contract id using a list of child indices.
--- TODO (MK) Come up with a clearer API for this.
-createdCid : Template t => [Int] -> TransactionTree -> ContractId t
-createdCid [] _ = error "List of selectors passed to createdCid was empty"
-createdCid (i :: ss) (TransactionTree evs) =
-  case evs !! i of
-    None ->
-      error $ "Transaction tree has only " <> show (length evs) <> " root events but selected " <> show i
-    Some t -> createdCidGo ss t
-
-createdCidGo : Template t => [Int] -> TreeEvent -> ContractId t
-createdCidGo [] (CreatedEvent (Created cid _)) =
-  case fromAnyContractId cid of
-    None -> error "createdCid selected a create node of the wrong template type"
-    Some cid -> cid
-createdCidGo [] (ExercisedEvent _) =
-  error "createdCid selected an exercise event"
-createdCidGo ss@(_ :: _) (CreatedEvent _) =
-  error $ "createdCid reached created event before the following selectors have been applied: " <> show ss
-createdCidGo (i :: ss) (ExercisedEvent ex) =
-  case ex.childEvents !! i of
-    None ->
-      error $
-        "Exercised event has only " <>
-        show (length ex.childEvents) <> " child events but selected " <>
-        show i
-    Some e -> createdCidGo ss e
 
 -- | HIDE This is an early access feature.
 data TreeEvent
