@@ -136,11 +136,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 100
-    val ActionAt = 90
     for {
       wrapper <- ledger.create(alice, CreateWrapper(alice))
       _ <- Future.traverse(1 to Attempts) { attempt =>
-        if (attempt == ActionAt) {
+        if (attempt == Attempts) {
           ledger.create(alice, ContractWithKey(alice)).map(_ => ()).transform(Success(_))
         } else {
           ledger
@@ -153,13 +152,13 @@ final class RaceConditionIT extends LedgerTestSuite {
     } yield {
       import TransactionUtil._
 
-      val nonTransientCreateTransaction = transactions
-        .find(isCreateNonTransient)
-        .getOrElse(fail("No non-transient create transaction found"))
-
-      transactions
-        .filter(isTransientCreate)
-        .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
+      // We deliberately allow situations where no non-transient contract is created and verify the transactions
+      // order when such contract is actually created.
+      transactions.find(isCreateNonTransient).foreach { nonTransientCreateTransaction =>
+        transactions
+          .filter(isTransientCreate)
+          .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
+      }
     }
   })
 
