@@ -267,7 +267,7 @@ sealed abstract class Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
-    selectContracts(parties, tpid, sql"contract_id = $contractId").option
+    selectContracts(parties, tpid, sql"c.contract_id = $contractId").option
 
   private[http] def fetchByKey(parties: OneAnd[Set, String], tpid: SurrogateTpId, key: JsValue)(
       implicit
