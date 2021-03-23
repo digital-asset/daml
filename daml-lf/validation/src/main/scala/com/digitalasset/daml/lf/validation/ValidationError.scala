@@ -175,6 +175,12 @@ case object URAny extends UnserializabilityReason {
 case object URTypeRep extends UnserializabilityReason {
   def pretty: String = "TypeRep"
 }
+case object URRoundingMode extends UnserializabilityReason {
+  def pretty: String = "RoundingMode"
+}
+case object URBigNumeric extends UnserializabilityReason {
+  def pretty: String = "BigNumeric"
+}
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context

@@ -454,6 +454,9 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
+      case ERoundingMode(_) =>
+        // TODO https://github.com/digital-asset/daml/issues/8719
+        sys.error("ERoundingMode not supported")
       case EToAnyException(ty, e) =>
         val messageFunction = compileExceptionType(ty)
         SBToAnyException(ty, messageFunction)(compile(e))
@@ -575,6 +578,12 @@ private[lf] final class Compiler(
           case BGenMapKeys => SBGenMapKeys
           case BGenMapValues => SBGenMapValues
           case BGenMapSize => SBGenMapSize
+
+          case BAddBigNumeric | BDivBigNumeric | BMulBigNumeric | BPrecisionBigNumeric |
+              BScaleBigNumeric | BShiftBigNumeric | BSubBigNumeric | BToBigNumericNumeric |
+              BToNumericBigNumeric =>
+            // TODO https://github.com/digital-asset/daml/issues/8719
+            sys.error(s"builtin $bf not supported")
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper

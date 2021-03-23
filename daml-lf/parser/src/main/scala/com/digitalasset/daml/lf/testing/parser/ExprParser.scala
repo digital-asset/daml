@@ -43,6 +43,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
+      eRoundingMode |
       id ^^ EVar |
       experimental |
       (`(` ~> expr <~ `)`)
@@ -302,7 +303,33 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
     "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
     "CONTRACT_ERROR_MESSAGE" -> BContractErrorMessage,
+    "SCALE_BIGNUMERIC" -> BScaleBigNumeric,
+    "PRECISION_BIGNUMERIC" -> BPrecisionBigNumeric,
+    "ADD_BIGNUMERIC" -> BAddBigNumeric,
+    "SUB_BIGNUMERIC" -> BSubBigNumeric,
+    "MUL_BIGNUMERIC" -> BMulBigNumeric,
+    "DIV_BIGNUMERIC" -> BDivBigNumeric,
+    "SHIFT_BIGNUMERIC" -> BShiftBigNumeric,
+    "TO_NUMERIC_BIGNUMERIC" -> BToNumericBigNumeric,
+    "TO_BIGNUMERIC_NUMERIC" -> BToBigNumericNumeric,
   )
+
+  private[this] val roundingModes = {
+    import java.math.RoundingMode._
+    Map(
+      "ROUNDING_UP" -> UP,
+      "ROUNDING_DOWN" -> DOWN,
+      "ROUNDING_CEILING" -> CEILING,
+      "ROUNDING_FLOOR" -> FLOOR,
+      "ROUNDING_HALF_UP" -> HALF_UP,
+      "ROUNDING_HALF_DOWN" -> HALF_DOWN,
+      "ROUNDING_HALF_EVEN" -> HALF_EVEN,
+      "ROUNDING_UNNECESSARY" -> UNNECESSARY,
+    )
+  }
+
+  private lazy val eRoundingMode: Parser[Expr] =
+    (id ^? roundingModes) ^^ ERoundingMode
 
   private lazy val experimental: Parser[Expr] =
     `$` ~> id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
