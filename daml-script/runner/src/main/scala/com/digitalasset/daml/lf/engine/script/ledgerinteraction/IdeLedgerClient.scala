@@ -299,6 +299,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
             case _: NodeRollback[_] =>
+              // TODO https://github.com/digital-asset/daml/issues/8020
               sys.error("rollback nodes are not supported")
             case create: NodeCreate[ContractId] =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
