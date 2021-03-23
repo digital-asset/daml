@@ -352,19 +352,19 @@ object Node {
   ) extends GenNode[Nid, Cid]
       with NodeInfo.Rollback {
 
-    def templateId: TypeConName =
+    override def templateId: TypeConName =
       // TODO https://github.com/digital-asset/daml/issues/8020
       sys.error("rollback nodes are not supported")
 
-    def version: TransactionVersion =
+    override def version: TransactionVersion =
       // TODO https://github.com/digital-asset/daml/issues/8020
       sys.error("rollback nodes are not supported")
 
-    private[lf] def updateVersion(version: TransactionVersion): NodeLookupByKey[Cid] =
+    override private[lf] def updateVersion(version: TransactionVersion): NodeLookupByKey[Cid] =
       // TODO https://github.com/digital-asset/daml/issues/8020
       sys.error("rollback nodes are not supported")
 
-    def byKey: Boolean =
+    override def byKey: Boolean =
       // TODO https://github.com/digital-asset/daml/issues/8020
       sys.error("rollback nodes are not supported")
 
