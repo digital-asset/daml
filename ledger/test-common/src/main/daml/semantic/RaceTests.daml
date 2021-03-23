@@ -5,6 +5,11 @@ module RaceTests where
 
 type RaceKey = Text
 
+template DummyContract with
+    owner : Party
+  where
+    signatory owner
+
 template ContractWithKey with
     owner : Party
   where

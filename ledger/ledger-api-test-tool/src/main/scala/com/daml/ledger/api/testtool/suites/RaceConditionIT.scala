@@ -92,6 +92,10 @@ final class RaceConditionIT extends LedgerTestSuite {
         .transform(Success(_))
       _ <- createFuture
       _ <- exerciseFuture
+      _ <- ledger.create(
+        alice,
+        DummyContract(alice),
+      ) // Create a dummy contract to ensure that we're not stuck with previous commands
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
@@ -100,19 +104,23 @@ final class RaceConditionIT extends LedgerTestSuite {
         isCreateNonTransient(transactions.head),
         "The first transaction is expected to be a contract creation",
       )
-      assert(transactions.tail.nonEmpty, "Several transactions expected")
+      assert(
+        transactions.exists(isCreateDummyContract),
+        "A dummy contract creation is missing. A possible reason might be reading the transactions stream in the test case before submitted commands had chance to be processed.",
+      )
 
-      val (_, valid) = transactions.tail.foldLeft((transactions.head, true)) {
-        case ((previousTx, validUntilNow), currentTx) =>
-          if (validUntilNow) {
-            val valid = (isArchival(previousTx) && isCreateNonTransient(
-              currentTx
-            )) || (isCreateNonTransient(previousTx) && isArchival(currentTx))
-            (currentTx, valid)
-          } else {
-            (previousTx, validUntilNow)
-          }
-      }
+      val (_, valid) =
+        transactions.filterNot(isCreateDummyContract).tail.foldLeft((transactions.head, true)) {
+          case ((previousTx, isValidSoFar), currentTx) =>
+            if (isValidSoFar) {
+              val valid = (isArchival(previousTx) && isCreateNonTransient(
+                currentTx
+              )) || (isCreateNonTransient(previousTx) && isArchival(currentTx))
+              (currentTx, valid)
+            } else {
+              (previousTx, isValidSoFar)
+            }
+        }
 
       if (!valid)
         fail(
@@ -296,6 +304,9 @@ final class RaceConditionIT extends LedgerTestSuite {
     private def isExerciseEvent(choiceName: String)(event: TreeEvent): Boolean =
       event.kind.isExercised && event.getExercised.choice == choiceName
 
+    def isCreateDummyContract(tx: TransactionTree): Boolean =
+      tx.containsEvent(isCreated(RaceTests.DummyContract.TemplateName))
+
     def isCreateNonTransient(tx: TransactionTree): Boolean =
       tx.hasEventsNumber(1) &&
         tx.containsEvent(isCreated(RaceTests.ContractWithKey.TemplateName))
@@ -363,6 +374,10 @@ final class RaceConditionIT extends LedgerTestSuite {
       val TemplateName = "ContractWithKey"
       val ChoiceArchive = "ContractWithKey_Archive"
       val ChoiceExercise = "ContractWithKey_Exercise"
+    }
+
+    object DummyContract {
+      val TemplateName = "DummyContract"
     }
 
     object FetchWrapper {
