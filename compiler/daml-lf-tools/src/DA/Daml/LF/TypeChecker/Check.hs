@@ -131,6 +131,8 @@ kindOfBuiltin = \case
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
+  BTRoundingMode -> KStar
+  BTBigNumeric -> KStar
   BTAnyException -> KStar
   BTGeneralError -> KStar
   BTArithmeticError -> KStar
@@ -214,6 +216,7 @@ typeOfBuiltin = \case
   BEDate _           -> pure TDate
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
+  BERoundingMode _   -> pure TRoundingMode
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
   BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
