@@ -82,6 +82,7 @@ safetyStep = \case
       BEDate _            -> Safe 0
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
+      BERoundingMode _    -> Safe 0
       BEError             -> Safe 0
       BEAnyExceptionMessage -> Safe 1
       BEGeneralErrorMessage -> Safe 1

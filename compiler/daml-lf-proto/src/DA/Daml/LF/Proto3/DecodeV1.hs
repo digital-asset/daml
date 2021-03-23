@@ -809,13 +809,13 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
+  LF1.PrimTypeROUNDING_MODE -> BTRoundingMode
+  LF1.PrimTypeBIGNUMERIC -> BTBigNumeric
   LF1.PrimTypeANY_EXCEPTION -> BTAnyException
   LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
   LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
   LF1.PrimTypeCONTRACT_ERROR -> BTContractError
-    -- TODO https://github.com/digital-asset/daml/issues/8719
-  LF1.PrimTypeBIGNUMERIC -> error "BigNumeric not supported"
-  LF1.PrimTypeROUNDING_MODE -> error "Rounding mode not supported"
+
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

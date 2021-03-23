@@ -1712,6 +1712,8 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
+            "RoundingMode" -> pure TRoundingMode
+            "BigNumeric" -> pure TBigNumeric
             "AnyException" -> pure (TBuiltin BTAnyException)
             "GeneralError" -> pure (TBuiltin BTGeneralError)
             "ArithmeticError" -> pure (TBuiltin BTArithmeticError)

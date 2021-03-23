@@ -308,6 +308,8 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
     BTTypeRep -> P.PrimTypeTYPE_REP
+    BTRoundingMode -> P.PrimTypeROUNDING_MODE
+    BTBigNumeric -> P.PrimTypeBIGNUMERIC
     BTAnyException -> P.PrimTypeANY_EXCEPTION
     BTGeneralError -> P.PrimTypeGENERAL_ERROR
     BTArithmeticError -> P.PrimTypeARITHMETIC_ERROR
@@ -403,6 +405,16 @@ encodeBuiltinExpr = \case
     BEBool b -> pure $ P.ExprSumPrimCon $ P.Enumerated $ Right $ case b of
         False -> P.PrimConCON_FALSE
         True -> P.PrimConCON_TRUE
+
+    BERoundingMode r -> case r of
+      RoundingUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUP
+      RoundingDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeDOWN
+      RoundingCeiling -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeCEILING
+      RoundingFloor -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeFLOOR
+      RoundingHalfUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_UP
+      RoundingHalfDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_DOWN
+      RoundingHalfEven -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_EVEN
+      RoundingUnnecessary -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUNNECESSARY
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
     BELessGeneric -> builtin P.BuiltinFunctionLESS

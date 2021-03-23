@@ -148,6 +148,8 @@ instance Pretty BuiltinType where
     BTArrow -> parens docFunArrow
     BTAny -> "Any"
     BTTypeRep -> "TypeRep"
+    BTRoundingMode -> "RoundingMode"
+    BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
     BTGeneralError -> "GeneralError"
     BTArithmeticError -> "ArithmeticError"
@@ -201,6 +203,16 @@ docAltArrow = "->"
 instance Pretty PartyLiteral where
   pPrint = quotes . text . unPartyLiteral
 
+prettyRounding :: RoundingModeLiteral -> String
+prettyRounding RoundingUp = "ROUNDING_UP"
+prettyRounding RoundingDown = "ROUNDING_DOWN"
+prettyRounding RoundingCeiling = "ROUNDING_CEILING"
+prettyRounding RoundingFloor = "ROUNDING_FLOOR"
+prettyRounding RoundingHalfUp = "ROUNDING_HALF_UP"
+prettyRounding RoundingHalfDown = "ROUNDING_HALF_DOWN"
+prettyRounding RoundingHalfEven = "ROUNDING_HALF_EVEN"
+prettyRounding RoundingUnnecessary = "ROUNDING_UNNECESSARY"
+
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
@@ -210,6 +222,7 @@ instance Pretty BuiltinExpr where
     BEParty p -> pPrint p
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
+    BERoundingMode r -> keyword_ $ prettyRounding r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEGeneralErrorMessage -> "GENERAL_ERROR_MESSAGE"
