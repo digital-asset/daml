@@ -631,20 +631,26 @@ private object OracleQueries extends Queries {
     )
     println("inserted")
     import cats.syntax.foldable._, cats.instances.vector._
-    val r2 = Update[(String, String)](
+    val r2 = Update[(String, String, String, String)](
       """
-        INSERT INTO signatories(contract_id, party)
+        MERGE INTO signatories USING (SELECT 1 FROM DUAL) ON (contract_id = ? AND party = ?)
+        WHEN NOT MATCHED THEN INSERT (contract_id, party)
         VALUES (?, ?)
       """,
       logHandler0 = log,
-    ).updateMany(dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s)).toVector))
-    val r3 = Update[(String, String)](
+    ).updateMany(
+      dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s, c.contractId, s)).toVector)
+    )
+    val r3 = Update[(String, String, String, String)](
       """
-        INSERT INTO observers(contract_id, party)
+        MERGE INTO observers USING (SELECT 1 FROM DUAL) ON (contract_id = ? AND party = ?)
+        WHEN NOT MATCHED THEN INSERT (contract_id, party)
         VALUES (?, ?)
       """,
       logHandler0 = log,
-    ).updateMany(dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s)).toVector))
+    ).updateMany(
+      dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s, c.contractId, s)).toVector)
+    )
     r *> r2 *> r3
   }
 
