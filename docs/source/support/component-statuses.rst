@@ -242,12 +242,15 @@ Developer Tools
    * - Daml Sandbox in Memory (ie without the ``--sql-backend-jdbcurl`` flag)
      - Stable
      -
-   * - Daml Sandbox on Postgres (iw with the ``--sql-backend-jdbcurl`` flag)
+   * - Daml Sandbox on Postgres (ie with the ``--sql-backend-jdbcurl`` flag)
      - Stable, Deprecated
      - 2020-12-16
    * - Daml Sandbox Classic and associated CLIs ``daml sandbox-classic``, ``daml start --sandbox-classic``
      - Stable, Deprecated
      - 2020-04-09
+   * - Daml Profiler ``daml sandbox --profile-dir``
+     - Alpha
+     -
    * - **Daml Compiler**
      -
      -

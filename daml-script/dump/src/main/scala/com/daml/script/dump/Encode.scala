@@ -8,8 +8,7 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Time.{Date, Timestamp}
@@ -30,8 +29,9 @@ private[dump] object Encode {
     val partyMap = partyMapping(parties)
 
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    val treeCidRefs = trees.foldMap(treeReferencedCids)
-    val cidRefs = acsCidRefs ++ treeCidRefs
+    val submits = trees.map(Submit.fromTree)
+    val submitCidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
+    val cidRefs = acsCidRefs ++ submitCidRefs
 
     val unknownCidRefs = acsCidRefs -- acs.keySet
     if (unknownCidRefs.nonEmpty) {
@@ -71,7 +71,7 @@ private[dump] object Encode {
       (Doc.text("dump Parties{..} = do") /
         stackNonEmpty(
           encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize)
-            +: trees.map(t => encodeTree(partyMap, cidMap, cidRefs, t))
+            +: submits.map(encodeSubmit(partyMap, cidMap, cidRefs, _))
             :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -211,23 +211,33 @@ private[dump] object Encode {
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
-  private def encodeEv(
+  private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
-      ev: TreeEvent.Kind,
-  ): Doc = ev match {
-    case TreeEvent.Kind.Created(created) =>
-      encodeCreatedEvent(partyMap, cidMap, created)
-    case TreeEvent.Kind.Exercised(exercised @ _) =>
-      Doc.text("exerciseCmd ") + encodeCid(
-        cidMap,
-        ContractId(exercised.contractId),
-      ) + Doc.space + encodeValue(
-        partyMap,
-        cidMap,
-        exercised.getChoiceArgument.sum,
-      )
-    case TreeEvent.Kind.Empty => throw new IllegalArgumentException("Unknown tree event")
+      cmd: Command,
+  ): Doc = cmd match {
+    case CreateCommand(createdEvent) =>
+      encodeCreatedEvent(partyMap, cidMap, createdEvent)
+    case ExerciseCommand(exercisedEvent) =>
+      val command = Doc.text("exerciseCmd")
+      val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+      command & cid & choice
+    case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
+      val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
+      val key = encodeValue(partyMap, cidMap, contractKey.sum)
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+      command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+    case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
+      Doc
+        .stack(
+          Seq(
+            Doc.text("createAndExerciseCmd"),
+            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
+            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
+          )
+        )
+        .nested(2)
   }
 
   private def encodeCreatedEvent(
@@ -251,22 +261,21 @@ private[dump] object Encode {
       cidRefs: Set[ContractId],
       evs: Seq[CreatedEvent],
   ): Doc = {
-    encodeSubmitSimpleEvents(
+    encodeSubmitSimple(
       partyMap,
       cidMap,
       cidRefs,
-      evs.map(ev => SimpleEvent(Kind.Created(ev), ContractId(ev.contractId))),
+      SubmitSimple.fromCreatedEvents(evs),
     )
   }
 
-  private[dump] def encodeSubmitSimpleEvents(
+  private def encodeSubmitSimple(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
-      evs: Seq[SimpleEvent],
+      submit: SubmitSimple,
   ): Doc = {
-    val submitters: Set[Party] = evs.foldMap(ev => evParties(ev.event).toSet)
-    val cids = evs.map(_.contractId)
+    val cids = submit.simpleCommands.map(_.contractId)
     val referencedCids = cids.filter(cid => cidRefs.contains(cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
@@ -283,7 +292,7 @@ private[dump] object Encode {
         val encodedCids = referencedCids.map(encodeCid(cidMap, _))
         (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
     }
-    val actions = Doc.stack(evs.map { case SimpleEvent(ev, cid) =>
+    val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, cid) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(cid)) {
           encodeCid(cidMap, cid) :+ " <- "
@@ -293,10 +302,10 @@ private[dump] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeEv(partyMap, cidMap, ev)
+      bind + encodeCmd(partyMap, cidMap, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-    ((bind + submit(partyMap, submitters, isTree = false) :+ " do") / body).hang(2)
+    ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
   }
 
   private[dump] def encodeACS(
@@ -314,38 +323,48 @@ private[dump] object Encode {
     )
   }
 
-  private[dump] def encodeTree(
+  private[dump] def encodeSubmit(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
-      tree: TransactionTree,
+      submit: Submit,
   ): Doc = {
-    val rootEvs = tree.rootEventIds.map(tree.eventsById(_).kind)
-    val simpleEventsOnly: Option[Seq[SimpleEvent]] = SimpleEvent.fromTree(tree)
-    simpleEventsOnly match {
-      case Some(evs) =>
-        encodeSubmitSimpleEvents(partyMap, cidMap, cidRefs, evs)
-      case None => {
-        val submitters = rootEvs.flatMap(evParties(_)).toSet
-        val cids = treeCreatedCids(tree)
-        val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
-        val treeBind =
-          (("tree <- " +: submit(partyMap, submitters, isTree = true) :+ " do") /
-            Doc.stack(rootEvs.map(ev => encodeEv(partyMap, cidMap, ev)))).hang(2)
-        val cidBinds = referencedCids.map(bindCid(cidMap, _))
-        Doc.stack(treeBind +: cidBinds)
-      }
+    submit match {
+      case simple: SubmitSimple => encodeSubmitSimple(partyMap, cidMap, cidRefs, simple)
+      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, tree)
     }
+  }
+
+  private def encodeSubmitTree(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      submit: SubmitTree,
+  ): Doc = {
+    val cids = treeCreatedCids(submit.tree)
+    val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
+    val treeBind = Doc
+      .stack(
+        ("tree <-" &: encodeSubmitCall(partyMap, submit) :& "do") +:
+          submit.commands.map(encodeCmd(partyMap, cidMap, _))
+      )
+      .hang(2)
+    val cidBinds = referencedCids.map(bindCid(cidMap, _))
+    Doc.stack(treeBind +: cidBinds)
   }
 
   private def encodeSelector(selector: Selector): Doc = Doc.str(selector.i)
 
-  private def submit(partyMap: Map[Party, String], submitters: Set[Party], isTree: Boolean): Doc = {
-    val tree = if (isTree) { Doc.text("Tree") }
-    else { Doc.empty }
-    submitters.toList match {
-      case ::(submitter, Nil) => "submit" +: tree & encodeParty(partyMap, submitter)
-      case _ => "submit" +: tree :+ "Multi" & encodeParties(partyMap, submitters) :+ " []"
+  private def encodeSubmitCall(partyMap: Map[Party, String], submit: Submit): Doc = {
+    val parties = submit match {
+      case single: SubmitSingle => encodeParty(partyMap, single.submitter)
+      case multi: SubmitMulti => encodeParties(partyMap, multi.submitters)
+    }
+    submit match {
+      case _: SubmitSimpleSingle => "submit" &: parties
+      case _: SubmitSimpleMulti => "submitMulti" &: parties :& "[]"
+      case _: SubmitTreeSingle => "submitTree" &: parties
+      case _: SubmitTreeMulti => "submitTreeMulti" &: parties :& "[]"
     }
   }
 

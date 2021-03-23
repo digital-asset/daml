@@ -80,6 +80,7 @@ Developer Tools
    tools/sandbox
    tools/navigator/index
    tools/codegen
+   tools/profiler
 
 Background concepts
 -------------------

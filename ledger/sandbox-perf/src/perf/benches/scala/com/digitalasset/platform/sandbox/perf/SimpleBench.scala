@@ -7,14 +7,14 @@ import java.io.File
 
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.ledger.test.ModelTestDar
 import org.openjdk.jmh.annotations.Benchmark
 
 class SimpleBenchState extends PerfBenchState with DummyCommands with InfAwait
 
 class SimpleBench extends DummyCommands with InfAwait {
 
-  override protected def darFile: File =
-    new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
+  override protected def darFile: File = new File(rlocation(ModelTestDar.path))
 
   @Benchmark
   def ingest10kCommands(state: SimpleBenchState): Unit = {

@@ -8,9 +8,17 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.WorkflowId
+import com.daml.ledger.{ApplicationId, WorkflowId}
 import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
@@ -28,7 +36,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -39,9 +47,52 @@ import com.daml.platform.store.entries.{
 
 import scala.concurrent.Future
 
-private[platform] trait LedgerReadDao extends ReportsHealth {
+private[platform] trait LedgerDaoTransactionsReader {
+  def getFlatTransactions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
-  def maxConcurrentConnections: Int
+  def lookupFlatTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
+
+  def getTransactionTrees(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+
+  def lookupTransactionTreeById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
+
+  def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
+}
+
+private[platform] trait LedgerDaoCommandCompletionsReader {
+  def getCommandCompletions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      applicationId: ApplicationId,
+      parties: Set[Ref.Party],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, CompletionStreamResponse), NotUsed]
+}
+
+private[platform] trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up the ledger id */
   def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]]
@@ -75,7 +126,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
-  def transactionsReader: TransactionsReader
+  def transactionsReader: LedgerDaoTransactionsReader
+
+  def completions: LedgerDaoCommandCompletionsReader
 
   /** Looks up a Contract given a contract key and a party
     *
@@ -117,8 +170,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed]
-
-  def completions: CommandCompletionsReader
 
   /** Deduplicates commands.
     *
@@ -174,7 +225,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
-  def maxConcurrentConnections: Int
 
   /** Initializes the ledger. Must be called only once.
     *

@@ -489,21 +489,6 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         )
     }
   }
-
-  "profiler" should {
-    "evaluate arguments before open event" in {
-      val events = profile(e"""
-        let f: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 1 in
-        let g: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 2 in
-        f (g 1)
-      """)
-      events should have size 4
-      events.get(0) should matchPattern { case Profile.Event(true, "g", _) => }
-      events.get(1) should matchPattern { case Profile.Event(false, "g", _) => }
-      events.get(2) should matchPattern { case Profile.Event(true, "f", _) => }
-      events.get(3) should matchPattern { case Profile.Event(false, "f", _) => }
-    }
-  }
 }
 
 object SpeedyTest {
@@ -521,19 +506,6 @@ object SpeedyTest {
     } catch {
       case Goodbye(err) => Left(err)
     }
-  }
-  private val noPackages =
-    PureCompiledPackages(
-      Map.empty,
-      Map.empty,
-      Compiler.Config.Default
-        .copy(profiling = Compiler.FullProfile, stacktracing = Compiler.FullStackTrace),
-    )
-
-  private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
-    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
-    machine.run()
-    machine.profile.events
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

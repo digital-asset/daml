@@ -6,7 +6,13 @@ package com.daml.lf.ledger
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.Node.{
+  NodeRollback,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey,
+}
 import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
 
@@ -72,6 +78,10 @@ object BlindingTransaction {
       val state = state0.discloseNode(witnesses, nodeId)
 
       node match {
+        case _: NodeRollback[_] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
+
         case _: NodeCreate[ContractId] => state
         case _: NodeLookupByKey[ContractId] => state
 

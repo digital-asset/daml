@@ -266,6 +266,23 @@ final case class LFUtil(
       case _ => false
     }
   }
+
+  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: Interface, z: Z)(
+      f: (Z, ScopedDataType.Name) => Z
+  ): Z =
+    interface.typeDecls.foldLeft(z) {
+      case (z, (id, InterfaceType.Template(_, tpl))) =>
+        tpl.foldMap(typ => parent.Util.genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
+      case (z, _) => z
+    }
+
+  protected[this] override def precacheVariance(interface: Interface) = {
+    import UsedTypeParams.ResolvedVariance
+    val resolved = foldTemplateReferencedTypeDeclRoots(interface, ResolvedVariance.Empty) {
+      (resolved, id) => resolved.allCovariantVars(id, interface)._1
+    }
+    id => resolved.allCovariantVars(id, interface)._2
+  }
 }
 
 object LFUtil {

@@ -25,7 +25,11 @@ import com.daml.metrics._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.dao.{
+  DbDispatcher,
+  LedgerDaoTransactionsReader,
+  PaginatingAsyncStream,
+}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,7 +47,8 @@ private[dao] final class TransactionsReader(
     pageSize: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
-)(implicit executionContext: ExecutionContext) {
+)(implicit executionContext: ExecutionContext)
+    extends LedgerDaoTransactionsReader {
 
   private val dbMetrics = metrics.daml.index.db
 
@@ -71,7 +76,7 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
-  def getFlatTransactions(
+  override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
@@ -135,7 +140,7 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
-  def lookupFlatTransactionById(
+  override def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
@@ -157,7 +162,7 @@ private[dao] final class TransactionsReader(
       .map(EventsTable.Entry.toGetFlatTransactionResponse)
   }
 
-  def getTransactionTrees(
+  override def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
@@ -225,7 +230,7 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
-  def lookupTransactionTreeById(
+  override def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
@@ -247,7 +252,7 @@ private[dao] final class TransactionsReader(
       .map(EventsTable.Entry.toGetTransactionResponse)
   }
 
-  def getActiveContracts(
+  override def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
       verbose: Boolean,

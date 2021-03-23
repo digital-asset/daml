@@ -12,6 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.testing.LogCollector
@@ -36,7 +37,7 @@ class DeduplicatingPackageLoaderSpec
 
   private[this] val Success(dar) = {
     val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
+    val fileName = new File(rlocation(ModelTestDar.path))
     reader.readArchiveFromFile(fileName)
   }
 

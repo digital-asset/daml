@@ -84,6 +84,7 @@ Daml Documentation
    tools/sandbox
    tools/navigator/index
    tools/codegen
+   tools/profiler
 
 .. toctree::
    :titlesonly:

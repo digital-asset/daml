@@ -26,6 +26,9 @@ private[benchmark] final class Adapter(
   // drop value version and children
   private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId] =
     node match {
+      case _: Node.NodeRollback[_] =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case create: Node.NodeCreate[ContractId] =>
         create.copy(
           templateId = adapt(create.templateId),

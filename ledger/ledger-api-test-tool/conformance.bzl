@@ -23,8 +23,9 @@ def conformance_test(
     for lf_version in lf_versions_aggregate(lf_versions):
         extra_server_args = ["--daml-lf-dev-mode-unsafe"] if lf_version == lf_version_configuration.get("preview") or lf_version == lf_version_configuration.get("dev") else []
         if not is_windows:
+            test_name = "-".join([name, lf_version])
             client_server_test(
-                name = "-".join([name, lf_version]),
+                name = test_name,
                 runner = runner,
                 runner_args = ["%s" % port for port in ports],
                 timeout = "long",
@@ -39,6 +40,11 @@ def conformance_test(
                 ] + tags,
                 flaky = flaky,
             )
+            if lf_version == lf_version_configuration.get("stable"):
+                native.alias(
+                    name = name,
+                    actual = test_name,
+                )
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False, lf_versions = ["stable"]):
     for server_name, server in servers.items():

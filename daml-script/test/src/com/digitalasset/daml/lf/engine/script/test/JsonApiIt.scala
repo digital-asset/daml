@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpService
+import com.daml.http.nonrepudiation
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
 import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -144,6 +145,7 @@ trait JsonApiFixture
                 override val wsConfig = None
                 override val accessTokenFile = Some(jsonAccessTokenFile)
                 override val allowNonHttps = true
+                override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
               }
               HttpService
                 .start(config)(

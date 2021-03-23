@@ -17,7 +17,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -98,6 +98,14 @@ private[lf] object Speedy {
 
   private[lf] sealed trait LedgerMode
 
+  private[lf] final case class CachedContract(
+      templateId: Ref.TypeConName,
+      value: SValue,
+      signatories: Set[Party],
+      observers: Set[Party],
+      key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+  )
+
   private[lf] final case class OnLedger(
       val validating: Boolean,
       /* Controls if authorization checks are performed during evaluation */
@@ -110,10 +118,11 @@ private[lf] object Speedy {
       var commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
-      // local contracts, that are contracts created in the current transaction)
-      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
+      // local contracts, that are contracts created in the current transaction, values are stored in cachedContracts
+      var localContracts: Set[V.ContractId],
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
+      var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode
 
   private[lf] final case object OffLedger extends LedgerMode
@@ -329,14 +338,25 @@ private[lf] object Speedy {
         }
       }
 
-    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+    def addLocalContract(
+        coid: V.ContractId,
+        templateId: Ref.TypeConName,
+        arg: SValue,
+        signatories: Set[Party],
+        observers: Set[Party],
+        key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+    ) =
       withOnLedger("addLocalContract") { onLedger =>
         coid match {
           case V.ContractId.V1(discriminator, _)
               if onLedger.globalDiscriminators.contains(discriminator) =>
             crash("Conflicting discriminators between a global and local contract ID.")
           case _ =>
-            onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
+            onLedger.localContracts = onLedger.localContracts + coid
+            onLedger.cachedContracts = onLedger.cachedContracts.updated(
+              coid,
+              CachedContract(templateId, arg, signatories, observers, key),
+            )
         }
       }
 
@@ -344,7 +364,7 @@ private[lf] object Speedy {
       withOnLedger("addGlobalCid") { onLedger =>
         cid match {
           case V.ContractId.V1(discriminator, _) =>
-            if (onLedger.localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
+            if (onLedger.localContracts.contains(V.ContractId.V1(discriminator)))
               crash("Conflicting discriminators between a global and local contract ID.")
             else
               onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
@@ -804,10 +824,11 @@ private[lf] object Speedy {
           committers = committers,
           commitLocation = None,
           dependsOnTime = false,
-          localContracts = Map.empty,
+          localContracts = Set.empty,
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
             discriminator
           },
+          cachedContracts = Map.empty,
         ),
         traceLog = traceLog,
         compiledPackages = compiledPackages,
@@ -1281,6 +1302,21 @@ private[lf] object Speedy {
     }
   }
 
+  private[speedy] final case class KCacheContract(
+      machine: Machine,
+      templateId: Ref.TypeConName,
+      cid: V.ContractId,
+  ) extends Kont {
+
+    def execute(sv: SValue): Unit = {
+      val cached = SBuiltin.extractCachedContract(templateId, sv)
+      machine.withOnLedger("KCacheContract") { onLedger =>
+        onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
+        machine.returnValue = cached.value
+      }
+    }
+  }
+
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation
@@ -1326,33 +1362,10 @@ private[lf] object Speedy {
     }
   }
 
-  /** If unwinding the kont-stack fails to find a KTryCatchHandler, we initiate evaluation
-    * of the messageFunction contained in the exception payload to produce a text
-    * message, after first pushing a KUnhandledException continuation which will
-    * actually throw the scala exception DamlEUnhandledException containing the message.
-    */
-  private[speedy] final case class KUnhandledException(
-      machine: Machine
-  ) extends Kont
-      with SomeArrayEquals {
-    def execute(payload: SValue) = {
-      payload match {
-        case SValue.SText(message) =>
-          throw DamlEUnhandledException(message)
-        case x =>
-          throw SErrorCrash(s"KUnhandledException, expected Text got $x")
-      }
-    }
-  }
-
-  private[speedy] def throwUnhandledException(machine: Machine, payload: SValue) = {
+  private[speedy] def throwUnhandledException(payload: SValue) = {
     payload match {
-      case SValue.SAnyException(_, messageFunction, innerValue) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        // If the evaluation of message function throws (again),
-        // perhaps the constructed message should still refer to the original exception
-        machine.pushKont(KUnhandledException(machine))
-        machine.ctrl = SEApp(messageFunction, Array(SEValue(innerValue)))
+      case SValue.SAnyException(ty, _, innerValue) =>
+        throw DamlEUnhandledException(ty, innerValue.toValue)
       case v =>
         crash(s"throwUnhandledException, applied to non-AnyException: $v")
     }
@@ -1393,7 +1406,7 @@ private[lf] object Speedy {
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0
-        throwUnhandledException(machine, payload)
+        throwUnhandledException(payload)
     }
   }
 

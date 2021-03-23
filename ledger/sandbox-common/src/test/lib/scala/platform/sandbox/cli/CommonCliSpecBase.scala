@@ -11,6 +11,7 @@ import java.time.Duration
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.configuration.MetricsReporter.Graphite
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
@@ -249,7 +250,7 @@ abstract class CommonCliSpecBase(
 
 object CommonCliSpecBase {
 
-  private val archive = rlocation(com.daml.ledger.test.TestDars.fileNames("model"))
+  private val archive = rlocation(ModelTestDar.path)
   private val nonExistentArchive = "whatever.dar"
   private val invalidArchive = {
     val tempFile = Files.createTempFile("invalid-archive", ".dar.tmp")

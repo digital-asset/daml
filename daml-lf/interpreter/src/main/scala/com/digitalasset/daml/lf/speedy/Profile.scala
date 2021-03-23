@@ -12,6 +12,29 @@ import java.util.ArrayList
 import scala.jdk.CollectionConverters._
 
 /** Class for profiling information collected by Speedy.
+  *
+  *    Profiling works as follows:
+  *
+  *    1. The speedy compiler wraps some expressions in SELabelClosure
+  *    with the label being some type of identifier which will later be
+  *    used in the profiling results (e.g., the choice this expression
+  *    corresponds to)
+  *
+  *    2. When executing SELabelClosure we push a KLabelClosure
+  *    continuation and then proceed with the wrapped expression.
+  *
+  *    3. When we execute KLabelClosure, we look at the return value. If
+  *    it is a closure, we modify the closure to contain the
+  *    corresponding the label. If it is not a closure (this can happen
+  *    for top-level definitions or let-bindings that are not functions),
+  *    we do nothing.
+  *
+  *    4. When we execute a KFun and the corresponding closure has a
+  *    label, we emit an open event for this label and push a
+  *    KLeaveClosure.
+  *
+  *    5. When we execute the KLeaveClosure, we emit a close event for
+  *    the label.
   */
 final class Profile {
   import Profile._
@@ -210,6 +233,9 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
+      implicit val keyDefRef: Allowed[KeyDefRef] = allowAll
+      implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
+      implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
       implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
@@ -229,6 +255,9 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
+          case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
+          case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
+          case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>

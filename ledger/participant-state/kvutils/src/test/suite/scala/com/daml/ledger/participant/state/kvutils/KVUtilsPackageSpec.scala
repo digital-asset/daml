@@ -3,34 +3,26 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPackageUploadRejectionEntry,
 }
-import com.daml.lf.archive.DarReader
-import com.daml.lf.data.Ref
+import com.daml.ledger.test.{ModelTestDar, SimplePackagePartyTestDar}
+import com.daml.platform.testing.TestDarReader
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.util.{Success, Try}
+import scala.util.Success
 
 class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
   import KVTest._
   import TestHelpers._
 
-  private[this] val Success(testStablePackages) = {
-    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
-    reader.readArchiveFromFile(fileName)
-  }
-
-  private val simplePackage = new SimplePackage("Party")
-  private val simpleArchive = simplePackage.archive
+  private[this] val Success(testStablePackages) = TestDarReader.readCommonTestDar(ModelTestDar)
+  private val simplePackage = new SimplePackage(SimplePackagePartyTestDar)
+  private val simpleArchive = simplePackage.mainArchive
 
   "packages" should {
     "be able to submit simple package" in KVTest.runTest {
@@ -38,7 +30,7 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
         logEntry <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
         archiveState <- getDamlState(
-          Conversions.packageStateKey(Ref.PackageId.assertFromString(simplePackage.archiveHash))
+          Conversions.packageStateKey(simplePackage.mainPackageId)
         )
 
         // Submit again and verify that the uploaded archive didn't appear again.

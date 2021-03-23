@@ -68,6 +68,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
       useTls: UseTls = UseTls.NoTls,
       wsConfig: Option[WebsocketConfig] = None,
+      nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
@@ -93,6 +94,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,
         packageReloadInterval = doNotReloadPackages,
+        nonRepudiation = nonRepudiation,
       )
       httpService <- stripLeft(
         HttpService.start(

@@ -21,7 +21,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -34,8 +34,6 @@ import scala.concurrent.Future
 
 private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
     extends LedgerReadDao {
-
-  override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
@@ -74,7 +72,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.lookupMaximumLedgerTime(contractIds),
     )
 
-  override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
+  override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
 
   override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
@@ -129,7 +127,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledgerDao.getConfigurationEntries(startExclusive, endInclusive)
 
-  override val completions: CommandCompletionsReader = ledgerDao.completions
+  override val completions: LedgerDaoCommandCompletionsReader = ledgerDao.completions
 
   override def deduplicateCommand(
       commandId: CommandId,

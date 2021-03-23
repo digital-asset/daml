@@ -50,6 +50,7 @@ import com.daml.ledger.api.v1.testing.time_service.{
 }
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -87,8 +88,7 @@ abstract class ResetServiceITBase
 
   protected implicit val ec: ExecutionContext = ExecutionContext.global
 
-  override protected def darFile: File =
-    new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
+  override protected def darFile: File = new File(rlocation(ModelTestDar.path))
 
   protected def timeIsStatic: Boolean =
     config.timeProviderType.getOrElse(

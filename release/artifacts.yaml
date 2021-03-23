@@ -39,9 +39,9 @@
   type: jar-scala
 - target: //daml-lf/interpreter:interpreter
   type: jar-scala
-- target: //daml-lf/language:language
-  type: jar-scala
 - target: //daml-lf/kv-transaction-support:kv-transaction-support
+  type: jar-scala
+- target: //daml-lf/language:language
   type: jar-scala
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
   type: jar-scala
@@ -131,6 +131,10 @@
   type: jar-proto
 - target: //ledger/participant-state/kvutils:kvutils
   type: jar-scala
+- target: //ledger/participant-state/kvutils:dar-files-1.dev-lib
+  type: jar-scala
+- target: //ledger/participant-state/kvutils:kvutils-tests-lib
+  type: jar-scala
 - target: //ledger/participant-state/kvutils/app:app
   type: jar-scala
 - target: //ledger/participant-state/kvutils/tools:tools
@@ -151,9 +155,15 @@
   type: jar-scala
 - target: //ledger/sandbox-classic:sandbox-classic-ce
   type: jar-scala
-- target: //ledger-service/db-backend:db-backend
+- target: //ledger/test-common:dar-files-1.12-lib
   type: jar-scala
-- target: //ledger-service/http-json:http-json
+- target: //ledger/test-common:dar-files-1.dev-lib
+  type: jar-scala
+- target: //ledger/test-common:test-common-1.12
+  type: jar-scala
+- target: //ledger/test-common:test-common-1.dev
+  type: jar-scala
+- target: //ledger-service/db-backend:db-backend
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala

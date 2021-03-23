@@ -916,7 +916,7 @@ private[lf] object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
-      machine.addLocalContract(coid, templateId, createArg)
+      machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
       checkAborted(onLedger.ptx)
       machine.returnValue = SContractId(coid)
@@ -939,7 +939,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(7) {
+  ) extends OnLedgerBuiltin(4) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -951,12 +951,14 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val sigs = extractParties(args.get(2))
-      val templateObservers = extractParties(args.get(3))
-      val ctrls = extractParties(args.get(4))
-      val choiceObservers = extractParties(args.get(5))
+      val cached =
+        onLedger.cachedContracts.get(coid).getOrElse(crash(s"Contract $coid is missing from cache"))
+      val sigs = cached.signatories
+      val templateObservers = cached.observers
+      val ctrls = extractParties(args.get(2))
+      val choiceObservers = extractParties(args.get(3))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val mbKey = cached.key
       val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
@@ -985,7 +987,9 @@ private[lf] object SBuiltin {
     *    :: ContractId a
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+  final case class SBUFetch(
+      templateId: TypeConName
+  ) extends OnLedgerBuiltin(2) {
     private[this] val typ = Ast.TTyCon(templateId)
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -997,12 +1001,21 @@ private[lf] object SBuiltin {
         case v => crash(s"expected contract id, got: $v")
       }
 
-      onLedger.localContracts.get(coid) match {
-        case Some((tmplId, contract)) =>
-          if (tmplId != templateId)
-            crash(s"contract $coid ($templateId) not found from partial transaction")
-          else
-            machine.returnValue = contract
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cached) =>
+          if (cached.templateId != templateId) {
+            if (onLedger.localContracts.contains(coid)) {
+              // This should be prevented by the type checker so it’s an internal error.
+              crash(s"contract $coid ($templateId) not found from partial transaction")
+            } else {
+              // This is a user-error.
+              machine.ctrl = SEDamlException(
+                DamlEWronglyTypedContract(coid, templateId, cached.templateId)
+              )
+            }
+          } else {
+            machine.returnValue = cached.value
+          }
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1014,15 +1027,34 @@ private[lf] object SBuiltin {
                 // Note that we cannot throw in this continuation -- instead
                 // set the control appropriately which will crash the machine
                 // correctly later.
-                machine.ctrl =
-                  if (actualTmplId != templateId)
+                if (actualTmplId != templateId) {
+                  machine.ctrl =
                     SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                  else
-                    SEImportValue(typ, arg)
+                } else {
+                  val keyExpr = args.get(1) match {
+                    // No by-key operation, we have to recompute.
+                    case SOptional(None) =>
+                      SEApp(SEVal(KeyDefRef(templateId)), Array(SELocS(1)))
+                    // by-key operation so we already have the key
+                    case key @ SOptional(Some(_)) => SEValue(key)
+                    case v => crash(s"Expected SOptional, got: $v")
+                  }
+                  machine.pushKont(KCacheContract(machine, templateId, coid))
+                  machine.ctrl = SELet1(
+                    SEImportValue(typ, arg),
+                    cachedContractStruct(
+                      SELocS(1),
+                      SEApp(SEVal(SignatoriesDefRef(templateId)), Array(SELocS(1))),
+                      SEApp(SEVal(ObserversDefRef(templateId)), Array(SELocS(1))),
+                      keyExpr,
+                    ),
+                  )
+                }
               },
             )
           )
       }
+
     }
   }
 
@@ -1034,7 +1066,7 @@ private[lf] object SBuiltin {
     *    -> ()
     */
   final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
-      extends OnLedgerBuiltin(4) {
+      extends OnLedgerBuiltin(1) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1044,9 +1076,11 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val signatories = extractParties(args.get(1))
-      val observers = extractParties(args.get(2))
-      val key = extractOptionalKeyWithMaintainers(args.get(3))
+      val cached =
+        onLedger.cachedContracts.get(coid).getOrElse(crash(s"Contract $coid is missing from cache"))
+      val signatories = cached.signatories
+      val observers = cached.observers
+      val key = cached.key
       val stakeholders = observers union signatories
       val contextActors = machine.contextActors
       val auth = machine.auth
@@ -1217,7 +1251,8 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       checkToken(args.get(1))
-      onLedger.localContracts = Map.empty
+      onLedger.localContracts = Set.empty
+      onLedger.cachedContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.committers = extractParties(args.get(0))
       onLedger.commitLocation = optLocation
@@ -1767,6 +1802,40 @@ private[lf] object SBuiltin {
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
       case v => crash(s"Expected optional key with maintainers, got: $v")
+    }
+
+  private[this] val cachedContractStructFields = Struct.assertFromSeq(
+    List(
+      Ast.contractFieldName,
+      Ast.signatoriesFieldName,
+      Ast.observersFieldName,
+      Ast.keyFieldName,
+    ).zipWithIndex
+  )
+  private[this] val cachedContractStruct =
+    SBStructCon(cachedContractStructFields)
+
+  private[this] val cachedContractArgIdx = cachedContractStructFields.indexOf(Ast.contractFieldName)
+  private[this] val cachedContractKeyIdx = cachedContractStructFields.indexOf(Ast.keyFieldName)
+  private[this] val cachedContractSignatoriesIdx =
+    cachedContractStructFields.indexOf(Ast.signatoriesFieldName)
+  private[this] val cachedContractObserversIdx =
+    cachedContractStructFields.indexOf(Ast.observersFieldName)
+
+  private[speedy] def extractCachedContract(
+      templateId: Ref.TypeConName,
+      v: SValue,
+  ): CachedContract =
+    v match {
+      case SStruct(_, vals) if vals.size == cachedContractStructFields.size =>
+        CachedContract(
+          templateId = templateId,
+          value = vals.get(cachedContractArgIdx),
+          signatories = extractParties(vals.get(cachedContractSignatoriesIdx)),
+          observers = extractParties(vals.get(cachedContractObserversIdx)),
+          key = extractOptionalKeyWithMaintainers(vals.get(cachedContractKeyIdx)),
+        )
+      case _ => crash(s"Invalid cached contract: $v")
     }
 
   private[this] def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =

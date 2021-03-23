@@ -47,6 +47,7 @@ da_scala_test(
     plugins = [
         "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
     ],
+    resources = glob(["src/it/resources/**/*"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -75,5 +76,7 @@ da_scala_test(
         "//ledger-service/jwt",
         "//ledger-service/utils",
         "//ledger/ledger-api-common",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
     ],
 )

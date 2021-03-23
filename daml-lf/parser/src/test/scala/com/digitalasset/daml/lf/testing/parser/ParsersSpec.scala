@@ -66,6 +66,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "Arrow" -> BTArrow,
         "Option" -> BTOptional,
         "TextMap" -> BTTextMap,
+        "BigNumeric" -> BTBigNumeric,
+        "RoundingMode" -> BTRoundingMode,
         "AnyException" -> BTAnyException,
         "GeneralError" -> BTGeneralError,
         "ArithmeticError" -> BTArithmeticError,
@@ -319,6 +321,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             e"e",
             ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True")),
           ),
+        "ROUNDING_UP" -> ERoundingMode(java.math.RoundingMode.UP),
         "to_any_exception @Mod:E exception" ->
           EToAnyException(E, e"exception"),
         "from_any_exception @Mod:E anyException" ->
@@ -330,6 +333,27 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       forEvery(testCases)((stringToParse, expectedExp) =>
         parseExpr(stringToParse) shouldBe Right(expectedExp)
       )
+    }
+
+    "parse properly rounding Mode" in {
+      import java.math.RoundingMode._
+
+      val testCases = Table(
+        "string" -> "rounding mode",
+        "ROUNDING_UP" -> UP,
+        "ROUNDING_DOWN" -> DOWN,
+        "ROUNDING_CEILING" -> CEILING,
+        "ROUNDING_FLOOR" -> FLOOR,
+        "ROUNDING_HALF_UP" -> HALF_UP,
+        "ROUNDING_HALF_DOWN" -> HALF_DOWN,
+        "ROUNDING_HALF_EVEN" -> HALF_EVEN,
+        "ROUNDING_UNNECESSARY" -> UNNECESSARY,
+      )
+
+      forEvery(testCases)((stringToParse, expectedMode) =>
+        parseExpr(stringToParse) shouldBe Right(ERoundingMode(expectedMode))
+      )
+
     }
 
     "parses properly experiment" in {

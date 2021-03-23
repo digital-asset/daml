@@ -19,6 +19,7 @@ load(
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
+load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 da_scala_library(
     name = "kvutils",
@@ -90,20 +91,18 @@ da_scala_library(
     scalacopts = [
         "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
+    tags = ["maven_coordinates=com.daml:kvutils-tests-lib:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         ":daml_kvutils_proto_java",
         ":kvutils",
-        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/language",
-        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
@@ -114,9 +113,10 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
+        "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
@@ -173,7 +173,9 @@ da_scala_test_suite(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",
@@ -182,6 +184,22 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
+)
+
+da_scala_dar_resources_library(
+    add_maven_tag = True,
+    daml_dir_names = [
+        "simple_package_party",
+        "simple_package_optional",
+        "simple_package_list",
+        "simple_package_text_map",
+        "simple_package_variant",
+        "simple_package_tuple",
+    ],
+    daml_root_dir = "src/test/lib/daml",
+    lf_versions = ["1.dev"],
+    maven_name_prefix = "kvutils-tests",
+    visibility = ["//visibility:__subpackages__"],
 )
 
 proto_jars(
@@ -217,9 +235,6 @@ client_server_build(
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
         "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
-    ],
-    data = [
-        "//ledger/test-common:dar-files-stable",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     runner = "@//bazel_tools/client_server/runner_with_port_check:runner",

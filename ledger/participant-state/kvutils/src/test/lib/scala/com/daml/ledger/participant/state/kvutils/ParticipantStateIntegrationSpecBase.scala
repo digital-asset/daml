@@ -3,22 +3,21 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.File
 import java.time.{Clock, Duration}
 import java.util.UUID
 
 import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.test.ModelTestDar
+import com.daml.lf.archive.Decode
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party.ordering
@@ -28,10 +27,11 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
+import com.daml.platform.testing.TestDarReader
 import org.scalatest.Inside._
 import org.scalatest.matchers.should.Matchers._
-import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.collection.compat._
 import scala.collection.mutable
@@ -39,15 +39,16 @@ import scala.collection.immutable.SortedSet
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 //noinspection DuplicatedCode
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(implicit
     testExecutionContext: ExecutionContext = ExecutionContext.global
 ) extends AsyncWordSpec
-    with TestResourceContext
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
+
+  implicit private val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
@@ -713,12 +714,7 @@ object ParticipantStateIntegrationSpecBase {
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
-  val archives = {
-    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(com.daml.ledger.test.TestDars.fileNames("model")))
-    val Success(testDar) = reader.readArchiveFromFile(fileName)
-    testDar.all
-  }
+  private val archives = TestDarReader.readCommonTestDar(ModelTestDar).get.all
 
   // 2 self consistent archives
   protected val List(anArchive, anotherArchive) =

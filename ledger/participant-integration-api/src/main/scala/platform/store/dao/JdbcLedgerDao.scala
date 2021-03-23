@@ -77,7 +77,6 @@ private final case class ParsedPackageData(
 private final case class ParsedCommandData(deduplicateUntil: Instant)
 
 private class JdbcLedgerDao(
-    override val maxConcurrentConnections: Int,
     dbDispatcher: DbDispatcher,
     dbType: DbType,
     servicesExecutionContext: ExecutionContext,
@@ -1135,7 +1134,6 @@ private[platform] object JdbcLedgerDao {
         jdbcAsyncCommitMode,
       )
     } yield new JdbcLedgerDao(
-      connectionPoolSize,
       dbDispatcher,
       DbType.jdbcType(jdbcUrl),
       servicesExecutionContext,

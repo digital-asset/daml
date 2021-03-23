@@ -29,6 +29,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.service.MetadataReader
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.participant.util.LfEngineToApi
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
@@ -47,11 +48,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
 object AbstractHttpServiceIntegrationTestFuns {
-  private val dar1 = requiredResource("docs/quickstart-model.dar")
+  private[http] val dar1 = requiredResource("docs/quickstart-model.dar")
 
-  private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
+  private[http] val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 
-  private[http] val dar3 = requiredResource(com.daml.ledger.test.TestDars.fileNames("model"))
+  private[http] val dar3 = requiredResource(ModelTestDar.path)
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest
@@ -87,7 +88,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def testId: String = this.getClass.getSimpleName
 
-  protected val metdata2: MetadataReader.LfMetadata =
+  protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
   protected val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
@@ -1427,7 +1428,7 @@ abstract class AbstractHttpServiceIntegrationTest
       accountCreateCommand(owner, accountNumber, now)
 
     val packageId: Ref.PackageId = MetadataReader
-      .templateByName(metdata2)(Ref.QualifiedName.assertFromString("Account:Account"))
+      .templateByName(metadata2)(Ref.QualifiedName.assertFromString("Account:Account"))
       .headOption
       .map(_._1)
       .getOrElse(fail(s"Cannot retrieve packageId"))

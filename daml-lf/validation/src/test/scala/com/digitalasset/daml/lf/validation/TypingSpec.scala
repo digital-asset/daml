@@ -62,6 +62,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
         BTAny -> k"*",
+        BTRoundingMode -> k"*",
+        BTBigNumeric -> k"*",
         BTAnyException -> k"*",
         BTGeneralError -> k"*",
         BTArithmeticError -> k"*",
@@ -231,6 +233,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
+        // ExpRoundingMode,
+        E"""ROUNDING_UP""" ->
+          T"RoundingMode",
         // ExpThrow
         E"Λ (σ : ⋆). λ (e : ArithmeticError) →  (( throw @σ @ArithmeticError e ))" ->
           T"∀ (σ : ⋆). ArithmeticError → (( σ ))",

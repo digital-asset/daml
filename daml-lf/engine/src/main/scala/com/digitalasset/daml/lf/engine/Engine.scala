@@ -363,10 +363,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
         )
         config.profileDir.foreach { dir =>
-          val hash = meta.nodeSeeds(0)._2.toHexString
           val desc = Engine.profileDesc(tx)
-          machine.profile.name = s"$desc-${hash.substring(0, 6)}"
-          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc-$hash.json")
+          machine.profile.name = s"${meta.submissionTime}-$desc"
+          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
           machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
@@ -472,6 +471,9 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
+        case _: NodeRollback[_] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
         case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
         case exercise: NodeExercises[_, _] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
