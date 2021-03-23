@@ -641,6 +641,51 @@ damlStartTests getDamlStart =
                           "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
                       -- waitForProcess' will block on Windows so we explicitly kill the process.
                       terminateProcess ph
+        , testCase "daml start --sandbox-option --port=X" $
+          withTempDir $ \tmpDir -> do
+              p :: Int <- fromIntegral <$> getFreePort
+              writeFileUTF8 (tmpDir </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: sandbox-options"
+                      , "version: \"1.0\""
+                      , "source: ."
+                      , "dependencies:"
+                      , "  - daml-prim"
+                      , "  - daml-stdlib"
+                      , "start-navigator: false"
+                      ]
+              let startProc =
+                      shell $
+                      unwords
+                          [ "daml"
+                          , "start"
+                          , "--sandbox-option=--port=" <> show p
+                          , "--sandbox-option=--ledgerid=MyLedger"
+                          , "--json-api-port=0"
+                          , "--json-api-option=--port-file=jsonapi.port"
+                          ]
+              withCurrentDirectory tmpDir $
+                  withCreateProcess startProc $ \_ _ _ ph -> do
+                      jsonApiPort <- readPortFile maxRetries "jsonapi.port"
+                      initialRequest <-
+                          parseRequest $
+                          "http://localhost:" <> show jsonApiPort <> "/v1/parties/allocate"
+                      let queryRequest =
+                              initialRequest
+                                  { method = "POST"
+                                  , requestHeaders = authorizationHeaders
+                                  , requestBody =
+                                        RequestBodyLBS $
+                                        Aeson.encode $
+                                        Aeson.object ["identifierHint" Aeson..= ("Alice" :: String)]
+                                  }
+                      manager <- newManager defaultManagerSettings
+                      queryResponse <- httpLbs queryRequest manager
+                      responseBody queryResponse @?=
+                          "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
+                      -- waitForProcess' will block on Windows so we explicitly kill the process.
+                      terminateProcess ph
         , testCase "daml start with relative project dir" $
           withTempDir $ \tmpDir -> do
             DamlStartResource{startPh} <- damlStart EnvRelativeDir tmpDir
