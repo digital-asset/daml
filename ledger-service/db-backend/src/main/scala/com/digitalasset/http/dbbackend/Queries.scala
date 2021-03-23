@@ -33,7 +33,7 @@ sealed abstract class Queries {
   protected[this] def dropTableIfExists(table: String): Fragment
 
   /** for use when generating predicates */
-  private[http] val contractColumnName: Fragment = sql"payload"
+  protected[this] val contractColumnName: Fragment = sql"payload"
 
   private[this] val createContractsTable = CreateTable(
     "contract",
@@ -580,7 +580,7 @@ private object OracleQueries extends Queries {
         signatories
           (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
           ,party NVARCHAR2(100) NOT NULL
-          ,UNIQUE (contract_id, party)
+          ,CONSTRAINT signatories_cid_party_k UNIQUE (contract_id, party)
           )
     """,
   )
@@ -592,7 +592,7 @@ private object OracleQueries extends Queries {
         observers
           (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
           ,party NVARCHAR2(100) NOT NULL
-          ,UNIQUE (contract_id, party)
+          ,CONSTRAINT observers_cid_party_k UNIQUE (contract_id, party)
           )
     """,
   )
