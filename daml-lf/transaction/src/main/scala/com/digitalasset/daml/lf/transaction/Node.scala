@@ -368,18 +368,6 @@ object Node {
       // TODO https://github.com/digital-asset/daml/issues/8020
       sys.error("rollback nodes are not supported")
 
-    def versionedChosenValue: Value.VersionedValue[Cid] =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
-
-    def versionedExerciseResult: Option[Value.VersionedValue[Cid]] =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
-
-    def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
-
   }
 
 }
