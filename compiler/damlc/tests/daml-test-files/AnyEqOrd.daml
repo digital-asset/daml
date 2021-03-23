@@ -3,7 +3,7 @@
 
 -- @SINCE-LF 1.9
 
-module AnyEq where
+module AnyEqOrd where
 
 import DA.Action
 
@@ -56,3 +56,12 @@ main = scenario do
   assertBool ("T1, T2" <> show (Archive, Archive)) (toAnyChoice @T1 C /= toAnyChoice @T2 Archive)
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p /= toAnyContractKey @T1' p)
   assertBool ("T1, T1" <> show (p, p)) (toAnyContractKey @T1 p == toAnyContractKey @T1 p)
+
+  assertBool (show (t1A, t1B)) (toAnyTemplate t1A <= toAnyTemplate t1B)
+  assertBool (show (t1A, t1B)) (toAnyTemplate t1B > toAnyTemplate t1A)
+
+  assertBool (show (C, Archive)) (toAnyChoice @T1 C <= toAnyChoice @T1 Archive)
+  assertBool (show (C, Archive)) (toAnyChoice @T1 Archive > toAnyChoice @T1 C)
+
+  assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p <= toAnyContractKey @T1' p)
+  assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1' p > toAnyContractKey @T1 p)

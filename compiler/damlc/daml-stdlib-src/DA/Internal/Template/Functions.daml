@@ -231,6 +231,12 @@ instance IsParties (Optional Party) where
 eqAny : Any -> Any -> Bool
 eqAny = primitive @"BEEqual"
 
+ltAny : Any -> Any -> Bool
+ltAny = primitive @"BELess"
+
+lteAny : Any -> Any -> Bool
+lteAny = primitive @"BELessEq"
+
 instance Eq AnyTemplate where
   AnyTemplate a == AnyTemplate b = eqAny a b
 
@@ -242,6 +248,21 @@ instance Eq AnyContractKey where
   AnyContractKey aAny aRep == AnyContractKey bAny bRep =
     eqAny aAny bAny && aRep == bRep
 
+
+instance Ord AnyTemplate where
+  AnyTemplate a <= AnyTemplate b = lteAny a b
+
+instance Ord AnyChoice where
+  (AnyChoice aAny aRep) <= (AnyChoice bAny bRep)
+    | aRep < bRep = True
+    | aRep == bRep = lteAny aAny bAny
+    | otherwise = False
+
+instance Ord AnyContractKey where
+  (AnyContractKey aAny aRep) <= (AnyContractKey bAny bRep)
+    | aRep < bRep = True
+    | aRep == bRep = lteAny aAny bAny
+    | otherwise = False
 #endif
 
 #ifdef DAML_TYPE_REP
