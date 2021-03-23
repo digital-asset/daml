@@ -99,14 +99,16 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxClassic -> SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox (SandboxClassic classic) portSpec extraArgs a = withTempDir $ \tempDir -> do
+withSandbox :: SandboxClassic -> Maybe SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
+withSandbox (SandboxClassic classic) mbPortSpec extraArgs a = withTempDir $ \tempDir -> do
     let portFile = tempDir </> "sandbox-portfile"
     let sandbox = if classic then "sandbox-classic" else "sandbox"
-    let args = [ sandbox
-               , "--port", show (fromSandboxPortSpec portSpec)
-               , "--port-file", portFile
-               ] ++ extraArgs
+    let args = concat
+          [ [ sandbox ]
+          , concat [ [ "--port", show (fromSandboxPortSpec portSpec) ] | Just portSpec <- [mbPortSpec] ]
+          , [ "--port-file", portFile ]
+          , extraArgs
+          ]
     withPlatformJar args "sandbox-logback.xml" $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         port <- readPortFile maxRetries portFile
@@ -207,7 +209,6 @@ runStart
   (ScriptOptions scriptOpts)
   sandboxClassic
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
-    let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
     darPath <- getDarPath
     mbScenario :: Maybe String <-
@@ -230,7 +231,7 @@ runStart
     doBuild
     doCodegen projectConfig
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
+    withSandbox sandboxClassic sandboxPortM (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
                   putStrLn "Running the initialization script."
@@ -260,7 +261,6 @@ runStart
                   void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
-        defaultSandboxPort = SpecifiedPort (SandboxPort 6865)
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
