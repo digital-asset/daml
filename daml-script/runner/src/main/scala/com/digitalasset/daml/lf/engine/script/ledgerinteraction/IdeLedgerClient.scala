@@ -148,7 +148,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       // Clear state at the beginning like in SBSBeginCommit for scenarios.
       machine.returnValue = null
       onLedger.commitLocation = optLocation
-      onLedger.localContracts = Map.empty
+      onLedger.localContracts = Set.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.cachedContracts = Map.empty
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1

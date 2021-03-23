@@ -1001,61 +1001,60 @@ private[lf] object SBuiltin {
         case v => crash(s"expected contract id, got: $v")
       }
 
-      onLedger.localContracts.get(coid) match {
-        case Some((tmplId, contract)) =>
-          if (tmplId != templateId)
-            crash(s"contract $coid ($templateId) not found from partial transaction")
-          else
-            machine.returnValue = contract
-        case None =>
-          onLedger.cachedContracts.get(coid) match {
-            case Some(cached) =>
-              if (cached.templateId != templateId) {
-                machine.ctrl = SEDamlException(
-                  DamlEWronglyTypedContract(coid, templateId, cached.templateId)
-                )
-              } else {
-                machine.returnValue = cached.value
-              }
-            case None =>
-              throw SpeedyHungry(
-                SResultNeedContract(
-                  coid,
-                  templateId,
-                  onLedger.committers,
-                  cbMissing = _ => machine.tryHandleSubmitMustFail(),
-                  cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
-                    // Note that we cannot throw in this continuation -- instead
-                    // set the control appropriately which will crash the machine
-                    // correctly later.
-                    if (actualTmplId != templateId) {
-                      machine.ctrl =
-                        SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                    } else {
-                      val keyExpr = args.get(1) match {
-                        // No by-key operation, we have to recompute.
-                        case SOptional(None) =>
-                          SEApp(SEVal(KeyDefRef(templateId)), Array(SELocS(1)))
-                        // by-key operation so we already have the key
-                        case key @ SOptional(Some(_)) => SEValue(key)
-                        case v => crash(s"Expected SOptional, got: $v")
-                      }
-                      machine.pushKont(KCacheContract(machine, templateId, coid))
-                      machine.ctrl = SELet1(
-                        SEImportValue(typ, arg),
-                        cachedContractStruct(
-                          SELocS(1),
-                          SEApp(SEVal(SignatoriesDefRef(templateId)), Array(SELocS(1))),
-                          SEApp(SEVal(ObserversDefRef(templateId)), Array(SELocS(1))),
-                          keyExpr,
-                        ),
-                      )
-                    }
-                  },
-                )
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cached) =>
+          if (cached.templateId != templateId) {
+            if (onLedger.localContracts.contains(coid)) {
+              // This should be prevented by the type checker so it’s an internal error.
+              crash(s"contract $coid ($templateId) not found from partial transaction")
+            } else {
+              // This is a user-error.
+              machine.ctrl = SEDamlException(
+                DamlEWronglyTypedContract(coid, templateId, cached.templateId)
               )
+            }
+          } else {
+            machine.returnValue = cached.value
           }
+        case None =>
+          throw SpeedyHungry(
+            SResultNeedContract(
+              coid,
+              templateId,
+              onLedger.committers,
+              cbMissing = _ => machine.tryHandleSubmitMustFail(),
+              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
+                // Note that we cannot throw in this continuation -- instead
+                // set the control appropriately which will crash the machine
+                // correctly later.
+                if (actualTmplId != templateId) {
+                  machine.ctrl =
+                    SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                } else {
+                  val keyExpr = args.get(1) match {
+                    // No by-key operation, we have to recompute.
+                    case SOptional(None) =>
+                      SEApp(SEVal(KeyDefRef(templateId)), Array(SELocS(1)))
+                    // by-key operation so we already have the key
+                    case key @ SOptional(Some(_)) => SEValue(key)
+                    case v => crash(s"Expected SOptional, got: $v")
+                  }
+                  machine.pushKont(KCacheContract(machine, templateId, coid))
+                  machine.ctrl = SELet1(
+                    SEImportValue(typ, arg),
+                    cachedContractStruct(
+                      SELocS(1),
+                      SEApp(SEVal(SignatoriesDefRef(templateId)), Array(SELocS(1))),
+                      SEApp(SEVal(ObserversDefRef(templateId)), Array(SELocS(1))),
+                      keyExpr,
+                    ),
+                  )
+                }
+              },
+            )
+          )
       }
+
     }
   }
 
@@ -1252,7 +1251,7 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       checkToken(args.get(1))
-      onLedger.localContracts = Map.empty
+      onLedger.localContracts = Set.empty
       onLedger.cachedContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.committers = extractParties(args.get(0))
