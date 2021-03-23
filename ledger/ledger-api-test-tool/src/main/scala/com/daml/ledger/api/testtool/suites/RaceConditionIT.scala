@@ -21,7 +21,7 @@ import scala.util.Success
 final class RaceConditionIT extends LedgerTestSuite {
 
   private val DefaultRepetitionsNumber: Int = 5
-  private val WaitBeforeGettingTransactions = 500.millis
+  private val WaitBeforeGettingTransactions = 1.second
 
   test(
     "WWDoubleNonTransientCreate",
