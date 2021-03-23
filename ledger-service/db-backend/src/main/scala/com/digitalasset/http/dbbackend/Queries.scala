@@ -682,7 +682,7 @@ private object OracleQueries extends Queries {
             DBContract(
               contractId = cid,
               templateId = tpid,
-              key = key,
+              key = key.asJsObject.fields("key"),
               payload = payload,
               signatories = unpct(pctSignatories),
               observers = unpct(pctObservers),
@@ -697,7 +697,7 @@ private object OracleQueries extends Queries {
 
   private[http] override def keyEquality(key: JsValue): Fragment = {
     import spray.json.DefaultJsonProtocol.JsValueFormat
-    sql"key = ${toDBContractKey(key)}"
+    sql"JSON_EQUAL(key, ${toDBContractKey(key)})"
   }
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
