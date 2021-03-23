@@ -66,10 +66,10 @@ isNone = not . isSome
 -- the result list. If it is `Some b`, then `b` is included in the
 -- result list.
 mapOptional : (a -> Optional b) -> [a] -> [b]
-mapOptional _ [] = []
-mapOptional p (x :: xs) = case p x of
-  None -> mapOptional p xs
-  Some y -> y :: mapOptional p xs
+mapOptional p = foldr f []
+  where f x acc = case p x of
+          None -> acc
+          Some y -> y :: acc
 
 -- | Perform some operation on `Some`, given the field inside the
 -- `Some`.
