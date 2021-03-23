@@ -3,6 +3,7 @@
 
 package com.daml.http.dbbackend
 
+import com.daml.lf.data.Ref
 import com.daml.scalautil.nonempty
 import nonempty.{NonEmpty, +-:}
 import nonempty.NonEmptyReturningOps._
@@ -10,7 +11,7 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.collection.immutable.{Iterable, Seq => ISeq}
-import scalaz.{-\/, @@, Foldable, Functor, OneAnd, Tag, \/, \/-}
+import scalaz.{@@, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
@@ -24,7 +25,6 @@ import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.syntax.functor._
-import com.daml.lf.data.Ref
 
 sealed abstract class Queries {
   import Queries._, InitDdl._
