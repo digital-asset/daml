@@ -60,6 +60,9 @@ final class TransactionBuilder(
   def build(): Tx.Transaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
+      case (_, _: Node.NodeRollback[_]) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case (nid, exe: TxExercise) =>
         exe.copy(children = children(nid).toImmArray)
       case (_, node: Node.LeafOnlyNode[ContractId]) =>

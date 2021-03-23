@@ -10,7 +10,13 @@ import java.sql.{Connection, ResultSet}
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.Node.{
+  NodeRollback,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey,
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.db.migration.translation.TransactionSerializer
@@ -101,6 +107,9 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     transaction
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {
+          case _: NodeRollback[_] =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
           case nf: NodeFetch[ContractId] =>
             parties
               .union(nf.signatories)

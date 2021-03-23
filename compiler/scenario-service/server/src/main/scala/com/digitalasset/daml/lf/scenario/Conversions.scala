@@ -443,6 +443,9 @@ final class Conversions(
       .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
+      case _: N.NodeRollback[_] =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case create: N.NodeCreate[V.ContractId] =>
         val createBuilder =
           proto.Node.Create.newBuilder
@@ -518,6 +521,9 @@ final class Conversions(
       .setNodeId(proto.NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
+      case _: N.NodeRollback[_] =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("rollback nodes are not supported")
       case create: N.NodeCreate[V.ContractId] =>
         val createBuilder =
           proto.Node.Create.newBuilder

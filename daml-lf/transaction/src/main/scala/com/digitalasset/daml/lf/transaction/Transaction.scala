@@ -132,6 +132,9 @@ final case class GenTransaction[Nid, +Cid](
               go(newErrors + NotWellFormedError(nid, DanglingNodeId), newVisited, nids)
             case Some(node) =>
               node match {
+                case _: Node.NodeRollback[_] =>
+                  // TODO https://github.com/digital-asset/daml/issues/8020
+                  sys.error("rollback nodes are not supported")
                 case _: Node.LeafOnlyNode[Cid] => go(newErrors, newVisited, nids)
                 case ne: Node.NodeExercises[Nid, Cid] =>
                   go(
@@ -171,6 +174,9 @@ final case class GenTransaction[Nid, +Cid](
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
+            case _: Node.NodeRollback[_] =>
+              // TODO https://github.com/digital-asset/daml/issues/8020
+              sys.error("rollback nodes are not supported")
             case nf1: Node.NodeFetch[Cid] =>
               node2 match {
                 case nf2: Node.NodeFetch[Cid2] => compare(nf1, nf2) && go(rest)
@@ -214,6 +220,9 @@ final case class GenTransaction[Nid, +Cid](
   def serializable(f: Value[Cid] => ImmArray[String]): ImmArray[String] = {
     fold(BackStack.empty[String]) { case (errs, (_, node)) =>
       node match {
+        case _: Node.NodeRollback[_] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
         case _: Node.NodeFetch[Cid] => errs
         case nc: Node.NodeCreate[Cid] =>
           errs :++ f(nc.coinst.arg) :++ (nc.key match {
@@ -230,6 +239,9 @@ final case class GenTransaction[Nid, +Cid](
   def foldValues[Z](z: Z)(f: (Z, Value[Cid]) => Z): Z =
     fold(z) { case (z, (_, n)) =>
       n match {
+        case _: Node.NodeRollback[_] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
         case c: Node.NodeCreate[_] =>
           val z1 = f(z, c.arg)
           val z2 = c.key match {
@@ -266,6 +278,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         val node = nodes(nodeId)
         f(nodeId, node)
         node match {
+          case _: Node.NodeRollback[_] =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
           case _: Node.LeafOnlyNode[Cid] => go(toVisit)
           case ne: Node.NodeExercises[Nid, Cid] => go(ne.children ++: toVisit)
         }
@@ -307,6 +322,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
         globalState = globalState1
         node match {
+          case _: Node.NodeRollback[_] =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
           case _: Node.LeafOnlyNode[Cid] => go(toVisit)
           case ne: Node.NodeExercises[Nid, Cid] =>
             go(ne.children.map(_ -> newPathState) ++: toVisit)
@@ -352,6 +370,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       currNodes match {
         case FrontStackCons(nid, rest) =>
           nodes(nid) match {
+            case _: Node.NodeRollback[_] =>
+              // TODO https://github.com/digital-asset/daml/issues/8020
+              sys.error("rollback nodes are not supported")
             case exe: Node.NodeExercises[Nid, Cid] =>
               exerciseBegin(nid, exe)
               loop(FrontStack(exe.children), ((nid, exe), rest) +: stack)

@@ -5,7 +5,13 @@ package com.daml.lf.engine
 
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.Node.{
+  NodeRollback,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey,
+}
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
@@ -60,6 +66,9 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
+              case _: NodeRollback[_] =>
+                // TODO https://github.com/digital-asset/daml/issues/8020
+                sys.error("rollback nodes are not supported")
               case _: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid] =>
                 go(filteredRoots, remainingRoots)
               case ne: NodeExercises[Nid, Cid] =>

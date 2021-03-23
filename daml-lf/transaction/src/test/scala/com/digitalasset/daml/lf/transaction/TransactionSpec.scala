@@ -149,6 +149,9 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       for {
         entry <- danglingRefGenNode
         node = entry match {
+          case (_, _: Node.NodeRollback[_]) =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
           case (_, n: Node.LeafOnlyNode[V.ContractId]) => n
           case (_, ne: Node.NodeExercises[_, V.ContractId]) =>
             ne.copy(children = ImmArray.empty)
@@ -180,6 +183,9 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = {
         val nodeWithoutLocation = n match {
+          case _: Node.NodeRollback[_] =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("rollback nodes are not supported")
           case nc: Node.NodeCreate[V.ContractId] => nc copy (optLocation = None)
           case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
           case ne: Node.NodeExercises[Nothing, V.ContractId] =>
