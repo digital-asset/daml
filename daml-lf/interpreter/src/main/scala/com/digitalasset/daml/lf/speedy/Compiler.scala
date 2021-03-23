@@ -454,9 +454,6 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
-      case ERoundingMode(_) =>
-        // TODO https://github.com/digital-asset/daml/issues/8719
-        sys.error("ERoundingMode not supported")
       case EToAnyException(ty, e) =>
         val messageFunction = compileExceptionType(ty)
         SBToAnyException(ty, messageFunction)(compile(e))
@@ -633,6 +630,10 @@ private[lf] final class Compiler(
       case PLTimestamp(ts) => STimestamp(ts)
       case PLParty(p) => SParty(p)
       case PLDate(d) => SDate(d)
+      case PLRoundingMode(_) =>
+        // TODO https://github.com/digital-asset/daml/issues/8719
+        sys.error("RoundingMode not supported")
+
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])

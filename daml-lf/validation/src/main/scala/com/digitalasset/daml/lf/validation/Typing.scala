@@ -41,6 +41,7 @@ private[validation] object Typing {
     case PLTimestamp(_) => TTimestamp
     case PLParty(_) => TParty
     case PLDate(_) => TDate
+    case PLRoundingMode(_) => TRoundingMode
   }
 
   protected[validation] lazy val typeOfBuiltinFunction = {
@@ -223,6 +224,16 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta)),
         ),
+      // BigNumeric function
+      BScaleBigNumeric -> (TBigNumeric ->: TInt64),
+      BPrecisionBigNumeric -> (TBigNumeric ->: TInt64),
+      BAddBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
+      BSubBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
+      BMulBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
+      BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
+      BShiftBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
+      BToNumericBigNumeric -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
+      BToBigNumericNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
       // Exception functions
       BMakeGeneralError -> (TText ->: TGeneralError),
       BMakeArithmeticError -> (TText ->: TArithmeticError),
@@ -1042,8 +1053,6 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkAnyType(typ)
         TTypeRep
-      case ERoundingMode(_) =>
-        TRoundingMode
       case EThrow(returnTyp, excepTyp, body) =>
         checkType(returnTyp, KStar)
         checkExceptionType(excepTyp)

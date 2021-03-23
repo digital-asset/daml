@@ -155,6 +155,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "1970-01-01T00:00:01Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1000000)),
         "'party'" -> PLParty(Party.assertFromString("party")),
         """ ' aB0-_ ' """ -> PLParty(Party.assertFromString(" aB0-_ ")),
+        "ROUNDING_UP" -> PLRoundingMode(java.math.RoundingMode.UP),
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
@@ -321,7 +322,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             e"e",
             ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True")),
           ),
-        "ROUNDING_UP" -> ERoundingMode(java.math.RoundingMode.UP),
         "to_any_exception @Mod:E exception" ->
           EToAnyException(E, e"exception"),
         "from_any_exception @Mod:E anyException" ->
@@ -351,7 +351,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
 
       forEvery(testCases)((stringToParse, expectedMode) =>
-        parseExpr(stringToParse) shouldBe Right(ERoundingMode(expectedMode))
+        parseExpr(stringToParse) shouldBe Right(EPrimLit(PLRoundingMode(expectedMode)))
       )
 
     }

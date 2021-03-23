@@ -492,6 +492,16 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTEXT_SPLIT_ON -> BETextSplitOn
   LF1.BuiltinFunctionTEXT_INTERCALATE -> BETextIntercalate
 
+  -- TODO https://github.com/digital-asset/daml/issues/8719
+  LF1.BuiltinFunctionSCALE_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionPRECISION_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionADD_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionSUB_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionMUL_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionDIV_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionSHIFT_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionTO_NUMERIC_BIGNUMERIC -> error "BigNumeric builtins not supported"
+  LF1.BuiltinFunctionTO_BIGNUMERIC_NUMERIC -> error "BigNumeric builtins not supported"
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
@@ -756,6 +766,8 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumPartyStr p -> pure $ BEParty $ PartyLiteral $ decodeString p
   LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral . fst <$> lookupString strId
   LF1.PrimLitSumDate days -> pure $ BEDate days
+   -- TODO https://github.com/digital-asset/daml/issues/8719
+  LF1.PrimLitSumRoundingMode _ -> error "RoundingMode not supported"
 
 decodeDecimalLit :: T.Text -> Decode BuiltinExpr
 decodeDecimalLit (T.unpack -> str) = case readMaybe str of
@@ -801,6 +813,9 @@ decodePrim = pure . \case
   LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
   LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
   LF1.PrimTypeCONTRACT_ERROR -> BTContractError
+    -- TODO https://github.com/digital-asset/daml/issues/8719
+  LF1.PrimTypeBIGNUMERIC -> error "BigNumeric not supported"
+  LF1.PrimTypeROUNDING_MODE -> error "Rounding mode not supported"
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

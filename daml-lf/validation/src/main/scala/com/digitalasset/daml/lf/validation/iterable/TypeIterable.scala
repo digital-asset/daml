@@ -80,7 +80,7 @@ private[validation] object TypeIterable {
           iterator(value)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
-          ERoundingMode(_) | EExperimental(_, _) =>
+          EExperimental(_, _) =>
         ExprIterable.iterator(expr0).flatMap(iterator(_))
     }
   }
