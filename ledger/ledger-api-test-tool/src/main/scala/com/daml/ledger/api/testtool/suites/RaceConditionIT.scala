@@ -85,7 +85,7 @@ final class RaceConditionIT extends LedgerTestSuite {
      */
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
-      _ = Thread.sleep(1000)
+      _ <- Delayed.by(1.second)(())
       createFuture = ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
       exerciseFuture = ledger
         .exercise(alice, contract.exerciseContractWithKey_Archive)
