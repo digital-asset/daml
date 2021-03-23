@@ -576,11 +576,15 @@ private[lf] final class Compiler(
           case BGenMapValues => SBGenMapValues
           case BGenMapSize => SBGenMapSize
 
-          case BAddBigNumeric | BDivBigNumeric | BMulBigNumeric | BPrecisionBigNumeric |
-              BScaleBigNumeric | BShiftBigNumeric | BSubBigNumeric | BToBigNumericNumeric |
-              BToNumericBigNumeric =>
-            // TODO https://github.com/digital-asset/daml/issues/8719
-            sys.error(s"builtin $bf not supported")
+          case BScaleBigNumeric => SBScaleBigNumeric
+          case BPrecisionBigNumeric => SBPrecisionBigNumeric
+          case BAddBigNumeric => SBAddBigNumeric
+          case BSubBigNumeric => SBSubBigNumeric
+          case BDivBigNumeric => SBDivBigNumeric
+          case BMulBigNumeric => SBMulBigNumeric
+          case BShiftBigNumeric => SBShiftBigNumeric
+          case BToBigNumericNumeric => SBToBigNumericNumeric
+          case BToNumericBigNumeric => SBToNumericBigNumeric
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -630,10 +634,7 @@ private[lf] final class Compiler(
       case PLTimestamp(ts) => STimestamp(ts)
       case PLParty(p) => SParty(p)
       case PLDate(d) => SDate(d)
-      case PLRoundingMode(_) =>
-        // TODO https://github.com/digital-asset/daml/issues/8719
-        sys.error("RoundingMode not supported")
-
+      case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
