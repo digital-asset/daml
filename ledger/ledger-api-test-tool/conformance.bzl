@@ -41,9 +41,10 @@ def conformance_test(
                 flaky = flaky,
             )
             if lf_version == lf_version_configuration.get("stable"):
-                native.alias(
+                native.test_suite(
                     name = name,
-                    actual = test_name,
+                    tests = [test_name],
+                    tags = tags,
                 )
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False, lf_versions = ["stable"]):
