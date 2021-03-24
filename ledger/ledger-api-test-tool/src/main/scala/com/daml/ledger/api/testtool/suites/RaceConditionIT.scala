@@ -26,8 +26,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   raceConditionTest(
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val Attempts = 5
     val ExpectedNumberOfSuccessfulCreations = 1
     Future
@@ -42,13 +41,12 @@ final class RaceConditionIT extends LedgerTestSuite {
         )
         ()
       }
-  })
+  }
 
   raceConditionTest(
     "WWDoubleArchive",
     "Cannot archive the same contract multiple times",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val Attempts = 5
     val ExpectedNumberOfSuccessfulArchivals = 1
     for {
@@ -66,13 +64,12 @@ final class RaceConditionIT extends LedgerTestSuite {
       )
       ()
     }
-  })
+  }
 
   raceConditionTest(
     "WWArchiveVsNonTransientCreate",
     "Cannot create a contract with a key if that key is still used by another contract",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     /*
     This test case is intended to catch a race condition ending up in two consecutive successful contract
     create or archive commands. E.g.:
@@ -124,13 +121,12 @@ final class RaceConditionIT extends LedgerTestSuite {
           s"""Invalid transaction sequence: ${transactions.map(printTransaction).mkString("\n")}"""
         )
     }
-  })
+  }
 
   raceConditionTest(
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val Attempts = 100
     for {
       wrapper <- ledger.create(alice, CreateWrapper(alice))
@@ -156,13 +152,12 @@ final class RaceConditionIT extends LedgerTestSuite {
           .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
       }
     }
-  })
+  }
 
   raceConditionTest(
     "RWArchiveVsNonConsumingChoice",
     "Cannot exercise a choice after a contract archival",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val ArchiveAt = 5
     val Attempts = 10
     for {
@@ -187,13 +182,12 @@ final class RaceConditionIT extends LedgerTestSuite {
         .foreach(assertTransactionOrder(_, archivalTransaction))
 
     }
-  })
+  }
 
   raceConditionTest(
     "RWArchiveVsFetch",
     "Cannot fetch an archived contract",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val ArchiveAt = 400
     val Attempts = 500
     for {
@@ -218,13 +212,12 @@ final class RaceConditionIT extends LedgerTestSuite {
         .filter(isFetch)
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
-  })
+  }
 
   raceConditionTest(
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val ArchiveAt = 90
     val Attempts = 100
     for {
@@ -248,13 +241,12 @@ final class RaceConditionIT extends LedgerTestSuite {
         .filter(isSuccessfulContractLookup(success = true))
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
-  })
+  }
 
   raceConditionTest(
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+  ) { implicit ec => ledger => alice =>
     val CreateAt = 90
     val Attempts = 100
     for {
@@ -278,20 +270,21 @@ final class RaceConditionIT extends LedgerTestSuite {
         .filter(isSuccessfulContractLookup(success = false))
         .foreach(assertTransactionOrder(_, createNonTransientTransaction))
     }
-  })
+  }
 
   private def raceConditionTest(
       shortIdentifier: String,
       description: String,
-      participants: ParticipantAllocation,
-  )(testCase: ExecutionContext => Participants => Future[Unit]): Unit =
+  )(testCase: ExecutionContext => ParticipantTestContext => Primitive.Party => Future[Unit]): Unit =
     test(
       shortIdentifier = shortIdentifier,
       description = description,
-      participants = participants,
+      participants = allocate(SingleParty),
       repeated = DefaultRepetitionsNumber,
       runConcurrently = false,
-    )(testCase)
+    )(implicit ec => { case Participants(Participant(ledger, party)) =>
+      testCase(ec)(ledger)(party)
+    })
 
   private object TransactionUtil {
     private implicit class TransactionTreeTestOps(tx: TransactionTree) {
