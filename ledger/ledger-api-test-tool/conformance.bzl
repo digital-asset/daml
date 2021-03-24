@@ -44,6 +44,7 @@ def conformance_test(
                 native.test_suite(
                     name = name,
                     tests = [test_name],
+                    tags = tags,
                 )
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False, lf_versions = ["stable"]):
