@@ -76,6 +76,12 @@ hj_scalacopts = lf_scalacopts + [
     ]
 ]
 
+alias(
+    name = "http-json",
+    actual = "http-json-ce",
+    visibility = ["//visibility:public"],
+)
+
 json_scala_deps = [
     "@maven//:com_chuusai_shapeless",
     "@maven//:com_github_scopt_scopt",
@@ -212,6 +218,11 @@ daml_compile(
     ]
 ]
 
+alias(
+    name = "tests",
+    actual = "tests-ce",
+)
+
 [
     da_scala_library(
         name = "integration-tests-lib-{}".format(edition),
@@ -262,6 +273,11 @@ daml_compile(
         "ee",
     ]
 ]
+
+alias(
+    name = "integration-tests-lib",
+    actual = "integration-tests-lib-ce",
+)
 
 [
     da_scala_test(
@@ -327,6 +343,11 @@ daml_compile(
     ]
 ]
 
+alias(
+    name = "integration-tests",
+    actual = "integration-tests-ce",
+)
+
 [
     da_scala_test(
         name = "failure-tests-{}".format(edition),
@@ -383,5 +404,10 @@ daml_compile(
         "ee",
     ]
 ]
+
+alias(
+    name = "failure-tests",
+    actual = "failure-tests-ce",
+)
 
 exports_files(["src/main/resources/logback.xml"])
