@@ -24,27 +24,26 @@ def conformance_test(
         extra_server_args = ["--daml-lf-dev-mode-unsafe"] if lf_version == lf_version_configuration.get("preview") or lf_version == lf_version_configuration.get("dev") else []
         if not is_windows:
             test_name = "-".join([name, lf_version])
-            client_server_test(
-                name = test_name,
-                runner = runner,
-                runner_args = ["%s" % port for port in ports],
-                timeout = "long",
-                client = "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
-                client_args = test_tool_args + ["localhost:%s" % port for port in ports],
-                data = extra_data,
-                server = server,
-                server_args = server_args + extra_server_args,
-                tags = [
+            kvargs = {
+                "name": test_name,
+                "runner": runner,
+                "runner_args": ["%s" % port for port in ports],
+                "timeout": "long",
+                "client": "//ledger/ledger-api-test-tool:ledger-api-test-tool-%s" % lf_version,
+                "client_args": test_tool_args + ["localhost:%s" % port for port in ports],
+                "data": extra_data,
+                "server": server,
+                "server_args": server_args + extra_server_args,
+                "tags": [
                     "dont-run-on-darwin",
                     "exclusive",
                 ] + tags,
-                flaky = flaky,
-            )
+                "flaky": flaky,
+            }
+            client_server_test(**kvargs)
             if lf_version == lf_version_configuration.get("stable"):
-                native.alias(
-                    name = name,
-                    actual = test_name,
-                )
+                kvargs.update({"name": name})
+                client_server_test(**kvargs)
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False, lf_versions = ["stable"]):
     for server_name, server in servers.items():
