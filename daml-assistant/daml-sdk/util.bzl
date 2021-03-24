@@ -6,7 +6,7 @@ def deps(edition):
         "//daml-script/runner:script-runner-lib-{}".format(edition),
         "//extractor",
         "//language-support/codegen-main:codegen-main-lib",
-        "//ledger-service/http-json",
+        "//ledger-service/http-json:http-json-{}".format(edition),
         "//ledger/sandbox:sandbox-{}".format(edition),
         "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
         "//navigator/backend:navigator-library",

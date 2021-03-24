@@ -25,10 +25,10 @@ private[http] final case class Config(
     address: String = com.daml.cliopts.Http.defaultAddress,
     httpPort: Int,
     portFile: Option[Path] = None,
-    packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
+    packageReloadInterval: FiniteDuration = StartSettings.DefaultPackageReloadInterval,
     packageMaxInboundMessageSize: Option[Int] = None,
-    maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
-    healthTimeoutSeconds: Int = HttpService.DefaultHealthTimeoutSeconds,
+    maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
+    healthTimeoutSeconds: Int = StartSettings.DefaultHealthTimeoutSeconds,
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
@@ -36,7 +36,7 @@ private[http] final case class Config(
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
-) extends HttpService.StartSettings
+) extends StartSettings
 
 private[http] object Config {
   import scala.language.postfixOps
@@ -106,7 +106,12 @@ private[http] final case class JdbcConfig(
 )
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
-  import dbbackend.ContractDao.supportedJdbcDriverNames
+
+  // FIXME Duplicated to not introduce a circular dependency between ContractDao and this
+  private[this] val supportedJdbcDriverNames =
+    Set("org.postgresql.Driver", "oracle.jdbc.OracleDriver").filter { driver =>
+      Try(Class.forName(driver)).isSuccess
+    }
 
   private[this] def supportedDriversHelp = supportedJdbcDriverNames mkString ", "
 

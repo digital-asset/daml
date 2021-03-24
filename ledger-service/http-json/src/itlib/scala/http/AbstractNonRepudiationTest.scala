@@ -6,23 +6,19 @@ package com.daml.http
 import java.nio.file.Files
 import java.security.cert.X509Certificate
 import java.time.Clock
-import java.util.UUID
 
-import akka.http.scaladsl.model.{StatusCodes, Uri}
+import akka.http.scaladsl.model.Uri
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.AbstractHttpServiceIntegrationTestFuns.{dar1, dar2}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
-import com.daml.ledger.api.v1.command_submission_service.{
-  CommandSubmissionServiceGrpc,
-  SubmitRequest,
-}
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{RecordField, Value, Variant}
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.nonrepudiation.NonRepudiationProxy
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.testing.generateKeyAndCertificate
-import com.daml.nonrepudiation.{CommandIdString, NonRepudiationProxy}
 import com.daml.ports.{FreePort, Port}
 import com.daml.resources.grpc.GrpcResourceOwnerFactories
 import com.daml.testing.postgresql.PostgresAroundEach
@@ -36,7 +32,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-final class NonRepudiationTest
+abstract class AbstractNonRepudiationTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -75,28 +71,7 @@ final class NonRepudiationTest
 
   override val wsConfig: Option[WebsocketConfig] = None
 
-  "correctly sign a command" in withSetup { (db, uri, encoder) =>
-    val expectedParty = "Alice"
-    val expectedNumber = "abc123"
-    val expectedCommandId = UUID.randomUUID.toString
-    val meta = Some(domain.CommandMeta(commandId = Some(domain.CommandId(expectedCommandId))))
-    val domainParty = domain.Party(expectedParty)
-    val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
-    postCreateCommand(command, encoder, uri)
-      .flatMap { case (status, _) =>
-        status shouldBe StatusCodes.OK
-        val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
-        payloads should have size 1
-        val signedCommand = SubmitRequest.parseFrom(payloads.head.payload.unsafeArray)
-        val commands = signedCommand.getCommands.commands
-        commands should have size 1
-        val actualFields = commands.head.getCreate.getCreateArguments.fields.map(stripIdentifiers)
-        val expectedFields = command.payload.fields.map(stripIdentifiers)
-        actualFields should contain theSameElementsAs expectedFields
-      }
-  }
-
-  private def stripIdentifiers(field: RecordField): RecordField =
+  protected def stripIdentifiers(field: RecordField): RecordField =
     field.copy(value = Some(stripIdentifiers(field.getValue)))
 
   // Doesn't aim at being complete, neither in stripping identifiers recursively
@@ -123,8 +98,8 @@ final class NonRepudiationTest
       nonRepudiation,
     ) _
 
-  private def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
-    withParticipant { case (participantPort, _: LedgerClient) =>
+  protected def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
+    withParticipant { case (participantPort, _: DamlLedgerClient) =>
       val participantChannelBuilder =
         NettyChannelBuilder
           .forAddress("localhost", participantPort.value)
@@ -161,7 +136,7 @@ final class NonRepudiationTest
         } yield (proxy, db)
 
       setup.use { case (_: Server, db: Tables) =>
-        withJsonApi(proxyPort) { (uri, encoder, _: DomainJsonDecoder, _: LedgerClient) =>
+        withJsonApi(proxyPort) { (uri, encoder, _: DomainJsonDecoder, _: DamlLedgerClient) =>
           test(db, uri, encoder)
         }
       }

@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.command_service.{
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.lf.data.Ref
 import com.google.protobuf
 import scalaz.OneAnd
@@ -61,13 +61,13 @@ object LedgerClientJwt {
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
-  def submitAndWaitForTransaction(client: LedgerClient): SubmitAndWaitForTransaction =
+  def submitAndWaitForTransaction(client: DamlLedgerClient): SubmitAndWaitForTransaction =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt))
 
-  def submitAndWaitForTransactionTree(client: LedgerClient): SubmitAndWaitForTransactionTree =
+  def submitAndWaitForTransactionTree(client: DamlLedgerClient): SubmitAndWaitForTransactionTree =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
 
-  def getTermination(client: LedgerClient)(implicit ec: ExecutionContext): GetTermination =
+  def getTermination(client: DamlLedgerClient)(implicit ec: ExecutionContext): GetTermination =
     jwt =>
       client.transactionClient.getLedgerEnd(bearer(jwt)).map {
         _.offset flatMap {
@@ -78,7 +78,7 @@ object LedgerClientJwt {
         }
       }
 
-  def getActiveContracts(client: LedgerClient): GetActiveContracts =
+  def getActiveContracts(client: DamlLedgerClient): GetActiveContracts =
     (jwt, filter, verbose) =>
       client.activeContractSetClient
         .getActiveContracts(filter, verbose, bearer(jwt))
@@ -103,7 +103,7 @@ object LedgerClientJwt {
   private val ledgerEndOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
-  def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
+  def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => {
       val end = terminates.toOffset
       if (skipRequest(offset, end))
@@ -122,13 +122,13 @@ object LedgerClientJwt {
     }
   }
 
-  def listKnownParties(client: LedgerClient): ListKnownParties =
+  def listKnownParties(client: DamlLedgerClient): ListKnownParties =
     jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
 
-  def getParties(client: LedgerClient): GetParties =
+  def getParties(client: DamlLedgerClient): GetParties =
     (jwt, partyIds) => client.partyManagementClient.getParties(partyIds, bearer(jwt))
 
-  def allocateParty(client: LedgerClient): AllocateParty =
+  def allocateParty(client: DamlLedgerClient): AllocateParty =
     (jwt, identifierHint, displayName) =>
       client.partyManagementClient.allocateParty(
         hint = identifierHint,
@@ -136,13 +136,13 @@ object LedgerClientJwt {
         token = bearer(jwt),
       )
 
-  def listPackages(client: LedgerClient): ListPackages =
+  def listPackages(client: DamlLedgerClient): ListPackages =
     jwt => client.packageClient.listPackages(bearer(jwt))
 
-  def getPackage(client: LedgerClient): GetPackage =
+  def getPackage(client: DamlLedgerClient): GetPackage =
     (jwt, packageId) => client.packageClient.getPackage(packageId, token = bearer(jwt))
 
-  def uploadDar(client: LedgerClient): UploadDarFile =
+  def uploadDar(client: DamlLedgerClient): UploadDarFile =
     (jwt, byteString) =>
       client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
 }
