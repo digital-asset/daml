@@ -401,6 +401,7 @@ jobs:
     - compatibility_macos
     - compatibility_linux
     - compatibility_windows
+    - check_for_release
   pool:
     name: "ubuntu_20_04"
     demands: assignment -equals default
@@ -441,6 +442,8 @@ jobs:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     main_sha: $[ dependencies.git_sha.outputs['out.main'] ]
     fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+
+    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
 
     # Using expression syntax so we get an empty string if not set, rather
     # than the raw $(VarName) string. Expression syntax works on the
@@ -503,7 +506,8 @@ jobs:
          "is_fork": "$(System.PullRequest.IsFork)",
          "pr": "$PR_NUM",
          "pr_url": "https://github.com/digital-asset/daml/pull/$PR_NUM",
-         "pr_source_branch": "$PR_BRANCH"}
+         "pr_source_branch": "$PR_BRANCH",
+         "is_release": $(is_release)}
         END
         # Test above JSON is well formed
         cat $REPORT | jq '.'
@@ -526,9 +530,9 @@ jobs:
         if [[ "$(Linux.status)" != "Succeeded"
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
-            || "$(compatibility_linux.status)" != "Succeeded"
-            || "$(compatibility_macos.status)" != "Succeeded"
-            || "$(compatibility_windows.status)" != "Succeeded"
+            || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
+            || ("$(is_release)" == "false" && "$(compatibility_macos.status)" != "Succeeded")
+            || ("$(is_release)" == "false" && "$(compatibility_windows.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi
