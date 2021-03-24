@@ -64,9 +64,11 @@ final class LedgerTestCasesRunner(
       startSingle(test, session, repetition)
     }
 
-    // TODO: make it return all/mean of all durations, not only the last duration
     (2 to test.repeated).foldLeft(logAndStart(1)) { (result, repetition) =>
-      result.flatMap(_ => logAndStart(repetition))
+      for {
+        durationSoFar <- result
+        duration <- logAndStart(repetition)
+      } yield durationSoFar + duration
     }
   }
 
