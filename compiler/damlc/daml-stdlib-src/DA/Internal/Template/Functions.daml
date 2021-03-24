@@ -224,45 +224,23 @@ instance IsParties (Optional Party) where
 
 #ifdef DAML_GENERIC_COMPARISON && DAML_ANY_TYPE
 
--- We do not have a general Eq instance for Any since Any is not exposed
--- to users directly and that instance will crash on some values but
--- we can have total Eq instances for AnyTemplate, AnyChoice and AnyContractKey
--- since those are guaranteed to be serializable.
-eqAny : Any -> Any -> Bool
-eqAny = primitive @"BEEqual"
-
-ltAny : Any -> Any -> Bool
-ltAny = primitive @"BELess"
-
-lteAnyTemplate : AnyTemplate -> AnyTemplate -> Bool
-lteAnyTemplate = primitive @"BELessEq"
-
-lteAnyChoice : AnyChoice -> AnyChoice -> Bool
-lteAnyChoice = primitive @"BELessEq"
-
-lteAnyContractKey : AnyContractKey -> AnyContractKey -> Bool
-lteAnyContractKey = primitive @"BELessEq"
-
 instance Eq AnyTemplate where
-  AnyTemplate a == AnyTemplate b = eqAny a b
+  (==) = primitive @"BEEqual"
 
 instance Eq AnyChoice where
-  AnyChoice aAny aRep == AnyChoice bAny bRep =
-    eqAny aAny bAny && aRep == bRep
+  (==) = primitive @"BEEqual"
 
 instance Eq AnyContractKey where
-  AnyContractKey aAny aRep == AnyContractKey bAny bRep =
-    eqAny aAny bAny && aRep == bRep
-
+  (==) = primitive @"BEEqual"
 
 instance Ord AnyTemplate where
-  (<=) = lteAnyTemplate
+  (<=) = primitive @"BELessEq"
 
 instance Ord AnyChoice where
-  (<=) = lteAnyChoice
+  (<=) = primitive @"BELessEq"
 
 instance Ord AnyContractKey where
-  (<=) = lteAnyContractKey
+  (<=) = primitive @"BELessEq"
 #endif
 
 #ifdef DAML_TYPE_REP
