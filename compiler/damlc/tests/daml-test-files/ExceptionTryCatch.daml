@@ -30,7 +30,6 @@ test3 = do
             (_: ArithmeticError) -> pure 0
     pure (x+1)
 
-{- fails for now
 test4 : ActionCatch m => m Int
 tert4 = do
     x <- try
@@ -38,4 +37,3 @@ tert4 = do
     catch
         (_: ArithmeticError) -> pure 0
     pure (x+1)
--}
