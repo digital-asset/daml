@@ -59,28 +59,32 @@ object TreeUtils {
     }
   }
 
-  private def layerSelectors(events: Seq[TreeEvent.Kind]): Seq[Selector] = {
+  private def foreachEventWithSelector(
+      events: Seq[TreeEvent.Kind]
+  )(f: (TreeEvent.Kind, Selector) => Unit): Unit = {
     val created = mutable.HashMap.empty[TemplateId, Int].withDefaultValue(0)
     val exercised = mutable.HashMap.empty[(TemplateId, Choice), Int].withDefaultValue(0)
-    events.collect {
-      case Kind.Created(value) =>
+    events.foreach {
+      case Kind.Empty =>
+      case event @ Kind.Created(value) =>
         val templateId = TemplateId(value.getTemplateId)
         val index = created(templateId)
+        val selector = CreatedSelector(templateId, index)
         created(templateId) += 1
-        CreatedSelector(templateId, index): Selector
-      case Kind.Exercised(value) =>
+        f(event, selector)
+      case event @ Kind.Exercised(value) =>
         val templateId = TemplateId(value.getTemplateId)
         val choice = Choice(value.choice)
         val index = exercised((templateId, choice))
+        val selector = ExercisedSelector(templateId, choice, index)
         exercised((templateId, choice)) += 1
-        ExercisedSelector(templateId, choice, index): Selector
+        f(event, selector)
     }
   }
 
   def traverseTree(tree: TransactionTree)(f: (List[Selector], TreeEvent.Kind) => Unit): Unit = {
     val rootEvents = tree.rootEventIds.map(id => tree.eventsById(id).kind)
-    val selectors = layerSelectors(rootEvents)
-    rootEvents.zip(selectors).foreach { case (ev, selector) =>
+    foreachEventWithSelector(rootEvents) { case (ev, selector) =>
       traverseEventInTree(ev, tree) { case (path, ev) => f(selector :: path, ev) }
     }
   }
@@ -95,8 +99,7 @@ object TreeUtils {
       case exercised @ Kind.Exercised(value) =>
         f(Nil, exercised)
         val childEvents = value.childEventIds.map(id => tree.eventsById(id).kind)
-        val selectors = layerSelectors(childEvents)
-        childEvents.zip(selectors).foreach { case (ev, selector) =>
+        foreachEventWithSelector(childEvents) { case (ev, selector) =>
           traverseEventInTree(ev, tree) { case (path, ev) => f(selector :: path, ev) }
         }
     }
