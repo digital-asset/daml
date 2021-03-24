@@ -234,8 +234,14 @@ eqAny = primitive @"BEEqual"
 ltAny : Any -> Any -> Bool
 ltAny = primitive @"BELess"
 
-lteAny : Any -> Any -> Bool
-lteAny = primitive @"BELessEq"
+lteAnyTemplate : AnyTemplate -> AnyTemplate -> Bool
+lteAnyTemplate = primitive @"BELessEq"
+
+lteAnyChoice : AnyChoice -> AnyChoice -> Bool
+lteAnyChoice = primitive @"BELessEq"
+
+lteAnyContractKey : AnyContractKey -> AnyContractKey -> Bool
+lteAnyContractKey = primitive @"BELessEq"
 
 instance Eq AnyTemplate where
   AnyTemplate a == AnyTemplate b = eqAny a b
@@ -250,19 +256,13 @@ instance Eq AnyContractKey where
 
 
 instance Ord AnyTemplate where
-  AnyTemplate a <= AnyTemplate b = lteAny a b
+  (<=) = lteAnyTemplate
 
 instance Ord AnyChoice where
-  (AnyChoice aAny aRep) <= (AnyChoice bAny bRep)
-    | aRep < bRep = True
-    | aRep == bRep = lteAny aAny bAny
-    | otherwise = False
+  (<=) = lteAnyChoice
 
 instance Ord AnyContractKey where
-  (AnyContractKey aAny aRep) <= (AnyContractKey bAny bRep)
-    | aRep < bRep = True
-    | aRep == bRep = lteAny aAny bAny
-    | otherwise = False
+  (<=) = lteAnyContractKey
 #endif
 
 #ifdef DAML_TYPE_REP
