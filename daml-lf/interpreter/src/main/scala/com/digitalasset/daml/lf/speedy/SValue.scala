@@ -233,20 +233,6 @@ object SValue {
 
     override def toString: String = s"SBigNumeric($value)"
   }
-  final case class SText(value: String) extends SPrimLit
-  final case class STimestamp(value: Time.Timestamp) extends SPrimLit
-  final case class SParty(value: Party) extends SPrimLit
-  final case class SBool(value: Boolean) extends SPrimLit
-  object SBool {
-    def apply(value: Boolean): SBool = if (value) SValue.True else SValue.False
-  }
-  final case object SUnit extends SPrimLit
-  final case class SDate(value: Time.Date) extends SPrimLit
-  final case class SContractId(value: V.ContractId) extends SPrimLit
-  final case class STypeRep(ty: Type) extends SValue
-  // The "effect" token for update or scenario builtin functions.
-  final case object SToken extends SValue
-
   object SBigNumeric {
     // TODO https://github.com/digital-asset/daml/issues/8719
     //   Decide what are the actual bound for BigDecimal
@@ -271,6 +257,19 @@ object SValue {
     def checkScale(s: Long): Either[String, Int] =
       Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
   }
+  final case class SText(value: String) extends SPrimLit
+  final case class STimestamp(value: Time.Timestamp) extends SPrimLit
+  final case class SParty(value: Party) extends SPrimLit
+  final case class SBool(value: Boolean) extends SPrimLit
+  object SBool {
+    def apply(value: Boolean): SBool = if (value) SValue.True else SValue.False
+  }
+  final case object SUnit extends SPrimLit
+  final case class SDate(value: Time.Date) extends SPrimLit
+  final case class SContractId(value: V.ContractId) extends SPrimLit
+  final case class STypeRep(ty: Type) extends SValue
+  // The "effect" token for update or scenario builtin functions.
+  final case object SToken extends SValue
 
   object SValue {
     val Unit = SUnit
