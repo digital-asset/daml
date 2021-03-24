@@ -9,13 +9,13 @@ import com.daml.lf.value.Value.ContractId
 object Normalizer {
 
   // KV specific normalization.
-  // drops Fetch and Lookup nodes from a transaction. keeping Create, Exercise and Rollback
+  // Drop Fetch, Lookup and Rollback nodes from a transaction, keeping Create and Exercise.
   def normalizeTransaction(
       tx: CommittedTransaction
   ): CommittedTransaction = {
     val nodes = tx.nodes.filter {
-      case (_, _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => false
-      case (_, _: Node.NodeRollback[_] | _: Node.NodeExercises[_, _] | _: Node.NodeCreate[_]) =>
+      case (_, _: Node.NodeRollback[_] | _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => false
+      case (_, _: Node.NodeExercises[_, _] | _: Node.NodeCreate[_]) =>
         true
     }
     val filteredNodes = nodes.transform {
