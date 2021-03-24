@@ -82,8 +82,8 @@ fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 --
 -- ```
 -- >>> fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
--- Map [("A", [1, 2, 3]), ("B", [2, 1])]
--- >>> fromListWith (++) [] == (M.empty : Map Text [Int])
+-- fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+-- >>> fromListWith (++) [] == (empty : Map Text [Int])
 -- True
 -- ```
 fromListWith : Ord k => (v -> v -> v) -> [(k, v)] -> Map k v
