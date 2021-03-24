@@ -419,7 +419,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             case _ => None
           },
         ),
-        ("LESS_EQ  @BigNumeric", (a, b) => Some(SBool(BigDec(a) <= BigDec(b)))),
+        ("LESS_EQ @BigNumeric", (a, b) => Some(SBool(BigDec(a) <= BigDec(b)))),
         ("GREATER_EQ @BigNumeric", (a, b) => Some(SBool(BigDec(a) >= BigDec(b)))),
         ("LESS @BigNumeric", (a, b) => Some(SBool(BigDec(a) < BigDec(b)))),
         ("GREATER @BigNumeric", (a, b) => Some(SBool(BigDec(a) > BigDec(b)))),
