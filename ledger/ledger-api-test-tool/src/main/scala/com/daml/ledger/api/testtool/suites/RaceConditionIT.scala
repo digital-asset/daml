@@ -23,11 +23,10 @@ final class RaceConditionIT extends LedgerTestSuite {
   private val DefaultRepetitionsNumber: Int = 5
   private val WaitBeforeGettingTransactions = 1.second
 
-  test(
+  raceConditionTest(
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 5
     val ExpectedNumberOfSuccessfulCreations = 1
@@ -45,11 +44,10 @@ final class RaceConditionIT extends LedgerTestSuite {
       }
   })
 
-  test(
+  raceConditionTest(
     "WWDoubleArchive",
     "Cannot archive the same contract multiple times",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 5
     val ExpectedNumberOfSuccessfulArchivals = 1
@@ -70,11 +68,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  test(
+  raceConditionTest(
     "WWArchiveVsNonTransientCreate",
     "Cannot create a contract with a key if that key is still used by another contract",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     /*
     This test case is intended to catch a race condition ending up in two consecutive successful contract
@@ -129,11 +126,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  test(
+  raceConditionTest(
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val Attempts = 100
     for {
@@ -162,11 +158,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  test(
+  raceConditionTest(
     "RWArchiveVsNonConsumingChoice",
     "Cannot exercise a choice after a contract archival",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 5
     val Attempts = 10
@@ -194,11 +189,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  test(
+  raceConditionTest(
     "RWArchiveVsFetch",
     "Cannot fetch an archived contract",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 400
     val Attempts = 500
@@ -226,11 +220,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  test(
+  raceConditionTest(
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val ArchiveAt = 90
     val Attempts = 100
@@ -257,11 +250,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  test(
+  raceConditionTest(
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
     allocate(SingleParty),
-    repeated = DefaultRepetitionsNumber,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val CreateAt = 90
     val Attempts = 100
@@ -288,7 +280,20 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   })
 
-  object TransactionUtil {
+  private def raceConditionTest(
+      shortIdentifier: String,
+      description: String,
+      participants: ParticipantAllocation,
+  )(testCase: ExecutionContext => Participants => Future[Unit]): Unit =
+    test(
+      shortIdentifier = shortIdentifier,
+      description = description,
+      participants = participants,
+      repeated = DefaultRepetitionsNumber,
+      runConcurrently = false,
+    )(testCase)
+
+  private object TransactionUtil {
     private implicit class TransactionTreeTestOps(tx: TransactionTree) {
       def hasEventsNumber(expectedNumberOfEvents: Int): Boolean =
         tx.eventsById.size == expectedNumberOfEvents
@@ -368,7 +373,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     Bytes.fromHexString(Ref.HexString.assertFromString(offset))
   }
 
-  object RaceTests {
+  private object RaceTests {
     object ContractWithKey {
       val TemplateName = "ContractWithKey"
       val ChoiceArchive = "ContractWithKey_Archive"
