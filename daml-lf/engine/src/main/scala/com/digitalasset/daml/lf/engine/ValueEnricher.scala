@@ -109,7 +109,7 @@ final class ValueEnricher(engine: Engine) {
 
   def enrichNode[Nid](node: GenNode[Nid, ContractId]): Result[GenNode[Nid, ContractId]] =
     node match {
-      case rb @ Node.NodeRollback(_) => // forces reconsidation if fields are added
+      case rb @ Node.NodeRollback(_) => // forces reconsideration if fields are added
         ResultDone(rb)
       case create: Node.NodeCreate[ContractId] =>
         for {
