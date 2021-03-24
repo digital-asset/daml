@@ -216,7 +216,7 @@ object SValue {
   final case class SInt64(value: Long) extends SPrimLit
   // TODO https://github.com/digital-asset/daml/issues/8719
   //  try to factorize SNumeric and SBigNumeric
-  //  not it seems that scale is relevant in SNumeric but lost in SBigNumeric
+  //  note it seems that scale is relevant in SNumeric but lost in SBigNumeric
   final case class SNumeric(value: Numeric) extends SPrimLit
   final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
     override def canEqual(that: Any): Boolean = that match {
