@@ -31,7 +31,7 @@ test3 = do
     pure (x+1)
 
 test4 : ActionCatch m => m Int
-tert4 = do
+test4 = do
     x <- try
         pure (10 / 0)
     catch
