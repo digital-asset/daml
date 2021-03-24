@@ -72,6 +72,7 @@ da_scala_test(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/http-json:http-json-ee",
         "//ledger-service/http-json:integration-tests-lib-ee",
+        "//ledger-service/http-json-cli:ee",
         "//ledger-service/http-json-testing:ee",
         "//ledger-service/jwt",
         "//ledger-service/utils",
