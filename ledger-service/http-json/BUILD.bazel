@@ -123,10 +123,12 @@ json_deps_shared = [
 
 json_deps = {
     "ce": json_deps_shared + [
+        ":http-json-ce",
         "//ledger-service/http-json-cli:ce",
         "//ledger-service/http-json-ledger-client:ce",
     ],
     "ee": json_deps_shared + [
+        ":http-json-ee",
         "//ledger-service/http-json-cli:ee",
         "//ledger-service/http-json-ledger-client:ee",
         "@maven//:com_oracle_database_jdbc_ojdbc8",
