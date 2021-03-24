@@ -6,22 +6,15 @@ package com.daml.http
 import java.nio.file.Paths
 
 import com.daml.ledger.api.tls.TlsConfigurationCli
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
-object OptionParser {
-
-  private val logger = LoggerFactory.getLogger(classOf[OptionParser])
-
-}
-
 class OptionParser(getEnvVar: String => Option[String])
-    extends scopt.OptionParser[Config]("http-json-binary") {
-
-  import OptionParser.logger
+    extends scopt.OptionParser[Config]("http-json-binary")
+    with StrictLogging {
 
   private def setJdbcConfig(
       config: Config,
