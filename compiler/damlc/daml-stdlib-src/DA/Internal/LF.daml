@@ -46,6 +46,11 @@ module DA.Internal.LF
   , Any
   , TypeRep
 
+  #ifdef DAML_BIGNUMERIC
+  , RoundingMode
+  , BigNumeric
+  #endif
+
   #ifdef DAML_EXCEPTIONS
   , AnyException
   , GeneralError
@@ -273,6 +278,11 @@ instance Ord TypeRep where
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
 #endif -- DAML_GENERIC_COMPARISON
+#endif
+
+#ifdef DAML_BIGNUMERIC
+data RoundingMode
+data BigNumeric
 #endif
 
 #ifdef DAML_EXCEPTIONS

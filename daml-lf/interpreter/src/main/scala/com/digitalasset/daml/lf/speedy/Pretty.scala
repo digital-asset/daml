@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
@@ -360,7 +361,7 @@ private[lf] object Pretty {
   def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
     v match {
       case ValueInt64(i) => str(i)
-      case ValueNumeric(d) => str(d)
+      case ValueNumeric(d) => text(data.Numeric.toString(d))
       case ValueRecord(mbId, fs) =>
         (mbId match {
           case None => text("")

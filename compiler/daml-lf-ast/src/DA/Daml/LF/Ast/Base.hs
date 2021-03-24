@@ -224,14 +224,14 @@ data TypeConApp = TypeConApp
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data RoundingModeLiteral =
-      RoundingUp
-    | RoundingDown
-    | RoundingCeiling
-    | RoundingFloor
-    | RoundingHalfUp
-    | RoundingHalfDown
-    | RoundingHalfEven
-    | RoundingUnnecessary
+      LitRoundingUp
+    | LitRoundingDown
+    | LitRoundingCeiling
+    | LitRoundingFloor
+    | LitRoundingHalfUp
+    | LitRoundingHalfDown
+    | LitRoundingHalfEven
+    | LitRoundingUnnecessary
     deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Builtin operation or literal.
@@ -349,6 +349,17 @@ data BuiltinExpr
   | BETextToCodePoints           -- :: Text -> List Int64
   | BETextFromCodePoints         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text
+
+  -- BigNumeric operations
+  | BEScaleBigNumeric            -- :: BigNumeric -> Int64
+  | BEPrecisionBigNumeric        -- :: BigNumeric -> Int64
+  | BEAddBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
+  | BESubBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
+  | BEMulBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
+  | BEDivBigNumeric              -- :: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
+  | BEShiftBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
+  | BEToNumericBigNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
+  | BEFromNumericBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool

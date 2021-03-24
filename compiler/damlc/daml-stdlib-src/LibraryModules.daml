@@ -11,6 +11,7 @@ module LibraryModules where
 import DA.Action
 import DA.Action.State
 import DA.Assert
+import DA.BigNumeric
 import DA.Bifunctor
 import DA.Date
 import DA.Either

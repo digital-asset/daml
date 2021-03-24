@@ -204,14 +204,14 @@ instance Pretty PartyLiteral where
   pPrint = quotes . text . unPartyLiteral
 
 prettyRounding :: RoundingModeLiteral -> String
-prettyRounding RoundingUp = "ROUNDING_UP"
-prettyRounding RoundingDown = "ROUNDING_DOWN"
-prettyRounding RoundingCeiling = "ROUNDING_CEILING"
-prettyRounding RoundingFloor = "ROUNDING_FLOOR"
-prettyRounding RoundingHalfUp = "ROUNDING_HALF_UP"
-prettyRounding RoundingHalfDown = "ROUNDING_HALF_DOWN"
-prettyRounding RoundingHalfEven = "ROUNDING_HALF_EVEN"
-prettyRounding RoundingUnnecessary = "ROUNDING_UNNECESSARY"
+prettyRounding LitRoundingUp = "ROUNDING_UP"
+prettyRounding LitRoundingDown = "ROUNDING_DOWN"
+prettyRounding LitRoundingCeiling = "ROUNDING_CEILING"
+prettyRounding LitRoundingFloor = "ROUNDING_FLOOR"
+prettyRounding LitRoundingHalfUp = "ROUNDING_HALF_UP"
+prettyRounding LitRoundingHalfDown = "ROUNDING_HALF_DOWN"
+prettyRounding LitRoundingHalfEven = "ROUNDING_HALF_EVEN"
+prettyRounding LitRoundingUnnecessary = "ROUNDING_UNNECESSARY"
 
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
@@ -264,6 +264,15 @@ instance Pretty BuiltinExpr where
     BEGreaterNumeric -> "GREATER_NUMERIC"
     BENumericFromText -> "FROM_TEXT_NUMERIC"
     BEToTextNumeric -> "TO_TEXT_NUMERIC"
+    BEScaleBigNumeric -> "SCALE_BIGNUMERIC"
+    BEPrecisionBigNumeric -> "PRECISION_BIGNUMERIC"
+    BEAddBigNumeric -> "ADD_BIGNUMERIC"
+    BESubBigNumeric -> "SUB_BIGNUMERIC"
+    BEMulBigNumeric -> "MUl_BIGNUMERIC"
+    BEDivBigNumeric -> "DIV_BIGNUMERIC"
+    BEShiftBigNumeric -> "SHIFT_BIGNUMERIC"
+    BEToNumericBigNumeric -> "TO_NUMERIC_BIGNUMERIC"
+    BEFromNumericBigNumeric -> "TO_BIGNUMERIC_NUMERIC"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"
