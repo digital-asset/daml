@@ -37,8 +37,12 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
           node match {
-            case nr: NodeRollback[NodeId] =>
-              go(nr.children ++: nodeIds)
+            case _: NodeRollback[NodeId] =>
+              // TODO https://github.com/digital-asset/daml/issues/8020
+              // do we traverse children here?
+              //go(nr.children ++: nodeIds) //?
+              //go(nodeIds) //?
+              sys.error("rollback nodes are not supported")
             case nc: NodeCreate[ContractId] =>
               pcs.put(nc.coid, nc.versionedCoinst)
               go(nodeIds)
