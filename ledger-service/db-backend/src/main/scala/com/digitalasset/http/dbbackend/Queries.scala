@@ -40,7 +40,7 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         contract
-        (contract_id """ ++ textType ++ sql""" NOT NULL PRIMARY KEY
+        (contract_id """ ++ contractIdType ++ sql""" NOT NULL PRIMARY KEY
         ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
         ,""" ++ jsonColumn(sql"key") ++ sql"""
         ,""" ++ jsonColumn(contractColumnName) ++
@@ -61,9 +61,9 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         ledger_offset
-        (party """ ++ textType ++ sql""" NOT NULL
+        (party """ ++ partyType ++ sql""" NOT NULL
         ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
-        ,last_offset """ ++ textType ++ sql""" NOT NULL
+        ,last_offset """ ++ offsetType ++ sql""" NOT NULL
         ,PRIMARY KEY (party, tpid)
         )
     """,
@@ -72,6 +72,11 @@ sealed abstract class Queries {
   protected[this] def bigIntType: Fragment // must match bigserial
   protected[this] def bigSerialType: Fragment
   protected[this] def textType: Fragment
+  protected[this] def packageIdType: Fragment
+  protected[this] def partyOffsetContractIdType: Fragment
+  private[this] def partyType = partyOffsetContractIdType
+  private[this] def offsetType = partyOffsetContractIdType
+  private[this] def contractIdType = partyOffsetContractIdType
   protected[this] def agreementTextType: Fragment
 
   protected[this] def jsonColumn(name: Fragment): Fragment
@@ -82,7 +87,7 @@ sealed abstract class Queries {
       CREATE TABLE
         template_id
         (tpid """ ++ bigSerialType ++ sql""" NOT NULL PRIMARY KEY
-        ,package_id """ ++ textType ++ sql""" NOT NULL
+        ,package_id """ ++ packageIdType ++ sql""" NOT NULL
         ,template_module_name """ ++ textType ++ sql""" NOT NULL
         ,template_entity_name """ ++ textType ++ sql""" NOT NULL
         ,UNIQUE (package_id, template_module_name, template_entity_name)
@@ -437,6 +442,8 @@ private object PostgresQueries extends Queries {
   protected[this] override def bigIntType = sql"BIGINT"
   protected[this] override def bigSerialType = sql"BIGSERIAL"
   protected[this] override def textType = sql"TEXT"
+  protected[this] override def packageIdType = textType
+  protected[this] override def partyOffsetContractIdType = textType
   protected[this] override def agreementTextType = sql"TEXT NOT NULL"
 
   protected[this] override def jsonColumn(name: Fragment) = name ++ sql" JSONB NOT NULL"
@@ -571,6 +578,8 @@ private object OracleQueries extends Queries {
     bigIntType ++ sql" GENERATED ALWAYS AS IDENTITY"
   // TODO SC refine the string formats chosen here and for jsonColumn
   protected[this] override def textType = sql"NVARCHAR2(100)"
+  protected[this] override def packageIdType = sql"NVARCHAR2(64)"
+  protected[this] override def partyOffsetContractIdType = sql"NVARCHAR2(255)"
   protected[this] override def agreementTextType = sql"NVARCHAR2(100)"
 
   protected[this] override def jsonColumn(name: Fragment) =
@@ -583,8 +592,8 @@ private object OracleQueries extends Queries {
     sql"""
       CREATE TABLE
         signatories
-          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
-          ,party NVARCHAR2(100) NOT NULL
+          (contract_id NVARCHAR2(255) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
+          ,party NVARCHAR2(255) NOT NULL
           ,CONSTRAINT signatories_cid_party_k UNIQUE (contract_id, party)
           )
     """,
@@ -595,8 +604,8 @@ private object OracleQueries extends Queries {
     sql"""
       CREATE TABLE
         observers
-          (contract_id NVARCHAR2(100) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
-          ,party NVARCHAR2(100) NOT NULL
+          (contract_id NVARCHAR2(255) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
+          ,party NVARCHAR2(255) NOT NULL
           ,CONSTRAINT observers_cid_party_k UNIQUE (contract_id, party)
           )
     """,
