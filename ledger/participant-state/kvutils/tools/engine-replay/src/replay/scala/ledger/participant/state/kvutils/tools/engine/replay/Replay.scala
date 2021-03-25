@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._
-import com.daml.lf.engine.{Engine, Error}
+import com.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.transaction.{
   GlobalKey,
@@ -81,6 +81,23 @@ final case class BenchmarkState(
       .consume(getContract, Replay.unexpectedError, getContractKey)
 }
 
+class Benchmarks(private val benchmarks: Map[String, Vector[BenchmarkState]]) {
+  def get(choiceName: String, choiceIndex: Option[Int] = None) = {
+    val xs = benchmarks(choiceName)
+    choiceIndex match {
+      case Some(idx) => xs(idx)
+      case None =>
+        if (xs.length > 1) {
+          throw new IllegalArgumentException(
+            s"Found ${xs.length} transactions for $choiceName, use --choice-index to choose one"
+          )
+        } else {
+          xs.head
+        }
+    }
+  }
+}
+
 private[replay] object Replay {
 
   val unexpectedError = (_: Any) => sys.error("Unexpected Error")
@@ -97,9 +114,11 @@ private[replay] object Replay {
       .toMap
   }
 
-  def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
+  def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {
     println(s"%%% compile ${pkgs.size} packages ...")
-    val engine = Engine.DevEngine()
+    val engine = new Engine(
+      EngineConfig(allowedLanguageVersions = LanguageVersion.DevVersions, profileDir = profileDir)
+    )
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine
         .preloadPackage(pkgId, pkgs(pkgId))
@@ -159,7 +178,7 @@ private[replay] object Replay {
   private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
+  def loadBenchmarks(dumpFile: Path): Benchmarks = {
     println(s"%%% load ledger export file  $dumpFile...")
     val importer = ProtobufBasedLedgerDataImporter(dumpFile)
     try {
@@ -201,14 +220,7 @@ private[replay] object Replay {
         }
       }
 
-      benchmarks.groupBy(_.name).flatMap {
-        case (key, Seq(test)) =>
-          println(s"%%% found 1 exercise for $key")
-          List(key -> test)
-        case (key, tests) =>
-          println(s"%%% found ${tests.length} exercises for $key. IGNORED")
-          List.empty
-      }
+      new Benchmarks(benchmarks.groupBy(_.name).view.mapValues(_.toVector).toMap)
     } finally {
       importer.close()
     }

@@ -19,6 +19,9 @@ class ReplayBenchmark {
   // format: "ModuleName:TemplateName:ChoiceName"
   var choiceName: String = _
 
+  @Param(Array("-1"))
+  var choiceIndex: Int = _
+
   @Param(Array())
   // path of the darFile
   var darFile: String = _
@@ -35,7 +38,7 @@ class ReplayBenchmark {
   private var loadedPackages: Map[Ref.PackageId, Ast.Package] = _
   private var engine: Engine = _
   private var benchmarksFile: Option[String] = None
-  private var benchmarks: Map[String, BenchmarkState] = _
+  private var benchmarks: Benchmarks = _
   private var benchmark: BenchmarkState = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -53,17 +56,19 @@ class ReplayBenchmark {
     }
     if (!benchmarksFile.contains(ledgerFile)) {
       benchmarks = Replay.loadBenchmarks(Paths.get(ledgerFile))
-      benchmarksFile = Some(ledgerFile)
-    }
-
-    benchmark =
-      if (adapt)
+      val idx = if (choiceIndex >= 0) Some(choiceIndex) else None
+      val originalBenchmark = benchmarks.get(choiceName, idx)
+      benchmark = if (adapt) {
         Replay.adapt(
           loadedPackages,
           engine.compiledPackages().packageLanguageVersion,
-          benchmarks(choiceName),
+          originalBenchmark,
         )
-      else benchmarks(choiceName)
+      } else {
+        originalBenchmark
+      }
+      benchmarksFile = Some(ledgerFile)
+    }
 
     // before running the bench, we validate the transaction first to be sure everything is fine.
     val result = benchmark.validate(engine)
