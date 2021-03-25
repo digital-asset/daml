@@ -27,9 +27,11 @@ module DA.List.BuiltinOrder
   , dedupOnSort
   , sort
   , sortOn
+  , unique
+  , uniqueOn
   ) where
 
--- import DA.Map (Map)
+import DA.Map (Map)
 import qualified DA.Map as Map
 
 -- | `dedup l` removes duplicate elements from a list. In particular,
@@ -122,4 +124,31 @@ sortOn f xs = Map.values (snd (foldl insert (0, Map.empty) xs))
   where
     insert (i, m) x = (i + 1, Map.insert (f x, i) x m)
 
+-- | Returns True if and only if there are no duplicate elements in the given list.
+--
+-- ```
+-- >>> unique [1, 2, 3]
+-- True
+-- ```
+unique : Ord a => [a] -> Bool
+unique = uniqueOn identity
+
+-- | Returns True if and only if there are no duplicate elements in the given list
+-- after applyng function.
+--
+-- ```
+-- >>> uniqueOn fst [(1, 2), (2, 42), (1, 3)]
+-- False
+-- ```
+uniqueOn : Ord k => (a -> k) -> [a] -> Bool
+uniqueOn f = goUniqueOn f Map.empty
+
+-- hand-written recursion to shortcircuit.
+goUniqueOn : Ord k => (a -> k) -> Map k () -> [a] -> Bool
+goUniqueOn _ _ [] = True
+goUniqueOn f m (x :: xs) =
+  let k = f x
+  in case Map.lookup (f x) m of
+    None -> goUniqueOn f (Map.insert k () m) xs
+    Some _ -> False
 #endif

@@ -22,3 +22,8 @@ test = scenario do
   sort [3, 1, 2, 3] === [1, 2, 3, 3]
   sortOn fst [(3, "a"), (1, "b"), (3, "c"), (2, "d")] ===
     [(1, "b"), (2, "d"), (3, "a"), (3, "c")]
+
+  assertMsg "unique" (unique [1, 2, 3])
+  assertMsg "not unique" (not (unique [1, 2, 3, 1]))
+  assertMsg "uniqueOn" (uniqueOn fst [(1, 2), (2, 2)])
+  assertMsg "not uniqueOn" (not (uniqueOn fst [(1, 2), (2, 42), (1, 3)]))
