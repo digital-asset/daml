@@ -77,6 +77,7 @@ sealed abstract class Queries {
   private[this] def partyType = partyOffsetContractIdType
   private[this] def offsetType = partyOffsetContractIdType
   private[this] def contractIdType = partyOffsetContractIdType
+  protected[this] def nameType: Fragment // Name in daml-lf-1.rst
   protected[this] def agreementTextType: Fragment
 
   protected[this] def jsonColumn(name: Fragment): Fragment
@@ -88,8 +89,8 @@ sealed abstract class Queries {
         template_id
         (tpid """ ++ bigSerialType ++ sql""" NOT NULL PRIMARY KEY
         ,package_id """ ++ packageIdType ++ sql""" NOT NULL
-        ,template_module_name """ ++ textType ++ sql""" NOT NULL
-        ,template_entity_name """ ++ textType ++ sql""" NOT NULL
+        ,template_module_name """ ++ nameType ++ sql""" NOT NULL
+        ,template_entity_name """ ++ nameType ++ sql""" NOT NULL
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
     """,
@@ -444,6 +445,7 @@ private object PostgresQueries extends Queries {
   protected[this] override def textType = sql"TEXT"
   protected[this] override def packageIdType = textType
   protected[this] override def partyOffsetContractIdType = textType
+  protected[this] override def nameType = textType
   protected[this] override def agreementTextType = sql"TEXT NOT NULL"
 
   protected[this] override def jsonColumn(name: Fragment) = name ++ sql" JSONB NOT NULL"
@@ -580,7 +582,8 @@ private object OracleQueries extends Queries {
   protected[this] override def textType = sql"NVARCHAR2(100)"
   protected[this] override def packageIdType = sql"NVARCHAR2(64)"
   protected[this] override def partyOffsetContractIdType = sql"NVARCHAR2(255)"
-  protected[this] override def agreementTextType = sql"NVARCHAR2(100)"
+  protected[this] override def nameType = sql"NVARCHAR2(4000)"
+  protected[this] override def agreementTextType = sql"NCLOB"
 
   protected[this] override def jsonColumn(name: Fragment) =
     name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
