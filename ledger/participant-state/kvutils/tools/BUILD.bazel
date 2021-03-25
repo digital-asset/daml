@@ -186,6 +186,27 @@ da_scala_binary(
     ],
 )
 
+sh_test(
+    name = "engine-replay-profile-test",
+    srcs = ["src/test/sh/profile.sh"],
+    args = [
+        "$(location :engine-replay-profile)",
+        "$(location //ledger/participant-state/kvutils:reference-ledger-export.out)",
+        "$(location //ledger/test-common:model-tests-stable.dar)",
+        "$(location @jq_dev_env//:jq)",
+    ],
+    data = [
+        ":engine-replay-profile",
+        "//ledger/participant-state/kvutils:reference-ledger-export.out",
+        # Use dev to test --adapt to a different ledger API version.
+        "//ledger/test-common:model-tests-stable.dar",
+        "@jq_dev_env//:jq",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 da_scala_benchmark_jmh(
     name = "benchmark-codec",
     srcs = glob(["codec-benchmark/src/benchmark/scala/**/*.scala"]),
