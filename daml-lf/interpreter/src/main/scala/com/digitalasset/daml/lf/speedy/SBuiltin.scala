@@ -443,13 +443,15 @@ private[lf] object SBuiltin {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit =
+    ): Unit = {
+      val coid = getSContractId(args, 0).coid
       machine.ledgerMode match {
         case OffLedger =>
-          machine.returnValue = SOptional(Some(SText(getSContractId(args, 0).coid)))
+          machine.returnValue = SOptional(Some(SText(coid)))
         case _ =>
           machine.returnValue = SValue.SValue.None
       }
+    }
   }
 
   final case object SBToTextNumeric extends SBuiltinPure(2) {
