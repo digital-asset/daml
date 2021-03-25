@@ -65,10 +65,7 @@ final class LedgerTestCasesRunner(
     }
 
     (2 to test.repeated).foldLeft(logAndStart(1)) { (result, repetition) =>
-      for {
-        durationSoFar <- result
-        duration <- logAndStart(repetition)
-      } yield durationSoFar + duration
+      result.flatMap(_ => logAndStart(repetition))
     }
   }
 
