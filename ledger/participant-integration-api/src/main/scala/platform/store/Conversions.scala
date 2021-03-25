@@ -169,6 +169,11 @@ private[platform] object Conversions {
       Column.columnToByteArray(value, meta).map(Offset.fromByteArray)
     )
 
+  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Ref.Party]] =
+    SqlParser
+      .get[Array[String]](columnName)(Column.columnToArray)
+      .map(_.iterator.map(Ref.Party.assertFromString).toSet)
+
   // Instant
 
   def instant(name: String): RowParser[Instant] =

@@ -74,6 +74,9 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
 
+  override def contractStateEventsReader: LedgerDaoContractStateEventsReader =
+    ledgerDao.contractStateEventsReader
+
   override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Value.ContractId]] =
