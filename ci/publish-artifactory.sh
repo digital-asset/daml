@@ -28,11 +28,14 @@ push() {
 
 TRIGGER_RUNNER=daml-trigger-runner-$RELEASE_TAG.jar
 SCRIPT_RUNNER=daml-script-$RELEASE_TAG.jar
+NON_REPUDIATION_APP=non-repudiation-app-$RELEASE_TAG.jar
 
 push daml-trigger-runner $TRIGGER_RUNNER
 push daml-trigger-runner $TRIGGER_RUNNER.asc
 push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
+push non-repudiation $NON_REPUDIATION_APP
+push non-repudiation $NON_REPUDIATION_APP.asc
 
 for platform in linux macos windows; do
     EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
