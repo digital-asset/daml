@@ -3,7 +3,6 @@
 
 package com.daml.script.dump
 
-import com.daml.lf.archive.Dar
 import com.daml.lf.language.LanguageVersion._
 
 import org.scalatest.freespec.AnyFreeSpec
@@ -16,11 +15,11 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
     "empty Seq" in {
       targetLfVersion(Seq.empty) shouldBe None
     }
-    "single DAR" in {
-      targetLfVersion(Seq(Dar(v1_8, List(v1_11)))) shouldBe Some(v1_11)
+    "single DALF" in {
+      targetLfVersion(Seq(v1_11)) shouldBe Some(v1_11)
     }
-    "multiple DARs" in {
-      targetLfVersion(Seq(Dar(v1_8, List(v1_11)), Dar(v1_12, List()))) shouldBe Some(v1_12)
+    "multiple DALFs" in {
+      targetLfVersion(Seq(v1_8, v1_11, v1_12)) shouldBe Some(v1_12)
     }
   }
   "targetFlag" - {

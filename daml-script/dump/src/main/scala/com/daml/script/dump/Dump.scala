@@ -9,7 +9,6 @@ import java.nio.file.{Files, Path}
 import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.google.protobuf.ByteString
@@ -26,8 +25,6 @@ object Dump {
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
       acsBatchSize: Int,
   ) = {
-    // Needed for map on Dar
-    import scalaz.syntax.traverse._
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Dump.daml"),
@@ -36,16 +33,21 @@ object Dump {
         .render(80)
         .getBytes(StandardCharsets.UTF_8),
     )
-    val dars: Seq[Dar[(PackageId, ByteString, Ast.Package)]] =
-      pkgRefs.view.collect(Function.unlift(Dependencies.toDar(_, pkgs))).toSeq
+    val packages: Seq[String] =
+      pkgRefs.view.collect(Function.unlift(Dependencies.toPackages(_, pkgs))).toSeq
+    val dalfs: Seq[(PackageId, ByteString, Ast.Package)] =
+      pkgRefs.view.flatMap(Dependencies.toDalfs(_, pkgs)).toSeq
     val deps = Files.createDirectory(dir.resolve("deps"))
-    val depFiles = dars.zipWithIndex.map { case (dar, i) =>
-      val file = deps.resolve(dar.main._3.metadata.fold(i.toString)(_.name) + ".dar")
-      Dependencies.writeDar(sdkVersion, file, dar)
+    val dalfFiles = dalfs.map { case (pkgId, bs, pkg) =>
+      val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
+      val file = deps.resolve(s"$prefix$pkgId.dalf")
+      Dependencies.writeDalf(file, pkgId, bs)
       file
     }
-    val lfTarget = Dependencies.targetLfVersion(dars.view.map(_.map(_._3.languageVersion)).toSeq)
+    val lfTarget = Dependencies.targetLfVersion(dalfs.map(_._3.languageVersion))
     val targetFlag = lfTarget.fold("")(Dependencies.targetFlag(_))
+
+    val buildOptions = targetFlag +: packages.map(pkgId => s"--package=$pkgId")
 
     Files.write(
       dir.resolve("daml.yaml"),
@@ -54,8 +56,8 @@ object Dump {
          |version: 1.0.0
          |source: .
          |dependencies: [daml-stdlib, daml-prim, $damlScriptLib]
-         |data-dependencies: [${depFiles.mkString(",")}]
-         |build-options: [$targetFlag]
+         |data-dependencies: [${dalfFiles.mkString(",")}]
+         |build-options: [${buildOptions.mkString(",")}]
          |""".stripMargin.getBytes(StandardCharsets.UTF_8),
     )
   }
