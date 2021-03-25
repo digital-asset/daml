@@ -43,6 +43,8 @@ private[platform] object CommandCompletionsTable {
 
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
 
+  val offsetParser: RowParser[Offset] = offset("completion_offset")
+
   def prepareGet(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -75,5 +77,9 @@ private[platform] object CommandCompletionsTable {
 
   def prepareCompletionsDelete(endInclusive: Offset): SimpleSql[Row] =
     SQL"delete from participant_command_completions where completion_offset <= $endInclusive"
+
+  def prepareGetOffsetFromTime(pruneUpToInclusive: Instant): SimpleSql[Row] =
+    SQL"""select max(completion_offset) from participant_command_completions where completion_offset < (
+            select min(completion_offset) from participant_command_completions where record_time > ${pruneUpToInclusive})"""
 
 }

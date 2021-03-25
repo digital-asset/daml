@@ -170,4 +170,10 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   /** Performs participant ledger pruning up to and including the specified offset.
     */
   def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /** Enables looking up a pruning offset based on an instant in record time.
+    */
+  def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]]
 }

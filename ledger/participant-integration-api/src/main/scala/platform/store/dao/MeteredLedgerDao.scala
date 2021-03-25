@@ -72,7 +72,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.lookupMaximumLedgerTime(contractIds),
     )
 
-  override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
+  override def transactionsReader: LedgerDaoTransactionsReader =
+    ledgerDao.transactionsReader
 
   override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
@@ -127,7 +128,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledgerDao.getConfigurationEntries(startExclusive, endInclusive)
 
-  override val completions: LedgerDaoCommandCompletionsReader = ledgerDao.completions
+  override val completions: LedgerDaoCommandCompletionsReader =
+    ledgerDao.completions
 
   override def deduplicateCommand(
       commandId: CommandId,
@@ -140,9 +142,9 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
     )
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
+  override def removeExpiredDeduplicationData(
+      currentTime: Instant
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.index.db.removeExpiredDeduplicationData,
       ledgerDao.removeExpiredDeduplicationData(currentTime),
@@ -160,6 +162,14 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(metrics.daml.index.db.prune, ledgerDao.prune(pruneUpToInclusive))
+
+  override def getOffsetByTime(
+      pruneUpToInclusive: Instant
+  )(implicit loggingContext: LoggingContext): Future[Option[Offset]] =
+    Timed.future(
+      metrics.daml.index.db.getOffsetByTime,
+      ledgerDao.getOffsetByTime(pruneUpToInclusive),
+    )
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)

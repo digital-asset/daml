@@ -924,6 +924,11 @@ private class JdbcLedgerDao(
       logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
     }
 
+  override def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] =
+    completions.getOffsetFromTime(pruneUpToInclusive)
+
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables) { implicit conn =>
       val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()

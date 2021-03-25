@@ -198,6 +198,11 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   ): Future[Unit] =
     delegate.prune(pruneUpToInclusive)
 
+  override def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] =
+    delegate.getOffsetByTime(pruneUpToInclusive)
+
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 }

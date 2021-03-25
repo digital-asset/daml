@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.Offset
@@ -60,4 +62,13 @@ private[dao] final class CommandCompletionsReader(
       .mapConcat(_.map(response => offsetFor(response) -> response))
   }
 
+  override def getOffsetFromTime(
+      pruneUpToInclusive: Instant
+  )(implicit loggingContext: LoggingContext): Future[Option[Offset]] = {
+    dispatcher.executeSql(metrics.daml.index.db.getOffsetByTimeDbMetrics) { implicit conn =>
+      CommandCompletionsTable
+        .prepareGetOffsetFromTime(pruneUpToInclusive)
+        .as(CommandCompletionsTable.offsetParser.singleOpt)
+    }
+  }
 }

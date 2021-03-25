@@ -5,12 +5,13 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/ledger_offset.proto";
+
+import "google/protobuf/timestamp.proto";
+
 option java_outer_classname = "ParticipantPruningServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
-
-// Status: experimental interface, will change before it is deemed production
-// ready
 
 // Prunes/truncates the "oldest" transactions from the participant (the participant Ledger Api Server plus any other
 // participant-local state) by removing a portion of the ledger in such a way that the set of future, allowed
@@ -36,6 +37,16 @@ service ParticipantPruningService {
   //   offset.
   rpc Prune (PruneRequest) returns (PruneResponse);
 
+  // Look up offset by timestamp to help determine a suitable pruning offset by ``record_time`` as exposed by the
+  // ``CommandCompletionService`` ``Checkpoint``s.
+  //
+  // Returns the last offset of the "first" event/transaction before or at the specified timestamp.
+  // Note that for ledger in which ``record_time`` increases monotonically with respect to offsets the resulting offset
+  // is uniquely defined (assuming events before or at the specified timestamp exist). For ledgers in which ``record_time``
+  // does not increase monotonically, there may be events with lower ``record_time`` at higher offsets than the returned
+  // offset. In such cases this command serves as an approximate heuristic.
+  rpc GetOffsetByTime (GetOffsetByTimeRequest) returns (GetOffsetByTimeResponse);
+
 }
 
 message PruneRequest {
@@ -49,4 +60,14 @@ message PruneRequest {
 
 message PruneResponse {
   // Empty for now, but may contain fields in the future
+}
+
+message GetOffsetByTimeRequest {
+  // Inclusive ``record_time`` timestamp up to and at which the ledger is to be pruned.
+  google.protobuf.Timestamp prune_up_to = 1;
+}
+
+message GetOffsetByTimeResponse {
+  // The absolute, inclusive offset of the last event/transaction at or before the ``prune_up_to`` input timestamp.
+  LedgerOffset offset = 1;
 }

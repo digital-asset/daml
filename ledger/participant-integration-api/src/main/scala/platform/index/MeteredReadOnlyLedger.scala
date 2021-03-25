@@ -59,7 +59,8 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
-  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = ledger.ledgerEnd()
+  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset =
+    ledger.ledgerEnd()
 
   override def completions(
       startExclusive: Option[Offset],
@@ -176,9 +177,9 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
     )
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
+  override def removeExpiredDeduplicationData(
+      currentTime: Instant
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.index.removeExpiredDeduplicationData,
       ledger.removeExpiredDeduplicationData(currentTime),
@@ -199,6 +200,14 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     Timed.future(
       metrics.daml.index.prune,
       ledger.prune(pruneUpToInclusive),
+    )
+
+  override def getOffsetByTime(
+      pruneUpToInclusive: Instant
+  )(implicit loggingContext: LoggingContext): Future[Option[Offset]] =
+    Timed.future(
+      metrics.daml.index.getOffsetByTime,
+      ledger.getOffsetByTime(pruneUpToInclusive),
     )
 }
 

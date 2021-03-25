@@ -65,9 +65,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       requestingParties: Set[Party],
       verbose: Boolean,
-  )(implicit
-      loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
   def lookupTransactionTreeById(
       transactionId: TransactionId,
@@ -87,9 +85,11 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit
+  )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed]
+
+  def getOffsetFromTime(pruneUpToInclusive: Instant)(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, CompletionStreamResponse), NotUsed]
+  ): Future[Option[Offset]]
 }
 
 private[platform] trait LedgerReadDao extends ReportsHealth {
@@ -222,6 +222,15 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @return
     */
   def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /** Looks up a participant pruning offset based on a provided instant in record time.
+    *
+    * @param pruneUpToInclusive instant in record time to look up an offset for up to which to prune inclusively
+    * @return offset up to which to prune archived history inclusively for use in conjunction with [[prune]]
+    */
+  def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]]
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {

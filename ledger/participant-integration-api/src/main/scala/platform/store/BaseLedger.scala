@@ -64,7 +64,10 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
+      RangeSource(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(_, _, filter, verbose)
+      ),
       endInclusive,
     )
 
@@ -84,7 +87,8 @@ private[platform] abstract class BaseLedger(
       endInclusive,
     )
 
-  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = dispatcher.getHead()
+  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset =
+    dispatcher.getHead()
 
   override def completions(
       startExclusive: Option[Offset],
@@ -94,7 +98,10 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
+      RangeSource(
+        ledgerDao.completions
+          .getCommandCompletions(_, _, applicationId.unwrap, parties)
+      ),
       endInclusive,
     )
 
@@ -120,13 +127,15 @@ private[platform] abstract class BaseLedger(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    ledgerDao.transactionsReader.lookupFlatTransactionById(transactionId, requestingParties)
+    ledgerDao.transactionsReader
+      .lookupFlatTransactionById(transactionId, requestingParties)
 
   override def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
+    ledgerDao.transactionsReader
+      .lookupTransactionTreeById(transactionId, requestingParties)
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
@@ -158,9 +167,9 @@ private[platform] abstract class BaseLedger(
   ): Future[Option[DamlLf.Archive]] =
     ledgerDao.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
+  override def getLfPackage(
+      packageId: PackageId
+  )(implicit loggingContext: LoggingContext): Future[Option[Ast.Package]] =
     ledgerDao
       .getLfArchive(packageId)
       .flatMap(archiveO =>
@@ -204,6 +213,10 @@ private[platform] abstract class BaseLedger(
       loggingContext: LoggingContext
   ): Future[Unit] =
     ledgerDao.prune(pruneUpToInclusive)
+
+  override def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] = ???
 
   override def close(): Unit = ()
 }

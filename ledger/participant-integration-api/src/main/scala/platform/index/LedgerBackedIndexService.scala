@@ -123,15 +123,17 @@ private[platform] final class LedgerBackedIndexService(
     case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
     case LedgerOffset.LedgerEnd => Source.single(ledger.ledgerEnd())
     case LedgerOffset.Absolute(offset) =>
-      ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
+      ApiOffset
+        .fromString(offset)
+        .fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
-  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
-      loggingContext: LoggingContext
-  ): Source[A, NotUsed] = {
+  )(
+      f: (Option[Offset], Option[Offset]) => Source[A, NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[A, NotUsed] = {
     val convert = convertOffset
     convert(startExclusive).flatMapConcat { begin =>
       endInclusive
@@ -320,12 +322,18 @@ private[platform] final class LedgerBackedIndexService(
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledger.stopDeduplicatingCommand(commandId, submitters)
 
-  /** Participant pruning command */
+  /** Participant pruning commands */
   override def prune(pruneUpToInclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     ledger.prune(pruneUpToInclusive)
 
+  override def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] =
+    ledger.getOffsetByTime(pruneUpToInclusive)
+
+  /** Helper functions */
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive
       .map(off => Future.fromTry(ApiOffset.fromString(off.value)))

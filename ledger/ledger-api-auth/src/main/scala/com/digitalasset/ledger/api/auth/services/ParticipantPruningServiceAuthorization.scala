@@ -5,6 +5,8 @@ package com.daml.ledger.api.auth.services
 
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  GetOffsetByTimeRequest,
+  GetOffsetByTimeResponse,
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
@@ -32,4 +34,6 @@ class ParticipantPruningServiceAuthorization(
   override def prune(request: PruneRequest): Future[PruneResponse] =
     authorizer.requireAdminClaims(service.prune)(request)
 
+  override def getOffsetByTime(request: GetOffsetByTimeRequest): Future[GetOffsetByTimeResponse] =
+    authorizer.requireAdminClaims(service.getOffsetByTime)(request)
 }

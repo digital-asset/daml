@@ -5,11 +5,16 @@ package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
 
+import com.daml.api.util.TimestampConversion
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  GetOffsetByTimeRequest,
+  GetOffsetByTimeResponse,
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
 }
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.v1.{
   Offset,
@@ -23,7 +28,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
-import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,7 +48,8 @@ final class ApiParticipantPruningService private (
   override def prune(request: PruneRequest): Future[PruneResponse] = {
     val submissionIdOrErr = SubmissionId
       .fromString(
-        if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
+        if (request.submissionId.nonEmpty) request.submissionId
+        else UUID.randomUUID().toString
       )
       .left
       .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
@@ -88,7 +94,8 @@ final class ApiParticipantPruningService private (
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId))
       .flatMap {
-        case PruningResult.NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case PruningResult.NotPruned(status) =>
+          Future.failed(ErrorFactories.grpcError(status))
         case PruningResult.ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
@@ -144,6 +151,31 @@ final class ApiParticipantPruningService private (
 
   override def close(): Unit = ()
 
+  override def getOffsetByTime(request: GetOffsetByTimeRequest): Future[GetOffsetByTimeResponse] = {
+    request.pruneUpTo.fold(
+      Future.failed[GetOffsetByTimeResponse](
+        ErrorFactories.invalidArgument(s"prune_up_to_timestamp not specified")
+      )
+    ) { ts =>
+      val pruneUpTo = TimestampConversion.toInstant(ts)
+      LoggingContext.withEnrichedLoggingContext(logging.pruneUpToTimestamp(pruneUpTo)) {
+        implicit logCtx =>
+          logger.info(s"Looking up pruning offset by timestamp")
+          readBackend
+            .getOffsetByTime(pruneUpTo)
+            .flatMap(
+              _.fold(
+                Future.failed[GetOffsetByTimeResponse](Status.NOT_FOUND.asRuntimeException())
+              ) { offset =>
+                val abs = domain.LedgerOffset.Absolute(offset.toApiString)
+                val ledgerOffset =
+                  Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))
+                Future.successful(GetOffsetByTimeResponse(ledgerOffset))
+              }
+            )
+      }
+    }
+  }
 }
 
 object ApiParticipantPruningService {

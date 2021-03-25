@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.LoggingContext
 
@@ -15,4 +17,7 @@ trait IndexParticipantPruningService {
 
   def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
 
+  def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]]
 }

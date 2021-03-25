@@ -654,8 +654,20 @@ private[sandbox] final class InMemoryLedger(
   override def prune(pruneUpToInclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    // sandbox-classic in-memory ledger does not support pruning
-    Future.failed(Status.UNIMPLEMENTED.asRuntimeException())
+    Future.failed(
+      Status.UNIMPLEMENTED
+        .withDescription("sandbox-classic in-memory ledger does not support pruning")
+        .asRuntimeException()
+    )
+
+  override def getOffsetByTime(pruneUpToInclusive: Instant)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] =
+    Future.failed(
+      Status.UNIMPLEMENTED
+        .withDescription("sandbox-classic in-memory ledger does not support pruning")
+        .asRuntimeException()
+    )
 }
 
 private[sandbox] object InMemoryLedger {

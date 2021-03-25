@@ -86,5 +86,7 @@ package object logging {
       )
     cmds.workflowId.fold(context)(context + workflowId(_))
   }
+  private[services] def pruneUpToTimestamp(ts: Instant): (String, String) =
+    "pruneUpToTimestamp" -> ts.toString
 
 }
