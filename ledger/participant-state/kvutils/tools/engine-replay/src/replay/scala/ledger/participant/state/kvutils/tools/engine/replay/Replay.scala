@@ -1,11 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.engine.benchmark
+package com.daml.ledger.participant.state.kvutils.tools.engine.replay
 
 import java.lang.System.err.println
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.TimeUnit
+import java.nio.file.Path
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.export.{
@@ -17,7 +16,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, Error}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.transaction.{
   GlobalKey,
@@ -29,7 +28,6 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
-import org.openjdk.jmh.annotations._
 
 import scala.collection.compat._
 import scala.collection.compat.immutable.LazyList
@@ -49,98 +47,45 @@ final case class BenchmarkState(
     transaction: TxEntry,
     contracts: Map[ContractId, Tx.ContractInst[ContractId]],
     contractKeys: Map[GlobalKey, ContractId],
-)
-
-@State(Scope.Benchmark)
-class Replay {
-
-  @Param(Array())
-  // choiceName of the exercise to benchmark
-  // format: "ModuleName:TemplateName:ChoiceName"
-  var choiceName: String = _
-
-  @Param(Array())
-  // path of the darFile
-  var darFile: String = _
-
-  @Param(Array())
-  // path of the ledger export
-  var ledgerFile: String = _
-
-  @Param(Array("false"))
-  // if 'true' try to adapt the benchmark to the dar
-  var adapt: Boolean = _
-
-  private var readDarFile: Option[String] = None
-  private var loadedPackages: Map[Ref.PackageId, Ast.Package] = _
-  private var engine: Engine = _
-  private var benchmarksFile: Option[String] = None
-  private var benchmarks: Map[String, BenchmarkState] = _
-  private var benchmark: BenchmarkState = _
+) {
 
   private def getContract(cid: ContractId) =
-    benchmark.contracts.get(cid)
+    contracts.get(cid)
 
   private def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
-    benchmark.contractKeys.get(globalKeyWithMaintainers.globalKey)
+    contractKeys.get(globalKeyWithMaintainers.globalKey)
 
-  @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def bench(): Unit = {
-    val result = engine
+  def replay(engine: Engine): Either[Error, Unit] =
+    engine
       .replay(
-        benchmark.transaction.submitters.toSet,
-        benchmark.transaction.tx,
-        benchmark.transaction.ledgerTime,
-        benchmark.transaction.participantId,
-        benchmark.transaction.submissionTime,
-        benchmark.transaction.submissionSeed,
+        transaction.submitters.toSet,
+        transaction.tx,
+        transaction.ledgerTime,
+        transaction.participantId,
+        transaction.submissionTime,
+        transaction.submissionSeed,
       )
       .consume(getContract, Replay.unexpectedError, getContractKey)
-    assert(result.isRight)
-  }
+      .map(_ => ())
 
-  @Setup(Level.Trial)
-  def init(): Unit = {
-    if (!readDarFile.contains(darFile)) {
-      loadedPackages = Replay.loadDar(Paths.get(darFile))
-      engine = Replay.compile(loadedPackages)
-      readDarFile = Some(darFile)
-    }
-    if (!benchmarksFile.contains(ledgerFile)) {
-      benchmarks = Replay.loadBenchmarks(Paths.get(ledgerFile))
-      benchmarksFile = Some(ledgerFile)
-    }
-
-    benchmark =
-      if (adapt)
-        Replay.adapt(
-          loadedPackages,
-          engine.compiledPackages().packageLanguageVersion,
-          benchmarks(choiceName),
-        )
-      else benchmarks(choiceName)
-
-    // before running the bench, we validate the transaction first to be sure everything is fine.
-    val result = engine
+  def validate(engine: Engine): Either[Error, Unit] =
+    engine
       .validate(
-        benchmark.transaction.submitters.toSet,
-        benchmark.transaction.tx,
-        benchmark.transaction.ledgerTime,
-        benchmark.transaction.participantId,
-        benchmark.transaction.submissionTime,
-        benchmark.transaction.submissionSeed,
+        transaction.submitters.toSet,
+        transaction.tx,
+        transaction.ledgerTime,
+        transaction.participantId,
+        transaction.submissionTime,
+        transaction.submissionSeed,
       )
       .consume(getContract, Replay.unexpectedError, getContractKey)
-    assert(result.isRight)
-  }
-
 }
 
-object Replay {
+private[replay] object Replay {
 
-  private val unexpectedError = (_: Any) => sys.error("Unexpected Error")
+  val unexpectedError = (_: Any) => sys.error("Unexpected Error")
 
-  private def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
+  def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
     UniversalArchiveReader()
       .readFile(darFile.toFile)
@@ -152,7 +97,7 @@ object Replay {
       .toMap
   }
 
-  private def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
+  def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = Engine.DevEngine()
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
@@ -214,7 +159,7 @@ object Replay {
   private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
+  def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
     val importer = ProtobufBasedLedgerDataImporter(dumpFile)
     try {

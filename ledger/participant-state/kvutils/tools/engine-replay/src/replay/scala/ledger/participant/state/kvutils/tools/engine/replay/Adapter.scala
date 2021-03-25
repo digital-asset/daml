@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.engine.benchmark
+package com.daml.ledger.participant.state.kvutils.tools.engine.replay
 
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -12,7 +12,7 @@ import com.daml.lf.value.Value.ContractId
 
 import scala.collection.mutable
 
-private[benchmark] final class Adapter(
+private[replay] final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package],
     pkgLangVersion: Ref.PackageId => LanguageVersion,
 ) {
