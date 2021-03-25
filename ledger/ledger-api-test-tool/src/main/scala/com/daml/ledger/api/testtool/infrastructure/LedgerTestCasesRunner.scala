@@ -60,7 +60,8 @@ final class LedgerTestCasesRunner(
       executionContext: ExecutionContext
   ): Future[Duration] = {
     def logAndStart(repetition: Int): Future[Duration] = {
-      logger.info(s"Starting '${test.description}'. Run: $repetition out of ${test.repeated}")
+      if (test.repeated > 1)
+        logger.info(s"Starting '${test.description}'. Run: $repetition out of ${test.repeated}")
       startSingle(test, session, repetition)
     }
 
