@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.store.dao.events
 
 import java.io.InputStream
@@ -15,20 +18,27 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics._
 import com.daml.platform.store.Conversions.{contractId, offset, _}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.dao.{DbDispatcher, LedgerDaoContractStateEventsReader, PaginatingAsyncStream, events}
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{Archived, Created}
+import com.daml.platform.store.dao.{
+  DbDispatcher,
+  LedgerDaoContractStateEventsReader,
+  PaginatingAsyncStream,
+  events,
+}
+import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
+  Archived,
+  Created,
+}
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-
 private[dao] final class ContractStateEventsReader(
-                                                  dispatcher: DbDispatcher,
-                                                  metrics: Metrics,
-                                                  lfValueTranslation: LfValueTranslation,
-
-                                                  )(implicit ec: ExecutionContext) extends LedgerDaoContractStateEventsReader {
+    dispatcher: DbDispatcher,
+    metrics: Metrics,
+    lfValueTranslation: LfValueTranslation,
+)(implicit ec: ExecutionContext)
+    extends LedgerDaoContractStateEventsReader {
 
   import ContractStateEventsReader._
 
@@ -38,11 +48,10 @@ private[dao] final class ContractStateEventsReader(
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
 
-
   // TODO: up to this line all is very similar to the TransactionsReader
 
-  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(implicit
-                                                                                           loggingContext: LoggingContext
+  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEventsReader.ContractStateEvent), NotUsed] = {
 
     // TODO: deduplicate with the TransactionsReader
@@ -81,12 +90,12 @@ private[dao] final class ContractStateEventsReader(
   }
 
   private def streamEvents(
-                            queryMetric: DatabaseMetrics,
-                            query: EventsRange[(Offset, Long)] => Connection => Vector[RawContractEvent],
-                            getNextPageRange: RawContractEvent => EventsRange[(Offset, Long)],
-                          )(range: EventsRange[(Offset, Long)])(implicit
-                                                                loggingContext: LoggingContext
-                          ): Source[RawContractEvent, NotUsed] =
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[(Offset, Long)] => Connection => Vector[RawContractEvent],
+      getNextPageRange: RawContractEvent => EventsRange[(Offset, Long)],
+  )(range: EventsRange[(Offset, Long)])(implicit
+      loggingContext: LoggingContext
+  ): Source[RawContractEvent, NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)
@@ -95,7 +104,7 @@ private[dao] final class ContractStateEventsReader(
 
   // TODO: make this nice
   private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-    a: RawContractEvent
+      a: RawContractEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
       startExclusive = (a._10, a._7), /* TDT Use an intermediary DTO */
@@ -105,7 +114,7 @@ private[dao] final class ContractStateEventsReader(
 
 object ContractStateEventsReader {
   type RawContractEvent = (
-    ContractId,
+      ContractId,
       Option[Ref.Identifier],
       Option[InputStream],
       Option[Int],
@@ -115,10 +124,10 @@ object ContractStateEventsReader {
       Set[Party],
       Int,
       Offset,
-    )
+  )
 
   def read(range: EventsRange[(Offset, Long)])(implicit
-                                               conn: Connection
+      conn: Connection
   ): Vector[RawContractEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
       .as(
@@ -136,22 +145,22 @@ object ContractStateEventsReader {
       .toVector
 
   def toContractStateEvent(
-                            row: RawContractEvent,
-                            lfValueTranslation: LfValueTranslation,
-                          ): ContractStateEvent =
+      row: RawContractEvent,
+      lfValueTranslation: LfValueTranslation,
+  ): ContractStateEvent =
     row match {
       case (
-        contractId,
-        templateId,
-        maybeCreateKeyValue,
-        maybeCreateKeyValueCompression,
-        maybeCreateArgument,
-        maybeCreateArgumentCompression,
-        eventSequentialId,
-        flatEventWitnesses,
-        kind,
-        offset,
-        ) =>
+            contractId,
+            templateId,
+            maybeCreateKeyValue,
+            maybeCreateKeyValueCompression,
+            maybeCreateArgument,
+            maybeCreateArgumentCompression,
+            eventSequentialId,
+            flatEventWitnesses,
+            kind,
+            offset,
+          ) =>
         if (kind == 20) {
           Archived(
             contractId = contractId,
@@ -182,14 +191,14 @@ object ContractStateEventsReader {
     }
 
   private def globalKeyAndContract(
-                                    contractId: ContractId,
-                                    templateId: events.Identifier,
-                                    maybeCreateKeyValue: Option[InputStream],
-                                    maybeCreateKeyValueCompression: Option[Int],
-                                    createArgument: InputStream,
-                                    maybeCreateArgumentCompression: Option[Int],
-                                    lfValueTranslation: LfValueTranslation,
-                                  ): (Option[Key], Contract) = {
+      contractId: ContractId,
+      templateId: events.Identifier,
+      maybeCreateKeyValue: Option[InputStream],
+      maybeCreateKeyValueCompression: Option[Int],
+      createArgument: InputStream,
+      maybeCreateArgumentCompression: Option[Int],
+      lfValueTranslation: LfValueTranslation,
+  ): (Option[Key], Contract) = {
     val maybeContractArgument =
       lfValueTranslation.cache.contracts
         .getIfPresent(LfValueTranslationCache.ContractCache.Key(contractId))
@@ -215,10 +224,10 @@ object ContractStateEventsReader {
   }
 
   private[store] def toContract(
-                                 templateId: Identifier,
-                                 createArgument: Either[InputStream, events.Value],
-                                 createArgumentCompression: Compression.Algorithm,
-                               ): Contract = {
+      templateId: Identifier,
+      createArgument: Either[InputStream, events.Value],
+      createArgumentCompression: Compression.Algorithm,
+  ): Contract = {
     val deserialized =
       createArgument.fold(decompressAndDeserialize(createArgumentCompression, _), identity)
 
@@ -257,23 +266,23 @@ object ContractStateEventsReader {
   }
   object ContractStateEvent {
     final case class Created(
-                              contractId: ContractId,
-                              contract: Contract,
-                              globalKey: Option[GlobalKey],
-                              stakeholders: Set[Party],
-                              eventOffset: Offset,
-                              eventSequentialId: Long,
-                            ) extends ContractStateEvent
+        contractId: ContractId,
+        contract: Contract,
+        globalKey: Option[GlobalKey],
+        stakeholders: Set[Party],
+        eventOffset: Offset,
+        eventSequentialId: Long,
+    ) extends ContractStateEvent
     final case class Archived(
-                               contractId: ContractId,
-                               stakeholders: Set[Party],
-                               eventOffset: Offset,
-                               eventSequentialId: Long,
-                             ) extends ContractStateEvent
+        contractId: ContractId,
+        stakeholders: Set[Party],
+        eventOffset: Offset,
+        eventSequentialId: Long,
+    ) extends ContractStateEvent
     final case class LedgerEndMarker(
-                                      eventOffset: Offset,
-                                      eventSequentialId: Long,
-                                    ) extends ContractStateEvent
+        eventOffset: Offset,
+        eventSequentialId: Long,
+    ) extends ContractStateEvent
   }
 
   case class CreateMissingError(field: String) extends NoStackTrace {
