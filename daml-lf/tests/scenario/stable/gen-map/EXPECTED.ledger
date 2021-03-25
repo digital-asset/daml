@@ -1,6 +1,6 @@
 transactions:
-TX #0 1970-01-01T00:00:00Z [Test:18] version: dev
-#0:0 version: dev
+TX #0 1970-01-01T00:00:00Z [Test:18] version: 12
+#0:0 version: 12
 │   known to (since): Alice (#0)
 └─> create Test:MapTemplate@XXXXXXXX
     with: { party = 'Alice', value = GenMap(1 -> "c", 2 -> "a", 5 -> "b") }
