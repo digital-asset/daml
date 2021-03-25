@@ -14,12 +14,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
@@ -37,27 +32,10 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
-import com.daml.platform.store.appendonlydao.events.{
-  ContractsReader,
-  EventsTableDelete,
-  LfValueTranslation,
-  PostCommitValidation,
-  TransactionsReader,
-}
+import com.daml.platform.store.appendonlydao.events.{ContractsReader, EventsTableDelete, LfValueTranslation, PostCommitValidation, TransactionsReader}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.{
-  LedgerDao,
-  LedgerReadDao,
-  MeteredLedgerDao,
-  MeteredLedgerReadDao,
-  PersistenceResponse,
-}
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.dao.{LedgerDao, LedgerDaoContractStateEventsReader, LedgerReadDao, MeteredLedgerDao, MeteredLedgerReadDao, PersistenceResponse}
+import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -641,6 +619,8 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, dbType, metrics)(
       servicesExecutionContext
     )
+
+  override def contractStateEventsReader: LedgerDaoContractStateEventsReader = ???
 
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(dbDispatcher, dbType, metrics, servicesExecutionContext)

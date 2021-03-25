@@ -83,6 +83,15 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   ): Source[(Offset, CompletionStreamResponse), NotUsed]
 }
 
+private[platform] trait LedgerDaoContractStateEventsReader {
+  def getContractStateEvents(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), events.ContractStateEventsReader.ContractStateEvent), NotUsed]
+}
+
 private[platform] trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up the ledger id */
@@ -113,6 +122,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def transactionsReader: LedgerDaoTransactionsReader
 
   def contractsReader: LedgerDaoContractsReader
+
+  def contractStateEventsReader: LedgerDaoContractStateEventsReader
 
   def completions: LedgerDaoCommandCompletionsReader
 
