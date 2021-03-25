@@ -205,7 +205,7 @@ sh_test(
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
-)
+) if not is_windows else None
 
 da_scala_benchmark_jmh(
     name = "benchmark-codec",
