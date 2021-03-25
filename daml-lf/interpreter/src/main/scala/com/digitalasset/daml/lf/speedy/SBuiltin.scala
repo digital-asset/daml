@@ -143,9 +143,9 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
         )
     }
 
-  final protected def getSMap(args: util.ArrayList[SValue], i: Int): SMap =
+  final protected def getSMap(args: util.ArrayList[SValue], i: Int): SGenMap =
     args.get(i) match {
-      case genMap: SMap => genMap
+      case genMap: SGenMap => genMap
       case otherwise =>
         throw SErrorCrash(
           s"${getClass.getSimpleName}: type mismatch of argument $i: expect SMap but got $otherwise"
@@ -154,7 +154,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   final protected def getSMapKey(args: util.ArrayList[SValue], i: Int): SValue = {
     val key = args.get(i)
-    SMap.comparable(key)
+    SGenMap.comparable(key)
     key
   }
 
@@ -326,7 +326,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val scale = getSTNat(args, 0)
       val a = getSNumeric(args, 1)
-      val b = getSNumeric(args, 1)
+      val b = getSNumeric(args, 2)
       assert(a.scale == scale && b.scale == scale)
       SNumeric(op(a, b))
     }
@@ -620,7 +620,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val genMap = getSMap(args, 2)
       val key = getSMapKey(args, 0)
-      SMap(genMap.isTextMap, genMap.entries.updated(key, args.get(1)))
+      SGenMap(genMap.isTextMap, genMap.entries.updated(key, args.get(1)))
     }
   }
 
@@ -633,7 +633,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val genMap = getSMap(args, 1)
       val key = getSMapKey(args, 0)
-      SMap(genMap.isTextMap, genMap.entries - key)
+      SGenMap(genMap.isTextMap, genMap.entries - key)
     }
   }
 
