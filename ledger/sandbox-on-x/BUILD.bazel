@@ -141,6 +141,7 @@ conformance_test(
         "--exclude=CommandDeduplicationIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
+        "--exclude=RaceConditionIT",
     ],
 )
 
