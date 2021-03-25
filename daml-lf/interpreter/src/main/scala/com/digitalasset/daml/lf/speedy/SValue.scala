@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
@@ -14,6 +15,7 @@ import com.daml.lf.value.{Value => V}
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
 import scala.collection.immutable.TreeMap
+import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
   * machine. In addition to the usual types present in the LF value,
@@ -66,6 +68,8 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
+      case SBigNumeric(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
       case SAnyException(_, _, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAnyException")
       case STypeRep(_) =>
@@ -210,7 +214,49 @@ object SValue {
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
+  // TODO https://github.com/digital-asset/daml/issues/8719
+  //  try to factorize SNumeric and SBigNumeric
+  //  note it seems that scale is relevant in SNumeric but lost in SBigNumeric
   final case class SNumeric(value: Numeric) extends SPrimLit
+  final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
+    override def canEqual(that: Any): Boolean = that match {
+      case _: SBigNumeric => true
+      case _ => false
+    }
+
+    override def equals(obj: Any): Boolean = obj match {
+      case that: SBigNumeric => this.value == that.value
+      case _ => false
+    }
+
+    override def hashCode(): Int = MurmurHash3.mix(getClass.hashCode(), value.hashCode())
+
+    override def toString: String = s"SBigNumeric($value)"
+  }
+  object SBigNumeric {
+    // TODO https://github.com/digital-asset/daml/issues/8719
+    //   Decide what are the actual bound for BigDecimal
+    val MaxScale = 1 << 10
+    val MaxPrecision = MaxScale << 2
+
+    def unapply(value: SBigNumeric): Some[java.math.BigDecimal] =
+      Some(value.value)
+
+    def fromBigDecimal(x: java.math.BigDecimal): Either[String, SBigNumeric] = {
+      val norm = x.stripTrailingZeros()
+      Either.cond(
+        test = norm.scale <= MaxScale && norm.precision + norm.scale < MaxScale,
+        right = new SBigNumeric(norm),
+        left = "non valid BigNumeric",
+      )
+    }
+
+    def assertFromBigDecimal(x: java.math.BigDecimal): SBigNumeric =
+      data.assertRight(fromBigDecimal(x))
+
+    def checkScale(s: Long): Either[String, Int] =
+      Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
+  }
   final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit

@@ -315,6 +315,7 @@ private[lf] object SBuiltin {
         case SParty(p) => p
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
+        case SBigNumeric(x) => Numeric.toString(x)
         case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
       })
     }
@@ -849,6 +850,90 @@ private[lf] object SBuiltin {
       extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       SVariant(id, variant, constructorRank, args.get(0))
+    }
+  }
+
+  final object SBScaleBigNumeric extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 = {
+      val x = args.get(0).asInstanceOf[SBigNumeric].value
+      SInt64(x.scale().toLong)
+    }
+  }
+
+  final object SBPrecisionBigNumeric extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 = {
+      val x = args.get(0).asInstanceOf[SBigNumeric].value
+      SInt64(x.precision().toLong)
+    }
+  }
+
+  final object SBAddBigNumeric extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+      val x = args.get(0).asInstanceOf[SBigNumeric].value
+      val y = args.get(1).asInstanceOf[SBigNumeric].value
+      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x add y))
+    }
+  }
+
+  final object SBSubBigNumeric extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+      val x = args.get(0).asInstanceOf[SBigNumeric].value
+      val y = args.get(1).asInstanceOf[SBigNumeric].value
+      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x subtract y))
+    }
+  }
+
+  final object SBMulBigNumeric extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+      val x = args.get(0).asInstanceOf[SBigNumeric].value
+      val y = args.get(1).asInstanceOf[SBigNumeric].value
+      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x multiply y))
+    }
+  }
+
+  final object SBDivBigNumeric extends SBuiltinPure(4) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+      val scale = rightOrCrash(SBigNumeric.checkScale(args.get(0).asInstanceOf[SInt64].value))
+      val roundingMode =
+        java.math.RoundingMode.valueOf(args.get(1).asInstanceOf[SInt64].value.toInt)
+      val x = args.get(2).asInstanceOf[SBigNumeric].value
+      val y = args.get(3).asInstanceOf[SBigNumeric].value
+      val result =
+        try {
+          x.divide(y, scale, roundingMode)
+        } catch {
+          case e: ArithmeticException =>
+            throw DamlEArithmeticError(e.getMessage)
+        }
+      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(result))
+    }
+  }
+
+  final object SBShiftBigNumeric extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+      val shifting = args.get(0).asInstanceOf[SInt64].value
+      if (shifting.abs > SBigNumeric.MaxPrecision) throw DamlEArithmeticError("overflow/underflow")
+      val x = args.get(1).asInstanceOf[SBigNumeric].value
+      rightOrArithmeticError(
+        "overflow/underflow",
+        SBigNumeric.fromBigDecimal(x.scaleByPowerOfTen(-shifting.toInt)),
+      )
+    }
+  }
+
+  final object SBToBigNumericNumeric extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+      val x = args.get(1).asInstanceOf[SNumeric].value
+      // should not fail
+      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x))
+    }
+  }
+
+  final object SBToNumericBigNumeric extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SNumeric].value
+      rightOrArithmeticError("overflow/underflow", Numeric.fromBigDecimal(scale, x).map(SNumeric))
     }
   }
 
@@ -1838,7 +1923,7 @@ private[lf] object SBuiltin {
       case _ => crash(s"Invalid cached contract: $v")
     }
 
-  private[this] def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
+  private[this] def rightOrArithmeticError[A](message: => String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
 
   private[this] def rightOrCrash[A](either: Either[String, A]) =

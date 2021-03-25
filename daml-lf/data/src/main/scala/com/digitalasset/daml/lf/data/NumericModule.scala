@@ -192,7 +192,7 @@ abstract class NumericModule {
     */
   final def toString(x: BigDecimal): String = {
     val s = x.toPlainString
-    if (x.scale == 0) s + "." else s
+    if (x.scale <= 0) s + "." else s
   }
 
   private val validScaledFormat =

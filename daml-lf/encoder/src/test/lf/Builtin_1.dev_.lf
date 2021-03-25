@@ -14,4 +14,26 @@ module BuiltinMod {
   val greater: forall (a: *). a -> a -> Bool =
     GREATER;
 
+  val scaleBigNumeric: BigNumeric -> Int64 =
+    SCALE_BIGNUMERIC;
+  val precisionBigNumeric: BigNumeric -> Int64 =
+    PRECISION_BIGNUMERIC;
+  val addBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    ADD_BIGNUMERIC;
+  val subBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    SUB_BIGNUMERIC;
+  val mulBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    MUL_BIGNUMERIC;
+  val divBigNumeric: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric =
+    DIV_BIGNUMERIC;
+  val shiftBigNumeric: Int64 -> BigNumeric -> BigNumeric =
+    SHIFT_BIGNUMERIC;
+  val toNumericBigNumeric: forall (n: nat). BigNumeric -> Numeric n =
+    TO_NUMERIC_BIGNUMERIC;
+  val toBigNumericNumeric: forall (n: nat). Numeric n -> BigNumeric =
+    TO_BIGNUMERIC_NUMERIC;
+
+  val roundingMode: RoundingMode =
+    ROUNDING_UP;
+
 }
