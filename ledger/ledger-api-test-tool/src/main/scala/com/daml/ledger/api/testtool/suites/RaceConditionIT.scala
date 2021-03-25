@@ -188,13 +188,12 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFetch",
     "Cannot fetch an archived contract",
   ) { implicit ec => ledger => alice =>
-    val ArchiveAt = 400
-    val Attempts = 500
+    val Attempts = 10
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
       _ <- Future.traverse(1 to Attempts) { attempt =>
-        if (attempt == ArchiveAt) {
+        if (attempt == Attempts) {
           ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
         } else {
           ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch).transform(Success(_))

@@ -33,7 +33,7 @@ template FetchWrapper with
   where 
     signatory fetcher
     controller fetcher can
-      FetchWrapper_Fetch: ContractWithKey
+      nonconsuming FetchWrapper_Fetch: ContractWithKey
         do fetch contractId
 
 template LookupResult with
