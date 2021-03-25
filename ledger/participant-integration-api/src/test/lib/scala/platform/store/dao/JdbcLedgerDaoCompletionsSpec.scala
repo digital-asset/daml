@@ -12,11 +12,11 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo}
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.ApiOffset
-import com.daml.platform.store.CompletionFromTransaction
-import org.scalatest.{LoneElement, OptionValues}
+import com.daml.platform.store.Conversions.participantRejectionReasonToErrorCode
+import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
+import org.scalatest.{LoneElement, OptionValues}
 
 import scala.concurrent.Future
 
@@ -183,7 +183,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       responses should have length reasons.length.toLong
       val returnedCodes = responses.flatMap(_.completions.map(_.status.get.code))
       for ((reason, code) <- reasons.zip(returnedCodes)) {
-        code shouldBe CompletionFromTransaction.toErrorCode(reason).value()
+        code shouldBe participantRejectionReasonToErrorCode(reason).value
       }
       succeed
     }

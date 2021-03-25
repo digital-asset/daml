@@ -3,25 +3,41 @@
 
 package com.daml.platform.apiserver.services
 
+import java.time.Instant
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicInteger
 
-import com.daml.ledger.api.domain.PartyDetails
+import com.codahale.metrics.{Meter, MetricRegistry}
+import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
+import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationNew,
   IndexPartyManagementService,
   IndexSubmissionService,
 }
-import com.daml.ledger.participant.state.v1.{Party, SubmissionId, SubmissionResult, WriteService}
-import com.daml.lf.data.Ref
+import com.daml.ledger.participant.state.v1._
+import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine._
+import com.daml.lf.transaction.ReplayNodeMismatch
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.execution.CommandExecutor
+import com.daml.platform.store.ErrorCause
+import io.grpc.Status
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, Mockito, MockitoSugar}
-import org.scalatest.{BeforeAndAfter, OneInstancePerTest}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfter, OneInstancePerTest, Succeeded}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class ApiSubmissionServiceSpec
     extends AsyncFlatSpec
@@ -151,20 +167,99 @@ class ApiSubmissionServiceSpec
     }
   }
 
-  def submissionService(
+  behavior of "submit"
+
+  it should "return proper gRPC status codes for DamlLf errors" in {
+    val errorsToStatuses = Map(
+      ErrorCause.DamlLf(ContractNotFound(null)) -> Status.ABORTED,
+      ErrorCause.DamlLf(
+        ReplayMismatch(ReplayNodeMismatch(null, null, null, null))
+      ) -> Status.ABORTED,
+      ErrorCause.DamlLf(ValidationError("")) -> Status.INVALID_ARGUMENT,
+      ErrorCause.DamlLf(AuthorizationError("")) -> Status.INVALID_ARGUMENT,
+      ErrorCause.DamlLf(SerializationError("")) -> Status.INVALID_ARGUMENT,
+      ErrorCause.LedgerTime(0) -> Status.ABORTED,
+    )
+    val commandId = new AtomicInteger()
+    val mockCommandExecutor = mock[CommandExecutor]
+
+    Future
+      .sequence(errorsToStatuses.map { case (error, code) =>
+        val submitRequest = SubmitRequest(
+          Commands(
+            ledgerId = LedgerId("ledger-id"),
+            workflowId = None,
+            applicationId = DomainMocks.applicationId,
+            commandId = CommandId(
+              Ref.LedgerString.assertFromString(s"commandId-${commandId.incrementAndGet()}")
+            ),
+            actAs = Set.empty,
+            readAs = Set.empty,
+            submittedAt = Instant.MIN,
+            deduplicateUntil = Instant.MIN,
+            commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
+          ),
+          None,
+        )
+        when(
+          mockCommandExecutor.execute(eqTo(submitRequest.commands), any[Hash])(
+            any[ExecutionContext],
+            any[LoggingContext],
+          )
+        ).thenReturn(Future.successful(Left(error)))
+
+        submissionService(
+          writeService,
+          partyManagementService,
+          implicitPartyAllocation = true,
+          commandExecutor = mockCommandExecutor,
+        ).submit(submitRequest).transform {
+          case Success(_) => fail()
+          case Failure(e) => Success(e.getMessage should startWith(code.getCode.toString))
+        }
+      })
+      .map(_.forall(_ == Succeeded))
+      .map(assert(_))
+  }
+
+  private def submissionService(
       writeService: WriteService,
       partyManagementService: IndexPartyManagementService,
       implicitPartyAllocation: Boolean,
-  ) = new ApiSubmissionService(
-    writeService = writeService,
-    submissionService = mock[IndexSubmissionService],
-    partyManagementService = partyManagementService,
-    timeProvider = null,
-    timeProviderType = null,
-    ledgerConfigProvider = null,
-    seedService = null,
-    commandExecutor = null,
-    configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
-    metrics = null,
-  )
+      commandExecutor: CommandExecutor = null,
+  ) = {
+    val mockConfigProvider: LedgerConfigProvider = mock[LedgerConfigProvider]
+    val mockSeedService = mock[SeedService]
+    val mockMetricRegistry = mock[MetricRegistry]
+    val mockIndexSubmissionService = mock[IndexSubmissionService]
+    when(mockConfigProvider.latestConfiguration).thenReturn(Some(mock[Configuration]))
+    when(mockSeedService.nextSeed).thenReturn(() => null)
+    when(mockMetricRegistry.meter(any[String])).thenReturn(new Meter())
+    when(
+      mockIndexSubmissionService.deduplicateCommand(
+        any[CommandId],
+        anyList[Ref.Party],
+        any[Instant],
+        any[Instant],
+      )(any[LoggingContext])
+    ).thenReturn(Future.successful(CommandDeduplicationNew))
+    when(
+      mockIndexSubmissionService.stopDeduplicatingCommand(any[CommandId], anyList[Ref.Party])(
+        any[LoggingContext]
+      )
+    ).thenReturn(Future.unit)
+
+    new ApiSubmissionService(
+      writeService = writeService,
+      submissionService = mockIndexSubmissionService,
+      partyManagementService = partyManagementService,
+      timeProvider = null,
+      timeProviderType = null,
+      ledgerConfigProvider = mockConfigProvider,
+      seedService = mockSeedService,
+      commandExecutor = commandExecutor,
+      configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
+      metrics = new Metrics(mockMetricRegistry),
+    )
+  }
 }

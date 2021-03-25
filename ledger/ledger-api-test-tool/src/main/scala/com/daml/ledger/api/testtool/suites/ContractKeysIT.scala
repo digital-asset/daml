@@ -60,8 +60,8 @@ final class ContractKeysIT extends LedgerTestSuite {
       assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       assertGrpcError(
         lookupByKeyFailure,
-        Status.Code.INVALID_ARGUMENT,
-        Some(Pattern.compile("Disputed|Inconsistent")),
+        Status.Code.ABORTED,
+        Some(Pattern.compile("Inconsistent")),
       )
     }
   })
@@ -100,14 +100,14 @@ final class ContractKeysIT extends LedgerTestSuite {
     } yield {
       assertGrpcError(
         fetchFailure,
-        Status.Code.INVALID_ARGUMENT,
-        "dependency error: couldn't find contract",
+        Status.Code.ABORTED,
+        "Contract could not be found",
       )
       assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       assertGrpcError(
         lookupByKeyFailure,
-        Status.Code.INVALID_ARGUMENT,
-        Some(Pattern.compile("Disputed|Inconsistent")),
+        Status.Code.ABORTED,
+        Some(Pattern.compile("Inconsistent")),
       )
     }
   })
@@ -177,8 +177,8 @@ final class ContractKeysIT extends LedgerTestSuite {
     } yield {
       assertGrpcError(
         duplicateKeyFailure,
-        Status.Code.INVALID_ARGUMENT,
-        Some(Pattern.compile("DuplicateKey|Inconsistent")),
+        Status.Code.ABORTED,
+        Some(Pattern.compile("Inconsistent")),
       )
       assertGrpcError(
         bobLooksUpTextKeyFailure,

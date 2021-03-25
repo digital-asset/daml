@@ -19,11 +19,28 @@ load("//:versions.bzl", "latest_stable_version")
 # - ContractKeysIT:
 #   - https://github.com/digital-asset/daml/pull/5608
 #   - https://github.com/digital-asset/daml/pull/7829
+#   - https://github.com/digital-asset/daml/pull/9218
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
+# - SemanticTests:
+#   - https://github.com/digital-asset/daml/pull/9218
 
 last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
+
+# Some of gRPC error codes changed from INVALID_ARGUMENT to ABORTED
+# See https://github.com/digital-asset/daml/pull/9218
+before_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.0.90c5ce70"
+after_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.1.90c5ce70"
+grpc_error_code_breaking_change_exclusions = [
+    "SemanticTests:SemanticDoubleSpendBasic",
+    "SemanticTests:SemanticDoubleSpendShared",
+    "SemanticTests:SemanticPrivacyProjections",
+    "SemanticTests:SemanticDivulgence",
+    "ContractKeysIT:CKFetchOrLookup",
+    "ContractKeysIT:CKNoFetchUndisclosed",
+    "ContractKeysIT:CKMaintainerScoped",
+]
 
 excluded_test_tool_tests = [
     {
@@ -165,6 +182,24 @@ excluded_test_tool_tests = [
                     "PartyManagementServiceIT:PMRejectLongPartyHints",
                     "PartyManagementServiceIT:PMRejectInvalidPartyHints",
                 ],
+            },
+        ],
+    },
+    {
+        "start": after_grpc_error_code_breaking_change,
+        "platform_ranges": [
+            {
+                "end": before_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions,
+            },
+        ],
+    },
+    {
+        "end": before_grpc_error_code_breaking_change,
+        "platform_ranges": [
+            {
+                "start": after_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions,
             },
         ],
     },
