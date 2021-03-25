@@ -620,7 +620,7 @@ private[lf] object SBuiltin {
 
   final case object SBMapInsert extends SBuiltinPure(3) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
-      getSMap(args, 2).update(getSMapKey(args, 0), args.get(1))
+      getSMap(args, 2).insert(getSMapKey(args, 0), args.get(1))
   }
 
   final case object SBMapLookup extends SBuiltinPure(2) {

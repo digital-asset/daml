@@ -175,7 +175,7 @@ object SValue {
       extends SValue
       with NoCopy {
 
-    def update(key: SValue, value: SValue): SMap =
+    def insert(key: SValue, value: SValue): SMap =
       SMap(isTextMap, entries.updated(key, value))
 
     def delete(key: SValue): SMap =
