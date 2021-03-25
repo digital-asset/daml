@@ -126,20 +126,43 @@ da_scala_test(
     ],
 )
 
+da_scala_library(
+    name = "engine-replay",
+    srcs = glob(["engine-replay/src/replay/**/*.scala"]),
+    plugins = [silencer_plugin],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction-test-lib",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
 da_scala_benchmark_jmh(
-    name = "benchmark-replay",
-    srcs = glob(["engine-benchmark/src/benchmark/scala/**/*"]),
+    name = "engine-replay-benchmark",
+    srcs = glob(["engine-replay/src/benchmark/**/*.scala"]),
     max_heap_size = "4g",
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    # jmh does not like the use of silencer to disable specific unused imports
-    # so we disable unused import warnings completely on 2.13.
-    scalacopts = lf_scalacopts + [
-        "-Wconf:cat=unused-imports:s,any:e",
-    ] if scala_major_version == "2.13" else [],
     deps = [
+        ":engine-replay",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
