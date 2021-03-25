@@ -719,7 +719,7 @@ private[lf] object Speedy {
 
                   // textMap
                   case V.ValueTextMap(entries) =>
-                    SValue.SGenMap(
+                    SValue.SMap(
                       isTextMap = true,
                       entries = entries.iterator.map { case (k, v) =>
                         SValue.SText(k) -> go(elemType, v)
@@ -732,7 +732,7 @@ private[lf] object Speedy {
                 value match {
                   // genMap
                   case V.ValueGenMap(entries) =>
-                    SValue.SGenMap(
+                    SValue.SMap(
                       isTextMap = false,
                       entries = entries.iterator.map { case (k, v) =>
                         go(keyType, k) -> go(valueType, v)
@@ -1126,7 +1126,7 @@ private[lf] object Speedy {
         }
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
-          SValue.SGenMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
+          SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken |
           SValue.SBuiltinException(_, _) | SValue.SAnyException(_, _, _) =>
         crash("Match on non-matchable value")

@@ -50,7 +50,7 @@ private[lf] object Equality {
           push(xs.iterator, ys.iterator)
         case (SOptional(xOpt), SOptional(yOpt)) =>
           push(xOpt.iterator, yOpt.iterator)
-        case (SGenMap(_, xMap), SGenMap(_, yMap)) =>
+        case (SMap(_, xMap), SMap(_, yMap)) =>
           push(
             new InterlacedIterator(xMap.keys.iterator, xMap.values.iterator),
             new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
