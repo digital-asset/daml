@@ -109,9 +109,8 @@ final class ValueEnricher(engine: Engine) {
 
   def enrichNode[Nid](node: GenNode[Nid, ContractId]): Result[GenNode[Nid, ContractId]] =
     node match {
-      case _: Node.NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
+      case rb @ Node.NodeRollback(_) => // forces reconsideration if fields are added
+        ResultDone(rb)
       case create: Node.NodeCreate[ContractId] =>
         for {
           arg <- enrichValue(TTyCon(create.templateId), create.arg)

@@ -149,9 +149,8 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       for {
         entry <- danglingRefGenNode
         node = entry match {
-          case (_, _: Node.NodeRollback[_]) =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("rollback nodes are not supported")
+          case (_, nr: Node.NodeRollback[_]) =>
+            nr.copy(children = ImmArray.empty)
           case (_, n: Node.LeafOnlyNode[V.ContractId]) => n
           case (_, ne: Node.NodeExercises[_, V.ContractId]) =>
             ne.copy(children = ImmArray.empty)
