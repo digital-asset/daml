@@ -171,7 +171,7 @@ object SValue {
   final case class SList(list: FrontStack[SValue]) extends SValue
 
   // We make the constructor private to ensure entries are sorted according `SGenMap Ordering`
-  final case class SGenMap private (textMap: Boolean, entries: TreeMap[SValue, SValue])
+  final case class SGenMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy
 
