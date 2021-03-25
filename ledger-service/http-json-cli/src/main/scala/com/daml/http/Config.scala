@@ -56,15 +56,19 @@ private[http] abstract class ConfigCompanion[A](name: String) {
 
   protected val indent: String = List.fill(8)(" ").mkString
 
-  def create(x: Map[String, String]): Either[String, A]
+  def create(x: Map[String, String], supportedJdbcDriverNames: Set[String]): Either[String, A]
 
-  def createUnsafe(x: Map[String, String]): A = create(x).fold(
-    e => sys.error(e),
-    identity,
-  )
+  def createUnsafe(x: Map[String, String], supportedJdbcDriverNames: Set[String]): A =
+    create(x, supportedJdbcDriverNames).fold(
+      e => sys.error(e),
+      identity,
+    )
 
-  def validate(x: Map[String, String]): Either[String, Unit] =
-    create(x).map(_ => ())
+  def validate(
+      x: Map[String, String],
+      supportedJdbcDriverNames: Set[String],
+  ): Either[String, Unit] =
+    create(x, supportedJdbcDriverNames).map(_ => ())
 
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
@@ -107,21 +111,13 @@ private[http] final case class JdbcConfig(
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
 
-  // FIXME Duplicated to not introduce a circular dependency between ContractDao and this
-  private[this] val supportedJdbcDriverNames =
-    Set("org.postgresql.Driver", "oracle.jdbc.OracleDriver").filter { driver =>
-      Try(Class.forName(driver)).isSuccess
-    }
-
-  private[this] def supportedDriversHelp = supportedJdbcDriverNames mkString ", "
-
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
   )
 
-  lazy val help: String =
+  def help(supportedJdbcDriverNames: Set[String]): String =
     "Contains comma-separated key-value pairs. Where:\n" +
-      s"${indent}driver -- JDBC driver class name, $supportedDriversHelp supported right now,\n" +
+      s"${indent}driver -- JDBC driver class name, ${supportedJdbcDriverNames.mkString(", ")} supported right now,\n" +
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
@@ -142,13 +138,16 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     "<true|false>",
   )
 
-  override def create(x: Map[String, String]): Either[String, JdbcConfig] =
+  override def create(
+      x: Map[String, String],
+      supportedJdbcDriverNames: Set[String],
+  ): Either[String, JdbcConfig] =
     for {
       driver <- requiredField(x)("driver")
       _ <- Either.cond(
         supportedJdbcDriverNames(driver),
         (),
-        s"$driver unsupported.  Supported drivers: $supportedDriversHelp",
+        s"$driver unsupported.  Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
       )
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
@@ -199,7 +198,10 @@ private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("W
     "Server-side heartBeat interval in seconds",
   )
 
-  override def create(x: Map[String, String]): Either[String, WebsocketConfig] =
+  override def create(
+      x: Map[String, String],
+      supportedJdbcDriverNames: Set[String],
+  ): Either[String, WebsocketConfig] =
     for {
       md <- optionalLongField(x)("maxDuration")
       hbp <- optionalLongField(x)("heartBeatPer")
@@ -236,7 +238,10 @@ private[http] object StaticContentConfig
 
   lazy val usage: String = helpString("<URL prefix>", "<directory>")
 
-  override def create(x: Map[String, String]): Either[String, StaticContentConfig] =
+  override def create(
+      x: Map[String, String],
+      supportedJdbcDriverNames: Set[String],
+  ): Either[String, StaticContentConfig] =
     for {
       prefix <- requiredField(x)("prefix").flatMap(prefixCantStartWithSlash)
       directory <- requiredDirectoryField(x)("directory")

@@ -12,7 +12,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
   ): Option[Config] =
-    Cli.parseConfig(parameters, getEnvVar)
+    Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
 
   val jdbcConfig = JdbcConfig(
     "org.postgresql.Driver",

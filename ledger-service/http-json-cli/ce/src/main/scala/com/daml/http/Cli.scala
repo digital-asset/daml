@@ -4,6 +4,9 @@
 package com.daml.http
 
 object Cli extends CliBase {
-  override protected def configParser(getEnvVar: String => Option[String]): OptionParser =
-    new OptionParser(getEnvVar)
+  override protected def configParser(
+      getEnvVar: String => Option[String],
+      supportedJdbcDriverNames: Set[String],
+  ): OptionParser =
+    new OptionParser(getEnvVar, supportedJdbcDriverNames)
 }
