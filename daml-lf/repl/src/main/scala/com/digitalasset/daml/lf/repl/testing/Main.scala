@@ -43,9 +43,9 @@ object Main extends App {
         |
         |commands:
         |  repl [file]             Run the interactive repl. Load the given packages if any.
-        |  test <name> [file]      Load given packages and run the named scenario with verbose output.
-        |  testAll [file]          Load the given packages and run all scenarios.
-        |  profile <name> [infile] [outfile]  Run the name scenario and write a profile in speedscope.app format
+        |  test <name> [file]      Load given packages and run the named test with verbose output.
+        |  testAll [file]          Load the given packages and run all tests.
+        |  profile <name> [infile] [outfile]  Run the name test and write a profile in speedscope.app format
         |  validate [file]         Load the given packages and validate them.
         |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
@@ -65,8 +65,8 @@ object Main extends App {
       if (!Repl.testAll(compilerConfig, file)._1) System.exit(1)
     case List("test", id, file) =>
       if (!Repl.test(compilerConfig, id, file)._1) System.exit(1)
-    case List("profile", scenarioId, inputFile, outputFile) =>
-      if (!Repl.profile(compilerConfig, scenarioId, inputFile, Paths.get(outputFile))._1)
+    case List("profile", testId, inputFile, outputFile) =>
+      if (!Repl.profile(compilerConfig, testId, inputFile, Paths.get(outputFile))._1)
         System.exit(1)
     case List("validate", file) =>
       if (!Repl.validate(compilerConfig, file)._1) System.exit(1)
@@ -139,17 +139,17 @@ object Repl {
   def test(compilerConfig: Compiler.Config, id: String, file: String): (Boolean, State) =
     load(compilerConfig, file) chain
       cmdValidate chain
-      (x => invokeScenario(x, Seq(id)))
+      (x => invokeTest(x, Seq(id)))
 
   def profile(
       compilerConfig: Compiler.Config,
-      scenarioId: String,
+      testId: String,
       inputFile: String,
       outputFile: Path,
   ): (Boolean, State) =
     load(compilerConfig.copy(profiling = Compiler.FullProfile), inputFile) chain
       cmdValidate chain
-      (state => cmdProfile(state, scenarioId, outputFile))
+      (state => cmdProfile(state, testId, outputFile))
 
   def validate(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
     load(compilerConfig, file) chain
@@ -227,7 +227,7 @@ object Repl {
     ":quit" -> Command("quit the REPL.", (s, _) => s.copy(quit = true)),
     ":scenario" -> Command(
       "execute the scenario expression pointed to by given identifier.",
-      (s, args) => { invokeScenario(s, args); s },
+      (s, args) => { invokeTest(s, args); s },
     ),
     ":testall" -> Command(
       "run all loaded scenarios.",
@@ -522,12 +522,12 @@ object Repl {
         None
     }
 
-  def invokeScenario(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
+  def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExprFromTest(state, idAndArgs)
       .map { expr =>
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("invokeScenario") { onLedger =>
+        machine.withOnLedger("invokeTest") { onLedger =>
           errOrLedger match {
             case Left((err, ledger @ _)) =>
               println(prettyError(err, onLedger.ptx).render(128))
@@ -544,21 +544,21 @@ object Repl {
   }
 
   def cmdTestAll(state0: State): (Boolean, State) = {
-    val allScenarios =
+    val allTests =
       for {
         pkg <- state0.packages.values
         module <- pkg.modules
         (modName, mod) = module
         definition <- mod.definitions
         (dfnName, dfn) = definition
-        bodyScenario <- List(dfn).collect { case DValue(TScenario(_), _, body, true) => body }
-      } yield QualifiedName(modName, dfnName).toString -> bodyScenario
+        bodyTest <- List(dfn).collect { case DValue(TScenario(_), _, body, true) => body }
+      } yield QualifiedName(modName, dfnName).toString -> bodyTest
     var failures = 0
     var successes = 0
     val state = state0
     var totalTime = 0.0
     var totalSteps = 0
-    allScenarios.foreach { case (name, body) =>
+    allTests.foreach { case (name, body) =>
       print(name + ": ")
       val (machine, errOrLedger) = state.scenarioRunner.run(body)
       machine.withOnLedger("cmdTestAll") { onLedger =>
@@ -584,8 +584,8 @@ object Repl {
     (failures == 0, state)
   }
 
-  def cmdProfile(state: State, scenarioId: String, outputFile: Path): (Boolean, State) = {
-    buildExprFromTest(state, Seq(scenarioId))
+  def cmdProfile(state: State, testId: String, outputFile: Path): (Boolean, State) = {
+    buildExprFromTest(state, Seq(testId))
       .map { expr =>
         println("Warming up JVM for 10s...")
         val start = System.nanoTime()
@@ -602,7 +602,7 @@ object Repl {
               (false, state)
             case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
               println("Writing profile...")
-              machine.profile.name = scenarioId
+              machine.profile.name = testId
               machine.profile.writeSpeedscopeJson(outputFile)
               (true, state)
           }
