@@ -728,7 +728,7 @@ private object OracleQueries extends Queries {
       !s.startsWith("'") && !s.endsWith("'"),
       "Oracle JSON query syntax doesn't allow ' at beginning or ending",
     )
-    Fragment const0 ("'" + s.replaceAllLiterally("'", "''") + "'")
+    Fragment const0 ("'" + s.replace("'", "''") + "'")
   }
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
