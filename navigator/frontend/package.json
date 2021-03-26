@@ -93,6 +93,7 @@
   "resolutions": {
     "**/elliptic": "^6.5.4",
     "**/jpeg-js": "^0.4.1",
-    "**/selfsigned": "^1.10.8"
+    "**/selfsigned": "^1.10.8",
+    "**/ssri": "^8.0.1"
   }
 }
