@@ -183,6 +183,7 @@ Qix-/color-convert 1.9.3 : MIT License
 Qix-/color-convert 2.0.1 : MIT License
 QuickCheck 2.14.2 : BSD 3-clause "New" or "Revised" License
 RabbitMQ amqp-client 5.5.3 : Apache License 2.0
+RamdaJs v0.27.1 : MIT License
 React from Facebook 16.13.1 : MIT License
 React from Facebook 17.0.1 : MIT License
 React-Redux v7.2.2 : MIT License
@@ -973,7 +974,6 @@ quickcheck-instances 0.3.25.2 : BSD 3-clause "New" or "Revised" License
 quickcheck-io 0.2.0 : MIT License
 quicklens 1.4.12 : Apache License 2.0
 railroad-diagrams 1.0.0 : Creative Commons Zero v1.0 Universal
-ramda v0.27.1 : MIT License
 randexp 0.4.6 : MIT License
 random 1.1 : BSD 3-clause "New" or "Revised" License
 randombytes 1.0.4 : MIT License
@@ -12819,7 +12819,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(ramda v0.27.1)
+(RamdaJs v0.27.1)
 
 The MIT License (MIT)
 
