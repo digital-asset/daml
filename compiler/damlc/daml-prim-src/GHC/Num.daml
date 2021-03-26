@@ -159,6 +159,13 @@ instance Additive BigNumeric where
 instance Multiplicative BigNumeric where
     (*) = primitive @"BEMulBigNumeric"
     munit = (primitive @"BEFromNumericBigNumeric" : Numeric 0 -> BigNumeric) (1.0 : Numeric 0)
+    x ^ n
+        | n == 0 = munit
+        | n == 2 = x * x
+        | n < 0 = (primitive @"BEDivBigNumeric" : Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric)
+                    1024 (primitive @"BERoundingUnnecessary" : RoundingMode) munit (x ^ (negate n))
+        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
+        | otherwise = x * x ^ (n - 1)
 
 instance Number BigNumeric
 
