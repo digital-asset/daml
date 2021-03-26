@@ -205,7 +205,7 @@ final class JdbcIndexerSpec
         mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
       ledgerDaoOwner = ledgerDaoOwner,
       flywayMigrations = new FlywayMigrations(config.jdbcUrl),
-    ).migrateSchema(allowExistingSchema = true)
+    ).migrateSchema(allowExistingSchema = true, enableExperimentalSchema = false)
   }
 
   private def mockedUpdateFlowOwnerBuilder(

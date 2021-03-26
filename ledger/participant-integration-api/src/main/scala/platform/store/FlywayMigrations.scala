@@ -21,6 +21,10 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
 
   private val dbType = DbType.jdbcType(jdbcUrl)
 
+  // The last stable version.
+  // Across all database types, experimental migrations must have a higher version number.
+  private val lastStableSchemaVersion = "49"
+
   def validate()(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
@@ -32,7 +36,8 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
     }
 
   def migrate(
-      allowExistingSchema: Boolean = false
+      allowExistingSchema: Boolean = false,
+      enableExperimentalSchema: Boolean = false,
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
@@ -40,6 +45,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
           .dataSource(ds)
           .baselineOnMigrate(allowExistingSchema)
           .baselineVersion(MigrationVersion.fromVersion("0"))
+          .target(if (enableExperimentalSchema) "latest" else lastStableSchemaVersion)
           .load()
         logger.info("Running Flyway migration...")
         val stepsTaken = flyway.migrate()
