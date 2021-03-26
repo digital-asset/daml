@@ -27,8 +27,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -38,8 +37,13 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
-import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.appendonlydao.events.EventsTableDelete
+import com.daml.platform.store.appendonlydao.events.{
+  ContractsReader,
+  EventsTableDelete,
+  LfValueTranslation,
+  PostCommitValidation,
+  TransactionsReader,
+}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
   LedgerDao,
@@ -113,6 +117,13 @@ private class JdbcLedgerDao(
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
     dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(ParametersTable.getLedgerEnd)
+
+  override def lookupLedgerEndSequentialId()(implicit
+      loggingContext: LoggingContext
+  ): Future[Long] =
+    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEndSequentialId)(
+      ParametersTable.getLedgerEndSequentialId
+    )
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
@@ -284,11 +295,6 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[ContractId]] =
-    contractsReader.lookupContractKey(forParties, key)
-
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
@@ -375,17 +381,6 @@ private class JdbcLedgerDao(
     ) // TODO append-only: cleanup
 
   private val PageSize = 100
-
-  override def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
-    contractsReader.lookupMaximumLedgerTime(contractIds)
-
-  override def lookupActiveOrDivulgedContract(
-      contractId: ContractId,
-      forParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractInst]] =
-    contractsReader.lookupActiveContract(forParties, contractId)
 
   private val SQL_SELECT_ALL_PARTIES =
     SQL(
@@ -642,8 +637,8 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  private val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(
+  override val contractsReader: ContractsReader =
+    ContractsReader(dbDispatcher, dbType, metrics)(
       servicesExecutionContext
     )
 

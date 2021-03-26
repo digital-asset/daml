@@ -8,7 +8,6 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.{ApplicationId, WorkflowId}
 import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -20,24 +19,16 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  Configuration,
-  DivulgedContract,
-  Offset,
-  RejectionReason,
-  SubmitterInfo,
-  TransactionId,
-}
+import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.{ApplicationId, WorkflowId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
+import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
+import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -102,18 +93,11 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset]
 
+  /** Looks up the current ledger end sequential id */
+  def lookupLedgerEndSequentialId()(implicit loggingContext: LoggingContext): Future[Long]
+
   /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
-
-  /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
-  def lookupActiveOrDivulgedContract(contractId: ContractId, forParties: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
-
-  /** Returns the largest ledger time of any of the given contracts */
-  def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration()(implicit
@@ -128,17 +112,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
   def transactionsReader: LedgerDaoTransactionsReader
 
-  def completions: LedgerDaoCommandCompletionsReader
+  def contractsReader: LedgerDaoContractsReader
 
-  /** Looks up a Contract given a contract key and a party
-    *
-    * @param key the contract key to query
-    * @param forParties a set of parties for one of which the contract must be visible
-    * @return the optional ContractId
-    */
-  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[ContractId]]
+  def completions: LedgerDaoCommandCompletionsReader
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party])(implicit

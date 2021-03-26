@@ -354,11 +354,17 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
+        val lookupLedgerEndSequentialId: Timer =
+          registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
           registry.timer(Prefix :+ "lookup_ledger_configuration")
         val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
         val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
+        val lookupActiveContractWithCachedArgument: Timer =
+          registry.timer(Prefix :+ "lookup_active_contract_with_provided_argument")
+        val lookupContractState: Timer = registry.timer(Prefix :+ "lookup_contract_state")
+        val lookupKeyState: Timer = registry.timer(Prefix :+ "lookup_key_state")
         val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
         val getParties: Timer = registry.timer(Prefix :+ "get_parties")
         val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
@@ -382,6 +388,9 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
+        val getLedgerEndSequentialId: DatabaseMetrics = createDbMetrics(
+          "get_ledger_end_sequential_id"
+        )
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters"
@@ -444,6 +453,8 @@ final class Metrics(val registry: MetricRegistry) {
           "prune"
         ) // FIXME Base name conflicts with prune
         val truncateAllTables: DatabaseMetrics = createDbMetrics("truncate_all_tables")
+        val lookupContractStateDbMetrics: DatabaseMetrics = createDbMetrics("lookup_contract_state")
+        val lookupKeyStateDbMetrics: DatabaseMetrics = createDbMetrics("lookup_key_state")
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_active_contract"
         ) // FIXME Base name conflicts with lookupActiveContract
