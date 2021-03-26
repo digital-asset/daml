@@ -834,7 +834,7 @@ execMergeDars darFp1 darFp2 mbOutFp =
       let merged =
               ZipArchive.Archive
                   (nubSortOn ZipArchive.eRelativePath $ mf : ZipArchive.zEntries dar1 ++ ZipArchive.zEntries dar2)
-                  -- nubSortOn keeps the first occurence
+                  -- nubSortOn keeps the first occurrence
                   Nothing
                   BSL.empty
       BSL.writeFile outFp $ ZipArchive.fromArchive merged

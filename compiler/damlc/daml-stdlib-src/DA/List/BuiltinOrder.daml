@@ -35,10 +35,10 @@ import DA.Map (Map)
 import qualified DA.Map as Map
 
 -- | `dedup l` removes duplicate elements from a list. In particular,
--- it keeps only the first occurence of each element.
+-- it keeps only the first occurrence of each element.
 --
 -- `dedup` is stable so the elements in the output are ordered
--- by their first occurence in the input. If you do not need
+-- by their first occurrence in the input. If you do not need
 -- stability, consider using `dedupSort` which is more efficient.
 --
 -- ```
@@ -52,7 +52,7 @@ dedup = dedupOn identity
 -- after applying the given function. Example use: `dedupOn (.employeeNo) employees`.
 --
 -- `dedupOn` is stable so the elements in the output are ordered
--- by their first occurence in the input. If you do not need
+-- by their first occurrence in the input. If you do not need
 -- stability, consider using `dedupOnSort` which is more efficient.
 --
 -- ```
