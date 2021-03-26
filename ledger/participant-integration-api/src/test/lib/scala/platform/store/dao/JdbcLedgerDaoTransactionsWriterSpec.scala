@@ -63,7 +63,10 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
         blindingInfo = Some(mismatchingBlindingInfo),
         divulgedContracts = Map.empty,
       )
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(alice))
+      result <- ledgerDao.contractsReader.lookupActiveContractAndLoadArgument(
+        nonTransient(tx).loneElement,
+        Set(alice),
+      )
     } yield {
       result shouldBe None
     }

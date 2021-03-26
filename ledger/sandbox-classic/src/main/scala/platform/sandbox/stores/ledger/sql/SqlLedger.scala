@@ -16,7 +16,7 @@ import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref.Party
@@ -37,6 +37,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.events.contracts.TranslationCacheBackedContractsStore
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
@@ -106,10 +107,15 @@ private[sandbox] object SqlLedger {
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
         _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
+        contractStore <- TranslationCacheBackedContractsStore.owner(
+          lfValueTranslationCache,
+          dao.contractsReader,
+        )
         ledger <- sqlLedgerOwner(
           ledgerId,
           ledgerConfig.map(_._2),
           dao,
+          contractStore,
           dispatcher,
           persistenceQueue,
         ).acquire()
@@ -251,6 +257,7 @@ private[sandbox] object SqlLedger {
         ledgerId: LedgerId,
         ledgerConfig: Option[Configuration],
         ledgerDao: LedgerDao,
+        contractStore: ContractStore,
         dispatcher: Dispatcher[Offset],
         persistenceQueue: PersistenceQueue,
     ): ResourceOwner[SqlLedger] =
@@ -259,6 +266,7 @@ private[sandbox] object SqlLedger {
           ledgerId,
           ledgerConfig,
           ledgerDao,
+          contractStore,
           dispatcher,
           timeProvider,
           persistenceQueue,
@@ -321,11 +329,12 @@ private final class SqlLedger(
     ledgerId: LedgerId,
     configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
+    contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher)
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
