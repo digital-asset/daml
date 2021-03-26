@@ -38,6 +38,8 @@ class NormalizerSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenProp
           tx.nodes.collect { case (nid, exe: Node.NodeExercises[_, _]) =>
             nid -> exe.copy(children = exe.children.filter(preservedIds))
           }
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      // Rollback nodes and all their children should be dropped
       }
     }
   }

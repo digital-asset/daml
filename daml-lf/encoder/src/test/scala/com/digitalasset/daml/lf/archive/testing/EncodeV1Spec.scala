@@ -133,6 +133,8 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val anEmbedExpr: forall (a: *). Update a -> Update a = /\ (a: *). \ (x: Update a) ->
              uembed_expr @a x;
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
+           val isOne: BigNumeric -> Bool = EQUAL @BigNumeric (TO_BIGNUMERIC_NUMERIC @10 1.0000000000);
+           val defaultRounding: RoundingMode = ROUNDING_UP;
          }
         
       """

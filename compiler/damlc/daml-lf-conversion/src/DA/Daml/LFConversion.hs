@@ -1686,6 +1686,8 @@ convertTyCon env t
                 if envLfVersion env `supports` featureNumeric
                     then pure TNumeric10
                     else pure TDecimal
+            "BigNumeric" -> pure TBigNumeric
+            "RoundingMode" -> pure TRoundingMode
             _ -> defaultTyCon
     -- TODO(DEL-6953): We need to add a condition on the package name as well.
     | NameIn DA_Internal_LF n <- t =
@@ -1712,6 +1714,8 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
+            "RoundingMode" -> pure TRoundingMode
+            "BigNumeric" -> pure TBigNumeric
             "AnyException" -> pure (TBuiltin BTAnyException)
             "GeneralError" -> pure (TBuiltin BTGeneralError)
             "ArithmeticError" -> pure (TBuiltin BTArithmeticError)

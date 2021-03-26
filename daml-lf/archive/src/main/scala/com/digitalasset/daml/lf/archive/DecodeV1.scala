@@ -1362,6 +1362,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
           assertSince(LV.Features.internedStrings, "PrimLit.party_interned_str")
           toPLParty(getInternedStr(lfPrimLit.getPartyInternedStr))
+        case PLF.PrimLit.SumCase.ROUNDING_MODE =>
+          assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
+          PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
           throw ParseError("PrimLit.SUM_NOT_SET")
       }
@@ -1462,6 +1465,8 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
+      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
+      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
       BuiltinTypeInfo(GENERAL_ERROR, BTGeneralError, minVersion = exceptions),
       BuiltinTypeInfo(ARITHMETIC_ERROR, BTArithmeticError, minVersion = exceptions),
@@ -1830,6 +1835,15 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genComparison)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
+      BuiltinFunctionInfo(SCALE_BIGNUMERIC, BScaleBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(PRECISION_BIGNUMERIC, BPrecisionBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(ADD_BIGNUMERIC, BAddBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(SUB_BIGNUMERIC, BSubBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(SHIFT_BIGNUMERIC, BShiftBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(TO_NUMERIC_BIGNUMERIC, BToNumericBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(TO_BIGNUMERIC_NUMERIC, BToBigNumericNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BMakeGeneralError, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BMakeArithmeticError, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BMakeContractError, minVersion = exceptions),

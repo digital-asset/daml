@@ -27,7 +27,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.MetadataReader
 import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.participant.util.LfEngineToApi
@@ -112,7 +112,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
   protected def withHttpServiceAndClient[A](
-      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]
+      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A]
   ): Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) {
       case (ledgerPort, _) =>
@@ -131,7 +131,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   ): Future[A] =
     withHttpServiceAndClient((a, b, c, _) => f(a, b, c))
 
-  protected def withLedger[A](testFn: LedgerClient => Future[A]): Future[A] =
+  protected def withLedger[A](testFn: DamlLedgerClient => Future[A]): Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId) { case (_, client) =>
       testFn(client)
     }

@@ -45,4 +45,8 @@ if [[ "$NAME" == "linux" ]]; then
     SCRIPT=daml-script-$RELEASE_TAG.jar
     bazel build //daml-script/runner:script-runner_deploy.jar
     cp bazel-bin/daml-script/runner/script-runner_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
+
+    NON_REPUDIATION=non-repudiation-$RELEASE_TAG.jar
+    bazel build //runtime-components/non-repudiation-app:non-repudiation-app_deploy.jar
+    cp bazel-bin/runtime-components/non-repudiation-app/non-repudiation-app_deploy.jar $OUTPUT_DIR/github/$NON_REPUDIATION
 fi

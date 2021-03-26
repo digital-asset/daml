@@ -155,6 +155,10 @@
   type: jar-scala
 - target: //ledger/sandbox-classic:sandbox-classic-ce
   type: jar-scala
+- target: //ledger/sandbox-on-x:sandbox-on-x
+  type: jar-scala
+- target: //ledger/sandbox-on-x:sandbox-on-x-app
+  type: jar-scala
 - target: //ledger/test-common:dar-files-1.12-lib
   type: jar-scala
 - target: //ledger/test-common:dar-files-1.dev-lib

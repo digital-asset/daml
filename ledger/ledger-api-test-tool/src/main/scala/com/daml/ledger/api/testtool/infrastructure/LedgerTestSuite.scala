@@ -22,6 +22,7 @@ private[testtool] abstract class LedgerTestSuite {
       participants: ParticipantAllocation,
       timeoutScale: Double = 1.0,
       runConcurrently: Boolean = true,
+      repeated: Int = 1,
   )(testCase: ExecutionContext => Participants => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
@@ -31,6 +32,7 @@ private[testtool] abstract class LedgerTestSuite {
         description,
         timeoutScale,
         runConcurrently,
+        repeated,
         participants,
         testCase,
       )

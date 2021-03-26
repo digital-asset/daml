@@ -66,9 +66,8 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case _: NodeRollback[_] =>
-                // TODO https://github.com/digital-asset/daml/issues/8020
-                sys.error("rollback nodes are not supported")
+              case nr: NodeRollback[Nid] =>
+                go(filteredRoots, nr.children ++: remainingRoots)
               case _: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid] =>
                 go(filteredRoots, remainingRoots)
               case ne: NodeExercises[Nid, Cid] =>

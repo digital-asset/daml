@@ -22,6 +22,7 @@ sealed class LedgerTestCase(
     val description: String,
     val timeoutScale: Double,
     val runConcurrently: Boolean,
+    val repeated: Int = 1,
     participants: ParticipantAllocation,
     runTestCase: ExecutionContext => Participants => Future[Unit],
 ) {

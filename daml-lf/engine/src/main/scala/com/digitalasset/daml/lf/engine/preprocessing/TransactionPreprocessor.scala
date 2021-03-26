@@ -37,6 +37,7 @@ private[preprocessing] final class TransactionPreprocessor(
     node match {
       case _: Node.NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
+        // how on earth can we turn a rollback node back into a speedy command?
         sys.error("rollback nodes are not supported")
       case Node.NodeCreate(
             coid @ _,

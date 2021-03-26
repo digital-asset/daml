@@ -47,6 +47,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           diff = x compareTo y
         case (SNumeric(x), SNumeric(y)) =>
           diff = x compareTo y
+        case (SBigNumeric(x), SBigNumeric(y)) =>
+          diff = x compareTo y
         case (SText(x), SText(y)) =>
           diff = Utf8.Ordering.compare(x, y)
         case (SDate(x), SDate(y)) =>

@@ -397,7 +397,7 @@ infixr 1 =<<
 
 -- | Map a function over each element of a list, and concatenate all the results.
 concatMap : (a -> [b]) -> [a] -> [b]
-concatMap f = concat . map f
+concatMap f xs = foldr (\x acc -> f x ++ acc) [] xs
 
 -- | `replicate i x` gives the list `[x, x, x, ..., x]` with `i` copies of `x`.
 replicate : Int -> a -> [a]

@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
@@ -108,9 +109,8 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case _: NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
+      case NodeRollback(_) => // pattern-match forces reconsideration if fields are added
+        text("rollback")
       case create: NodeCreate[Value.ContractId] =>
         "create" &: prettyContractInst(create.coinst)
       case fetch: NodeFetch[Value.ContractId] =>
@@ -254,9 +254,8 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case _: NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
+      case NodeRollback(children) => // pattern-match forces reconsideration if fields are added
+        text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: NodeCreate[ContractId] =>
         val d = "create" &: prettyVersionedContractInst(create.versionedCoinst)
         create.versionedKey match {
@@ -362,7 +361,7 @@ private[lf] object Pretty {
   def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
     v match {
       case ValueInt64(i) => str(i)
-      case ValueNumeric(d) => str(d)
+      case ValueNumeric(d) => text(data.Numeric.toString(d))
       case ValueRecord(mbId, fs) =>
         (mbId match {
           case None => text("")

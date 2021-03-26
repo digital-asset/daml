@@ -131,6 +131,8 @@ kindOfBuiltin = \case
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
+  BTRoundingMode -> KStar
+  BTBigNumeric -> KStar
   BTAnyException -> KStar
   BTGeneralError -> KStar
   BTArithmeticError -> KStar
@@ -214,6 +216,7 @@ typeOfBuiltin = \case
   BEDate _           -> pure TDate
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
+  BERoundingMode _   -> pure TRoundingMode
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
   BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
@@ -261,6 +264,16 @@ typeOfBuiltin = \case
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
   BEToTextNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
   BENumericFromText -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+
+  BEScaleBigNumeric -> pure $ TBigNumeric :-> TInt64
+  BEPrecisionBigNumeric -> pure $ TBigNumeric :-> TInt64
+  BEAddBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BESubBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BEShiftBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
+  BEToNumericBigNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
+  BEFromNumericBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 
   BEAddInt64         -> pure $ tBinop TInt64
   BESubInt64         -> pure $ tBinop TInt64

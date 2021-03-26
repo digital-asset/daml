@@ -471,9 +471,7 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case _: NodeRollback[_] =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
+        case _: NodeRollback[_] => "rollback"
         case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
         case exercise: NodeExercises[_, _] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))

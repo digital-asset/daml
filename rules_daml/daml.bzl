@@ -383,16 +383,21 @@ def daml_doc_test(
         name = name,
         data = [cpp, damlc] + srcs,
         cmd = """\
+set -eou pipefail
 CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 FILES=($$(
   for file in {files}; do
+    IGNORED=false
     for pattern in {ignored}; do
       if [[ $$file = *$$pattern ]]; then
+        IGNORED=true
         continue
       fi
-      echo $$(canonicalize_rlocation $$i)
     done
+    if [[ $$IGNORED == "false" ]]; then
+      echo $$(canonicalize_rlocation $$file)
+    fi
   done
 ))
 

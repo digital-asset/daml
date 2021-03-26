@@ -11,8 +11,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpService
-import com.daml.http.nonrepudiation
+import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
 import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -135,7 +134,7 @@ trait JsonApiFixture
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             Resource[ServerBinding] {
               Files.write(jsonAccessTokenFile, getToken(List(), List(), false).getBytes())
-              val config = new HttpService.DefaultStartSettings {
+              val config = new StartSettings.Default {
                 override val ledgerHost = "localhost"
                 override val ledgerPort = server.port.value
                 override val address = "localhost"

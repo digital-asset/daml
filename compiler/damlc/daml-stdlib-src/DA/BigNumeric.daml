@@ -1,0 +1,54 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+-- | HIDE
+module DA.BigNumeric where
+
+#ifdef DAML_BIGNUMERIC
+-- TODO https://github.com/digital-asset/daml/issues/8719
+--  clean this module
+
+import GHC.Types (primitive)
+
+roundingUp, roundingDown, roundingCeiling, roundingFloor, roundingHalfUp, roundingHalfDown, roundingHalfEven, roundingUnnecessary: RoundingMode
+roundingUp = primitive @"BERoundingUp"
+roundingDown = primitive @"BERoundingDown"
+roundingCeiling = primitive @"BERoundingCeiling"
+roundingFloor = primitive @"BERoundingFloor"
+roundingHalfUp = primitive @"BERoundingHalfUp"
+roundingHalfDown = primitive @"BERoundingHalfDown"
+roundingHalfEven = primitive @"BERoundingHalfEven"
+roundingUnnecessary = primitive @"BERoundingUnnecessary"
+
+zero, one, ten: BigNumeric
+zero = fromNumeric (0.0: Numeric 0)
+one = fromNumeric (1.0: Numeric 0)
+ten = fromNumeric (10.0: Numeric 0)
+
+scale, precision: BigNumeric -> Int
+scale = primitive @"BEScaleBigNumeric"
+precision = primitive @"BEPrecisionBigNumeric"
+
+add, sub, mul : BigNumeric -> BigNumeric -> BigNumeric
+add = primitive @"BEAddBigNumeric"
+sub = primitive @"BESubBigNumeric"
+mul = primitive @"BEMulBigNumeric"
+
+div : Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
+div = primitive @"BEDivBigNumeric"
+
+round: Int -> RoundingMode -> BigNumeric -> BigNumeric
+round scale rounding x = div scale rounding x one
+
+shift: Int -> BigNumeric -> BigNumeric
+shift = primitive @"BEShiftBigNumeric"
+
+fromNumeric:  forall n. NumericScale n => Numeric n -> BigNumeric
+fromNumeric = primitive @"BEFromNumericBigNumeric"
+
+toNumeric: forall n. NumericScale n => BigNumeric -> Numeric n
+toNumeric = primitive @"BEToNumericBigNumeric"
+
+#endif

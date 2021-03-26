@@ -14,7 +14,7 @@ private[validation] object ExprIterable {
     x match {
       case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) |
           // stupid formatter !
-          ETypeRep(_) | ERoundingMode(_) | EExperimental(_, _) =>
+          ETypeRep(_) | EExperimental(_, _) =>
         Iterator.empty
       case ELocation(_, expr) =>
         Iterator(expr)

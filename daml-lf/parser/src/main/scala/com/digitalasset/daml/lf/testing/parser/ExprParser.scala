@@ -43,12 +43,25 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
-      eRoundingMode |
       id ^^ EVar |
       experimental |
       (`(` ~> expr <~ `)`)
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
+
+  private[this] val roundingModes = {
+    import java.math.RoundingMode._
+    Map(
+      "ROUNDING_UP" -> UP,
+      "ROUNDING_DOWN" -> DOWN,
+      "ROUNDING_CEILING" -> CEILING,
+      "ROUNDING_FLOOR" -> FLOOR,
+      "ROUNDING_HALF_UP" -> HALF_UP,
+      "ROUNDING_HALF_DOWN" -> HALF_DOWN,
+      "ROUNDING_HALF_EVEN" -> HALF_EVEN,
+      "ROUNDING_UNNECESSARY" -> UNNECESSARY,
+    )
+  }
 
   private lazy val literal: Parsers.Parser[PrimLit] =
     acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
@@ -62,7 +75,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
           case SimpleString(s) if Ref.Party.fromString(s).isRight =>
             PLParty(Ref.Party.assertFromString(s))
         },
-      )
+      ) |
+      (id ^? roundingModes) ^^ PLRoundingMode
 
   private lazy val primCon =
     Id("True") ^^^ PCTrue |
@@ -313,23 +327,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TO_NUMERIC_BIGNUMERIC" -> BToNumericBigNumeric,
     "TO_BIGNUMERIC_NUMERIC" -> BToBigNumericNumeric,
   )
-
-  private[this] val roundingModes = {
-    import java.math.RoundingMode._
-    Map(
-      "ROUNDING_UP" -> UP,
-      "ROUNDING_DOWN" -> DOWN,
-      "ROUNDING_CEILING" -> CEILING,
-      "ROUNDING_FLOOR" -> FLOOR,
-      "ROUNDING_HALF_UP" -> HALF_UP,
-      "ROUNDING_HALF_DOWN" -> HALF_DOWN,
-      "ROUNDING_HALF_EVEN" -> HALF_EVEN,
-      "ROUNDING_UNNECESSARY" -> UNNECESSARY,
-    )
-  }
-
-  private lazy val eRoundingMode: Parser[Expr] =
-    (id ^? roundingModes) ^^ ERoundingMode
 
   private lazy val experimental: Parser[Expr] =
     `$` ~> id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
