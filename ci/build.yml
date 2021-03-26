@@ -214,12 +214,13 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         export ORACLE_PORT=1521
         export ORACLE_PWD=hunter2
-        docker login --username $ARTIFACTORY_USERNAME --password $ARTIFACTORY_PASSWORD digitalasset-daml-on-oracle-docker.jfrog.io
-        docker pull digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
+        IMAGE=digitalasset/oracle-xe-18.4.0-preloaded:20210312-16-7009a64
+        docker pull $IMAGE
         # Cleanup stray containers that might still be running from
         # another build that didn’t get shut down cleanly.
         docker rm -f oracle || true
-        docker run -d --rm --name oracle -p $ORACLE_PORT:1521 -e ORACLE_PWD=$ORACLE_PWD digitalasset-daml-on-oracle-docker.jfrog.io/oracle-xe-preloaded:2021-02-03-5a88b29
+        docker run -d --rm --name oracle -p $ORACLE_PORT:1521 -e ORACLE_PWD=$ORACLE_PWD $IMAGE
         function cleanup() {
             docker rm -f oracle
         }
@@ -237,8 +238,8 @@ jobs:
           --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
           //ledger-service/http-json-oracle/...
       env:
-        ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
-        ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
+        DOCKER_LOGIN: $(DOCKER_LOGIN)
+        DOCKER_PASSWORD: $(DOCKER_PASSWORD)
       displayName: 'Build'
       condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
     - template: tell-slack-failed.yml
