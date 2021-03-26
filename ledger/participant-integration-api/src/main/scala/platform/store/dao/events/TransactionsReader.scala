@@ -312,7 +312,7 @@ private[dao] final class TransactionsReader(
       implicit loggingContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEventsReader.ContractStateEvent), NotUsed] = {
 
-    // TODO: deduplicate with similar queries in this class
+    // KTODO: deduplicate with similar queries in this class
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         QueryNonPruned.executeSqlOrThrow(
@@ -352,12 +352,12 @@ private[dao] final class TransactionsReader(
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
-  // TODO: make this nice and deduplicate with nextPageRange
+  // KTODO: make this nice and deduplicate with nextPageRange
   private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
       a: ContractStateEventsReader.RawContractEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
-      startExclusive = (a._10, a._7), /* TODO: Use an intermediary DTO */
+      startExclusive = (a._10, a._7), /* KTODO: Use an intermediary DTO */
       endInclusive = endEventSeqId,
     )
 
@@ -430,7 +430,7 @@ private[dao] final class TransactionsReader(
       }
     }
 
-  // TODO: deduplicate with streamEvents
+  // KTODO: deduplicate with streamEvents
   private def streamContractStateEvents(
       queryMetric: DatabaseMetrics,
       query: EventsRange[(Offset, Long)] => Connection => Vector[
