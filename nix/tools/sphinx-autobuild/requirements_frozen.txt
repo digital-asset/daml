@@ -1,9 +1,0 @@
-argh==0.26.2
-livereload==2.6.2
-pathtools==0.1.2
-port-for==0.3.1
-PyYAML==5.3.1
-six==1.15.0
-sphinx-autobuild==0.7.1
-tornado==6.0.4
-watchdog==0.10.2
