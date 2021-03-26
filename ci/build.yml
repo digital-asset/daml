@@ -215,7 +215,7 @@ jobs:
         export ORACLE_PORT=1521
         export ORACLE_PWD=hunter2
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
-        IMAGE=digitalasset/oracle-xe-18.4.0-preloaded:20210312-16-7009a64
+        IMAGE=digitalasset/oracle:enterprise-19.3.0-preloaded-20210325-22-be14fb7
         docker pull $IMAGE
         # Cleanup stray containers that might still be running from
         # another build that didn’t get shut down cleanly.
@@ -226,7 +226,7 @@ jobs:
         }
         trap cleanup EXIT
         testConnection() {
-            docker exec oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/XEPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
+            docker exec oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
         }
         until testConnection
         do
