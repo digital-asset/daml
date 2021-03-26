@@ -55,6 +55,7 @@ import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
@@ -407,26 +408,58 @@ trait TriggerDaoPostgresFixture
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
   // Lazy because the postgresDatabase is only available once the tests start
-  private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
+  private lazy val jdbcConfig_ =
+    JdbcConfig("org.postgresql.Driver", postgresDatabase.url, "operator", "password")
   private lazy val triggerDao =
     DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-
     Await.result(triggerDao.initialize, Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
     Await.result(triggerDao.destroy, Duration(30, SECONDS))
-
     super.afterEach()
   }
 
   override protected def afterAll(): Unit = {
     triggerDao.destroyPermanently().fold(fail(_), identity)
+    super.afterAll()
+  }
+}
 
+trait TriggerDaoOracleFixture
+    extends AbstractTriggerDaoFixture
+    with BeforeAndAfterEach
+    with AkkaBeforeAndAfterAll
+    with OracleAroundAll {
+  self: Suite =>
+
+  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+
+  // Lazy because the postgresDatabase is only available once the tests start
+  private lazy val jdbcConfig_ =
+    JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, oracleUser, oraclePwd)
+  // TODO For whatever reason we need a larger pool here, otherwise
+  // the connection deadlocks. I have no idea why :(
+  private lazy val triggerDao =
+    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.Production)
+  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    Await.result(triggerDao.initialize, Duration(31, SECONDS))
+  }
+
+  override protected def afterEach(): Unit = {
+    Await.result(triggerDao.destroy, Duration(30, SECONDS))
+    super.afterEach()
+  }
+
+  override protected def afterAll(): Unit = {
+    triggerDao.destroyPermanently().fold(fail(_), identity)
     super.afterAll()
   }
 }

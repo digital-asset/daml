@@ -19,6 +19,8 @@ trait OracleAround {
 
   def oraclePort: Port = port
 
+  def oracleJdbcUrl: String = s"jdbc:oracle:thin:@localhost:$oraclePort/ORCLPDB1"
+
   protected def connectToOracle(): Unit = {
     systemUser = sys.env("ORACLE_USERNAME")
     systemPwd = sys.env("ORACLE_PWD")
@@ -29,7 +31,7 @@ trait OracleAround {
     // See https://docs.oracle.com/cd/B19306_01/server.102/b14200/sql_elements008.htm#i27570
     // for name restrictions.
     val u = "u" + Random.alphanumeric.take(29).mkString("")
-    createNewUser(u)
+    createNewUser(u.toUpperCase)
   }
 
   protected def createNewUser(name: String): User = {

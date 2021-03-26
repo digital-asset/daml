@@ -7,7 +7,6 @@ import java.util.UUID
 import java.util.concurrent.Executors.newWorkStealingPool
 
 import cats.effect.{Blocker, ContextShift, IO}
-import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -17,7 +16,6 @@ import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
-import doobie.postgres.implicits._
 import doobie.util.{Get, log}
 import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
@@ -70,8 +68,14 @@ object Connection {
   }
 }
 
-final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Connection.T)
-    extends RunningTriggerDao {
+abstract class DbTriggerDao protected (
+    dataSource: DataSource with Closeable,
+    xa: Connection.T,
+    migrationsDir: String,
+) extends RunningTriggerDao {
+
+  protected implicit def uuidPut: Put[UUID]
+  protected implicit def uuidGet: Get[UUID]
 
   implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
 
@@ -96,7 +100,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[DbTriggerDao])
 
-  private[this] val flywayMigrations = new DbFlywayMigrations(dataSource)
+  private[this] val flywayMigrations = new DbFlywayMigrations(dataSource, migrationsDir)
 
   private def createTables: ConnectionIO[Unit] =
     flywayMigrations.migrate()
@@ -162,15 +166,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   // Insert a package to the `dalfs` table. Do nothing if the package already exists.
   // We specify this in the `insert` since `packageId` is the primary key on the table.
-  private def insertPackage(
+  protected def insertPackage(
       packageId: PackageId,
       pkg: DamlLf.ArchivePayload,
-  ): ConnectionIO[Unit] = {
-    val insert: Fragment = sql"""
-      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
-    """
-    insert.update.run.void
-  }
+  ): ConnectionIO[Unit]
 
   private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
     val select: Fragment = sql"select * from dalfs order by package_id"
@@ -202,14 +201,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
-  private def dropTables: ConnectionIO[Unit] = {
-    val dropFlywayHistory: Fragment = sql"drop table flyway_schema_history"
-    val dropTriggerTable: Fragment = sql"drop table running_triggers"
-    val dropDalfTable: Fragment = sql"drop table dalfs"
-    (dropFlywayHistory.update.run
-      *> dropTriggerTable.update.run
-      *> dropDalfTable.update.run).void
-  }
+  private def dropTables: ConnectionIO[Unit] = flywayMigrations.clean()
 
   final class DatabaseError(errorContext: String, e: Throwable)
       extends RuntimeException(errorContext + "\n" + e.toString)
@@ -296,14 +288,59 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     )
 }
 
+final class DbTriggerDaoPostgreSQL(dataSource: DataSource with Closeable, xa: Connection.T)
+    extends DbTriggerDao(dataSource, xa, "postgres") {
+  import doobie.postgres.implicits._
+
+  override val uuidPut: Put[UUID] = implicitly
+  override val uuidGet: Get[UUID] = implicitly
+
+  override def insertPackage(
+      packageId: PackageId,
+      pkg: DamlLf.ArchivePayload,
+  ): ConnectionIO[Unit] = {
+    val insert: Fragment = sql"""
+      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
+    """
+    insert.update.run.void
+  }
+}
+
+final class DbTriggerDaoOracle(dataSource: DataSource with Closeable, xa: Connection.T)
+    extends DbTriggerDao(dataSource, xa, "oracle") {
+  override val uuidPut: Put[UUID] = Put[String].contramap(_.toString)
+  override val uuidGet: Get[UUID] = Get[String].map(UUID.fromString(_))
+
+  override def insertPackage(
+      packageId: PackageId,
+      pkg: DamlLf.ArchivePayload,
+  ): ConnectionIO[Unit] = {
+    val insert: Fragment = sql"""
+      insert /*+  ignore_row_on_dupkey_index ( dalfs ( package_id ) ) */
+      into dalfs values (${packageId.toString}, ${pkg.toByteArray})
+    """
+    insert.update.run.void
+  }
+}
+
 object DbTriggerDao {
   import Connection.PoolSize, PoolSize.Production
+
+  private val supportedJdbcDrivers
+      : Map[String, (DataSource with Closeable, Connection.T) => DbTriggerDao] = Map(
+    "org.postgresql.Driver" -> ((d, xa) => new DbTriggerDaoPostgreSQL(d, xa)),
+    "oracle.jdbc.OracleDriver" -> ((d, xa) => new DbTriggerDaoOracle(d, xa)),
+  )
 
   def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
       ec: ExecutionContext
   ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
     val (ds, conn) = Connection.connect(c, poolSize)
-    new DbTriggerDao(ds, conn)
+    val driver = supportedJdbcDrivers.get(c.driver) match {
+      case Some(d) => d
+      case None => throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}")
+    }
+    driver(ds, conn)
   }
 }
