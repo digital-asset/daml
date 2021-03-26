@@ -581,7 +581,8 @@ private object OracleQueries extends Queries {
   protected[this] override def textType = sql"NVARCHAR2(100)"
   protected[this] override def packageIdType = sql"NVARCHAR2(64)"
   protected[this] override def partyOffsetContractIdType = sql"NVARCHAR2(255)"
-  protected[this] override def nameType = sql"NVARCHAR2(4000)"
+  // if >=1578: ORA-01450: maximum key length (6398) exceeded
+  protected[this] override def nameType = sql"NVARCHAR2(1562)"
   protected[this] override def agreementTextType = sql"NCLOB"
 
   protected[this] override def jsonColumn(name: Fragment) =
