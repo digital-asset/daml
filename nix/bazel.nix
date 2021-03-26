@@ -66,7 +66,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8103;
+  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8104;
 
   ghc = ghcPkgs.ghc;
   # Deliberately not taken from ghcPkgs. This is a fully
