@@ -245,6 +245,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "lib" </> "lib.dar")
               , "data-dependencies: [" <> show (tmpDir </> "a" </> "a.dar") <> "]"
+              , "build-options: [--package=a-0.0.1]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
@@ -413,6 +414,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
+          , "build-options: [--package=simple-dalf-0.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A where"
