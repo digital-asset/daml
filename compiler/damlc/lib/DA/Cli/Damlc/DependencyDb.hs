@@ -133,11 +133,11 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         -- install data-dependencies
         ----------------------------
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
-        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
+        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf depsDir fp
         exclPkgIds <- queryPkgIds Nothing depsDir
         rdalfs <- getDalfsFromLedger dataDepsPkgIds exclPkgIds
         forM_ rdalfs $ \RemoteDalf {..} -> do
-            installDataDepDalf remoteDalfIsMain depsDir (remoteDalfName <.> "dalf") remoteDalfBs
+            installDataDepDalf depsDir (remoteDalfName <.> "dalf") remoteDalfBs
         -- Mark received packages as well as their transitive dependencies as data dependencies.
         markAsDataRec
             (Set.fromList [remoteDalfPkgId | RemoteDalf {remoteDalfPkgId} <- rdalfs])
@@ -215,14 +215,13 @@ dalfFileName bs fp = do
     let pkgId = T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg
     pure $ pkgId </> takeFileName fp
 
-installDataDepDalf :: Bool -> FilePath -> FilePath -> BS.ByteString -> IO ()
-installDataDepDalf isMain depsDir fp bs = do
+installDataDepDalf :: FilePath -> FilePath -> BS.ByteString -> IO ()
+installDataDepDalf depsDir fp bs = do
     fileName <- dalfFileName bs fp
     let targetFp = depsDir </> fileName
     let targetDir = takeDirectory targetFp
     unlessM (doesDirectoryExist targetDir) $ write targetFp $ BSL.fromStrict bs
     -- if the directory exists, the dalf got already installed as a dependency
-    when isMain $ markDirWith mainMarker targetDir
     markDirWith dataDepMarker targetDir
 
 data DataDeps = DataDeps

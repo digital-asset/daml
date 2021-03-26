@@ -354,7 +354,6 @@ downloadPackage args pid = do
 data RemoteDalf = RemoteDalf
     { remoteDalfName :: String
     , remoteDalfBs :: BS.ByteString
-    , remoteDalfIsMain :: Bool
     , remoteDalfPkgId :: LF.PackageId
     }
 -- | Fetch remote packages.
@@ -378,7 +377,6 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
             , let remoteDalfPkgId = pid
             , let remoteDalfName = T.unpack $ recoverPackageName pkg pid
             , let remoteDalfBs = BSL.toStrict bsl
-            , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
             ]
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
