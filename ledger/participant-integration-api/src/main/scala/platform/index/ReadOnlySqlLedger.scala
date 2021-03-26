@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
@@ -21,6 +22,10 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.events.contracts.{
+  LedgerDaoContractsReader,
+  TranslationCacheBackedContractsStore,
+}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
@@ -46,14 +51,18 @@ private[platform] object ReadOnlySqlLedger {
       enricher: ValueEnricher,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
+
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
       for {
         ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
+        contractsStore <- contractsStoreOwner(lfValueTranslationCache, ledgerDao.contractsReader)
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         ledger <- ResourceOwner
-          .forCloseable(() => new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher))
+          .forCloseable(() =>
+            new ReadOnlySqlLedger(ledgerId, ledgerDao, contractsStore, dispatcher)
+          )
           .acquire()
       } yield ledger
 
@@ -95,7 +104,6 @@ private[platform] object ReadOnlySqlLedger {
                 Future.failed(new LedgerIdNotFoundException(attempt))
             }
       }
-
     }
 
     private def ledgerDaoOwner(
@@ -112,6 +120,13 @@ private[platform] object ReadOnlySqlLedger {
         Some(enricher),
       )
 
+    def contractsStoreOwner(
+        lfValueTranslationCache: LfValueTranslation.Cache,
+        contractsReader: LedgerDaoContractsReader,
+    ): Resource[ContractStore] =
+      TranslationCacheBackedContractsStore
+        .owner(lfValueTranslationCache, contractsReader)
+
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(
         name = "sql-ledger",
@@ -119,15 +134,15 @@ private[platform] object ReadOnlySqlLedger {
         headAtInitialization = ledgerEnd,
       )
   }
-
 }
 
 private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
+    extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher) {
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
