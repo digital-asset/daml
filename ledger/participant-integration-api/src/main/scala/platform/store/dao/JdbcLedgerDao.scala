@@ -958,9 +958,6 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  override def contractStateEventsReader: LedgerDaoContractStateEventsReader =
-    new ContractStateEventsReader(dbDispatcher, metrics, translation)(servicesExecutionContext)
-
   private val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(
       servicesExecutionContext

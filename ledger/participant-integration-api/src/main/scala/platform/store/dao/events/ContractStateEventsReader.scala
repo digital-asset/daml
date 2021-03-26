@@ -6,110 +6,20 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.sql.Connection
 
-import akka.NotUsed
-import akka.stream.OverflowStrategy
-import akka.stream.scaladsl.Source
 import anorm.SqlParser.{binaryStream, int, long}
 import anorm._
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
-import com.daml.logging.LoggingContext
-import com.daml.metrics._
 import com.daml.platform.store.Conversions.{contractId, offset, _}
-import com.daml.platform.store.dao.{
-  DbDispatcher,
-  LedgerDaoContractStateEventsReader,
-  PaginatingAsyncStream,
-  events,
-}
+import com.daml.platform.store.dao.events
 import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
   Archived,
   Created,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
-
-private[dao] final class ContractStateEventsReader(
-    dispatcher: DbDispatcher,
-    metrics: Metrics,
-    lfValueTranslation: LfValueTranslation,
-)(implicit ec: ExecutionContext)
-    extends LedgerDaoContractStateEventsReader {
-
-  import ContractStateEventsReader._
-
-  private val dbMetrics = metrics.daml.index.db
-
-  // TransactionReader adds an Akka stream buffer at the end of all streaming queries.
-  // This significantly improves the performance of the transaction service.
-  private val outputStreamBufferSize = 128
-
-  // TODO: up to this line all is very similar to the TransactionsReader
-
-  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
-      implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEventsReader.ContractStateEvent), NotUsed] = {
-
-    // TODO: deduplicate with the TransactionsReader
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        QueryNonPruned.executeSqlOrThrow(
-          ContractStateEventsReader.read(range),
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
-    }
-
-    val endMarker = Source.single(
-      endInclusive -> ContractStateEventsReader.ContractStateEvent.LedgerEndMarker(
-        eventOffset = endInclusive._1,
-        eventSequentialId = endInclusive._2,
-      )
-    )
-
-    streamEvents(
-      dbMetrics.getContractStateEvents,
-      query,
-      nextPageRangeContracts(endInclusive),
-    )(EventsRange(startExclusive, endInclusive)).async
-      .mapAsync(4) { raw =>
-        Timed.future(
-          metrics.daml.index.decodeStateEvent,
-          Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
-        )
-      }
-      .map(event => (event.eventOffset, event.eventSequentialId) -> event)
-      .mapMaterializedValue(_ => NotUsed)
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
-      .concat(endMarker)
-  }
-
-  private def streamEvents(
-      queryMetric: DatabaseMetrics,
-      query: EventsRange[(Offset, Long)] => Connection => Vector[RawContractEvent],
-      getNextPageRange: RawContractEvent => EventsRange[(Offset, Long)],
-  )(range: EventsRange[(Offset, Long)])(implicit
-      loggingContext: LoggingContext
-  ): Source[RawContractEvent, NotUsed] =
-    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1))
-        Future.successful(Vector.empty)
-      else dispatcher.executeSql(queryMetric)(query(range1))
-    }
-
-  // TODO: make this nice
-  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      a: RawContractEvent
-  ): EventsRange[(Offset, Long)] =
-    EventsRange(
-      startExclusive = (a._10, a._7), /* TDT Use an intermediary DTO */
-      endInclusive = endEventSeqId,
-    )
-}
 
 object ContractStateEventsReader {
   type RawContractEvent = (

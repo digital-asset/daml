@@ -79,6 +79,14 @@ private[platform] trait LedgerDaoTransactionsReader {
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
+
+  // TODO: move this method to a separate *Reader
+  def getContractStateEvents(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), events.ContractStateEventsReader.ContractStateEvent), NotUsed]
 }
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
@@ -90,15 +98,6 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed]
-}
-
-private[platform] trait LedgerDaoContractStateEventsReader {
-  def getContractStateEvents(
-      startExclusive: (Offset, Long),
-      endInclusive: (Offset, Long),
-  )(implicit
-      loggingContext: LoggingContext
-  ): Source[((Offset, Long), events.ContractStateEventsReader.ContractStateEvent), NotUsed]
 }
 
 private[platform] trait LedgerReadDao extends ReportsHealth {
@@ -136,8 +135,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
   def transactionsReader: LedgerDaoTransactionsReader
-
-  def contractStateEventsReader: LedgerDaoContractStateEventsReader
 
   def completions: LedgerDaoCommandCompletionsReader
 

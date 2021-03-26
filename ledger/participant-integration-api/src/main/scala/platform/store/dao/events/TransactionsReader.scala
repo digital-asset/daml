@@ -308,10 +308,58 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
+  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEventsReader.ContractStateEvent), NotUsed] = {
+
+    // TODO: deduplicate with similar queries in this class
+    val query = (range: EventsRange[(Offset, Long)]) => {
+      implicit connection: Connection =>
+        QueryNonPruned.executeSqlOrThrow(
+          ContractStateEventsReader.read(range),
+          range.startExclusive._1,
+          pruned =>
+            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+        )
+    }
+
+    val endMarker = Source.single(
+      endInclusive -> ContractStateEventsReader.ContractStateEvent.LedgerEndMarker(
+        eventOffset = endInclusive._1,
+        eventSequentialId = endInclusive._2,
+      )
+    )
+
+    streamContractStateEvents(
+      dbMetrics.getContractStateEvents,
+      query,
+      nextPageRangeContracts(endInclusive),
+    )(EventsRange(startExclusive, endInclusive)).async
+      .mapAsync(4) { raw =>
+        Timed.future(
+          metrics.daml.index.decodeStateEvent,
+          Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
+        )
+      }
+      .map(event => (event.eventOffset, event.eventSequentialId) -> event)
+      .mapMaterializedValue(_ => NotUsed)
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+      .concat(endMarker)
+  }
+
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
+
+  // TODO: make this nice and deduplicate with nextPageRange
+  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
+      a: ContractStateEventsReader.RawContractEvent
+  ): EventsRange[(Offset, Long)] =
+    EventsRange(
+      startExclusive = (a._10, a._7), /* TODO: Use an intermediary DTO */
+      endInclusive = endEventSeqId,
+    )
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
@@ -380,6 +428,22 @@ private[dao] final class TransactionsReader(
           )
         )
       }
+    }
+
+  // TODO: deduplicate with streamEvents
+  private def streamContractStateEvents(
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[(Offset, Long)] => Connection => Vector[
+        ContractStateEventsReader.RawContractEvent
+      ],
+      getNextPageRange: ContractStateEventsReader.RawContractEvent => EventsRange[(Offset, Long)],
+  )(range: EventsRange[(Offset, Long)])(implicit
+      loggingContext: LoggingContext
+  ): Source[ContractStateEventsReader.RawContractEvent, NotUsed] =
+    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
+      if (EventsRange.isEmpty(range1))
+        Future.successful(Vector.empty)
+      else dispatcher.executeSql(queryMetric)(query(range1))
     }
 
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
