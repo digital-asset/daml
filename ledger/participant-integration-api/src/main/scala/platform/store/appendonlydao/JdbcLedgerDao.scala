@@ -47,7 +47,6 @@ import com.daml.platform.store.appendonlydao.events.{
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
   LedgerDao,
-  LedgerDaoContractStateEventsReader,
   LedgerReadDao,
   MeteredLedgerDao,
   MeteredLedgerReadDao,
@@ -642,8 +641,6 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, dbType, metrics)(
       servicesExecutionContext
     )
-
-  override def contractStateEventsReader: LedgerDaoContractStateEventsReader = ???
 
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(dbDispatcher, dbType, metrics, servicesExecutionContext)

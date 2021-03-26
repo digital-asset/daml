@@ -955,9 +955,6 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  override def contractStateEventsReader: LedgerDaoContractStateEventsReader =
-    new ContractStateEventsReader(dbDispatcher, metrics, translation)(servicesExecutionContext)
-
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(dbDispatcher, dbType, metrics, servicesExecutionContext)
 
