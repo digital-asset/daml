@@ -148,6 +148,32 @@ instance Signed IF_NUMERIC((Numeric n), Decimal) where
     signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
     abs x = if x <= aunit then negate x else x
 
+#ifdef DAML_BIGNUMERIC
+
+instance Additive BigNumeric where
+    (+) = primitive @"BEAddBigNumeric"
+    (-) = primitive @"BESubBigNumeric"
+    negate x = aunit - x
+    aunit = (primitive @"BEFromNumericBigNumeric" : Numeric 0 -> BigNumeric) (0.0 : Numeric 0)
+
+instance Multiplicative BigNumeric where
+    (*) = primitive @"BEMulBigNumeric"
+    munit = (primitive @"BEFromNumericBigNumeric" : Numeric 0 -> BigNumeric) (1.0 : Numeric 0)
+    x ^ n
+        | n == 0 = munit
+        | n == 2 = x * x
+        | n < 0 = munit / x ^ (negate n)
+        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
+        | otherwise = x * x ^ (n - 1)
+
+instance Number BigNumeric
+
+instance Signed BigNumeric where
+    signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
+    abs x = if x <= aunit then negate x else x
+
+#endif
+
 -- | Use the `Divisible` class for types that can be divided.
 -- Instances should respect that division is the inverse of
 -- multiplication, i.e. `x * y / y` is equal to `x` whenever
