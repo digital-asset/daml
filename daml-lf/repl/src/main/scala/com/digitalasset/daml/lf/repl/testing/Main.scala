@@ -510,7 +510,7 @@ object Repl {
           case None =>
             println("Error: " + id + " not found.")
             None
-          case Some(DValue(_, _, body, _)) =>
+          case Some(DValue(_, _, body, true)) =>
             val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
             Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
           case Some(_) =>
@@ -551,7 +551,7 @@ object Repl {
         (modName, mod) = module
         definition <- mod.definitions
         (dfnName, dfn) = definition
-        bodyScenario <- List(dfn).collect { case DValue(TScenario(_), _, body, _) => body }
+        bodyScenario <- List(dfn).collect { case DValue(TScenario(_), _, body, true) => body }
       } yield QualifiedName(modName, dfnName).toString -> bodyScenario
     var failures = 0
     var successes = 0
