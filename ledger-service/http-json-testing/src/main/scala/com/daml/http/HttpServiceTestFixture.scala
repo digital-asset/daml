@@ -28,7 +28,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -69,7 +69,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       useTls: UseTls = UseTls.NoTls,
       wsConfig: Option[WebsocketConfig] = None,
       nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
-  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(implicit
+  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -104,8 +104,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       )
     } yield httpService
 
-    val clientF: Future[LedgerClient] = for {
-      client <- LedgerClient.singleHost(
+    val clientF: Future[DamlLedgerClient] = for {
+      client <- DamlLedgerClient.singleHost(
         "localhost",
         ledgerPort.value,
         clientConfig(applicationId, useTls = useTls),
@@ -143,7 +143,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       token: Option[String] = None,
       useTls: UseTls = UseTls.NoTls,
       authService: Option[AuthService] = None,
-  )(testFn: (Port, LedgerClient) => Future[A])(implicit
+  )(testFn: (Port, DamlLedgerClient) => Future[A])(implicit
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
@@ -159,9 +159,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       port <- ledger.portF
     } yield (ledger, port)
 
-    val clientF: Future[LedgerClient] = for {
+    val clientF: Future[DamlLedgerClient] = for {
       (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost(
+      client <- DamlLedgerClient.singleHost(
         "localhost",
         ledgerPort.value,
         clientConfig(applicationId, token, useTls),
@@ -212,7 +212,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     )
 
   def jsonCodecs(
-      client: LedgerClient
+      client: DamlLedgerClient
   )(implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val packageService = new PackageService(
       HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None)

@@ -41,7 +41,7 @@ private[keys] object KeyMonotonicityValidation {
         recordTime,
         transactionCommitter.buildRejectionLogEntry(
           transactionEntry,
-          RejectionReason.Inconsistent("Causal monotonicity violated"),
+          RejectionReason.InvalidLedgerTime("Causal monotonicity violated"),
         ),
       )
   }

@@ -12,7 +12,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.TestUtil.requiredFile
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -59,13 +59,13 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
     }
   }
 
-  protected def withLedger[A](testFn: LedgerClient => Future[A]): Future[A] =
+  protected def withLedger[A](testFn: DamlLedgerClient => Future[A]): Future[A] =
     HttpServiceTestFixture
       .withLedger[A](List(dar), testId, Option(publicToken), authService = mockedAuthService) {
         case (_, client) => testFn(client)
       }
 
-  private def packageService(client: LedgerClient): PackageService =
+  private def packageService(client: DamlLedgerClient): PackageService =
     new PackageService(HttpService.loadPackageStoreUpdates(client.packageClient, tokenHolder))
 
   behavior of "PackageService against an authenticated sandbox"

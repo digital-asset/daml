@@ -9,16 +9,19 @@ import com.daml.lf.value.Value.ContractId
 object Normalizer {
 
   // KV specific normalization.
-  // drops Fetch and Lookup nodes from a transaction.
+  // Drop Fetch, Lookup and Rollback nodes from a transaction, keeping Create and Exercise.
   def normalizeTransaction(
       tx: CommittedTransaction
   ): CommittedTransaction = {
+    // TODO https://github.com/digital-asset/daml/issues/8020
+
+    // We need drop Rollback nodes and all their children. Before we do this we need to
+    // update NormalizerSpec. Which in turn requires we extend our scalagen generators to
+    // generate transactions containing rollback nodes.
     val nodes = tx.nodes.filter {
-      case (_, _: Node.NodeRollback[_]) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
-      case (_, _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => false
-      case (_, _: Node.NodeExercises[_, _] | _: Node.NodeCreate[_]) => true
+      case (_, _: Node.NodeRollback[_] | _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => false
+      case (_, _: Node.NodeExercises[_, _] | _: Node.NodeCreate[_]) =>
+        true
     }
     val filteredNodes = nodes.transform {
       case (_, node: Node.NodeExercises[NodeId, ContractId]) =>

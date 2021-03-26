@@ -35,7 +35,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       )
 
   private val ok = io.grpc.Status.Code.OK.value()
-  private val invalid = io.grpc.Status.Code.INVALID_ARGUMENT.value()
+  private val aborted = io.grpc.Status.Code.ABORTED.value()
 
   behavior of "JdbcLedgerDao (post-commit validation)"
 
@@ -56,7 +56,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     } yield {
       completions should contain.allOf(
         originalAttempt.commandId.get -> ok,
-        duplicateAttempt.commandId.get -> invalid,
+        duplicateAttempt.commandId.get -> aborted,
       )
     }
   }
@@ -76,7 +76,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
-        lookup.commandId.get -> invalid,
+        lookup.commandId.get -> aborted,
       )
     }
   }
@@ -99,7 +99,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       completions should contain.allOf(
         create.commandId.get -> ok,
         archive.commandId.get -> ok,
-        lookup.commandId.get -> invalid,
+        lookup.commandId.get -> aborted,
       )
     }
   }
@@ -122,7 +122,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       completions should contain.allOf(
         create.commandId.get -> ok,
         archive.commandId.get -> ok,
-        fetch.commandId.get -> invalid,
+        fetch.commandId.get -> aborted,
       )
     }
   }
@@ -143,7 +143,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
-        fetch1.commandId.get -> invalid,
+        fetch1.commandId.get -> aborted,
         divulgence.commandId.get -> ok,
         fetch2.commandId.get -> ok,
       )

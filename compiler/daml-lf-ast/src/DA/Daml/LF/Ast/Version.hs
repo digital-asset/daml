@@ -148,6 +148,15 @@ featureTypeInterning = Feature
     , featureCppFlag = Nothing
     }
 
+featureBigNumeric :: Feature
+featureBigNumeric = Feature
+    { featureName = "BigNumeric type"
+      -- TODO https://github.com/digital-asset/daml/issues/8719
+      -- Update LF version number when we stabilize exceptions.
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_BIGNUMERIC"
+    }
+
 featureExceptions :: Feature
 featureExceptions = Feature
     { featureName = "DAML Exceptions"
@@ -178,6 +187,7 @@ allFeatures =
     , featureToTextContractId
     , featureChoiceObservers
     , featureTypeInterning
+    , featureBigNumeric
     , featureExceptions
     , featureExperimental
     ]

@@ -9,10 +9,15 @@ import java.util.Date
 
 import anorm._
 import com.daml.ledger.EventId
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.v1.RejectionReason._
+import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
+import io.grpc.Status.Code
+
+import scala.language.implicitConversions
 
 private[platform] object Conversions {
 
@@ -226,5 +231,36 @@ private[platform] object Conversions {
       s.setArray(index, ts)
     }
   }
+
+  // RejectionReason
+
+  implicit def domainRejectionReasonToErrorCode(reason: domain.RejectionReason): Code =
+    participantRejectionReasonToErrorCode(
+      domainRejectionReasonToParticipantRejectionReason(
+        reason
+      )
+    )
+
+  // We _rely_ on the following compiler flags for this to be safe:
+  // * -Xno-patmat-analysis _MUST NOT_ be enabled
+  // * -Xfatal-warnings _MUST_ be enabled
+  implicit def participantRejectionReasonToErrorCode(reason: RejectionReason): Code = reason match {
+    case _: Disputed | _: PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
+    case _: Inconsistent | _: ResourcesExhausted | _: InvalidLedgerTime => Code.ABORTED
+    case _: SubmitterCannotActViaParticipant => Code.PERMISSION_DENIED
+  }
+
+  implicit def domainRejectionReasonToParticipantRejectionReason(
+      reason: domain.RejectionReason
+  ): RejectionReason =
+    reason match {
+      case r: domain.RejectionReason.Inconsistent => Inconsistent(r.description)
+      case r: domain.RejectionReason.Disputed => Disputed(r.description)
+      case r: domain.RejectionReason.OutOfQuota => ResourcesExhausted(r.description)
+      case r: domain.RejectionReason.PartyNotKnownOnLedger => PartyNotKnownOnLedger(r.description)
+      case r: domain.RejectionReason.SubmitterCannotActViaParticipant =>
+        SubmitterCannotActViaParticipant(r.description)
+      case r: domain.RejectionReason.InvalidLedgerTime => InvalidLedgerTime(r.description)
+    }
 
 }

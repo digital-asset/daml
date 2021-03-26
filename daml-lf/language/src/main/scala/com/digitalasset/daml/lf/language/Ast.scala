@@ -146,9 +146,6 @@ object Ast {
   /** Unique textual representation of template Id * */
   final case class ETypeRep(typ: Type) extends Expr
 
-  /** Map java rounding Mode */
-  final case class ERoundingMode(rounding: java.math.RoundingMode) extends Expr
-
   /** Throw an exception */
   final case class EThrow(returnType: Type, exceptionType: Type, exception: Expr) extends Expr
 
@@ -328,6 +325,7 @@ object Ast {
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
   final case class PLParty(override val value: Party) extends PrimLit
   final case class PLDate(override val value: Time.Date) extends PrimLit
+  final case class PLRoundingMode(override val value: java.math.RoundingMode) extends PrimLit
 
   //
   // Primitive constructors

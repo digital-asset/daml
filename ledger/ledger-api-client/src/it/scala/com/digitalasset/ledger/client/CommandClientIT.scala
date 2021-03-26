@@ -463,7 +463,7 @@ final class CommandClientIT
         assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "requires authorizers")
       }
 
-      "not accept exercises with bad contract IDs, return INVALID_ARGUMENT" in {
+      "not accept exercises with bad contract IDs, return ABORTED" in {
         val contractId = "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
         val command =
           submitRequest(
@@ -473,7 +473,7 @@ final class CommandClientIT
             ),
           )
 
-        assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "error")
+        assertCommandFailsWithCode(command, Code.ABORTED, "error")
       }
     }
   }

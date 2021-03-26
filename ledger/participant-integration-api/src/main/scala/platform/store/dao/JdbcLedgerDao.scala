@@ -595,29 +595,13 @@ private class JdbcLedgerDao(
                 submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                 offset = offset,
                 recordTime = recordTime,
-                reason = toParticipantRejection(reason),
+                reason = reason,
               ).execute()
           }
         }
         ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
     }
   }
-
-  private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
-    reason match {
-      case r: domain.RejectionReason.Inconsistent =>
-        RejectionReason.Inconsistent(r.description)
-      case r: domain.RejectionReason.Disputed =>
-        RejectionReason.Disputed(r.description)
-      case r: domain.RejectionReason.OutOfQuota =>
-        RejectionReason.ResourcesExhausted(r.description)
-      case r: domain.RejectionReason.PartyNotKnownOnLedger =>
-        RejectionReason.PartyNotKnownOnLedger(r.description)
-      case r: domain.RejectionReason.SubmitterCannotActViaParticipant =>
-        RejectionReason.SubmitterCannotActViaParticipant(r.description)
-      case r: domain.RejectionReason.InvalidLedgerTime =>
-        RejectionReason.InvalidLedgerTime(r.description)
-    }
 
   private val PageSize = 100
 

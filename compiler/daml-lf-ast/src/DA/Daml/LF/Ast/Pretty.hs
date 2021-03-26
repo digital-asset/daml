@@ -148,6 +148,8 @@ instance Pretty BuiltinType where
     BTArrow -> parens docFunArrow
     BTAny -> "Any"
     BTTypeRep -> "TypeRep"
+    BTRoundingMode -> "RoundingMode"
+    BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
     BTGeneralError -> "GeneralError"
     BTArithmeticError -> "ArithmeticError"
@@ -201,6 +203,16 @@ docAltArrow = "->"
 instance Pretty PartyLiteral where
   pPrint = quotes . text . unPartyLiteral
 
+prettyRounding :: RoundingModeLiteral -> String
+prettyRounding LitRoundingUp = "ROUNDING_UP"
+prettyRounding LitRoundingDown = "ROUNDING_DOWN"
+prettyRounding LitRoundingCeiling = "ROUNDING_CEILING"
+prettyRounding LitRoundingFloor = "ROUNDING_FLOOR"
+prettyRounding LitRoundingHalfUp = "ROUNDING_HALF_UP"
+prettyRounding LitRoundingHalfDown = "ROUNDING_HALF_DOWN"
+prettyRounding LitRoundingHalfEven = "ROUNDING_HALF_EVEN"
+prettyRounding LitRoundingUnnecessary = "ROUNDING_UNNECESSARY"
+
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
@@ -210,6 +222,7 @@ instance Pretty BuiltinExpr where
     BEParty p -> pPrint p
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
+    BERoundingMode r -> keyword_ $ prettyRounding r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEGeneralErrorMessage -> "GENERAL_ERROR_MESSAGE"
@@ -251,6 +264,15 @@ instance Pretty BuiltinExpr where
     BEGreaterNumeric -> "GREATER_NUMERIC"
     BENumericFromText -> "FROM_TEXT_NUMERIC"
     BEToTextNumeric -> "TO_TEXT_NUMERIC"
+    BEScaleBigNumeric -> "SCALE_BIGNUMERIC"
+    BEPrecisionBigNumeric -> "PRECISION_BIGNUMERIC"
+    BEAddBigNumeric -> "ADD_BIGNUMERIC"
+    BESubBigNumeric -> "SUB_BIGNUMERIC"
+    BEMulBigNumeric -> "MUl_BIGNUMERIC"
+    BEDivBigNumeric -> "DIV_BIGNUMERIC"
+    BEShiftBigNumeric -> "SHIFT_BIGNUMERIC"
+    BEToNumericBigNumeric -> "TO_NUMERIC_BIGNUMERIC"
+    BEFromNumericBigNumeric -> "TO_BIGNUMERIC_NUMERIC"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"

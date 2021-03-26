@@ -260,6 +260,34 @@ convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
 convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
     ETyApp (EBuiltin BENumericFromText) n
 
+convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEScaleBigNumeric
+convertPrim version "BEPrecisionBigNumeric" ty@(TBigNumeric :-> TInt64) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEPrecisionBigNumeric
+convertPrim version "BEAddBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEAddBigNumeric
+convertPrim version "BESubBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BESubBigNumeric
+convertPrim version "BEMulBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEMulBigNumeric
+convertPrim version "BEDivBigNumeric" ty@(TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEDivBigNumeric
+convertPrim version "BEShiftBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEShiftBigNumeric
+convertPrim version "BEFromNumericBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEFromNumericBigNumeric `ETyApp` n
+convertPrim version "BEToNumericBigNumeric" ty@(TBigNumeric :-> TNumeric n) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEToNumericBigNumeric `ETyApp` n
+
 -- Experimental text primitives.
 convertPrim _ "BETextToUpper" (TText :-> TText) = EBuiltin BETextToUpper
 convertPrim _ "BETextToLower" (TText :-> TText) = EBuiltin BETextToLower
@@ -405,6 +433,31 @@ convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :
             (EVar (mkVar "t") `ETmApp` EUnit)
             (mkVar "x")
             (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
+
+convertPrim version "BERoundingUp" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingUp
+convertPrim version "BERoundingDown" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingDown
+convertPrim version "BERoundingCeiling" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingCeiling
+convertPrim version "BERoundingFloor" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingFloor
+convertPrim version "BERoundingHalfUp" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingHalfUp
+convertPrim version "BERoundingHalfDown" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingHalfDown
+convertPrim version "BERoundingHalfEven" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingHalfEven
+convertPrim version "BERoundingUnnecessary" TRoundingMode =
+    whenRuntimeSupports version featureBigNumeric TRoundingMode $
+      EBuiltin $ BERoundingMode LitRoundingUnnecessary
 
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ

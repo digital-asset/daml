@@ -144,8 +144,11 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid0") -> "contract_0_0",
           ContractId("cid1") -> "contract_1_0",
           ContractId("cid2") -> "contract_1_1",
+          ContractId("cid3") -> "contract_0_1",
+          ContractId("cid4") -> "contract_2_0",
+          ContractId("cid5") -> "contract_2_1",
         )
-        val cidRefs = Set(ContractId("cid1"), ContractId("cid2"))
+        val cidRefs = Set(ContractId("cid1"), ContractId("cid2"), ContractId("cid4"))
         val submit = TestData
           .Tree(
             Seq(
@@ -155,15 +158,30 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
                   TestData.Created(ContractId("cid1")),
                   TestData.Created(ContractId("cid2")),
                 ),
-              )
+              ),
+              TestData.Exercised(
+                ContractId("cid3"),
+                Seq(
+                  TestData.Created(ContractId("cid4")),
+                  TestData.Created(ContractId("cid5")),
+                ),
+              ),
             )
           )
           .toSubmit
         encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())
-            |let contract_1_0 = createdCid @Module.Template [0, 0] tree
-            |let contract_1_1 = createdCid @Module.Template [0, 1] tree""".stripMargin.replace(
+            |  exerciseCmd contract_0_1 (Module.Choice ())
+            |let contract_1_0 = fromTree tree $
+            |      exercised @Module.Template "Choice" $
+            |      created @Module.Template
+            |let contract_1_1 = fromTree tree $
+            |      exercised @Module.Template "Choice" $
+            |      createdN @Module.Template 1
+            |let contract_2_0 = fromTree tree $
+            |      exercisedN @Module.Template "Choice" 1 $
+            |      created @Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
           )
@@ -195,8 +213,11 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             |  createCmd Module.Template
             |  createCmd Module.Template
             |  exerciseByKeyCmd @Module.Template alice_0 (Module.Choice ())
-            |let contract_1_0 = createdCid @Module.Template [1] tree
-            |let contract_1_1 = createdCid @Module.Template [2, 0] tree""".stripMargin.replace(
+            |let contract_1_0 = fromTree tree $
+            |      createdN @Module.Template 1
+            |let contract_1_1 = fromTree tree $
+            |      exercised @Module.Template "Choice" $
+            |      created @Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
           )

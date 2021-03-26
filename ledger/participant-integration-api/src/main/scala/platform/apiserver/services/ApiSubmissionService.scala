@@ -25,6 +25,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.engine.{ContractNotFound, ReplayMismatch}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -268,10 +269,14 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def toStatus(errorCause: ErrorCause) =
     errorCause match {
-      case e: ErrorCause.DamlLf =>
-        Status.INVALID_ARGUMENT.withDescription(e.explain)
-      case e: ErrorCause.LedgerTime =>
-        Status.ABORTED.withDescription(e.explain)
+      case cause @ ErrorCause.DamlLf(error) =>
+        error match {
+          case ContractNotFound(_) | ReplayMismatch(_) =>
+            Status.ABORTED.withDescription(cause.explain)
+          case _ => Status.INVALID_ARGUMENT.withDescription(cause.explain)
+        }
+      case cause: ErrorCause.LedgerTime =>
+        Status.ABORTED.withDescription(cause.explain)
     }
 
   override def close(): Unit = ()

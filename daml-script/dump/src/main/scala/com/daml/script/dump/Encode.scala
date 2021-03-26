@@ -6,7 +6,7 @@ package com.daml.script.dump
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
@@ -158,6 +158,9 @@ private[dump] object Encode {
     go(v)
   }
 
+  private def quotes(v: Doc) =
+    "\"" +: v :+ "\""
+
   private def parens(v: Doc) =
     Doc.text("(") + v + Doc.text(")")
 
@@ -211,6 +214,12 @@ private[dump] object Encode {
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
+  private def encodeTemplateId(id: TemplateId): Doc =
+    qualifyId(TemplateId.unwrap(id))
+
+  private def encodeChoice(choice: Choice): Doc =
+    quotes(Doc.text(Choice.unwrap(choice)))
+
   private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -248,11 +257,10 @@ private[dump] object Encode {
     Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
-    Doc.text("let ") + encodeCid(cidMap, c.cid) + Doc.text(" = createdCid @") +
-      qualifyId(c.tplId) + Doc.text(" [") + Doc.intercalate(
-        Doc.text(", "),
-        c.path.map(encodeSelector(_)),
-      ) + Doc.text("] tree")
+    (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
+      Doc.text("tree"),
+      c.path,
+    )).nested(4)
   }
 
   private[dump] def encodeSubmitCreatedEvents(
@@ -353,7 +361,27 @@ private[dump] object Encode {
     Doc.stack(treeBind +: cidBinds)
   }
 
-  private def encodeSelector(selector: Selector): Doc = Doc.str(selector.i)
+  private def encodePath(tree: Doc, path: List[Selector]): Doc = {
+    Doc
+      .intercalate(
+        " $" +: Doc.line,
+        ("fromTree" &: tree) +: path.map(encodeSelector),
+      )
+      .nested(2)
+  }
+
+  private def encodeSelector(selector: Selector): Doc = {
+    selector match {
+      case CreatedSelector(templateId, 0) =>
+        "created @" +: encodeTemplateId(templateId)
+      case CreatedSelector(templateId, index) =>
+        "createdN @" +: encodeTemplateId(templateId) & Doc.str(index)
+      case ExercisedSelector(templateId, choice, 0) =>
+        "exercised @" +: encodeTemplateId(templateId) & encodeChoice(choice)
+      case ExercisedSelector(templateId, choice, index) =>
+        "exercisedN @" +: encodeTemplateId(templateId) & encodeChoice(choice) & Doc.str(index)
+    }
+  }
 
   private def encodeSubmitCall(partyMap: Map[Party, String], submit: Submit): Doc = {
     val parties = submit match {

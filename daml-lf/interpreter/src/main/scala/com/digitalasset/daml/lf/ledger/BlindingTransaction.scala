@@ -80,7 +80,8 @@ object BlindingTransaction {
       node match {
         case _: NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
+          // can rollback nodes also cause divulgence?
+          state
 
         case _: NodeCreate[ContractId] => state
         case _: NodeLookupByKey[ContractId] => state

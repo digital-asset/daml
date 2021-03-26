@@ -3,7 +3,7 @@
 
 package com.daml.script.dump
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
@@ -21,7 +21,16 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object TreeUtils {
-  final case class Selector(i: Int)
+  sealed trait Selector
+  final case class CreatedSelector(
+      templateId: TemplateId,
+      index: Int,
+  ) extends Selector
+  final case class ExercisedSelector(
+      templateId: TemplateId,
+      choice: Choice,
+      index: Int,
+  ) extends Selector
 
   def contractsReferences(contracts: Iterable[CreatedEvent]): Set[PackageId] = {
     contracts
@@ -50,9 +59,33 @@ object TreeUtils {
     }
   }
 
+  private def foreachEventWithSelector(
+      events: Seq[TreeEvent.Kind]
+  )(f: (TreeEvent.Kind, Selector) => Unit): Unit = {
+    val created = mutable.HashMap.empty[TemplateId, Int].withDefaultValue(0)
+    val exercised = mutable.HashMap.empty[(TemplateId, Choice), Int].withDefaultValue(0)
+    events.foreach {
+      case Kind.Empty =>
+      case event @ Kind.Created(value) =>
+        val templateId = TemplateId(value.getTemplateId)
+        val index = created(templateId)
+        val selector = CreatedSelector(templateId, index)
+        created(templateId) += 1
+        f(event, selector)
+      case event @ Kind.Exercised(value) =>
+        val templateId = TemplateId(value.getTemplateId)
+        val choice = Choice(value.choice)
+        val index = exercised((templateId, choice))
+        val selector = ExercisedSelector(templateId, choice, index)
+        exercised((templateId, choice)) += 1
+        f(event, selector)
+    }
+  }
+
   def traverseTree(tree: TransactionTree)(f: (List[Selector], TreeEvent.Kind) => Unit): Unit = {
-    tree.rootEventIds.map(tree.eventsById(_)).zipWithIndex.foreach { case (ev, i) =>
-      traverseEventInTree(ev.kind, tree) { case (path, ev) => f(Selector(i) :: path, ev) }
+    val rootEvents = tree.rootEventIds.map(id => tree.eventsById(id).kind)
+    foreachEventWithSelector(rootEvents) { case (ev, selector) =>
+      traverseEventInTree(ev, tree) { case (path, ev) => f(selector :: path, ev) }
     }
   }
 
@@ -62,11 +95,12 @@ object TreeUtils {
     event match {
       case Kind.Empty =>
       case created @ Kind.Created(_) =>
-        f(List(), created)
+        f(Nil, created)
       case exercised @ Kind.Exercised(value) =>
-        f(List(), exercised)
-        value.childEventIds.map(x => tree.eventsById(x).kind).zipWithIndex.foreach { case (ev, i) =>
-          traverseEventInTree(ev, tree) { case (path, ev) => f(Selector(i) :: path, ev) }
+        f(Nil, exercised)
+        val childEvents = value.childEventIds.map(id => tree.eventsById(id).kind)
+        foreachEventWithSelector(childEvents) { case (ev, selector) =>
+          traverseEventInTree(ev, tree) { case (path, ev) => f(selector :: path, ev) }
         }
     }
   }

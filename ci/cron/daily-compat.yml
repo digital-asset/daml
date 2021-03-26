@@ -162,7 +162,7 @@ jobs:
           OUT="$(Build.StagingDirectory)/${REPORT_ID}"
 
           for scenario in $SCENARIOS; do
-            bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
+            bazel run //ledger-service/http-json-perf:http-json-perf-binary-ce -- \
             --scenario=${scenario} \
             --dars=${DAR} \
             --reports-dir=${OUT} \
