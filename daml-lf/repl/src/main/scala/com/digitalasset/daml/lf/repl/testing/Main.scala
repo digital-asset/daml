@@ -503,7 +503,7 @@ object Repl {
     }
   }
 
-  def buildExpr(state: State, idAndArgs: Seq[String]): Option[Expr] =
+  def buildExprFromTest(state: State, idAndArgs: Seq[String]): Option[Expr] =
     idAndArgs match {
       case id :: args =>
         lookup(state, id) match {
@@ -514,7 +514,7 @@ object Repl {
             val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
             Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
           case Some(_) =>
-            println("Error: " + id + " is not a value.")
+            println("Error: " + id + " is not a test.")
             None
         }
       case _ =>
@@ -523,7 +523,7 @@ object Repl {
     }
 
   def invokeScenario(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
-    buildExpr(state, idAndArgs)
+    buildExprFromTest(state, idAndArgs)
       .map { expr =>
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
@@ -585,7 +585,7 @@ object Repl {
   }
 
   def cmdProfile(state: State, scenarioId: String, outputFile: Path): (Boolean, State) = {
-    buildExpr(state, Seq(scenarioId))
+    buildExprFromTest(state, Seq(scenarioId))
       .map { expr =>
         println("Warming up JVM for 10s...")
         val start = System.nanoTime()
