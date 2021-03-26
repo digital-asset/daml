@@ -766,7 +766,10 @@ private object OracleQueries extends Queries {
               containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
             }
             concatFragment(intersperse(fieldPreds, sql" AND "))
-          case _ => ensureNotNull
+          case _ =>
+            // a check *at root* for `@> {}` always succeeds, so don't bother querying
+            if (path.elems.isEmpty) sql"1 = 1"
+            else ensureNotNull
         }
 
       case JsArray(Seq()) => ensureNotNull
