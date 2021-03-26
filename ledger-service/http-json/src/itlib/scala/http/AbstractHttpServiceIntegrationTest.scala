@@ -947,7 +947,7 @@ abstract class AbstractHttpServiceIntegrationTest
           status shouldBe StatusCodes.InternalServerError
           assertStatus(output, StatusCodes.InternalServerError)
           expectedOneErrorMessage(output) should include(
-            "couldn't find contract ContractId(#NonExistentContractId)"
+            "Contract could not be found with id ContractId(#NonExistentContractId)"
           )
         }: Future[Assertion]
   }

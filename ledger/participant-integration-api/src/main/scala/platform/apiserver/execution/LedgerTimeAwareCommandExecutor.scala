@@ -84,7 +84,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
                 }
               })
-              .recoverWith {
+              .recover {
                 // An error while looking up the maximum ledger time for the used contracts
                 // most likely means that one of the contracts is already not active anymore,
                 // which can happen under contention.
@@ -95,7 +95,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                     s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
                       .mkString(", ")}. Details: $error"
                   )
-                  Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
+                  Left(ErrorCause.LedgerTime(maxRetries - retriesLeft))
               }
       }
   }

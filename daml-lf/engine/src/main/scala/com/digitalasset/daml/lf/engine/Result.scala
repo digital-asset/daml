@@ -108,7 +108,7 @@ object Result {
     ResultNeedContract(
       acoid,
       {
-        case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
+        case None => ResultError(ContractNotFound(acoid))
         case Some(contract) => resume(contract)
       },
     )

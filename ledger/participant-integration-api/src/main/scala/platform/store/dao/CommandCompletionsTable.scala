@@ -6,16 +6,14 @@ package com.daml.platform.store.dao
 import java.time.Instant
 
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo, TransactionId}
-import com.daml.ledger.participant.state.v1.RejectionReason._
-import com.daml.lf.data.Ref
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo, TransactionId}
+import com.daml.lf.data.Ref
 import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.SqlFunctions
-import io.grpc.Status.Code
 import com.google.rpc.status.Status
 
 private[platform] object CommandCompletionsTable {
@@ -71,22 +69,9 @@ private[platform] object CommandCompletionsTable {
       offset: Offset,
       recordTime: Instant,
       reason: RejectionReason,
-  ): SimpleSql[Row] = {
-    val (code, message) = toStatus(reason)
+  ): SimpleSql[Row] =
     SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-      .toArray[String]}, ${submitterInfo.commandId}, $code, $message)"
-  }
-
-  private def toStatus(rejection: RejectionReason): (Int, String) = {
-    rejection match {
-      case _: Inconsistent | _: Disputed | _: PartyNotKnownOnLedger =>
-        Code.INVALID_ARGUMENT.value() -> rejection.description
-      case _: ResourcesExhausted | _: InvalidLedgerTime =>
-        Code.ABORTED.value() -> rejection.description
-      case _: SubmitterCannotActViaParticipant =>
-        Code.PERMISSION_DENIED.value() -> rejection.description
-    }
-  }
+      .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
 
   def prepareCompletionsDelete(endInclusive: Offset): SimpleSql[Row] =
     SQL"delete from participant_command_completions where completion_offset <= $endInclusive"

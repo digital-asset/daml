@@ -201,8 +201,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
     } yield {
       assertGrpcError(
         failure,
-        Status.Code.INVALID_ARGUMENT,
-        Some(Pattern.compile("dependency error: couldn't find contract")),
+        Status.Code.ABORTED,
+        Some(Pattern.compile("Contract could not be found")),
       )
     }
   })

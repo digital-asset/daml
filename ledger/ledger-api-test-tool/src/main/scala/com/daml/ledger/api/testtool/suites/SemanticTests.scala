@@ -59,7 +59,7 @@ final class SemanticTests extends LedgerTestSuite {
           .exercise(owner, iou.exerciseTransfer(_, leftWithNothing))
           .mustFail("consuming a contract twice")
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+        assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
       }
   })
 
@@ -142,7 +142,7 @@ final class SemanticTests extends LedgerTestSuite {
           .exercise(owner2, shared.exerciseSharedContract_Consume2)
           .mustFail("consuming a contract twice")
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+        assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
       }
   })
 
@@ -308,16 +308,16 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("fetching the new IOU with the wrong party")
 
       } yield {
-        assertGrpcError(iouFetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+        assertGrpcError(iouFetchFailure, Status.Code.ABORTED, "Contract could not be found")
         assertGrpcError(
           paintOfferFetchFailure,
-          Status.Code.INVALID_ARGUMENT,
-          "couldn't find contract",
+          Status.Code.ABORTED,
+          "Contract could not be found",
         )
         assertGrpcError(
           paintAgreeFetchFailure,
-          Status.Code.INVALID_ARGUMENT,
-          "couldn't find contract",
+          Status.Code.ABORTED,
+          "Contract could not be found",
         )
         assertGrpcError(
           secondIouFetchFailure,
@@ -384,7 +384,7 @@ final class SemanticTests extends LedgerTestSuite {
             beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
           }
         } yield {
-          assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+          assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
         }
     }
   )
