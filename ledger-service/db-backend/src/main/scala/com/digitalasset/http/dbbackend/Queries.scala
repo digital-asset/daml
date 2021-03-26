@@ -11,7 +11,7 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.collection.immutable.{Iterable, Seq => ISeq}
-import scalaz.{@@, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
+import scalaz.{@@, Cord, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
@@ -562,8 +562,7 @@ private object PostgresQueries extends Queries {
 }
 
 private object OracleQueries extends Queries {
-  import Queries.{DBContract, MatchedQueryMarker, JsonPath, OrderOperator, SurrogateTpId},
-  Queries.InitDdl.CreateTable
+  import Queries._, Queries.InitDdl.CreateTable
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
@@ -718,15 +717,67 @@ private object OracleQueries extends Queries {
     sql"JSON_EQUAL(key, ${toDBContractKey(key)})"
   }
 
-  private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
-    import scalaz.Cord
-    val opath: String =
-      path.elems.foldMap[Cord](_.fold(k => (".": Cord) ++ k, (_: _0.type) => "[0]")).toString
-    sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", $opath), ${literal.compactPrint: String})"
+  private[this] def pathSteps(path: JsonPath): Cord =
+    path.elems.foldMap(_.fold(k => (".\"": Cord) ++ k :- '"', (_: _0.type) => "[0]"))
+
+  // I cannot believe this function exists in 2021
+  // ORA-40454: path expression not a literal
+  private[this] def oraclePathEscape(readyPath: Cord): Fragment = {
+    val s = readyPath.toString
+    assert(
+      !s.startsWith("'") && !s.endsWith("'"),
+      "Oracle JSON query syntax doesn't allow ' at beginning or ending",
+    )
+    Fragment const0 ("'" + s.replaceAllLiterally("'", "''") + "'")
   }
 
-  private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) =
-    sql"1 = 1" // TODO SC
+  private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
+    val opath: Cord = '$' -: pathSteps(path)
+    literal match {
+      case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
+        val pred = opath ++ "?(@ == " ++ literal.compactPrint :- ')'
+        sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pred) ++ sql")"
+      case JsObject(_) | JsArray(_) =>
+        sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(
+          opath
+        ) ++ sql"), ${literal.compactPrint: String})"
+    }
+  }
+
+  // XXX JsValue is _too big_ a type for `literal`; we can make this function
+  // more obviously correct by using something that constructively eliminates
+  // nonsense cases
+  private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) = {
+    def ensureNotNull = {
+      // we are only trying to reject None for an Optional record/variant/list
+      val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
+      sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pred) ++ sql")"
+    }
+    literal match {
+      case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
+        equalAtContractPath(path, literal)
+
+      case JsObject(fields) =>
+        fields.toVector match {
+          case hp +: tp =>
+            // this assertFromString is forced by the aforementioned too-big type
+            val fieldPreds = OneAnd(hp, tp).map { case (ok, ov) =>
+              containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
+            }
+            concatFragment(intersperse(fieldPreds, sql" AND "))
+          case _ => ensureNotNull
+        }
+
+      case JsArray(Seq()) => ensureNotNull
+      case JsArray(Seq(nestedOptInner)) =>
+        containsAtContractPath(path arrayAt _0, nestedOptInner)
+      // this case is forced by the aforementioned too-big type
+      case JsArray(badElems) =>
+        throw new IllegalStateException(
+          s"multiple-element arrays should never be queried: $badElems"
+        )
+    }
+  }
 
   private[http] override def cmpContractPathToScalar(
       path: JsonPath,
