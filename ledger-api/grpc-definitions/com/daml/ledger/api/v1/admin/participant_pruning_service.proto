@@ -38,7 +38,7 @@ service ParticipantPruningService {
   rpc Prune (PruneRequest) returns (PruneResponse);
 
   // Look up offset by timestamp to help determine a suitable pruning offset by ``record_time`` as exposed by the
-  // ``CommandCompletionService`` ``Checkpoint``s.
+  // ``CommandCompletionService`` Checkpoints.
   //
   // Returns the last offset of the "first" event/transaction before or at the specified timestamp.
   // Note that for ledger in which ``record_time`` increases monotonically with respect to offsets the resulting offset
