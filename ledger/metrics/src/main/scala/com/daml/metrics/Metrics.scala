@@ -72,6 +72,9 @@ final class Metrics(val registry: MetricRegistry) {
 
       // Commands being executed by the engine (not currently fetching data)
       val engineRunning: Meter = registry.meter(Prefix :+ "engine_running")
+
+      val mutableStateCacheUpdateRetries: Counter =
+        registry.counter(Prefix :+ "cache_update_retries")
     }
 
     object kvutils {
