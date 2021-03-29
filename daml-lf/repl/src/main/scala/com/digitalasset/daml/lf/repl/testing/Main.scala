@@ -21,6 +21,7 @@ import com.daml.lf.language.{LanguageVersion => LV}
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
+import java.util.concurrent.TimeUnit
 
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
@@ -45,7 +46,8 @@ object Main extends App {
         |  repl [file]             Run the interactive repl. Load the given packages if any.
         |  test <name> [file]      Load given packages and run the named test with verbose output.
         |  testAll [file]          Load the given packages and run all tests.
-        |  profile <name> [infile] [outfile]  Run the name test and write a profile in speedscope.app format
+        |  profile <name> [infile] [outfile]  Run the name test and write a profile in speedscope.app format.
+        |  bench <name> [file]     Bench the test.
         |  validate [file]         Load the given packages and validate them.
         |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
@@ -67,6 +69,9 @@ object Main extends App {
       if (!Repl.test(compilerConfig, id, file)._1) System.exit(1)
     case List("profile", testId, inputFile, outputFile) =>
       if (!Repl.profile(compilerConfig, testId, inputFile, Paths.get(outputFile))._1)
+        System.exit(1)
+    case List("bench", testId, file) =>
+      if (!Repl.bench(compilerConfig, testId, file)._1)
         System.exit(1)
     case List("validate", file) =>
       if (!Repl.validate(compilerConfig, file)._1) System.exit(1)
@@ -150,6 +155,15 @@ object Repl {
     load(compilerConfig.copy(profiling = Compiler.FullProfile), inputFile) chain
       cmdValidate chain
       (state => cmdProfile(state, testId, outputFile))
+
+  def bench(
+      compilerConfig: Compiler.Config,
+      testId: String,
+      file: String,
+  ): (Boolean, State) =
+    load(compilerConfig.copy(profiling = Compiler.FullProfile), file) chain
+      cmdValidate chain
+      (state => cmdBench(state, testId))
 
   def validate(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
     load(compilerConfig, file) chain
@@ -532,9 +546,10 @@ object Repl {
             case Left((err, ledger @ _)) =>
               println(prettyError(err, onLedger.ptx).render(128))
               (false, state)
-            case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+            case Right((diff @ _, steps @ _, ledger, value)) =>
               // NOTE(JM): cannot print this, output used in tests.
               //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+              println(value.toValue)
               println(prettyLedger(ledger).render(128))
               (true, state)
           }
@@ -588,8 +603,8 @@ object Repl {
     buildExprFromTest(state, Seq(testId))
       .map { expr =>
         println("Warming up JVM for 10s...")
-        val start = System.nanoTime()
-        while (System.nanoTime() - start < 10L * 1000 * 1000 * 1000) {
+        val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (System.nanoTime() < end) {
           state.scenarioRunner.run(expr)
         }
         println("Collecting profile...")
@@ -604,6 +619,58 @@ object Repl {
               println("Writing profile...")
               machine.profile.name = testId
               machine.profile.writeSpeedscopeJson(outputFile)
+              (true, state)
+          }
+        }
+      }
+      .getOrElse((false, state))
+  }
+
+  val warmingTime = 20L
+
+  private[this] def standardDeviation(a: Seq[Long]): Double = {
+    def avg = a.map(_.toDouble).sum / a.size
+    math.sqrt(a.map(x => (x - avg) * (x - avg)).sum / a.size)
+  }
+
+  def cmdBench(state: State, testId: String): (Boolean, State) = {
+    buildExprFromTest(state, Seq(testId))
+      .map { expr =>
+        println("Checking the test success..")
+        val (machine, errOrLedger) = state.scenarioRunner.run(expr)
+        machine.withOnLedger("invokeTest") { onLedger =>
+          errOrLedger match {
+            case Left((err, ledger @ _)) =>
+              println(prettyError(err, onLedger.ptx).render(128))
+              (false, state)
+            case Right(_) =>
+              println(s"Warming up JVM for ${warmingTime}s...")
+              val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(warmingTime)
+              while (System.nanoTime() < end) {
+                state.scenarioRunner.run(expr)
+              }
+              println("Run bench...")
+              val time = {
+                val start = System.nanoTime()
+                state.scenarioRunner.run(expr)
+                System.nanoTime() - start
+              }
+              val n = (TimeUnit.SECONDS.toNanos(10) / time) + 1
+
+              val results =
+                List.fill(n.toInt) {
+                  val start = System.nanoTime()
+                  state.scenarioRunner.run(expr)
+                  System.nanoTime() - start
+                }
+
+              println(s"Result for $testId")
+              println(s"iterations: $n")
+              println(s"avg: ${TimeUnit.NANOSECONDS.toMicros(results.sum / n)} micros")
+              println(s"min: ${TimeUnit.NANOSECONDS.toMicros(results.min)} micros")
+              println(s"max: ${TimeUnit.NANOSECONDS.toMicros(results.max)} micros")
+              println(s"dev: ${TimeUnit.NANOSECONDS.toMicros(standardDeviation(results).toLong)}")
+
               (true, state)
           }
         }
