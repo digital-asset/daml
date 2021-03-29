@@ -19,8 +19,10 @@ private[dao] object ParametersTable {
   private val LedgerIdColumnName: String = "ledger_id"
   private val ParticipantIdColumnName: String = "participant_id"
   private val LedgerEndColumnName: String = "ledger_end"
-  private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
   private val ConfigurationColumnName: String = "configuration"
+
+  private val EventsTableName: String = "participant_events"
+  private val EventSequentialIdColumnName: String = "event_sequential_id"
 
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
@@ -32,7 +34,7 @@ private[dao] object ParametersTable {
     offset(LedgerEndColumnName).?
 
   private val LedgerEndAndSequentialIdParser =
-    (offset(LedgerEndColumnName).? ~ long(LedgerEndSequentialIdColumnName).?)
+    (offset(LedgerEndColumnName).? ~ long(EventSequentialIdColumnName).?)
       .map(SqlParser.flatten)
       .map {
         case (Some(offset), Some(seqId)) => (offset, seqId)
@@ -57,8 +59,15 @@ private[dao] object ParametersTable {
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
 
+  // TODO: IMPLEMENT A PROPER SOLUTION
+  // THIS IS A SIMPLE WORKAROUND FOR THE LACK OF THE SEQUENTIAL ID IN THE `parameters` TABLE.
+  // THE SEQUENTIAL ID IS GOING TO BE INTRODUCED AS A PART OF THE APPEND-ONLY SCHEMA
   private val SelectLedgerEndAndSequentialId =
-    SQL"select #$LedgerEndColumnName, #$LedgerEndSequentialIdColumnName from #$TableName"
+    SQL"""select params.#$LedgerEndColumnName, events.#$EventSequentialIdColumnName
+    from #$TableName params join #$EventsTableName events on params.ledger_end = events.event_offset
+    order by events.event_sequential_id desc
+    limit 1
+       """
 
   def getLedgerId(connection: Connection): Option[LedgerId] =
     SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
