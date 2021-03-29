@@ -33,13 +33,17 @@ first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
 before_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.0.90c5ce70"
 after_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.1.90c5ce70"
 grpc_error_code_breaking_change_exclusions = [
-    "SemanticTests:SemanticDoubleSpendBasic",
     "SemanticTests:SemanticDoubleSpendShared",
     "SemanticTests:SemanticPrivacyProjections",
     "SemanticTests:SemanticDivulgence",
     "ContractKeysIT:CKFetchOrLookup",
     "ContractKeysIT:CKNoFetchUndisclosed",
     "ContractKeysIT:CKMaintainerScoped",
+]
+
+grpc_error_code_breaking_change_exclusions_suites = [
+    "SemanticTests",
+    "ContractKeysIT",
 ]
 
 excluded_test_tool_tests = [
@@ -190,16 +194,35 @@ excluded_test_tool_tests = [
         "platform_ranges": [
             {
                 "end": before_grpc_error_code_breaking_change,
-                "exclusions": grpc_error_code_breaking_change_exclusions,
+                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpendBasic"],
             },
         ],
     },
     {
-        "end": before_grpc_error_code_breaking_change,
+        "end": last_nongranular_test_tool,
         "platform_ranges": [
             {
                 "start": after_grpc_error_code_breaking_change,
-                "exclusions": grpc_error_code_breaking_change_exclusions,
+                "exclusions": grpc_error_code_breaking_change_exclusions_suites,
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.5.0",
+        "platform_ranges": [
+            {
+                "start": after_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpend"],
+            },
+        ],
+    },
+    {
+        "start": "1.6.0",
+        "platform_ranges": [
+            {
+                "start": after_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpendBasic"],
             },
         ],
     },
