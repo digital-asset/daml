@@ -369,7 +369,7 @@ object Config {
           .optional()
           .hidden()
           .text(
-            s"Use the experimental append-only index database. Highly unstable. Should not be used in production."
+            s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
