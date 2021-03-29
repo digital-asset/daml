@@ -105,7 +105,7 @@ reset_cache() {
 reset_cache /var/tmp/bazel_cache.dmg /var/tmp/_bazel_vsts
 reset_cache /var/tmp/disk_cache.dmg /Users/vsts/.bazel-cache
 RESET_CACHES
-chown vsts:vsts $CACHE_SCRIPT
+chown vsts:staff $CACHE_SCRIPT
 chmod +x $CACHE_SCRIPT
 
 
