@@ -680,8 +680,8 @@ private object OracleQueries extends Queries {
     // % is explicitly reserved by specification as a delimiter
     val q = sql"""SELECT c.contract_id, key, payload, agreement_text, sd.parties, od.parties
                   FROM (contract c
-                        JOIN signatories sm ON (c.contract_id = sm.contract_id)
-                        JOIN observers om ON (c.contract_id = om.contract_id))
+                        LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
+                        LEFT JOIN observers om ON (c.contract_id = om.contract_id))
                        LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
                                   FROM signatories GROUP BY contract_id) sd
                               ON (c.contract_id = sd.contract_id)
