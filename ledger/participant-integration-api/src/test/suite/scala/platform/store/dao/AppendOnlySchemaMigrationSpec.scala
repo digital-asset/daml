@@ -16,7 +16,6 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.testing.postgresql.PostgresResource
-import org.flywaydb.core.api.FlywayException
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -75,7 +74,9 @@ class AppendOnlySchemaMigrationSpec extends AsyncWordSpec with AkkaBeforeAndAfte
         error <- resource.asFuture
         _ <- resource.release()
       } yield {
-        assert(error.isInstanceOf[FlywayException])
+        // safety_check is the name of a table
+        // An insert is attempted into that table which fails if the database is not empty
+        assert(error.getMessage.contains("safety_check"))
       }
     }
 
