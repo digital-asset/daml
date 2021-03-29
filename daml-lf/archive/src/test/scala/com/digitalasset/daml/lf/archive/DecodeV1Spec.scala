@@ -794,6 +794,8 @@ class DecodeV1Spec
           Ast.EBuiltin(Ast.BToBigNumericNumeric),
         DamlLf1.BuiltinFunction.TO_NUMERIC_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BToNumericBigNumeric),
+        DamlLf1.BuiltinFunction.TO_TEXT_BIGNUMERIC ->
+          Ast.EBuiltin(Ast.BToTextBigNumeric),
       )
 
       forEveryVersion { version =>

@@ -32,6 +32,8 @@ module BuiltinMod {
     TO_NUMERIC_BIGNUMERIC;
   val toBigNumericNumeric: forall (n: nat). Numeric n -> BigNumeric =
     TO_BIGNUMERIC_NUMERIC;
+  val toTextBigNumeric: BigNumeric -> Text =
+    TO_TEXT_BIGNUMERIC;
 
   val roundingMode: RoundingMode =
     ROUNDING_UP;

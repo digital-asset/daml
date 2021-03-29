@@ -516,6 +516,7 @@ encodeBuiltinExpr = \case
     BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_BIGNUMERIC 
     BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC 
     BEFromNumericBigNumeric -> builtin P.BuiltinFunctionTO_BIGNUMERIC_NUMERIC
+    BEToTextBigNumeric -> builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64

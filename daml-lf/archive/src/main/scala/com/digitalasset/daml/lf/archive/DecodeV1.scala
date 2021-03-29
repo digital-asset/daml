@@ -1844,6 +1844,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(SHIFT_BIGNUMERIC, BShiftBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(TO_NUMERIC_BIGNUMERIC, BToNumericBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(TO_BIGNUMERIC_NUMERIC, BToBigNumericNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(TO_TEXT_BIGNUMERIC, BToTextBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BMakeGeneralError, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BMakeArithmeticError, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BMakeContractError, minVersion = exceptions),

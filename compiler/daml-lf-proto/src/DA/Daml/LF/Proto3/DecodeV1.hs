@@ -501,6 +501,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionSHIFT_BIGNUMERIC -> BEShiftBigNumeric
   LF1.BuiltinFunctionTO_NUMERIC_BIGNUMERIC -> BEToNumericBigNumeric
   LF1.BuiltinFunctionTO_BIGNUMERIC_NUMERIC -> BEFromNumericBigNumeric
+  LF1.BuiltinFunctionTO_TEXT_BIGNUMERIC -> BEToTextBigNumeric
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do

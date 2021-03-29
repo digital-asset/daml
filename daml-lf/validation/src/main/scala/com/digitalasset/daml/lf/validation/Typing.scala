@@ -234,6 +234,7 @@ private[validation] object Typing {
       BShiftBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
       BToNumericBigNumeric -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
       BToBigNumericNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
+      BToTextBigNumeric -> (TBigNumeric ->: TText),
       // Exception functions
       BMakeGeneralError -> (TText ->: TGeneralError),
       BMakeArithmeticError -> (TText ->: TArithmeticError),

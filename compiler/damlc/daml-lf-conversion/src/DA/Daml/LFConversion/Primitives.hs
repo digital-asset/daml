@@ -287,6 +287,9 @@ convertPrim version "BEFromNumericBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
 convertPrim version "BEToNumericBigNumeric" ty@(TBigNumeric :-> TNumeric n) =
     whenRuntimeSupports version featureBigNumeric ty $
       EBuiltin BEToNumericBigNumeric `ETyApp` n
+convertPrim version "BEToTextBigNumeric" ty@(TBigNumeric :-> TText) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEToTextBigNumeric
 
 -- Experimental text primitives.
 convertPrim _ "BETextToUpper" (TText :-> TText) = EBuiltin BETextToUpper

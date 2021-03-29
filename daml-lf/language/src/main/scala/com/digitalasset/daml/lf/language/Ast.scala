@@ -463,6 +463,7 @@ object Ast {
   final case object BShiftBigNumeric extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
   final case object BToNumericBigNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
   final case object BToBigNumericNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
+  final case object BToTextBigNumeric extends BuiltinFunction // : BigNumeric → Text
 
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction // Text → Text

@@ -134,6 +134,7 @@ safetyStep = \case
       BEShiftBigNumeric     -> Safe 1 -- fails on overflow (shift too large)
       BEToNumericBigNumeric -> Safe 0 -- fails on overflow (numeric doesn't fit)
       BEFromNumericBigNumeric -> Safe 1 -- doesn't fail
+      BEToTextBigNumeric  -> Safe 1 -- doesn't fail
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1

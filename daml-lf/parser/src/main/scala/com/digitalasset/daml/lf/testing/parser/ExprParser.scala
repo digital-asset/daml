@@ -326,6 +326,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "SHIFT_BIGNUMERIC" -> BShiftBigNumeric,
     "TO_NUMERIC_BIGNUMERIC" -> BToNumericBigNumeric,
     "TO_BIGNUMERIC_NUMERIC" -> BToBigNumericNumeric,
+    "TO_TEXT_BIGNUMERIC" -> BToTextBigNumeric,
   )
 
   private lazy val experimental: Parser[Expr] =

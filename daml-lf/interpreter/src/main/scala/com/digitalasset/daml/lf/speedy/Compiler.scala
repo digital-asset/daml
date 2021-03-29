@@ -585,6 +585,7 @@ private[lf] final class Compiler(
           case BShiftBigNumeric => SBShiftBigNumeric
           case BToBigNumericNumeric => SBToBigNumericNumeric
           case BToNumericBigNumeric => SBToNumericBigNumeric
+          case BToTextBigNumeric => SBToText
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
