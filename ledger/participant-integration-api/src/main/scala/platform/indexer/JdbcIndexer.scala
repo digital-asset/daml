@@ -76,10 +76,10 @@ object JdbcIndexer {
 
     def migrateSchema(
         allowExistingSchema: Boolean,
-        enableExperimentalSchema: Boolean,
+        enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
       flywayMigrations
-        .migrate(allowExistingSchema, enableExperimentalSchema)
+        .migrate(allowExistingSchema, enableAppendOnlySchema)
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     def resetSchema(): Future[ResourceOwner[JdbcIndexer]] = initialized(resetSchema = true)

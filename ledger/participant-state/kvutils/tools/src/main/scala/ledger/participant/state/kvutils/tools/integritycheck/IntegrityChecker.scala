@@ -247,7 +247,7 @@ class IntegrityChecker[LogResult](
         lfValueTranslationCache,
       )
       migrating <- ResourceOwner.forFuture(() =>
-        indexerFactory.migrateSchema(allowExistingSchema = false, enableExperimentalSchema = false)
+        indexerFactory.migrateSchema(allowExistingSchema = false, enableAppendOnlySchema = false)
       )
       migrated <- migrating
     } yield migrated

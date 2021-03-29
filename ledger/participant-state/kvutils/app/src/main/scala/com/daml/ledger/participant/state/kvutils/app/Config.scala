@@ -39,7 +39,7 @@ final case class Config[Extra](
     metricsReportingInterval: Duration,
     trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
-    enableExperimentalSchemaForIndex: Boolean,
+    enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -69,7 +69,7 @@ object Config {
       metricsReportingInterval = Duration.ofSeconds(10),
       trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       engineMode = EngineMode.Stable,
-      enableExperimentalSchemaForIndex = false,
+      enableAppendOnlySchema = false,
       extra = extra,
     )
 
@@ -364,13 +364,14 @@ object Config {
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
+        // TODO append-only: remove after removing support for the current (mutating) schema
         opt[Unit]("index-append-only-schema-unsafe")
           .optional()
           .hidden()
           .text(
-            s"Enable the use of the experimental append-only index database schema. Highly unstable. Should not be used in production."
+            s"Use the experimental append-only index database. Highly unstable. Should not be used in production."
           )
-          .action((_, config) => config.copy(enableExperimentalSchemaForIndex = true))
+          .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
         help("help").text(s"$name as a service.")
       }
