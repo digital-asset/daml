@@ -37,7 +37,7 @@ trait OracleAround {
     Using.Manager { use =>
       val con = use(
         DriverManager.getConnection(
-          s"jdbc:oracle:thin:@localhost:$port/XEPDB1",
+          s"jdbc:oracle:thin:@localhost:$port/ORCLPDB1",
           systemUser,
           systemPwd,
         )
@@ -54,7 +54,7 @@ trait OracleAround {
     Using.Manager { use =>
       val con = use(
         DriverManager.getConnection(
-          s"jdbc:oracle:thin:@localhost:$port/XEPDB1",
+          s"jdbc:oracle:thin:@localhost:$port/ORCLPDB1",
           systemUser,
           systemPwd,
         )
