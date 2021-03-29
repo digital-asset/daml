@@ -22,6 +22,8 @@ import scala.concurrent.Future
 trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
+  behavior of "JdbcLedgerDao (contract stream events)"
+
   it should "return the expected contracts event stream for the specified offset range" in {
     for {
       beforeOffset <- ledgerDao.lookupLedgerEnd()
@@ -41,10 +43,10 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
         )
       )
     } yield {
-      println(contractStateEvents)
       val first = contractStateEvents.head
-      val firstEventSeqId = first.eventSequentialId
+      val sequentialIdState = new SequentialIdState(first.eventSequentialId)
       val contract = first.asInstanceOf[Created].contract
+
       contractStateEvents should contain theSameElementsInOrderAs Seq(
         Created(
           nonTransient(t1).loneElement,
@@ -52,7 +54,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           None,
           Set(alice, bob),
           offset1,
-          firstEventSeqId,
+          sequentialIdState.currentId,
         ),
         Created(
           nonTransient(t2).loneElement,
@@ -60,13 +62,13 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           None,
           Set(alice, bob),
           offset2,
-          firstEventSeqId + 2, // TDT do something more revealing about the event seq id assertions
+          sequentialIdState.nextId(),
         ),
         Archived(
           nonTransient(t2).loneElement,
           Set(alice, bob),
           offset3,
-          firstEventSeqId + 4,
+          sequentialIdState.nextId(),
         ),
         Created(
           createdContractId(t4).loneElement,
@@ -74,13 +76,13 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           None,
           Set(alice, bob),
           offset4,
-          firstEventSeqId + 7,
+          sequentialIdState.nextId(),
         ),
         Archived(
           createdContractId(t4).loneElement,
           Set(alice, bob),
           offset4,
-          firstEventSeqId + 8,
+          sequentialIdState.nextId(),
         ),
         Created(
           nonTransient(t5).loneElement,
@@ -88,7 +90,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           None,
           Set(alice, bob),
           offset5,
-          firstEventSeqId + 11,
+          sequentialIdState.nextId(),
         ),
         Created(
           nonTransient(t6).loneElement,
@@ -96,10 +98,22 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
           None,
           Set(alice, bob),
           offset6,
-          firstEventSeqId + 13,
+          sequentialIdState.nextId(),
         ),
-        LedgerEndMarker(offset6, firstEventSeqId + 14),
+        LedgerEndMarker(offset6, sequentialIdState.currentId),
       )
+    }
+  }
+
+  // TODO: Temporary helper - change it when the append-only schema gets in.
+  private class SequentialIdState(initial: Long) {
+    private var id: Long = initial
+
+    def currentId: Long = id
+
+    def nextId(): Long = {
+      id += 1
+      id
     }
   }
 
