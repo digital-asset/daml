@@ -1,0 +1,11 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.platform.store.appendonlydao.events
+
+private[events] object EventsTableQueries {
+  def format(ps: Set[Party]): String =
+    ps.view.map(p => s"'$p'").mkString(",")
+  def format(ps: List[Party]): String =
+    ps.map(p => s"'$p'").mkString(",")
+}
