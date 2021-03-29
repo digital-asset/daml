@@ -28,13 +28,6 @@ import com.daml.metrics.MetricName
   */
 package object kvutils {
 
-  /** Alias for [[Raw.Bytes]] to aid in migration. */
-  @deprecated(
-    "Please migrate to one of the `Raw` types. This will be removed in DAML SDK v1.12.",
-    since = "1.11",
-  )
-  type Bytes = Raw.Bytes
-
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
 
   type CorrelationId = String
