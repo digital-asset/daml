@@ -15,6 +15,7 @@ import iface.{Type => Ty}
 import dbbackend.Queries.concatFragment
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
+import scalaz.Digit._0
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
 import scalaz.std.tuple._
@@ -76,8 +77,12 @@ sealed abstract class ValuePredicate extends Product with Serializable {
   }
 
   def toSqlWhereClause(implicit sjd: dbbackend.SupportedJdbcDriver): Fragment = {
-    import sjd.queries.contractColumnName, sjd.queries.Implicits._ // JsValue support
-    type Path = Fragment
+    import sjd.queries.{cmpContractPathToScalar, containsAtContractPath, equalAtContractPath}
+    import dbbackend.Queries.{JsonPath => Path}, dbbackend.Queries.OrderOperator._
+
+    object RefName {
+      def unapply(s: String): Option[Ref.Name] = Ref.Name.fromString(s).toOption
+    }
 
     final case class Rec(
         raw: SqlWhereClause,
@@ -85,9 +90,9 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         safe_@> : Option[JsValue],
     ) {
       def flush_@>(path: Path): Option[Fragment] =
-        safe_@> map (jq => path ++ sql" @> $jq::jsonb")
+        safe_@> map (containsAtContractPath(path, _))
       def flush_==(path: Path): Option[Fragment] =
-        safe_== map (jq => path ++ sql" = $jq::jsonb")
+        safe_== map (equalAtContractPath(path, _))
     }
 
     def goObject(path: Path, cqs: ImmArraySeq[(String, Rec)], count: Int): Rec = {
@@ -101,8 +106,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       // but not @>-safe (equality of @>-safe elements is represented
       // within the safe_@>, which is always collected below)
       val eqOrRaw = cqs map {
-        case (k, r @ Rec(_, Some(_), None)) =>
-          r.flush_==(path ++ sql"->${k: String}").toList.toVector
+        case (RefName(k), r @ Rec(_, Some(_), None)) =>
+          r.flush_==(path objectAt k).toList.toVector
         case (_, Rec(raw, _, _)) => raw
       }
       Rec(
@@ -118,11 +123,11 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           Rec(Vector.empty, Some(jq), Some(jq))
 
         case RecordSubset(qs) =>
-          val cqs = qs collect { case Some((k, vp)) => (k, go(path ++ sql"->${k: String}", vp)) }
+          val cqs = qs collect { case Some((k, vp)) => (k, go(path objectAt k, vp)) }
           goObject(path, cqs, qs.length)
 
         case VariantMatch((dc, q)) =>
-          val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
+          val Rec(vraw, v_==, v_@>) = go(path objectAt dc, q) // TODO SC exercise this path
           // @> is safe because in a variant-typed context, all JsObjects
           // have exactly two keys
           Rec(
@@ -136,13 +141,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
         case OptionalMatch(Some(OptionalMatch(None))) =>
           Rec(
-            Vector(sql"jsonb_array_length(" ++ path ++ sql") = 0"),
+            Vector(equalAtContractPath(path, JsArray())),
             Some(JsArray()),
             Some(JsArray()),
           )
 
         case OptionalMatch(Some(oq @ OptionalMatch(Some(_)))) =>
-          val cq = go(path ++ sql"->0", oq)
+          val cq = go(path arrayAt _0, oq)
           // we don't do a length check because arrays here have 1 elem at most;
           // [] @> [x] is false for all x
           Rec(cq.raw, cq.safe_== map (JsArray(_)), cq.safe_@> map (JsArray(_)))
@@ -163,21 +168,22 @@ sealed abstract class ValuePredicate extends Product with Serializable {
               // for dates and timestamps are so important.
               val exprs = range.ltgt
                 .umap(
-                  _ map (boundary => sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb")
+                  _ map (boundary => dbApiValueToJsValue(range.normalize(boundary)))
                 )
                 .bifoldMap { case (incl, ceil) =>
-                  Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
+                  Vector(cmpContractPathToScalar(path, if (incl) LTEQ else LT, ceil))
                 } { case (incl, floor) =>
-                  Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
+                  Vector(cmpContractPathToScalar(path, if (incl) GTEQ else GT, floor))
                 }
               Rec(exprs, None, None)
           }
       }
 
-    val outerRec = go(contractColumnName, this)
-    outerRec flush_== contractColumnName getOrElse
+    val basePath = Path(Vector.empty)
+    val outerRec = go(basePath, this)
+    outerRec flush_== basePath getOrElse
       concatFragment {
-        val preds = outerRec.raw ++ outerRec.flush_@>(contractColumnName).toList match {
+        val preds = outerRec.raw ++ outerRec.flush_@>(basePath).toList match {
           case hd +: tl => OneAnd(hd, tl)
           case _ => OneAnd(sql"1 = 1", Vector.empty)
         }
