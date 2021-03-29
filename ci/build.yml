@@ -220,7 +220,11 @@ jobs:
         # Cleanup stray containers that might still be running from
         # another build that didn’t get shut down cleanly.
         docker rm -f oracle || true
-        docker run -d --rm --name oracle -p $ORACLE_PORT:1521 -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+        # Oracle does not like if you connect to it via localhost if it’s running in the container.
+        # Interestingly it works if you use the external IP of the host so the issue is
+        # not the host it is listening on (it claims for that to be 0.0.0.0).
+        # --network host is a cheap escape hatch for this.
+        docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
         function cleanup() {
             docker rm -f oracle
         }
