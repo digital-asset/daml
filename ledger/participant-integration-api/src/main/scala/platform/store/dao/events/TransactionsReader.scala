@@ -357,7 +357,7 @@ private[dao] final class TransactionsReader(
       a: ContractStateEventsReader.RawContractEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
-      startExclusive = (a._10, a._7), /* KTODO: Use an intermediary DTO */
+      startExclusive = (a._9, a._7), /* KTODO: Use an intermediary DTO */
       endInclusive = endEventSeqId,
     )
 
