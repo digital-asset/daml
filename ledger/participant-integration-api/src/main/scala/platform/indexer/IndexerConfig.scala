@@ -19,6 +19,8 @@ case class IndexerConfig(
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
+    // TODO append-only: remove after removing support for the current (mutating) schema
+    enableAppendOnlySchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
 )
 

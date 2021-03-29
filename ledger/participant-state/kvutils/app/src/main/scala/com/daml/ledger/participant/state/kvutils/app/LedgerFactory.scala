@@ -42,6 +42,7 @@ trait ConfigProvider[ExtraConfig] {
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
+      enableAppendOnlySchema = config.enableAppendOnlySchema,
     )
 
   def apiServerConfig(

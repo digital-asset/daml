@@ -21,6 +21,11 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
 
   private val dbType = DbType.jdbcType(jdbcUrl)
 
+  // The last stable version. Across all database types, migrations that introduce the
+  // append-only schema must have a higher version number.
+  // TODO append-only: remove after removing support for the current (mutating) schema
+  private val lastStableSchemaVersion = "49"
+
   def validate()(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
@@ -32,7 +37,9 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
     }
 
   def migrate(
-      allowExistingSchema: Boolean = false
+      allowExistingSchema: Boolean = false,
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean = false,
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
@@ -40,6 +47,8 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
           .dataSource(ds)
           .baselineOnMigrate(allowExistingSchema)
           .baselineVersion(MigrationVersion.fromVersion("0"))
+          // TODO append-only: remove the following line after removing support for the current (mutating) schema
+          .target(if (enableAppendOnlySchema) "latest" else lastStableSchemaVersion)
           .load()
         logger.info("Running Flyway migration...")
         val stepsTaken = flyway.migrate()
