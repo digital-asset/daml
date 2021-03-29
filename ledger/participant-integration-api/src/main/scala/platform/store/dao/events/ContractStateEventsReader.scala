@@ -32,7 +32,6 @@ object ContractStateEventsReader {
       Option[Int],
       Long,
       Set[Party],
-      Int,
       Offset,
   )
 
@@ -49,7 +48,6 @@ object ContractStateEventsReader {
           int("create_argument_compression").? ~
           long("event_sequential_id") ~
           flatEventWitnessesColumn("flat_event_witnesses") ~
-          int("event_kind") ~
           offset("event_offset")).map(SqlParser.flatten).*
       )
       .toVector
@@ -68,10 +66,12 @@ object ContractStateEventsReader {
             maybeCreateArgumentCompression,
             eventSequentialId,
             flatEventWitnesses,
-            kind,
             offset,
           ) =>
-        if (kind == 20) {
+        // Events are differentiated basing on the assumption that only `create` or `archived` events are considered.
+        // `maybeCreateArgument` can only be defined if an event is `create` - otherwise the event must be `archived`
+        // See the definition of `RawContractEvent`
+        if (maybeCreateArgument.isEmpty) {
           Archived(
             contractId = contractId,
             stakeholders = flatEventWitnesses,
@@ -162,12 +162,12 @@ object ContractStateEventsReader {
                 create_argument_compression,
                 flat_event_witnesses,
                 event_sequential_id,
-                event_kind,
                 event_offset
               FROM participant_events
               WHERE event_sequential_id > ${range.startExclusive}
                     and event_sequential_id <= ${range.endInclusive}
-                    and (event_kind = 10 OR event_kind = 20) -- created or archived
+                    and ((create_argument IS NOT NULL) -- created
+                      OR (exercise_consuming IS TRUE)) -- archived
               ORDER BY event_sequential_id #$limitExpr"""
 
   sealed trait ContractStateEvent extends Product with Serializable {
