@@ -782,10 +782,27 @@ private object OracleQueries extends Queries {
     }
   }
 
+  // XXX as with containsAtContractPath, literalScalar is too big a type
   private[http] override def cmpContractPathToScalar(
       path: JsonPath,
       op: OrderOperator,
       literalScalar: JsValue,
-  ) =
-    sql"1 = 1" // TODO SC
+  ) = {
+    val literalRendered = literalScalar match {
+      case JsNumber(_) | JsString(_) => literalScalar.compactPrint
+      case JsNull | JsBoolean(_) | JsArray(_) | JsObject(_) =>
+        throw new IllegalArgumentException(
+          s"${literalScalar.compactPrint} is not comparable in JSON queries"
+        )
+    }
+    import OrderOperator._
+    val opc = op match {
+      case LT => "<"
+      case LTEQ => "<="
+      case GT => ">"
+      case GTEQ => ">="
+    }
+    val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc $literalRendered)"
+    sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pathc) ++ sql")"
+  }
 }
