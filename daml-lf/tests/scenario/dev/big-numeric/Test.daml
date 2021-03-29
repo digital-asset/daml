@@ -13,7 +13,7 @@ template BigNumericResults
   where
     signatory party
 
-x: BigNumeric
+x : BigNumeric
 x = BigNumeric.fromNumeric (0.5: Numeric 10)
 
 run = scenario do
@@ -22,11 +22,11 @@ run = scenario do
      create BigNumericResults with
         party = alice
         values = map BigNumeric.toNumeric [
-              BigNumeric.add x x
-            , BigNumeric.sub BigNumeric.zero x
-            , BigNumeric.mul x x
+              x + x
+            , negate x
+            , x * x
             , BigNumeric.round 0 BigNumeric.roundingUp x
             , BigNumeric.round 0 BigNumeric.roundingDown x
             , BigNumeric.round 0 BigNumeric.roundingHalfUp x
-            , BigNumeric.round 0 BigNumeric.roundingCeiling $ BigNumeric.sub BigNumeric.zero x
+            , BigNumeric.round 0 BigNumeric.roundingCeiling (negate x)
           ]
