@@ -31,11 +31,12 @@ let
       '';
     });
     scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
-      version = "2.12.12";
-      name = "scala-2.12.12";
+      version = "2.12.13";
+      name = "scala-${version}";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";
-        sha256 = "3520cd1f3c9efff62baee75f32e52d1e5dc120be2ccf340649e470e48f527e2b";
+        # Keep in sync with /bazel_tools/scala_version.bzl and /release/src/Main.hs
+        sha256 = "17548sx7liskkadqiqaajmwp2w7bh9m2d8hp2mwyg8yslmjx4pcc";
       };
     });
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {

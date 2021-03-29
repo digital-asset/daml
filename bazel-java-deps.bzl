@@ -171,7 +171,7 @@ def install_java_deps():
             "org.tpolecat:doobie-hikari_{}:0.9.2".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.9.2".format(scala_major_version),
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
-            "org.wartremover:wartremover_{}:2.4.10".format(scala_version),
+            "org.wartremover:wartremover_{}:2.4.13".format(scala_version),
             "org.xerial:sqlite-jdbc:3.30.1",
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",

@@ -1,8 +1,8 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Keep in sync with /release/src/Main.hs
-default_scala_version = "2.12.12"
+# Keep in sync with /nix/nixpkgs.nix and /release/src/Main.hs
+default_scala_version = "2.12.13"
 
 def _impl(ctx):
     # Generates an empty BUILD file, because we do not need to build anything.
@@ -36,7 +36,7 @@ scala_major_version_suffix = "{major_suffix}"
         executable = False,
     )
 
-scala_version = repository_rule(
+scala_version_rule = repository_rule(
     environ = ["DAML_SCALA_VERSION"],
     implementation = _impl,
     attrs = {},

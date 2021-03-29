@@ -56,9 +56,9 @@ load("//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
-load("//bazel_tools:scala_version.bzl", "scala_version")
+load("//bazel_tools:scala_version.bzl", "scala_version_rule")
 
-scala_version(name = "scala_version")
+scala_version_rule(name = "scala_version")
 
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 
@@ -715,16 +715,16 @@ scala_repositories(
         {
             "2.12": {
                 "io_bazel_rules_scala_scala_compiler": {
-                    "artifact": "org.scala-lang:scala-compiler:2.12.12",
-                    "sha256": "9dfa682ad7c2859cdcf6a31b9734c8f1ee38e7e391aeafaef91967b6ce819b6b",
+                    "artifact": "org.scala-lang:scala-compiler:%s" % scala_version,
+                    "sha256": "ea971e004e2f15d3b7569eee8b559f220e23b9993e688bbe986f97938d1dc9f9",
                 },
                 "io_bazel_rules_scala_scala_library": {
-                    "artifact": "org.scala-lang:scala-library:2.12.12",
-                    "sha256": "1673ffe8792021f704caddfe92067ed1ec75229907f84380ad68fe621358c925",
+                    "artifact": "org.scala-lang:scala-library:%s" % scala_version,
+                    "sha256": "1bb415cff43f792636556a1137b213b192ab0246be003680a3b006d01235dd89",
                 },
                 "io_bazel_rules_scala_scala_reflect": {
-                    "artifact": "org.scala-lang:scala-reflect:2.12.12",
-                    "sha256": "3c502791757c0c8208f00033d8c4d778ed446efa6f49a6f89b59c6f92b347774",
+                    "artifact": "org.scala-lang:scala-reflect:%s" % scala_version,
+                    "sha256": "2bd46318d87945e72eb186a7b5ea496c43cf8f0aabc6ff11b3e7962f8635e669",
                 },
             },
         }.get(scala_major_version, {}),
