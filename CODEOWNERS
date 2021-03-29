@@ -46,13 +46,12 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 /ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 
-/ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA
-/ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA
+/ledger/      @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
+/ledger-api/  @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
+
+/ledger/participant-state/kvutils/ @fabiotudone-da @gerolf-da @miklos-da @SamirTalwar-DA
 
 /runtime-components/    @stefanobaghino-da @cocreature
-
-# DAML-on-X
-/ledger/participant-state/kvutils/  @dajmaki @dasormeter @fabiotudone-da @gerolf-da @miklos-da @mziolekda @rautenrieth-da @SamirTalwar-DA
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
