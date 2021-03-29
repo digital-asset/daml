@@ -28,6 +28,10 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
 #ifdef DAML_NUMERIC
   , Numeric
 #endif
+#ifdef DAML_BIGNUMERIC
+  , BigNumeric
+  , RoundingMode
+#endif
   )
 -- Not reexported
 import GHC.Types (primitive)

@@ -152,7 +152,7 @@ featureBigNumeric :: Feature
 featureBigNumeric = Feature
     { featureName = "BigNumeric type"
       -- TODO https://github.com/digital-asset/daml/issues/8719
-      -- Update LF version number when we stabilize exceptions.
+      -- Update LF version number when we stabilize big numeric.
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_BIGNUMERIC"
     }
