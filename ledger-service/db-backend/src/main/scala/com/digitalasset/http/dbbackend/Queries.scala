@@ -74,9 +74,9 @@ sealed abstract class Queries {
   protected[this] def textType: Fragment
   protected[this] def packageIdType: Fragment
   protected[this] def partyOffsetContractIdType: Fragment
-  private[this] def partyType = partyOffsetContractIdType
+  protected[this] final def partyType = partyOffsetContractIdType
   private[this] def offsetType = partyOffsetContractIdType
-  private[this] def contractIdType = partyOffsetContractIdType
+  protected[this] final def contractIdType = partyOffsetContractIdType
   protected[this] def nameType: Fragment // Name in daml-lf-1.rst
   protected[this] def agreementTextType: Fragment
 
@@ -594,8 +594,8 @@ private object OracleQueries extends Queries {
     sql"""
       CREATE TABLE
         signatories
-          (contract_id NVARCHAR2(255) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
-          ,party NVARCHAR2(255) NOT NULL
+          (contract_id """ ++ contractIdType ++ sql""" NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
+          ,party """ ++ partyType ++ sql""" NOT NULL
           ,CONSTRAINT signatories_cid_party_k UNIQUE (contract_id, party)
           )
     """,
@@ -606,8 +606,8 @@ private object OracleQueries extends Queries {
     sql"""
       CREATE TABLE
         observers
-          (contract_id NVARCHAR2(255) NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
-          ,party NVARCHAR2(255) NOT NULL
+          (contract_id """ ++ contractIdType ++ sql""" NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE
+          ,party """ ++ partyType ++ sql""" NOT NULL
           ,CONSTRAINT observers_cid_party_k UNIQUE (contract_id, party)
           )
     """,
