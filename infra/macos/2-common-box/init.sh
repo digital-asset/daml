@@ -58,7 +58,7 @@ TOOLS_INSTALL
 echo "Done installing tools through Homebrew."
 
 # create /nix partition
-hdiutil create -size 20g -fs 'Case-sensitive APFS' -volname Nix -type SPARSE /System/Volumes/Data/Nix.dmg
+hdiutil create -size 60g -fs 'Case-sensitive APFS' -volname Nix -type SPARSE /System/Volumes/Data/Nix.dmg
 hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
 
 echo "Created /nix partition."
