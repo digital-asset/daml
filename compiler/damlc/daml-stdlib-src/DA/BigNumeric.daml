@@ -3,16 +3,25 @@
 
 {-# LANGUAGE CPP #-}
 
+#ifndef DAML_BIGNUMERIC
+
 -- | HIDE
 module DA.BigNumeric where
 
-#ifdef DAML_BIGNUMERIC
+#else
+
 -- TODO https://github.com/digital-asset/daml/issues/8719
---  clean this module
+--  Better documentation for BigNumeric module.
+
+-- | Big Numeric type
+module DA.BigNumeric where
 
 import GHC.Types (primitive)
 
-roundingUp, roundingDown, roundingCeiling, roundingFloor, roundingHalfUp, roundingHalfDown, roundingHalfEven, roundingUnnecessary: RoundingMode
+
+-- TODO https://github.com/digital-asset/daml/issues/8719
+--  Expose these as constructors.
+roundingUp, roundingDown, roundingCeiling, roundingFloor, roundingHalfUp, roundingHalfDown, roundingHalfEven, roundingUnnecessary : RoundingMode
 roundingUp = primitive @"BERoundingUp"
 roundingDown = primitive @"BERoundingDown"
 roundingCeiling = primitive @"BERoundingCeiling"
@@ -22,6 +31,9 @@ roundingHalfDown = primitive @"BERoundingHalfDown"
 roundingHalfEven = primitive @"BERoundingHalfEven"
 roundingUnnecessary = primitive @"BERoundingUnnecessary"
 
+
+-- TODO https://github.com/digital-asset/daml/issues/8719
+--  Remove once we have literals.
 zero, one, ten: BigNumeric
 zero = fromNumeric (0.0: Numeric 0)
 one = fromNumeric (1.0: Numeric 0)
@@ -30,11 +42,6 @@ ten = fromNumeric (10.0: Numeric 0)
 scale, precision: BigNumeric -> Int
 scale = primitive @"BEScaleBigNumeric"
 precision = primitive @"BEPrecisionBigNumeric"
-
-add, sub, mul : BigNumeric -> BigNumeric -> BigNumeric
-add = primitive @"BEAddBigNumeric"
-sub = primitive @"BESubBigNumeric"
-mul = primitive @"BEMulBigNumeric"
 
 div : Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
 div = primitive @"BEDivBigNumeric"

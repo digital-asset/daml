@@ -32,7 +32,7 @@ class StaticTimeIT
     with Matchers {
 
   override implicit val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(1, Seconds)))
+    PatienceConfig(timeout = scaled(Span(2, Seconds)))
 
   implicit private def ec: ExecutionContext = materializer.executionContext
 

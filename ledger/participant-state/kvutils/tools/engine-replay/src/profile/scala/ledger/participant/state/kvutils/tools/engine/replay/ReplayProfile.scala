@@ -36,7 +36,7 @@ object Config {
     opt[Int]("choice-index")
       .action((x, c) => c.copy(choiceIndex = Some(x)))
       .text(
-        "If the choice got exercised more than once, you can use this to select the nth occurence of this choice"
+        "If the choice got exercised more than once, you can use this to select the nth occurrence of this choice"
       )
     opt[Path]("dar")
       .action((x, c) => c.copy(darFile = x))

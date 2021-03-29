@@ -111,7 +111,7 @@ export function instantiate(tc: DamlLfTypeCon, ddt: DamlLfDefDataType): DamlLfDa
   if (ddt.typeVars.length !== tc.args.length) {
     // This should never happen for valid Daml-LF types
     // Instead of throwing an exception, return the data type as is (in open form).
-    // The result may contain occurences of DamlLfTypeVar
+    // The result may contain occurrences of DamlLfTypeVar
     return ddt.dataType
   }
 

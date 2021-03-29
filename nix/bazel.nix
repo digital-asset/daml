@@ -35,7 +35,7 @@ let shared = rec {
       # with a mismatch between the version in nixpkgs and the one we
       # overwrite.
       installCheckPhase = "";
-      buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
+      nativeBuildInputs = attrs.nativeBuildInputs ++ [ pkgs.makeWrapper ];
       installPhase = attrs.installPhase + ''
         wrapProgram $out/bin/scala    --add-flags "-nobootcp"
         wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
@@ -50,7 +50,7 @@ let shared = rec {
       # with a mismatch between the version in nixpkgs and the one we
       # overwrite.
       installCheckPhase = "";
-      buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
+      nativeBuildInputs = attrs.nativeBuildInputs ++ [ pkgs.makeWrapper ];
       installPhase = attrs.installPhase + ''
         wrapProgram $out/bin/scala    --add-flags "-nobootcp"
         wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
@@ -66,7 +66,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8103;
+  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8104;
 
   ghc = ghcPkgs.ghc;
   # Deliberately not taken from ghcPkgs. This is a fully

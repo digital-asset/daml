@@ -125,17 +125,15 @@ safetyStep = \case
       BERoundNumeric      -> Safe 1
       BECastNumeric       -> Safe 0
       BEShiftNumeric      -> Safe 1
-      -- TODO https://github.com/digital-asset/daml/issues/8719
-      --  review carfully BitNumeric functions
-      BEScaleBigNumeric     -> Safe 1
-      BEPrecisionBigNumeric -> Safe 1
-      BEAddBigNumeric       -> Safe 1
-      BESubBigNumeric       -> Safe 1
-      BEMulBigNumeric       -> Safe 1
-      BEDivBigNumeric       -> Safe 1
-      BEShiftBigNumeric     -> Safe 1
-      BEToNumericBigNumeric -> Safe 0
-      BEFromNumericBigNumeric -> Safe 0
+      BEScaleBigNumeric     -> Safe 1 -- doesn't fail
+      BEPrecisionBigNumeric -> Safe 1 -- doesn't fail
+      BEAddBigNumeric       -> Safe 1 -- fails on overflow
+      BESubBigNumeric       -> Safe 1 -- fails on overflow
+      BEMulBigNumeric       -> Safe 1 -- fails on overflow
+      BEDivBigNumeric       -> Safe 3 -- takes 4 arguments, fails on division by 0 and on rounding ("rounding unnecessary" mode)
+      BEShiftBigNumeric     -> Safe 1 -- fails on overflow (shift too large)
+      BEToNumericBigNumeric -> Safe 0 -- fails on overflow (numeric doesn't fit)
+      BEFromNumericBigNumeric -> Safe 1 -- doesn't fail
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1
