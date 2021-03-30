@@ -55,7 +55,7 @@ object ContractStateEventsReader {
   def readRawEvents(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
   ): Vector[RawContractStateEvent] =
-    createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
+    createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2))
       .asVectorOf(contractStateRowParser)
 
   def toContractStateEvent(
@@ -145,8 +145,8 @@ object ContractStateEventsReader {
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
 
-  private val createsAndArchives: (EventsRange[Long], String) => SimpleSql[Row] =
-    (range: EventsRange[Long], limitExpr: String) => SQL"""
+  private val createsAndArchives: EventsRange[Long] => SimpleSql[Row] =
+    (range: EventsRange[Long]) => SQL"""
               SELECT
                 contract_id,
                 template_id,
@@ -162,7 +162,7 @@ object ContractStateEventsReader {
                     and event_sequential_id <= ${range.endInclusive}
                     and ((create_argument IS NOT NULL) -- created
                       OR (exercise_consuming IS TRUE)) -- archived
-              ORDER BY event_sequential_id #$limitExpr"""
+              ORDER BY event_sequential_id ASC"""
 
   sealed trait ContractStateEvent extends Product with Serializable {
     def eventOffset: Offset
