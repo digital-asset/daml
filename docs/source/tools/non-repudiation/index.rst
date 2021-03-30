@@ -4,9 +4,6 @@
 Non-repudiation
 ###############
 
-Non-repudiation refers to a situation where a statement's author cannot successfully dispute its authorship or the validity of an associated contract.
-The term is often seen in a legal setting when the authenticity of a signature is being challenged. In such an instance, the authenticity is being "repudiated".
-
 When you are issuing a command over the Ledger API, there is an implicit trust assumption between the issuer of the command and the operator of the participant
 that the latter will not issue commands on behalf of the former.
 
