@@ -360,6 +360,7 @@ data BuiltinExpr
   | BEShiftBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
   | BEToNumericBigNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
   | BEFromNumericBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
+  | BEToTextBigNumeric           -- :: BigNumeric -> Text
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
