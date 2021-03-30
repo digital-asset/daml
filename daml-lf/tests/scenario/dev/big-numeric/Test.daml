@@ -14,14 +14,14 @@ template BigNumericResults
     signatory party
 
 x : BigNumeric
-x = BigNumeric.fromNumeric (0.5: Numeric 10)
+x = 0.5
 
 run = scenario do
   alice <- getParty "Alice"
   submit alice do
      create BigNumericResults with
         party = alice
-        values = map BigNumeric.toNumeric [
+        values = map fromBigNumeric [
               x + x
             , negate x
             , x * x

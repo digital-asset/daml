@@ -18,7 +18,6 @@ module DA.BigNumeric where
 
 import GHC.Types (primitive)
 
-
 -- TODO https://github.com/digital-asset/daml/issues/8719
 --  Expose these as constructors.
 roundingUp, roundingDown, roundingCeiling, roundingFloor, roundingHalfUp, roundingHalfDown, roundingHalfEven, roundingUnnecessary : RoundingMode
@@ -31,14 +30,6 @@ roundingHalfDown = primitive @"BERoundingHalfDown"
 roundingHalfEven = primitive @"BERoundingHalfEven"
 roundingUnnecessary = primitive @"BERoundingUnnecessary"
 
-
--- TODO https://github.com/digital-asset/daml/issues/8719
---  Remove once we have literals.
-zero, one, ten: BigNumeric
-zero = fromNumeric (0.0: Numeric 0)
-one = fromNumeric (1.0: Numeric 0)
-ten = fromNumeric (10.0: Numeric 0)
-
 scale, precision: BigNumeric -> Int
 scale = primitive @"BEScaleBigNumeric"
 precision = primitive @"BEPrecisionBigNumeric"
@@ -47,15 +38,9 @@ div : Int -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
 div = primitive @"BEDivBigNumeric"
 
 round: Int -> RoundingMode -> BigNumeric -> BigNumeric
-round scale rounding x = div scale rounding x one
+round scale rounding x = div scale rounding x 1.0
 
 shift: Int -> BigNumeric -> BigNumeric
 shift = primitive @"BEShiftBigNumeric"
-
-fromNumeric:  forall n. NumericScale n => Numeric n -> BigNumeric
-fromNumeric = primitive @"BEFromNumericBigNumeric"
-
-toNumeric: forall n. NumericScale n => BigNumeric -> Numeric n
-toNumeric = primitive @"BEToNumericBigNumeric"
 
 #endif

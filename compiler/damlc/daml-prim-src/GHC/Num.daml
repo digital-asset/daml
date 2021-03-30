@@ -156,11 +156,11 @@ instance Additive BigNumeric where
     (+) = primitive @"BEAddBigNumeric"
     (-) = primitive @"BESubBigNumeric"
     negate x = aunit - x
-    aunit = (primitive @"BEFromNumericBigNumeric" : Numeric 0 -> BigNumeric) (0.0 : Numeric 0)
+    aunit = 0.0
 
 instance Multiplicative BigNumeric where
     (*) = primitive @"BEMulBigNumeric"
-    munit = (primitive @"BEFromNumericBigNumeric" : Numeric 0 -> BigNumeric) (1.0 : Numeric 0)
+    munit = 1.0
     x ^ n
         | n == 0 = munit
         | n == 2 = x * x
