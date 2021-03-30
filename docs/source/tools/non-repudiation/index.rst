@@ -12,7 +12,7 @@ participant nodes that will require each command to come with a verifiable crypt
 sole owner of the private key used to sign the command, the authenticity of the command is thus verified and preserved, ensuring that an operator
 cannot issue a command on behalf of the user and that the user cannot repudiate the command.
 
-Note that this is an early access feature: it's status is currently under development and further feedback can change how certain details might work
+Note that this is an early access feature: its status is currently under development and further feedback can change how certain details might work
 once the feature is declared a stable part of Daml Connect Enterprise Edition. If you are interested in this feature, you are welcome to use it and
 give us feedback that will shape how this feature will ultimately come to be.
 
