@@ -16,37 +16,10 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.testing.postgresql.PostgresResource
-import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
 
 class AppendOnlySchemaMigrationSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll {
   "Postgres flyway migration" should {
-
-    // TODO append-only: this test is disabled because the current schema uses the
-    // PARTITION keyword which is not supported in the current Postgres version
-    "successfully migrate to append-only schema if the database is empty" ignore {
-      implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-      val resource = newLoggingContext { implicit loggingContext =>
-        for {
-          // Create an empty database
-          db <- PostgresResource.owner[ResourceContext]().acquire()
-          // Migrate to the latest stable schema
-          _ <- Resource.fromFuture(
-            new FlywayMigrations(db.url).migrate(enableAppendOnlySchema = false)
-          )
-          // Migrate the empty database to the append-only schema
-          _ <- Resource.fromFuture(
-            new FlywayMigrations(db.url).migrate(enableAppendOnlySchema = true)
-          )
-        } yield ()
-      }
-
-      // Test succeeds if all above steps complete without errors
-      for {
-        _ <- resource.asFuture
-        _ <- resource.release()
-      } yield Succeeded
-    }
 
     // TODO append-only: remove this test after implementing data migration
     "refuse to migrate to append-only schema if the database is not empty" in {
@@ -55,14 +28,17 @@ class AppendOnlySchemaMigrationSpec extends AsyncWordSpec with AkkaBeforeAndAfte
         for {
           // Create an empty database
           db <- PostgresResource.owner[ResourceContext]().acquire()
+
           // Migrate to the latest stable schema
           _ <- Resource.fromFuture(
             new FlywayMigrations(db.url).migrate(enableAppendOnlySchema = false)
           )
+
           // Write some data into the database
           dao <- daoOwner(100, db.url).acquire()
           _ <- Resource.fromFuture(dao.initializeLedger(TestLedgerId))
           _ <- Resource.fromFuture(dao.initializeParticipantId(TestParticipantId))
+
           // Attempt to migrate the non-empty database to the append-only schema - this must fail
           error <- Resource.fromFuture(
             new FlywayMigrations(db.url).migrate(enableAppendOnlySchema = true).failed
