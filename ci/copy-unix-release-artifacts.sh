@@ -54,8 +54,10 @@ if [[ "$NAME" == "linux" ]]; then
     NON_REPUDIATION_CLIENT_POM=non-repudiation-client-$RELEASE_TAG.pom
     NON_REPUDIATION_CLIENT_SRC=non-repudiation-client-$RELEASE_TAG-sources.jar
     NON_REPUDIATION_CLIENT_DOC=non-repudiation-cleint-$RELEASE_TAG-javadoc.jar
-    bazel build //runtime-components/non-repudiation-client
-    bazel build //runtime-components/non-repudiation-client:non-repudiation-client_javadoc
+    bazel build \
+          //runtime-components/non-repudiation-client \
+          //runtime-components/non-repudiation-client:non-repudiation-client_javadoc \
+          //runtime-components/non-repudiation-client:libnon-repudiation-client-src.jar
     cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_JAR
     cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_pom.xml $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_POM
     cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client-src.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_SRC
