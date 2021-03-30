@@ -33,21 +33,19 @@ object Dump {
         .render(80)
         .getBytes(StandardCharsets.UTF_8),
     )
-    val packages: Seq[String] =
+    val exposedPackages: Seq[String] =
       pkgRefs.view.collect(Function.unlift(Dependencies.toPackages(_, pkgs))).toSeq
-    val dalfs: Seq[(PackageId, ByteString, Ast.Package)] =
-      pkgRefs.view.flatMap(Dependencies.toDalfs(_, pkgs)).toSeq
     val deps = Files.createDirectory(dir.resolve("deps"))
-    val dalfFiles = dalfs.map { case (pkgId, bs, pkg) =>
+    val dalfFiles = pkgs.map { case (pkgId, (bs, pkg)) =>
       val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
       val file = deps.resolve(s"$prefix$pkgId.dalf")
       Dependencies.writeDalf(file, pkgId, bs)
       file
-    }
-    val lfTarget = Dependencies.targetLfVersion(dalfs.map(_._3.languageVersion))
+    }.toSeq
+    val lfTarget = Dependencies.targetLfVersion(pkgs.values.map(_._2.languageVersion))
     val targetFlag = lfTarget.fold("")(Dependencies.targetFlag(_))
 
-    val buildOptions = targetFlag +: packages.map(pkgId => s"--package=$pkgId")
+    val buildOptions = targetFlag +: exposedPackages.map(pkgId => s"--package=$pkgId")
 
     Files.write(
       dir.resolve("daml.yaml"),

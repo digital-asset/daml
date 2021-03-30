@@ -54,7 +54,6 @@ testsForRemoteDataDependencies damlc dar =
                           , "source: ."
                           , "dependencies: [daml-prim, daml-stdlib]"
                           , "data-dependencies: [" ++ mainPkgId ++ "]"
-                          , "build-options: [--package=pkg-manager-test-1.0.0]"
                           , "ledger:"
                           , "  host: localhost"
                           , "  port: " <> show sandboxPort

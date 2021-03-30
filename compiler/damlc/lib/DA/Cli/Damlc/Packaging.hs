@@ -514,9 +514,9 @@ data DependencyInfo = DependencyInfo
   -- Note that for data-dependencies it is sufficient to list a DAR without
   -- listing all of its dependencies.
   , mainUnitIds :: [UnitId]
-  -- ^ Unit id of the main DALFs specified in dependencies.
-  -- This will be used to generate the --package flags which define which
-  -- packages are exposed by default.
+  -- ^ Unit id of the main DALFs specified in dependencies and the main DALFs
+  -- of DARs specified in data-dependencies. This will be used to generate the
+  -- --package flags which define which packages are exposed by default.
   }
 
 showDeps :: [((LF.PackageId, UnitId), LF.Version)] -> String

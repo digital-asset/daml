@@ -15,7 +15,6 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 
 object Dependencies {
@@ -48,7 +47,7 @@ object Dependencies {
     go(references, Map.empty)
   }
 
-  def targetLfVersion(dalfs: Seq[LanguageVersion]): Option[LanguageVersion] = {
+  def targetLfVersion(dalfs: Iterable[LanguageVersion]): Option[LanguageVersion] = {
     if (dalfs.isEmpty) { None }
     else { Some(dalfs.max) }
   }
@@ -92,30 +91,5 @@ object Dependencies {
       main <- pkgs.get(mainId) if !isProvidedLibrary(main._2)
       md <- main._2.metadata
     } yield s"${md.name}-${md.version}"
-  }
-
-  // Given the pkg id of a main dalf and the map of all downloaded packages produce
-  // a sequence of DALFs or an empty sequence for builtin packages like daml-stdlib
-  // that don’t need to be listed in data-dependencies.
-  def toDalfs(
-      mainId: PackageId,
-      pkgs: Map[PackageId, (ByteString, Ast.Package)],
-  ): Seq[(PackageId, ByteString, Ast.Package)] = {
-    // transitive dependencies including the given package itself, skipping any builtin packages
-    def deps(pkgId: PackageId): Set[PackageId] = {
-      @tailrec
-      def go(todo: List[PackageId], acc: Set[PackageId]): Set[PackageId] =
-        todo match {
-          case Nil => acc
-          case p :: todo if isProvidedLibrary(pkgs(p)._2) => go(todo, acc)
-          case p :: todo if acc.contains(p) => go(todo, acc)
-          case p :: todo => go(todo ++ pkgs(p)._2.directDeps.toList, acc + p)
-        }
-      go(List(pkgId), Set.empty)
-    }
-    for {
-      pkgId <- deps(mainId).toList
-      pkg <- pkgs.get(pkgId).toList
-    } yield (pkgId, pkg._1, pkg._2)
   }
 }

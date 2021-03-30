@@ -245,7 +245,6 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "lib" </> "lib.dar")
               , "data-dependencies: [" <> show (tmpDir </> "a" </> "a.dar") <> "]"
-              , "build-options: [--package=a-0.0.1]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
