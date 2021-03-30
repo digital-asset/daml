@@ -354,10 +354,10 @@ private[dao] final class TransactionsReader(
 
   // KTODO: make this nice and deduplicate with nextPageRange
   private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      a: ContractStateEventsReader.RawContractEvent
+      raw: ContractStateEventsReader.RawContractStateEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
-      startExclusive = (a._9, a._7), /* KTODO: Use an intermediary DTO */
+      startExclusive = (raw.offset, raw.eventSequentialId),
       endInclusive = endEventSeqId,
     )
 
@@ -434,12 +434,14 @@ private[dao] final class TransactionsReader(
   private def streamContractStateEvents(
       queryMetric: DatabaseMetrics,
       query: EventsRange[(Offset, Long)] => Connection => Vector[
-        ContractStateEventsReader.RawContractEvent
+        ContractStateEventsReader.RawContractStateEvent
       ],
-      getNextPageRange: ContractStateEventsReader.RawContractEvent => EventsRange[(Offset, Long)],
+      getNextPageRange: ContractStateEventsReader.RawContractStateEvent => EventsRange[
+        (Offset, Long)
+      ],
   )(range: EventsRange[(Offset, Long)])(implicit
       loggingContext: LoggingContext
-  ): Source[ContractStateEventsReader.RawContractEvent, NotUsed] =
+  ): Source[ContractStateEventsReader.RawContractStateEvent, NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)
