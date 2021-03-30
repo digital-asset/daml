@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 
 # Export Bazel sources for Bazel API docs.
@@ -80,4 +81,4 @@ check 'org.scala-lang:scala-reflect (in {maven_install_json})' "$$SCALA_REFLECT_
         "@maven//:org_scala_lang_scala_reflect",
         "@scala_nix//:bin/scala",
     ],
-)
+) if not is_windows else None
