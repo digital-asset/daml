@@ -422,7 +422,11 @@ drop n (_ :: xs)       =  drop (n-1) xs
 
 -- | Split a list at a given index.
 splitAt : Int -> [a] -> ([a], [a])
-splitAt i x = (take i x, drop i x)
+splitAt _ [] = ([], [])
+splitAt i ys@(x :: xs)
+  | i <= 0 = ([], ys)
+  | otherwise = case splitAt (i - 1) xs of
+      (a, b) -> (x :: a, b)
 
 -- | Take elements from a list while the predicate holds.
 takeWhile : (a -> Bool) -> [a] -> [a]

@@ -269,7 +269,10 @@ abstract class AbstractFuncIT
     }
     "traceOrder" should {
       "emit trace statements in correct order" in {
-        def traceMsg(msg: String) = s"""[DA.Internal.Prelude:540]: "$msg""""
+        val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: "(.*)"""".r
+        def stripLoc(msg: String) = msg match {
+          case msgRegex(msg_) => msg_
+        }
         for {
           clients <- participantClients()
           _ = LogCollector.clear()
@@ -281,7 +284,7 @@ abstract class AbstractFuncIT
         } yield {
           assert(v == SUnit)
           val logMsgs = LogCollector.events.map(_.getMessage)
-          assert(logMsgs == Seq(traceMsg("abc"), traceMsg("def"), traceMsg("abc"), traceMsg("def")))
+          assert(logMsgs.map(stripLoc(_)) == Seq("abc", "def", "abc", "def"))
         }
       }
     }
