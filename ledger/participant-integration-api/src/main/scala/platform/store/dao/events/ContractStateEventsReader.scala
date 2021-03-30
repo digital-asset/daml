@@ -76,20 +76,22 @@ object ContractStateEventsReader {
           eventSequentialId = raw.eventSequentialId,
         )
       case EventKindCreated =>
-        val (maybeGlobalKey: Option[GlobalKey], contract: Contract) = globalKeyAndContract(
+        val templateId = raw.templateId.getOrElse(throw CreateMissingError("template_id"))
+        val createArgument =
+          raw.createArgument.getOrElse(throw CreateMissingError("create_argument"))
+        val maybeGlobalKey =
+          decompressGlobalKey(templateId, raw.createKeyValue, raw.createKeyCompression)
+        val contract = getCachedOrDecompressContract(
           raw.contractId,
-          raw.templateId.getOrElse(throw CreateMissingError("template_id")),
-          raw.createKeyValue,
-          raw.createKeyCompression,
-          raw.createArgument.getOrElse(throw CreateMissingError("create_argument")),
+          templateId,
+          createArgument,
           raw.createArgumentCompression,
           lfValueTranslation,
         )
         Created(
           contractId = raw.contractId,
           contract = contract,
-          globalKey =
-            maybeGlobalKey, // KTODO: Look into using the retrieving the cached value for global key
+          globalKey = maybeGlobalKey,
           stakeholders = raw.flatEventWitnesses,
           eventOffset = raw.offset,
           eventSequentialId = raw.eventSequentialId,
@@ -98,53 +100,46 @@ object ContractStateEventsReader {
         throw InvalidEventKind(unknownKind)
     }
 
-  private def globalKeyAndContract(
+  private def cachedContractValue(
+      contractId: ContractId,
+      lfValueTranslation: LfValueTranslation,
+  ): Option[LfValueTranslationCache.ContractCache.Value] =
+    lfValueTranslation.cache.contracts.getIfPresent(
+      LfValueTranslationCache.ContractCache.Key(contractId)
+    )
+
+  private def getCachedOrDecompressContract(
       contractId: ContractId,
       templateId: events.Identifier,
-      maybeCreateKeyValue: Option[InputStream],
-      maybeCreateKeyValueCompression: Option[Int],
       createArgument: InputStream,
       maybeCreateArgumentCompression: Option[Int],
       lfValueTranslation: LfValueTranslation,
-  ): (Option[Key], Contract) = {
-    val maybeContractArgument =
-      lfValueTranslation.cache.contracts
-        .getIfPresent(LfValueTranslationCache.ContractCache.Key(contractId))
-        .map(_.argument)
-        .toRight(createArgument) // KTODO: ???
-
-    val maybeGlobalKey =
-      for {
-        createKeyValue <- maybeCreateKeyValue
-        createKeyValueCompression = Compression.Algorithm.assertLookup(
-          maybeCreateKeyValueCompression
-        )
-        keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
-      } yield GlobalKey.assertBuild(templateId, keyValue.value)
-    val contract =
-      toContract( // KTODO: Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
-        templateId,
-        createArgument = maybeContractArgument,
-        createArgumentCompression =
-          Compression.Algorithm.assertLookup(maybeCreateArgumentCompression),
-      )
-    (maybeGlobalKey, contract)
-  }
-
-  private[store] def toContract(
-      templateId: Identifier,
-      createArgument: Either[InputStream, events.Value],
-      createArgumentCompression: Compression.Algorithm,
   ): Contract = {
-    val deserialized =
-      createArgument.fold(decompressAndDeserialize(createArgumentCompression, _), identity)
+    val createArgumentCompression =
+      Compression.Algorithm.assertLookup(maybeCreateArgumentCompression)
+    val deserializedCreateArgument = cachedContractValue(contractId, lfValueTranslation)
+      .map(_.argument)
+      .getOrElse(decompressAndDeserialize(createArgumentCompression, createArgument))
 
     Contract(
       template = templateId,
-      arg = deserialized,
+      arg = deserializedCreateArgument,
       agreementText = "",
     )
   }
+
+  private def decompressGlobalKey(
+      templateId: events.Identifier,
+      maybeCreateKeyValue: Option[InputStream],
+      maybeCreateKeyValueCompression: Option[Int],
+  ): Option[Key] =
+    for {
+      createKeyValue <- maybeCreateKeyValue
+      createKeyValueCompression = Compression.Algorithm.assertLookup(
+        maybeCreateKeyValueCompression
+      )
+      keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
+    } yield GlobalKey.assertBuild(templateId, keyValue.value)
 
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
@@ -165,8 +160,7 @@ object ContractStateEventsReader {
     "exercise_consuming IS TRUE"
 
   private val createsAndArchives: EventsRange[Long] => SimpleSql[Row] =
-    (range: EventsRange[Long]) =>
-      SQL(s"""
+    (range: EventsRange[Long]) => SQL(s"""
            |SELECT
            |    $eventKindQueryClause,
            |    contract_id,
