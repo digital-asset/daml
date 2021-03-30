@@ -18,86 +18,77 @@ import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStat
   Created,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 
 import scala.util.control.NoStackTrace
 
 object ContractStateEventsReader {
-  type RawContractEvent = (
-      ContractId,
-      Option[Ref.Identifier],
-      Option[InputStream],
-      Option[Int],
-      Option[InputStream],
-      Option[Int],
-      Long,
-      Set[Party],
-      Offset,
-  )
+
+  val contractStateRowParser: RowParser[RawContractStateEvent] =
+    (contractId("contract_id") ~
+      identifier("template_id").? ~
+      binaryStream("create_key_value").? ~
+      int("create_key_value_compression").? ~
+      binaryStream("create_argument").? ~
+      int("create_argument_compression").? ~
+      long("event_sequential_id") ~
+      flatEventWitnessesColumn("flat_event_witnesses") ~
+      offset("event_offset")).map {
+      case contractId ~ templateId ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
+        RawContractStateEvent(
+          contractId,
+          templateId,
+          createKeyValue,
+          createKeyCompression,
+          createArgument,
+          createArgumentCompression,
+          flatEventWitnesses,
+          eventSequentialId,
+          offset,
+        )
+    }
 
   def read(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
-  ): Vector[RawContractEvent] =
+  ): Vector[RawContractStateEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
-      .as(
-        (contractId("contract_id") ~
-          identifier("template_id").? ~
-          binaryStream("create_key_value").? ~
-          int("create_key_value_compression").? ~
-          binaryStream("create_argument").? ~
-          int("create_argument_compression").? ~
-          long("event_sequential_id") ~
-          flatEventWitnessesColumn("flat_event_witnesses") ~
-          offset("event_offset")).map(SqlParser.flatten).*
-      )
-      .toVector
+      .asVectorOf(contractStateRowParser)
 
   def toContractStateEvent(
-      row: RawContractEvent,
+      raw: RawContractStateEvent,
       lfValueTranslation: LfValueTranslation,
-  ): ContractStateEvent =
-    row match {
-      case (
-            contractId,
-            templateId,
-            maybeCreateKeyValue,
-            maybeCreateKeyValueCompression,
-            maybeCreateArgument,
-            maybeCreateArgumentCompression,
-            eventSequentialId,
-            flatEventWitnesses,
-            offset,
-          ) =>
-        // Events are differentiated basing on the assumption that only `create` or `archived` events are considered.
-        // `maybeCreateArgument` can only be defined if an event is `create` - otherwise the event must be `archived`
-        // See the definition of `RawContractEvent`
-        if (maybeCreateArgument.isEmpty) {
-          Archived(
-            contractId = contractId,
-            stakeholders = flatEventWitnesses,
-            eventOffset = offset,
-            eventSequentialId = eventSequentialId,
-          )
-        } else {
-          val (maybeGlobalKey: Option[GlobalKey], contract: Contract) = globalKeyAndContract(
-            contractId,
-            templateId.getOrElse(throw CreateMissingError("template_id")),
-            maybeCreateKeyValue,
-            maybeCreateKeyValueCompression,
-            maybeCreateArgument.getOrElse(throw CreateMissingError("create_argument")),
-            maybeCreateArgumentCompression,
-            lfValueTranslation,
-          )
-          Created(
-            contractId = contractId,
-            contract = contract,
-            globalKey =
-              maybeGlobalKey, // TDT Look into using the retrieving the cached value for global key
-            stakeholders = flatEventWitnesses,
-            eventOffset = offset,
-            eventSequentialId = eventSequentialId,
-          )
-        }
+  ): ContractStateEvent = {
+    // Events are differentiated basing on the assumption that only `create` or `archived` events are considered.
+    // `maybeCreateArgument` can only be defined if an event is `create` - otherwise the event must be `archived`
+    // See the definition of `RawContractEvent`
+    if (raw.createArgument.isEmpty) {
+      Archived(
+        contractId = raw.contractId,
+        stakeholders = raw.flatEventWitnesses,
+        eventOffset = raw.offset,
+        eventSequentialId = raw.eventSequentialId,
+      )
+    } else {
+      val (maybeGlobalKey: Option[GlobalKey], contract: Contract) = globalKeyAndContract(
+        raw.contractId,
+        raw.templateId.getOrElse(throw CreateMissingError("template_id")),
+        raw.createKeyValue,
+        raw.createKeyCompression,
+        raw.createArgument.getOrElse(throw CreateMissingError("create_argument")),
+        raw.createArgumentCompression,
+        lfValueTranslation,
+      )
+      Created(
+        contractId = raw.contractId,
+        contract = contract,
+        globalKey =
+          maybeGlobalKey, // KTODO: Look into using the retrieving the cached value for global key
+        stakeholders = raw.flatEventWitnesses,
+        eventOffset = raw.offset,
+        eventSequentialId = raw.eventSequentialId,
+      )
     }
+  }
 
   private def globalKeyAndContract(
       contractId: ContractId,
@@ -112,7 +103,7 @@ object ContractStateEventsReader {
       lfValueTranslation.cache.contracts
         .getIfPresent(LfValueTranslation.ContractCache.Key(contractId))
         .map(_.argument)
-        .toRight(createArgument) // TDT
+        .toRight(createArgument) // KTODO: ???
 
     val maybeGlobalKey =
       for {
@@ -123,7 +114,7 @@ object ContractStateEventsReader {
         keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
       } yield GlobalKey.assertBuild(templateId, keyValue.value)
     val contract =
-      toContract( // TDT Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
+      toContract( // KTODO: Do not eagerly decode contract here (do it only for creates since it will only be needed for divulgence for deletes)
         templateId,
         createArgument = maybeContractArgument,
         createArgumentCompression =
@@ -198,4 +189,18 @@ object ContractStateEventsReader {
     override def getMessage: String =
       s"Create events should not be missing $field"
   }
+
+  // TODO: make it a trait and differentiate in parsers
+  private[events] case class RawContractStateEvent(
+      contractId: ContractId,
+      templateId: Option[Ref.Identifier],
+      createKeyValue: Option[InputStream],
+      createKeyCompression: Option[Int],
+      createArgument: Option[InputStream],
+      createArgumentCompression: Option[Int],
+      flatEventWitnesses: Set[Party],
+      eventSequentialId: Long,
+      offset: Offset,
+  )
+
 }
