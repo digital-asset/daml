@@ -316,7 +316,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         QueryNonPruned.executeSqlOrThrow(
-          ContractStateEventsReader.read(range),
+          ContractStateEventsReader.readRawEvents(range),
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",

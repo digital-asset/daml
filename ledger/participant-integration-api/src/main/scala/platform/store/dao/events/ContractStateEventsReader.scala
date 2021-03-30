@@ -48,7 +48,11 @@ object ContractStateEventsReader {
         )
     }
 
-  def read(range: EventsRange[(Offset, Long)])(implicit
+  /*
+  This method intentionally produces a generic DTO to perform as much work as possible outside of the db thread pool
+  (specifically the translation to the `ContractStateEvent`)
+   */
+  def readRawEvents(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
   ): Vector[RawContractStateEvent] =
     createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2), "ASC")
@@ -190,7 +194,6 @@ object ContractStateEventsReader {
       s"Create events should not be missing $field"
   }
 
-  // TODO: make it a trait and differentiate in parsers
   private[events] case class RawContractStateEvent(
       contractId: ContractId,
       templateId: Option[Ref.Identifier],
