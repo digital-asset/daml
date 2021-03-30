@@ -213,6 +213,8 @@ alias(
 
 exports_files([
     ".scalafmt.conf",
+    "maven_install_2.12.json",
+    "maven_install_2.13.json",
 ])
 
 # Buildifier.
