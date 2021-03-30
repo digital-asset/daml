@@ -40,6 +40,7 @@ push non-repudiation $NON_REPUDIATION.asc
 NON_REPUDIATION_CLIENT_JAR=non-repudiation-client-$RELEASE_TAG.jar
 NON_REPUDIATION_CLIENT_POM=non-repudiation-client-$RELEASE_TAG.pom
 NON_REPUDIATION_CLIENT_SRC=non-repudiation-client-$RELEASE_TAG-sources.jar
+NON_REPUDIATION_CLIENT_DOC=non-repudiation-client-$RELEASE_TAG-javadoc.jar
 
 push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_JAR
 push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_JAR.asc
@@ -47,6 +48,8 @@ push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_POM
 push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_POM.asc
 push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_SRC
 push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_SRC.asc
+push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_DOC
+push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_DOC.asc
 
 for platform in linux macos windows; do
     EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
