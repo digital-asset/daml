@@ -467,7 +467,7 @@ object PostCommitValidationSpec {
 
   private def notFound(contractIds: Set[ContractId]): Throwable =
     new IllegalArgumentException(
-      s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
+      s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
 
   private def noCommittedContract(parties: List[PartyDetails]): ContractStoreFixture =
