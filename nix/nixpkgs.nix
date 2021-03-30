@@ -30,15 +30,7 @@ let
         wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
     });
-    scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
-      version = "2.12.13";
-      name = "scala-${version}";
-      src = pkgs.fetchurl {
-        url = "https://www.scala-lang.org/files/archive/${name}.tgz";
-        # Keep in sync with /bazel_tools/scala_version.bzl and /release/src/Main.hs
-        sha256 = "17548sx7liskkadqiqaajmwp2w7bh9m2d8hp2mwyg8yslmjx4pcc";
-      };
-    });
+    scala_2_12 = pkgs.scala_2_12;
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
       version = "2.13.3";
       name = "scala-2.13.3";
