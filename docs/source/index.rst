@@ -116,6 +116,7 @@ Daml Documentation
    daml-integration-kit/index
    tools/visual
    concepts/interoperability
+   tools/non-repudiation
 
 .. toctree::
    :titlesonly:
