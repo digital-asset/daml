@@ -24,7 +24,7 @@ fi
 # Note that lsof returns a non-zero exit code if there is no match.
 SANDBOX_PID="$(lsof -ti tcp:6865 || true)"
 if [ -n "$SANDBOX_PID" ]; then
-    kill "$SANDBOX_PID"
+    echo "$SANDBOX_PID" | xargs kill
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
