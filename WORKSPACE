@@ -56,9 +56,9 @@ load("//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
-load("//bazel_tools:scala_version.bzl", "scala_version_rule")
+load("//bazel_tools:scala_version.bzl", "scala_version_configure")
 
-scala_version_rule(name = "scala_version")
+scala_version_configure(name = "scala_version")
 
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 

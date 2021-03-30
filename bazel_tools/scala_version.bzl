@@ -36,7 +36,7 @@ scala_major_version_suffix = "{major_suffix}"
         executable = False,
     )
 
-scala_version_rule = repository_rule(
+scala_version_configure = repository_rule(
     environ = ["DAML_SCALA_VERSION"],
     implementation = _impl,
     attrs = {},
