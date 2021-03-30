@@ -184,6 +184,39 @@ When importing packages this way, the Daml compiler will try to reconstruct the 
 
 Because of their flexibility, data-dependencies are a tool that is recommended for performing Daml model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
 
+Importing Daml packages from the project ledger
+===============================================
+
+Daml packages that have been uploaded to a ledger can be imported as data dependencies, given you
+have the necessary permissions to download these packages. To import such a package, add the package
+name and version separated by a colon to the data-dependencies stanza as follows:
+
+.. code-block:: yaml
+
+  ledger:
+    host: localhost
+    port: 6865
+  dependencies:
+  - daml-prim
+  - daml-stdlib
+  data-dependencies:
+  - foo:1.0.0
+
+If your ledger runs at the default host and port (``localhost:6865``), the ledger stanza can be
+omitted. This will fetch and install the package ``foo-1.0.0``. A ``daml.lock`` file is created at
+the root of your project directory, pinning the resolved packages to their exact package ID:
+
+.. code-block:: yaml
+
+  dependencies:
+  - pkgId: 51255efad65a1751bcee749d962a135a65d12b87eb81ac961142196d8bbca535
+    name: foo
+    version: 1.0.0
+
+The ``daml.lock`` file needs to be checked into version control of your project. This assures that
+package name/version tuples specified in your data dependencies are always resolved to the same
+package ID. To recreate or update your ``daml.lock`` file, delete it and run ``daml build`` again.
+
 .. _module_collisions:
 
 Handling module name collisions
