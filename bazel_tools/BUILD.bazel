@@ -1,6 +1,9 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
+load("@scala_version//:index.bzl", "scala_version")
+
 # Export Bazel sources for Bazel API docs.
 exports_files(
     [
@@ -15,4 +18,49 @@ exports_files(
         "pom_template.xml",
     ],
     visibility = ["//:__subpackages__"],
+)
+
+sh_inline_test(
+    name = "scala_version_test",
+    cmd = """
+set -eu
+
+function check {{
+  if [[ '{expected_version}' == "$$2" ]]; then
+    echo >&2 "$$1 was version {expected_version}, as expected."
+    return 0
+  else
+    echo >&2 "Expected $$1 to have the version {expected_version}, but got the version $$2."
+    return 1
+  fi
+}}
+
+SCALA_BIN="$$(canonicalize_rlocation $(rootpath {scala_bin}))"
+SCALA_BIN_VERSION="$$($$SCALA_BIN -version |& sed -r 's/^Scala code runner version ([^ ]+) -- .*$$/\\1/')"
+
+function jar_version {{
+  echo "$$(basename "$$1")" | sed -r 's/^.*-([0-9\\.]+)\\.jar$$/\\1/'
+}}
+
+SCALA_COMPILER_VERSION="$$(jar_version $(rootpath {scala_compiler}))"
+SCALA_LIBRARY_VERSION="$$(jar_version $(rootpath {scala_library}))"
+SCALA_REFLECT_VERSION="$$(jar_version $(rootpath {scala_reflect}))"
+
+check 'scala binary' "$$SCALA_BIN_VERSION"
+check '$(rootpath {scala_compiler})' "$$SCALA_COMPILER_VERSION"
+check '$(rootpath {scala_library})' "$$SCALA_LIBRARY_VERSION"
+check '$(rootpath {scala_reflect})' "$$SCALA_REFLECT_VERSION"
+""".format(
+        expected_version = scala_version,
+        scala_bin = "@scala_nix//:bin/scala",
+        scala_compiler = "@maven//:org_scala_lang_scala_compiler",
+        scala_library = "@maven//:org_scala_lang_scala_library",
+        scala_reflect = "@maven//:org_scala_lang_scala_reflect",
+    ),
+    data = [
+        "@maven//:org_scala_lang_scala_compiler",
+        "@maven//:org_scala_lang_scala_library",
+        "@maven//:org_scala_lang_scala_reflect",
+        "@scala_nix//:bin/scala",
+    ],
 )
