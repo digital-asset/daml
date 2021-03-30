@@ -546,10 +546,9 @@ object Repl {
             case Left((err, ledger @ _)) =>
               println(prettyError(err, onLedger.ptx).render(128))
               (false, state)
-            case Right((diff @ _, steps @ _, ledger, value)) =>
+            case Right((diff @ _, steps @ _, ledger, value @ _)) =>
               // NOTE(JM): cannot print this, output used in tests.
               //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
-              println(value.toValue)
               println(prettyLedger(ledger).render(128))
               (true, state)
           }
