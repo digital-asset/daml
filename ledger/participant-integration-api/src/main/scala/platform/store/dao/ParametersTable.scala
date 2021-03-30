@@ -38,7 +38,7 @@ private[dao] object ParametersTable {
       .map(SqlParser.flatten)
       .map {
         case (Some(offset), Some(seqId)) => (offset, seqId)
-        case (None, None) => (Offset.beforeBegin, 0L) // KTODO: remove magic number
+        case (None, None) => (Offset.beforeBegin, 0L)
         case other =>
           throw new RuntimeException(s"Invalid ledgerEnd/sequentialId combination: $other")
       }
