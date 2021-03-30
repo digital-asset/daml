@@ -49,4 +49,13 @@ if [[ "$NAME" == "linux" ]]; then
     NON_REPUDIATION=non-repudiation-$RELEASE_TAG.jar
     bazel build //runtime-components/non-repudiation-app:non-repudiation-app_deploy.jar
     cp bazel-bin/runtime-components/non-repudiation-app/non-repudiation-app_deploy.jar $OUTPUT_DIR/github/$NON_REPUDIATION
+
+    NON_REPUDIATION_CLIENT_JAR=non-repudiation-client-$RELEASE_TAG.jar
+    NON_REPUDIATION_CLIENT_POM=non-repudiation-client-$RELEASE_TAG.pom
+    NON_REPUDIATION_CLIENT_SRC=non-repudiation-client-$RELEASE_TAG-sources.jar
+    bazel build //runtime-components/non-repudiation-client
+    cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_JAR
+    cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_pom.xml $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_POM
+    cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client-src.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_SRC
 fi
+
