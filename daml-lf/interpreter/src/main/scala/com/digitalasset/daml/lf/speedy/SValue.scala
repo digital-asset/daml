@@ -244,8 +244,9 @@ object SValue {
   object SBigNumeric {
     // TODO https://github.com/digital-asset/daml/issues/8719
     //   Decide what are the actual bound for BigDecimal
-    val MaxScale = 1 << 10
-    val MaxPrecision = MaxScale << 2
+    val MaxScale = 1 << 16
+    val MinScale = 1 - MaxScale
+    val MaxPrecision = MaxScale * 2
 
     def unapply(value: SBigNumeric): Some[java.math.BigDecimal] =
       Some(value.value)
@@ -253,11 +254,14 @@ object SValue {
     def fromBigDecimal(x: java.math.BigDecimal): Either[String, SBigNumeric] = {
       val norm = x.stripTrailingZeros()
       Either.cond(
-        test = norm.scale <= MaxScale && norm.precision + norm.scale < MaxScale,
+        test = norm.scale <= MaxScale && norm.precision - norm.scale <= MaxScale,
         right = new SBigNumeric(norm),
         left = "non valid BigNumeric",
       )
     }
+
+    def fromNumeric(x: Numeric) =
+      new SBigNumeric(x.stripTrailingZeros())
 
     def assertFromBigDecimal(x: java.math.BigDecimal): SBigNumeric =
       data.assertRight(fromBigDecimal(x))
