@@ -28,8 +28,14 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
     for {
       before <- ledgerDao.lookupLedgerEndAndEventSequentialId()
       (offset1, t1) <- store(singleCreate)
-      (offset2, t2) <- store(singleCreate)
-      (offset3, _) <- store(singleExercise(nonTransient(t2).loneElement))
+      (key2, globalKey2) = createTestKey(Set(alice, bob))
+      (offset2, t2) <- createAndStoreContract(
+        submittingParties = Set(alice),
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob),
+        key = Some(key2),
+      )
+      (offset3, _) <- store(singleExercise(nonTransient(t2).loneElement, Some(key2)))
       (offset4, t4) <- store(fullyTransient)
       (offset5, t5) <- store(singleCreate)
       (offset6, t6) <- store(singleCreate)
@@ -57,13 +63,14 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
         Created(
           nonTransient(t2).loneElement,
           contract,
-          None,
+          Some(globalKey2),
           Set(alice, bob),
           offset2,
           sequentialIdState.nextId(),
         ),
         Archived(
           nonTransient(t2).loneElement,
+          Some(globalKey2),
           Set(alice, bob),
           offset3,
           sequentialIdState.nextId(),
@@ -78,6 +85,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement with Inside with
         ),
         Archived(
           createdContractId(t4).loneElement,
+          None,
           Set(alice, bob),
           offset4,
           sequentialIdState.nextId(),

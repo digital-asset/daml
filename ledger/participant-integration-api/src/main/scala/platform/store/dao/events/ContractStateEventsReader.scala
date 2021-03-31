@@ -69,8 +69,12 @@ object ContractStateEventsReader {
   ): ContractStateEvent =
     raw.eventKind match {
       case EventKindArchived =>
+        val templateId = raw.templateId.getOrElse(throw CreateMissingError("template_id"))
+        val maybeGlobalKey =
+          decompressGlobalKey(templateId, raw.createKeyValue, raw.createKeyCompression)
         Archived(
           contractId = raw.contractId,
+          globalKey = maybeGlobalKey,
           stakeholders = raw.flatEventWitnesses,
           eventOffset = raw.offset,
           eventSequentialId = raw.eventSequentialId,
@@ -196,6 +200,7 @@ object ContractStateEventsReader {
     ) extends ContractStateEvent
     final case class Archived(
         contractId: ContractId,
+        globalKey: Option[GlobalKey],
         stakeholders: Set[Party],
         eventOffset: Offset,
         eventSequentialId: Long,

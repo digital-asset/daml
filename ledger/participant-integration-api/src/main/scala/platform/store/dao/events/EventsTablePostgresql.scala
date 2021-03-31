@@ -63,7 +63,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val createObservers = Array.ofDim[String](batchSize)
     val createAgreementTexts = Array.ofDim[String](batchSize)
     val createConsumedAt = Array.ofDim[Array[Byte]](batchSize)
-    val createKeyValues = Array.ofDim[Array[Byte]](batchSize)
+    val keyValues = Array.ofDim[Array[Byte]](batchSize)
     val exerciseConsuming = Array.ofDim[java.lang.Boolean](batchSize)
     val exerciseChoices = Array.ofDim[String](batchSize)
     val exerciseArguments = Array.ofDim[Array[Byte]](batchSize)
@@ -89,7 +89,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           if (create.coinst.agreementText.nonEmpty) {
             createAgreementTexts(i) = create.coinst.agreementText
           }
-          createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
+          keyValues(i) = compressed.keyValues.get(nodeId).orNull
         case exercise: Exercise =>
           submitters(i) = submittersValue
           contractIds(i) = exercise.targetCoid.coid
@@ -107,6 +107,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
             .map(EventId(tx.transactionId, _).toLedgerString)
             .iterator
             .mkString("|")
+          keyValues(i) = compressed.keyValues.get(nodeId).orNull
         case _ => throw new UnexpectedNodeException(nodeId, tx.transactionId)
       }
     }
@@ -130,7 +131,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       createObservers,
       createAgreementTexts,
       createConsumedAt,
-      createKeyValues,
+      keyValues,
       exerciseConsuming,
       exerciseChoices,
       exerciseArguments,
@@ -242,7 +243,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       createObservers: Array[String],
       createAgreementTexts: Array[String],
       createConsumedAt: Array[Array[Byte]],
-      createKeyValues: Array[Array[Byte]],
+      keyValues: Array[Array[Byte]],
       exerciseConsuming: Array[java.lang.Boolean],
       exerciseChoices: Array[String],
       exerciseArguments: Array[Array[Byte]],
@@ -276,7 +277,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
         Params.createObservers -> createObservers,
         Params.createAgreementTexts -> createAgreementTexts,
         Params.createConsumedAt -> createConsumedAt,
-        Params.createKeyValues -> createKeyValues,
+        Params.createKeyValues -> keyValues,
         Params.exerciseConsuming -> exerciseConsuming,
         Params.exerciseChoices -> exerciseChoices,
         Params.exerciseArguments -> exerciseArguments,
