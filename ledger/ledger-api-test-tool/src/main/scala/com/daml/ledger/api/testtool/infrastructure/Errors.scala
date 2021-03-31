@@ -9,6 +9,12 @@ object Errors {
       extends RuntimeException(message, cause)
 
   final class ParticipantConnectionException(cause: Throwable)
-      extends FrameworkException("Could not connect to the participant.", cause)
+      extends FrameworkException(
+        s"Could not connect to the participant: ${cause.getMessage}",
+        cause,
+      )
+
+  final class DarUploadException(name: String, cause: Throwable)
+      extends FrameworkException(s"""Failed to upload DAR "$name": ${cause.getMessage}""", cause)
 
 }
