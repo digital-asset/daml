@@ -332,9 +332,15 @@ convertRationalNumericMono env scale num denom
 -- values that will fit in a Numeric.
 convertRationalBigNumeric :: Env -> Integer -> Integer -> ConvertM LF.Expr
 convertRationalBigNumeric env num denom =
-    if (scale > fromIntegral numericMaxScale)
+    if (denom <= 0)
+        || (scale > fromIntegral numericMaxScale)
         || (abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision)
         || ((num * 10^scale) `mod` denom /= 0)
+            -- This includes checks against using this function incorrectly
+            -- that should never come up in practice, like
+            --      (denom <= 0)
+            -- and
+            --      ((num * 10^scale) `mod` denom /= 0)))
       then
         unsupported "Large BigNumeric literals are not currently supported. Please construct the number from smaller literals." ()
       else
