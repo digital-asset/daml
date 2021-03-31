@@ -337,10 +337,9 @@ object DbTriggerDao {
   ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
     val (ds, conn) = Connection.connect(c, poolSize)
-    val driver = supportedJdbcDrivers.get(c.driver) match {
-      case Some(d) => d
-      case None => throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}")
-    }
+    val driver = supportedJdbcDrivers
+      .get(c.driver)
+      .getOrElse(throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}"))
     driver(ds, conn)
   }
 }
