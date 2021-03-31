@@ -53,12 +53,12 @@ sealed trait SValue {
         V.ValueList(lst.map(_.toValue))
       case SOptional(mbV) =>
         V.ValueOptional(mbV.map(_.toValue))
-      case SGenMap(true, entries) =>
+      case SMap(true, entries) =>
         V.ValueTextMap(SortedLookupList(entries.map {
           case (SText(t), v) => t -> v.toValue
           case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
         }))
-      case SGenMap(false, entries) =>
+      case SMap(false, entries) =>
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
@@ -104,8 +104,8 @@ sealed trait SValue {
         SList(lst.map(_.mapContractId(f)))
       case SOptional(mbV) =>
         SOptional(mbV.map(_.mapContractId(f)))
-      case SGenMap(isTextMap, value) =>
-        SGenMap(
+      case SMap(isTextMap, value) =>
+        SMap(
           isTextMap,
           value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) },
         )
@@ -170,23 +170,31 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  // We make the constructor private to ensure entries are sorted according `SGenMap Ordering`
-  final case class SGenMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
+  // We make the constructor private to ensure entries are sorted according `SMap Ordering`
+  final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
-      with NoCopy
+      with NoCopy {
 
-  object SGenMap {
-    implicit def `SGenMap Ordering`: Ordering[SValue] = svalue.Ordering
+    def insert(key: SValue, value: SValue): SMap =
+      SMap(isTextMap, entries.updated(key, value))
+
+    def delete(key: SValue): SMap =
+      SMap(isTextMap, entries - key)
+
+  }
+
+  object SMap {
+    implicit def `SMap Ordering`: Ordering[SValue] = svalue.Ordering
 
     @throws[SErrorCrash]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
     def comparable(k: SValue): Unit = {
-      `SGenMap Ordering`.compare(k, k)
+      `SMap Ordering`.compare(k, k)
       ()
     }
 
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SGenMap = {
-      SGenMap(
+    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
+      SMap(
         isTextMap,
         implicitly[Factory[(SValue, SValue), TreeMap[SValue, SValue]]].fromSpecific(entries.map {
           case p @ (k, _) => comparable(k); p
@@ -194,8 +202,8 @@ object SValue {
       )
     }
 
-    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SGenMap =
-      SGenMap(isTextMap: Boolean, entries.iterator)
+    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
+      SMap(isTextMap: Boolean, entries.iterator)
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
@@ -277,8 +285,8 @@ object SValue {
     val False = new SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
-    val EmptyTextMap = SGenMap(true)
-    val EmptyGenMap = SGenMap(false)
+    val EmptyTextMap = SMap(true)
+    val EmptyGenMap = SMap(false)
     val Token = SToken
   }
 

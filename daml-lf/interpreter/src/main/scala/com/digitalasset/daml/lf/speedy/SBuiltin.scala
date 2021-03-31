@@ -143,9 +143,9 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
         )
     }
 
-  final protected def getSMap(args: util.ArrayList[SValue], i: Int): SGenMap =
+  final protected def getSMap(args: util.ArrayList[SValue], i: Int): SMap =
     args.get(i) match {
-      case genMap: SGenMap => genMap
+      case genMap: SMap => genMap
       case otherwise =>
         throw SErrorCrash(
           s"${getClass.getSimpleName}: type mismatch of argument $i: expect SMap but got $otherwise"
@@ -154,7 +154,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   final protected def getSMapKey(args: util.ArrayList[SValue], i: Int): SValue = {
     val key = args.get(i)
-    SGenMap.comparable(key)
+    SMap.comparable(key)
     key
   }
 
@@ -612,44 +612,38 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBGenMapToList extends SBuiltinPure(1) {
+  final case object SBMapToList extends SBuiltinPure(1) {
 
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       SValue.toList(getSMap(args, 0).entries)
   }
 
-  final case object SBGenMapInsert extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val genMap = getSMap(args, 2)
-      val key = getSMapKey(args, 0)
-      SGenMap(genMap.isTextMap, genMap.entries.updated(key, args.get(1)))
-    }
+  final case object SBMapInsert extends SBuiltinPure(3) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+      getSMap(args, 2).insert(getSMapKey(args, 0), args.get(1))
   }
 
-  final case object SBGenMapLookup extends SBuiltinPure(2) {
+  final case object SBMapLookup extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       SOptional(getSMap(args, 1).entries.get(getSMapKey(args, 0)))
   }
 
-  final case object SBGenMapDelete extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val genMap = getSMap(args, 1)
-      val key = getSMapKey(args, 0)
-      SGenMap(genMap.isTextMap, genMap.entries - key)
-    }
+  final case object SBMapDelete extends SBuiltinPure(2) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+      getSMap(args, 1).delete(getSMapKey(args, 0))
   }
 
-  final case object SBGenMapKeys extends SBuiltinPure(1) {
+  final case object SBMapKeys extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       SList(ImmArray(getSMap(args, 0).entries.keys) ++: FrontStack.empty)
   }
 
-  final case object SBGenMapValues extends SBuiltinPure(1) {
+  final case object SBMapValues extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       SList(ImmArray(getSMap(args, 0).entries.values) ++: FrontStack.empty)
   }
 
-  final case object SBGenMapSize extends SBuiltinPure(1) {
+  final case object SBMapSize extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       SInt64(getSMap(args, 0).entries.size.toLong)
   }
