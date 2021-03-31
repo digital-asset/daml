@@ -14,7 +14,7 @@ import com.daml.platform.store.dao.events._
 
 import scala.concurrent.Future
 
-class TranslationCacheBackedContractsStore(
+class TranslationCacheBackedContractStore(
     lfValueTranslationCache: LfValueTranslation.Cache,
     contractsReader: LedgerDaoContractsReader,
 ) extends ContractStore {
@@ -49,13 +49,13 @@ class TranslationCacheBackedContractsStore(
     contractsReader.lookupMaximumLedgerTime(ids)
 }
 
-object TranslationCacheBackedContractsStore {
+object TranslationCacheBackedContractStore {
   def owner(
       lfValueTranslationCache: LfValueTranslation.Cache,
       contractsReader: LedgerDaoContractsReader,
-  ): Resource[TranslationCacheBackedContractsStore] =
+  ): Resource[TranslationCacheBackedContractStore] =
     Resource.successful(
-      new TranslationCacheBackedContractsStore(
+      new TranslationCacheBackedContractStore(
         lfValueTranslationCache,
         contractsReader,
       )

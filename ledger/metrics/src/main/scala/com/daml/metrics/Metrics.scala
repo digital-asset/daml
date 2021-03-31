@@ -53,6 +53,10 @@ final class Metrics(val registry: MetricRegistry) {
     object execution {
       private val Prefix: MetricName = daml.Prefix :+ "execution"
 
+      val keyStateCache = new CacheMetrics(registry, Prefix :+ "key_state_cache")
+      val contractStateCache: CacheMetrics =
+        new CacheMetrics(registry, Prefix :+ "contract_state_cache")
+
       val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
       val lookupActiveContractPerExecution: Timer =
         registry.timer(Prefix :+ "lookup_active_contract_per_execution")
@@ -522,6 +526,12 @@ final class Metrics(val registry: MetricRegistry) {
       )
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
+
+      val currentStateCacheSequentialIdGauge = new VarGauge[Long](0L)
+      registry.register(
+        Prefix :+ "current_state_cache_sequential_id",
+        currentStateCacheSequentialIdGauge,
+      )
     }
 
     object services {

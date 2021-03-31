@@ -24,7 +24,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.events.contracts.{
   LedgerDaoContractsReader,
-  TranslationCacheBackedContractsStore,
+  TranslationCacheBackedContractStore,
 }
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
@@ -124,7 +124,7 @@ private[platform] object ReadOnlySqlLedger {
         lfValueTranslationCache: LfValueTranslation.Cache,
         contractsReader: LedgerDaoContractsReader,
     ): Resource[ContractStore] =
-      TranslationCacheBackedContractsStore
+      TranslationCacheBackedContractStore
         .owner(lfValueTranslationCache, contractsReader)
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
