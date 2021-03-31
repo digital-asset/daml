@@ -27,6 +27,27 @@ sealed class LedgerTestCase(
     runTestCase: ExecutionContext => Participants => Future[Unit],
 ) {
   val name: String = s"${suite.name}:$shortIdentifier"
+
   def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
     context.allocate(participants).flatMap(p => runTestCase(ec)(p))
+
+  def repetitions: Vector[LedgerTestCase.Repetition] =
+    if (repeated == 1)
+      Vector(new LedgerTestCase.Repetition(this, repetition = None))
+    else
+      (1 to repeated)
+        .map(i => new LedgerTestCase.Repetition(this, repetition = Some(i -> repeated)))
+        .toVector
+}
+
+object LedgerTestCase {
+  final class Repetition(val testCase: LedgerTestCase, val repetition: Option[(Int, Int)]) {
+    def suite: LedgerTestSuite = testCase.suite
+    def shortIdentifier: Ref.LedgerString = testCase.shortIdentifier
+    def description: String = testCase.description
+    def timeoutScale: Double = testCase.timeoutScale
+
+    def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
+      testCase(context)
+  }
 }
