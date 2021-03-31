@@ -1,0 +1,50 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestExceptions where
+
+import Daml.Script
+import DA.Assert
+import DA.Exception
+
+exception Test1
+  with
+    m : Text
+  where
+    message m
+
+exception Test2
+  with
+    m : Text
+  where
+    message m
+
+test = script do
+  noExc <-
+    try (pure 42) catch
+      Test1 _ -> pure 43
+  noExc === 42
+  exc <-
+    try (throw (Test1 "abc")) catch
+      Test1 _ -> pure 43
+  exc === 43
+  -- scoping
+  exc <-
+    try do
+      try (pure 41) catch
+        Test1 _ -> pure 42
+      throw (Test1 "abc")
+    catch
+      Test1 _ -> pure 43
+  exc === 43
+  -- multiple exceptions and rethrow
+  exc <-
+    try (throw (Test1 "abc")) catch
+      Test1 _ -> pure 42
+      Test2 _ -> pure 43
+  exc === 42
+  exc <-
+    try (throw (Test2 "abc")) catch
+      Test1 _ -> pure 42
+      Test2 _ -> pure 43
+  exc === 43

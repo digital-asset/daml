@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SError.DamlEUserError
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
 import com.daml.lf.speedy.{SExpr, SValue}
 import com.daml.lf.speedy.SValue.{
+  SAnyException,
   SInt64,
   SList,
   SOptional,
@@ -41,6 +42,8 @@ import com.daml.script.converter.Converter.toContractId
 
 import scala.concurrent.{ExecutionContext, Future}
 
+sealed trait ScriptF
+
 object ScriptF {
   final class FailedCmd(val cmd: Cmd, val cause: Throwable)
       extends RuntimeException(
@@ -50,7 +53,10 @@ object ScriptF {
         cause,
       )
 
-  sealed trait Cmd {
+  final case class Catch(act: SValue, handle: SValue) extends ScriptF
+  final case class Throw(exc: SAnyException) extends ScriptF
+
+  sealed trait Cmd extends ScriptF {
     def stackTrace: StackTrace
     // Human-readable description of the command used in error messages.
     def description: String
@@ -111,6 +117,8 @@ object ScriptF {
           .toRight(s"Failed to find template ${id.qualifiedName.name}")
         key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
       } yield key.typ
+    def translateValue(ty: Type, value: Value[ContractId]): Either[String, SValue] =
+      valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
   final case class Submit(data: SubmitData) extends Cmd {
@@ -642,20 +650,41 @@ object ScriptF {
 
   }
 
-  def parse(ctx: Ctx, constr: Ast.VariantConName, v: SValue): Either[String, Cmd] = constr match {
-    case "Submit" => parseSubmit(ctx, v).map(Submit(_))
-    case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
-    case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
-    case "Query" => parseQuery(ctx, v)
-    case "QueryContractId" => parseQueryContractId(ctx, v)
-    case "QueryContractKey" => parseQueryContractKey(ctx, v)
-    case "AllocParty" => parseAllocParty(ctx, v)
-    case "ListKnownParties" => parseListKnownParties(ctx, v)
-    case "GetTime" => parseGetTime(ctx, v)
-    case "SetTime" => parseSetTime(ctx, v)
-    case "Sleep" => parseSleep(ctx, v)
-    case _ => Left(s"Unknown contructor $constr")
+  private def parseCatch(v: SValue): Either[String, Catch] = {
+    v match {
+      case SRecord(_, _, JavaList(act, handle)) =>
+        Right(Catch(act, handle))
+      case _ => Left(s"Expected Catch payload but got $v")
+    }
+
   }
+
+  private def parseThrow(v: SValue): Either[String, Throw] = {
+    v match {
+      case SRecord(_, _, JavaList(exc: SAnyException)) =>
+        Right(Throw(exc))
+      case _ => Left(s"Expected Throw payload but got $v")
+    }
+
+  }
+
+  def parse(ctx: Ctx, constr: Ast.VariantConName, v: SValue): Either[String, ScriptF] =
+    constr match {
+      case "Submit" => parseSubmit(ctx, v).map(Submit(_))
+      case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
+      case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
+      case "Query" => parseQuery(ctx, v)
+      case "QueryContractId" => parseQueryContractId(ctx, v)
+      case "QueryContractKey" => parseQueryContractKey(ctx, v)
+      case "AllocParty" => parseAllocParty(ctx, v)
+      case "ListKnownParties" => parseListKnownParties(ctx, v)
+      case "GetTime" => parseGetTime(ctx, v)
+      case "SetTime" => parseSetTime(ctx, v)
+      case "Sleep" => parseSleep(ctx, v)
+      case "Catch" => parseCatch(v)
+      case "Throw" => parseThrow(v)
+      case _ => Left(s"Unknown constructor $constr")
+    }
 
   private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
     OneAnd(x.head, x.tail.toSet - x.head)

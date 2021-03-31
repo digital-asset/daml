@@ -1,6 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 
 module Daml.Script
   ( Script
@@ -48,6 +49,10 @@ module Daml.Script
   , fromAnyContractId
   ) where
 
+#ifdef DAML_EXCEPTIONS
+import DA.Bifunctor
+import DA.Exception
+#endif
 import DA.Functor
 import DA.NonEmpty (NonEmpty(..))
 import DA.List.Total
@@ -99,7 +104,33 @@ data ScriptF a
   | GetTime (GetTimePayload a)
   | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
+#ifndef DAML_EXCEPTIONS
   deriving Functor
+#else
+  | Catch (CatchPayload a)
+  | Throw ThrowPayload
+  deriving Functor
+
+-- The slightly odd nesting here is required to preserve scoping.
+-- (try x catch f) >>= f should not pull `f` in the try block
+data CatchPayload a = CatchPayload
+  with
+    act : () -> Free ScriptF (a, ())
+    handle : AnyException -> Optional a
+  deriving Functor
+
+data ThrowPayload = ThrowPayload
+  with
+    exc: AnyException
+
+instance ActionThrow Script where
+  throw e = lift (Free (Throw (ThrowPayload (toAnyException e))))
+
+instance ActionCatch Script where
+  _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
+    act = \() -> fmap (first pure) $ runScript (act ()) () -- fmap fst $ runScript (act ()) ()
+    handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
+#endif
 
 data QueryACS a = QueryACS
   { parties : [Party]
