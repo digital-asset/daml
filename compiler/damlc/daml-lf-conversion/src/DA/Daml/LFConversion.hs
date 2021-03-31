@@ -328,6 +328,34 @@ convertRationalNumericMono env scale num denom
         double = (fromInteger num / fromInteger denom) :: Double
         maxPower = fromIntegral numericMaxPrecision - scale
 
+-- | Convert a rational into a BigNumeric expression. Currently only supports
+-- values that will fit in a Numeric.
+convertRationalBigNumeric :: Env -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalBigNumeric env num denom =
+    if (denom <= 0)
+        || (scale > fromIntegral numericMaxScale)
+        || (abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision)
+        || ((num * 10^scale) `mod` denom /= 0)
+            -- This includes checks against using this function incorrectly
+            -- that should never come up in practice, like
+            --      (denom <= 0)
+            -- and
+            --      ((num * 10^scale) `mod` denom /= 0)))
+      then
+        unsupported "Large BigNumeric literals are not currently supported. Please construct the number from smaller literals." ()
+      else
+        pure (EBuiltin BEFromNumericBigNumeric
+            `ETyApp` TNat (typeLevelNat scale)
+            `ETmApp` EBuiltin (BENumeric $ numeric
+                (fromIntegral scale)
+                ((num * 10^scale) `div` denom)))
+
+    where
+        rational = num % denom
+
+        scale :: Integer
+        scale = ceiling (log @Double (fromInteger denom) / log 10.0)
+
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
     , tbSignatory :: Maybe (GHC.Expr Var)
@@ -947,6 +975,10 @@ convertExpr env0 e = do
         = fmap (, args) $ convertRationalDecimal env top bot
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalNumericMono env n top bot
+    go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "Numeric") [isNumLitTy -> Just n]) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = fmap (, args) $ convertRationalNumericMono env n top bot
+    go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "BigNumeric") []) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = fmap (, args) $ convertRationalBigNumeric env top bot
     go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10)") ()
     go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
