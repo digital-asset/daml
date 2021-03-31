@@ -505,20 +505,19 @@ The literals represent actual Daml-LF values:
 * A ``LitInt64`` represents a standard signed 64-bit integer (integer
   between ``−2⁶³`` to ``2⁶³−1``).
 * A decimal numbers is a signed number that can be represented as a
-  product `i * 10^-s` where `i` (the *unscaled value* of the number)
-  is a signed integer not divisible by ten and `s` (the *scale* of the
-  number) is a signed integer. The *precision* of a decimal numbers
-  if the number of digits of its unscaled value (ignoring possible
+  product `i * 10⁻ˢ` where `i` (the *unscaled value* of the number) is
+  a signed integer without trailing zeros and `s` (the *scale* of the
+  number) is a signed integer. The *precision* of a decimal numbers if
+  the number of digits of its unscaled value (ignoring possible
   leading zeros). By convention the scale and the precision of zero
   are 0.  Daml-LF distinguishes two kinds of decimal numbers:
   + A ``LitNumeric`` represents those decimal numbers that have a
     precision of at most 38 and a scale between ``0`` and ``37``
     (bounds inclusive).
-  + A ``LitBigNumeric`` represents those decimal numbers smaller than
-    `10^(-MaxScale+1)` that have a scale of at least ``MaxScale``.
-.. TODO specify the actual value of ``MaxScale``
-
-
+  + A ``LitBigNumeric`` represents those decimal numbers that have at
+    most 2¹⁵ significant digits at the right and the left of the
+    decimal point — or equivalently those decimal number that respect
+    `scale ≤ 2¹⁵` and `precision - scale ≤ 2¹⁵`.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -1849,7 +1848,7 @@ need to be evaluated further. ::
      ⊢ᵥ  LitNumeric
 
    ——————————————————————————————————————————————————— ValExpLitBigNumeric
-     ⊢ᵥ  LitBigDecimal
+     ⊢ᵥ  LitBigNumeric
 
    ——————————————————————————————————————————————————— ValExpLitText
      ⊢ᵥ  t
@@ -4813,15 +4812,13 @@ program exception using
 BigNumeric
 ..........
 
-Daml-LF 1.7 is the first version that supports BigNumeric.
+Daml-LF 1.dev is the first version that supports BigNumeric.
 
 The deserialization process will reject any Daml-LF 1.11 (or earlier)
-program exception using the `BigNumeric functions`_.
-
-.. TODO https://github.com/digital-asset/daml/issues/8719
-
-
-
+program exception using:
+- the `PrimType` value `BIGNUMERIC` or `ROUNDING_MODE`,
+- the field `rounding_mode` in `Expr` message, or
+- any of the `BigNumeric functions`_.
 
 
 .. Local Variables:
