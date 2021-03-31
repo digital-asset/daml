@@ -36,7 +36,7 @@ import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
-import com.daml.platform.store.dao.events.contracts.TranslationCacheBackedContractsStore
+import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
@@ -106,7 +106,7 @@ private[sandbox] object SqlLedger {
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
         _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
-        contractStore <- TranslationCacheBackedContractsStore.owner(
+        contractStore <- TranslationCacheBackedContractStore.owner(
           lfValueTranslationCache,
           dao.contractsReader,
         )

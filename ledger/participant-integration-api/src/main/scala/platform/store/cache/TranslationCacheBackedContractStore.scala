@@ -1,22 +1,19 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.dao.events.contracts
+package com.daml.platform.store.cache
 
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.resources.Resource
-import com.daml.lf.data.Ref
-import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.dao.events._
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
 
-class TranslationCacheBackedContractsStore(
+class TranslationCacheBackedContractStore(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     contractsReader: LedgerDaoContractsReader,
 ) extends ContractStore {
@@ -36,7 +33,7 @@ class TranslationCacheBackedContractsStore(
         contractsReader.lookupActiveContractAndLoadArgument(readers, contractId)
     }
 
-  override def lookupContractKey(readers: Set[Ref.Party], key: GlobalKey)(implicit
+  override def lookupContractKey(readers: Set[Party], key: Key)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(key, readers)
@@ -51,13 +48,13 @@ class TranslationCacheBackedContractsStore(
     contractsReader.lookupMaximumLedgerTime(ids)
 }
 
-object TranslationCacheBackedContractsStore {
+object TranslationCacheBackedContractStore {
   def owner(
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       contractsReader: LedgerDaoContractsReader,
-  ): Resource[TranslationCacheBackedContractsStore] =
+  ): Resource[TranslationCacheBackedContractStore] =
     Resource.successful(
-      new TranslationCacheBackedContractsStore(
+      new TranslationCacheBackedContractStore(
         lfValueTranslationCache,
         contractsReader,
       )

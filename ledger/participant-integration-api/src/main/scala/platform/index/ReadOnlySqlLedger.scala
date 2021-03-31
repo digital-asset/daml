@@ -21,7 +21,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.contracts.TranslationCacheBackedContractsStore
+import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, ReadOnlyLedger}
@@ -136,7 +136,7 @@ private[platform] object ReadOnlySqlLedger {
         lfValueTranslationCache: LfValueTranslationCache.Cache,
         contractsReader: LedgerDaoContractsReader,
     ): Resource[ContractStore] =
-      TranslationCacheBackedContractsStore
+      TranslationCacheBackedContractStore
         .owner(lfValueTranslationCache, contractsReader)
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
