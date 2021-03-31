@@ -413,6 +413,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
+          , "build-options: [--package=simple-dalf-0.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A where"

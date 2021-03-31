@@ -3,20 +3,19 @@
 
 package com.daml.script.dump
 
+import java.io.FileOutputStream
 import java.nio.file.Path
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.client.LedgerClient
-import com.daml.lf.archive.{Dar, DarWriter, Decode}
+import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.damlLfCodedInputStreamFromBytes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.syntax.traverse._
 
 object Dependencies {
 
@@ -48,8 +47,7 @@ object Dependencies {
     go(references, Map.empty)
   }
 
-  def targetLfVersion(dependencies: Seq[Dar[LanguageVersion]]): Option[LanguageVersion] = {
-    val dalfs = dependencies.flatMap(_.all)
+  def targetLfVersion(dalfs: Iterable[LanguageVersion]): Option[LanguageVersion] = {
     if (dalfs.isEmpty) { None }
     else { Some(dalfs.max) }
   }
@@ -57,16 +55,17 @@ object Dependencies {
   def targetFlag(v: LanguageVersion): String =
     s"--target=${v.pretty}"
 
-  def writeDar(
-      sdkVersion: String,
+  def writeDalf(
       file: Path,
-      dar: Dar[(PackageId, ByteString, Ast.Package)],
+      pkgId: PackageId,
+      bs: ByteString,
   ): Unit = {
-    DarWriter.encode(
-      sdkVersion,
-      dar.map { case (pkgId, dalf, _) => (pkgId + ".dalf", encodeDalf(pkgId, dalf).toByteArray) },
-      file,
-    )
+    val os = new FileOutputStream(file.toFile)
+    try {
+      encodeDalf(pkgId, bs).writeTo(os)
+    } finally {
+      os.close()
+    }
   }
 
   private def encodeDalf(pkgId: PackageId, bs: ByteString) =
@@ -80,31 +79,17 @@ object Dependencies {
   private val providedLibraries: Set[Ref.PackageName] =
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
-  // Given the pkg id of a main dalf and the map of all downloaded packages produce
-  // a DAR or return None for builtin packages like daml-stdlib
-  // that don’t need to be listed in data-dependencies.
-  def toDar(
-      pkgId: PackageId,
+  private def isProvidedLibrary(pkg: Ast.Package): Boolean =
+    pkg.metadata.exists(m => providedLibraries.contains(m.name))
+
+  // Return the package-id appropriate for the --package flag if the package is not builtin.
+  def toPackages(
+      mainId: PackageId,
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
-  ): Option[Dar[(PackageId, ByteString, Ast.Package)]] = {
-    def deps(pkgId: PackageId): Set[PackageId] = {
-      @tailrec
-      def go(todo: List[PackageId], acc: Set[PackageId]): Set[PackageId] =
-        todo match {
-          case Nil => acc
-          case p :: todo if acc.contains(p) => go(todo, acc)
-          case p :: todo =>
-            go(todo ++ pkgs(p)._2.directDeps.toList, acc.union(pkgs(p)._2.directDeps))
-        }
-      go(List(pkgId), Set.empty) - pkgId
-    }
+  ): Option[String] = {
     for {
-      pkg <- pkgs.get(pkgId) if !pkg._2.metadata.exists(m => providedLibraries.contains(m.name))
-    } yield {
-      Dar(
-        (pkgId, pkg._1, pkg._2),
-        deps(pkgId).toList.map(pkgId => (pkgId, pkgs(pkgId)._1, pkgs(pkgId)._2)),
-      )
-    }
+      main <- pkgs.get(mainId) if !isProvidedLibrary(main._2)
+      md <- main._2.metadata
+    } yield s"${md.name}-${md.version}"
   }
 }

@@ -133,7 +133,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         -- install data-dependencies
         ----------------------------
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
-        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
+        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
         exclPkgIds <- queryPkgIds Nothing depsDir
         rdalfs <- getDalfsFromLedger dataDepsPkgIds exclPkgIds
         forM_ rdalfs $ \RemoteDalf {..} -> do
