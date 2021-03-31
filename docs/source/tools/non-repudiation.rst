@@ -65,9 +65,8 @@ The following example shows how to use this interceptor with the official Java b
 Non-repudiation over the HTTP JSON API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Note that the current status is that non-repudiation applies exclusively to Ledger API messages: if you want to use the HTTP JSON API you will need to
+The non-repudiation middleware acts *exclusively* as a reverse proxy in front of the Ledger API server: if you want to use the HTTP JSON API you will need to
 run your own HTTP JSON API server and start it with a certificate that will be used to sign every command issued by the HTTP JSON API to the participant.
-This means that running the HTTP JSON API with non-repudiation as a ledger operator is currently not supported.
 
 The HTTP JSON API bundled with the Daml Connect Enterprise Edition has the following extra command line options that *must* be used to run an HTTP JSON API
 server against the non-repudiation middleware:
