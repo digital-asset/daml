@@ -37,33 +37,38 @@ push daml-script-runner $SCRIPT_RUNNER.asc
 push non-repudiation $NON_REPUDIATION
 push non-repudiation $NON_REPUDIATION.asc
 
-NON_REPUDIATION_CORE_JAR=non-repudiation-core-$RELEASE_TAG.jar
-NON_REPUDIATION_CORE_POM=non-repudiation-core-$RELEASE_TAG.pom
-NON_REPUDIATION_CORE_SRC=non-repudiation-core-$RELEASE_TAG-sources.jar
-NON_REPUDIATION_CORE_DOC=non-repudiation-core-$RELEASE_TAG-javadoc.jar
+# FIXME
+# Uncomment the following lines to attempt to publish these libraries.
+# The previous attempts failed with a 409 Conflict error code when
+# uploading the libraries POM.
 
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_JAR
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_JAR.asc
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_POM
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_POM.asc
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_SRC
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_SRC.asc
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_DOC
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_DOC.asc
+#NON_REPUDIATION_CORE_JAR=non-repudiation-core-$RELEASE_TAG.jar
+#NON_REPUDIATION_CORE_POM=non-repudiation-core-$RELEASE_TAG.pom
+#NON_REPUDIATION_CORE_SRC=non-repudiation-core-$RELEASE_TAG-sources.jar
+#NON_REPUDIATION_CORE_DOC=non-repudiation-core-$RELEASE_TAG-javadoc.jar
 
-NON_REPUDIATION_CLIENT_JAR=non-repudiation-client-$RELEASE_TAG.jar
-NON_REPUDIATION_CLIENT_POM=non-repudiation-client-$RELEASE_TAG.pom
-NON_REPUDIATION_CLIENT_SRC=non-repudiation-client-$RELEASE_TAG-sources.jar
-NON_REPUDIATION_CLIENT_DOC=non-repudiation-client-$RELEASE_TAG-javadoc.jar
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_JAR
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_JAR.asc
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_POM
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_POM.asc
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_SRC
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_SRC.asc
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_DOC
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CORE_DOC.asc
 
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_JAR
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_JAR.asc
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_POM
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_POM.asc
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_SRC
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_SRC.asc
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_DOC
-push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_DOC.asc
+#NON_REPUDIATION_CLIENT_JAR=non-repudiation-client-$RELEASE_TAG.jar
+#NON_REPUDIATION_CLIENT_POM=non-repudiation-client-$RELEASE_TAG.pom
+#NON_REPUDIATION_CLIENT_SRC=non-repudiation-client-$RELEASE_TAG-sources.jar
+#NON_REPUDIATION_CLIENT_DOC=non-repudiation-client-$RELEASE_TAG-javadoc.jar
+
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_JAR
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_JAR.asc
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_POM
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_POM.asc
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_SRC
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_SRC.asc
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_DOC
+#push connect-ee-mvn/com/daml $NON_REPUDIATION_CLIENT_DOC.asc
 
 for platform in linux macos windows; do
     EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
