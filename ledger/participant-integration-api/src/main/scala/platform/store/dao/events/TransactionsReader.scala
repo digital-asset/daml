@@ -427,8 +427,7 @@ private[dao] final class TransactionsReader(
         )
       }
     }
-
-  // KTODO: deduplicate with streamEvents
+  
   private def streamContractStateEvents(
       queryMetric: DatabaseMetrics,
       query: EventsRange[(Offset, Long)] => Connection => Vector[
