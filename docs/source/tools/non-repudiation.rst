@@ -4,6 +4,10 @@
 Non-repudiation
 ###############
 
+The Daml Profiler is only available in the
+`Daml Connect Enterprise Edition <https://www.digitalasset.com/products/daml-connect>`_ and is currently an
+:doc:`Early Access Feature in Alpha status </support/status-definitions>`.
+
 When you are issuing a command over the Ledger API, there is an implicit trust assumption between the issuer of the command and the operator of the participant
 that the latter will not issue commands on behalf of the former.
 
