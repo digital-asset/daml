@@ -36,7 +36,7 @@ infixr 1 `KArrow`
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey)
+    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
 -- | Name for a module. Must match the regex
 --

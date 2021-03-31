@@ -15,7 +15,6 @@ import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
-import Data.Char
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Helper.Ledger
@@ -29,8 +28,10 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson (eitherDecodeFileStrict', encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Char
 import Data.List.Extra
 import qualified Data.Map.Strict as M
+import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Yaml as Yaml
@@ -142,7 +143,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         -- install data-dependencies
         ----------------------------
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
-        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf True depsDir fp
+        forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
         resolvedPkgIds <- resolvePkgs projRoot opts dataDepsNameVersion
         exclPkgIds <- queryPkgIds Nothing depsDir
         rdalfs <- getDalfsFromLedger (dataDepsPkgIds ++ M.elems resolvedPkgIds) exclPkgIds
@@ -150,7 +151,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
             installDataDepDalf
                 remoteDalfIsMain
                 depsDir
-                (packageNameToFp remoteDalfName)
+                (packageNameToFp $ packageNameOrId remoteDalfPkgId remoteDalfName)
                 remoteDalfBs
         -- Mark received packages as well as their transitive dependencies as data dependencies.
         markAsDataRec
@@ -293,13 +294,16 @@ data LockFile = LockFile
 instance Aeson.FromJSON LockFile
 instance Aeson.ToJSON LockFile
 data DependencyInfo = DependencyInfo
-    { name :: String
-    , version :: String
-    , pkgId :: String
+    { name :: LF.PackageName
+    , version :: LF.PackageVersion
+    , pkgId :: LF.PackageId
     } deriving Generic
 instance Aeson.FromJSON DependencyInfo
 instance Aeson.ToJSON DependencyInfo
 
+-- | Resolves the given list of package names/versions to package IDs.
+-- This will fail if any package can't be resolved.
+-- Once all packages have been resolved, a new `daml.lock` file is noting the resolution.
 resolvePkgs :: NormalizedFilePath -> Options -> [FullPkgName] -> IO (M.Map FullPkgName LF.PackageId)
 resolvePkgs projRoot opts pkgs
     | null pkgs = pure M.empty
@@ -329,15 +333,19 @@ writeLockFile lockFp resolvedPkgs = do
     Yaml.encodeFile lockFp $
         LockFile
             [ DependencyInfo
-                { name = T.unpack $ LF.unPackageName pkgName
-                , version = T.unpack $ LF.unPackageVersion pkgVersion
-                , pkgId = T.unpack $ LF.unPackageId pkgId
+                { name = pkgName
+                , version = pkgVersion
+                , pkgId = pkgId
                 }
             | (FullPkgName {pkgName, pkgVersion}, pkgId) <- M.toList resolvedPkgs
             ]
 
--- | Read the package lock file and resolve the given packages. Returns a list of unresolved
--- packages together with the resolved ones.
+-- | Read the package lock file and resolve the given packages.
+-- Returns
+--  Nothing -> At least one of the given packages could not be resolved.
+--  Just map -> Resolution of all packages
+--
+-- It fails if the `daml.lock` file can't be parsed.
 resolvePkgsWithLockFile :: FilePath -> [FullPkgName] -> IO (Maybe (M.Map FullPkgName LF.PackageId))
 resolvePkgsWithLockFile lockFp pkgs = do
     hasLockFile <- doesFileExist lockFp
@@ -352,13 +360,15 @@ resolvePkgsWithLockFile lockFp pkgs = do
                     let m =
                             M.fromList
                                 [ ( FullPkgName
-                                        { pkgName = LF.PackageName $ T.pack $ name d
-                                        , pkgVersion = LF.PackageVersion $ T.pack $ version d
+                                        { pkgName = name d
+                                        , pkgVersion = version d
                                         }
-                                  , LF.PackageId $ T.pack $ pkgId d)
+                                  , pkgId d)
                                 | d <- dependencies
                                 ]
                     pure $
+                        -- Check that all given packages could be resolved, return Nothing
+                        -- otherwise.
                         if Set.fromList pkgs `Set.isSubsetOf` M.keysSet m
                             then Just $ M.restrictKeys m (Set.fromList pkgs)
                             else Nothing
@@ -372,11 +382,20 @@ resolvePkgsWithLedger depsDir pkgs = do
     ledgerPkgIds <- listLedgerPackages
     rdalfs <- getDalfsFromLedger ledgerPkgIds []
     forM_ rdalfs $ \RemoteDalf {..} ->
-        installDalf [] depsDir (packageNameToFp remoteDalfName) remoteDalfBs
+        installDalf
+            []
+            depsDir
+            (packageNameToFp $ packageNameOrId remoteDalfPkgId remoteDalfName)
+            remoteDalfBs
     let m =
             M.fromList
-                [ (FullPkgName {pkgName = remoteDalfName, pkgVersion = version}, remoteDalfPkgId)
+                [ ( FullPkgName
+                        { pkgName = pkgName
+                        , pkgVersion = version
+                        }
+                  , remoteDalfPkgId)
                 | RemoteDalf {..} <- rdalfs
+                , Just pkgName <- [remoteDalfName]
                 , Just version <- [remoteDalfVersion]
                 ]
     let m0 = M.restrictKeys m $ Set.fromList pkgs
@@ -471,3 +490,6 @@ guardDefM def pM m = ifM pM m (pure def)
 
 packageNameToFp :: LF.PackageName -> FilePath
 packageNameToFp n = (T.unpack $ LF.unPackageName n) <.> "dalf"
+
+packageNameOrId :: LF.PackageId -> Maybe LF.PackageName -> LF.PackageName
+packageNameOrId pkgId pkgNameM = fromMaybe (LF.PackageName $ LF.unPackageId pkgId) pkgNameM

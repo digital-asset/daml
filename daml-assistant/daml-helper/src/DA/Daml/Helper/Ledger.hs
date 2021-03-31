@@ -353,7 +353,7 @@ downloadPackage args pid = do
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
 data RemoteDalf = RemoteDalf
-    { remoteDalfName :: LF.PackageName
+    { remoteDalfName :: Maybe LF.PackageName
     , remoteDalfVersion :: Maybe LF.PackageVersion
     , remoteDalfBs :: BS.ByteString
     , remoteDalfIsMain :: Bool
@@ -379,8 +379,7 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
             , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
             , let LF.Package {packageMetadata} = pkg
             , let remoteDalfPkgId = pid
-            , let remoteDalfName =
-                      maybe (LF.PackageName $ LF.unPackageId pid) LF.packageName packageMetadata
+            , let remoteDalfName = LF.packageName <$> packageMetadata
             , let remoteDalfBs = BSL.toStrict bsl
             , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
             , let remoteDalfVersion = LF.packageVersion <$> packageMetadata
