@@ -516,6 +516,35 @@ final class Metrics(val registry: MetricRegistry) {
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }
 
+    // TODO append-only: streamline metrics upon cleanup
+    object parallelIndexer {
+      private val Prefix: MetricName = daml.Prefix :+ "parallel_indexer"
+
+      // bundle of metrics coming from instrumentation of the underlying thread-pool
+      val ingestionExecutor: MetricName = Prefix :+ "ingestion_executor"
+
+      // bundle of metrics coming from instrumentation of the underlying thread-pool
+      val inputMappingExecutor: MetricName = Prefix :+ "input_mapping_executor"
+
+      // the latency, which during an update element is residing in the mapping-stage (since batches are involved, this duration is divided by the batch size)
+      val inputMappingStageDuration: Timer =
+        registry.timer(Prefix :+ "input_mapping_stage_duration")
+
+      // the latency, which during an update element is residing in the ingestion (since batches are involved, this duration is divided by the batch size)
+      val ingestionStageDuration: Timer = registry.timer(Prefix :+ "ingestion_stage_duration")
+
+      // Throughput in #submissions measured on the output of the indexer (after the effect of the corresponding Update is persisted into the database, and before this effect is visible via moving the ledger end forward)
+      val indexerSubmissionThroughput: Counter =
+        registry.counter(Prefix :+ "indexer_submission_throughput")
+
+      // metric tracking the size of the queue before the indexer
+      val indexerInputBufferLength: Counter =
+        registry.counter(Prefix :+ "indexer_input_buffer_length")
+
+      // metric tracking the average batch size
+      val batchSize: MetricName = Prefix :+ "batch_size"
+    }
+
     object services {
       private val Prefix: MetricName = daml.Prefix :+ "services"
 
