@@ -137,13 +137,19 @@ final class LedgerTestCasesRunner(
   ): Future[Either[Result.Failure, Result.Success]] =
     result(start(test, session))
 
-  private def uploadDar(context: ParticipantTestContext, name: String)(implicit
-      executionContext: ExecutionContext
-  ): Future[Unit] = {
+  private def uploadDar(
+      context: ParticipantTestContext,
+      name: String,
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
     logger.info(s"""Uploading DAR "$name"...""")
-    context.uploadDarFile(Dars.read(name)).andThen { case _ =>
-      logger.info(s"""Uploaded DAR "$name".""")
-    }
+    context
+      .uploadDarFile(Dars.read(name))
+      .map { _ =>
+        logger.info(s"""Uploaded DAR "$name".""")
+      }
+      .recover { case NonFatal(exception) =>
+        throw new Errors.DarUploadException(name, exception)
+      }
   }
 
   private def uploadDarsIfRequired(
@@ -208,10 +214,10 @@ final class LedgerTestCasesRunner(
             )(materializer, materializer.executionContext)
           } yield concurrentTestResults ++ sequentialTestResults
 
-        testResults
-          .recover { case NonFatal(e) =>
+        testResults.recover {
+          case NonFatal(e) if !e.isInstanceOf[Errors.FrameworkException] =>
             throw new LedgerTestCasesRunner.UncaughtExceptionError(e)
-          }
+        }
       }
   }
 
