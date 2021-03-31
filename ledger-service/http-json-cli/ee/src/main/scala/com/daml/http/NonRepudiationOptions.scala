@@ -34,8 +34,8 @@ object NonRepudiationOptions {
 
   private val helpText: String =
     """EARLY ACCESS FEATURE
-      |--non-repudiation-certificate-path, --non-repudiation-private-key-path and --non-repudiation-certificate-path must be passed together.
-      |All commands issued by the HTTP JSON API will be signed with the private key and the X.509 certificate at the provided paths.
-      |This is relevant exclusively if you are using the non-repudiation middleware.""".stripMargin
+      |--non-repudiation-certificate-path, --non-repudiation-private-key-path and --non-repudiation-private-key-algorithm
+      |must be passed together. All commands issued by the HTTP JSON API will be signed with the private key and the X.509
+      |certificate at the provided paths. This is relevant exclusively if you are using the non-repudiation middleware.""".stripMargin
 
 }
