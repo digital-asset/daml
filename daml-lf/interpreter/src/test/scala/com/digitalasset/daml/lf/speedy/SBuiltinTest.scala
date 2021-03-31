@@ -19,6 +19,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
+
 class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._
@@ -203,23 +204,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   }
 
-  private val decimals = Table[String](
-    "Decimals",
-    "161803398.87499",
-    "3.1415926536",
-    "2.7182818285",
-    "0.0000000001",
-    "0.0",
-    "100.0",
-    "-0.0000000001",
-    "-2.7182818285",
-    "-3.1415926536",
-    "-161803398.87499",
-  )
-
   "Decimal operations" - {
-    // TODO https://github.com/digital-asset/daml/issues/8719
-    //  Add extensive test for BigNumeric builtins
 
     val maxDecimal = Decimal.MaxValue
 
@@ -228,6 +213,20 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     val zero = BigDecimal("0.0000000000")
     val one = BigDecimal("1.0000000000")
     val two = BigDecimal("2.0000000000")
+
+    val decimals = Table[String](
+      "Decimals",
+      "161803398.87499",
+      "3.1415926536",
+      "2.7182818285",
+      "0.0000000001",
+      "0.0",
+      "100.0",
+      "-0.0000000001",
+      "-2.7182818285",
+      "-3.1415926536",
+      "-161803398.87499",
+    )
 
     "ADD_NUMERIC" - {
       val builtin = "ADD_NUMERIC"
@@ -365,7 +364,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "Numeric binary operations compute proper results" in {
+    "Decimal binary operations compute proper results" in {
 
       def round(x: BigDecimal) = n(10, x.setScale(10, BigDecimal.RoundingMode.HALF_EVEN))
 
@@ -1415,12 +1414,11 @@ object SBuiltinTest {
           record Tuple a b = { fst: a, snd: b };
           enum Color = Red | Green | Blue;
         }
+
     """
 
-  val compiledPackages = {
-    val x = PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg))
-    x.toOption.get
-  }
+  val compiledPackages =
+    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).toOption.get
 
   private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)

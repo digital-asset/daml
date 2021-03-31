@@ -244,7 +244,7 @@ object SValue {
   object SBigNumeric {
     // TODO https://github.com/digital-asset/daml/issues/8719
     //   Decide what are the actual bound for BigDecimal
-    val MaxScale = 1 << 16
+    val MaxScale = 1 << 13
     val MinScale = 1 - MaxScale
     val MaxPrecision = MaxScale * 2
 
