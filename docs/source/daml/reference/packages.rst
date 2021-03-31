@@ -184,7 +184,7 @@ When importing packages this way, the Daml compiler will try to reconstruct the 
 
 Because of their flexibility, data-dependencies are a tool that is recommended for performing Daml model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
 
-Importing Daml packages from the project ledger
+Referencing Daml packages already on the ledger
 ===============================================
 
 Daml packages that have been uploaded to a ledger can be imported as data dependencies, given you
