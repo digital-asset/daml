@@ -283,8 +283,8 @@ validatePkgId pkgId = do
 ---------------------
 
 data FullPkgName = FullPkgName
-    { pkgName :: LF.PackageName
-    , pkgVersion :: LF.PackageVersion
+    { pkgName :: !LF.PackageName
+    , pkgVersion :: !LF.PackageVersion
     } deriving (Eq, Ord, Show)
 
 data LockFile = LockFile
