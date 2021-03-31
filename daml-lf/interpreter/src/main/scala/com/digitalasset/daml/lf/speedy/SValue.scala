@@ -242,8 +242,6 @@ object SValue {
     override def toString: String = s"SBigNumeric($value)"
   }
   object SBigNumeric {
-    // TODO https://github.com/digital-asset/daml/issues/8719
-    //   Decide what are the actual bound for BigDecimal
     val MaxPrecision = 1 << 16
     val MaxScale = MaxPrecision / 2
     val MinScale = -MaxPrecision / 2 + 1
