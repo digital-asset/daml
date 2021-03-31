@@ -470,9 +470,7 @@ trait AbstractTriggerServiceTestInMem
     with TriggerDaoInMemFixture {}
 
 // Tests for database trigger service configurations go here
-trait AbstractTriggerServiceTestWithDb
-    extends AbstractTriggerServiceTest
-    with TriggerDaoPostgresFixture {
+trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest {
 
   behavior of "persistent backend"
 

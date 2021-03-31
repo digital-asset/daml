@@ -41,6 +41,7 @@ private[trigger] final case class ServiceConfig(
 )
 
 final case class JdbcConfig(
+    driver: String,
     url: String,
     user: String,
     password: String,
@@ -56,6 +57,7 @@ object JdbcConfig {
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
     } yield JdbcConfig(
+      driver = "org.postgresql.Driver", // TODO make this configurable
       url = url,
       user = user,
       password = password,

@@ -16,7 +16,7 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
 
   protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "oracle.jdbc.OracleDriver",
-    url = s"jdbc:oracle:thin:@localhost:$oraclePort/ORCLPDB1",
+    url = oracleJdbcUrl,
     user = oracleUser,
     password = oraclePwd,
     createSchema = true,
