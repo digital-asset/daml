@@ -244,9 +244,9 @@ object SValue {
   object SBigNumeric {
     // TODO https://github.com/digital-asset/daml/issues/8719
     //   Decide what are the actual bound for BigDecimal
-    val MaxScale = 1 << 13
-    val MinScale = 1 - MaxScale
-    val MaxPrecision = MaxScale * 2
+    val MaxPrecision = 1 << 16
+    val MaxScale = MaxPrecision / 2
+    val MinScale = -MaxPrecision / 2 + 1
 
     def unapply(value: SBigNumeric): Some[java.math.BigDecimal] =
       Some(value.value)
