@@ -70,8 +70,8 @@ if is_windows; then
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
   echo "Working directory: $PWD"
-  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -binary | openssl enc -base64)"
-  SUFFIX="${SUFFIX:0:3}"
+  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
+  SUFFIX="${SUFFIX:0:12}"
   echo "Platform suffix: $SUFFIX"
   # We include an extra version at the end that we can bump manually.
   CACHE_SUFFIX="$SUFFIX-v11"
