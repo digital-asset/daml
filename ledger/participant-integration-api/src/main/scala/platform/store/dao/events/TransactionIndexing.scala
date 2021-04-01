@@ -297,9 +297,9 @@ object TransactionIndexing {
         exerciseResults: Map[NodeId, Array[Byte]],
         exerciseResultsCompression: Compression.Algorithm,
     ) {
-      def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
+      def assertCreate(nodeId: NodeId): Array[Byte] = {
         assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")
-        (createArguments(nodeId), keyValues.get(nodeId))
+        createArguments(nodeId)
       }
 
       def assertExercise(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
