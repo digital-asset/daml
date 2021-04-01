@@ -427,7 +427,7 @@ private[dao] final class TransactionsReader(
         )
       }
     }
-  
+
   private def streamContractStateEvents(
       queryMetric: DatabaseMetrics,
       query: EventsRange[(Offset, Long)] => Connection => Vector[
