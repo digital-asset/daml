@@ -27,6 +27,7 @@ import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
+import com.daml.platform.store.dao.events.ContractStateEventsReader
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -310,6 +311,11 @@ private[appendonlydao] final class TransactionsReader(
       })
       .watchTermination()(endSpanOnTermination(span))
   }
+
+  // TODO
+  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEventsReader.ContractStateEvent), NotUsed] = ???
 
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]
