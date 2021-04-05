@@ -146,14 +146,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     } yield {
       import TransactionUtil._
 
-      println(s"ALL TX: ${transactions.length}")
-
-      val x = transactions.find(isCreateNonTransient).isDefined
-      println(s"FOUND NON TRANSIENT: ${x}")
-      val xx = transactions.filter(isTransientCreate).length
-
-      println(s"*** TRANSIENT CREATES: $xx")
-
       // We deliberately allow situations where no non-transient contract is created and verify the transactions
       // order when such contract is actually created.
       transactions.find(isCreateNonTransient).foreach { nonTransientCreateTransaction =>
@@ -226,7 +218,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   }
 
-  // KAMIL: this seems to be ok
   raceConditionTest(
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
@@ -248,11 +239,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     } yield {
       import TransactionUtil._
 
-      println(s"ALICE: $alice")
-      val x = transactions
-        .filter(isContractLookup(success = true))
-      println(s"***NUMBER OF INTERESTING TX: ${x.length}")
-
       val archivalTransaction =
         transactions.find(isArchival).getOrElse(fail("No archival transaction found"))
 
@@ -262,7 +248,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   }
 
-  // Cannot run concurrently
   raceConditionTest(
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
@@ -275,11 +260,6 @@ final class RaceConditionIT extends LedgerTestSuite {
           if (attempt == Attempts) {
             ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
           } else {
-            /*
-            We need `.transform(Success(_))` here because of existing consistency protection mechanisms that might
-            result in `io.grpc.StatusRuntimeException: ABORTED: Inconsistent: Contract key lookup with different results`.
-            We only care about invalid behavior, so it's safe to lose the information about correct submission rejections.
-             */
             ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
           }
         }
@@ -287,20 +267,6 @@ final class RaceConditionIT extends LedgerTestSuite {
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
-
-//
-//            println(s"ALICE: $alice")
-//            val x = transactions
-//              .filter(isContractLookup(success = false))
-//            println(s"*** NUMBER OF INTERESTING (FAILED) LOOKUPS TX: ${x.length}")
-//
-//      val xx = transactions
-//        .filter(isContractLookup(success = true))
-//      println(s"NUMBER OF SUCCESS LOOKUPS TX: ${xx.length}")
-//
-//      val xxx = transactions
-//        .filter(isContractLookup())
-//      println(s"NUMBER OF LOOKUPS TX: ${xxx.length}")
 
       val createNonTransientTransaction = transactions
         .find(isCreateNonTransient)
@@ -315,7 +281,9 @@ final class RaceConditionIT extends LedgerTestSuite {
   private def randomDurationUpTo(limit: FiniteDuration): FiniteDuration =
     scala.util.Random.nextInt(limit.toMillis.toInt).millis
 
-  private def scheduleWithRandomDelay[T](upTo: FiniteDuration)(f: Unit => Future[T])(implicit ec: ExecutionContext) =
+  private def scheduleWithRandomDelay[T](upTo: FiniteDuration)(f: Unit => Future[T])(implicit
+      ec: ExecutionContext
+  ): Future[T] =
     Delayed.by(randomDurationUpTo(upTo))(()).flatMap(f)
 
   private def raceConditionTest(
@@ -389,7 +357,11 @@ final class RaceConditionIT extends LedgerTestSuite {
 
   }
 
-  private def transactions(ledger: ParticipantTestContext, party: Primitive.Party, waitBefore: FiniteDuration = WaitBeforeGettingTransactions)(implicit
+  private def transactions(
+      ledger: ParticipantTestContext,
+      party: Primitive.Party,
+      waitBefore: FiniteDuration = WaitBeforeGettingTransactions,
+  )(implicit
       ec: ExecutionContext
   ) =
     Delayed.by(waitBefore)(()).flatMap(_ => ledger.transactionTrees(party))
