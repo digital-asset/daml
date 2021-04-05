@@ -27,6 +27,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   raceConditionTest(
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
+    runConcurrently = true,
   ) { implicit ec => ledger => alice =>
     val Attempts = 5
     Future
@@ -45,6 +46,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   raceConditionTest(
     "WWDoubleArchive",
     "Cannot archive the same contract multiple times",
+    runConcurrently = true,
   ) { implicit ec => ledger => alice =>
     val Attempts = 5
     for {
@@ -66,6 +68,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   raceConditionTest(
     "WWArchiveVsNonTransientCreate",
     "Cannot create a contract with a key if that key is still used by another contract",
+    runConcurrently = true,
   ) { implicit ec => ledger => alice =>
     /*
     This test case is intended to catch a race condition ending up in two consecutive successful contract
