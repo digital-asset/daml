@@ -88,12 +88,12 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
       (
         TTextMap(TBool),
         ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
-        SGenMap(true, Iterator(SText("0") -> SValue.True, SText("1") -> SValue.False)),
+        SMap(true, Iterator(SText("0") -> SValue.True, SText("1") -> SValue.False)),
       ),
       (
         TGenMap(TInt64, TText),
         ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
-        SGenMap(false, Iterator(SInt64(1) -> SText("1"), SInt64(42) -> SText("42"))),
+        SMap(false, Iterator(SInt64(1) -> SText("1"), SInt64(42) -> SText("42"))),
       ),
       (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
       (

@@ -43,7 +43,10 @@ final class StandaloneIndexerServer(
         Resource.unit
       case IndexerStartupMode.MigrateAndStart =>
         Resource
-          .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
+          .fromFuture(
+            indexerFactory
+              .migrateSchema(config.allowExistingSchema, config.enableAppendOnlySchema)
+          )
           .flatMap(startIndexer(indexer, _))
           .map { _ =>
             logger.debug("Waiting for the indexer to initialize the database.")

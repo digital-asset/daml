@@ -22,6 +22,7 @@ import System.Process
 import Test.Tasty
 import Data.List
 import Test.Tasty.HUnit
+import System.Directory
 
 main :: IO ()
 main = do
@@ -53,7 +54,7 @@ testsForRemoteDataDependencies damlc dar =
                           , "version: 0.0.1"
                           , "source: ."
                           , "dependencies: [daml-prim, daml-stdlib]"
-                          , "data-dependencies: [ " ++ mainPkgId ++ "]"
+                          , "data-dependencies: [" ++ mainPkgId ++ "]"
                           , "ledger:"
                           , "  host: localhost"
                           , "  port: " <> show sandboxPort
@@ -67,6 +68,77 @@ testsForRemoteDataDependencies damlc dar =
                           , "  signatory p"
                           ]
                   setEnv "DAML_PROJECT" projDir True
+                  (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
+                  stderr @?= ""
+                  exitCode @?= ExitSuccess
+            , testCase "package name:version data-dependency" $
+              withTempDir $ \projDir -> do
+                  InspectInfo {mainPackageId} <- getDarInfo dar
+                  let mainPkgId = T.unpack $ LF.unPackageId mainPackageId
+                  sandboxPort <- getSandboxPort
+                  writeFileUTF8 (projDir </> "daml.yaml") $
+                      unlines
+                          [ "sdk-version: " <> sdkVersion
+                          , "name: a"
+                          , "version: 0.0.1"
+                          , "source: ."
+                          , "dependencies: [daml-prim, daml-stdlib]"
+                          , "data-dependencies: [pkg-manager-test:1.0.0]"
+                          , "ledger:"
+                          , "  host: localhost"
+                          , "  port: " <> show sandboxPort
+                          ]
+                  writeFileUTF8 (projDir </> "A.daml") $
+                      unlines
+                          [ "module A where"
+                          , "import PkgManagerTest (S)"
+                          , "type U = S"
+                          , "template T with p : Party where"
+                          , "  signatory p"
+                          ]
+                  setEnv "DAML_PROJECT" projDir True
+                  (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
+                  stderr @?= ""
+                  exitCode @?= ExitSuccess
+                  -- check that a lock file is written
+                  let lockFp = projDir </> "daml.lock"
+                  hasLockFile <- doesFileExist lockFp
+                  hasLockFile @?= True
+                  removeFile lockFp
+                  -- check that a lock file is updated when a missing dependency is encountered.
+                  writeFileUTF8 lockFp $ unlines
+                    [
+                        "dependencies:"
+                        , "- pkgId: 51255efad65a1751bcee749d962a135a65d12b87eb81ac961142196d8bbca535"
+                        , "  name: foo"
+                        , "  version: 0.0.1"
+                    ]
+                  removeDirectoryRecursive $ projDir </> ".daml"
+                  (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
+                  stderr @?= ""
+                  exitCode @?= ExitSuccess
+                  lock <- readFile lockFp
+                  lines lock @?=
+                    [
+                        "dependencies:"
+                        , "- pkgId: " <> mainPkgId
+                        , "  name: pkg-manager-test"
+                        , "  version: 1.0.0"
+                    ]
+                  -- a second call shouldn't make any network connections. So let's set the sandbox
+                  -- port to a closed one.
+                  writeFileUTF8 (projDir </> "daml.yaml") $
+                      unlines
+                          [ "sdk-version: " <> sdkVersion
+                          , "name: a"
+                          , "version: 0.0.1"
+                          , "source: ."
+                          , "dependencies: [daml-prim, daml-stdlib]"
+                          , "data-dependencies: [pkg-manager-test:1.0.0]"
+                          , "ledger:"
+                          , "  host: localhost"
+                          , "  port: " <> show (sandboxPort + 1)
+                          ]
                   (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
                   stderr @?= ""
                   exitCode @?= ExitSuccess

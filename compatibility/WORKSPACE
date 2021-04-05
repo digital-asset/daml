@@ -17,9 +17,9 @@ load("@daml//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
-load("@daml//bazel_tools:scala_version.bzl", "scala_version")
+load("@daml//bazel_tools:scala_version.bzl", "scala_version_configure")
 
-scala_version(name = "scala_version")
+scala_version_configure(name = "scala_version")
 
 load("//:deps.bzl", "daml_deps")
 
@@ -313,7 +313,7 @@ maven_install(
         "com.daml:ledger-api-common_2.12:{}".format(latest_stable_version),
         "com.daml:lf-value-json_2.12:{}".format(latest_stable_version),
         "com.github.scopt:scopt_2.12:3.7.1",
-        "org.wartremover:wartremover_2.12.12:2.4.10",
+        "org.wartremover:wartremover_2.12.13:2.4.13",
         "io.spray:spray-json_2.12:1.3.3",
     ],
     maven_install_json = "@compatibility//:maven_install.json",

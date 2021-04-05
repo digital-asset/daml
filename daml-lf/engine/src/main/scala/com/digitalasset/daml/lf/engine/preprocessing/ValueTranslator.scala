@@ -111,7 +111,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     if (entries.isEmpty) {
                       SValue.SValue.EmptyTextMap
                     } else {
-                      SValue.SGenMap(
+                      SValue.SMap(
                         isTextMap = true,
                         entries = entries.iterator.map { case (k, v) =>
                           SValue.SText(k) -> go(typeArg0, v, newNesting)
@@ -127,7 +127,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     if (entries.isEmpty) {
                       SValue.SValue.EmptyGenMap
                     } else {
-                      SValue.SGenMap(
+                      SValue.SMap(
                         isTextMap = false,
                         entries = entries.iterator.map { case (k, v) =>
                           go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)

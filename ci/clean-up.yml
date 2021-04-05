@@ -17,21 +17,8 @@ steps:
     df -h .
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
         echo "Disk full, cleaning up..."
-        case $(uname) in
-        Linux)
-            $HOME/reset_caches.sh
-        ;;
-        Darwin)
-            # Only clean up disk cache
-            disk_cache="$HOME/.bazel-cache"
-            rm -rf "$disk_cache"
-            echo "removed '$disk_cache'"
-        ;;
-        *)
-            echo "Unknown uname: '$(uname)'."
-            exit 1
-        ;;
-        esac
+        $HOME/reset_caches.sh
+        echo "Done."
         df -h .
     fi
   displayName: clean-up disk cache

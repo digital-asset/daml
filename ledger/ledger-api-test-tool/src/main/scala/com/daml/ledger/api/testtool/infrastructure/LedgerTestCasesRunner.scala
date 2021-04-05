@@ -56,33 +56,24 @@ final class LedgerTestCasesRunner(
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
-  private def start(test: LedgerTestCase, session: LedgerSession)(implicit
-      executionContext: ExecutionContext
-  ): Future[Duration] = {
-    def logAndStart(repetition: Int): Future[Duration] = {
-      if (test.repeated > 1)
-        logger.info(s"Starting '${test.description}'. Run: $repetition out of ${test.repeated}")
-      startSingle(test, session, repetition)
-    }
-
-    (2 to test.repeated).foldLeft(logAndStart(1)) { (result, repetition) =>
-      result.flatMap(_ => logAndStart(repetition))
-    }
-  }
-
-  private def startSingle(test: LedgerTestCase, session: LedgerSession, repetition: Int)(implicit
-      executionContext: ExecutionContext
-  ): Future[Duration] = {
+  private def start(
+      test: LedgerTestCase.Repetition,
+      session: LedgerSession,
+  )(implicit executionContext: ExecutionContext): Future[Duration] = {
     val execution = Promise[Duration]()
     val scaledTimeout = DefaultTimeout * timeoutScaleFactor * test.timeoutScale
 
+    val testName =
+      test.repetition.fold[String](test.shortIdentifier)(r => s"${test.shortIdentifier}_${r._1}")
     val startedTest =
       session
-        .createTestContext(s"${test.shortIdentifier}_$repetition", identifierSuffix)
+        .createTestContext(testName, identifierSuffix)
         .flatMap { context =>
           val start = System.nanoTime()
           val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
-          logger.info(s"Started '${test.description}' with a timeout of $scaledTimeout.")
+          logger.info(
+            s"Started '${test.description}'${test.repetition.fold("")(r => s" (${r._1}/${r._2})")} with a timeout of $scaledTimeout."
+          )
           result
         }
 
@@ -132,18 +123,25 @@ final class LedgerTestCasesRunner(
   ): LedgerTestSummary =
     LedgerTestSummary(suite.name, test.name, test.description, result)
 
-  private def run(test: LedgerTestCase, session: LedgerSession)(implicit
-      executionContext: ExecutionContext
-  ): Future[Either[Result.Failure, Result.Success]] =
+  private def run(
+      test: LedgerTestCase.Repetition,
+      session: LedgerSession,
+  )(implicit executionContext: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
     result(start(test, session))
 
-  private def uploadDar(context: ParticipantTestContext, name: String)(implicit
-      executionContext: ExecutionContext
-  ): Future[Unit] = {
+  private def uploadDar(
+      context: ParticipantTestContext,
+      name: String,
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
     logger.info(s"""Uploading DAR "$name"...""")
-    context.uploadDarFile(Dars.read(name)).andThen { case _ =>
-      logger.info(s"""Uploaded DAR "$name".""")
-    }
+    context
+      .uploadDarFile(Dars.read(name))
+      .map { _ =>
+        logger.info(s"""Uploaded DAR "$name".""")
+      }
+      .recover { case NonFatal(exception) =>
+        throw new Errors.DarUploadException(name, exception)
+      }
   }
 
   private def uploadDarsIfRequired(
@@ -173,11 +171,12 @@ final class LedgerTestCasesRunner(
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Vector[LedgerTestSummary]] = {
-    val testCount = testCases.size
+    val testCaseRepetitions = testCases.flatMap(_.repetitions)
+    val testCount = testCaseRepetitions.size
     logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
-    Source(testCases.zipWithIndex)
+    Source(testCaseRepetitions.zipWithIndex)
       .mapAsyncUnordered(concurrency) { case (test, index) =>
-        run(test, ledgerSession).map(summarize(test.suite, test, _) -> index)
+        run(test, ledgerSession).map(summarize(test.suite, test.testCase, _) -> index)
       }
       .runWith(Sink.seq)
       .map(_.toVector.sortBy(_._2).map(_._1))
@@ -208,10 +207,10 @@ final class LedgerTestCasesRunner(
             )(materializer, materializer.executionContext)
           } yield concurrentTestResults ++ sequentialTestResults
 
-        testResults
-          .recover { case NonFatal(e) =>
+        testResults.recover {
+          case NonFatal(e) if !e.isInstanceOf[Errors.FrameworkException] =>
             throw new LedgerTestCasesRunner.UncaughtExceptionError(e)
-          }
+        }
       }
   }
 

@@ -561,20 +561,20 @@ private[lf] final class Compiler(
 
           // TextMap
 
-          case BTextMapInsert => SBGenMapInsert
-          case BTextMapLookup => SBGenMapLookup
-          case BTextMapDelete => SBGenMapDelete
-          case BTextMapToList => SBGenMapToList
-          case BTextMapSize => SBGenMapSize
+          case BTextMapInsert => SBMapInsert
+          case BTextMapLookup => SBMapLookup
+          case BTextMapDelete => SBMapDelete
+          case BTextMapToList => SBMapToList
+          case BTextMapSize => SBMapSize
 
           // GenMap
 
-          case BGenMapInsert => SBGenMapInsert
-          case BGenMapLookup => SBGenMapLookup
-          case BGenMapDelete => SBGenMapDelete
-          case BGenMapKeys => SBGenMapKeys
-          case BGenMapValues => SBGenMapValues
-          case BGenMapSize => SBGenMapSize
+          case BGenMapInsert => SBMapInsert
+          case BGenMapLookup => SBMapLookup
+          case BGenMapDelete => SBMapDelete
+          case BGenMapKeys => SBMapKeys
+          case BGenMapValues => SBMapValues
+          case BGenMapSize => SBMapSize
 
           case BScaleBigNumeric => SBScaleBigNumeric
           case BPrecisionBigNumeric => SBPrecisionBigNumeric
@@ -585,6 +585,7 @@ private[lf] final class Compiler(
           case BShiftBigNumeric => SBShiftBigNumeric
           case BToBigNumericNumeric => SBToBigNumericNumeric
           case BToNumericBigNumeric => SBToNumericBigNumeric
+          case BToTextBigNumeric => SBToText
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -1330,7 +1331,7 @@ private[lf] final class Compiler(
         case _: SPrimLit | STNat(_) | STypeRep(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
-        case SGenMap(_, entries) =>
+        case SMap(_, entries) =>
           entries.foreach { case (k, v) =>
             goV(k)
             goV(v)

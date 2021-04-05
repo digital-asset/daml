@@ -236,6 +236,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       loggingContext: LoggingContext
   ): Future[Unit]
 
+  // TODO append-only: cleanup
   def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
@@ -247,6 +248,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert
 
+  // TODO append-only: cleanup
   def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
@@ -258,14 +260,17 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
+  // TODO append-only: cleanup
   def storeTransactionState(preparedInsert: PreparedInsert)(implicit
       loggingContext: LoggingContext
   ): Future[PersistenceResponse]
 
+  // TODO append-only: cleanup
   def storeTransactionEvents(preparedInsert: PreparedInsert)(implicit
       loggingContext: LoggingContext
   ): Future[PersistenceResponse]
 
+  // TODO append-only: cleanup
   def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
       transactionId: TransactionId,
@@ -280,7 +285,9 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
-  /** Stores the initial ledger state, e.g., computed by the scenario loader.
+  /** !!! Please kindly not use this.
+    * !!! This method is solely for supporting sandbox-classic. Targeted for removal as soon sandbox classic is removed.
+    * Stores the initial ledger state, e.g., computed by the scenario loader.
     * Must be called at most once, before any call to storeLedgerEntry.
     *
     * @param ledgerEntries the list of LedgerEntries to save

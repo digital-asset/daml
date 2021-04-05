@@ -273,6 +273,7 @@ instance Pretty BuiltinExpr where
     BEShiftBigNumeric -> "SHIFT_BIGNUMERIC"
     BEToNumericBigNumeric -> "TO_NUMERIC_BIGNUMERIC"
     BEFromNumericBigNumeric -> "TO_BIGNUMERIC_NUMERIC"
+    BEToTextBigNumeric -> "TO_TEXT_BIGNUMERIC"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"

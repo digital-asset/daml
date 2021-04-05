@@ -54,6 +54,9 @@ module GHC.Classes(
     #ifdef DAML_NUMERIC
     NumericScale (numericScale),
     #endif
+    #ifdef DAML_BIGNUMERIC
+    IsNumeric (..),
+    #endif
  ) where
 
 import GHC.Base
@@ -460,6 +463,27 @@ instance NumericScale 36 where numericScale _ = 36; numericScalePrivate _ = ()
 instance NumericScale 37 where numericScale _ = 37; numericScalePrivate _ = ()
 #endif
 
+#ifdef DAML_BIGNUMERIC
+
+-- | Types that can be represented by decimal literals in Daml.
+class IsNumeric t where
+    -- | Convert from `Numeric`. Raises an error if the number can't be
+    -- represented exactly in the target type.
+    fromNumeric : NumericScale m => Numeric m -> t
+
+    -- | Convert from `BigNumeric`. Raises an error if the number can't be
+    -- represented exactly in the target type.
+    fromBigNumeric : BigNumeric -> t
+
+instance NumericScale n => IsNumeric (Numeric n) where
+    fromNumeric = primitive @"BECastNumeric"
+    fromBigNumeric = primitive @"BEToNumericBigNumeric"
+
+instance IsNumeric BigNumeric where
+    fromNumeric = primitive @"BEFromNumericBigNumeric"
+    fromBigNumeric x = x
+
+#endif
 
 -- Constraint tuples
 

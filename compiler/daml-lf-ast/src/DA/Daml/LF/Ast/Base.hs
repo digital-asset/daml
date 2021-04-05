@@ -36,7 +36,7 @@ infixr 1 `KArrow`
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey)
+    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
 -- | Name for a module. Must match the regex
 --
@@ -360,6 +360,7 @@ data BuiltinExpr
   | BEShiftBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
   | BEToNumericBigNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
   | BEFromNumericBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
+  | BEToTextBigNumeric           -- :: BigNumeric -> Text
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool

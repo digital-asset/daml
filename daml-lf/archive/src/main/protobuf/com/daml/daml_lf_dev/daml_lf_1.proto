@@ -495,13 +495,13 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  ANY_EXCEPTION_MESSAGE = 146;      // *Available in versions >= 1.dev*
-  MAKE_GENERAL_ERROR = 147;         // *Available in versions >= 1.dev*
-  GENERAL_ERROR_MESSAGE = 148;      // *Available in versions >= 1.dev*
-  MAKE_ARITHMETIC_ERROR = 149;      // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR_MESSAGE = 150;   // *Available in versions >= 1.dev*
-  MAKE_CONTRACT_ERROR = 151;        // *Available in versions >= 1.dev*
-  CONTRACT_ERROR_MESSAGE = 152;     // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 147;      // *Available in versions >= 1.dev*
+  MAKE_GENERAL_ERROR = 148;         // *Available in versions >= 1.dev*
+  GENERAL_ERROR_MESSAGE = 149;      // *Available in versions >= 1.dev*
+  MAKE_ARITHMETIC_ERROR = 150;      // *Available in versions >= 1.dev*
+  ARITHMETIC_ERROR_MESSAGE = 151;   // *Available in versions >= 1.dev*
+  MAKE_CONTRACT_ERROR = 152;        // *Available in versions >= 1.dev*
+  CONTRACT_ERROR_MESSAGE = 153;     // *Available in versions >= 1.dev*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.11*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
@@ -598,8 +598,9 @@ enum BuiltinFunction {
   SHIFT_BIGNUMERIC = 143;
   TO_NUMERIC_BIGNUMERIC = 144;
   TO_BIGNUMERIC_NUMERIC = 145;
+  TO_TEXT_BIGNUMERIC = 146;
 
-  // Next id is 153. 152 is CONTRACT_ERROR_MESSAGE.
+  // Next id is 154. 153 is CONTRACT_ERROR_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*

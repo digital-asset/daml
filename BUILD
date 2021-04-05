@@ -8,6 +8,7 @@ load(
     "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
 load("//bazel_tools:scala.bzl", "da_scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -213,6 +214,8 @@ alias(
 
 exports_files([
     ".scalafmt.conf",
+    "maven_install_2.12.json",
+    "maven_install_2.13.json",
 ])
 
 # Buildifier.
@@ -267,4 +270,23 @@ da_haskell_repl(
         "//language-support/hs/bindings:test",
         "//language-support/ts/codegen:daml2js",
     ],
+)
+
+string_flag(
+    name = "oracle_testing",
+    build_setting_default = "no",
+)
+
+config_setting(
+    name = "oracle_available",
+    flag_values = {
+        ":oracle_testing": "yes",
+    },
+)
+
+config_setting(
+    name = "oracle_unavailable",
+    flag_values = {
+        ":oracle_testing": "no",
+    },
 )

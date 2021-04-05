@@ -11,6 +11,7 @@ import com.daml.platform.store.dao.events.CompressionMetrics
 private[platform] object Compression {
 
   sealed abstract class Algorithm(val id: Option[Int]) {
+    // TODO append-only: cleanup. This is not used by new Compression related mechanics in append-only implementation
     final def compress(
         uncompressed: Array[Byte],
         metrics: CompressionMetrics.Field,

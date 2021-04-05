@@ -133,6 +133,7 @@ da_scala_library(
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -147,40 +148,62 @@ da_scala_library(
     ],
 )
 
+test_deps = [
+    ":trigger-service",
+    ":trigger-service-tests",
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+    "//daml-lf/data",
+    "//language-support/scala/bindings-akka",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/testing-utils",
+    "//ledger-service/cli-opts",
+    "//ledger-service/jwt",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-resources",
+    "//ledger/sandbox-classic",
+    "//ledger/sandbox-common",
+    "//libs-scala/adjustable-clock",
+    "//libs-scala/flyway-testing",
+    "//libs-scala/oracle-testing",
+    "//libs-scala/ports",
+    "//libs-scala/postgresql-testing",
+    "//libs-scala/resources",
+    "//triggers/service/auth:oauth2-test-server",
+    "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+    "@maven//:org_flywaydb_flyway_core",
+]
+
+scala_test_deps = [
+    "@maven//:com_typesafe_akka_akka_http_core",
+    "@maven//:io_spray_spray_json",
+    "@maven//:org_scalatest_scalatest",
+    "@maven//:org_scalaz_scalaz_core",
+]
+
 da_scala_test_suite(
     name = "test",
-    srcs = glob(["src/test-suite/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_http_core",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalaz_scalaz_core",
+    srcs = glob(
+        ["src/test-suite/scala/**/*.scala"],
+        exclude = ["**/*Oracle*"],
+    ),
+    scala_deps = scala_test_deps,
+    deps = test_deps,
+)
+
+da_scala_test_suite(
+    name = "test-oracle",
+    srcs = glob(["src/test-suite/scala/**/*Oracle*.scala"]),
+    scala_deps = scala_test_deps,
+    target_compatible_with = select({
+        "//:oracle_available": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
-    deps = [
-        ":trigger-service",
-        ":trigger-service-tests",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/data",
-        "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger-service/cli-opts",
-        "//ledger-service/jwt",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
-        "//ledger/sandbox-classic",
-        "//ledger/sandbox-common",
-        "//libs-scala/adjustable-clock",
-        "//libs-scala/flyway-testing",
-        "//libs-scala/ports",
-        "//libs-scala/postgresql-testing",
-        "//libs-scala/resources",
-        "//triggers/service/auth:oauth2-test-server",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
-        "@maven//:org_flywaydb_flyway_core",
-    ],
+    deps = test_deps,
 )
 
 genrule(
