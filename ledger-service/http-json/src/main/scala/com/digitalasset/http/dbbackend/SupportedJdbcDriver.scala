@@ -45,7 +45,10 @@ object SupportedJdbcDriver {
     new SupportedJdbcDriver(
       label = "Oracle",
       queries = Queries.Oracle,
-      retrySqlStates = Set( /*s11 TODO, */ ContractDao.StaleOffsetException.SqlState),
+      // all oracle class 23 errors yield 23000; if we want to check for *unique*
+      // violation specifically we'll have to look at something other than the SQLState.
+      // All other class 23 errors indicate a bug, which should exhaust the retry loop anyway
+      retrySqlStates = Set("23000", ContractDao.StaleOffsetException.SqlState),
     )
   }
 }
