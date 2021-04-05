@@ -20,23 +20,22 @@ import scala.util.Success
 
 final class RaceConditionIT extends LedgerTestSuite {
 
+  // TODO: reduce the repetition parameter
   private val DefaultRepetitionsNumber: Int = 5
-  private val WaitBeforeGettingTransactions = 1.second
+  private val WaitBeforeGettingTransactions: FiniteDuration = 500.millis
 
   raceConditionTest(
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
   ) { implicit ec => ledger => alice =>
     val Attempts = 5
-    val ExpectedNumberOfSuccessfulCreations = 1
     Future
       .traverse(1 to Attempts) { _ =>
         ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
       }
       .map { results =>
-        assertLength(
+        assertSingleton(
           "Successful contract creations",
-          ExpectedNumberOfSuccessfulCreations,
           results.filter(_.isSuccess),
         )
         ()
@@ -48,7 +47,6 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot archive the same contract multiple times",
   ) { implicit ec => ledger => alice =>
     val Attempts = 5
-    val ExpectedNumberOfSuccessfulArchivals = 1
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       _ <- Future.traverse(1 to Attempts) { _ =>
@@ -57,9 +55,8 @@ final class RaceConditionIT extends LedgerTestSuite {
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
-      assertLength(
+      assertSingleton(
         "Successful contract archivals",
-        ExpectedNumberOfSuccessfulArchivals,
         transactions.filter(isArchival),
       )
       ()
@@ -79,7 +76,7 @@ final class RaceConditionIT extends LedgerTestSuite {
      */
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
-      _ <- Delayed.by(1.second)(())
+      _ <- Delayed.by(500.millis)(())
       createFuture = ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
       exerciseFuture = ledger
         .exercise(alice, contract.exerciseContractWithKey_Archive)
@@ -127,7 +124,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
   ) { implicit ec => ledger => alice =>
-    val Attempts = 100
+    val Attempts = 20
     for {
       wrapper <- ledger.create(alice, CreateWrapper(alice))
       _ <- Future.traverse(1 to Attempts) { attempt =>
@@ -143,6 +140,14 @@ final class RaceConditionIT extends LedgerTestSuite {
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
+
+      println(s"ALL TX: ${transactions.length}")
+
+      val x = transactions.find(isCreateNonTransient).isDefined
+      println(s"FOUND NON TRANSIENT: ${x}")
+      val xx = transactions.filter(isTransientCreate).length
+
+      println(s"*** TRANSIENT CREATES: $xx")
 
       // We deliberately allow situations where no non-transient contract is created and verify the transactions
       // order when such contract is actually created.
@@ -213,12 +218,13 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   }
 
+  // KAMIL: this seems to be ok
   raceConditionTest(
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
   ) { implicit ec => ledger => alice =>
-    val ArchiveAt = 90
-    val Attempts = 100
+    val ArchiveAt = 20
+    val Attempts = 20
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       looker <- ledger.create(alice, LookupWrapper(alice))
@@ -233,54 +239,88 @@ final class RaceConditionIT extends LedgerTestSuite {
     } yield {
       import TransactionUtil._
 
+      println(s"ALICE: $alice")
+      val x = transactions
+        .filter(isContractLookup(success = true))
+      println(s"***NUMBER OF INTERESTING TX: ${x.length}")
+
       val archivalTransaction =
         transactions.find(isArchival).getOrElse(fail("No archival transaction found"))
 
       transactions
-        .filter(isSuccessfulContractLookup(success = true))
+        .filter(isContractLookup(success = true))
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
 
+  // Cannot run concurrently
   raceConditionTest(
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
   ) { implicit ec => ledger => alice =>
-    val CreateAt = 90
-    val Attempts = 100
+    val Attempts = 5
     for {
       looker <- ledger.create(alice, LookupWrapper(alice))
       _ <- Future.traverse(1 to Attempts) { attempt =>
-        if (attempt == CreateAt) {
-          ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
-        } else {
-          ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
+        scheduleWithRandomDelay(20.millis) { _ =>
+          if (attempt == Attempts) {
+            ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
+          } else {
+            /*
+            We need `.transform(Success(_))` here because of existing consistency protection mechanisms that might
+            result in `io.grpc.StatusRuntimeException: ABORTED: Inconsistent: Contract key lookup with different results`.
+            We only care about invalid behavior, so it's safe to lose the information about correct submission rejections.
+             */
+            ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
+          }
         }
       }
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
 
+//
+//            println(s"ALICE: $alice")
+//            val x = transactions
+//              .filter(isContractLookup(success = false))
+//            println(s"*** NUMBER OF INTERESTING (FAILED) LOOKUPS TX: ${x.length}")
+//
+//      val xx = transactions
+//        .filter(isContractLookup(success = true))
+//      println(s"NUMBER OF SUCCESS LOOKUPS TX: ${xx.length}")
+//
+//      val xxx = transactions
+//        .filter(isContractLookup())
+//      println(s"NUMBER OF LOOKUPS TX: ${xxx.length}")
+
       val createNonTransientTransaction = transactions
         .find(isCreateNonTransient)
         .getOrElse(fail("No create-non-transient transaction found"))
 
       transactions
-        .filter(isSuccessfulContractLookup(success = false))
+        .filter(isContractLookup(success = false))
         .foreach(assertTransactionOrder(_, createNonTransientTransaction))
     }
   }
 
+  private def randomDurationUpTo(limit: FiniteDuration): FiniteDuration =
+    scala.util.Random.nextInt(limit.toMillis.toInt).millis
+
+  private def scheduleWithRandomDelay[T](upTo: FiniteDuration)(f: Unit => Future[T])(implicit ec: ExecutionContext) =
+    Delayed.by(randomDurationUpTo(upTo))(()).flatMap(f)
+
   private def raceConditionTest(
       shortIdentifier: String,
       description: String,
+      repeated: Int = DefaultRepetitionsNumber,
+      runConcurrently: Boolean = false,
   )(testCase: ExecutionContext => ParticipantTestContext => Primitive.Party => Future[Unit]): Unit =
     test(
       shortIdentifier = shortIdentifier,
       description = description,
       participants = allocate(SingleParty),
-      repeated = DefaultRepetitionsNumber,
-      runConcurrently = false,
+      repeated = repeated,
+      runConcurrently = runConcurrently,
     )(implicit ec => { case Participants(Participant(ledger, party)) =>
       testCase(ec)(ledger)(party)
     })
@@ -327,18 +367,23 @@ final class RaceConditionIT extends LedgerTestSuite {
       field.label == "found" && field.value.exists(_.getBool == found)
     }
 
-    def isSuccessfulContractLookup(success: Boolean)(tx: TransactionTree): Boolean =
+    def isContractLookup(success: Boolean)(tx: TransactionTree): Boolean =
       tx.containsEvent { event =>
         isCreated(RaceTests.LookupResult.TemplateName)(event) &&
         event.getCreated.getCreateArguments.fields.exists(isFoundContractField(found = success))
       }
 
+    def isContractLookup()(tx: TransactionTree): Boolean =
+      tx.containsEvent { event =>
+        isCreated(RaceTests.LookupResult.TemplateName)(event)
+      }
+
   }
 
-  private def transactions(ledger: ParticipantTestContext, party: Primitive.Party)(implicit
+  private def transactions(ledger: ParticipantTestContext, party: Primitive.Party, waitBefore: FiniteDuration = WaitBeforeGettingTransactions)(implicit
       ec: ExecutionContext
   ) =
-    Delayed.by(WaitBeforeGettingTransactions)(()).flatMap(_ => ledger.transactionTrees(party))
+    Delayed.by(waitBefore)(()).flatMap(_ => ledger.transactionTrees(party))
 
   private def assertTransactionOrder(
       expectedFirst: TransactionTree,
