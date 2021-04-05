@@ -250,6 +250,11 @@ class ValuePredicateTest
           eitherVA,
           sql"payload = ${"""{"foo": {"tag": "Left", "value": 42}}""".parseJson}::jsonb",
         ),
+        (
+          """{"tag": "Left", "value": {"%lte": 42}}""",
+          eitherVA,
+          sql"payload->${"foo"}->${"value"} <= ${"42".parseJson}::jsonb AND payload @> ${"""{"foo": {"tag": "Left"}}""".parseJson}::jsonb",
+        ),
       )
     }
 
