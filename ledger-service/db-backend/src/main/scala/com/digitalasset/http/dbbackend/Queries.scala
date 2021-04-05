@@ -87,7 +87,7 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         template_id
-        (tpid """ ++ bigSerialType ++ sql""" NOT NULL PRIMARY KEY
+        (tpid """ ++ bigSerialType ++ sql""" NOT NULL CONSTRAINT template_id_k PRIMARY KEY
         ,package_id """ ++ packageIdType ++ sql""" NOT NULL
         ,template_module_name """ ++ nameType ++ sql""" NOT NULL
         ,template_entity_name """ ++ nameType ++ sql""" NOT NULL
