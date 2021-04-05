@@ -40,7 +40,7 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         contract
-        (contract_id """ ++ contractIdType ++ sql""" NOT NULL PRIMARY KEY
+        (contract_id """ ++ contractIdType ++ sql""" NOT NULL CONSTRAINT contract_k PRIMARY KEY
         ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
         ,""" ++ jsonColumn(sql"key") ++ sql"""
         ,""" ++ jsonColumn(contractColumnName) ++
