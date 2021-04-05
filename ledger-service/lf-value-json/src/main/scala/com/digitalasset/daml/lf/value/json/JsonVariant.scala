@@ -3,11 +3,14 @@
 
 package com.daml.lf.value.json
 
+import com.daml.lf.data.Ref
 import spray.json.{JsObject, JsString, JsValue}
 
 object JsonVariant {
   def apply(tag: String, body: JsValue): JsObject =
-    JsObject("tag" -> JsString(tag), "value" -> body)
+    JsObject("tag" -> JsString(tag), valueKey -> body)
+
+  val valueKey: Ref.Name = Ref.Name assertFromString "value"
 
   def unapply(o: JsObject): Option[(String, JsValue)] =
     (o.fields.size, o.fields.get("tag"), o.fields.get("value")) match {

@@ -127,7 +127,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           goObject(path, cqs, qs.length)
 
         case VariantMatch((dc, q)) =>
-          val Rec(vraw, v_==, v_@>) = go(path objectAt dc, q) // TODO SC exercise this path
+          val Rec(vraw, v_==, v_@>) = go(path objectAt JsonVariant.valueKey, q)
           // @> is safe because in a variant-typed context, all JsObjects
           // have exactly two keys
           Rec(
