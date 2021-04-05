@@ -9,7 +9,7 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time
 import ImmArray.ImmArraySeq
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
@@ -38,12 +38,24 @@ class ValuePredicateTest
     case a0 @ V.ContractId.V0(_) => a0
   })
 
+  import Ref.QualifiedName.{assertFromString => qn}
+
+  private[this] val dummyPackageId = Ref.PackageId assertFromString "dummy-package-id"
+  private[this] def eitherT = {
+    import shapeless.syntax.singleton._
+    val sig = Symbol("Left") ->> VA.int64 ::
+      Symbol("Right") ->> VA.text ::
+      RNil
+    val id = Ref.Identifier(dummyPackageId, qn("Foo:Either"))
+    (id, VA.variant(id, sig))
+  }
   private[this] val dummyId = Ref.Identifier(
-    Ref.PackageId assertFromString "dummy-package-id",
-    Ref.QualifiedName assertFromString "Foo:Bar",
+    dummyPackageId,
+    qn("Foo:Bar"),
   )
   private[this] val dummyFieldName = Ref.Name assertFromString "foo"
   private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+  private[this] val (eitherId, (eitherDDT, eitherVA)) = eitherT
   private[this] def valueAndTypeInObject(
       v: V[Cid],
       ty: iface.Type,
@@ -52,7 +64,8 @@ class ValuePredicateTest
   private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
     Map(
       dummyId -> iface
-        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))
+        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty)))),
+      eitherId -> eitherDDT,
     ).lift
 
   "fromJsObject" should {
@@ -231,6 +244,11 @@ class ValuePredicateTest
           """{"%lte": 42}""",
           VA.int64,
           sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
+        ),
+        (
+          """{"tag": "Left", "value": 42}""",
+          eitherVA,
+          sql"payload = ${"""{"foo": {"tag": "Left", "value": 42}}""".parseJson}::jsonb",
         ),
       )
     }
