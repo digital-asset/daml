@@ -626,10 +626,10 @@ private object OracleQueries extends Queries {
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
     println("insert contracts")
     println(dbcs)
-    val r = Update[(String, String, SurrogateTpId, JsValue, JsValue, String)](
+    val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
       """
-        MERGE INTO contract USING (SELECT 1 FROM DUAL) ON (contract_id = ?)
-        WHEN NOT MATCHED THEN INSERT (contract_id, tpid, key, payload, agreement_text)
+        INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
+        INTO contract (contract_id, tpid, key, payload, agreement_text)
         VALUES (?, ?, ?, ?, ?)
       """,
       logHandler0 = log,
@@ -637,30 +637,30 @@ private object OracleQueries extends Queries {
       dbcs
         .map { c =>
 //          println(c)
-          (c.contractId, c.contractId, c.templateId, c.key, c.payload, c.agreementText)
+          (c.contractId, c.templateId, c.key, c.payload, c.agreementText)
         }
     )
     println("inserted")
     import cats.syntax.foldable._, cats.instances.vector._
-    val r2 = Update[(String, String, String, String)](
+    val r2 = Update[(String, String)](
       """
-        MERGE INTO signatories USING (SELECT 1 FROM DUAL) ON (contract_id = ? AND party = ?)
-        WHEN NOT MATCHED THEN INSERT (contract_id, party)
+        INSERT /*+ ignore_row_on_dupkey_index(signatories(contract_id, party)) */
+        INTO signatories (contract_id, party)
         VALUES (?, ?)
       """,
       logHandler0 = log,
     ).updateMany(
-      dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s, c.contractId, s)).toVector)
+      dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s)).toVector)
     )
-    val r3 = Update[(String, String, String, String)](
+    val r3 = Update[(String, String)](
       """
-        MERGE INTO observers USING (SELECT 1 FROM DUAL) ON (contract_id = ? AND party = ?)
-        WHEN NOT MATCHED THEN INSERT (contract_id, party)
+        INSERT /*+ ignore_row_on_dupkey_index(observers(contract_id, party)) */
+        INTO observers (contract_id, party)
         VALUES (?, ?)
       """,
       logHandler0 = log,
     ).updateMany(
-      dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s, c.contractId, s)).toVector)
+      dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s)).toVector)
     )
     r *> r2 *> r3
   }
