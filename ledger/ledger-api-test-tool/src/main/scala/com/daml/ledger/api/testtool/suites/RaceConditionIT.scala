@@ -20,8 +20,7 @@ import scala.util.Success
 
 final class RaceConditionIT extends LedgerTestSuite {
 
-  // TODO: reduce the repetition parameter
-  private val DefaultRepetitionsNumber: Int = 5
+  private val DefaultRepetitionsNumber: Int = 3
   private val WaitBeforeGettingTransactions: FiniteDuration = 500.millis
 
   raceConditionTest(
