@@ -412,6 +412,7 @@
 			| key
 			| maintainer
 			| daml
+			| exception
 			)(\b(?!'))
 			</string>
 			<key>name</key>
@@ -431,7 +432,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(do|if|then|else|case|of)(\b(?!'))</string>
+			<string>\b(do|if|then|else|case|of|try|catch)(\b(?!'))</string>
 			<key>name</key>
 			<string>keyword.control.daml</string>
 		</dict>

@@ -117,11 +117,11 @@
         },
         {
           "name": "keyword.control.daml",
-          "match": "\\b(case|commits|fails|daml|else|ensure|exercise|if|import|in|let|match|must|of|on|qualified|scenario|template|then|type|data|where|while|with|anytime|signatory|observer|returning|to|agreement|do|does|test|def|fetch|controller|can|exception|try|catch)\\b"
+          "match": "\\b(case|commits|fails|daml|else|ensure|exercise|if|import|in|let|match|must|of|on|qualified|scenario|template|then|type|data|where|while|with|anytime|signatory|observer|returning|to|agreement|do|does|test|def|fetch|controller|can)\\b"
         },
         {
           "name": "entity.name.function",
-          "match": "\\b(pure|return|assert|create|mustFailAt|fromRelTime|toRelTime|fromInteger|toInteger|pass|toText|singleton|unpack|divD|remD|round|cons|nil|subTime|addRelTime|throw)\\b"
+          "match": "\\b(pure|return|assert|create|mustFailAt|fromRelTime|toRelTime|fromInteger|toInteger|pass|toText|singleton|unpack|divD|remD|round|cons|nil|subTime|addRelTime)\\b"
         },
         {
           "name": "keyword.operator.daml",
