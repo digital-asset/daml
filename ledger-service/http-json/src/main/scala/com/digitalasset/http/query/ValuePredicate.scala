@@ -12,7 +12,7 @@ import com.daml.lf.iface
 import com.daml.lf.value.json.JsonVariant
 import com.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
-import dbbackend.Queries.concatFragment
+import dbbackend.Queries.joinFragment
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Digit._0
@@ -181,14 +181,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
     val basePath = Path(Vector.empty)
     val outerRec = go(basePath, this)
-    outerRec flush_== basePath getOrElse
-      concatFragment {
-        val preds = outerRec.raw ++ outerRec.flush_@>(basePath).toList match {
-          case hd +: tl => OneAnd(hd, tl)
-          case _ => OneAnd(sql"1 = 1", Vector.empty)
-        }
-        preds.copy(tail = preds.tail map (sq => sql" AND " ++ sq))
+    outerRec flush_== basePath getOrElse {
+      val preds = outerRec.raw ++ outerRec.flush_@>(basePath).toList match {
+        case hd +: tl => OneAnd(hd, tl)
+        case _ => OneAnd(sql"1 = 1", Vector.empty)
       }
+      joinFragment(preds, sql" AND ")
+    }
   }
 }
 

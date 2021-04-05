@@ -374,6 +374,9 @@ object Queries {
     case object GTEQ extends OrderOperator
   }
 
+  private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs, sep))
+
   private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
     val OneAnd(hd, tl) = xs
     def go(s: Int, e: Int): Fragment =
@@ -388,7 +391,7 @@ object Queries {
     hd ++ go(0, tl.size)
   }
 
-  private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
+  private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
     oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
 
   // Like groupBy but split into n maps where n is the longest list under groupBy.
@@ -491,7 +494,7 @@ private object PostgresQueries extends Queries {
       val assocedPreds = preds.map { case (tpid, predicate) =>
         sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
       }
-      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
+      val unionPred = joinFragment(assocedPreds, sql" OR ")
       val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
                       FROM contract AS c
                       WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
@@ -764,7 +767,7 @@ private object OracleQueries extends Queries {
             val fieldPreds = OneAnd(hp, tp).map { case (ok, ov) =>
               containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
             }
-            concatFragment(intersperse(fieldPreds, sql" AND "))
+            joinFragment(fieldPreds, sql" AND ")
           case _ =>
             // a check *at root* for `@> {}` always succeeds, so don't bother querying
             if (path.elems.isEmpty) sql"1 = 1"
