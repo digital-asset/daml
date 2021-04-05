@@ -246,7 +246,7 @@ class ValuePredicateTest
           sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
         ),
         (
-          """{"tag": "Left", "value": 42}""",
+          """{"tag": "Left", "value": "42"}""",
           eitherVA,
           sql"payload = ${"""{"foo": {"tag": "Left", "value": 42}}""".parseJson}::jsonb",
         ),
