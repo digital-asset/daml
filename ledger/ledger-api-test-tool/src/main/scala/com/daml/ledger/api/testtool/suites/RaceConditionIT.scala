@@ -126,21 +126,14 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWTransientCreateVsNonTransientCreate",
     "Cannot create a transient contract and a non-transient contract with the same key",
   ) { implicit ec => ledger => alice =>
-    val Attempts = 20
     for {
       wrapper <- ledger.create(alice, CreateWrapper(alice))
-      _ <- Future.traverse(1 to Attempts) { attempt =>
-        scheduleWithRandomDelay(20.millis) { _ =>
-          if (attempt == Attempts) {
-            ledger.create(alice, ContractWithKey(alice)).map(_ => ()).transform(Success(_))
-          } else {
-            ledger
-              .exercise(alice, wrapper.exerciseCreateWrapper_CreateTransient)
-              .map(_ => ())
-              .transform(Success(_))
-          }
-        }
-      }
+      _ <- executeRandomly(
+        attempts = 20,
+        once = ledger.create(alice, ContractWithKey(alice)).map(_ => ()),
+        repeated =
+          ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateTransient).map(_ => ()),
+      )
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
@@ -159,18 +152,13 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsNonConsumingChoice",
     "Cannot exercise a choice after a contract archival",
   ) { implicit ec => ledger => alice =>
-    val Attempts = 10
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
-      _ <- Future.traverse(1 to Attempts) { attempt =>
-        scheduleWithRandomDelay(20.millis) { _ =>
-          if (attempt == Attempts) {
-            ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
-          } else {
-            ledger.exercise(alice, contract.exerciseContractWithKey_Exercise).transform(Success(_))
-          }
-        }
-      }
+      _ <- executeRandomly(
+        attempts = 10,
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
+        repeated = ledger.exercise(alice, contract.exerciseContractWithKey_Exercise),
+      )
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
@@ -190,19 +178,14 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFetch",
     "Cannot fetch an archived contract",
   ) { implicit ec => ledger => alice =>
-    val Attempts = 10
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
-      _ <- Future.traverse(1 to Attempts) { attempt =>
-        scheduleWithRandomDelay(20.millis) { _ =>
-          if (attempt == Attempts) {
-            ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
-          } else {
-            ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch).transform(Success(_))
-          }
-        }
-      }
+      _ <- executeRandomly(
+        attempts = 10,
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
+        repeated = ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch),
+      )
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
@@ -221,19 +204,14 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsLookupByKey",
     "Cannot successfully lookup by key an archived contract",
   ) { implicit ec => ledger => alice =>
-    val Attempts = 20
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       looker <- ledger.create(alice, LookupWrapper(alice))
-      _ <- Future.traverse(1 to Attempts) { attempt =>
-        scheduleWithRandomDelay(20.millis) { _ =>
-          if (attempt == Attempts) {
-            ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
-          } else {
-            ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
-          }
-        }
-      }
+      _ <- executeRandomly(
+        attempts = 20,
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
+        repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
+      )
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
@@ -251,18 +229,13 @@ final class RaceConditionIT extends LedgerTestSuite {
     "RWArchiveVsFailedLookupByKey",
     "Lookup by key cannot fail after a contract creation",
   ) { implicit ec => ledger => alice =>
-    val Attempts = 5
     for {
       looker <- ledger.create(alice, LookupWrapper(alice))
-      _ <- Future.traverse(1 to Attempts) { attempt =>
-        scheduleWithRandomDelay(20.millis) { _ =>
-          if (attempt == Attempts) {
-            ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
-          } else {
-            ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup).transform(Success(_))
-          }
-        }
-      }
+      _ <- executeRandomly(
+        attempts = 5,
+        once = ledger.create(alice, ContractWithKey(alice)),
+        repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
+      )
       transactions <- transactions(ledger, alice)
     } yield {
       import TransactionUtil._
@@ -274,6 +247,20 @@ final class RaceConditionIT extends LedgerTestSuite {
       transactions
         .filter(isContractLookup(success = false))
         .foreach(assertTransactionOrder(_, createNonTransientTransaction))
+    }
+  }
+
+  private def executeRandomly[T](attempts: Int, once: => Future[T], repeated: => Future[T])(implicit
+      ec: ExecutionContext
+  ) = {
+    Future.traverse(1 to attempts) { attempt =>
+      scheduleWithRandomDelay(20.millis) { _ =>
+        (if (attempt == attempts) {
+           once
+         } else {
+           repeated
+         }).transform(Success(_))
+      }
     }
   }
 
