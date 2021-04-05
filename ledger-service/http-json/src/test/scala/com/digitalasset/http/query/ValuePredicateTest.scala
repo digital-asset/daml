@@ -18,7 +18,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.Order
+import scalaz.{\/, Order}
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -262,16 +262,19 @@ class ValuePredicateTest
       )
       val frag = vp.toSqlWhereClause
       frag.toString should ===(sql.toString)
-      import language.reflectiveCalls
-      frag.asInstanceOf[{ def elems: FragmentElems }].elems should ===(
-        sql.asInstanceOf[{ def elems: FragmentElems }].elems
-      )
+      fragmentElems(frag) should ===(fragmentElems(sql))
     }
   }
 }
 
 object ValuePredicateTest {
-  import cats.data.Chain, doobie.util.fragment.Elem
+  import cats.data.Chain, doobie.util.fragment.{Elem, Fragment}
 
-  private type FragmentElems = Chain[Elem]
+  private def fragmentElems(frag: Fragment): Chain[Any \/ Option[Any]] = {
+    import language.reflectiveCalls, Elem.{Arg, Opt}
+    frag.asInstanceOf[{ def elems: Chain[Elem] }].elems.map {
+      case Arg(a, _) => \/.left(a)
+      case Opt(o, _) => \/.right(o)
+    }
+  }
 }
