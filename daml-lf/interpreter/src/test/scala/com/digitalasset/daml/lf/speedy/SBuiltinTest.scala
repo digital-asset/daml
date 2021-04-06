@@ -204,7 +204,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   }
 
-  "Decimal operations" - {
+  "Numeric operations" - {
 
     val maxDecimal = Decimal.MaxValue
 
