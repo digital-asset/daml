@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
-import com.codahale.metrics.Gauge
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.Metrics
@@ -40,22 +39,14 @@ object ParallelIndexerFactory {
     for {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
-        Some(metrics.daml.parallelIndexer.inputMappingExecutor -> metrics.registry),
+        Some(metrics.daml.parallelIndexer.inputMapping.executor -> metrics.registry),
       )
       postgresDaoPool <- asyncResourcePool(
         () => JDBCPostgresDAO(jdbcUrl),
         size = ingestionParallelism + 1,
-        Some(metrics.daml.parallelIndexer.ingestionExecutor -> metrics.registry),
+        Some(metrics.daml.parallelIndexer.ingestion.executor -> metrics.registry),
       )
     } yield {
-      // TODO append-only: move this custom gauge implementation to metrics module, and remove hack for instantiation
-      val batchCounterMetric = AverageCounter()
-      val batchCounterGauge: Gauge[Int] = () =>
-        batchCounterMetric.retrieveAverage.getOrElse(0L).toInt
-      metrics.registry.remove(
-        metrics.daml.parallelIndexer.batchSize
-      ) // to allow to run this code multiple times in one JVM
-      metrics.registry.register(metrics.daml.parallelIndexer.batchSize, batchCounterGauge)
       val ingest: Long => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
         initialSeqId =>
           source =>
@@ -67,7 +58,7 @@ object ParallelIndexerFactory {
                 inputMapperExecutor.execute((input: Iterable[((Offset, Update), Long)]) => {
                   val (data, started) = input.unzip
                   val averageStartTime = started.view.map(_ / input.size).sum
-                  batchCounterMetric.add(input.size.toLong)
+                  metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
                   RunningDBBatch.inputMapper(
                     UpdateToDBDTOV1(
                       participantId = participantId,
@@ -80,7 +71,7 @@ object ParallelIndexerFactory {
               seqMapperZero = RunningDBBatch.seqMapperZero(initialSeqId),
               seqMapper = (prev: RunningDBBatch, curr: RunningDBBatch) => {
                 val nowNanos = System.nanoTime()
-                metrics.daml.parallelIndexer.inputMappingStageDuration.update(
+                metrics.daml.parallelIndexer.inputMapping.duration.update(
                   (nowNanos - curr.averageStartTime) / curr.batchSize,
                   TimeUnit.NANOSECONDS,
                 )
@@ -90,14 +81,13 @@ object ParallelIndexerFactory {
               ingester = postgresDaoPool.execute[RunningDBBatch, RunningDBBatch](
                 (batch: RunningDBBatch, dao: PostgresDAO) => {
                   dao.insertBatch(batch.batch)
-                  metrics.daml.parallelIndexer.indexerSubmissionThroughput
-                    .inc(batch.batchSize.toLong)
+                  metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
                   batch
                 }
               ),
               tailer = (prev: RunningDBBatch, curr: RunningDBBatch) => {
                 val nowNanos = System.nanoTime()
-                metrics.daml.parallelIndexer.ingestionStageDuration.update(
+                metrics.daml.parallelIndexer.ingestion.duration.update(
                   (nowNanos - curr.averageStartTime) / curr.batchSize,
                   TimeUnit.NANOSECONDS,
                 )
@@ -117,7 +107,7 @@ object ParallelIndexerFactory {
             )(
               instrumentedBufferedSource(
                 original = source,
-                counter = metrics.daml.parallelIndexer.indexerInputBufferLength,
+                counter = metrics.daml.parallelIndexer.inputBufferLength,
                 size = 200, // TODO append-only: maybe make it configurable
               ).map(_ -> System.nanoTime())
             ).map(_ => ())

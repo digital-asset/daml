@@ -45,7 +45,9 @@ object BatchingParallelIngestionPipe {
       .throttle(tailingRateLimitPerSecond, FiniteDuration(1, "seconds"))
       // Stage 6: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
-      .map(_ => ()) // TODO append-only: linking to consumers that depend on the moving ledger end, such as in-memory fan-out
+      .map(_ =>
+        ()
+      ) // TODO append-only: linking to consumers that depend on the moving ledger end, such as in-memory fan-out
 
 }
 

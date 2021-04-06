@@ -520,29 +520,42 @@ final class Metrics(val registry: MetricRegistry) {
     object parallelIndexer {
       private val Prefix: MetricName = daml.Prefix :+ "parallel_indexer"
 
-      // bundle of metrics coming from instrumentation of the underlying thread-pool
-      val ingestionExecutor: MetricName = Prefix :+ "ingestion_executor"
+      // Number of state updates persisted to the database
+      // (after the effect of the corresponding Update is persisted into the database,
+      // and before this effect is visible via moving the ledger end forward)
+      val updates: Counter = registry.counter(Prefix :+ "updates")
 
-      // bundle of metrics coming from instrumentation of the underlying thread-pool
-      val inputMappingExecutor: MetricName = Prefix :+ "input_mapping_executor"
+      // The size of the queue before the indexer
+      val inputBufferLength: Counter = registry.counter(Prefix :+ "input_buffer_length")
 
-      // the latency, which during an update element is residing in the mapping-stage (since batches are involved, this duration is divided by the batch size)
-      val inputMappingStageDuration: Timer =
-        registry.timer(Prefix :+ "input_mapping_stage_duration")
+      // Input mapping stage
+      // Translating state updates to data objects corresponding to individual SQL insert statements
+      object inputMapping {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "inputmapping"
 
-      // the latency, which during an update element is residing in the ingestion (since batches are involved, this duration is divided by the batch size)
-      val ingestionStageDuration: Timer = registry.timer(Prefix :+ "ingestion_stage_duration")
+        // Bundle of metrics coming from instrumentation of the underlying thread-pool
+        val executor: MetricName = Prefix :+ "executor"
 
-      // Throughput in #submissions measured on the output of the indexer (after the effect of the corresponding Update is persisted into the database, and before this effect is visible via moving the ledger end forward)
-      val indexerSubmissionThroughput: Counter =
-        registry.counter(Prefix :+ "indexer_submission_throughput")
+        // The latency, which during an update element is residing in the mapping-stage.
+        // Since batches are involved, this duration is divided by the batch size.
+        val duration: Timer = registry.timer(Prefix :+ "duration")
 
-      // metric tracking the size of the queue before the indexer
-      val indexerInputBufferLength: Counter =
-        registry.counter(Prefix :+ "indexer_input_buffer_length")
+        // The batch size, i.e., the number of state updates per database submission
+        val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
+      }
 
-      // metric tracking the average batch size
-      val batchSize: MetricName = Prefix :+ "batch_size"
+      // Ingestion stage
+      // Parallel ingestion of prepared data into the database
+      object ingestion {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "ingestion"
+
+        // Bundle of metrics coming from instrumentation of the underlying thread-pool
+        val executor: MetricName = Prefix :+ "executor"
+
+        // The latency, which during an update element is residing in the ingestion.
+        // Since batches are involved, this duration is divided by the batch size.
+        val duration: Timer = registry.timer(Prefix :+ "duration")
+      }
     }
 
     object services {
