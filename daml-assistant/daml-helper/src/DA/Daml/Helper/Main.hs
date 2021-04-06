@@ -83,6 +83,7 @@ data Command
     | LedgerReset {flags :: LedgerFlags}
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
+    | PackagesList {flags :: LedgerFlags}
 
 data AppTemplate
   = AppTemplateDefault
@@ -103,6 +104,7 @@ commandParser = subparser $ fold
     , command "run-jar" (info runJarCmd forwardOptions)
     , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
+    , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
     ]
   where
 
@@ -284,9 +286,32 @@ commandParser = subparser $ fold
             ]
         ]
 
+    packagesCmd =
+        subparser $
+        command "list" $
+        info (packagesListCmd <**> helper) (progDesc "List deployed dalf packages on ledger")
+
+    packagesCmdInfo =
+        mconcat
+            [ forwardOptions
+            , progDesc $
+              concat
+                  [ "Query packages of a remote Daml ledger. "
+                  , "You can specify the ledger in daml.yaml with the "
+                  , "ledger.host and ledger.port options, or you can pass "
+                  , "the --host and --port flags to each command below. "
+                  , "If the ledger is authenticated, you should pass "
+                  , "the name of the file containing the token "
+                  , "using the --access-token-file flag."
+                  ]
+            ]
+
     ledgerListPartiesCmd = LedgerListParties
         <$> ledgerFlags (ShowJsonApi True)
         <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
+
+    packagesListCmd = PackagesList
+        <$> ledgerFlags (ShowJsonApi True)
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
         <$> ledgerFlags (ShowJsonApi True)
@@ -435,6 +460,7 @@ runCommand = \case
             sandboxClassic
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
+    PackagesList {..} -> runLedgerListPackages0 flags
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
