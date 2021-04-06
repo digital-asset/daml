@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-// TODO SC enable by removing abstract
-abstract class WebsocketServiceWithOracleIntTest
+final class WebsocketServiceWithOracleIntTest
     extends AbstractWebsocketServiceIntegrationTest
     with HttpServiceOracleInt
