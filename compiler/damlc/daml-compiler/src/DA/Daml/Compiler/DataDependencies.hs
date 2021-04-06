@@ -818,6 +818,7 @@ convBuiltInTy env =
         LF.BTNumeric -> mkGhcType env "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
+         -- TODO https://github.com/digital-asset/daml/issues/8719
         LF.BTRoundingMode -> mkGhcType env "RoundingMode"
         LF.BTBigNumeric -> mkGhcType env "BigNumeric"
          -- TODO https://github.com/digital-asset/daml/issues/8020
