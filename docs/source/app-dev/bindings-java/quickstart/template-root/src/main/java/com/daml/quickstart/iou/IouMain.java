@@ -40,8 +40,7 @@ public class IouMain {
     int restport = Integer.valueOf(args[3]);
 
     // Create a client object to access services on the ledger.
-    DamlLedgerClient client =
-        DamlLedgerClient.forHostWithLedgerIdDiscovery(ledgerhost, ledgerport, Optional.empty());
+    DamlLedgerClient client = DamlLedgerClient.newBuilder(ledgerhost, ledgerport).build();
 
     // Connects to the ledger and runs initial validation.
     client.connect();
