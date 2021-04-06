@@ -428,7 +428,7 @@ private[lf] object SBuiltin {
         case SParty(p) => p
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
-        case SBigNumeric(x) => Numeric.toString(x)
+        case SBigNumeric(x) => Numeric.toUnscaledString(x)
         case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
         case otherwise =>
           throw SErrorCrash(
@@ -923,11 +923,7 @@ private[lf] object SBuiltin {
 
   final object SBToBigNumericNumeric extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
-      // should not fail
-      rightOrArithmeticError(
-        "overflow/underflow",
-        SBigNumeric.fromBigDecimal(getSNumeric(args, 1)),
-      )
+      SBigNumeric.fromNumeric(getSNumeric(args, 1))
     }
   }
 

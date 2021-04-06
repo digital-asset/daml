@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
 )
@@ -39,10 +40,15 @@ da_scala_library(
     ],
 )
 
+bigNumericTests = "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala"
+
 da_scala_test_suite(
     name = "tests",
     size = "small",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [bigNumericTests],
+    ),
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
@@ -63,6 +69,23 @@ da_scala_test_suite(
         "//daml-lf/transaction-test-lib",
         "//daml-lf/validation",
         "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "test_bignumeric",
+    srcs = [bigNumericTests],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/transaction",
     ],
 )
 
