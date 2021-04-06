@@ -200,15 +200,6 @@ sealed abstract class Queries {
     } yield { inserted + updated }
   }
 
-  private[this] def caseLookup(m: Map[String, String], selector: Fragment): Fragment =
-    fr"CASE" ++ {
-      assert(m.nonEmpty, "existing offsets must be non-empty")
-      val when +: whens = m.iterator.map { case (k, v) =>
-        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
-      }.toVector
-      concatFragment(OneAnd(when, whens))
-    } ++ fr"ELSE NULL END"
-
   // different databases encode contract keys in different formats
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
@@ -412,6 +403,18 @@ object Queries {
         }
       case _ => None
     }
+
+  private[dbbackend] def caseLookup[SelEq: Put, Then: Put](
+      m: Map[SelEq, Then],
+      selector: Fragment,
+  ): Fragment =
+    fr"CASE" ++ {
+      assert(m.nonEmpty, "existing offsets must be non-empty")
+      val when +: whens = m.iterator.map { case (k, v) =>
+        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
+      }.toVector
+      concatFragment(OneAnd(when, whens))
+    } ++ fr"ELSE NULL END"
 
   private[http] val Postgres: Queries = PostgresQueries
   private[http] val Oracle: Queries = OracleQueries
@@ -677,11 +680,20 @@ private object OracleQueries extends Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
-    val Seq((tpid, predicate @ _)) = queries // TODO SC handle more than one
     println("selecting")
     import Queries.CompatImplicits.catsReducibleFromFoldable1
+    val queriesCondition = queries match {
+      case q +: qs =>
+        joinFragment(
+          OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
+            fr"($tpid = tpid AND (" ++ predicate ++ fr"))"
+          },
+          fr" OR ",
+        )
+      case _ => throw new IllegalArgumentException("empty query set")
+    }
     // % is explicitly reserved by specification as a delimiter
-    val q = sql"""SELECT c.contract_id, key, payload, agreement_text, sd.parties, od.parties
+    val q = sql"""SELECT c.contract_id, tpid, key, payload, agreement_text, sd.parties, od.parties
                   FROM (contract c
                         LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
                         LEFT JOIN observers om ON (c.contract_id = om.contract_id))
@@ -693,21 +705,22 @@ private object OracleQueries extends Queries {
                               ON (c.contract_id = od.contract_id)
                   WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
       fr" OR " ++ Fragments.in(fr"om.party", parties) ++ sql""")
-                        AND tpid = $tpid AND (""" ++ predicate ++ sql")"
+                        AND """ ++ queriesCondition
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
       case MatchedQueryMarker.Unused =>
-        q.query[(String, JsValue, JsValue, Option[String], Option[String], Option[String])].map {
-          case (cid, key, payload, agreement, pctSignatories, pctObservers) =>
-            DBContract(
-              contractId = cid,
-              templateId = tpid,
-              key = key.asJsObject.fields("key"),
-              payload = payload,
-              signatories = unpct(pctSignatories),
-              observers = unpct(pctObservers),
-              agreementText = agreement getOrElse "",
-            )
+        q.query[
+          (String, SurrogateTpId, JsValue, JsValue, Option[String], Option[String], Option[String])
+        ].map { case (cid, tpid, key, payload, agreement, pctSignatories, pctObservers) =>
+          DBContract(
+            contractId = cid,
+            templateId = tpid,
+            key = key.asJsObject.fields("key"),
+            payload = payload,
+            signatories = unpct(pctSignatories),
+            observers = unpct(pctObservers),
+            agreementText = agreement getOrElse "",
+          )
         }
     }
   }
