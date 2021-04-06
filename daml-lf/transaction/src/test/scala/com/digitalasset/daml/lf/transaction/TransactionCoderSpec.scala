@@ -134,7 +134,9 @@ class TransactionCoderSpec
     }
 
     "do transactions" in
-      forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      // should work with rollback
+      forAll(noDanglingRefGenVersionedTransaction(allowRollback = false), minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
           tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
@@ -165,7 +167,9 @@ class TransactionCoderSpec
       }
 
     "transactions decoding should fail when unsupported transaction version received" in
-      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      // should work with rollback
+      forAll(noDanglingRefGenTransaction(allowRollback = false), minSuccessful(50)) { tx =>
         forAll(stringVersionGen, minSuccessful(20)) { badTxVer =>
           whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(

@@ -13,8 +13,8 @@ class NormalizerSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenProp
 
   "normalizerTransaction" should {
 
-    "only drops Fetch and Lookup nodes" in {
-      forAll(noDanglingRefGenVersionedTransaction) { tx =>
+    "only keeps Create and Exercise nodes" in {
+      forAll(noDanglingRefGenVersionedTransaction(allowRollback = true)) { tx =>
         val createIds = tx.nodes.collect { case (nid, _: Node.NodeCreate[_]) => nid }.toSet
         val exeIds = tx.nodes.collect { case (nid, _: Node.NodeExercises[_, _]) => nid }.toSet
         val preservedIds = createIds union exeIds
@@ -38,8 +38,6 @@ class NormalizerSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenProp
           tx.nodes.collect { case (nid, exe: Node.NodeExercises[_, _]) =>
             nid -> exe.copy(children = exe.children.filter(preservedIds))
           }
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // Rollback nodes and all their children should be dropped
       }
     }
   }

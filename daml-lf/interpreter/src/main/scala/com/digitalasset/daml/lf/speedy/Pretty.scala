@@ -109,7 +109,7 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case NodeRollback(_) => // pattern-match forces reconsideration if fields are added
+      case NodeRollback(_, _) => // reconsider if fields added
         text("rollback")
       case create: NodeCreate[Value.ContractId] =>
         "create" &: prettyContractInst(create.coinst)
@@ -254,7 +254,7 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case NodeRollback(children) => // pattern-match forces reconsideration if fields are added
+      case NodeRollback(children, _) => // reconsider if fields added
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: NodeCreate[ContractId] =>
         val d = "create" &: prettyVersionedContractInst(create.versionedCoinst)
