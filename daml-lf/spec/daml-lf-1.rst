@@ -516,8 +516,8 @@ The literals represent actual Daml-LF values:
     (bounds inclusive).
   + A ``LitBigNumeric`` represents those decimal numbers that have at
     most 2¹⁵ significant digits at the right and the left of the
-    decimal point — or equivalently those decimal number that respect
-    `scale ≤ 2¹⁵` and `precision - scale ≤ 2¹⁵`.
+    decimal point. Equivalently those are decimal numbers that respect
+    `scale ≤ 2¹⁵` and `precision - scale < 2¹⁵`.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
