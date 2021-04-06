@@ -76,39 +76,45 @@ getDarPath = do
 
 getProjectName :: IO String
 getProjectName = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     requiredE "Failed to read project name from project config" $
         queryProjectConfigRequired ["name"] projectConfig
 
 getProjectVersion :: IO String
 getProjectVersion = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     requiredE "Failed to read project version from project config" $
         queryProjectConfigRequired ["version"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     fmap (fromMaybe []) $
         requiredE "Failed to read list of parties from project config" $
         queryProjectConfig ["parties"] projectConfig
 
 getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig $ Just "--port"
     -- TODO: remove default; insist ledger-port is in the config ?!
     defaultingE "Failed to parse ledger.port" 6865 $
         queryProjectConfig ["ledger", "port"] projectConfig
 
 getProjectLedgerHost :: IO String
 getProjectLedgerHost = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig $ Just "--host"
     defaultingE "Failed to parse ledger.host" "localhost" $
         queryProjectConfig ["ledger", "host"] projectConfig
 
-getProjectConfig :: IO ProjectConfig
-getProjectConfig = do
-    projectPath <- required "Must be called from within a project" =<< getProjectPath
+getProjectConfig :: Maybe T.Text -> IO ProjectConfig
+getProjectConfig argM = do
+    projectPath <-
+        required
+            (case argM of
+              Nothing -> "Must be called from within a project."
+              Just arg -> "This command needs to be either run from within a project \
+                          \ or the argument " <> arg <> " needs to be specified.") =<<
+        getProjectPath
     readProjectConfig (ProjectPath projectPath)
 
 requiredE :: Exception e => T.Text -> Either e t -> IO t
