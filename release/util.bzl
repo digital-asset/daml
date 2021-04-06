@@ -1,7 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "PROTO_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 inputs = {
@@ -164,7 +164,7 @@ protos_zip = rule(
             allow_files = True,
             default = [
                 Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
-                for version in LF_VERSIONS
+                for version in PROTO_LF_VERSIONS
             ],
         ),
         "ledger_api_tarball": attr.label(
