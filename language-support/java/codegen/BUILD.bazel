@@ -241,7 +241,7 @@ daml_compile(
     srcs = glob(
         [
             "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_112.daml",
+            "src/it/daml/Tests/Lib1_113.daml",
         ],
     ),
     target = "1.13",
