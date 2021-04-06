@@ -516,6 +516,48 @@ final class Metrics(val registry: MetricRegistry) {
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }
 
+    // TODO append-only: streamline metrics upon cleanup
+    object parallelIndexer {
+      private val Prefix: MetricName = daml.Prefix :+ "parallel_indexer"
+
+      // Number of state updates persisted to the database
+      // (after the effect of the corresponding Update is persisted into the database,
+      // and before this effect is visible via moving the ledger end forward)
+      val updates: Counter = registry.counter(Prefix :+ "updates")
+
+      // The size of the queue before the indexer
+      val inputBufferLength: Counter = registry.counter(Prefix :+ "input_buffer_length")
+
+      // Input mapping stage
+      // Translating state updates to data objects corresponding to individual SQL insert statements
+      object inputMapping {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "inputmapping"
+
+        // Bundle of metrics coming from instrumentation of the underlying thread-pool
+        val executor: MetricName = Prefix :+ "executor"
+
+        // The latency, which during an update element is residing in the mapping-stage.
+        // Since batches are involved, this duration is divided by the batch size.
+        val duration: Timer = registry.timer(Prefix :+ "duration")
+
+        // The batch size, i.e., the number of state updates per database submission
+        val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
+      }
+
+      // Ingestion stage
+      // Parallel ingestion of prepared data into the database
+      object ingestion {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "ingestion"
+
+        // Bundle of metrics coming from instrumentation of the underlying thread-pool
+        val executor: MetricName = Prefix :+ "executor"
+
+        // The latency, which during an update element is residing in the ingestion.
+        // Since batches are involved, this duration is divided by the batch size.
+        val duration: Timer = registry.timer(Prefix :+ "duration")
+      }
+    }
+
     object services {
       private val Prefix: MetricName = daml.Prefix :+ "services"
 
