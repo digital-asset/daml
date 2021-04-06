@@ -8,7 +8,7 @@ Daml Sandbox
 
 The Daml Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a Daml Ledger.
 
-You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a Daml project. This command will compile the Daml file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. Sandbox will also be given the name of the startup scenario specified in the project's ``daml.yaml``. Finally, it launches the navigator connecting it to the running Sandbox.
+You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a Daml project. This command will compile the Daml file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. The script specified in the ``init-script`` field in ``daml.yaml`` will be loaded into the ledger. Finally, it launches the navigator connecting it to the running Sandbox.
 
 It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
 
@@ -18,24 +18,14 @@ Sandbox can also be run manually as in this example:
 
 .. code-block:: none
 
-  $ daml sandbox Main.dar --static-time --scenario Main:example
+  $ daml sandbox Main.dar --static-time
 
      ____             ____
     / __/__ ____  ___/ / /  ___ __ __
    _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
   /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865,
-  dar file = DAR files at List(/Users/damluser/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
-  Initialized Static time provider, starting from 1970-01-01T00:00:00Z
-  listening on localhost:6865
 
-Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. We also specify that the Sandbox should run in Static Time mode so that the scenario can control the time.
-
-.. note::
-
-  The scenario is used for testing and development only, and is not supported by production Daml Ledgers. It is therefore inadvisable to rely on scenarios for ledger initialization.
-
-  ``submitMustFail`` is only supported by the test-ledger used by ``daml test`` and the IDE, not by the Sandbox.
+  INFO: Initialized sandbox version 1.12.0-snapshot.20210312.6498.0.707c86aa with ledger-id = fd562651-5ebb-4a45-add7-25809ca1f297, port = 6865, dar file = List(Main.dar), time mode = static time, ledger = in-memory, auth-service = AuthServiceWildcard$, contract ids seeding = strong
 
 Contract Identifier Generation
 ******************************
