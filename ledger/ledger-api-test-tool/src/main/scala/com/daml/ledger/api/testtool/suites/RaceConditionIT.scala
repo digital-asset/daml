@@ -128,7 +128,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   ) { implicit ec => ledger => alice =>
     for {
       wrapper <- ledger.create(alice, CreateWrapper(alice))
-      _ <- executeRandomly(
+      _ <- executeRepeatedlyWithRandomDelay(
         attempts = 20,
         once = ledger.create(alice, ContractWithKey(alice)).map(_ => ()),
         repeated =
@@ -154,7 +154,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   ) { implicit ec => ledger => alice =>
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
-      _ <- executeRandomly(
+      _ <- executeRepeatedlyWithRandomDelay(
         attempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
         repeated = ledger.exercise(alice, contract.exerciseContractWithKey_Exercise),
@@ -181,7 +181,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
-      _ <- executeRandomly(
+      _ <- executeRepeatedlyWithRandomDelay(
         attempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
         repeated = ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch),
@@ -207,7 +207,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       looker <- ledger.create(alice, LookupWrapper(alice))
-      _ <- executeRandomly(
+      _ <- executeRepeatedlyWithRandomDelay(
         attempts = 20,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
@@ -231,7 +231,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   ) { implicit ec => ledger => alice =>
     for {
       looker <- ledger.create(alice, LookupWrapper(alice))
-      _ <- executeRandomly(
+      _ <- executeRepeatedlyWithRandomDelay(
         attempts = 5,
         once = ledger.create(alice, ContractWithKey(alice)),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
@@ -250,11 +250,15 @@ final class RaceConditionIT extends LedgerTestSuite {
     }
   }
 
-  private def executeRandomly[T](attempts: Int, once: => Future[T], repeated: => Future[T])(implicit
+  private def executeRepeatedlyWithRandomDelay[T](
+      attempts: Int,
+      once: => Future[T],
+      repeated: => Future[T],
+  )(implicit
       ec: ExecutionContext
   ) = {
     Future.traverse(1 to attempts) { attempt =>
-      scheduleWithRandomDelay(20.millis) { _ =>
+      scheduleWithRandomDelay(upTo = 20.millis) { _ =>
         (if (attempt == attempts) {
            once
          } else {
@@ -334,11 +338,6 @@ final class RaceConditionIT extends LedgerTestSuite {
       tx.containsEvent { event =>
         isCreated(RaceTests.LookupResult.TemplateName)(event) &&
         event.getCreated.getCreateArguments.fields.exists(isFoundContractField(found = success))
-      }
-
-    def isContractLookup()(tx: TransactionTree): Boolean =
-      tx.containsEvent { event =>
-        isCreated(RaceTests.LookupResult.TemplateName)(event)
       }
 
   }
