@@ -1143,6 +1143,16 @@ convertExpr env0 e = do
             pure (ESome t x, args)
 
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
+
+    go env (VarIn GHC_Types "RoundingCeiling"    ) args = pure (EBuiltin BERoundingCeiling, args)
+    go env (VarIn GHC_Types "RoundingFloor"      ) args = pure (EBuiltin BERoundingFloor, args)
+    go env (VarIn GHC_Types "RoundingDown"       ) args = pure (EBuiltin BERoundingDown, args)
+    go env (VarIn GHC_Types "RoundingUp"         ) args = pure (EBuiltin BERoundingUp, args)
+    go env (VarIn GHC_Types "RoundingHalfDown"   ) args = pure (EBuiltin BERoundingHalfDown, args)
+    go env (VarIn GHC_Types "RoundingHalfEven"   ) args = pure (EBuiltin BERoundingHalfEven, args)
+    go env (VarIn GHC_Types "RoundingHalfUp"     ) args = pure (EBuiltin BERoundingHalfUp, args)
+    go env (VarIn GHC_Types "RoundingUnnecessary") args = pure (EBuiltin BERoundingUnnecessary, args)
+
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
