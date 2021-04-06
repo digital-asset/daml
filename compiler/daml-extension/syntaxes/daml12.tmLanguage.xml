@@ -412,6 +412,7 @@
 			| key
 			| maintainer
 			| daml
+			| exception
 			)(\b(?!'))
 			</string>
 			<key>name</key>
@@ -425,13 +426,13 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(m?agreement|controller|can|ensure|signatory|nonconsuming|observer|preconsuming|postconsuming)(\b(?!'))</string>
+			<string>\b(m?agreement|controller|can|ensure|signatory|nonconsuming|observer|preconsuming|postconsuming|message)(\b(?!'))</string>
 			<key>name</key>
 			<string>keyword.other.daml</string>
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(do|if|then|else|case|of)(\b(?!'))</string>
+			<string>\b(do|if|then|else|case|of|try|catch)(\b(?!'))</string>
 			<key>name</key>
 			<string>keyword.control.daml</string>
 		</dict>
