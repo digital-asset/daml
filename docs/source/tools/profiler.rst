@@ -37,7 +37,7 @@ included in the skeleton project does the job admirably:
 
 .. code-block:: sh
 
-   daml script --dar .daml/dist/profiler-tutorial-0.0.1.dar --ledger-host localhost --ledger-port 6865 --script-name Main:setup
+   daml script --dar .daml/dist/profile-tutorial-0.0.1.dar --ledger-host localhost --ledger-port 6865 --script-name Main:setup
 
 If we now look at the contents of the ``profile-results`` directory,
 we can see one JSON file per transaction produced by the script. Each
