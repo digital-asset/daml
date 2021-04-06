@@ -225,7 +225,7 @@ Version: 1.12
 
 * Introduction date:
 
-     2021-01-2
+     2021-02-24
 
 * Description:
 
@@ -233,6 +233,18 @@ Version: 1.12
     values. Drop type constructor and field names in serialized record
     values. See value version 12 in value specification for more
     details
+
+
+Version: 1.13 (preview)
+.......................
+
+* Introduction date:
+
+     2021-04-06
+
+* Description:
+
+  + A BigNumeric
 
 
 Version: 1.dev (development)
@@ -3765,6 +3777,8 @@ Numeric functions
 
 BigNumeric functions
 ~~~~~~~~~~~~~~~~~~~~
+
+  [*Available in version ≥ 1.13*]
 
 * ``ADD_BIGNUMERIC : 'BigNumeric' → 'BigNumeric'  → 'BigNumeric'``
 
