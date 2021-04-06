@@ -343,7 +343,7 @@ object Queries {
     * @tparam T The traversable of queries that result.
     * @tparam Mark The "marker" indicating which query matched.
     */
-  private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
+  private[http] sealed abstract class MatchedQueryMarker[T[_], Mark]
       extends Product
       with Serializable
   private[http] object MatchedQueryMarker {
@@ -681,47 +681,66 @@ private object OracleQueries extends Queries {
       pvs: Put[Vector[String]],
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     println("selecting")
-    import Queries.CompatImplicits.catsReducibleFromFoldable1
-    val queriesCondition = queries match {
-      case q +: qs =>
-        joinFragment(
-          OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
-            fr"($tpid = tpid AND (" ++ predicate ++ fr"))"
-          },
-          fr" OR ",
-        )
-      case _ => throw new IllegalArgumentException("empty query set")
-    }
-    // % is explicitly reserved by specification as a delimiter
-    val q = sql"""SELECT c.contract_id, tpid, key, payload, agreement_text, sd.parties, od.parties
-                  FROM (contract c
-                        LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
-                        LEFT JOIN observers om ON (c.contract_id = om.contract_id))
-                       LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
-                                  FROM signatories GROUP BY contract_id) sd
-                              ON (c.contract_id = sd.contract_id)
-                       LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
-                                  FROM observers GROUP BY contract_id) od
-                              ON (c.contract_id = od.contract_id)
-                  WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
-      fr" OR " ++ Fragments.in(fr"om.party", parties) ++ sql""")
-                        AND """ ++ queriesCondition
-    trackMatchIndices match {
-      case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
-      case MatchedQueryMarker.Unused =>
-        q.query[
-          (String, SurrogateTpId, JsValue, JsValue, Option[String], Option[String], Option[String])
-        ].map { case (cid, tpid, key, payload, agreement, pctSignatories, pctObservers) =>
-          DBContract(
-            contractId = cid,
-            templateId = tpid,
-            key = key.asJsObject.fields("key"),
-            payload = payload,
-            signatories = unpct(pctSignatories),
-            observers = unpct(pctObservers),
-            agreementText = agreement getOrElse "",
+    // we effectively shadow Mark because Scala 2.12 doesn't quite get
+    // that it should use the GADT type equality otherwise
+    def queryByCondition[Mark0: Get](
+        tpid: Fragment,
+        queryConditions: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
+    ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
+      val queriesCondition = queryConditions match {
+        case q +-: qs =>
+          joinFragment(
+            OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
+              fr"($tpid = tpid AND (" ++ predicate ++ fr"))"
+            },
+            fr" OR ",
           )
+      }
+      import Queries.CompatImplicits.catsReducibleFromFoldable1
+      // % is explicitly reserved by specification as a delimiter
+      val q =
+        sql"SELECT c.contract_id, " ++ tpid ++ sql""", key, payload, agreement_text, sd.parties, od.parties
+            FROM (contract c
+                  LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
+                  LEFT JOIN observers om ON (c.contract_id = om.contract_id))
+                 LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
+                            FROM signatories GROUP BY contract_id) sd
+                        ON (c.contract_id = sd.contract_id)
+                 LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
+                            FROM observers GROUP BY contract_id) od
+                        ON (c.contract_id = od.contract_id)
+            WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
+          fr" OR " ++ Fragments.in(fr"om.party", parties) ++
+          sql""")
+                  AND """ ++ queriesCondition
+      q.query[
+        (String, Mark0, JsValue, JsValue, Option[String], Option[String], Option[String])
+      ].map { case (cid, tpid, key, payload, agreement, pctSignatories, pctObservers) =>
+        DBContract(
+          contractId = cid,
+          templateId = tpid,
+          key = key.asJsObject.fields("key"),
+          payload = payload,
+          signatories = unpct(pctSignatories),
+          observers = unpct(pctObservers),
+          agreementText = agreement getOrElse "",
+        )
+      }
+    }
+
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt =>
+        type Ix = Int
+        // TODO we may UNION the resulting queries and aggregate the Ixes SQL-side,
+        // but this will probably necessitate the same PostgreSQL-side
+        uniqueSets(queries.zipWithIndex.map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
+          preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
+            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"tpid")
+            queryByCondition[Int](tpid, preds.transform((_, predIx) => predIx._1).toVector)
         }
+      case MatchedQueryMarker.Unused =>
+        val NonEmpty(nequeries) = queries
+        queryByCondition[SurrogateTpId](fr"tpid", nequeries)
     }
   }
 
