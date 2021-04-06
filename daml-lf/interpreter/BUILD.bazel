@@ -40,7 +40,6 @@ da_scala_library(
     ],
 )
 
-
 bigNumericTests = "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala"
 
 da_scala_test_suite(
