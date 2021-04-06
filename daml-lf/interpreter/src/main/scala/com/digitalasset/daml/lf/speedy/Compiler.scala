@@ -10,7 +10,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
@@ -455,28 +454,15 @@ private[lf] final class Compiler(
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
       case EToAnyException(ty, e) =>
-        val messageFunction = compileExceptionType(ty)
-        SBToAnyException(ty, messageFunction)(compile(e))
+        SBToAnyException(ty)(compile(e))
       case EFromAnyException(ty, e) =>
         SBFromAnyException(ty)(compile(e))
       case EThrow(_, ty, e) =>
-        val messageFunction = compileExceptionType(ty)
-        SBThrow(SBToAnyException(ty, messageFunction)(compile(e)))
+        SBThrow(SBToAnyException(ty)(compile(e)))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
     }
-
-  private def compileExceptionType(ty: Type): SExpr = {
-    ty match {
-      case TGeneralError | TArithmeticError | TContractError =>
-        SEBuiltin(SBBuiltinErrorMessage)
-      case TTyCon(tyCon) =>
-        SEVal(ExceptionMessageDefRef(tyCon))
-      case _ =>
-        throw CompilationError(s"compileExceptionType, unexpected type: $ty")
-    }
-  }
 
   @inline
   private[this] def compileBuiltin(bf: BuiltinFunction): SExpr =
@@ -1340,7 +1326,7 @@ private[lf] final class Compiler(
         case SVariant(_, _, _, value) => goV(value)
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
-        case SAnyException(_, _, v) => goV(v)
+        case SAnyException(_, v) => goV(v)
         case SBuiltinException(_, v) => goV(v)
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")

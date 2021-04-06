@@ -1506,7 +1506,7 @@ private[lf] object SBuiltin {
                 unwindToHandler(machine, payload) //re-throw
               case Some(handler) =>
                 payload match {
-                  case SAnyException(typ, _, value) =>
+                  case SAnyException(typ, value) =>
                     onLedger.ptx = onLedger.ptx.rollbackTry(typ, value.toValue)
                   case _ =>
                     crash(s"SBTryHandler, expected payload to be SAnyException: $payload")
@@ -1538,9 +1538,9 @@ private[lf] object SBuiltin {
   }
 
   /** $to-any-exception :: exception-type -> AnyException */
-  final case class SBToAnyException(ty: Ast.Type, messageFunction: SExpr) extends SBuiltinPure(1) {
+  final case class SBToAnyException(ty: Ast.Type) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      SAnyException(ty, messageFunction, args.get(0))
+      SAnyException(ty, args.get(0))
     }
   }
 
@@ -1548,7 +1548,7 @@ private[lf] object SBuiltin {
   final case class SBFromAnyException(expectedTy: Ast.Type) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SAnyException(actualTy, _, v) =>
+        case SAnyException(actualTy, v) =>
           SOptional(if (actualTy == expectedTy) Some(v) else None)
         case v => crash(s"FromAnyException applied to non-AnyException: $v")
       }
@@ -1562,13 +1562,22 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Unit = {
       args.get(0) match {
-        case SAnyException(_, messageFunction, innerValue) =>
-          machine.ctrl = SEApp(messageFunction, Array(SEValue(innerValue)))
+        case SAnyException(ty, innerValue) =>
+          machine.ctrl = SEApp(exceptionMessage(ty), Array(SEValue(innerValue)))
         case v =>
           crash(s"AnyExceptionMessage applied to non-AnyException: $v")
       }
     }
   }
+
+  private def exceptionMessage(ty: Ast.Type): SExpr =
+    ty match {
+      case AstUtil.TGeneralError | AstUtil.TArithmeticError | AstUtil.TContractError =>
+        SEBuiltin(SBBuiltinErrorMessage)
+      case Ast.TTyCon(tyCon) =>
+        SEVal(ExceptionMessageDefRef(tyCon))
+      case _ => crash(s"$ty is not a valid exception type")
+    }
 
   /** $to_any
     *    :: t
