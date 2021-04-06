@@ -500,7 +500,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
   ): Unit = {
     configuration match {
       case Some(configBytes) =>
-        // TODO just a shortcut, proper solution: reading config with a temporal query
+        // TODO append-only: just a shortcut, proper solution: reading config with a temporal query
         preparedUpdateLedgerEndWithConfig.setObject(1, ledgerEnd.toByteArray)
         preparedUpdateLedgerEndWithConfig.setLong(2, eventSeqId)
         preparedUpdateLedgerEndWithConfig.setBytes(3, configBytes)
@@ -518,7 +518,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
   override def initialize: (Option[Offset], Option[Long]) = {
     val result @ (offset, _) = queryLedgerAndAndEventSeqId()
 
-    // TODO verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
+    // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
     offset.foreach { existingOffset =>
       List(1, 2, 3, 4, 5, 6, 7).foreach(
@@ -567,7 +567,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |FROM package_entries
       |WHERE ledger_offset > ?;
       |
-      |-- TODO we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
+      |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
       |DELETE
       |FROM packages
       |WHERE ledger_offset > ?;
@@ -580,7 +580,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |FROM participant_events
       |WHERE event_offset > ?;
       |
-      |-- TODO we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
+      |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
       |DELETE
       |FROM parties
       |WHERE ledger_offset > ?;

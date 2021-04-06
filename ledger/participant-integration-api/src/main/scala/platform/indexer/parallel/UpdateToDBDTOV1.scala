@@ -13,7 +13,7 @@ import com.daml.platform.store.Conversions
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 
-// TODO target to separation per update-type to it's own function + unit tests
+// TODO append-only: target to separation per update-type to it's own function + unit tests
 object UpdateToDBDTOV1 {
 
   def apply(
@@ -23,7 +23,7 @@ object UpdateToDBDTOV1 {
   ): Offset => Update => Iterator[DBDTOV1] = { offset =>
     {
       case u: Update.CommandRejected =>
-        // TODO we might want to tune up deduplications so it is also a temporal query @simon@?
+        // TODO append-only: we might want to tune up deduplications so it is also a temporal query
         Iterator(
           new DBDTOV1.CommandCompletion(
             completion_offset = offset.toByteArray,
@@ -141,7 +141,7 @@ object UpdateToDBDTOV1 {
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
           .fold(List.empty[(NodeId, Node)]) { case (xs, x) =>
-            x :: xs //FIXME why not _ :: _ ?! COME ON! ;(
+            x :: xs
           }
           .reverse
 

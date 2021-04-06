@@ -8,8 +8,8 @@ import java.time.{Instant, ZoneOffset}
 
 import scala.collection.mutable
 
-// TODO hurts one to look around here, the whole file is a boilerplate, including related PostgreDAO artifacts (prepared statements and execution of them)
-// TODO ideas:
+// TODO append-only: hurts one to look around here, the whole file is a boilerplate, including related PostgreDAO artifacts (prepared statements and execution of them)
+// TODO append-only: ideas:
 //   - switch to weakly/runtime-typed: probably slower, verification problematic, ugly in a strongly typed context
 //   - code generation script to generate from the DAO-s the necessary scala files
 //   - scala macros
@@ -467,7 +467,7 @@ object RawDBBatchPostgreSQLV1 {
     )
   }
 
-  // TODO idea: string is a bit chatty for timestamp communication, maybe we can switch to epoch somehow?
+  // TODO append-only: idea: string is a bit chatty for timestamp communication, maybe we can switch to epoch somehow?
   private val PGTimestampFormat =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss") // FIXME +micros
   def toPGTimestampString(instant: Instant): String =

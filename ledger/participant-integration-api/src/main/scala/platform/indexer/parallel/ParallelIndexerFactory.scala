@@ -23,7 +23,7 @@ import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
 
-  // TODO migrate code for mutable initialisation
+  // TODO append-only: migrate code for mutable initialisation
   def apply(
       jdbcUrl: String,
       participantId: ParticipantId,
@@ -48,7 +48,7 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.ingestionExecutor -> metrics.registry),
       )
     } yield {
-      // TODO move this custom gauge implementation to metrics module, and remove hack for instantiation
+      // TODO append-only: move this custom gauge implementation to metrics module, and remove hack for instantiation
       val batchCounterMetric = AverageCounter()
       val batchCounterGauge: Gauge[Int] = () =>
         batchCounterMetric.retrieveAverage.getOrElse(0L).toInt
@@ -118,7 +118,7 @@ object ParallelIndexerFactory {
               instrumentedBufferedSource(
                 original = source,
                 counter = metrics.daml.parallelIndexer.indexerInputBufferLength,
-                size = 200, // TODO maybe make it configurable
+                size = 200, // TODO append-only: maybe make it configurable
               ).map(_ -> System.nanoTime())
             ).map(_ => ())
 
