@@ -3778,22 +3778,26 @@ Numeric functions
 BigNumeric functions
 ~~~~~~~~~~~~~~~~~~~~
 
-  [*Available in version ≥ 1.13*]
-
 * ``ADD_BIGNUMERIC : 'BigNumeric' → 'BigNumeric'  → 'BigNumeric'``
 
   Adds the two decimals. Throws an ``ArithmeticError`` if the output
   is not a valid BigNumeric.
+
+  [*Available in version ≥ 1.13*]
 
 * ``SUB_BIGNUMERIC : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
   Subtracts the two decimals. Throws an ``ArithmeticError`` if the
   output is not a valid BigNumeric.
 
+  [*Available in version ≥ 1.13*]
+
 * ``MUL_BIGNUMERIC : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
   Multiplies the two numerics. Throws an ``ArithmeticError`` if the
   output is not a valid BigNumeric.
+
+  [*Available in version ≥ 1.13*]
 
 * ``DIV_BIGNUMERIC : 'RoundingMode' → 'Int' → 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
@@ -3829,13 +3833,19 @@ BigNumeric functions
   Throws an ``ArithmeticError`` if the output is not a valid
   BigNumeric.
 
+  [*Available in version ≥ 1.13*]
+
 * ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
 
   Returns the scale of the BigNumeric
 
+  [*Available in version ≥ 1.13*]
+
 * ``PRECISION_BIGNUMERIC : 'BigNumeric' → 'Int64'``
 
   Returns the precision of the BigNumeric
+
+  [*Available in version ≥ 1.13*]
 
 * ``TO_TEXT_BIGNUMERIC : 'BigNumeric' → 'Text'``
 
@@ -3843,15 +3853,21 @@ BigNumeric functions
   result will be returned at the smallest precision that can represent
   the result exactly, i.e., without any trailing zeroes.
 
+  [*Available in version ≥ 1.13*]
+
 * ``'TO_NUMERIC_BIGNUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
 
   Converts the ``BigNumeric`` to a ``Numeric α`` value with scale
   ``α``.  Throws an ``ArithmeticError`` in case the result cannot be
   represented without loss of precision.
 
+  [*Available in version ≥ 1.13*]
+
 * ``'TO_BIGNUMERIC_NUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
 
   Converts the ``Numeric`` to a ``BigNumeric``. This is always exact.
+
+  [*Available in version ≥ 1.13*]
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -4826,9 +4842,9 @@ program exception using
 BigNumeric
 ..........
 
-Daml-LF 1.dev is the first version that supports BigNumeric.
+Daml-LF 1.13 is the first version that supports BigNumeric.
 
-The deserialization process will reject any Daml-LF 1.11 (or earlier)
+The deserialization process will reject any Daml-LF 1.12 (or earlier)
 program exception using:
 - the `PrimType` value `BIGNUMERIC` or `ROUNDING_MODE`,
 - the field `rounding_mode` in `Expr` message, or
