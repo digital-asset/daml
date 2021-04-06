@@ -249,7 +249,7 @@ abstract class NumericModule {
   final def assertFromUnscaledBigDecimal(x: BigDec): Numeric =
     assertRight(fromUnscaledBigDecimal(x))
 
-  final def toUnscaledString(x: Numeric): String = {
+  final def toUnscaledString(x: BigDecimal): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
     // it was created from had them), and use the plain notation rather
     // than scientific notation.

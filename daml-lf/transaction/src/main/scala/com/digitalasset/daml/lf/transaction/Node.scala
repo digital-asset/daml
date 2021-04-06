@@ -56,7 +56,7 @@ object Node {
         f1: A1 => B1,
         f2: A2 => B2,
     ): GenNode[A1, A2] => GenNode[B1, B2] = {
-      case self @ NodeRollback(children) =>
+      case self @ NodeRollback(children, version @ _) =>
         self.copy(
           children = children.map(f1)
         )
@@ -132,7 +132,7 @@ object Node {
         f1: A => Unit,
         f2: B => Unit,
     ): GenNode[A, B] => Unit = {
-      case NodeRollback(children) =>
+      case NodeRollback(children, version @ _) =>
         children.foreach(f1)
       case NodeCreate(
             coid,
@@ -349,7 +349,9 @@ object Node {
       // Figure-out what information needs to be contained in a Rollback node.
       // For the moment, we just have the children.
       // Note: if we add values, we must extend the function which checks they are serializable
-      children: ImmArray[Nid]
+      children: ImmArray[Nid],
+      // For the sake of consistency between types with a version field, keep this field the last.
+      override val version: TransactionVersion,
   ) extends GenNode[Nid, Nothing]
       with NodeInfo.Rollback {
 
@@ -357,13 +359,8 @@ object Node {
       // TODO https://github.com/digital-asset/daml/issues/8020
       sys.error("rollback nodes are not supported")
 
-    override def version: TransactionVersion =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
-
     override private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
+      copy(version = version)
 
     override def byKey: Boolean =
       // TODO https://github.com/digital-asset/daml/issues/8020

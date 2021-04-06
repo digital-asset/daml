@@ -209,7 +209,7 @@ runStart
   (ScriptOptions scriptOpts)
   sandboxClassic
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     darPath <- getDarPath
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $

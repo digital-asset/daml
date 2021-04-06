@@ -9,7 +9,7 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time
 import ImmArray.ImmArraySeq
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
@@ -18,7 +18,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.Order
+import scalaz.{\/, Order}
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -38,12 +38,24 @@ class ValuePredicateTest
     case a0 @ V.ContractId.V0(_) => a0
   })
 
+  import Ref.QualifiedName.{assertFromString => qn}
+
+  private[this] val dummyPackageId = Ref.PackageId assertFromString "dummy-package-id"
+  private[this] def eitherT = {
+    import shapeless.syntax.singleton._
+    val sig = Symbol("Left") ->> VA.int64 ::
+      Symbol("Right") ->> VA.text ::
+      RNil
+    val id = Ref.Identifier(dummyPackageId, qn("Foo:Either"))
+    (id, VA.variant(id, sig))
+  }
   private[this] val dummyId = Ref.Identifier(
-    Ref.PackageId assertFromString "dummy-package-id",
-    Ref.QualifiedName assertFromString "Foo:Bar",
+    dummyPackageId,
+    qn("Foo:Bar"),
   )
   private[this] val dummyFieldName = Ref.Name assertFromString "foo"
   private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+  private[this] val (eitherId, (eitherDDT, eitherVA)) = eitherT
   private[this] def valueAndTypeInObject(
       v: V[Cid],
       ty: iface.Type,
@@ -52,7 +64,8 @@ class ValuePredicateTest
   private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
     Map(
       dummyId -> iface
-        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))
+        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty)))),
+      eitherId -> eitherDDT,
     ).lift
 
   "fromJsObject" should {
@@ -232,6 +245,16 @@ class ValuePredicateTest
           VA.int64,
           sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
         ),
+        (
+          """{"tag": "Left", "value": "42"}""",
+          eitherVA,
+          sql"payload = ${"""{"foo": {"tag": "Left", "value": 42}}""".parseJson}::jsonb",
+        ),
+        (
+          """{"tag": "Left", "value": {"%lte": 42}}""",
+          eitherVA,
+          sql"payload->${"foo"}->${"value"} <= ${"42".parseJson}::jsonb AND payload @> ${"""{"foo": {"tag": "Left"}}""".parseJson}::jsonb",
+        ),
       )
     }
 
@@ -244,16 +267,19 @@ class ValuePredicateTest
       )
       val frag = vp.toSqlWhereClause
       frag.toString should ===(sql.toString)
-      import language.reflectiveCalls
-      frag.asInstanceOf[{ def elems: FragmentElems }].elems should ===(
-        sql.asInstanceOf[{ def elems: FragmentElems }].elems
-      )
+      fragmentElems(frag) should ===(fragmentElems(sql))
     }
   }
 }
 
 object ValuePredicateTest {
-  import cats.data.Chain, doobie.util.fragment.Elem
+  import cats.data.Chain, doobie.util.fragment.{Elem, Fragment}
 
-  private type FragmentElems = Chain[Elem]
+  private def fragmentElems(frag: Fragment): Chain[Any \/ Option[Any]] = {
+    import language.reflectiveCalls, Elem.{Arg, Opt}
+    frag.asInstanceOf[{ def elems: Chain[Elem] }].elems.map {
+      case Arg(a, _) => \/.left(a)
+      case Opt(o, _) => \/.right(o)
+    }
+  }
 }

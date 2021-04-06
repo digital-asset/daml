@@ -6,7 +6,6 @@ package speedy
 
 import java.util
 
-import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
@@ -14,12 +13,13 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.value.{Value}
+import com.daml.lf.value.Value
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
+
 class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._
@@ -204,9 +204,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   }
 
-  "Decimal operations" - {
-    // TODO https://github.com/digital-asset/daml/issues/8719
-    //  Add extensive test for BigNumeric builtins
+  "Numeric operations" - {
 
     val maxDecimal = Decimal.MaxValue
 
@@ -366,7 +364,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "Numeric binary operations compute proper results" in {
+    "Decimal binary operations compute proper results" in {
 
       def round(x: BigDecimal) = n(10, x.setScale(10, BigDecimal.RoundingMode.HALF_EVEN))
 
@@ -397,71 +395,6 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             eval(e"$builtin ${s(10, a)} ${s(10, b)}").toOption shouldBe
               ref(n(10, a), n(10, b))
           }
-        }
-      }
-    }
-
-    "BigNumeric binary operations compute proper results" in {
-      import java.math.BigDecimal
-      import scala.math.{BigDecimal => BigDec}
-      import SBigNumeric.assertFromBigDecimal
-
-      val testCases = Table[String, (BigDecimal, BigDecimal) => Option[SValue]](
-        ("builtin", "reference"),
-        ("ADD_BIGNUMERIC", (a, b) => Some(assertFromBigDecimal(a add b))),
-        ("SUB_BIGNUMERIC", (a, b) => Some(assertFromBigDecimal(a subtract b))),
-        ("MUL_BIGNUMERIC ", (a, b) => Some(assertFromBigDecimal(a multiply b))),
-        (
-          "DIV_BIGNUMERIC 10 ROUNDING_HALF_EVEN",
-          {
-            case (a, b) if b.signum != 0 =>
-              Some(assertFromBigDecimal(a.divide(b, 10, java.math.RoundingMode.HALF_EVEN)))
-            case _ => None
-          },
-        ),
-        ("LESS_EQ @BigNumeric", (a, b) => Some(SBool(BigDec(a) <= BigDec(b)))),
-        ("GREATER_EQ @BigNumeric", (a, b) => Some(SBool(BigDec(a) >= BigDec(b)))),
-        ("LESS @BigNumeric", (a, b) => Some(SBool(BigDec(a) < BigDec(b)))),
-        ("GREATER @BigNumeric", (a, b) => Some(SBool(BigDec(a) > BigDec(b)))),
-        ("EQUAL @BigNumeric", (a, b) => Some(SBool(BigDec(a) == BigDec(b)))),
-      )
-
-      forEvery(testCases) { (builtin, ref) =>
-        forEvery(decimals) { a =>
-          forEvery(decimals) { b =>
-            val actualResult = eval(
-              e"$builtin (TO_BIGNUMERIC_NUMERIC @10 ${s(10, a)}) (TO_BIGNUMERIC_NUMERIC @10 ${s(10, b)})"
-            )
-
-            val expectedResult = ref(n(10, a), n(10, b))
-
-            if (actualResult.toOption != expectedResult)
-              actualResult shouldBe expectedResult
-          }
-        }
-      }
-    }
-
-    "SHIFT_BIGNUMERIC" - {
-      import java.math.BigDecimal
-      import SBigNumeric.assertFromBigDecimal
-
-      "returns proper result" in {
-        val testCases = Table[Int, Int, String, String](
-          ("input scale", "output scale", "input", "output"),
-          (0, 1, s(0, Numeric.maxValue(0)), s(1, Numeric.maxValue(1))),
-          (0, 37, tenPowerOf(1, 0), tenPowerOf(-36, 37)),
-          (20, 10, tenPowerOf(15, 20), tenPowerOf(5, 30)),
-          (20, -10, tenPowerOf(15, 20), tenPowerOf(25, 10)),
-          (10, 10, tenPowerOf(-5, 10), tenPowerOf(-15, 20)),
-          (20, -10, tenPowerOf(-5, 20), tenPowerOf(5, 10)),
-          (10, 10, tenPowerOf(10, 10), tenPowerOf(0, 20)),
-          (20, -10, tenPowerOf(10, 20), tenPowerOf(20, 10)),
-        )
-        forEvery(testCases) { (inputScale, shifting, input, output) =>
-          eval(
-            e"SHIFT_BIGNUMERIC $shifting (TO_BIGNUMERIC_NUMERIC @$inputScale $input)"
-          ) shouldBe Right(assertFromBigDecimal(new BigDecimal(output)))
         }
       }
     }

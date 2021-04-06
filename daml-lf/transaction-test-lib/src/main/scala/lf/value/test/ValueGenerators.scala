@@ -14,6 +14,7 @@ import com.daml.lf.transaction.Node.{
   NodeExercises,
   NodeFetch,
   NodeLookupByKey,
+  NodeRollback,
 }
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -353,6 +354,17 @@ object ValueGenerators {
     )
   }
 
+  /** Makes rollback node with some random child IDs. */
+  val rollbackNodeGen: Gen[NodeRollback[NodeId]] = {
+    for {
+      version <- transactionVersionGen()
+      children <- Gen
+        .listOf(Arbitrary.arbInt.arbitrary)
+        .map(_.map(NodeId(_)))
+        .map(ImmArray(_))
+    } yield NodeRollback(children, version)
+  }
+
   /** Makes exercise nodes with some random child IDs. */
   val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId, Value.ContractId]] = {
     for {
@@ -455,7 +467,10 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
+  def noDanglingRefGenTransaction(
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      allowRollback: Boolean // all tests should pass when true; then optionality can be removed
+  ): Gen[GenTransaction[NodeId, ContractId]] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -463,16 +478,24 @@ object ValueGenerators {
     ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] = {
 
       val exerciseFreq = if (maxDepth <= 0) 0 else 1
+      val rollbackFreq = if (maxDepth <= 0) 0 else (if (allowRollback) 1 else 0)
 
       def nodeGen(nodeId: NodeId): Gen[(NodeId, HashMap[NodeId, Tx.Node])] =
         for {
           node <- Gen.frequency(
             exerciseFreq -> danglingRefExerciseNodeGen,
+            rollbackFreq -> rollbackNodeGen,
             1 -> malformedCreateNodeGen,
             2 -> fetchNodeGen,
           )
           nodeWithChildren <- node match {
             case node: NodeExercises[NodeId, Value.ContractId] =>
+              for {
+                depth <- Gen.choose(0, maxDepth - 1)
+                nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
+                (children, nodes) = nodeWithChildren
+              } yield node.copy(children = children) -> nodes
+            case node: NodeRollback[NodeId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
@@ -505,9 +528,12 @@ object ValueGenerators {
     }
   }
 
-  def noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId, ContractId]] = {
+  def noDanglingRefGenVersionedTransaction(
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      allowRollback: Boolean // all tests should pass when true; then optionality can be removed
+  ): Gen[VersionedTransaction[NodeId, ContractId]] = {
     for {
-      tx <- noDanglingRefGenTransaction
+      tx <- noDanglingRefGenTransaction(allowRollback)
       txVer <- transactionVersionGen()
       nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId, ContractId]])) {

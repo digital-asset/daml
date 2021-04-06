@@ -36,7 +36,7 @@ runCodegen lang args =
         if null args
           then do
             darPath <- getDarPath
-            projectConfig <- getProjectConfig
+            projectConfig <- getProjectConfig Nothing
             outputPath <-
               requiredE
                 "Failed to read output directory for JavaScript code generation" $
