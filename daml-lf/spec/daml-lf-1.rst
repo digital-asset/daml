@@ -3809,7 +3809,7 @@ BigNumeric functions
     both neighbors are equidistant, in which case round away from
     zero.
 
-  - ``'ROUNDING_UNNECESSARY'`` : Throw if the exact result cannot be
+  - ``'ROUNDING_UNNECESSARY'`` : Throw `ArithmeticError` if the exact result cannot be
     represented.
 
   Throws an ``ArithmeticError`` if the output is not a valid
