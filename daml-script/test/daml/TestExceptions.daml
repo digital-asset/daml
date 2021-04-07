@@ -48,3 +48,25 @@ test = script do
       Test1 _ -> pure 42
       Test2 _ -> pure 43
   exc === 43
+
+  -- throw during evaluation
+  exc <-
+    try (let _ = throwPure (Test2 "abc") in pure 42) catch
+      Test2 _ -> pure 43
+  exc === 43
+  -- throw during execution of exception handler
+  exc <-
+    try do
+      try (throw (Test1 "abc")) catch
+        Test1 _ -> throw (Test2 "abc")
+    catch
+      Test2 _ -> pure 42
+  exc === 42
+  -- throw during evaluation of exception handler
+  exc <-
+    try do
+      try (throw (Test1 "abc")) catch
+        Test1 _ -> let _ = throwPure (Test2 "abc") in pure 43
+    catch
+      Test2 _ -> pure 42
+  exc === 42
