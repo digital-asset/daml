@@ -11,7 +11,7 @@ import com.daml.lf.transaction.GenTransaction.{
   NotWellFormedError,
   OrphanedNode,
 }
-import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeRollback}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
@@ -97,21 +97,52 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       val tx = mkTransaction(
         HashMap(
           NodeId(0) -> dummyCreateNode("cid0"),
-          NodeId(1) -> dummyExerciseNode("cid0", ImmArray(NodeId(2))),
-          NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
-          NodeId(3) -> dummyCreateNode("cid2"),
+          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2), NodeId(4))),
+          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.empty),
+          NodeId(3) -> dummyCreateNode("cid3"),
+          NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
+          NodeId(5) -> dummyCreateNode("cid5"),
         ),
         ImmArray(NodeId(0), NodeId(1), NodeId(3)),
       )
 
       val result = tx.foldInExecutionOrder(List.empty[String])(
-        (acc, nid, _) => s"exerciseBegin(${nid.index})" :: acc,
+        (acc, nid, _) => (s"exerciseBegin(${nid.index})" :: acc, true),
+        (acc, nid, _) => (s"rollbackBegin(${nid.index})" :: acc, true),
         (acc, nid, _) => s"leaf(${nid.index})" :: acc,
         (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
+        (acc, nid, _) => s"rollbackEnd(${nid.index})" :: acc,
       )
 
       result.reverse.mkString(", ") shouldBe
-        "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), exerciseEnd(1), leaf(3)"
+        "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), rollbackBegin(4), leaf(5), rollbackEnd(4), exerciseEnd(1), leaf(3)"
+    }
+  }
+
+  "reachableNodeIds" - {
+    "should collect the node-ids reachable from the roots" in {
+
+      val tx = mkTransaction(
+        HashMap(
+          NodeId(0) -> dummyCreateNode("cid0"),
+          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2), NodeId(4))),
+          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.empty),
+          NodeId(3) -> dummyCreateNode("cid3"),
+          NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
+          NodeId(5) -> dummyCreateNode("cid5"),
+          // these are not reachable
+          NodeId(10) -> dummyCreateNode("cid10"),
+          NodeId(11) -> dummyExerciseNode("cid11", ImmArray(NodeId(12), NodeId(14))),
+          NodeId(12) -> dummyExerciseNode("cid12", ImmArray.empty),
+          NodeId(13) -> dummyCreateNode("cid13"),
+          NodeId(14) -> dummyRollbackNode(ImmArray(NodeId(15))),
+          NodeId(15) -> dummyCreateNode("cid15"),
+        ),
+        ImmArray(NodeId(0), NodeId(1), NodeId(3)),
+      )
+
+      val result: Set[Int] = tx.reachableNodeIds.map(_.index)
+      result shouldBe Set(0, 1, 2, 3, 4, 5)
     }
   }
 
@@ -245,6 +276,14 @@ object TransactionSpec {
       nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId]],
       roots: ImmArray[NodeId],
   ): Transaction = GenTransaction(nodes, roots)
+
+  def dummyRollbackNode(
+      children: ImmArray[NodeId]
+  ): NodeRollback[NodeId] =
+    NodeRollback(
+      children = children,
+      version = TransactionVersion.minVersion,
+    )
 
   def dummyExerciseNode(
       cid: V.ContractId,
