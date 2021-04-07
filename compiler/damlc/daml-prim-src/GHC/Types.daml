@@ -29,7 +29,7 @@ module GHC.Types (
 #endif
 #ifdef DAML_BIGNUMERIC
         BigNumeric,
-        RoundingMode,
+        RoundingMode(..),
 #endif
     ) where
 
@@ -208,13 +208,37 @@ data Decimal =
 --  Better documentation for BigNumeric and RoundingMode.
 
 -- | A big numeric type, capable of holding large decimal values with many digits.
+--
+-- `BigNumeric` represents any positive or negative decimal number with up to
+-- 2^15 digits before the decimal point, and up to 2^15 digits after the decimal
+-- point.
+--
+-- `BigNumeric` is not serializable, it is only intended for intermediate computation.
+-- You must round and convert `BigNumeric` to a fixed-width numeric (`Numeric n`)
+-- in order to store it in a template. The rounding operations are `round` and
+-- `div` from the `DA.BigNumeric` module. The casting operations are `fromNumeric`
+-- and `fromBigNumeric` from the `IsNumeric` typeclass.
 data BigNumeric =
   -- | HIDE
   BigNumeric Opaque
 
--- | Represents a rounding mode for `BigNumeric` operations. See `DA.BigNumeric`.
-data RoundingMode =
-  -- | HIDE
-  RoundingMode Opaque
+-- | Rounding modes for `BigNumeric` operations like `div` and `round` from `DA.BigNumeric`.
+data RoundingMode
+  = RoundingCeiling -- ^ Round towards positive infinity.
+  | RoundingFloor -- ^ Round towards negative infinity.
+  | RoundingDown -- ^ Round towards zero.
+  | RoundingUp -- ^ Round away from zero.
+  | RoundingHalfDown
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards zero.
+  | RoundingHalfEven
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards the even neighbor.
+  | RoundingHalfUp
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round away from zero.
+  | RoundingUnnecessary
+      -- ^ Do not round. Raises an error if the result cannot
+      -- be represented without rounding at the targeted scale.
 
 #endif
