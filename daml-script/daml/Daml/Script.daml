@@ -128,7 +128,7 @@ instance ActionThrow Script where
 
 instance ActionCatch Script where
   _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
-    act = \() -> fmap (first pure) $ runScript (act ()) () -- fmap fst $ runScript (act ()) ()
+    act = \() -> fmap (first pure) $ runScript (act ()) ()
     handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
 #endif
 
