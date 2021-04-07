@@ -509,7 +509,6 @@
     - hint: {lhs: 0 /= rem n 2, rhs: odd n}
     - hint: {lhs: not (even x), rhs: odd x}
     - hint: {lhs: not (odd x), rhs: even x}
-    - hint: {lhs: x ** 0.5, rhs: sqrt x}
     - hint: {lhs: x ^ 0, rhs: "1", name: Use 1}
     - hint: {lhs: round (x - 0.5), rhs: floor x}
 
