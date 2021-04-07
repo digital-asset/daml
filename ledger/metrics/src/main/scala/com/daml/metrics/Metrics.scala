@@ -355,6 +355,8 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
+        val lookupLedgerEndAndEventSequentialId: Timer =
+          registry.timer(Prefix :+ "lookup_ledger_end_and_event_sequential_id")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
           registry.timer(Prefix :+ "lookup_ledger_configuration")
@@ -468,7 +470,7 @@ final class Metrics(val registry: MetricRegistry) {
         val getAcsEventSeqIdRange: DatabaseMetrics =
           createDbMetrics("get_acs_event_sequential_id_range")
         val getContractStateEvents: DatabaseMetrics = createDbMetrics(
-          "get_contract_lifecycle_events"
+          "get_contract_state_events"
         )
 
         object translation {
