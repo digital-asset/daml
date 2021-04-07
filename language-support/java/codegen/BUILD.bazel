@@ -237,6 +237,17 @@ daml_compile(
 )
 
 daml_compile(
+    name = "integration-tests-model-1_13",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_113.daml",
+        ],
+    ),
+    target = "1.13",
+)
+
+daml_compile(
     name = "integration-tests-model-1_dev",
     srcs = glob(
         [

@@ -8,6 +8,7 @@
 // * 10:  new field key_with_maintainers in NodeFetch
 // * 11: add choice observer
 // * 12: drop value version in profit of node version
+// * 13: no change w.r.t. 12
 syntax = "proto3";
 
 package com.daml.lf.transaction;

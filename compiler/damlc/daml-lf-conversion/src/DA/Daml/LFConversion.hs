@@ -1143,6 +1143,16 @@ convertExpr env0 e = do
             pure (ESome t x, args)
 
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
+
+    go env (VarIn GHC_Types "RoundingCeiling"    ) args = pure (EBuiltin (BERoundingMode LitRoundingCeiling    ), args)
+    go env (VarIn GHC_Types "RoundingFloor"      ) args = pure (EBuiltin (BERoundingMode LitRoundingFloor      ), args)
+    go env (VarIn GHC_Types "RoundingDown"       ) args = pure (EBuiltin (BERoundingMode LitRoundingDown       ), args)
+    go env (VarIn GHC_Types "RoundingUp"         ) args = pure (EBuiltin (BERoundingMode LitRoundingUp         ), args)
+    go env (VarIn GHC_Types "RoundingHalfDown"   ) args = pure (EBuiltin (BERoundingMode LitRoundingHalfDown   ), args)
+    go env (VarIn GHC_Types "RoundingHalfEven"   ) args = pure (EBuiltin (BERoundingMode LitRoundingHalfEven   ), args)
+    go env (VarIn GHC_Types "RoundingHalfUp"     ) args = pure (EBuiltin (BERoundingMode LitRoundingHalfUp     ), args)
+    go env (VarIn GHC_Types "RoundingUnnecessary") args = pure (EBuiltin (BERoundingMode LitRoundingUnnecessary), args)
+
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
@@ -1476,6 +1486,9 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                     x' <- convertExpr env x
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
                     pure $ CaseAlternative CPVariant{..} projBinds
+
+convertAlt _ TRoundingMode alt@(DataAlt con, _, _) = do
+    unsupported "Pattern matching on RoundingMode is not currently supported. Please use (==) instead" con
 
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 

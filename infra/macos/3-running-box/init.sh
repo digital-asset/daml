@@ -108,6 +108,9 @@ RESET_CACHES
 chown vsts:staff $CACHE_SCRIPT
 chmod +x $CACHE_SCRIPT
 
+su -l vsts <<END
+/Users/vsts/reset_caches.sh
+END
 
 ## Hardening
 chown -R root:wheel /Users/vsts/agent/{*.sh,bin,externals}

@@ -70,7 +70,7 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SAny")
       case SBigNumeric(_) =>
         throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
-      case SAnyException(_, _, _) =>
+      case SAnyException(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAnyException")
       case STypeRep(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STypeRep")
@@ -111,8 +111,8 @@ sealed trait SValue {
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
-      case SAnyException(ty, sel, value) =>
-        SAnyException(ty, sel, value.mapContractId(f))
+      case SAnyException(ty, value) =>
+        SAnyException(ty, value.mapContractId(f))
       case SBuiltinException(tag, value) =>
         SBuiltinException(tag, value.mapContractId(f))
     }
@@ -207,7 +207,7 @@ object SValue {
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
-  final case class SAnyException(ty: Type, messageFunction: SExpr, value: SValue) extends SValue
+  final case class SAnyException(ty: Type, value: SValue) extends SValue
 
   // A value of one of the builtin exception types: GeneralError, ArithmeticError, ContractError
   final case class SBuiltinException(tag: String, value: SValue) extends SValue

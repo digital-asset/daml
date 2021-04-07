@@ -367,35 +367,52 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     } -- localContracts.keySet
 
   // This method visits to all nodes of the transaction in execution order.
-  // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
+  // Exercise/rollback nodes are visited twice: when execution reaches them and when execution leaves their body.
+  // On the first visit of an execution/rollback node, the caller can prevent traversal of the children
   final def foreachInExecutionOrder(
-      exerciseBegin: (Nid, Node.NodeExercises[Nid, Cid]) => Unit,
+      exerciseBegin: (Nid, Node.NodeExercises[Nid, Cid]) => Boolean,
+      rollbackBegin: (Nid, Node.NodeRollback[Nid]) => Boolean,
       leaf: (Nid, Node.LeafOnlyNode[Cid]) => Unit,
       exerciseEnd: (Nid, Node.NodeExercises[Nid, Cid]) => Unit,
+      rollbackEnd: (Nid, Node.NodeRollback[Nid]) => Unit,
   ): Unit = {
     @tailrec
     def loop(
         currNodes: FrontStack[Nid],
-        stack: FrontStack[((Nid, Node.NodeExercises[Nid, Cid]), FrontStack[Nid])],
+        stack: FrontStack[
+          ((Nid, Either[Node.NodeRollback[Nid], Node.NodeExercises[Nid, Cid]]), FrontStack[Nid])
+        ],
     ): Unit =
       currNodes match {
         case FrontStackCons(nid, rest) =>
           nodes(nid) match {
-            case _: Node.NodeRollback[_] =>
-              // TODO https://github.com/digital-asset/daml/issues/8020
-              sys.error("rollback nodes are not supported")
+            case rb: Node.NodeRollback[_] =>
+              if (rollbackBegin(nid, rb)) {
+                loop(FrontStack(rb.children), ((nid, Left(rb)), rest) +: stack)
+              } else {
+                loop(rest, stack)
+              }
             case exe: Node.NodeExercises[Nid, Cid] =>
-              exerciseBegin(nid, exe)
-              loop(FrontStack(exe.children), ((nid, exe), rest) +: stack)
+              if (exerciseBegin(nid, exe)) {
+                loop(FrontStack(exe.children), ((nid, Right(exe)), rest) +: stack)
+              } else {
+                loop(rest, stack)
+              }
             case node: Node.LeafOnlyNode[Cid] =>
               leaf(nid, node)
               loop(rest, stack)
           }
         case FrontStack() =>
           stack match {
-            case FrontStackCons(((nid, exe), brothers), rest) =>
-              exerciseEnd(nid, exe)
-              loop(brothers, rest)
+            case FrontStackCons(((nid, either), brothers), rest) =>
+              either match {
+                case Left(rb) =>
+                  rollbackEnd(nid, rb)
+                  loop(brothers, rest)
+                case Right(exe) =>
+                  exerciseEnd(nid, exe)
+                  loop(brothers, rest)
+              }
             case FrontStack() =>
           }
       }
@@ -406,17 +423,40 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
   final def foldInExecutionOrder[A](z: A)(
-      exerciseBegin: (A, Nid, Node.NodeExercises[Nid, Cid]) => A,
+      exerciseBegin: (A, Nid, Node.NodeExercises[Nid, Cid]) => (A, Boolean),
+      rollbackBegin: (A, Nid, Node.NodeRollback[Nid]) => (A, Boolean),
       leaf: (A, Nid, Node.LeafOnlyNode[Cid]) => A,
       exerciseEnd: (A, Nid, Node.NodeExercises[Nid, Cid]) => A,
+      rollbackEnd: (A, Nid, Node.NodeRollback[Nid]) => A,
   ): A = {
     var acc = z
     foreachInExecutionOrder(
-      (nid, node) => acc = exerciseBegin(acc, nid, node),
+      (nid, node) => {
+        val (acc2, bool) = exerciseBegin(acc, nid, node)
+        acc = acc2
+        bool
+      },
+      (nid, node) => {
+        val (acc2, bool) = rollbackBegin(acc, nid, node)
+        acc = acc2
+        bool
+      },
       (nid, node) => acc = leaf(acc, nid, node),
       (nid, node) => acc = exerciseEnd(acc, nid, node),
+      (nid, node) => acc = rollbackEnd(acc, nid, node),
     )
     acc
+  }
+
+  // This method returns all node-ids reachable from the roots of a transaction.
+  final def reachableNodeIds: Set[Nid] = {
+    foldInExecutionOrder[Set[Nid]](Set.empty)(
+      (acc, nid, _) => (acc + nid, true),
+      (acc, nid, _) => (acc + nid, true),
+      (acc, nid, _) => acc + nid,
+      (acc, _, _) => acc,
+      (acc, _, _) => acc,
+    )
   }
 
   final def guessSubmitter: Either[String, Party] =

@@ -34,9 +34,9 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, V12, VDev}
+  import TransactionVersion.{V10, V11, V12, V13, VDev}
 
-  private[this] val transactionVersions = Table("transaction version", V10, V11, V12, VDev)
+  private[this] val transactionVersions = Table("transaction version", V10, V11, V12, V13, VDev)
 
   "encode-decode" should {
 

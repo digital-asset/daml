@@ -72,13 +72,20 @@ private[transaction] object ContractKeysValidation {
         )
       )(
         (keyValidationStatus, _, exerciseBeginNode) =>
-          checkNodeContractKey(
-            exerciseBeginNode,
-            contractKeysToContractIds,
-            keyValidationStatus,
+          (
+            checkNodeContractKey(
+              exerciseBeginNode,
+              contractKeysToContractIds,
+              keyValidationStatus,
+            ),
+            true,
           ),
+        (_, _, _) =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported"),
         (keyValidationStatus, _, leafNode) =>
           checkNodeContractKey(leafNode, contractKeysToContractIds, keyValidationStatus),
+        (accum, _, _) => accum,
         (accum, _, _) => accum,
       )
 

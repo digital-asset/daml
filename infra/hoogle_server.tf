@@ -27,7 +27,7 @@ resource "google_compute_instance_template" "hoogle" {
   disk {
     boot         = true
     disk_size_gb = 20
-    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
+    source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
   }
 
   metadata_startup_script = <<STARTUP

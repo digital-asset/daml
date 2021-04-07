@@ -30,7 +30,7 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
 #endif
 #ifdef DAML_BIGNUMERIC
   , BigNumeric
-  , RoundingMode
+  , RoundingMode (..)
 #endif
   )
 -- Not reexported

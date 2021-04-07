@@ -25,8 +25,8 @@ run = scenario do
               x + x
             , negate x
             , x * x
-            , BigNumeric.round 0 BigNumeric.roundingUp x
-            , BigNumeric.round 0 BigNumeric.roundingDown x
-            , BigNumeric.round 0 BigNumeric.roundingHalfUp x
-            , BigNumeric.round 0 BigNumeric.roundingCeiling (negate x)
+            , BigNumeric.round 0 RoundingUp x
+            , BigNumeric.round 0 RoundingDown x
+            , BigNumeric.round 0 RoundingHalfUp x
+            , BigNumeric.round 0 RoundingCeiling (negate x)
           ]

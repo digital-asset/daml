@@ -82,7 +82,7 @@ private[appendonlydao] final class TransactionsReader(
     val span =
       ParticipantTracer
         .spanBuilder(
-          "com.daml.platform.store.appendonlydao.events.TransactionsReader.getFlatTransactions"
+          "com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions"
         )
         .setNoParent()
         .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
@@ -172,7 +172,7 @@ private[appendonlydao] final class TransactionsReader(
     val span =
       ParticipantTracer
         .spanBuilder(
-          "com.daml.platform.store.appendonlydao.events.TransactionsReader.getTransactionTrees"
+          "com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees"
         )
         .setNoParent()
         .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
@@ -261,7 +261,7 @@ private[appendonlydao] final class TransactionsReader(
     val span =
       ParticipantTracer
         .spanBuilder(
-          "com.daml.platform.store.appendonlydao.events.TransactionsReader.getActiveContracts"
+          "com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts"
         )
         .setNoParent()
         .setAttribute(SpanAttribute.Offset.key, activeAt.toHexString)
