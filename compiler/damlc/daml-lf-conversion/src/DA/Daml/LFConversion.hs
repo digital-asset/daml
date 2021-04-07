@@ -1487,6 +1487,9 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
                     pure $ CaseAlternative CPVariant{..} projBinds
 
+convertAlt _ TRoundingMode alt@(DataAlt con, _, _) = do
+    unsupported "Pattern matching on RoundingMode is not currently supported. Please use (==) instead" con
+
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
 mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, FieldName)] -> LF.Expr -> ConvertM LF.Expr

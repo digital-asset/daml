@@ -1,0 +1,10 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- | Test that you get errors when trying to pattern match on rounding mode.
+module RoundingModeMatch where
+
+-- @ERROR Pattern matching on RoundingMode is not currently supported
+foo : RoundingMode -> Int
+foo RoundingCeiling = 10
+foo _ = 20
