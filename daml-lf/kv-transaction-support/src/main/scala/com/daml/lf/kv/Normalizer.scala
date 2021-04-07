@@ -10,21 +10,37 @@ object Normalizer {
 
   // KV specific normalization.
   // Drop Fetch, Lookup and Rollback nodes from a transaction, keeping Create and Exercise.
+  // Also drop everything contained with a rollback node
   def normalizeTransaction(
       tx: CommittedTransaction
   ): CommittedTransaction = {
-    val nodes = tx.nodes.filter {
-      case (_, _: Node.NodeRollback[_] | _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => false
-      case (_, _: Node.NodeExercises[_, _] | _: Node.NodeCreate[_]) => true
-    }
-    val filteredNodes = nodes.transform {
-      case (_, node: Node.NodeExercises[NodeId, ContractId]) =>
-        val filteredNode = node.copy(children = node.children.filter(nodes.contains))
-        filteredNode
-      case (_, keep) =>
-        keep
-    }
-    val filteredRoots = tx.roots.filter(filteredNodes.contains)
+
+    val keepNids: Set[NodeId] =
+      tx.foldInExecutionOrder[Set[NodeId]](Set.empty)(
+        (acc, nid, _) => (acc + nid, true),
+        (acc, _, _) => (acc, false),
+        (acc, nid, node) =>
+          node match {
+            case _: Node.NodeCreate[_] => acc + nid
+            case _: Node.NodeFetch[_] => acc
+            case _: Node.NodeLookupByKey[_] => acc
+          },
+        (acc, _, _) => acc,
+        (acc, _, _) => acc,
+      )
+    val filteredNodes =
+      tx.nodes
+        .filter { case (nid, _) => keepNids.contains(nid) }
+        .transform {
+          case (_, node: Node.NodeExercises[NodeId, ContractId]) =>
+            node.copy(children = node.children.filter(keepNids.contains))
+          case (_, node: Node.NodeRollback[NodeId]) =>
+            node.copy(children = node.children.filter(keepNids.contains))
+          case (_, keep) =>
+            keep
+        }
+
+    val filteredRoots = tx.roots.filter(keepNids.contains)
     CommittedTransaction(
       VersionedTransaction(tx.version, filteredNodes, filteredRoots)
     )
