@@ -728,15 +728,21 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
+  private[this] def randomTextN(n: Int) = {
+    import org.scalacheck.Gen
+    Gen
+      .buildableOfN[String, Char](n, Gen.alphaNumChar)
+      .sample
+      .getOrElse(sys.error(s"can't generate ${n}b string"))
+  }
+
   Seq(
     "& " -> "& bar",
-    "5kb of data" -> {
-      import org.scalacheck.{Arbitrary, Gen}, Arbitrary.arbitrary
-      Gen
-        .buildableOfN[String, Char](5000, arbitrary[Char].filter(_ != '\u0000'))
-        .sample
-        .getOrElse(sys.error("can't generate 5kb string"))
-    },
+    "1kb of data" -> randomTextN(1000),
+    "2kb of data" -> randomTextN(2000),
+    "3kb of data" -> randomTextN(3000),
+    "4kb of data" -> randomTextN(4000),
+    "5kb of data" -> randomTextN(5000),
   ).foreach { case (testLbl, testCurrency) =>
     s"query record contains handles '$testLbl' strings properly" in withHttpService {
       (uri, encoder, _) =>
