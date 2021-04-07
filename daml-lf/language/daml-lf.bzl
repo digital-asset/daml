@@ -45,7 +45,7 @@ LF_VERSIONS = [
 ]
 
 # All LF versions for which we have protobufs.
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver != lf_version_configuration.get("preview")]
+PROTO_LF_VERSIONS = LF_VERSIONS
 
 # The subset of LF versions accepted by //daml-lf/encoder
 ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]

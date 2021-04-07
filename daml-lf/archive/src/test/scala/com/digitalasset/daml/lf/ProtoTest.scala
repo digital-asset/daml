@@ -8,7 +8,7 @@ import java.util.zip.ZipFile
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8}
-import com.daml.{daml_lf_1_12, daml_lf_dev}
+import com.daml.{daml_lf_1_12, daml_lf_1_13, daml_lf_dev}
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.Assertion
@@ -262,6 +262,51 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
           "daml_lf.proto",
           "6dbc0a0288c2447af690284e786c3fc1b58a296f2786e9cd5b4053069ff7c045",
           "ac464cafb1cc777bb7a3c62868edffa224b5d314499fa8016423e93226a3903d",
+        ),
+      )
+
+      forEvery(files) { case (fileName, linuxHash, windowsHash) =>
+        List(linuxHash, windowsHash) should contain(hashFile(resolve(fileName)))
+      }
+    }
+  }
+
+  "daml_lf_1_13.DamlLf" should {
+    "read dalf" in {
+      decodeTestWrapper(
+        darFile,
+        { cis =>
+          val archive = daml_lf_1_13.DamlLf.Archive.parseFrom(cis)
+          val payload = daml_lf_1_13.DamlLf.ArchivePayload.parseFrom(archive.getPayload)
+          payload.hasDamlLf1 shouldBe true
+        },
+      )
+    }
+  }
+
+  "daml_lf_1_13 files" should {
+
+    // Do not change this test.
+    // The test checks the snapshot of the proto definition are not modified.
+
+    val rootDir = "daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_13"
+
+    def resolve(file: String) =
+      resource(rlocation(s"$rootDir/$file"))
+
+    "not be modified" in {
+
+      val files = Table(
+        ("file", "Linux hash", "windows hash"),
+        (
+          "daml_lf_1.proto",
+          "d39be086ffd1ef8d510bc850f0d01b9ab671a7be829a61abfdc66bae08028f75",
+          "905f035efa5c06e1a07a925eaedbe7f430fd0f30ef6e5bad33cd2b7f8f9be1a1",
+        ),
+        (
+          "daml_lf.proto",
+          "2038b49e33825c4730b0119472073f3d5da9b0bd3df2f6d21d9d338c04a49c47",
+          "3a00793bbb591746778b13994ba1abb1763dad0612bbdafd88d97f250da37d7d",
         ),
       )
 
