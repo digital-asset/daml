@@ -332,6 +332,10 @@ object DbTriggerDao {
     "oracle.jdbc.OracleDriver" -> ((d, xa) => new DbTriggerDaoOracle(d, xa)),
   )
 
+  lazy val supportedJdbcDriverNames = supportedJdbcDrivers.keySet filter { d =>
+    scala.util.Try(Class forName d).isSuccess
+  }
+
   def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
       ec: ExecutionContext
   ): DbTriggerDao = {

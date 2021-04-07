@@ -81,7 +81,7 @@ object ServiceMain {
   }
 
   def main(args: Array[String]): Unit = {
-    ServiceConfig.parse(args) match {
+    ServiceConfig.parse(args, DbTriggerDao.supportedJdbcDriverNames) match {
       case None => sys.exit(1)
       case Some(config) =>
         val logger = ContextualizedLogger.get(this.getClass)
