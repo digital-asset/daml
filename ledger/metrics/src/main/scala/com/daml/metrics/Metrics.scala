@@ -472,7 +472,7 @@ final class Metrics(val registry: MetricRegistry) {
         val getAcsEventSeqIdRange: DatabaseMetrics =
           createDbMetrics("get_acs_event_sequential_id_range")
         val getContractStateEvents: DatabaseMetrics = createDbMetrics(
-          "get_contract_lifecycle_events"
+          "get_contract_state_events"
         )
 
         object translation {

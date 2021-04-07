@@ -71,7 +71,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 
-  // TODO: move this method to a separate *Reader
   def getContractStateEvents(
       startExclusive: (Offset, Long),
       endInclusive: (Offset, Long),
