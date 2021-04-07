@@ -3,7 +3,7 @@
 
 // .proto representation of the first version of the Daml-LF 1.13 language,
 // as specified by
-// <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
+// <https://github.com/digital-asset/daml/blob/568a8528a832114437718f82b64f5a0a36bab360/daml-lf/spec/daml-lf-1.rst>.
 //
 // A few notes:
 //
