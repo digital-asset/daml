@@ -8,6 +8,7 @@
 -- contexts.
 module DA.Math
 ( (**)
+, sqrt
 , exp
 , log
 , logBase
@@ -25,6 +26,15 @@ infixr 8 **
 -- | Take a power of a number Example: `2.0 ** 3.0 == 8.0`.
 (**) : Decimal -> Decimal -> Decimal
 x ** y = exp (y * log x)
+
+-- | Calculate the square root of a Decimal.
+--
+-- ```
+-- >>> sqrt 1.44
+-- 1.2
+-- ```
+sqrt : Decimal -> Decimal
+sqrt x = x ** 0.5
 
 -- | The exponential function. Example: `exp 0.0 == 1.0`
 exp : Decimal -> Decimal
