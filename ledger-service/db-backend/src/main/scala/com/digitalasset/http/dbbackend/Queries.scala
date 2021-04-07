@@ -756,26 +756,40 @@ private object OracleQueries extends Queries {
     path.elems.foldMap(_.fold(k => (".\"": Cord) ++ k :- '"', (_: _0.type) => "[0]"))
 
   // I cannot believe this function exists in 2021
+  // None if literal is too long
   // ORA-40454: path expression not a literal
-  private[this] def oraclePathEscape(readyPath: Cord): Fragment = {
-    val s = readyPath.toString
-    assert(
+  private[this] def oraclePathEscape(readyPath: Cord): Option[Fragment] = for {
+    readyPath <- Some(readyPath)
+    if readyPath.size <= literalStringSizeLimit
+    s = readyPath.toString
+    _ = assert(
       !s.startsWith("'") && !s.endsWith("'"),
       "Oracle JSON query syntax doesn't allow ' at beginning or ending",
     )
-    Fragment const0 ("'" + s.replace("'", "''") + "'")
-  }
+    escaped = s.replace("'", "''")
+    if escaped.length <= literalStringSizeLimit
+  } yield Fragment const0 ("'" + escaped + "'")
+  // ORA-01704: string literal too long
+  private[this] val literalStringSizeLimit = 4000
+
+  private[this] def oracleShortPathEscape(readyPath: Cord): Fragment =
+    oraclePathEscape(readyPath).getOrElse(
+      throw new IllegalArgumentException(s"path too long: $readyPath")
+    )
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
+    def equalFallback =
+      sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
+        oracleShortPathEscape(opath) ++ sql"), ${literal.compactPrint: String})"
     literal match {
       case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
         val pred = opath ++ "?(@ == " ++ literal.compactPrint :- ')'
-        sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pred) ++ sql")"
-      case JsObject(_) | JsArray(_) =>
-        sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(
-          opath
-        ) ++ sql"), ${literal.compactPrint: String})"
+        oraclePathEscape(pred).cata(
+          encpred => sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ encpred ++ sql")",
+          equalFallback,
+        )
+      case JsObject(_) | JsArray(_) => equalFallback
     }
   }
 
@@ -786,7 +800,7 @@ private object OracleQueries extends Queries {
     def ensureNotNull = {
       // we are only trying to reject None for an Optional record/variant/list
       val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
-      sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pred) ++ sql")"
+      sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oracleShortPathEscape(pred) ++ sql")"
     }
     literal match {
       case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
@@ -838,6 +852,8 @@ private object OracleQueries extends Queries {
       case GTEQ => ">="
     }
     val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc $literalRendered)"
-    sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pathc) ++ sql")"
+    // TODO SC cover >=, <= in long data tests; use oraclePathEscape instead
+    sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
+      oracleShortPathEscape(pathc) ++ sql")"
   }
 }
