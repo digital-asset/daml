@@ -22,6 +22,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerReset,
     runLedgerGetDalfs,
     runLedgerListPackages,
+    runLedgerListPackages0,
     -- exported for testing
     downloadAllReachablePackages
     ) where
@@ -388,10 +389,34 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
 runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
 runLedgerListPackages lflags = do
     args <- getDefaultArgs lflags
-    runWithLedgerArgs args $ do
-        lid <- L.getLedgerIdentity
-        pkgIds <- L.listPackages lid
-        pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
+    case api args of
+      Grpc ->
+        runWithLedgerArgs args $ do
+            lid <- L.getLedgerIdentity
+            pkgIds <- L.listPackages lid
+            pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
+      HttpJson -> httpJsonRequest args "GET" "/v1/packages" id
+
+-- | Same as runLedgerListPackages, but print output.
+runLedgerListPackages0 :: LedgerFlags -> IO ()
+runLedgerListPackages0 flags = do
+    pkgs <- runLedgerListPackages flags
+    rdalfs <- runLedgerGetDalfs flags pkgs []
+    putStrLn "Available packages: "
+    putStrLn $
+        unlines $
+        map T.unpack $
+        [ LF.unPackageId remoteDalfPkgId <> " " <> suffix nameM versionM
+        | RemoteDalf {..} <- rdalfs
+        , nameM <- [remoteDalfName]
+        , versionM <- [remoteDalfVersion]
+        ]
+  where
+    suffix (Just name) (Just version) =
+        "(" <> LF.unPackageName name <> "-" <> LF.unPackageVersion version <> ")"
+    suffix (Just name) Nothing = "(" <> LF.unPackageName name <> ")"
+    suffix Nothing (Just _version) = ""
+    suffix Nothing Nothing = ""
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =

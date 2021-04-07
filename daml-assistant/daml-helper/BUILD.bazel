@@ -182,6 +182,38 @@ da_haskell_test(
     ],
 )
 
+da_haskell_test(
+    name = "test-daml-packages",
+    srcs = ["test/DA/Daml/Helper/Test/Packages.hs"],
+    data = [
+        "daml-helper",
+        ":test.dar",
+        "//ledger-service/http-json:http-json-binary",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.Helper.Test.Packages.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
+        "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
 daml_compile(
     name = "test",
     srcs = glob(["test-data/Test.daml"]),
