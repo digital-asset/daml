@@ -302,7 +302,8 @@ commandParser = subparser $ fold
                   , "the --host and --port flags to each command below. "
                   , "If the ledger is authenticated, you should pass "
                   , "the name of the file containing the token "
-                  , "using the --access-token-file flag."
+                  , "with the ledger.access-token-file option in daml.yaml or the "
+                  , "--access-token-file flag."
                   ]
             ]
 

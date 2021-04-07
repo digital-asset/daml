@@ -259,6 +259,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 
     optImportPath <- optImportPath
     optPackageDbs <- optPackageDir
+    optAccessTokenPath <- optAccessTokenPath
     let optStablePackages = Nothing
     let optIfaceDir = Nothing
     optPackageImports <- many optPackageImport
@@ -282,6 +283,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 
     return Options{..}
   where
+    optAccessTokenPath :: Parser (Maybe FilePath)
+    optAccessTokenPath = optional . option str
+        $ metavar "PATH"
+        <> long "access-token-file"
+        <> help "Path to the token-file for ledger authorization."
+
     optImportPath :: Parser [FilePath]
     optImportPath =
         many $
