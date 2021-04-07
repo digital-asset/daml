@@ -11,6 +11,7 @@ lf_version_configuration = {
     "legacy": "1.8",
     "stable": "1.12",
     "latest": "1.12",
+    "preview": "1.13",
     "dev": "1.dev",
 }
 
@@ -32,15 +33,19 @@ def lf_versions_aggregate(versions):
 # in a stable LF version.
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
-# All LF versions for which we have protobufs.
+# All LF versions
 LF_VERSIONS = [
     "1.6",
     "1.7",
     "1.8",
     "1.11",
     "1.12",
+    "1.13",
     "dev",
 ]
+
+# All LF versions for which we have protobufs.
+PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver != lf_version_configuration.get("preview")]
 
 # The subset of LF versions accepted by //daml-lf/encoder
 ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]

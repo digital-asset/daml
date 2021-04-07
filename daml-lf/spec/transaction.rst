@@ -5,7 +5,7 @@
 Daml-LF Transaction Specification
 =================================
 
-**version 11, 21 January 2021**
+**version 13, 06 April 2021**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for *Daml LF
@@ -180,6 +180,8 @@ later.
 |                 11 |      2021-01-19 |
 +--------------------+-----------------+
 |                 12 |      2021-01-27 |
++--------------------+-----------------+
+|       (preview) 13 |      2021-04-06 |
 +--------------------+-----------------+
 |                dev |      2020-12-14 |
 +--------------------+-----------------+
