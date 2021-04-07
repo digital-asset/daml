@@ -5,13 +5,12 @@ package com.daml.platform.store.dao.events
 
 import java.io.InputStream
 
-import com.daml.caching
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
+  Identifier => ApiIdentifier,
   Record => ApiRecord,
   Value => ApiValue,
-  Identifier => ApiIdentifier,
 }
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.{engine => LfEngine}
@@ -20,13 +19,14 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.events.{
   ChoiceName => LfChoiceName,
-  PackageId => LfPackageId,
-  Identifier => LfIdentifier,
-  QualifiedName => LfQualifiedName,
   DottedName => LfDottedName,
+  Identifier => LfIdentifier,
   ModuleName => LfModuleName,
+  PackageId => LfPackageId,
+  QualifiedName => LfQualifiedName,
   Value => LfValue,
 }
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
@@ -34,7 +34,7 @@ import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LfValueTranslation(
-    val cache: LfValueTranslation.Cache,
+    val cache: LfValueTranslationCache.Cache,
     metrics: Metrics,
     enricherO: Option[LfEngine.ValueEnricher],
     loadPackage: (
@@ -87,29 +87,29 @@ final class LfValueTranslation(
       contractArgument: VersionedValue[ContractId],
   ): Array[Byte] = {
     cache.contracts.put(
-      key = LfValueTranslation.ContractCache.Key(contractId),
-      value = LfValueTranslation.ContractCache.Value(contractArgument),
+      key = LfValueTranslationCache.ContractCache.Key(contractId),
+      value = LfValueTranslationCache.ContractCache.Value(contractArgument),
     )
     serializeCreateArgOrThrow(contractId, contractArgument)
   }
 
   def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
-      key = LfValueTranslation.EventCache.Key(eventId),
-      value = LfValueTranslation.EventCache.Value
+      key = LfValueTranslationCache.EventCache.Key(eventId),
+      value = LfValueTranslationCache.EventCache.Value
         .Create(create.versionedCoinst.arg, create.versionedKey.map(_.key)),
     )
     cache.contracts.put(
-      key = LfValueTranslation.ContractCache.Key(create.coid),
-      value = LfValueTranslation.ContractCache.Value(create.versionedCoinst.arg),
+      key = LfValueTranslationCache.ContractCache.Key(create.coid),
+      value = LfValueTranslationCache.ContractCache.Value(create.versionedCoinst.arg),
     )
     (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }
 
   def serialize(eventId: EventId, exercise: Exercise): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
-      key = LfValueTranslation.EventCache.Key(eventId),
-      value = LfValueTranslation.EventCache.Value
+      key = LfValueTranslationCache.EventCache.Key(eventId),
+      value = LfValueTranslationCache.EventCache.Value
         .Exercise(exercise.versionedChosenValue, exercise.versionedExerciseResult),
     )
     (serializeExerciseArgOrThrow(exercise), serializeNullableExerciseResultOrThrow(exercise))
@@ -196,7 +196,8 @@ final class LfValueTranslation(
       ),
     )
 
-  private def eventKey(s: String) = LfValueTranslation.EventCache.Key(EventId.assertFromString(s))
+  private def eventKey(s: String) =
+    LfValueTranslationCache.EventCache.Key(EventId.assertFromString(s))
 
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
@@ -225,7 +226,7 @@ final class LfValueTranslation(
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
-          LfValueTranslation.EventCache.Value.Create(
+          LfValueTranslationCache.EventCache.Value.Create(
             argument = decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
             key = raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
           )
@@ -274,7 +275,7 @@ final class LfValueTranslation(
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
-          LfValueTranslation.EventCache.Value.Exercise(
+          LfValueTranslationCache.EventCache.Value.Exercise(
             argument =
               decompressAndDeserialize(raw.exerciseArgumentCompression, raw.exerciseArgument),
             result =
@@ -311,92 +312,5 @@ final class LfValueTranslation(
         exerciseResult = exerciseResult,
       )
     }
-  }
-}
-
-object LfValueTranslation {
-
-  final case class Cache(events: EventCache, contracts: ContractCache)
-  type EventCache = caching.Cache[EventCache.Key, EventCache.Value]
-  type ContractCache = caching.Cache[ContractCache.Key, ContractCache.Value]
-
-  object Cache {
-
-    def none: Cache = Cache(caching.Cache.none, caching.Cache.none)
-
-    def newInstance(
-        eventConfiguration: caching.SizedCache.Configuration,
-        contractConfiguration: caching.SizedCache.Configuration,
-    ): Cache =
-      Cache(
-        events = EventCache.newInstance(eventConfiguration),
-        contracts = ContractCache.newInstance(contractConfiguration),
-      )
-
-    def newInstrumentedInstance(
-        eventConfiguration: caching.SizedCache.Configuration,
-        contractConfiguration: caching.SizedCache.Configuration,
-        metrics: Metrics,
-    ): Cache =
-      Cache(
-        events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
-        contracts = ContractCache.newInstrumentedInstance(contractConfiguration, metrics),
-      )
-  }
-
-  object EventCache {
-
-    def newInstance(configuration: caching.SizedCache.Configuration): EventCache =
-      caching.SizedCache.from(configuration)
-
-    def newInstrumentedInstance(
-        configuration: caching.SizedCache.Configuration,
-        metrics: Metrics,
-    ): EventCache =
-      caching.SizedCache.from(
-        configuration = configuration,
-        metrics = metrics.daml.index.db.translation.cache,
-      )
-
-    final class UnexpectedTypeException(value: Value)
-        extends RuntimeException(s"Unexpected value $value")
-
-    final case class Key(eventId: EventId)
-
-    sealed abstract class Value {
-      def assertCreate(): Value.Create
-      def assertExercise(): Value.Exercise
-    }
-
-    object Value {
-      final case class Create(argument: LfValue, key: Option[LfValue]) extends Value {
-        override def assertCreate(): Create = this
-        override def assertExercise(): Exercise = throw new UnexpectedTypeException(this)
-      }
-      final case class Exercise(argument: LfValue, result: Option[LfValue]) extends Value {
-        override def assertCreate(): Create = throw new UnexpectedTypeException(this)
-        override def assertExercise(): Exercise = this
-      }
-    }
-
-  }
-
-  object ContractCache {
-
-    def newInstance(configuration: caching.SizedCache.Configuration): ContractCache =
-      caching.SizedCache.from(configuration)
-
-    def newInstrumentedInstance(
-        configuration: caching.SizedCache.Configuration,
-        metrics: Metrics,
-    ): ContractCache =
-      caching.SizedCache.from(
-        configuration = configuration,
-        metrics = metrics.daml.index.db.translation.cache,
-      )
-
-    final case class Key(contractId: ContractId)
-
-    final case class Value(argument: LfValue)
   }
 }

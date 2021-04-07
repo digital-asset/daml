@@ -20,9 +20,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
+import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -42,7 +41,7 @@ private[platform] object ReadOnlySqlLedger {
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
