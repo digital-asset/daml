@@ -239,6 +239,6 @@ data RoundingMode
       -- are equidistant, in which case round away from zero.
   | RoundingUnnecessary
       -- ^ Do not round. Raises an error if the result cannot
-      -- be represented without rounding.
+      -- be represented without rounding at the targeted scale.
 
 #endif
