@@ -21,7 +21,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
@@ -126,7 +126,7 @@ class IntegrityChecker[LogResult](
           createIndexerConfig(config),
           readService,
           metrics,
-          LfValueTranslation.Cache.none,
+          LfValueTranslationCache.Cache.none,
         )
         feedHandle <- indexer.subscription(readService)
       } yield (feedHandle, System.nanoTime())
@@ -228,7 +228,7 @@ class IntegrityChecker[LogResult](
       config: IndexerConfig,
       readService: ReadService,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit
       resourceContext: ResourceContext,
       materializer: Materializer,

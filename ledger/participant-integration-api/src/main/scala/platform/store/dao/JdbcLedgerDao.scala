@@ -83,7 +83,7 @@ private class JdbcLedgerDao(
     eventsPageSize: Int,
     performPostCommitValidation: Boolean,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslation.Cache,
+    lfValueTranslationCache: LfValueTranslationCache.Cache,
     validatePartyAllocation: Boolean,
     idempotentEntryInserts: Boolean,
     enricher: Option[ValueEnricher],
@@ -998,7 +998,7 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
@@ -1022,7 +1022,7 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
@@ -1050,7 +1050,7 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
@@ -1102,7 +1102,7 @@ private[platform] object JdbcLedgerDao {
       validate: Boolean,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       idempotentEventInserts: Boolean,

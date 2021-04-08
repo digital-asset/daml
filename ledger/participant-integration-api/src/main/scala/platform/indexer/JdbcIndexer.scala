@@ -19,9 +19,8 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.{DbType, FlywayMigrations}
+import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -43,7 +42,7 @@ object JdbcIndexer {
         readService: ReadService,
         servicesExecutionContext: ExecutionContext,
         metrics: Metrics,
-        lfValueTranslationCache: LfValueTranslation.Cache,
+        lfValueTranslationCache: LfValueTranslationCache.Cache,
     )(implicit materializer: Materializer, loggingContext: LoggingContext) =
       this(
         config,

@@ -13,8 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.platform.store.{DbType, FlywayMigrations}
+import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 import com.daml.testing.postgresql.PostgresResource
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -77,7 +76,7 @@ class AppendOnlySchemaMigrationSpec extends AsyncWordSpec with AkkaBeforeAndAfte
       eventsPageSize = eventsPageSize,
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = LfValueTranslation.Cache.none,
+      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = Some(new ValueEnricher(new Engine())),
     )

@@ -47,8 +47,7 @@ import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.FlywayMigrations
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
@@ -294,7 +293,7 @@ final class SandboxServer(
         .fold[TransactionCommitter](LegacyTransactionCommitter)(_ => StandardTransactionCommitter)
 
     val lfValueTranslationCache =
-      LfValueTranslation.Cache.newInstrumentedInstance(
+      LfValueTranslationCache.Cache.newInstrumentedInstance(
         eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
         contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
         metrics = metrics,

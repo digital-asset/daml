@@ -12,7 +12,7 @@ import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.ExecutionContext
 
@@ -26,7 +26,7 @@ private[platform] object JdbcIndex {
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(

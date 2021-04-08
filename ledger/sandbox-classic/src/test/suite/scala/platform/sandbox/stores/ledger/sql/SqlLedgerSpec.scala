@@ -28,8 +28,7 @@ import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
-import com.daml.platform.store.IndexMetadata
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
@@ -305,7 +304,7 @@ final class SqlLedgerSpec
         eventsPageSize = 100,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
-        lfValueTranslationCache = LfValueTranslation.Cache.none,
+        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
         validatePartyAllocation = validatePartyAllocation,
       ).acquire()(ResourceContext(system.dispatcher))
