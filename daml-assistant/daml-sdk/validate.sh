@@ -32,7 +32,9 @@ for cmd in sandbox sandbox-classic; do
     $JAVA -jar $SDK_EE $cmd --help | grep -q profile-dir
 done
 
-$JAVA -jar $SDK_EE trigger-service --help | grep -q oracle
+if ! ($JAVA -jar $SDK_EE trigger-service --help | grep -q oracle); then
+  exit 1
+fi
 if $JAVA -jar $SDK_CE trigger-service --help | grep -q oracle; then
     exit 1
 fi
