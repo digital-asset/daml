@@ -28,7 +28,6 @@ Writing Daml
    daml/intro/0_Intro.rst
    daml/reference/index
    daml/stdlib/index
-   daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
 

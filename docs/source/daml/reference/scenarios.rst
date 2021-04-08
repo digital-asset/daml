@@ -6,7 +6,7 @@ Reference: scenarios
 
 This page gives reference information on scenario syntax, used for testing templates.
 
-For an introduction to scenarios, see :doc:`../testing-scenarios`.
+Note that for new project, we recommend Daml Script. For an introduction to Daml Script, see :ref:`testing-using-script`.
 
 .. _daml-ref-scenario:
 
