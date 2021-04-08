@@ -41,7 +41,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 1,
+      size           = 3,
       install        = <<EOF
 mkdir /nix
 chown hoogle:hoogle /nix
@@ -59,7 +59,7 @@ EOF
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 2,
+      size           = 0,
       install        = <<EOF
 curl -sSL https://get.haskellstack.org/ | sh
 runuser -u hoogle bash <<HOOGLE_SETUP
