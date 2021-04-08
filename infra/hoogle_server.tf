@@ -22,13 +22,13 @@ locals {
   h_clusters = [
     {
       suffix         = "-blue",
-      ubuntu_version = "1604",
-      size           = 0,
+      ubuntu_version = "2004",
+      size           = 1,
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 3,
+      size           = 2,
     }
   ]
 }
@@ -213,8 +213,11 @@ resource "google_compute_backend_service" "hoogle-http" {
   health_checks = [google_compute_health_check.hoogle-http.self_link]
   port_name     = "http"
 
-  backend {
-    group = google_compute_instance_group_manager.hoogle[0].instance_group
+  dynamic backend {
+    for_each = local.h_clusters
+    content {
+      group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
+    }
   }
 }
 
