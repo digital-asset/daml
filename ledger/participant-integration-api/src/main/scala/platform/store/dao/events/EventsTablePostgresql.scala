@@ -107,7 +107,6 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
             .map(EventId(tx.transactionId, _).toLedgerString)
             .iterator
             .mkString("|")
-          keyValues(i) = compressed.keyValues.get(nodeId).orNull
         case _ => throw new UnexpectedNodeException(nodeId, tx.transactionId)
       }
     }

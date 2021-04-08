@@ -87,17 +87,17 @@ object EventsTableH2Database extends EventsTable {
             "node_index" -> nodeId.index,
             "flat_event_witnesses" -> Party.Array(stakeholders(nodeId).toSeq: _*),
             "tree_event_witnesses" -> Party.Array(disclosure(nodeId).toSeq: _*),
-            "create_key_value" -> compressed.keyValues.get(nodeId),
-            "create_key_value_compression" -> compressed.createKeyValueCompression.id,
           )
         val eventSpecificColumns =
           node match {
             case event: Create =>
-              val argument = compressed.assertCreate(nodeId)
+              val (argument, keyValue) = compressed.assertCreate(nodeId)
               create(
                 event = event,
                 argument = argument,
                 argumentCompression = compressed.createArgumentsCompression.id,
+                key = keyValue,
+                keyCompression = compressed.createKeyValueCompression.id,
               )
             case event: Exercise =>
               val (argument, result) = compressed.assertExercise(nodeId)
@@ -120,6 +120,8 @@ object EventsTableH2Database extends EventsTable {
       event: Create,
       argument: Array[Byte],
       argumentCompression: Option[Int],
+      key: Option[Array[Byte]],
+      keyCompression: Option[Int],
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
       "contract_id" -> event.coid.coid,
@@ -129,6 +131,8 @@ object EventsTableH2Database extends EventsTable {
       "create_signatories" -> event.signatories.toArray[String],
       "create_observers" -> event.stakeholders.diff(event.signatories).toArray[String],
       "create_agreement_text" -> event.coinst.agreementText,
+      "create_key_value" -> key,
+      "create_key_value_compression" -> keyCompression,
     ) ++ emptyExerciseFields
 
   private def exercise(
@@ -160,6 +164,8 @@ object EventsTableH2Database extends EventsTable {
     "create_signatories" -> Option.empty[Array[String]],
     "create_observers" -> Option.empty[Array[String]],
     "create_agreement_text" -> Option.empty[String],
+    "create_key_value" -> Option.empty[Array[Byte]],
+    "create_key_value_compression" -> Option.empty[Short],
   )
 
   private val emptyExerciseFields = Vector[NamedParameter](

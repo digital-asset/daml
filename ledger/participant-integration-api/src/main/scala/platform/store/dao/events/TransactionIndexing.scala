@@ -48,11 +48,9 @@ object TransactionIndexing {
           createArguments += ((nodeId, create.coid, createArgument))
           createKeyValue.foreach(key => keyValues += ((nodeId, key)))
         case exercise: Exercise =>
-          val (exerciseArgument, exerciseResult, exerciseKeyValue) =
-            translation.serialize(eventId, exercise)
+          val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
           exerciseArguments += ((nodeId, exerciseArgument))
           exerciseResult.foreach(result => exerciseResults += ((nodeId, result)))
-          exerciseKeyValue.foreach(key => keyValues += ((nodeId, key)))
         case _ => throw new UnexpectedNodeException(nodeId, transactionId)
       }
     }
@@ -297,9 +295,9 @@ object TransactionIndexing {
         exerciseResults: Map[NodeId, Array[Byte]],
         exerciseResultsCompression: Compression.Algorithm,
     ) {
-      def assertCreate(nodeId: NodeId): Array[Byte] = {
+      def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
         assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")
-        createArguments(nodeId)
+        (createArguments(nodeId), keyValues.get(nodeId))
       }
 
       def assertExercise(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
