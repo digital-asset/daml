@@ -384,3 +384,19 @@ genrule(
 )
             """,
         )
+
+    if "canton" not in native.existing_rules():
+        http_archive(
+            name = "canton",
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+    name = "lib",
+    jars = glob(["lib/**/*.jar"]),
+)
+        """,
+            sha256 = "5c03dd4351c2d360e8fb8ba4f78ca5fe46e8025c3b16b39295a739e0c0a690bc",
+            strip_prefix = "canton-community-0.23.0",
+            urls = ["https://www.canton.io/releases/canton-community-0.23.0.tar.gz"],
+        )

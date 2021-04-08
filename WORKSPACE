@@ -941,18 +941,3 @@ dev_env_tool(
     ],
     win_tool = "msys2",
 )
-
-http_archive(
-    name = "canton",
-    build_file_content = """
-package(default_visibility = ["//visibility:public"])
-
-java_import(
-    name = "lib",
-    jars = glob(["lib/**/*.jar"]),
-)
-""",
-    sha256 = "9fb38c922d302c94e200c161ec8467ea39f4c31c9a7fad0b32f1493170a51fa7",
-    strip_prefix = "canton-community-0.23.0-SNAPSHOT",
-    urls = ["https://www.canton.io/releases/canton-community-20210407.tar.gz"],
-)
