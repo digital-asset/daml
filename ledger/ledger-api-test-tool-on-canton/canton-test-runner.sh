@@ -6,7 +6,7 @@ set -e
 set -u
 set -o pipefail
 
-# Canton has some issues with JDK8 so we run it with JDK11.
+# Canton requires JDK11 in production to avoid ForkJoinPool deadlocks on older JDKs so we run it with JDK11.
 JAVA="$(rlocation jdk11_nix/bin/java)"
 
 CANTON_COMMAND=(
