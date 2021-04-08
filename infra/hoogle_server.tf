@@ -18,17 +18,35 @@ resource "google_compute_firewall" "hoogle" {
   }
 }
 
+resource "google_compute_firewall" "hoogle-ssh" {
+  count   = 0
+  name    = "hoogle-ssh"
+  network = google_compute_network.hoogle.name
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  source_ranges = [
+    "35.194.81.56/32",  # North Virginia
+    "35.189.40.124/32", # Sydney
+    "35.198.147.95/32", # Frankfurt
+  ]
+}
+
 locals {
   h_clusters = [
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 1,
+      size           = 3,
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 2,
+      size           = 0,
     }
   ]
 }
@@ -86,14 +104,17 @@ useradd hoogle
 mkdir /home/hoogle
 chown hoogle:hoogle /home/hoogle
 cd /home/hoogle
-curl -sSL https://get.haskellstack.org/ | sh
-runuser -u hoogle bash <<HOOGLE_SETUP
-git clone https://github.com/ndmitchell/hoogle.git
-cd hoogle
-git checkout 73fa6b5c156e0015e135a564e2821719611abe03
-stack init --resolver=lts-14.7
-stack build
-stack install
+mkdir /nix
+chown hoogle:hoogle /nix
+runuser -l hoogle <<'HOOGLE_SETUP'
+curl -sSfL https://nixos.org/nix/install | sh
+. /home/hoogle/.nix-profile/etc/profile.d/nix.sh
+# Feel free to bump the commit, this was the latest
+# # at the time of creation.
+NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1ea4e44c82e641de0cf.tar.gz
+HOOGLE_PATH=$(nix-build --no-out-link -E '(import <nixpkgs> {}).haskellPackages.hoogle')
+mkdir -p /home/hoogle/.local/bin
+ln -s $HOOGLE_PATH/bin/hoogle /home/hoogle/.local/bin/hoogle
 export PATH=/home/hoogle/.local/bin:$PATH
 mkdir daml
 curl https://docs.daml.com/hoogle_db/base.txt --output daml/base.txt
