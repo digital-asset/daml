@@ -570,6 +570,19 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+# To run canton
+nixpkgs_package(
+    name = "jdk11_nix",
+    attribute_path = "jdk11",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
 # This only makes sense on Windows so we just put dummy values in the nix fields.
 dev_env_tool(
     name = "makensis_dev_env",
