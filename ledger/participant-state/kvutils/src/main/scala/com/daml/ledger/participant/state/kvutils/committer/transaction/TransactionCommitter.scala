@@ -465,7 +465,7 @@ private[kvutils] class TransactionCommitter(
       blindingInfo: BlindingInfo,
       commitContext: CommitContext,
   ): Unit = {
-    val effects = transaction.Util.computeEffects(transactionEntry.transaction)
+    val effects = transaction.Effects.computeEffects(transactionEntry.transaction)
     val cid2nid: Value.ContractId => NodeId =
       transactionEntry.transaction.localContracts
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').

@@ -36,7 +36,7 @@ class KeyValueSubmission(metrics: Metrics) {
     */
   def transactionOutputs(tx: SubmittedTransaction): List[DamlStateKey] =
     metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
-      val effects = transaction.Util.computeEffects(tx)
+      val effects = transaction.Effects.computeEffects(tx)
       (effects.createdContracts.view.map(_._1) ++ effects.consumedContracts.view)
         .map(Conversions.contractIdToStateKey)
         .toList
@@ -55,7 +55,7 @@ class KeyValueSubmission(metrics: Metrics) {
         )
         .map(Conversions.packageStateKey)
       val inputDamlStatesFromTx = new util.ArrayList[DamlStateKey]()
-      transaction.Util.collectInputs(
+      transaction.Inputs.collectInputs(
         tx,
         { cid => inputDamlStatesFromTx.add(Conversions.contractIdToStateKey(cid)); () },
         { party => inputDamlStatesFromTx.add(Conversions.partyStateKey(party)); () },

@@ -3,6 +3,7 @@
 
 package com.daml.lf.transaction
 
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
 /** The effects of the transaction, that is what contracts
@@ -33,5 +34,49 @@ final case class Effects(
 object Effects {
 
   val Empty = Effects(List.empty, List.empty, Map.empty)
+
+  /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
+  def computeEffects(tx: Transaction.Transaction): Effects = {
+    // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
+    //  fold bottom up (with reversed roots!) and skip creates of archived contracts.
+    tx.fold(Effects.Empty) { case (effects, (_, node)) =>
+      node match {
+        case _: Node.NodeRollback[_] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
+        case _: Node.NodeFetch[Value.ContractId] =>
+          effects
+        case create: Node.NodeCreate[Value.ContractId] =>
+          effects.copy(
+            createdContracts = create.coid -> create :: effects.createdContracts,
+            updatedContractKeys = create.key
+              .fold(effects.updatedContractKeys)(keyWithMaintainers =>
+                effects.updatedContractKeys.updated(
+                  GlobalKey.assertBuild(create.coinst.template, keyWithMaintainers.key),
+                  Some(create.coid),
+                )
+              ),
+          )
+
+        case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
+          if (exe.consuming) {
+            effects.copy(
+              consumedContracts = exe.targetCoid :: effects.consumedContracts,
+              updatedContractKeys = exe.key
+                .fold(effects.updatedContractKeys)(key =>
+                  effects.updatedContractKeys.updated(
+                    GlobalKey.assertBuild(exe.templateId, key.key),
+                    None,
+                  )
+                ),
+            )
+          } else {
+            effects
+          }
+        case _: Node.NodeLookupByKey[Value.ContractId] =>
+          effects
+      }
+    }
+  }
 
 }
