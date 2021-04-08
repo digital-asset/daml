@@ -39,6 +39,8 @@ object GlobalKey {
   @throws[IllegalArgumentException]
   def assertBuild(templateId: Ref.TypeConName, key: Value[ContractId]): GlobalKey =
     data.assertRight(build(templateId, key))
+
+  implicit val ordering = Ordering.by[GlobalKey, crypto.Hash](_.hash)
 }
 
 final case class GlobalKeyWithMaintainers(

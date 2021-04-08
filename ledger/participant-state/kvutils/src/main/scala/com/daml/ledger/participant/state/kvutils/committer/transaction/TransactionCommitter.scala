@@ -12,11 +12,11 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.validateKeys
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.crypto
+import com.daml.lf.{crypto, transaction}
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party, TypeConName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
@@ -465,15 +465,14 @@ private[kvutils] class TransactionCommitter(
       blindingInfo: BlindingInfo,
       commitContext: CommitContext,
   ): Unit = {
-    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
+    val effects = transaction.Util.computeEffects(transactionEntry.transaction)
     val cid2nid: Value.ContractId => NodeId =
       transactionEntry.transaction.localContracts
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
-    for ((key, createNode) <- effects.createdContracts) {
+    for ((cid, createNode) <- effects.createdContracts) {
       val cs = DamlContractState.newBuilder
       cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
-      val localDisclosure =
-        blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
+      val localDisclosure = blindingInfo.disclosure(cid2nid(cid))
       cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
       cs.setContractInstance(
         Conversions.encodeContractInstance(createNode.versionedCoinst)
@@ -485,10 +484,14 @@ private[kvutils] class TransactionCommitter(
           )
         )
       }
-      commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
+      commitContext.set(
+        Conversions.contractIdToStateKey(cid),
+        DamlStateValue.newBuilder.setContractState(cs).build,
+      )
     }
     // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
-    for (key <- effects.consumedContracts) {
+    for (cid <- effects.consumedContracts) {
+      val key = Conversions.contractIdToStateKey(cid)
       val cs = getContractState(commitContext, key)
       commitContext.set(
         key,
@@ -516,7 +519,11 @@ private[kvutils] class TransactionCommitter(
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
     for ((key, contractKeyState) <- effects.updatedContractKeys) {
       val (k, v) =
-        updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
+        updateContractKeyWithContractKeyState(
+          ledgerEffectiveTime,
+          Conversions.globalKeyToStateKey(key),
+          contractKeyState,
+        )
       commitContext.set(k, v)
     }
   }
