@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.dao.events
+package com.daml.platform.store.appendonlydao.events
 
 import java.io.InputStream
 import java.sql.Connection
@@ -12,14 +12,11 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.Conversions.{contractId, offset, _}
-import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.dao.events
-import com.daml.platform.store.dao.events.ContractStateEventsReader.ContractStateEvent.{
-  Archived,
-  Created,
-}
+import com.daml.platform.store.appendonlydao.events
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.LfValueTranslationCache
 
 import scala.util.control.NoStackTrace
 
@@ -54,8 +51,8 @@ object ContractStateEventsReader {
     }
 
   /*
-  This method intentionally produces a generic DTO to perform as much work as possible outside of the db thread pool
-  (specifically the translation to the `ContractStateEvent`)
+This method intentionally produces a generic DTO to perform as much work as possible outside of the db thread pool
+(specifically the translation to the `ContractStateEvent`)
    */
   def readRawEvents(range: EventsRange[(Offset, Long)])(implicit
       conn: Connection
@@ -72,7 +69,7 @@ object ContractStateEventsReader {
         val templateId = raw.templateId.getOrElse(throw CreateMissingError("template_id"))
         val maybeGlobalKey =
           decompressGlobalKey(templateId, raw.createKeyValue, raw.createKeyCompression)
-        Archived(
+        ContractStateEvent.Archived(
           contractId = raw.contractId,
           globalKey = maybeGlobalKey,
           stakeholders = raw.flatEventWitnesses,
@@ -92,7 +89,7 @@ object ContractStateEventsReader {
           raw.createArgumentCompression,
           lfValueTranslation,
         )
-        Created(
+        ContractStateEvent.Created(
           contractId = raw.contractId,
           contract = contract,
           globalKey = maybeGlobalKey,
@@ -148,68 +145,32 @@ object ContractStateEventsReader {
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
 
-  // TODO use participant_events.event_kind once it lands with the append-only schema
-  private val eventKindQueryClause =
-    """CASE
-      |    WHEN create_argument IS NOT NULL
-      |        THEN 10
-      |    WHEN exercise_consuming IS NOT NULL AND exercise_consuming = true
-      |        THEN 20
-      |    END event_kind
-      |""".stripMargin
-  // TODO use participant_events.event_kind once it lands with the append-only schema
-  private val isCreateQueryPredicate = "create_argument IS NOT NULL"
-  // TODO use participant_events.event_kind once it lands with the append-only schema
-  private val isConsumingExercisePredicate =
-    "exercise_consuming IS TRUE"
+  private object EventKind {
+    val Create = "10"
+    val ConsumingExercise = "20"
+  }
 
   private val createsAndArchives: EventsRange[Long] => SimpleSql[Row] =
     (range: EventsRange[Long]) => SQL(s"""
-           |SELECT
-           |    $eventKindQueryClause,
-           |    contract_id,
-           |    template_id,
-           |    create_key_value,
-           |    create_key_value_compression,
-           |    create_argument,
-           |    create_argument_compression,
-           |    flat_event_witnesses,
-           |    event_sequential_id,
-           |    event_offset
-           |FROM
-           |    participant_events
-           |WHERE
-           |    event_sequential_id > ${range.startExclusive}
-           |    and event_sequential_id <= ${range.endInclusive}
-           |    and ($isCreateQueryPredicate or $isConsumingExercisePredicate)
-           |ORDER BY event_sequential_id ASC
-           |""".stripMargin)
-
-  sealed trait ContractStateEvent extends Product with Serializable {
-    def eventOffset: Offset
-    def eventSequentialId: Long
-  }
-  object ContractStateEvent {
-    final case class Created(
-        contractId: ContractId,
-        contract: Contract,
-        globalKey: Option[GlobalKey],
-        stakeholders: Set[Party],
-        eventOffset: Offset,
-        eventSequentialId: Long,
-    ) extends ContractStateEvent
-    final case class Archived(
-        contractId: ContractId,
-        globalKey: Option[GlobalKey],
-        stakeholders: Set[Party],
-        eventOffset: Offset,
-        eventSequentialId: Long,
-    ) extends ContractStateEvent
-    final case class LedgerEndMarker(
-        eventOffset: Offset,
-        eventSequentialId: Long,
-    ) extends ContractStateEvent
-  }
+                                         |SELECT
+                                         |    event_kind,
+                                         |    contract_id,
+                                         |    template_id,
+                                         |    create_key_value,
+                                         |    create_key_value_compression,
+                                         |    create_argument,
+                                         |    create_argument_compression,
+                                         |    flat_event_witnesses,
+                                         |    event_sequential_id,
+                                         |    event_offset
+                                         |FROM
+                                         |    participant_events
+                                         |WHERE
+                                         |    event_sequential_id > ${range.startExclusive}
+                                         |    and event_sequential_id <= ${range.endInclusive}
+                                         |    and (event_kind = ${EventKind.Create} or event_kind = ${EventKind.ConsumingExercise})
+                                         |ORDER BY event_sequential_id ASC
+                                         |""".stripMargin)
 
   case class CreateMissingError(field: String) extends NoStackTrace {
     override def getMessage: String =
@@ -233,5 +194,4 @@ object ContractStateEventsReader {
       eventSequentialId: Long,
       offset: Offset,
   )
-
 }

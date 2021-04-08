@@ -5,8 +5,8 @@ package com.daml.platform.store.dao
 
 import java.sql.Connection
 
-import anorm.SqlParser.{byteArray, long}
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import anorm.SqlParser.byteArray
+import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
@@ -21,9 +21,6 @@ private[dao] object ParametersTable {
   private val LedgerEndColumnName: String = "ledger_end"
   private val ConfigurationColumnName: String = "configuration"
 
-  private val EventsTableName: String = "participant_events"
-  private val EventSequentialIdColumnName: String = "event_sequential_id"
-
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
 
@@ -32,16 +29,6 @@ private[dao] object ParametersTable {
 
   private val LedgerEndParser: RowParser[Option[Offset]] =
     offset(LedgerEndColumnName).?
-
-  private val LedgerEndAndSequentialIdParser =
-    (offset(LedgerEndColumnName).? ~ long(EventSequentialIdColumnName).?)
-      .map(SqlParser.flatten)
-      .map {
-        case (Some(offset), Some(seqId)) => (offset, seqId)
-        case (None, None) => (Offset.beforeBegin, 0L)
-        case other =>
-          throw new RuntimeException(s"Invalid ledgerEnd/sequentialId combination: $other")
-      }
 
   private val LedgerEndOrBeforeBeginParser: RowParser[Offset] =
     LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
@@ -58,16 +45,6 @@ private[dao] object ParametersTable {
     }
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
-
-  // TODO: IMPLEMENT A PROPER SOLUTION
-  // THIS IS A SIMPLE WORKAROUND FOR THE LACK OF THE SEQUENTIAL ID IN THE `parameters` TABLE.
-  // THE SEQUENTIAL ID IS GOING TO BE INTRODUCED AS A PART OF THE APPEND-ONLY SCHEMA
-  private val SelectLedgerEndAndSequentialId =
-    SQL"""select params.#$LedgerEndColumnName, events.#$EventSequentialIdColumnName
-    from #$TableName params join #$EventsTableName events on params.ledger_end = events.event_offset
-    order by events.event_sequential_id desc
-    limit 1
-       """
 
   def getLedgerId(connection: Connection): Option[LedgerId] =
     SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
@@ -91,9 +68,6 @@ private[dao] object ParametersTable {
 
   def getLedgerEnd(connection: Connection): Offset =
     SelectLedgerEnd.as(LedgerEndOrBeforeBeginParser.single)(connection)
-
-  def getLedgerEndAndSequentialId(connection: Connection): (Offset, Long) =
-    SelectLedgerEndAndSequentialId.as(LedgerEndAndSequentialIdParser.single)(connection)
 
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
