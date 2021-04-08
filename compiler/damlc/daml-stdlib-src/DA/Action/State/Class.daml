@@ -10,7 +10,7 @@ module DA.Action.State.Class
 -- | Action `m` has a state variable of type `s`.
 --
 -- Rules:
---   * gget *> ma  =  ma
+--   * get *> ma  =  ma
 --   * ma <* get  =  ma
 --   * put a >>= get   =  put a $> a
 --   * put a *> put b  =  put b
