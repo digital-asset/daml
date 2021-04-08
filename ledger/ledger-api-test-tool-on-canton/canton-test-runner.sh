@@ -6,8 +6,11 @@ set -e
 set -u
 set -o pipefail
 
+# Canton has some issues with JDK8 so we run it with JDK11.
+JAVA="$(rlocation jdk11_nix/bin/java)"
+
 CANTON_COMMAND=(
-  "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton)"
+  "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton_deploy.jar)"
   daemon
   "--config=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton.conf)"
   "--bootstrap=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/bootstrap.canton)"
@@ -72,11 +75,10 @@ fi
 HOME="$(mktemp -d)"
 export HOME
 # ammonite calls `System.getProperty('user.home')` which does not read $HOME.
-command+=("--wrapper_script_flag=--jvm_flag=-Duser.home=$HOME")
-command+=("--wrapper_script_flag=--jvm_flag=-Dlogback.configurationFile=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/logback-debug.xml)")
+JVM_FLAGS=(-Duser.home=$HOME -Dlogback.configurationFile=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/logback-debug.xml))
 
 echo >&2 'Starting Canton...'
-"${command[@]}" &
+$JAVA "${JVM_FLAGS[@]}" -jar "${command[@]}" &
 pid="$!"
 
 sleep 1
