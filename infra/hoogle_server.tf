@@ -115,34 +115,26 @@ NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1
 HOOGLE_PATH=$(nix-build --no-out-link -E '(import <nixpkgs> {}).haskellPackages.hoogle')
 mkdir -p /home/hoogle/.local/bin
 ln -s $HOOGLE_PATH/bin/hoogle /home/hoogle/.local/bin/hoogle
-export PATH=/home/hoogle/.local/bin:$PATH
-mkdir daml
-curl https://docs.daml.com/hoogle_db/base.txt --output daml/base.txt
-hoogle generate --database=daml.hoo --local=daml
-nohup hoogle server --database=daml.hoo --log=.log.txt --port=8080 >> out.txt &
-HOOGLE_SETUP
-cat > /home/hoogle/refresh-db.sh <<CRON
+cat > /home/hoogle/refresh-db.sh <<MAKE_DB
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 log() {
   echo "[\$(date -Is)] \$1" >> /home/hoogle/cron_log.txt
 }
 log "Checking for new DAML version..."
-cd /home/hoogle/hoogle
+cd /home/hoogle
 mkdir new-daml
-if ! curl --fail -s https://docs.daml.com/hoogle_db/base.txt --output new-daml/base.txt; then
-  curl -s https://docs.daml.com/hoogle_db.tar.gz --output db.tar.gz
-  tar xzf db.tar.gz -C new-daml --strip-components=1
-fi
+curl -s https://docs.daml.com/hoogle_db.tar.gz --output db.tar.gz
+tar xzf db.tar.gz -C new-daml --strip-components=1
 if ! diff -rq daml new-daml; then
   log "New version detected. Creating database..."
   rm -rf daml
   mv new-daml daml
-  rm daml.hoo
+  rm -f daml.hoo
   /home/hoogle/.local/bin/hoogle generate --database=daml.hoo --local=daml
   log "Killing running instance..."
-  killall hoogle
-  log "Stating new server..."
+  killall hoogle || true
+  log "Starting new server..."
   nohup /home/hoogle/.local/bin/hoogle server --database=daml.hoo --log=.log.txt --port=8080 >> out.txt &
   log "New server started."
 else
@@ -150,10 +142,13 @@ else
   rm -rf new-daml
 fi
 log "Done."
-CRON
+MAKE_DB
 chmod +x /home/hoogle/refresh-db.sh
-chown hoogle:hoogle /home/hoogle/refresh-db.sh
-echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -u hoogle -
+./refresh-db.sh
+echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -
+echo "Successfully ran startup script."
+tail -f cron_log.txt
+HOOGLE_SETUP
 STARTUP
 
   network_interface {
@@ -204,7 +199,7 @@ resource "google_compute_instance_group_manager" "hoogle" {
     health_check = google_compute_health_check.hoogle-https.self_link
 
     # Compiling hoogle takes some time
-    initial_delay_sec = 2500
+    initial_delay_sec = 600
   }
 
   update_policy {
