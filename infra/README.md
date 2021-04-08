@@ -26,6 +26,9 @@ Changing the template of an instance manager tends to kill all the machines in
 the current group. Therefore, we're experimenting with keeping two groups per
 logical group. (This is currently done only for the Hoogle servers.)
 
+> You can follow along with an example of such a deployment in the
+> commit-by-commit view of [#9362](https://github.com/digital-asset/daml/pull/9362/commits).
+
 The default state should be to split machines between the two groups evenly,
 and have the exact same configuration in each group. When a change needs to be
 made, one can set the size of one of the groups to 0, make the appropriate
