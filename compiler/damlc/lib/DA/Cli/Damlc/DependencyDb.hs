@@ -146,7 +146,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
         resolvedPkgIds <- resolvePkgs projRoot opts dataDepsNameVersion
         exclPkgIds <- queryPkgIds Nothing depsDir
-        rdalfs <- getDalfsFromLedger (dataDepsPkgIds ++ M.elems resolvedPkgIds) exclPkgIds
+        rdalfs <- getDalfsFromLedger (optAccessTokenPath opts) (dataDepsPkgIds ++ M.elems resolvedPkgIds) exclPkgIds
         forM_ rdalfs $ \RemoteDalf {..} -> do
             installDataDepDalf
                 remoteDalfIsMain
@@ -310,7 +310,7 @@ resolvePkgs projRoot opts pkgs
     | otherwise = do
         mbRes <- resolvePkgsWithLockFile lockFp pkgs
         resOrErr <- case mbRes of
-          Nothing -> resolvePkgsWithLedger depsDir pkgs
+          Nothing -> resolvePkgsWithLedger depsDir (optAccessTokenPath opts) pkgs
           Just res -> pure $ Right res
         case resOrErr of
             Left missing ->
@@ -377,10 +377,10 @@ resolvePkgsWithLockFile lockFp pkgs = do
 -- | Query the ledger for available packages and try to resolve the given packages. Returns either
 -- the missing packages or a map from package names to package id.
 resolvePkgsWithLedger ::
-       FilePath -> [FullPkgName] -> IO (Either [FullPkgName] (M.Map FullPkgName LF.PackageId))
-resolvePkgsWithLedger depsDir pkgs = do
-    ledgerPkgIds <- listLedgerPackages
-    rdalfs <- getDalfsFromLedger ledgerPkgIds []
+       FilePath -> Maybe FilePath -> [FullPkgName] -> IO (Either [FullPkgName] (M.Map FullPkgName LF.PackageId))
+resolvePkgsWithLedger depsDir tokFpM pkgs = do
+    ledgerPkgIds <- listLedgerPackages tokFpM
+    rdalfs <- getDalfsFromLedger tokFpM ledgerPkgIds []
     forM_ rdalfs $ \RemoteDalf {..} ->
         installDalf
             []
@@ -407,11 +407,11 @@ resolvePkgsWithLedger depsDir pkgs = do
 -- Ledger interactions
 ----------------------
 
-getDalfsFromLedger :: [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
-getDalfsFromLedger = runLedgerGetDalfs (defaultLedgerFlags Grpc)
+getDalfsFromLedger :: Maybe FilePath -> [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
+getDalfsFromLedger tokFpM = runLedgerGetDalfs $ (defaultLedgerFlags Grpc) {fTokFileM = tokFpM}
 
-listLedgerPackages :: IO [LF.PackageId]
-listLedgerPackages = runLedgerListPackages (defaultLedgerFlags Grpc)
+listLedgerPackages :: Maybe FilePath -> IO [LF.PackageId]
+listLedgerPackages tokFpM = runLedgerListPackages $ (defaultLedgerFlags Grpc) {fTokFileM = tokFpM}
 
 -- Updating/Fingerprint
 -----------------------

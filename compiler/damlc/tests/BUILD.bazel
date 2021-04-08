@@ -913,6 +913,7 @@ da_haskell_test(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "directory",
         "extra",
         "filepath",
@@ -920,9 +921,8 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
-        "zip-archive",
         "unordered-containers",
-        "containers",
+        "zip-archive",
     ],
     main_function = "DamlcPkgManager.main",
     visibility = ["//visibility:public"],

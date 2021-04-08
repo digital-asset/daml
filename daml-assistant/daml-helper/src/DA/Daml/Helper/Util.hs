@@ -9,6 +9,7 @@ module DA.Daml.Helper.Util
   , getDarPath
   , getProjectLedgerHost
   , getProjectLedgerPort
+  , getProjectLedgerAccessToken
   , getProjectParties
   , getProjectConfig
   , toAssistantCommand
@@ -105,6 +106,16 @@ getProjectLedgerHost = do
     projectConfig <- getProjectConfig $ Just "--host"
     defaultingE "Failed to parse ledger.host" "localhost" $
         queryProjectConfig ["ledger", "host"] projectConfig
+
+getProjectLedgerAccessToken :: IO (Maybe FilePath)
+getProjectLedgerAccessToken = do
+    projectConfigFpM <- getProjectPath
+    projectConfigM <- forM projectConfigFpM (readProjectConfig . ProjectPath)
+    case projectConfigM of
+        Nothing -> pure Nothing
+        Just projectConfig ->
+            defaultingE "Failed to parse ledger.access-token-file" Nothing $
+            queryProjectConfig ["ledger", "access-token-file"] projectConfig
 
 getProjectConfig :: Maybe T.Text -> IO ProjectConfig
 getProjectConfig argM = do

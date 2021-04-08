@@ -27,6 +27,7 @@ da_haskell_library(
         "unliftio",
         "unliftio-core",
         "unordered-containers",
+        "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [
