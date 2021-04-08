@@ -18,6 +18,24 @@ resource "google_compute_firewall" "hoogle" {
   }
 }
 
+resource "google_compute_firewall" "hoogle-ssh" {
+  count   = 0
+  name    = "hoogle-ssh"
+  network = google_compute_network.hoogle.name
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  source_ranges = [
+    "35.194.81.56/32",  # North Virginia
+    "35.189.40.124/32", # Sydney
+    "35.198.147.95/32", # Frankfurt
+  ]
+}
+
 locals {
   h_clusters = [
     {
