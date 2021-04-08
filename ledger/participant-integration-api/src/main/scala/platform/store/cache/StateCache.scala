@@ -6,7 +6,7 @@ package com.daml.platform.store.cache
 import com.daml.caching.Cache
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.StateCache.PendingUpdatesTracker
+import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
@@ -19,7 +19,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], metrics: Metri
     ec: ExecutionContext
 ) {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesTracker]
+  private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -74,7 +74,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], metrics: Metri
   final def putAsync(key: K, validAt: Long, eventualValue: Future[V])(implicit
       loggingContext: LoggingContext
   ): Future[Unit] = pendingUpdates.synchronized {
-    val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesTracker.empty)
+    val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
     if (pendingUpdatesForKey.latestValidAt < validAt) {
       pendingUpdatesForKey.latestValidAt = validAt
       pendingUpdatesForKey.pendingCount += 1
@@ -111,9 +111,9 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], metrics: Metri
     discard(
       pendingUpdates
         .get(key)
-        .map { pendingUpdateForKey =>
-          pendingUpdateForKey.pendingCount -= 1
-          if (pendingUpdateForKey.pendingCount == 0L) {
+        .map { pendingForKey =>
+          pendingForKey.pendingCount -= 1
+          if (pendingForKey.pendingCount == 0L) {
             pendingUpdates -= key
           }
         }
@@ -129,12 +129,12 @@ object StateCache {
     * @param pendingCount The number of in-progress updates.
     * @param latestValidAt Highest version of any pending update.
     */
-  private[cache] case class PendingUpdatesTracker(
+  private[cache] case class PendingUpdatesState(
       var pendingCount: Long,
       var latestValidAt: Long,
   )
-  private[cache] object PendingUpdatesTracker {
-    def empty: PendingUpdatesTracker = PendingUpdatesTracker(
+  private[cache] object PendingUpdatesState {
+    def empty: PendingUpdatesState = PendingUpdatesState(
       0L,
       Long.MinValue,
     )
