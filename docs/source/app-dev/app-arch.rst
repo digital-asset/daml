@@ -110,14 +110,14 @@ Developer workflow
 
 The SDK enables a local development environment with fast iteration cycles:
 
-1. The integrated VSCode IDE (``daml studio``) runs your Scripts on any change to your Daml models. See :ref:`Daml scenarios <testing-using-scenarios>`.
+1. The integrated VSCode IDE (``daml studio``) runs your Scripts on any change to your Daml models. See :ref:`Daml Script <testing-using-script>`.
 #. ``daml start`` will build all of your Daml code, generate the JavaScript bindings, and start the required "backend" processes (sandbox and HTTP JSON API). It will also allow you to press ``r`` (followed by Enter on Windows) to rebuild your code, regenerate the JavaScript bindings and upload the new code to the running ledger.
 #. ``npm start`` will watch your JavaScript source files for change and recompile them immediately when they are saved.
 
 Together, these features can provide you with very tight feedback loops while developing your Daml application, all the way from your Daml contracts up to your web UI. A typical Daml developer workflow is to
 
   1. Make a small change to your Daml data model
-  #. Optionally test your Daml code with :ref:`scenarios <testing-using-scenarios>`
+  #. Optionally test your Daml code with :ref:`Daml Script <testing-using-script>`
   #. Edit your React components to be aligned with changes made in Daml code
   #. Extend the UI to make use of the newly introduced feature
   #. Make further changes either to your Daml and/or React code until you're happy with what you've developed

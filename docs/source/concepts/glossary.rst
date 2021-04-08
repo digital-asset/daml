@@ -205,10 +205,10 @@ A `party <#party>`__ `submits <#submitting-commands-writing-to-the-ledger>`__ an
 
 See :doc:`/daml/reference/updates`.
 
-Scenario
-========
+Daml Script
+===========
 
-A **scenario** is a way of testing Daml code during development. You can run scenarios inside `Daml Studio <#daml-studio>`__, or write them to be executed on `Sandbox <#sandbox>`__ when it starts up.
+**Daml Script** provides a way of testing Daml code during development. You can run Daml Script inside `Daml Studio <#daml-studio>`__, or write them to be executed on `Sandbox <#sandbox>`__ when it starts up.
 
 They're useful for:
 
@@ -216,9 +216,9 @@ They're useful for:
 - ensuring that parties can exclusively create contracts, observe contracts, and exercise choices that they are meant to
 - acting as regression tests to confirm that everything keeps working correctly
 
-Scenarios emulate a real ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a Daml ledger. Daml Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a scenario fails) what caused it to fail.
+In Daml Studio, Daml Script runs in an emulated ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a Daml ledger. Daml Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a Daml Script fails) what caused it to fail.
 
-See :doc:`/daml/testing-scenarios`.
+See :ref:`testing-using-script`.
 
 .. Damle, Daml runtime, Daml execution engine
 .. ==========================================
