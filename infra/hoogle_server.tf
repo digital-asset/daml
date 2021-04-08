@@ -18,8 +18,24 @@ resource "google_compute_firewall" "hoogle" {
   }
 }
 
+locals {
+  h_clusters = [
+    {
+      suffix         = "-blue",
+      ubuntu_version = "2004",
+      size           = 1,
+    },
+    {
+      suffix         = "-green",
+      ubuntu_version = "2004",
+      size           = 2,
+    }
+  ]
+}
+
 resource "google_compute_instance_template" "hoogle" {
-  name_prefix  = "hoogle-"
+  count        = length(local.h_clusters)
+  name_prefix  = "hoogle${local.h_clusters[count.index].suffix}-"
   machine_type = "n1-standard-1"
   tags         = ["hoogle"]
   labels       = local.machine-labels
@@ -27,7 +43,7 @@ resource "google_compute_instance_template" "hoogle" {
   disk {
     boot         = true
     disk_size_gb = 20
-    source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
+    source_image = "ubuntu-os-cloud/ubuntu-${local.h_clusters[count.index].ubuntu_version}-lts"
   }
 
   metadata_startup_script = <<STARTUP
@@ -142,14 +158,15 @@ STARTUP
 
 resource "google_compute_instance_group_manager" "hoogle" {
   provider           = google-beta
-  name               = "hoogle"
-  base_instance_name = "hoogle"
+  count              = length(local.h_clusters)
+  name               = "hoogle${local.h_clusters[count.index].suffix}"
+  base_instance_name = "hoogle${local.h_clusters[count.index].suffix}"
   zone               = local.zone
-  target_size        = "3"
+  target_size        = local.h_clusters[count.index].size
 
   version {
-    name              = "hoogle"
-    instance_template = google_compute_instance_template.hoogle.self_link
+    name              = "hoogle${local.h_clusters[count.index].suffix}"
+    instance_template = google_compute_instance_template.hoogle[count.index].self_link
   }
 
   named_port {
@@ -196,8 +213,11 @@ resource "google_compute_backend_service" "hoogle-http" {
   health_checks = [google_compute_health_check.hoogle-http.self_link]
   port_name     = "http"
 
-  backend {
-    group = google_compute_instance_group_manager.hoogle.instance_group
+  dynamic backend {
+    for_each = local.h_clusters
+    content {
+      group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
+    }
   }
 }
 
@@ -233,8 +253,11 @@ resource "google_compute_backend_service" "hoogle-https" {
   health_checks = [google_compute_health_check.hoogle-https.self_link]
   port_name     = "https"
 
-  backend {
-    group = google_compute_instance_group_manager.hoogle.instance_group
+  dynamic backend {
+    for_each = local.h_clusters
+    content {
+      group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
+    }
   }
 }
 
