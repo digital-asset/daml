@@ -24,11 +24,31 @@ locals {
       suffix         = "-blue",
       ubuntu_version = "2004",
       size           = 1,
+      install        = <<EOF
+curl -sSL https://get.haskellstack.org/ | sh
+runuser -u hoogle bash <<HOOGLE_SETUP
+git clone https://github.com/ndmitchell/hoogle.git
+cd hoogle
+git checkout 73fa6b5c156e0015e135a564e2821719611abe03
+stack init --resolver=lts-14.7
+stack build
+stack install
+EOF
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
       size           = 2,
+      install        = <<EOF
+curl -sSL https://get.haskellstack.org/ | sh
+runuser -u hoogle bash <<HOOGLE_SETUP
+git clone https://github.com/ndmitchell/hoogle.git
+cd hoogle
+git checkout 73fa6b5c156e0015e135a564e2821719611abe03
+stack init --resolver=lts-14.7
+stack build
+stack install
+EOF
     }
   ]
 }
@@ -86,14 +106,7 @@ useradd hoogle
 mkdir /home/hoogle
 chown hoogle:hoogle /home/hoogle
 cd /home/hoogle
-curl -sSL https://get.haskellstack.org/ | sh
-runuser -u hoogle bash <<HOOGLE_SETUP
-git clone https://github.com/ndmitchell/hoogle.git
-cd hoogle
-git checkout 73fa6b5c156e0015e135a564e2821719611abe03
-stack init --resolver=lts-14.7
-stack build
-stack install
+${trimspace(local.h_clusters[count.index].install)}
 export PATH=/home/hoogle/.local/bin:$PATH
 mkdir daml
 curl https://docs.daml.com/hoogle_db/base.txt --output daml/base.txt
