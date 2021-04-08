@@ -24,8 +24,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.store.IndexMetadata
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
@@ -102,7 +101,7 @@ final class Runner[T <: ReadWriteService, Extra](
           val metrics = factory.createMetrics(participantConfig, config)
           metrics.registry.registerAll(new JvmMetricSet)
           val lfValueTranslationCache =
-            LfValueTranslation.Cache.newInstrumentedInstance(
+            LfValueTranslationCache.Cache.newInstrumentedInstance(
               eventConfiguration = config.lfValueTranslationEventCache,
               contractConfiguration = config.lfValueTranslationContractCache,
               metrics = metrics,

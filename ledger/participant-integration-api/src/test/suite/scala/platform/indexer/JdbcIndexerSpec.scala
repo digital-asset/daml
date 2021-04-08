@@ -27,9 +27,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
-import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata}
+import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -192,7 +191,7 @@ final class JdbcIndexerSpec
       config.eventsPageSize,
       materializer.executionContext,
       metrics,
-      LfValueTranslation.Cache.none,
+      LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = jdbcAsyncCommitMode,
       enricher = None,
     )
