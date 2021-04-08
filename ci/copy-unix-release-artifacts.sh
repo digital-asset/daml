@@ -30,8 +30,10 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $OUTPUT_DIR/github/$JSON_API
 
     TRIGGER_SERVICE=trigger-service-$RELEASE_TAG.jar
-    bazel build //triggers/service:trigger-service-binary_deploy.jar
-    cp bazel-bin/triggers/service/trigger-service-binary_deploy.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
+    bazel build //triggers/service:trigger-service-binary-ce_deploy.jar
+    cp bazel-bin/triggers/service/trigger-service-binary-ce_deploy.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
+    bazel build //triggers/service:trigger-service-binary-ee_deploy.jar
+    cp bazel-bin/triggers/service/trigger-service-binary-ee_deploy.jar $OUTPUT_DIR/artifactory/$TRIGGER_SERVICE
 
     OAUTH2_MIDDLEWARE=oauth2-middleware-$RELEASE_TAG.jar
     bazel build //triggers/service/auth:oauth2-middleware-binary_deploy.jar
