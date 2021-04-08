@@ -36,7 +36,7 @@ object TransactionIndexing {
 
     val createArguments = Vector.newBuilder[(NodeId, ContractId, Array[Byte])]
     val divulgedContracts = Vector.newBuilder[(ContractId, Array[Byte])]
-    val keyValues = Vector.newBuilder[(NodeId, Array[Byte])]
+    val createKeyValues = Vector.newBuilder[(NodeId, Array[Byte])]
     val exerciseArguments = Vector.newBuilder[(NodeId, Array[Byte])]
     val exerciseResults = Vector.newBuilder[(NodeId, Array[Byte])]
 
@@ -46,7 +46,7 @@ object TransactionIndexing {
         case create: Create =>
           val (createArgument, createKeyValue) = translation.serialize(eventId, create)
           createArguments += ((nodeId, create.coid, createArgument))
-          createKeyValue.foreach(key => keyValues += ((nodeId, key)))
+          createKeyValue.foreach(key => createKeyValues += ((nodeId, key)))
         case exercise: Exercise =>
           val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
           exerciseArguments += ((nodeId, exerciseArgument))
@@ -63,7 +63,7 @@ object TransactionIndexing {
     Serialized(
       createArguments = createArguments.result(),
       divulgedContracts = divulgedContracts.result(),
-      keyValues = keyValues.result(),
+      createKeyValues = createKeyValues.result(),
       exerciseArguments = exerciseArguments.result(),
       exerciseResults = exerciseResults.result(),
     )
@@ -96,7 +96,7 @@ object TransactionIndexing {
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
-    for ((nodeId, key) <- serialized.keyValues) {
+    for ((nodeId, key) <- serialized.createKeyValues) {
       val compressedKey = compressionStrategy.createKeyValueCompression
         .compress(key, compressionMetrics.createKeyValue)
       createKeyValues += ((nodeId, compressedKey))
@@ -122,7 +122,7 @@ object TransactionIndexing {
       events = Compressed.Events(
         createArguments = createArguments.result(),
         createArgumentsCompression = compressionStrategy.createArgumentCompression,
-        keyValues = createKeyValues.result(),
+        createKeyValues = createKeyValues.result(),
         createKeyValueCompression = compressionStrategy.createKeyValueCompression,
         exerciseArguments = exerciseArguments.result(),
         exerciseArgumentsCompression = compressionStrategy.exerciseArgumentCompression,
@@ -269,7 +269,7 @@ object TransactionIndexing {
   final case class Serialized(
       createArguments: Vector[(NodeId, ContractId, Array[Byte])],
       divulgedContracts: Vector[(ContractId, Array[Byte])],
-      keyValues: Vector[(NodeId, Array[Byte])],
+      createKeyValues: Vector[(NodeId, Array[Byte])],
       exerciseArguments: Vector[(NodeId, Array[Byte])],
       exerciseResults: Vector[(NodeId, Array[Byte])],
   ) {
@@ -288,7 +288,7 @@ object TransactionIndexing {
     final case class Events(
         createArguments: Map[NodeId, Array[Byte]],
         createArgumentsCompression: Compression.Algorithm,
-        keyValues: Map[NodeId, Array[Byte]],
+        createKeyValues: Map[NodeId, Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
         exerciseArguments: Map[NodeId, Array[Byte]],
         exerciseArgumentsCompression: Compression.Algorithm,
@@ -297,7 +297,7 @@ object TransactionIndexing {
     ) {
       def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
         assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")
-        (createArguments(nodeId), keyValues.get(nodeId))
+        (createArguments(nodeId), createKeyValues.get(nodeId))
       }
 
       def assertExercise(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
