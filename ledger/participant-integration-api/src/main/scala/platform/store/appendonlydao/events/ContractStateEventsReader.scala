@@ -21,9 +21,6 @@ import com.daml.platform.store.LfValueTranslationCache
 import scala.util.control.NoStackTrace
 
 object ContractStateEventsReader {
-  private val EventKindCreated = 10
-  private val EventKindArchived = 20
-
   val contractStateRowParser: RowParser[RawContractStateEvent] =
     (int("event_kind") ~
       contractId("contract_id") ~
@@ -65,7 +62,7 @@ This method intentionally produces a generic DTO to perform as much work as poss
       lfValueTranslation: LfValueTranslation,
   ): ContractStateEvent =
     raw.eventKind match {
-      case EventKindArchived =>
+      case EventKind.ConsumingExercise =>
         val templateId = raw.templateId.getOrElse(throw CreateMissingError("template_id"))
         val maybeGlobalKey =
           decompressGlobalKey(templateId, raw.createKeyValue, raw.createKeyCompression)
@@ -76,7 +73,7 @@ This method intentionally produces a generic DTO to perform as much work as poss
           eventOffset = raw.offset,
           eventSequentialId = raw.eventSequentialId,
         )
-      case EventKindCreated =>
+      case EventKind.Create =>
         val templateId = raw.templateId.getOrElse(throw CreateMissingError("template_id"))
         val createArgument =
           raw.createArgument.getOrElse(throw CreateMissingError("create_argument"))
@@ -145,11 +142,6 @@ This method intentionally produces a generic DTO to perform as much work as poss
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
 
-  private object EventKind {
-    val Create = "10"
-    val ConsumingExercise = "20"
-  }
-
   private val createsAndArchives: EventsRange[Long] => SimpleSql[Row] =
     (range: EventsRange[Long]) => SQL(s"""
                                          |SELECT
@@ -194,4 +186,9 @@ This method intentionally produces a generic DTO to perform as much work as poss
       eventSequentialId: Long,
       offset: Offset,
   )
+
+  private object EventKind {
+    val Create = 10
+    val ConsumingExercise = 20
+  }
 }
