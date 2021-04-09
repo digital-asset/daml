@@ -72,13 +72,17 @@ private[preprocessing] final class TransactionPreprocessor(
             choiceObservers @ _,
             children @ _,
             exerciseResult @ _,
-            key @ _,
+            key,
             byKey @ _,
             version @ _,
           ) =>
         val templateId = template
-        val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal)
+        val (cmd, newCids) = key match {
+          case Some(Node.KeyWithMaintainers(key, _)) =>
+            commandPreprocessor.unsafePreprocessExerciseByKey(templateId, key, choice, chosenVal)
+          case None =>
+            commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal)
+        }
         (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
       case Node.NodeFetch(coid, templateId, _, _, _, _, _, _, _) =>
         val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
