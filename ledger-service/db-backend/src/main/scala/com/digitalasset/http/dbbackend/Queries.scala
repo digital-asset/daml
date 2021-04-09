@@ -779,18 +779,25 @@ private object OracleQueries extends Queries {
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
-    def equalFallback =
-      sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
-        oracleShortPathEscape(opath) ++ sql"), ${literal.compactPrint: String})"
-    literal match {
-      case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
-        val pred = opath ++ "?(@ == " ++ literal.compactPrint :- ')'
-        oraclePathEscape(pred).cata(
-          encpred => sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ encpred ++ sql")",
-          equalFallback,
-        )
-      case JsObject(_) | JsArray(_) => equalFallback
+    def existsForm[Lit: Put](literal: Lit) =
+      (
+        "?(@ == $X)", // not a Scala interpolation
+        sql" PASSING $literal AS X",
+      )
+    val predExtension = literal match {
+      case JsNumber(n) => Some(existsForm(n))
+      case JsString(s) => Some(existsForm(s))
+      case JsBoolean(_) | JsNull => Some((s"?(@ == $literal)", sql""))
+      case JsObject(_) | JsArray(_) => None
     }
+    predExtension.cata(
+      { case (pred, extension) =>
+        sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
+          oracleShortPathEscape(opath ++ pred) ++ extension ++ sql")"
+      },
+      sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
+        oracleShortPathEscape(opath) ++ sql" RETURNING CLOB), $literal)",
+    )
   }
 
   // XXX JsValue is _too big_ a type for `literal`; we can make this function
