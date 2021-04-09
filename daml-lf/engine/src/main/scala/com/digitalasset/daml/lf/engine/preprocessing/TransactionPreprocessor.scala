@@ -28,65 +28,31 @@ private[preprocessing] final class TransactionPreprocessor(
   // Translate a GenNode into an expression re-interpretable by the interpreter
   @throws[PreprocessorException]
   def unsafeTranslateNode[Cid <: Value.ContractId](
-      acc: (Set[Value.ContractId], Set[Value.ContractId]),
-      node: Node.GenNode[NodeId, Cid],
-  ): (speedy.Command, (Set[Value.ContractId], Set[Value.ContractId])) = {
-
-    val (localCids, globalCids) = acc
+      node: Node.GenNode[NodeId, Cid]
+  ): (speedy.Command, Set[Value.ContractId]) = {
 
     node match {
       case _: Node.NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         // how on earth can we turn a rollback node back into a speedy command?
         sys.error("rollback nodes are not supported")
-      case Node.NodeCreate(
-            coid @ _,
-            templateId,
-            arg,
-            agreementText @ _,
-            optLoc @ _,
-            sigs @ _,
-            stks @ _,
-            key @ _,
-            version @ _,
-          ) =>
-        if (globalCids(coid))
-          fail("Conflicting discriminators between a global and local contract ID.")
+      case create: Node.NodeCreate[Cid] =>
+        commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
 
-        val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessCreate(templateId, arg)
-        val newGlobalCids = globalCids + coid
-        val newLocalCids = localCids | newCids.filterNot(globalCids)
-        cmd -> (newLocalCids -> newGlobalCids)
-
-      case Node.NodeExercises(
-            coid,
-            template,
-            choice,
-            optLoc @ _,
-            consuming @ _,
-            actingParties @ _,
-            chosenVal,
-            stakeholders @ _,
-            signatories @ _,
-            choiceObservers @ _,
-            children @ _,
-            exerciseResult @ _,
-            key @ _,
-            byKey @ _,
-            version @ _,
-          ) =>
-        val templateId = template
-        val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal)
-        (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
-      case Node.NodeFetch(coid, templateId, _, _, _, _, _, _, _) =>
-        val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
-        (cmd, acc)
-      case Node.NodeLookupByKey(templateId, _, key, _, _) =>
-        val keyValue = unsafeAsValueWithNoContractIds(key.key)
-        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
-        (cmd, acc)
+      case exe: Node.NodeExercises[_, Cid] =>
+        commandPreprocessor.unsafePreprocessExercise(
+          exe.templateId,
+          exe.targetCoid,
+          exe.choiceId,
+          exe.chosenValue,
+        )
+      case fetch: Node.NodeFetch[Cid] =>
+        val cmd = commandPreprocessor.unsafePreprocessFetch(fetch.templateId, fetch.coid)
+        (cmd, Set.empty)
+      case lookup: Node.NodeLookupByKey[Cid] =>
+        val keyValue = unsafeAsValueWithNoContractIds(lookup.key.key)
+        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(lookup.templateId, keyValue)
+        (cmd, Set.empty)
     }
   }
 
@@ -95,28 +61,52 @@ private[preprocessing] final class TransactionPreprocessor(
       tx: GenTransaction[NodeId, Cid]
   ): (ImmArray[speedy.Command], Set[ContractId]) = {
 
-    type Acc = ((Set[Value.ContractId], Set[Value.ContractId]), BackStack[speedy.Command])
+    type Acc = (Set[Value.ContractId], Set[Value.ContractId], BackStack[speedy.Command])
 
-    val ((localCids, _), cmds) =
-      tx.roots.foldLeft[Acc](((Set.empty, Set.empty), BackStack.empty)) {
-        case ((cids, stack), id) =>
-          tx.nodes.get(id) match {
+    val (_, globalCids, cmds) =
+      tx.roots.foldLeft[Acc]((Set.empty, Set.empty, BackStack.empty)) {
+        case ((localCids0, globalCids0, stack), id) =>
+          val (newGlobals, newLocals, cmd) = tx.nodes.get(id) match {
             case None =>
               fail(s"invalid transaction, root refers to non-existing node $id")
             case Some(node) =>
               node match {
+                case create: Node.NodeCreate[Cid] =>
+                  val (cmd, newCids) =
+                    commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+                  val newGlobalCids = newCids.filterNot(localCids0)
+                  (newGlobalCids, List(create.coid), cmd)
+                case exe: Node.NodeExercises[_, Cid] =>
+                  val templateId = exe.templateId
+                  val (cmd, newCids) =
+                    commandPreprocessor.unsafePreprocessExercise(
+                      templateId,
+                      exe.targetCoid,
+                      exe.choiceId,
+                      exe.chosenValue,
+                    )
+                  val newGlobalCids = newCids.filterNot(localCids0)
+                  val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
+                  (newGlobalCids, newLocalCids, cmd)
+
                 case _: Node.NodeFetch[_] =>
                   fail(s"Transaction contains a fetch root node $id")
                 case _: Node.NodeLookupByKey[_] =>
                   fail(s"Transaction contains a lookup by key root node $id")
-                case _ =>
-                  val (cmd, acc) = unsafeTranslateNode(cids, node)
-                  (acc, stack :+ cmd)
+                case _: Node.NodeRollback[_] =>
+                  // TODO https://github.com/digital-asset/daml/issues/8020
+                  // how on earth can we turn a rollback node back into a speedy command?
+                  sys.error("rollback nodes are not supported")
               }
           }
+          val globalCids = globalCids0 | newGlobals
+          if (newLocals.exists(globalCids))
+            fail("Conflicting discriminators between a global and local contract ID.")
+          val localCids = localCids0 ++ newLocals
+          (localCids, globalCids, stack :+ cmd)
       }
 
-    cmds.toImmArray -> localCids
+    cmds.toImmArray -> globalCids
   }
 
 }
