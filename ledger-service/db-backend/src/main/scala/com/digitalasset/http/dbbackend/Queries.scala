@@ -27,8 +27,8 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 
 sealed abstract class Queries {
-  import Queries._, InitDdl._
-  import Implicits._
+  import Queries.{Implicits => _, _}, InitDdl._
+  import Queries.Implicits._
 
   protected[this] def dropTableIfExists(table: String): Fragment
 
@@ -289,13 +289,9 @@ sealed abstract class Queries {
       literalScalar: JsValue,
   ): Fragment
 
-  object Implicits {
-    implicit val `JsValue put`: Meta[JsValue] =
-      Meta[String].timap(_.parseJson)(_.compactPrint)
-
-    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
-      SurrogateTpId subst Meta[Long]
-  }
+  // unsure whether this will need to be instance dependent, but
+  // just fine to be an alias for now
+  private[http] val Implicits: Queries.Implicits.type = Queries.Implicits
 }
 
 object Queries {
@@ -418,6 +414,14 @@ object Queries {
 
   private[http] val Postgres: Queries = PostgresQueries
   private[http] val Oracle: Queries = OracleQueries
+
+  private[http] object Implicits {
+    implicit val `JsValue put`: Meta[JsValue] =
+      Meta[String].timap(_.parseJson)(_.compactPrint)
+
+    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
+      SurrogateTpId subst Meta[Long]
+  }
 
   private[dbbackend] object CompatImplicits {
     implicit def catsReducibleFromFoldable1[F[_]](implicit
