@@ -5,6 +5,7 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 
 import anorm.SqlParser.{binaryStream, int, long}
 import anorm._
@@ -25,6 +26,7 @@ object ContractStateEventsReader {
     (int("event_kind") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
+      instant("ledger_effective_time").? ~
       binaryStream("create_key_value").? ~
       int("create_key_value_compression").? ~
       binaryStream("create_argument").? ~
@@ -32,11 +34,12 @@ object ContractStateEventsReader {
       long("event_sequential_id") ~
       flatEventWitnessesColumn("flat_event_witnesses") ~
       offset("event_offset")).map {
-      case eventKind ~ contractId ~ templateId ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
+      case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
         RawContractStateEvent(
           eventKind,
           contractId,
           templateId,
+          ledgerEffectiveTime,
           createKeyValue,
           createKeyCompression,
           createArgument,
@@ -89,6 +92,8 @@ object ContractStateEventsReader {
           contractId = raw.contractId,
           contract = contract,
           globalKey = maybeGlobalKey,
+          ledgerEffectiveTime =
+            raw.ledgerEffectiveTime.getOrElse(throw CreateMissingError("ledger_effective_time")),
           stakeholders = raw.flatEventWitnesses,
           eventOffset = raw.offset,
           eventSequentialId = raw.eventSequentialId,
@@ -152,6 +157,7 @@ object ContractStateEventsReader {
                                          |    create_argument,
                                          |    create_argument_compression,
                                          |    flat_event_witnesses,
+                                         |    ledger_effective_time,
                                          |    event_sequential_id,
                                          |    event_offset
                                          |FROM
@@ -177,6 +183,7 @@ object ContractStateEventsReader {
       eventKind: Int,
       contractId: ContractId,
       templateId: Option[Ref.Identifier],
+      ledgerEffectiveTime: Option[Instant],
       createKeyValue: Option[InputStream],
       createKeyCompression: Option[Int],
       createArgument: Option[InputStream],

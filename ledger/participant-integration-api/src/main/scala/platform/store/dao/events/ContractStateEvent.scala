@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao.events
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.GlobalKey
 
@@ -15,6 +17,7 @@ object ContractStateEvent {
       contractId: ContractId,
       contract: Contract,
       globalKey: Option[GlobalKey],
+      ledgerEffectiveTime: Instant,
       stakeholders: Set[Party],
       eventOffset: Offset,
       eventSequentialId: Long,
