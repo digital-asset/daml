@@ -47,7 +47,26 @@ object MetricsReporter {
     val defaultPort: Int = 2003
   }
 
+  final case class Prometheus(address: InetSocketAddress)
+    extends MetricsReporter {
+    override def register(registry: MetricRegistry): ScheduledReporter =
+      PrometheusReporter
+        .forRegistry(registry)
+        .build(address)
+  }
+
+  object Prometheus {
+    val defaultPort: Int = 55001
+  }
+
   implicit val metricsReporterRead: Read[MetricsReporter] = {
+    def getAddress(uri: URI, defaultPort: Int) = {
+      if (uri.getHost == null) {
+        throw invalidRead
+      }
+      val port = if (uri.getPort > 0) uri.getPort else defaultPort
+      new InetSocketAddress(uri.getHost, port)
+    }
     Read.reads {
       case "console" =>
         Console
@@ -59,13 +78,13 @@ object MetricsReporter {
         Csv(Paths.get(uri.getPath))
       case value if value.startsWith("graphite://") =>
         val uri = parseUri(value)
-        if (uri.getHost == null) {
-          throw invalidRead
-        }
-        val port = if (uri.getPort > 0) uri.getPort else Graphite.defaultPort
-        val address = new InetSocketAddress(uri.getHost, port)
+        val address = getAddress(uri, Graphite.defaultPort)
         val metricPrefix = Some(uri.getPath.stripPrefix("/")).filter(_.nonEmpty)
         Graphite(address, metricPrefix)
+      case value if value.startsWith("prometheus://") =>
+        val uri = parseUri(value)
+        val address = getAddress(uri, Prometheus.defaultPort)
+        Prometheus(address)
       case _ =>
         throw invalidRead
     }
@@ -80,7 +99,7 @@ object MetricsReporter {
     }
 
   private val invalidReadError: String =
-    """Must be one of "console", "csv:///PATH", or "graphite://HOST[:PORT][/METRIC_PREFIX]"."""
+    """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
 
   private def invalidRead: InvalidConfigException =
     new InvalidConfigException(invalidReadError)

@@ -13,7 +13,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.configuration.MetricsReporter.Graphite
+import com.daml.platform.configuration.MetricsReporter.{Graphite, Prometheus}
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -227,6 +227,42 @@ abstract class CommonCliSpecBase(
 
     "reject a Graphite metrics reporter when it's missing '//'" in {
       val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "graphite:server:1234"))
+      config shouldEqual None
+    }
+    
+    "parse a Prometheus metrics reporter when given" in {
+      val expectedAddress = new InetSocketAddress("server", Prometheus.defaultPort)
+      checkOption(
+        Array("--metrics-reporter", "prometheus://server"),
+        _.copy(metricsReporter = Some(MetricsReporter.Prometheus(expectedAddress))),
+      )
+    }
+
+    "parse a Prometheus metrics reporter with a port when given" in {
+      val expectedAddress = new InetSocketAddress("server", 9876)
+      checkOption(
+        Array("--metrics-reporter", "prometheus://server:9876"),
+        _.copy(metricsReporter = Some(MetricsReporter.Prometheus(expectedAddress))),
+      )
+    }
+
+    "reject a Prometheus metrics reporter when it has no information" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus"))
+      config shouldEqual None
+    }
+
+    "reject a Prometheus metrics reporter without a host" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus://"))
+      config shouldEqual None
+    }
+
+    "reject a Prometheus metrics reporter without a host but with a port" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus://:9876"))
+      config shouldEqual None
+    }
+
+    "reject a Prometheus metrics reporter when it's missing '//'" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus:server:1234"))
       config shouldEqual None
     }
 
