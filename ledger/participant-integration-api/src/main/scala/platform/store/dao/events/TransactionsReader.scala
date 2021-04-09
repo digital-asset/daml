@@ -308,10 +308,12 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
-  // THIS METHOD WILL BE IMPLEMENTED WITH THE APPEND-ONLY SCHEMA WORK
   override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
       implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed] = ???
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
+    throw new UnsupportedOperationException(
+      "The operation is not supported in the current version."
+    )
 
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]

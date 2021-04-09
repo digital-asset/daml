@@ -72,6 +72,13 @@ private[platform] trait LedgerDaoTransactionsReader {
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 
+  /** A stream of updates to contracts' states read from the index database.
+    *
+    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
+    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
+    * @param loggingContext
+    * @return
+    */
   def getContractStateEvents(
       startExclusive: (Offset, Long),
       endInclusive: (Offset, Long),
