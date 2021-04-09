@@ -72,3 +72,38 @@ LF_MAJOR_VERSIONS = ["1"]
 
 def mangle_for_java(name):
     return name.replace(".", "_")
+
+def _to_major_minor(v):
+    (majorStr, minorStr) = v.partition(".")
+    (int(majorStr), int(minorStr))
+
+def _cmp(a, b):
+    if a == b:
+        return 0
+    elif a > b:
+        return 1
+    else:
+        return -1
+
+def _cmp_lf_version(a, b):
+    if a == "1.dev" and b == "1.dev":
+        return 0
+    elif a == "1.dev":
+        return 1
+    elif b == "1.dev":
+        return -1
+    else:
+        aVer = _to_major_minor(a)
+        bVer = _to_major_minor(b)
+        _cmp(aVer, bVer)
+
+def _gte(a, b):
+    return _cmp(a, b) >= 0
+
+def _lte(a, b):
+    return _cmp(a, b) <= 0
+
+versions = struct(
+    lte = _lte,
+    gte = _gte,
+)

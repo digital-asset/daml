@@ -7,11 +7,18 @@ import java.nio.file.Path
 
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
 import com.daml.ledger.api.testtool.suites._
+import com.daml.lf.language.LanguageVersion
+import com.daml.ledger.test.TestDar
 
 import scala.collection.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
 object Tests {
+
+  private val supportsExceptions: Boolean = {
+    import scala.Ordering.Implicits.infixOrderingOps
+    TestDar.lfVersion >= LanguageVersion.Features.exceptions
+  }
 
   def default(
       timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
@@ -37,7 +44,7 @@ object Tests {
       new TransactionServiceIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
-    )
+    ) ++ (if (supportsExceptions) Vector(new ExceptionsIT) else Vector.empty)
 
   val optional: Vector[LedgerTestSuite] =
     Vector(

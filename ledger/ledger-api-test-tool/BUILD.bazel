@@ -30,6 +30,7 @@ load(
     ":conformance.bzl",
     "conformance_test",
 )
+load(":util.bzl", "suites_sources")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # we release ledger-api-test-tool-stable as ledger-api-test-tool
@@ -104,7 +105,7 @@ da_scala_binary(
         ),
         da_scala_library_suite(
             name = "ledger-api-test-tool-%s-test-suites" % lf_version,
-            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/suites/**/*.scala"]),
+            srcs = suites_sources(lf_version),
             plugins = [
                 silencer_plugin,
             ],
@@ -144,6 +145,8 @@ da_scala_binary(
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
             visibility = ["//:__subpackages__"],
             deps = [
+                "//daml-lf/language",
+                "//ledger/test-common:dar-files-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-test-suites" % lf_version,
                 "//ledger/ledger-api-common",
