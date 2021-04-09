@@ -62,6 +62,7 @@ trait ConfigProvider[ExtraConfig] {
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
+      enableAppendOnlySchema = config.enableAppendOnlySchema,
     )
 
   def commandConfig(

@@ -43,6 +43,8 @@ private[platform] object ReadOnlySqlLedger {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
@@ -100,16 +102,29 @@ private[platform] object ReadOnlySqlLedger {
     private def ledgerDaoOwner(
         servicesExecutionContext: ExecutionContext
     ): ResourceOwner[LedgerReadDao] =
-      JdbcLedgerDao.readOwner(
-        serverRole,
-        jdbcUrl,
-        databaseConnectionPoolSize,
-        eventsPageSize,
-        servicesExecutionContext,
-        metrics,
-        lfValueTranslationCache,
-        Some(enricher),
-      )
+      if (enableAppendOnlySchema) {
+        com.daml.platform.store.appendonlydao.JdbcLedgerDao.readOwner(
+          serverRole,
+          jdbcUrl,
+          databaseConnectionPoolSize,
+          eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          Some(enricher),
+        )
+      } else {
+        JdbcLedgerDao.readOwner(
+          serverRole,
+          jdbcUrl,
+          databaseConnectionPoolSize,
+          eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          Some(enricher),
+        )
+      }
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(
