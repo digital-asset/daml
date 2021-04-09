@@ -849,8 +849,8 @@ private object OracleQueries extends Queries {
       literalScalar: JsValue,
   ) = {
     val literalRendered = literalScalar match {
-      case JsNumber(n) => fr"$n"
-      case JsString(s) => fr"$s"
+      case JsNumber(n) => sql"$n"
+      case JsString(s) => sql"$s"
       case JsNull | JsBoolean(_) | JsArray(_) | JsObject(_) =>
         throw new IllegalArgumentException(
           s"${literalScalar.compactPrint} is not comparable in JSON queries"
