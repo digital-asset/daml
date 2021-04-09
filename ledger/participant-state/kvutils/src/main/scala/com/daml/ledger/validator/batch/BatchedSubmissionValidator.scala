@@ -3,7 +3,6 @@
 
 package com.daml.ledger.validator.batch
 
-import java.security.MessageDigest
 import java.time.Instant
 
 import akka.NotUsed
@@ -27,7 +26,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,6 +39,8 @@ object BatchedSubmissionValidator {
       conflictDetection: ConflictDetection,
       metrics: Metrics,
       ledgerDataExporter: LedgerDataExporter,
+      logEntryIdComputationStrategy: LogEntryIdComputationStrategy =
+        HashingLogEntryIdComputationStrategy,
   ): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
@@ -48,6 +48,7 @@ object BatchedSubmissionValidator {
       conflictDetection,
       metrics,
       ledgerDataExporter,
+      logEntryIdComputationStrategy,
     )
 
   /** A [[DamlSubmission]] with an associated correlation id and a log entry id computed
@@ -58,27 +59,6 @@ object BatchedSubmissionValidator {
       logEntryId: DamlLogEntryId,
       submission: DamlSubmission,
   )
-
-  private val LogEntryIdPrefix = "0"
-
-  // While the log entry ID is no longer the basis for deriving absolute contract IDs,
-  // it is used for keying log entries / fragments. We may want to consider content addressing
-  // instead and remove the whole concept of log entry identifiers.
-  // For now this implementation uses a sha256 hash of the submission envelope in order to generate
-  // deterministic log entry IDs.
-  private[validator] def rawToLogEntryId(value: Raw.Envelope): DamlLogEntryId = {
-    val messageDigest = MessageDigest
-      .getInstance("SHA-256")
-    messageDigest.update(value.bytes.asReadOnlyByteBuffer())
-    val hash = messageDigest
-      .digest()
-      .map("%02x" format _)
-      .mkString
-    val prefixedHash = ByteString.copyFromUtf8(LogEntryIdPrefix + hash)
-    DamlLogEntryId.newBuilder
-      .setEntryId(prefixedHash)
-      .build
-  }
 
   private def withCorrelationIdLogged[T](
       correlationId: CorrelationId
@@ -101,6 +81,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     conflictDetection: ConflictDetection,
     damlMetrics: Metrics,
     ledgerDataExporter: LedgerDataExporter,
+    logEntryIdComputationStrategy: LogEntryIdComputationStrategy,
 ) {
 
   import BatchedSubmissionValidator._
@@ -180,7 +161,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       submission: DamlSubmission,
       correlationId: CorrelationId,
   ): Source[Inputs, NotUsed] = {
-    val logEntryId = rawToLogEntryId(envelope)
+    val logEntryId = logEntryIdComputationStrategy.compute(envelope)
     Source.single(Indexed(CorrelatedSubmission(correlationId, logEntryId, submission), 0L))
   }
 
@@ -202,11 +183,16 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             metrics.decodeRunning,
             Future {
               val rawEnvelope = Raw.Envelope(submissionEnvelope)
+              val logEntryId = logEntryIdComputationStrategy.compute(rawEnvelope)
               val submission = Envelope
                 .openSubmission(rawEnvelope)
                 .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
               metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
-              CorrelatedSubmission(correlationId, rawToLogEntryId(rawEnvelope), submission)
+              CorrelatedSubmission(
+                correlationId,
+                logEntryId,
+                submission,
+              )
             },
           )
         }

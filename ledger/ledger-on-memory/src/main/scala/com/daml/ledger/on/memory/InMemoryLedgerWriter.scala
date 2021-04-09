@@ -112,7 +112,7 @@ object InMemoryLedgerWriter {
         validator = new PreExecutingSubmissionValidator(
           keyValueCommitting,
           new RawPreExecutingCommitStrategy(keySerializationStrategy),
-          metrics,
+          metrics = metrics,
         ),
         postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
         postExecutionWriteSetSelector = new TimeBasedWriteSetSelector(now),

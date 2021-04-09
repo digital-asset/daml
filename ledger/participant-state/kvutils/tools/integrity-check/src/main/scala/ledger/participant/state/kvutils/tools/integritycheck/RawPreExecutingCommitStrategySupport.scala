@@ -55,7 +55,7 @@ final class RawPreExecutingCommitStrategySupport(
     validator = new PreExecutingSubmissionValidator(
       new KeyValueCommitting(new Engine(), metrics, inStaticTimeMode = true),
       new RawPreExecutingCommitStrategy(stateKeySerializationStrategy),
-      metrics,
+      metrics = metrics,
     ),
     postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
     postExecutionWriteSetSelector = postExecutionWriteSetSelector,
