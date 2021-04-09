@@ -80,7 +80,7 @@ final class StandaloneApiServer(
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
           enricher = valueEnricher,
-          enableAppendOnlySchema = config.enableAppendOnlySchema
+          enableAppendOnlySchema = config.enableAppendOnlySchema,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)

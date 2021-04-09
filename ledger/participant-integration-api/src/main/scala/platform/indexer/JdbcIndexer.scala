@@ -19,6 +19,8 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.parallel.ParallelIndexerFactory
+import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 
@@ -26,6 +28,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object JdbcIndexer {
+  // TODO append-only: currently StandaloneIndexerServer (among others) has a hard dependency on this concrete class.
+  // Clean this up, for example by extracting the public interface of this class into a trait so that it's easier
+  // to write applications that do not depend on a particular indexer implementation.
   private[daml] final class Factory private[indexer] (
       config: IndexerConfig,
       readService: ReadService,
@@ -34,6 +39,7 @@ object JdbcIndexer {
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
       ledgerDaoOwner: ResourceOwner[LedgerDao],
       flywayMigrations: FlywayMigrations,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit materializer: Materializer, loggingContext: LoggingContext) {
 
     private[daml] def this(
@@ -62,28 +68,32 @@ object JdbcIndexer {
           enricher = None,
         ),
         new FlywayMigrations(config.jdbcUrl),
+        lfValueTranslationCache,
       )
 
     private val logger = ContextualizedLogger.get(this.getClass)
 
     def validateSchema()(implicit
         resourceContext: ResourceContext
-    ): Future[ResourceOwner[JdbcIndexer]] =
+    ): Future[ResourceOwner[Indexer]] =
       flywayMigrations
         .validate()
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     def migrateSchema(
-        allowExistingSchema: Boolean,
-        enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
-    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
+        allowExistingSchema: Boolean
+    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
       flywayMigrations
-        .migrate(allowExistingSchema, enableAppendOnlySchema)
+        .migrate(allowExistingSchema, config.enableAppendOnlySchema)
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
-    def resetSchema(): Future[ResourceOwner[JdbcIndexer]] = initialized(resetSchema = true)
+    def resetSchema()(implicit
+        resourceContext: ResourceContext
+    ): Future[ResourceOwner[Indexer]] = initialized(resetSchema = true)
 
-    private def initialized(resetSchema: Boolean): Future[ResourceOwner[JdbcIndexer]] =
+    private[this] def initializedMutatingSchema(
+        resetSchema: Boolean
+    ): Future[ResourceOwner[Indexer]] =
       Future.successful(for {
         ledgerDao <- ledgerDaoOwner
         _ <-
@@ -105,6 +115,59 @@ object JdbcIndexer {
         )
       } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow))
 
+    private[this] def initializedAppendOnlySchema(resetSchema: Boolean)(implicit
+        resourceContext: ResourceContext
+    ): Future[ResourceOwner[Indexer]] = {
+      implicit val executionContext: ExecutionContext = resourceContext.executionContext
+      // TODO append-only: clean up the mixed use of Future, Resource, and ResourceOwner
+      Future.successful(for {
+        // Note: the LedgerDao interface is only used for initialization here, it can be released immediately
+        // after initialization is finished. Hence the use of ResourceOwner.use().
+        _ <- ResourceOwner.forFuture(() =>
+          ledgerDaoOwner.use(ledgerDao =>
+            for {
+              _ <-
+                if (resetSchema) {
+                  ledgerDao.reset()
+                } else {
+                  Future.successful(())
+                }
+              _ <- initializeLedger(ledgerDao)().acquire().asFuture
+            } yield ()
+          )
+        )
+        indexer <- ParallelIndexerFactory(
+          jdbcUrl = config.jdbcUrl,
+          participantId = config.participantId,
+          translation = new LfValueTranslation(
+            cache = lfValueTranslationCache,
+            metrics = metrics,
+            enricherO = None,
+            loadPackage = (_, _) => Future.successful(None),
+          ),
+          compressionStrategy =
+            if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
+            else CompressionStrategy.none(metrics),
+          mat = materializer,
+          inputMappingParallelism = config.inputMappingParallelism,
+          ingestionParallelism = config.ingestionParallelism,
+          submissionBatchSize = config.submissionBatchSize,
+          tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
+          batchWithinMillis = config.batchWithinMillis,
+          metrics = metrics,
+        )
+      } yield indexer)
+    }
+
+    private def initialized(resetSchema: Boolean)(implicit
+        resourceContext: ResourceContext
+    ): Future[ResourceOwner[Indexer]] =
+      if (config.enableAppendOnlySchema)
+        initializedAppendOnlySchema(resetSchema)
+      else
+        initializedMutatingSchema(resetSchema)
+
+    // TODO append-only: This is just a series of database operations, it should return a Future and not a ResourceOwner
     private def initializeLedger(dao: LedgerDao)(): ResourceOwner[Option[Offset]] =
       new ResourceOwner[Option[Offset]] {
         override def acquire()(implicit context: ResourceContext): Resource[Option[Offset]] =

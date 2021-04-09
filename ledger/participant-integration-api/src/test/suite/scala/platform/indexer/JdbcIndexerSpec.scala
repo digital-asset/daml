@@ -177,7 +177,7 @@ final class JdbcIndexerSpec
       participantId: String,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed] = noOpFlow,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
-  ): Future[ResourceOwner[JdbcIndexer]] = {
+  ): Future[ResourceOwner[Indexer]] = {
     val config = IndexerConfig(
       participantId = v1.ParticipantId.assertFromString(participantId),
       jdbcUrl = postgresDatabase.url,
@@ -204,7 +204,8 @@ final class JdbcIndexerSpec
         mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
       ledgerDaoOwner = ledgerDaoOwner,
       flywayMigrations = new FlywayMigrations(config.jdbcUrl),
-    ).migrateSchema(allowExistingSchema = true, enableAppendOnlySchema = false)
+      LfValueTranslationCache.Cache.none,
+    ).migrateSchema(allowExistingSchema = true)
   }
 
   private def mockedUpdateFlowOwnerBuilder(
