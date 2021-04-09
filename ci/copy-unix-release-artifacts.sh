@@ -30,8 +30,11 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $OUTPUT_DIR/github/$JSON_API
 
     TRIGGER_SERVICE=trigger-service-$RELEASE_TAG.jar
-    bazel build //triggers/service:trigger-service-binary_deploy.jar
-    cp bazel-bin/triggers/service/trigger-service-binary_deploy.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
+    TRIGGER_SERVICE_EE=trigger-service-$RELEASE_TAG-ee.jar
+    bazel build //triggers/service:trigger-service-binary-ce_deploy.jar
+    cp bazel-bin/triggers/service/trigger-service-binary-ce_deploy.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
+    bazel build //triggers/service:trigger-service-binary-ee_deploy.jar
+    cp bazel-bin/triggers/service/trigger-service-binary-ee_deploy.jar $OUTPUT_DIR/artifactory/$TRIGGER_SERVICE_EE
 
     OAUTH2_MIDDLEWARE=oauth2-middleware-$RELEASE_TAG.jar
     bazel build //triggers/service/auth:oauth2-middleware-binary_deploy.jar
@@ -46,7 +49,7 @@ if [[ "$NAME" == "linux" ]]; then
     bazel build //daml-script/runner:script-runner_deploy.jar
     cp bazel-bin/daml-script/runner/script-runner_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
 
-    NON_REPUDIATION=non-repudiation-$RELEASE_TAG.jar
+    NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
     bazel build //runtime-components/non-repudiation-app:non-repudiation-app_deploy.jar
     cp bazel-bin/runtime-components/non-repudiation-app/non-repudiation-app_deploy.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION
 
