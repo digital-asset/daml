@@ -26,7 +26,6 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
 import com.daml.platform.store.entries.{
@@ -35,6 +34,7 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
 

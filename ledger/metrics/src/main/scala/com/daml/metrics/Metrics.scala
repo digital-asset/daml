@@ -361,10 +361,6 @@ final class Metrics(val registry: MetricRegistry) {
           registry.timer(Prefix :+ "lookup_ledger_configuration")
         val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
         val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
-        val lookupActiveContractWithCachedArgument: Timer =
-          registry.timer(Prefix :+ "lookup_active_contract_with_provided_argument")
-        val lookupContractState: Timer = registry.timer(Prefix :+ "lookup_contract_state")
-        val lookupKeyState: Timer = registry.timer(Prefix :+ "lookup_key_state")
         val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
         val getParties: Timer = registry.timer(Prefix :+ "get_parties")
         val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
@@ -453,15 +449,12 @@ final class Metrics(val registry: MetricRegistry) {
           "prune"
         ) // FIXME Base name conflicts with prune
         val truncateAllTables: DatabaseMetrics = createDbMetrics("truncate_all_tables")
-        val lookupContractStateDbMetrics: DatabaseMetrics = createDbMetrics("lookup_contract_state")
-        val lookupKeyStateDbMetrics: DatabaseMetrics = createDbMetrics("lookup_key_state")
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_active_contract"
         ) // FIXME Base name conflicts with lookupActiveContract
-        val lookupActiveContractWithCachedArgumentDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_active_contract_with_cached_argument"
+        val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
+          "lookup_contract_by_key"
         )
-        val lookupContractByKey: DatabaseMetrics = createDbMetrics("lookup_contract_by_key")
         val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_maximum_ledger_time"
         ) // FIXME Base name conflicts with lookupActiveContract

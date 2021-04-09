@@ -9,16 +9,15 @@ import java.time.Instant
 import anorm.SqlParser._
 import anorm.{RowParser, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
-import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
-import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader
-import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader._
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.ContractsReader._
 import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,9 +51,10 @@ private[dao] sealed class ContractsReader(
         val stakeholdersWhere =
           sqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
 
-        dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-          SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
-            .as(contractId("contract_id").singleOpt)
+        dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
+          implicit connection =>
+            SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
+              .as(contractId("contract_id").singleOpt)
         }
       },
     )
@@ -91,12 +91,11 @@ private[dao] sealed class ContractsReader(
       createArgument: Value,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     Timed.future(
-      metrics.daml.index.db.lookupActiveContractWithCachedArgument,
+      metrics.daml.index.db.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
-          implicit connection =>
-            SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
-              .as(contractWithoutValueRowParser.singleOpt)
+        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
+          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
+            .as(contractWithoutValueRowParser.singleOpt)
         }
         .map(
           _.map(templateId =>
@@ -108,7 +107,7 @@ private[dao] sealed class ContractsReader(
         ),
     )
 
-  override def lookupKeyState(key: GlobalKey, validAt: Long)(implicit
+  override def lookupKeyState(key: Key, validAt: Long)(implicit
       loggingContext: LoggingContext
   ): Future[KeyState] = {
     val _ = (key, validAt)

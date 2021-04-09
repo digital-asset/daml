@@ -11,8 +11,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader
 import com.daml.platform.store.dao.events._
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
 

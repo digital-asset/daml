@@ -21,9 +21,9 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader
 import com.daml.platform.store.dao.events.contracts.TranslationCacheBackedContractsStore
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy

@@ -1,14 +1,14 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao
+package com.daml.platform.store.interfaces
 
 import java.time.Instant
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.LedgerDaoContractsReader._
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 
 import scala.concurrent.Future
 
@@ -25,7 +25,7 @@ private[platform] trait LedgerDaoContractsReader {
 
   /** Looks up an active or divulged contract if it is visible for the given party.
     *
-    * @param forParties a set of parties for one of which the contract must be visible
+    * @param readers a set of parties for one of which the contract must be visible
     * @param contractId the contract id to query
     * @return the optional [[Contract]] value
     */
@@ -38,7 +38,7 @@ private[platform] trait LedgerDaoContractsReader {
     * This method uses the provided create argument for building the [[Contract]] value
     * instead of decoding it again.
     *
-    * @param forParties a set of parties for one of which the contract must be visible
+    * @param readers a set of parties for one of which the contract must be visible
     * @param contractId the contract id to query
     * @param createArgument the contract create argument
     * @return the optional [[Contract]] value
