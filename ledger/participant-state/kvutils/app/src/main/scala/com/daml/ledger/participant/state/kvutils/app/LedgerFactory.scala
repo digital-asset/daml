@@ -43,6 +43,11 @@ trait ConfigProvider[ExtraConfig] {
       eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
+      inputMappingParallelism = config.indexerIngestionParallelism,
+      submissionBatchSize = config.indexerSubmissionBatchSize,
+      tailingRateLimitPerSecond = config.indexerTailingRateLimitPerSecond,
+      batchWithinMillis = config.indexerBatchWithinMillis,
+      enableCompression = config.indexerEnableCompression,
     )
 
   def apiServerConfig(
