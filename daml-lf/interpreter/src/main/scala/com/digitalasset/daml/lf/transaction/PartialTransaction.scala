@@ -18,6 +18,7 @@ import com.daml.lf.transaction.{
   TransactionVersion => TxVersion,
   Transaction => Tx,
 }
+import com.daml.lf.transaction.TransactionVersion.VDev
 import com.daml.lf.value.Value
 import com.github.ghik.silencer.silent
 
@@ -122,7 +123,7 @@ private[lf] object PartialTransaction {
     val childSeed = crypto.Hash.deriveNodeSeed(nodeSeed, _)
   }
 
-  final case class TryContextInfo(parent: Context) extends ContextInfo {
+  final case class TryContextInfo(nodeId: NodeId, parent: Context) extends ContextInfo {
     val childSeed: NodeIdx => crypto.Hash = parent.info.childSeed
   }
 
@@ -492,8 +493,14 @@ private[lf] case class PartialTransaction(
   /** Open a Try context.
     *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.
     */
-  def beginTry: PartialTransaction =
-    copy(context = context.copy(TryContextInfo(context)))
+  def beginTry: PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val info = TryContextInfo(nid, context)
+    copy(
+      nextNodeIdx = nextNodeIdx + 1,
+      context = Context(info, BackStack.empty, 0),
+    )
+  }
 
   /** Close a try context normally , i.e. no exception occurred.
     * Must match a `beginTry`.
@@ -501,7 +508,11 @@ private[lf] case class PartialTransaction(
   def endTry: PartialTransaction =
     context.info match {
       case info: TryContextInfo =>
-        copy(context = context.copy(info.parent.info))
+        copy(
+          context = info.parent.copy(
+            children = info.parent.children :++ context.children.toImmArray
+          )
+        )
       case _ =>
         noteAbort(Tx.NonCatchContext)
     }
@@ -525,8 +536,19 @@ private[lf] case class PartialTransaction(
     context.info match {
       case info: TryContextInfo =>
         // TODO https://github.com/digital-asset/daml/issues/8020
-        //  for now, we just drop the whole rollback part of the tree.
-        copy(context = info.parent.copy(nextChildIdx = context.nextChildIdx))
+        //  the version of a rollback node should be determined from its children.
+        //  in the case of there being no children we can simple drop the entire rollback node.
+        val version: TxVersion = VDev
+        val rollbackNode = Node.NodeRollback(
+          context.children.toImmArray,
+          version,
+        )
+        val nodeId = info.nodeId
+        copy(
+          context = info.parent.addChild(nodeId),
+          nodes = nodes.updated(nodeId, rollbackNode),
+          //nodeSeeds = nodeSeeds :+ (nodeId -> info.nodeSeed), //TODO 8020, need this?
+        )
       case _ =>
         noteAbort(Tx.NonCatchContext)
     }

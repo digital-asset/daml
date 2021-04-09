@@ -23,6 +23,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
+  import ExceptionTest._
+
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
@@ -193,52 +195,60 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        }
       """)
 
-  val testCases = Table[String, List[Long]](
+  val testCases = Table[String, List[Tree]](
     ("expression", "expected-number-of-contracts"),
     ("create0", Nil),
-    ("create1", List(100)),
-    ("create2", List(100, 200)),
-    ("create3", List(100, 200, 300)),
-    ("create3nested", List(100, 200, 300)),
-    ("create3catchNoThrow", List(100, 200, 300)),
-    ("create3throwAndCatch", List(300)),
-    ("create3throwAndOuterCatch", List(300)),
-    ("exer1", List(100, 400, 500, 200, 300)),
-    ("exer2", List(100, 300)),
+    ("create1", List(C(100))),
+    ("create2", List(C(100), C(200))),
+    ("create3", List(C(100), C(200), C(300))),
+    ("create3nested", List(C(100), C(200), C(300))),
+    ("create3catchNoThrow", List(C(100), C(200), C(300))),
+    ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+    ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+    ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
+    ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))), // TODO: Is the X correct?
   )
 
-  forEvery(testCases) { (exp: String, expected: List[Long]) =>
+  forEvery(testCases) { (exp: String, expected: List[Tree]) =>
     s"""$exp, contracts expected: $expected """ in {
       val party = Party.assertFromString("Alice")
       val lit: PrimLit = PLParty(party)
       val arg: Expr = EPrimLit(lit)
       val example: Expr = EApp(e"M:$exp", arg)
       val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example, party)
-      val ids: Seq[Long] = contractValuesInOrder(tx)
+      val ids: List[Tree] = shapeOfTransaction(tx)
       ids shouldBe expected
     }
   }
 
-  private def contractValuesInOrder(tx: SubmittedTransaction): Seq[Long] = {
-    def values(nid: NodeId): List[Long] = {
+}
+
+object ExceptionTest {
+
+  sealed trait Tree //minimal transaction tree, for purposes of writing test expectation
+  final case class C(x: Long) extends Tree //Create Node
+  final case class X(x: List[Tree]) extends Tree //Exercise Node
+  final case class R(x: List[Tree]) extends Tree //Rollback Node
+
+  private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
+    def trees(nid: NodeId): List[Tree] = {
       tx.nodes(nid) match {
         case create: NodeCreate[_] =>
           create.arg match {
             case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
-              List(n)
+              List(C(n))
             case _ =>
               sys.error(s"unexpected create.arg: ${create.arg}")
           }
         case _: LeafNode =>
           Nil
         case node: NodeExercises[_, _] =>
-          node.children.toList.flatMap(nid => values(nid))
-        case _: NodeRollback[_] =>
-          sys.error(s"unexpected Rollback node")
+          List(X(node.children.toList.flatMap(nid => trees(nid))))
+        case node: NodeRollback[_] =>
+          List(R(node.children.toList.flatMap(nid => trees(nid))))
       }
-
     }
-    tx.roots.toList.flatMap(nid => values(nid))
+    tx.roots.toList.flatMap(nid => trees(nid))
   }
 
 }
