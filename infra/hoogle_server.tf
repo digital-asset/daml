@@ -41,12 +41,12 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 3,
+      size           = 0,
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 3,
     }
   ]
 }
@@ -113,7 +113,7 @@ curl -sSfL https://nixos.org/nix/install | sh
 # # at the time of creation.
 NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1ea4e44c82e641de0cf.tar.gz
 cat << EOF > /home/hoogle/hoogle_overlay.nix
-self: super:
+super:
 {
   haskellPackages = super.haskellPackages.override {
     overrides = haskellSelf: haskellSuper: {
@@ -126,7 +126,7 @@ self: super:
   };
 }
 EOF
-HOOGLE_PATH=$(nix-build --no-out-link -E '(import <nixpkgs> { (import /home/hoogle/hoogle_overlay.nix) }).haskellPackages.hoogle')
+HOOGLE_PATH=$(nix-build --no-out-link -E '((import /home/hoogle/hoogle_overlay.nix) (import <nixpkgs> {})).haskellPackages.hoogle')
 mkdir -p /home/hoogle/.local/bin
 ln -s $HOOGLE_PATH/bin/hoogle /home/hoogle/.local/bin/hoogle
 cat > /home/hoogle/refresh-db.sh <<MAKE_DB
