@@ -4,19 +4,18 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.Ast._
+import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.PartialTransaction._
-import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction, LeafNode}
+import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeRollback}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.validation.Validation
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value._
+import com.daml.lf.value.Value.{ValueRecord, ValueInt64}
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -221,16 +220,25 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   }
 
   private def contractValuesInOrder(tx: SubmittedTransaction): Seq[Long] = {
-    tx.fold(Vector.empty[Long]) {
-      case (acc, (_, create: Node.NodeCreate[Value.ContractId])) =>
-        create.arg match {
-          case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
-            acc :+ n
-          case _ =>
-            sys.error(s"unexpected create.arg: ${create.arg}")
-        }
-      case (acc, _) => acc
+    def values(nid: NodeId): List[Long] = {
+      tx.nodes(nid) match {
+        case create: NodeCreate[_] =>
+          create.arg match {
+            case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
+              List(n)
+            case _ =>
+              sys.error(s"unexpected create.arg: ${create.arg}")
+          }
+        case _: LeafNode =>
+          Nil
+        case node: NodeExercises[_, _] =>
+          node.children.toList.flatMap(nid => values(nid))
+        case _: NodeRollback[_] =>
+          sys.error(s"unexpected Rollback node")
+      }
+
     }
+    tx.roots.toList.flatMap(nid => values(nid))
   }
 
 }
