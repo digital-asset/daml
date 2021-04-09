@@ -255,10 +255,17 @@ class ValuePredicateTest
           sql"JSON_EQUAL(JSON_QUERY(payload, '$$' RETURNING CLOB), ${s"""{"$dummyFieldName":42}""".parseJson})",
         ),
         (
-          """{"_3": false}""",
+          """{"_2": "hi there", "_3": false}""",
           tuple3VA,
-          sql"payload @> ${"""{"foo":{"_3":false}}""".parseJson}::jsonb",
-          sql"""JSON_EXISTS(payload, '$$."foo"."_3"?(@ == false)')""",
+          sql"payload @> ${"""{"foo":{"_2":"hi there","_3":false}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"."_2"?(@ == $$X)' PASSING ${"hi there"} AS X)"""
+            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."_3"?(@ == false)')""",
+        ),
+        (
+          "{}",
+          tuple3VA,
+          sql"payload @> ${"""{"foo":{}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(@ != null)')""",
         ),
         (
           """{"%lte": 42}""",
