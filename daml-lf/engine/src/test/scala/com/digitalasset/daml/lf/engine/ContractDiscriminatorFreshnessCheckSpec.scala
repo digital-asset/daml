@@ -4,7 +4,7 @@
 package com.daml.lf
 
 import com.daml.lf.data._
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -52,12 +52,16 @@ class ContractDiscriminatorFreshnessCheckSpec
                     Mod:contractParties this
                   to
                     upure @Unit (),
-                 choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract),
-                   controllers 
-                     Mod:contractParties this
-                   to
-                     lookup_by_key @Mod:Contract key 
-                     
+                choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract),
+                  controllers 
+                    Mod:contractParties this
+                  to
+                    lookup_by_key @Mod:Contract key, 
+                choice @nonConsuming Create (self) (contract: Mod:Contract): (ContractId Mod:Contract),
+                  controllers
+                    Mod:contractParties this
+                  to
+                    create @Mod:Contract contract          
               },
               key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
             };
@@ -279,6 +283,31 @@ class ContractDiscriminatorFreshnessCheckSpec
         r.left.exists(_.msg.contains("Conflicting discriminators")) shouldBe true
       }
 
+    }
+
+    "does not fail when replaying an exercise by key of a non-root local Contract" in {
+      // regression test for https://discuss.daml.com/t/ledger-api-error-message-conflicting-discriminators-between-a-global-and-local-contract-id/2416/3
+      val Right((tx, txMeta)) = submit(
+        ImmArray(
+          command.CreateAndExerciseCommand(
+            tmplId,
+            contractRecord(alice, 0, List.empty),
+            "Create",
+            contractRecord(alice, 1, List.empty),
+          ),
+          command.ExerciseByKeyCommand(tmplId, keyRecord(alice, 1), "Noop", Value.ValueUnit),
+        ),
+        pcs = _ => None,
+        keys = _ => None,
+      )
+      engine.replay(
+        submitters = Set(alice),
+        tx,
+        ledgerEffectiveTime = txMeta.submissionTime,
+        participantId = participant,
+        submissionTime = txMeta.submissionTime,
+        submissionSeed = txMeta.submissionSeed.get,
+      ) shouldBe a[ResultDone[_]]
     }
 
   }
