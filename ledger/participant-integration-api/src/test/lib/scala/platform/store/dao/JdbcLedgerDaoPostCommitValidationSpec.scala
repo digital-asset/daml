@@ -11,7 +11,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.LfValueTranslationCache
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -30,7 +30,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         eventsPageSize = eventsPageSize,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslation.Cache.none,
+        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
       )
 

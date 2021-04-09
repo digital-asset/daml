@@ -107,6 +107,9 @@ data Options = Options
   -- ^ Whether we should enable the of interest rule that automatically compiles all
   -- modules to DALFs or not. This is required in the IDE but we can disable it
   -- in other cases, e.g., daml-docs.
+  , optAccessTokenPath :: Maybe FilePath
+  -- ^ Path to a file containing an access JWT token. This is used for building to query/fetch
+  -- packages from remote ledgers.
   } deriving Show
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
@@ -197,6 +200,7 @@ defaultOptions mbVersion =
         , optIncrementalBuild = IncrementalBuild False
         , optIgnorePackageMetadata = IgnorePackageMetadata False
         , optEnableOfInterestRule = True
+        , optAccessTokenPath = Nothing
         }
 
 getBaseDir :: IO FilePath

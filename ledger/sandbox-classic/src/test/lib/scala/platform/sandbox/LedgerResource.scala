@@ -26,7 +26,7 @@ import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
@@ -89,7 +89,7 @@ private[sandbox] object LedgerResource {
           eventsPageSize = 100,
           servicesExecutionContext = servicesExecutionContext,
           metrics = new Metrics(metrics),
-          lfValueTranslationCache = LfValueTranslation.Cache.none,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = new Engine(),
         )
       } yield ledger

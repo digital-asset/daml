@@ -51,36 +51,51 @@ object JdbcConfig {
   implicit val showInstance: Show[JdbcConfig] =
     Show.shows(a => s"JdbcConfig(url=${a.url}, user=${a.user})")
 
-  def create(x: Map[String, String]): Either[String, JdbcConfig] =
+  def create(
+      x: Map[String, String],
+      supportedJdbcDriverNames: Set[String],
+  ): Either[String, JdbcConfig] =
     for {
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
+      driver = x.get("driver").getOrElse(defaultDriver)
+      _ <- Either.cond(
+        supportedJdbcDriverNames(driver),
+        (),
+        s"$driver unsupported. Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
+      )
     } yield JdbcConfig(
-      driver = "org.postgresql.Driver", // TODO make this configurable
+      driver = driver,
       url = url,
       user = user,
       password = password,
     )
 
+  private val defaultDriver: String = "org.postgresql.Driver"
+
   private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
 
-  lazy val usage: String = helpString("<JDBC connection url>", "<user>", "<password>")
+  lazy val usage: String =
+    helpString("<JDBC driver class name>", "<JDBC connection url>", "<user>", "<password>")
 
-  lazy val help: String =
+  def help(supportedJdbcDriverNames: Set[String]): String =
     "Contains comma-separated key-value pairs. Where:\n" +
       s"${indent}url -- JDBC connection URL, beginning with jdbc:postgresql,\n" +
       s"${indent}user -- user name for database user with permissions to create tables,\n" +
       s"${indent}password -- password of database user,\n" +
+      s"${indent}driver -- JDBC driver class name, supported drivers: ${supportedJdbcDriverNames
+        .mkString(", ")}, defaults to org.postgresql.Driver\n" +
       s"${indent}Example: " + helpString(
+        "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/triggers",
         "operator",
         "password",
       )
 
-  private def helpString(url: String, user: String, password: String): String =
-    s"""\"url=$url,user=$user,password=$password\""""
+  private def helpString(driver: String, url: String, user: String, password: String): String =
+    s"""\"driver=$driver,url=$url,user=$user,password=$password\""""
 
   private val indent: String = List.fill(8)(" ").mkString
 }
@@ -106,7 +121,8 @@ private[trigger] object ServiceConfig {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
-  private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
+  private class OptionParser(supportedJdbcDriverNames: Set[String])
+      extends scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
 
     opt[String]("dar")
@@ -212,20 +228,27 @@ private[trigger] object ServiceConfig {
 
     opt[Map[String, String]]("jdbc")
       .action((x, c) =>
-        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity)))
+        c.copy(jdbcConfig =
+          Some(JdbcConfig.create(x, supportedJdbcDriverNames).fold(e => sys.error(e), identity))
+        )
       )
       .optional()
-      .valueName(JdbcConfig.usage)
-      .text("JDBC configuration parameters. If omitted the service runs without a database.")
+      .text(JdbcConfig.help(supportedJdbcDriverNames))
+      .text(
+        "JDBC configuration parameters. If omitted the service runs without a database. " + JdbcConfig
+          .help(supportedJdbcDriverNames)
+      )
 
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")
 
+    help("help").text("Print this usage text")
+
   }
 
-  def parse(args: Array[String]): Option[ServiceConfig] =
-    parser.parse(
+  def parse(args: Array[String], supportedJdbcDriverNames: Set[String]): Option[ServiceConfig] =
+    new OptionParser(supportedJdbcDriverNames).parse(
       args,
       ServiceConfig(
         darPaths = Nil,

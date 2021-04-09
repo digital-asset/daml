@@ -28,7 +28,7 @@ import com.daml.platform.configuration.{
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.{BindableService, ServerInterceptor}
 
@@ -52,7 +52,7 @@ final class StandaloneApiServer(
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine,
     servicesExecutionContext: ExecutionContextExecutor,
-    lfValueTranslationCache: LfValueTranslation.Cache,
+    lfValueTranslationCache: LfValueTranslationCache.Cache,
 )(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 

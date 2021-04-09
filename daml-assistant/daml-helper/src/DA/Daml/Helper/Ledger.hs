@@ -28,6 +28,7 @@ module DA.Daml.Helper.Ledger (
     ) where
 
 import Control.Exception (SomeException(..), catch)
+import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.IO.Class (liftIO)
@@ -128,7 +129,8 @@ getDefaultArgs LedgerFlags { fApi
                            } = do
   host <- fromMaybeM getProjectLedgerHost fHostM
   port <- fromMaybeM getProjectLedgerPort fPortM
-  tokM <- getTokFromFile fTokFileM
+  pTokFileM <- getProjectLedgerAccessToken
+  tokM <- getTokFromFile (fTokFileM <|> pTokFileM)
   return $
     LedgerArgs
       { api = fApi

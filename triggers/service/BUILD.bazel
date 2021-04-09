@@ -11,9 +11,12 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
-tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
-    "NonUnitStatements",
-]]
+tsvc_main_scalacopts = [
+    "-P:wartremover:traverser:org.wartremover.warts.%s" % wart
+    for wart in [
+        "NonUnitStatements",
+    ]
+]
 
 da_scala_library(
     name = "trigger-service",
@@ -83,9 +86,21 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "trigger-service-binary",
+    name = "trigger-service-binary-ce",
     main_class = "com.daml.lf.engine.trigger.ServiceMain",
     visibility = ["//visibility:public"],
+    deps = [
+        ":trigger-service",
+    ],
+)
+
+da_scala_binary(
+    name = "trigger-service-binary-ee",
+    main_class = "com.daml.lf.engine.trigger.ServiceMain",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
     deps = [
         ":trigger-service",
     ],
@@ -180,6 +195,7 @@ scala_test_deps = [
     "@maven//:io_spray_spray_json",
     "@maven//:org_scalatest_scalatest",
     "@maven//:org_scalaz_scalaz_core",
+    "@maven//:com_github_scopt_scopt",
 ]
 
 da_scala_test_suite(

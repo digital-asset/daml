@@ -20,14 +20,15 @@ to port ``6564``. The ``<TOKEN-FILE>`` is needed if your sandbox runs with
 :ref:`authorization <authorization>` and needs to contain a JWT token with an ``admin`` claim.
 If your sandbox is not setup to use any authentication it can be omitted.
 
-Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following
-section to the project's ``daml.yaml`` file:
+Instead of passing ``--host``, ``--port`` and ``--access-token-file`` flags to the command above,
+you can add the following section to the project's ``daml.yaml`` file:
 
 .. code-block:: yaml
 
    ledger:
        host: <HOSTNAME>
        port: <PORT>
+       access-token-file: <PATH TO ACCESS TOKEN FILE>
 
 The ``daml deploy`` command will
 
@@ -47,7 +48,7 @@ ledger --help`` to get a list of available ledger commands:
      with the ledger.host and ledger.port options, or you can pass the --host and
      --port flags to each command below. If the ledger is authenticated, you should
      pass the name of the file containing the token using the --access-token-file
-     flag.
+     flag or the `ledger.access-token-file` field in daml.yaml.
 
    Available options:
      -h,--help                Show this help text

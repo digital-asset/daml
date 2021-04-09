@@ -24,17 +24,13 @@ import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
-import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text as T(pack,unpack)
 import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
-import qualified Data.Vector as Vector
-import qualified Web.JWT as JWT
 
 main :: IO ()
 main = do
@@ -679,20 +675,12 @@ runWithSandbox port mbSecret tid ls = runLedgerService ls' timeout (configOfPort
           ls' = case mbSecret of
             Nothing -> ls
             Just secret -> do
-              let tok = Ledger.Token ("Bearer " <> makeSignedJwt secret tid)
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt' secret tid)
               setToken tok ls
 
-makeSignedJwt :: Secret -> TestId -> String
-makeSignedJwt secret tid = do
-  let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
-  let urc = JWT.ClaimsMap $ Map.fromList
-        [ ("admin", Aeson.Bool True)
-        , ("actAs", Aeson.Array $ Vector.fromList $ map Aeson.String parties)
-        ]
-  let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ T.pack $ getSecret secret
-  let text = JWT.encodeSigned key mempty cs
-  T.unpack text
+makeSignedJwt' :: Secret -> TestId -> String
+makeSignedJwt' secret tid =
+    makeSignedJwt (getSecret secret) [TL.unpack $ unParty $ p tid | p <- [alice, bob]]
 
 
 -- resetSandbox :: Sandbox-> IO ()

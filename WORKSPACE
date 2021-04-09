@@ -570,6 +570,19 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+# To run canton
+nixpkgs_package(
+    name = "jdk11_nix",
+    attribute_path = "jdk11",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
 # This only makes sense on Windows so we just put dummy values in the nix fields.
 dev_env_tool(
     name = "makensis_dev_env",
@@ -939,7 +952,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
 """,
-    sha256 = "81e590a6854eaaf724356c0b7068502174de6457af6ec2a24624b0698eeb7362",
-    strip_prefix = "canton-community-0.21.0",
-    urls = ["https://www.canton.io/releases/canton-community-0.21.0.tar.gz"],
+    sha256 = "9fb38c922d302c94e200c161ec8467ea39f4c31c9a7fad0b32f1493170a51fa7",
+    strip_prefix = "canton-community-0.23.0-SNAPSHOT",
+    urls = ["https://www.canton.io/releases/canton-community-20210407.tar.gz"],
 )

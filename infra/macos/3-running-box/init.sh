@@ -68,48 +68,11 @@ set -u
 AGENT_SETUP
 
 ## Remount Nix partition
-sudo hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
-
-## cache
-
-CACHE_SCRIPT=/Users/vsts/reset_caches.sh
-
-cat <<'RESET_CACHES' > $CACHE_SCRIPT
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-set -x
-
-reset_cache() {
-    local file mount_point
-    file=$1
-    mount_point=$2
-
-    echo "Cleaning up '$mount_point'..."
-    if [ -d "$mount_point" ]; then
-        for pid in $(pgrep -a -f bazel | awk '{print $1}'); do
-            echo "Killing $pid..."
-            kill -s KILL $pid
-        done
-        hdiutil detach "$mount_point"
-    fi
-
-    rm -f "${file}.sparseimage"
-    hdiutil create -size 200g -fs 'Case-sensitive APFS' -volname "$file" -type SPARSE "$file"
-    mkdir -p $mount_point
-    hdiutil attach "${file}.sparseimage" -mountpoint "$mount_point"
-    echo "Done."
-}
-
-reset_cache /var/tmp/bazel_cache.dmg /var/tmp/_bazel_vsts
-reset_cache /var/tmp/disk_cache.dmg /Users/vsts/.bazel-cache
-RESET_CACHES
-chown vsts:staff $CACHE_SCRIPT
-chmod +x $CACHE_SCRIPT
+hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
 
 su -l vsts <<END
-/Users/vsts/reset_caches.sh
+hdiutil attach /var/tmp/bazel_cache.dmg.sparseimage -mountpoint /var/tmp/_bazel_vsts
+hdiutil attach /var/tmp/disk_cache.dmg.sparseimage -mountpoint /Users/vsts/.bazel-cache
 END
 
 ## Hardening

@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.DbType
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.SqlFunctions.{
   H2SqlFunctions,
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[appendonlydao] sealed class ContractsReader(
     dispatcher: DbDispatcher,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslation.Cache,
+    lfValueTranslationCache: LfValueTranslationCache.Cache,
     sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends ContractStore {
@@ -203,7 +203,7 @@ private[appendonlydao] sealed class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     // Depending on whether the contract argument is cached or not, submit a different query to the database
     lfValueTranslationCache.contracts
-      .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
+      .getIfPresent(LfValueTranslationCache.ContractCache.Key(contractId)) match {
       case Some(createArgument) =>
         lookupActiveContractWithCachedArgument(readers, contractId, createArgument.argument)
       case None =>
@@ -264,7 +264,7 @@ private[appendonlydao] object ContractsReader {
       dispatcher: DbDispatcher,
       dbType: DbType,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit ec: ExecutionContext): ContractsReader = {
     def sqlFunctions = dbType match {
       case DbType.Postgres => PostgresSqlFunctions

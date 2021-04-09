@@ -36,10 +36,9 @@ import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
-import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.{BaseLedger, FlywayMigrations}
+import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import scalaz.Tag
 
@@ -79,7 +78,7 @@ private[sandbox] object SqlLedger {
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       validatePartyAllocation: Boolean = false,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
