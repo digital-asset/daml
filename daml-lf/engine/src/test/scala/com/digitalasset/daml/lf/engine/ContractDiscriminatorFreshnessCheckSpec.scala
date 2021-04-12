@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package engine
 
 import com.daml.lf.data._
-import com.daml.lf.engine.{Engine, ResultDone, ResultError}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, VersionedTransaction}
+import com.daml.lf.transaction.{GenTransaction, GlobalKey, Node, NodeId}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -295,7 +295,7 @@ class ContractDiscriminatorFreshnessCheckSpec
 
       val cid0: ContractId = ContractId.V1(crypto.Hash.hashPrivateKey("test"), Bytes.Empty)
 
-      val Right((tx, txMeta)) = submit(
+      val Right((tx, _)) = submit(
         ImmArray(
           command.CreateAndExerciseCommand(
             tmplId,
@@ -326,20 +326,9 @@ class ContractDiscriminatorFreshnessCheckSpec
         case (acc, _) => acc
       }
 
-      val patchedTx = VersionedTransaction(
-        tx.version,
-        newNodes,
-        tx.roots,
-      )
       val result =
-        engine.replay(
-          submitters = Set(alice),
-          SubmittedTransaction(patchedTx),
-          ledgerEffectiveTime = txMeta.submissionTime,
-          participantId = participant,
-          submissionTime = txMeta.submissionTime,
-          submissionSeed = txMeta.submissionSeed.get,
-        )
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
+          .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
 
       inside(result) { case ResultError(err) =>
         err.msg should include("Conflicting discriminators")
