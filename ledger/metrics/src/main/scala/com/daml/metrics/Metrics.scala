@@ -354,6 +354,8 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
+        val lookupLedgerEndSequentialId: Timer =
+          registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
           registry.timer(Prefix :+ "lookup_ledger_configuration")
@@ -382,6 +384,9 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
+        val getLedgerEndSequentialId: DatabaseMetrics = createDbMetrics(
+          "get_ledger_end_sequential_id"
+        )
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters"
@@ -447,10 +452,9 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_active_contract"
         ) // FIXME Base name conflicts with lookupActiveContract
-        val lookupActiveContractWithCachedArgumentDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_active_contract_with_cached_argument"
+        val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
+          "lookup_contract_by_key"
         )
-        val lookupContractByKey: DatabaseMetrics = createDbMetrics("lookup_contract_by_key")
         val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_maximum_ledger_time"
         ) // FIXME Base name conflicts with lookupActiveContract

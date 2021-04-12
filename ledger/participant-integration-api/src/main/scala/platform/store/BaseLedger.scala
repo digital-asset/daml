@@ -22,7 +22,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
@@ -44,6 +44,7 @@ import scala.util.Try
 private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
 
@@ -54,7 +55,7 @@ private[platform] abstract class BaseLedger(
   override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    ledgerDao.lookupKey(key, forParties)
+    contractStore.lookupContractKey(forParties, key)
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -114,7 +115,7 @@ private[platform] abstract class BaseLedger(
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParties)
+    contractStore.lookupActiveContract(forParties, contractId)
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -131,7 +132,7 @@ private[platform] abstract class BaseLedger(
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
-    ledgerDao.lookupMaximumLedgerTime(contractIds)
+    contractStore.lookupMaximumLedgerTime(contractIds)
 
   override def getParties(parties: Seq[Party])(implicit
       loggingContext: LoggingContext

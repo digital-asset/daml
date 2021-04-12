@@ -9,19 +9,24 @@ import java.util.UUID
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
-import org.scalatest.{Inside, LoneElement, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Inside, LoneElement, OptionValues}
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+
+  private def contractsReader = ledgerDao.contractsReader
 
   behavior of "JdbcLedgerDao (contracts)"
 
   it should "be able to persist and load contracts" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(alice))
+      result <- contractsReader.lookupActiveContractAndLoadArgument(
+        Set(alice),
+        nonTransient(tx).loneElement,
+      )
     } yield {
       // The agreement text is always empty when retrieved from the contract store
       result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
@@ -36,7 +41,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         id = create,
         divulgees = Set(charlie),
       )
-      result <- ledgerDao.lookupActiveOrDivulgedContract(create, Set(charlie))
+      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), create)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
       result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
@@ -46,7 +51,10 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "not find contracts that are not visible to the requester" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(charlie))
+      result <- contractsReader.lookupActiveContractAndLoadArgument(
+        Set(charlie),
+        nonTransient(tx).loneElement,
+      )
     } yield {
       result shouldEqual None
     }
@@ -61,7 +69,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         key = None,
       )
       contractId = nonTransient(tx).loneElement
-      result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(charlie, emma))
+      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie, emma), contractId)
     } yield {
       result shouldBe None
     }
@@ -76,7 +84,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         key = None,
       )
       contractId = nonTransient(tx).loneElement
-      result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(charlie, emma))
+      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie, emma), contractId)
     } yield {
       result.value shouldBe a[ContractInst[_]]
     }
@@ -95,7 +103,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         id = contractId,
         divulgees = Set(emma),
       )
-      result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(david, emma))
+      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(david, emma), contractId)
     } yield {
       result.value shouldBe a[ContractInst[_]]
     }
@@ -111,7 +119,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
       )
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- ledgerDao.lookupKey(key, Set(charlie, emma))
+      result <- contractsReader.lookupContractKey(key, Set(charlie, emma))
     } yield {
       result shouldBe None
     }
@@ -128,7 +136,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       contractId = nonTransient(tx).loneElement
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- ledgerDao.lookupKey(key, Set(emma, charlie))
+      result <- contractsReader.lookupContractKey(key, Set(emma, charlie))
     } yield {
       result.value shouldBe contractId
     }
@@ -148,7 +156,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         divulgees = Set(david, emma),
       )
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- ledgerDao.lookupKey(key, Set(david, emma))
+      result <- contractsReader.lookupContractKey(key, Set(david, emma))
     } yield {
       result shouldBe None
     }
@@ -157,7 +165,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "prevent retrieving the maximum ledger time if some contracts are not found" in {
     val randomContractId = ContractId.assertFromString(s"#random-${UUID.randomUUID}")
     for {
-      failure <- ledgerDao.lookupMaximumLedgerTime(Set(randomContractId)).failed
+      failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
       failure shouldBe an[IllegalArgumentException]
       failure.getMessage should startWith(
@@ -169,7 +177,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "allow the retrieval of the maximum ledger time" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.lookupMaximumLedgerTime(nonTransient(tx))
+      result <- contractsReader.lookupMaximumLedgerTime(nonTransient(tx))
     } yield {
       inside(result) { case Some(time) =>
         time should be <= Instant.now
@@ -189,7 +197,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       (_, tx) <- store(singleCreate)
       contractIds = nonTransient(tx) + divulgedContractId
-      result <- ledgerDao.lookupMaximumLedgerTime(contractIds)
+      result <- contractsReader.lookupMaximumLedgerTime(contractIds)
     } yield {
       inside(result) { case Some(tx.ledgerEffectiveTime) =>
         succeed
@@ -207,7 +215,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         blindingInfo = None,
         offsetAndTx = singleNonConsumingExercise(divulgedContractId),
       )
-      result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
+      result <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
       result shouldBe None
     }
@@ -224,7 +232,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         blindingInfo = None,
         offsetAndTx = singleExercise(divulgedContractId),
       )
-      failure <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
+      failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
       failure shouldBe an[IllegalArgumentException]
       failure.getMessage should startWith(
@@ -236,5 +244,4 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
   }
-
 }

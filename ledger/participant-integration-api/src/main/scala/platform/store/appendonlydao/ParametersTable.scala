@@ -5,7 +5,7 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 
-import anorm.SqlParser.byteArray
+import anorm.SqlParser.{byteArray, long}
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
@@ -18,6 +18,7 @@ private[appendonlydao] object ParametersTable {
   private val LedgerIdColumnName: String = "ledger_id"
   private val ParticipantIdColumnName: String = "participant_id"
   private val LedgerEndColumnName: String = "ledger_end"
+  private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
   private val ConfigurationColumnName: String = "configuration"
 
   private val LedgerIdParser: RowParser[LedgerId] =
@@ -32,6 +33,9 @@ private[appendonlydao] object ParametersTable {
   private val LedgerEndOrBeforeBeginParser: RowParser[Offset] =
     LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
 
+  private val LedgerEndParserAndSequentialIdParser =
+    long(LedgerEndSequentialIdColumnName).?.map(_.getOrElse(0L))
+
   private val ConfigurationParser: RowParser[Option[Configuration]] =
     byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
 
@@ -44,6 +48,9 @@ private[appendonlydao] object ParametersTable {
     }
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
+
+  private val SelectLedgerEndAndSequentialId =
+    SQL"select #$LedgerEndSequentialIdColumnName from #$TableName"
 
   def getLedgerId(connection: Connection): Option[LedgerId] =
     SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
@@ -67,6 +74,9 @@ private[appendonlydao] object ParametersTable {
 
   def getLedgerEnd(connection: Connection): Offset =
     SelectLedgerEnd.as(LedgerEndOrBeforeBeginParser.single)(connection)
+
+  def getLedgerEndSequentialId(connection: Connection): Long =
+    SelectLedgerEndAndSequentialId.as(LedgerEndParserAndSequentialIdParser.single)(connection)
 
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)

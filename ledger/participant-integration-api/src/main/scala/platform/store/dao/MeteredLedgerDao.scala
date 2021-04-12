@@ -8,16 +8,14 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep
@@ -29,6 +27,7 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
 
@@ -48,36 +47,20 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
 
+  def lookupLedgerEndSequentialId()(implicit loggingContext: LoggingContext): Future[Long] =
+    Timed.future(
+      metrics.daml.index.db.lookupLedgerEndSequentialId,
+      ledgerDao.lookupLedgerEndSequentialId(),
+    )
+
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[Option[Offset]] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupInitialLedgerEnd())
 
-  override def lookupActiveOrDivulgedContract(
-      contractId: Value.ContractId,
-      forParties: Set[Party],
-  )(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
-      ledgerDao.lookupActiveOrDivulgedContract(contractId, forParties),
-    )
-
-  override def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
-    Timed.future(
-      metrics.daml.index.db.lookupMaximumLedgerTime,
-      ledgerDao.lookupMaximumLedgerTime(contractIds),
-    )
-
   override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
 
-  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Value.ContractId]] =
-    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParties))
+  override def contractsReader: LedgerDaoContractsReader = ledgerDao.contractsReader
 
   override def getParties(parties: Seq[Party])(implicit
       loggingContext: LoggingContext
