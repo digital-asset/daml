@@ -26,6 +26,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
 import com.daml.platform.store.entries.{
@@ -70,6 +71,20 @@ private[platform] trait LedgerDaoTransactionsReader {
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
+
+  /** A stream of updates to contracts' states read from the index database.
+    *
+    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
+    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
+    * @param loggingContext
+    * @return
+    */
+  def getContractStateEvents(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed]
 }
 
 private[platform] trait LedgerDaoCommandCompletionsReader {

@@ -27,6 +27,7 @@ import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
+import com.daml.platform.store.dao.events.ContractStateEvent
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,6 +57,9 @@ private[appendonlydao] final class TransactionsReader(
   // TransactionReader adds an Akka stream buffer at the end of all streaming queries.
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
+
+  // TODO: make this parameter configurable
+  private val ContractStateEventsStreamParallelismLevel = 4
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -311,10 +315,56 @@ private[appendonlydao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
+  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] = {
+
+    val query = (range: EventsRange[(Offset, Long)]) => {
+      implicit connection: Connection =>
+        QueryNonPruned.executeSqlOrThrow(
+          ContractStateEventsReader.readRawEvents(range),
+          range.startExclusive._1,
+          pruned =>
+            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+        )
+    }
+
+    val endMarker = Source.single(
+      endInclusive -> ContractStateEvent.LedgerEndMarker(
+        eventOffset = endInclusive._1,
+        eventSequentialId = endInclusive._2,
+      )
+    )
+
+    streamContractStateEvents(
+      dbMetrics.getContractStateEvents,
+      query,
+      nextPageRangeContracts(endInclusive),
+    )(EventsRange(startExclusive, endInclusive)).async
+      .mapAsync(ContractStateEventsStreamParallelismLevel) { raw =>
+        Timed.future(
+          metrics.daml.index.decodeStateEvent,
+          Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
+        )
+      }
+      .map(event => (event.eventOffset, event.eventSequentialId) -> event)
+      .mapMaterializedValue(_ => NotUsed)
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+      .concat(endMarker)
+  }
+
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
+
+  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
+      raw: ContractStateEventsReader.RawContractStateEvent
+  ): EventsRange[(Offset, Long)] =
+    EventsRange(
+      startExclusive = (raw.offset, raw.eventSequentialId),
+      endInclusive = endEventSeqId,
+    )
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
@@ -383,6 +433,23 @@ private[appendonlydao] final class TransactionsReader(
           )
         )
       }
+    }
+
+  private def streamContractStateEvents(
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[(Offset, Long)] => Connection => Vector[
+        ContractStateEventsReader.RawContractStateEvent
+      ],
+      getNextPageRange: ContractStateEventsReader.RawContractStateEvent => EventsRange[
+        (Offset, Long)
+      ],
+  )(range: EventsRange[(Offset, Long)])(implicit
+      loggingContext: LoggingContext
+  ): Source[ContractStateEventsReader.RawContractStateEvent, NotUsed] =
+    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
+      if (EventsRange.isEmpty(range1))
+        Future.successful(Vector.empty)
+      else dispatcher.executeSql(queryMetric)(query(range1))
     }
 
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
