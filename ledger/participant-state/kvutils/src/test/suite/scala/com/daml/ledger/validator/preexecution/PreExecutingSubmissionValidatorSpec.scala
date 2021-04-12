@@ -221,7 +221,11 @@ object PreExecutingSubmissionValidatorSpec {
         )
       )
 
-    new PreExecutingSubmissionValidator(mockCommitter, mockCommitStrategy, metrics)
+    new PreExecutingSubmissionValidator(
+      mockCommitter,
+      mockCommitStrategy,
+      metrics = metrics,
+    )
   }
 
   private def createLedgerStateReader(
