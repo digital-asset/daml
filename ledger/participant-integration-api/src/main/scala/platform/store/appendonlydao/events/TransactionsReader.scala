@@ -58,6 +58,9 @@ private[appendonlydao] final class TransactionsReader(
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
 
+  // TODO: make this parameter configurable
+  private val ContractStateEventsStreamParallelismLevel = 4
+
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
@@ -338,7 +341,7 @@ private[appendonlydao] final class TransactionsReader(
       query,
       nextPageRangeContracts(endInclusive),
     )(EventsRange(startExclusive, endInclusive)).async
-      .mapAsync(4) { raw =>
+      .mapAsync(ContractStateEventsStreamParallelismLevel) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
           Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
