@@ -199,13 +199,13 @@ toRoundingModeLiteral x = MS.lookup x roundingModeLiteralMap
 
 roundingModeLiteralMap :: MS.Map T.Text LF.RoundingModeLiteral
 roundingModeLiteralMap = MS.fromList
-    [ ("RoundingCeiling", LF.LitRoundingCeiling)
-    , ("RoundingFloor", LF.LitRoundingFloor)
+    [ ("RoundingUp", LF.LitRoundingUp)
     , ("RoundingDown", LF.LitRoundingDown)
-    , ("RoundingUp", LF.LitRoundingUp)
+    , ("RoundingCeiling", LF.LitRoundingCeiling)
+    , ("RoundingFloor", LF.LitRoundingFloor)
+    , ("RoundingHalfUp", LF.LitRoundingHalfUp)
     , ("RoundingHalfDown", LF.LitRoundingHalfDown)
     , ("RoundingHalfEven", LF.LitRoundingHalfEven)
-    , ("RoundingHalfUp", LF.LitRoundingHalfUp)
     , ("RoundingUnnecessary", LF.LitRoundingUnnecessary)
     ]
 
