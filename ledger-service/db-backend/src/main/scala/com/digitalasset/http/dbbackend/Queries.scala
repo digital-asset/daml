@@ -783,6 +783,8 @@ private object OracleQueries extends Queries {
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
+    // you cannot put a positional parameter in a path, which _must_ be a literal
+    // so pass it as the path-local variable X instead
     def existsForm[Lit: Put](literal: Lit) =
       (
         "?(@ == $X)", // not a Scala interpolation
