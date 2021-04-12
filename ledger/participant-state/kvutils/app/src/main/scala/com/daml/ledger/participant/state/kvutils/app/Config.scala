@@ -40,12 +40,6 @@ final case class Config[Extra](
     trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
-    indexerInputMappingParallelism: Int,
-    indexerIngestionParallelism: Int,
-    indexerSubmissionBatchSize: Long,
-    indexerTailingRateLimitPerSecond: Int,
-    indexerBatchWithinMillis: Long,
-    indexerEnableCompression: Boolean,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -58,12 +52,6 @@ object Config {
     CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
-  val DefaultIndexerInputMappingParallelism: Int = 16
-  val DefaultIndexerIngestionParallelism: Int = 16
-  val DefaultIndexerSubmissionBatchSize: Long = 50L
-  val DefaultIndexerTailingRateLimitPerSecond: Int = 20
-  val DefaultIndexerBatchWithinMillis: Long = 50L
-  val DefaultIndexerEnableCompression: Boolean = false
 
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
@@ -83,12 +71,6 @@ object Config {
       trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       engineMode = EngineMode.Stable,
       enableAppendOnlySchema = false,
-      indexerInputMappingParallelism = DefaultIndexerInputMappingParallelism,
-      indexerIngestionParallelism = DefaultIndexerIngestionParallelism,
-      indexerSubmissionBatchSize = DefaultIndexerSubmissionBatchSize,
-      indexerTailingRateLimitPerSecond = DefaultIndexerTailingRateLimitPerSecond,
-      indexerBatchWithinMillis = DefaultIndexerBatchWithinMillis,
-      indexerEnableCompression = DefaultIndexerEnableCompression,
       extra = extra,
     )
 
@@ -138,11 +120,17 @@ object Config {
               "port-file, " +
               "server-jdbc-url, " +
               "api-server-connection-pool-size" +
-              "indexer-connection-pool-size" +
               "max-commands-in-flight, " +
               "management-service-timeout, " +
               "run-mode, " +
-              "shard-name" +
+              "shard-name, " +
+              "indexer-connection-pool-size, " +
+              "indexer-input-mapping-parallelism, " +
+              "indexer-ingestion-parallelism, " +
+              "indexer-submission-batch-size, " +
+              "indexer-tailing-rate-limit-per-second, " +
+              "indexer-batch-within-millis, " +
+              "indexer-enable-compression, " +
               "]"
           )
           .action((kv, config) => {
@@ -176,7 +164,32 @@ object Config {
             val indexerConnectionPoolSize = kv
               .get("indexer-connection-pool-size")
               .map(_.toInt)
-              .getOrElse(ParticipantConfig.defaultIndexerDatabaseConnectionPoolSize)
+              .getOrElse(ParticipantIndexerConfig.defaultDatabaseConnectionPoolSize)
+            val indexerInputMappingParallelism = kv
+              .get("indexer-input-mapping-parallelism")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.defaultInputMappingParallelism)
+            val indexerIngestionParallelism = kv
+              .get("indexer-ingestion-parallelism")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.defaultIngestionParallelism)
+            val indexerSubmissionBatchSize = kv
+              .get("indexer-submission-batch-size")
+              .map(_.toLong)
+              .getOrElse(ParticipantIndexerConfig.defaultSubmissionBatchSize)
+            val indexerTailingRateLimitPerSecond = kv
+              .get("indexer-tailing-rate-limit-per-second")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.defaultTailingRateLimitPerSecond)
+            val indexerBatchWithinMillis = kv
+              .get("indexer-batch-within-millis")
+              .map(_.toLong)
+              .getOrElse(ParticipantIndexerConfig.defaultBatchWithinMillis)
+            val indexerEnableCompression = kv
+              .get("indexer-enable-compression")
+              .map(_.toBoolean)
+              .getOrElse(ParticipantIndexerConfig.defaultEnableCompression)
+
             val maxCommandsInFlight =
               kv.get("max-commands-in-flight").map(_.toInt)
             val managementServiceTimeout = kv
@@ -192,9 +205,17 @@ object Config {
               port,
               portFile,
               jdbcUrl,
-              indexerDatabaseConnectionPoolSize = indexerConnectionPoolSize,
+              indexerConfig = ParticipantIndexerConfig(
+                databaseConnectionPoolSize = indexerConnectionPoolSize,
+                allowExistingSchema = false,
+                inputMappingParallelism = indexerInputMappingParallelism,
+                ingestionParallelism = indexerIngestionParallelism,
+                submissionBatchSize = indexerSubmissionBatchSize,
+                tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,
+                batchWithinMillis = indexerBatchWithinMillis,
+                enableCompression = indexerEnableCompression,
+              ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
-              allowExistingSchemaForIndex = false,
               maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
             )
@@ -391,54 +412,6 @@ object Config {
             s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
-
-        opt[Int]("indexer-input-mapping-parallelism")
-          .optional()
-          .hidden()
-          .action((p, c) => c.copy(indexerInputMappingParallelism = p))
-          .text(
-            s"Level of parallelism of the input mapping. Default: ${Config.DefaultIndexerInputMappingParallelism}"
-          )
-
-        opt[Int]("indexer-ingestion-parallelism")
-          .optional()
-          .hidden()
-          .action((p, c) => c.copy(indexerIngestionParallelism = p))
-          .text(
-            s"Level of parallelism of the database ingestion. Default: ${Config.DefaultIndexerIngestionParallelism}."
-          )
-
-        opt[Long]("indexer-submission-batch-size")
-          .optional()
-          .hidden()
-          .action((p, c) => c.copy(indexerSubmissionBatchSize = p))
-          .text(
-            s"Maximum size of the batches for input mapping and ingestion. Default: ${Config.DefaultIndexerSubmissionBatchSize}."
-          )
-
-        opt[Int]("indexer-tailing-rate-limit-per-second")
-          .optional()
-          .hidden()
-          .action((p, c) => c.copy(indexerTailingRateLimitPerSecond = p))
-          .text(
-            s"Rate limit of setting the ledger_end. Default: ${Config.DefaultIndexerTailingRateLimitPerSecond}."
-          )
-
-        opt[Long]("indexer-batch-within-millis")
-          .optional()
-          .hidden()
-          .action((p, c) => c.copy(indexerBatchWithinMillis = p))
-          .text(
-            s"Maximum milliseconds until pipeline is waiting for a batch to fill. Default: ${Config.DefaultIndexerBatchWithinMillis}."
-          )
-
-        opt[Boolean]("indexer-enable-compression")
-          .optional()
-          .hidden()
-          .action((p, c) => c.copy(indexerEnableCompression = p))
-          .text(
-            s"true: compression enabled, false: compression disabled. Default: ${Config.DefaultIndexerEnableCompression}."
-          )
 
         help("help").text(s"$name as a service.")
       }

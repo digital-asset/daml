@@ -22,13 +22,12 @@ case class IndexerConfig(
     // TODO append-only: remove after removing support for the current (mutating) schema
     enableAppendOnlySchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
-    // TODO append-only: review these defaults, the differ from com.daml.ledger.participant.state.kvutils.app.Config
-    inputMappingParallelism: Int = 3,
-    ingestionParallelism: Int = 4,
-    submissionBatchSize: Long = 1L,
-    tailingRateLimitPerSecond: Int = 100,
-    batchWithinMillis: Long = 10,
-    enableCompression: Boolean = true,
+    inputMappingParallelism: Int = DefaultInputMappingParallelism,
+    ingestionParallelism: Int = DefaultIngestionParallelism,
+    submissionBatchSize: Long = DefaultSubmissionBatchSize,
+    tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
+    batchWithinMillis: Long = DefaultBatchWithinMillis,
+    enableCompression: Boolean = DefaultEnableCompression,
 )
 
 object IndexerConfig {
@@ -39,4 +38,10 @@ object IndexerConfig {
   val DefaultDatabaseConnectionPoolSize: Int = 3
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
+  val DefaultInputMappingParallelism: Int = 16
+  val DefaultIngestionParallelism: Int = 16
+  val DefaultSubmissionBatchSize: Long = 50L
+  val DefaultTailingRateLimitPerSecond: Int = 20
+  val DefaultBatchWithinMillis: Long = 50L
+  val DefaultEnableCompression: Boolean = false
 }

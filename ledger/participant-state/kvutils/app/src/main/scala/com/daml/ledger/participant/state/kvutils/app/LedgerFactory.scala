@@ -38,16 +38,16 @@ trait ConfigProvider[ExtraConfig] {
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
-      databaseConnectionPoolSize = participantConfig.indexerDatabaseConnectionPoolSize,
+      databaseConnectionPoolSize = participantConfig.indexerConfig.databaseConnectionPoolSize,
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
-      allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
+      allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
-      inputMappingParallelism = config.indexerIngestionParallelism,
-      submissionBatchSize = config.indexerSubmissionBatchSize,
-      tailingRateLimitPerSecond = config.indexerTailingRateLimitPerSecond,
-      batchWithinMillis = config.indexerBatchWithinMillis,
-      enableCompression = config.indexerEnableCompression,
+      inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
+      submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
+      tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
+      batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
+      enableCompression = participantConfig.indexerConfig.enableCompression,
     )
 
   def apiServerConfig(
