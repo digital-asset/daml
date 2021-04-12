@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.normalization.UpdateNormalizer
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, TransactionId, Update}
 import com.daml.lf.data.Time
 import com.daml.lf.kv.Normalizer
@@ -20,6 +21,7 @@ trait StateUpdateComparison {
 final class ReadServiceStateUpdateComparison(
     expectedReadService: ReplayingReadService,
     actualReadService: ReplayingReadService,
+    normalizers: List[UpdateNormalizer],
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -44,7 +46,12 @@ final class ReadServiceStateUpdateComparison(
           Future.sequence(
             Seq(
               compareOffsets(expectedOffset, actualOffset),
-              compareUpdates(expectedUpdate, actualUpdate, DefaultNormalizationSettings),
+              compareUpdates(
+                expectedUpdate,
+                actualUpdate,
+                DefaultNormalizationSettings, // TODO: move to normalizers?
+                normalizers,
+              ),
             )
           )
         }
@@ -82,13 +89,17 @@ object ReadServiceStateUpdateComparison {
       expectedUpdate: Update,
       actualUpdate: Update,
       normalizationSettings: NormalizationSettings,
+      normalizers: List[UpdateNormalizer],
   ): Future[Unit] = {
     val expectedNormalizedUpdate = normalizeUpdate(expectedUpdate, normalizationSettings)
+    val normalizedActualUpdate = normalizers.foldLeft(actualUpdate) { case (update, normalizer) =>
+      normalizer.normalize(update)
+    }
     // We ignore the record time set later by post-execution because it's unimportant.
     // We only care about the update type and content.
     val actualNormalizedUpdate =
       updateRecordTime(
-        normalizeUpdate(actualUpdate, normalizationSettings),
+        normalizeUpdate(normalizedActualUpdate, normalizationSettings),
         expectedNormalizedUpdate.recordTime,
       )
     if (expectedNormalizedUpdate != actualNormalizedUpdate) {

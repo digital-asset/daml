@@ -34,7 +34,7 @@ final class StateUpdateComparisonSpec
       val right = aConfigurationChangeRejected.copy(rejectionReason = "another reason")
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, DefaultNormalizationSettings)
+        .compareUpdates(left, right, DefaultNormalizationSettings, List.empty)
         .map(_ => succeed)
     }
 
@@ -55,6 +55,7 @@ final class StateUpdateComparisonSpec
             aCommandRejectedUpdate.copy(reason = left),
             aCommandRejectedUpdate.copy(reason = right),
             DefaultNormalizationSettings,
+            List.empty,
           )
           .map(_ => succeed)
       }
@@ -70,7 +71,7 @@ final class StateUpdateComparisonSpec
         aTransactionAcceptedUpdate.copy(blindingInfo = Some(blindingInfo))
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, NormalizationSettings(ignoreBlindingInfo = true))
+        .compareUpdates(left, right, NormalizationSettings(ignoreBlindingInfo = true), List.empty)
         .map(_ => succeed)
     }
 
@@ -83,7 +84,7 @@ final class StateUpdateComparisonSpec
       )
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, NormalizationSettings(ignoreTransactionId = true))
+        .compareUpdates(left, right, NormalizationSettings(ignoreTransactionId = true), List.empty)
         .map(_ => succeed)
     }
 
@@ -96,7 +97,12 @@ final class StateUpdateComparisonSpec
       )
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, NormalizationSettings(ignoreFetchAndLookupByKeyNodes = true))
+        .compareUpdates(
+          left,
+          right,
+          NormalizationSettings(ignoreFetchAndLookupByKeyNodes = true),
+          List.empty,
+        )
         .map(_ => succeed)
     }
   }

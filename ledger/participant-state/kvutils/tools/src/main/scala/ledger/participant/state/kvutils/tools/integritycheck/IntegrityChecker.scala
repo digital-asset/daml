@@ -58,6 +58,7 @@ class IntegrityChecker[LogResult](
     val stateUpdates = new ReadServiceStateUpdateComparison(
       expectedReadServiceFactory.createReadService,
       actualReadServiceFactory.createReadService,
+      config.updateNormalizers, // TODO: join with "default" normalizers/transformers
     )
 
     checkIntegrity(

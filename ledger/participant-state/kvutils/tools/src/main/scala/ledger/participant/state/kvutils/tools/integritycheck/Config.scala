@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import java.nio.file.{Path, Paths}
 
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.normalization.UpdateNormalizer
 import scopt.OptionParser
 
 case class Config(
@@ -17,6 +18,7 @@ case class Config(
     jdbcUrl: Option[String] = None,
     expectedUpdatesPath: Option[Path] = None,
     actualUpdatesPath: Option[Path] = None,
+    updateNormalizers: List[UpdateNormalizer] = List.empty,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
