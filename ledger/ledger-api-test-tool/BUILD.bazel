@@ -72,11 +72,31 @@ da_scala_binary(
     for (name, lf_target) in lf_version_configuration.items()
 ]
 
+diff_instances = ["src/main/scala/com/daml/ledger/api/testtool/infrastructure/DiffInstances.scala"]
+
+# diffx instances, spun out into a separate library to
+# get better caching and to avoid compiling it once per LF version.
+da_scala_library(
+    name = "ledger-api-test-tool-diff",
+    srcs = diff_instances,
+    scala_deps = [
+        "@maven//:com_propensive_magnolia",  # transitive dependency of diffx
+        "@maven//:com_propensive_mercator",  # transitive dependency of diffx
+        "@maven//:com_softwaremill_diffx_diffx_core",
+    ],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
 [
     [
         da_scala_library(
             name = "ledger-api-test-tool-%s-lib" % lf_version,
-            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
+            srcs = glob(
+                ["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"],
+                exclude = diff_instances,
+            ),
             scala_deps = [
                 "@maven//:com_softwaremill_diffx_diffx_core",
                 "@maven//:com_typesafe_akka_akka_actor",
@@ -84,15 +104,16 @@ da_scala_binary(
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
                 "@maven//:org_scala_lang_modules_scala_java8_compat",
             ],
+            scaladoc = False,
             visibility = ["//:__subpackages__"],
             deps = [
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
                 "//ledger/ledger-api-common",
+                "//libs-scala/grpc-utils",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
-                "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",
@@ -111,8 +132,6 @@ da_scala_binary(
             ],
             scala_deps = [
                 "@maven//:com_chuusai_shapeless",
-                "@maven//:com_propensive_magnolia",  # transitive dependency of diffx
-                "@maven//:com_propensive_mercator",  # transitive dependency of diffx
                 "@maven//:com_softwaremill_diffx_diffx_core",
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
             ],
@@ -124,6 +143,7 @@ da_scala_binary(
                 "//:__subpackages__",
             ],
             deps = [
+                ":ledger-api-test-tool-diff",
                 ":ledger-api-test-tool-%s-lib" % lf_version,
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
@@ -137,6 +157,7 @@ da_scala_binary(
                 "//libs-scala/timer-utils",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
+                "@maven//:io_grpc_grpc_services",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),

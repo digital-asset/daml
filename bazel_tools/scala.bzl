@@ -511,7 +511,7 @@ def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], v
             tags = ["scaladoc"],
         )
 
-def da_scala_library(name, **kwargs):
+def da_scala_library(name, scaladoc = True, **kwargs):
     """
     Define a Scala library.
 
@@ -528,7 +528,8 @@ def da_scala_library(name, **kwargs):
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
 
-    _create_scaladoc_jar(name = name, **arguments)
+    if scaladoc:
+        _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

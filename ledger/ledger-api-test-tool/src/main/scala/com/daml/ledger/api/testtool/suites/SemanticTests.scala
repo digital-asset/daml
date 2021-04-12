@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.DiffInstances._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
@@ -21,7 +22,6 @@ import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
 import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
 import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
 import com.daml.ledger.test.semantic.SemanticTests._
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.Tag
 

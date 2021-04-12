@@ -31,7 +31,7 @@ object Assertions extends DiffExtensions {
     val diff = Diff.compare(actual, expected)
     if (!diff.isIdentical)
       throw AssertionErrorWithPreformattedMessage(
-        diff.show,
+        diff.show(),
         s"$context: two objects are supposed to be equal but they are not",
       )
   }
