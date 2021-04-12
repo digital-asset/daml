@@ -22,12 +22,12 @@ case class IndexerConfig(
     // TODO append-only: remove after removing support for the current (mutating) schema
     enableAppendOnlySchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
+    // TODO append-only: review these defaults, the differ from com.daml.ledger.participant.state.kvutils.app.Config
     inputMappingParallelism: Int = 3,
     ingestionParallelism: Int = 4,
     submissionBatchSize: Long = 1L,
     tailingRateLimitPerSecond: Int = 100,
     batchWithinMillis: Long = 10,
-    runStageUntil: Int = 6,
     enableCompression: Boolean = true,
 )
 
