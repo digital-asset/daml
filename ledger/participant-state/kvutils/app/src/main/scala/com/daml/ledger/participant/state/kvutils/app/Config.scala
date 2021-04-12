@@ -405,7 +405,7 @@ object Config {
           .hidden()
           .action((p, c) => c.copy(indexerIngestionParallelism = p))
           .text(
-            s"Level of parallelism of the database ingestion. Sets parallelism for postgreSQL inserts. Default: ${Config.DefaultIndexerIngestionParallelism}."
+            s"Level of parallelism of the database ingestion. Default: ${Config.DefaultIndexerIngestionParallelism}."
           )
 
         opt[Long]("indexer-submission-batch-size")
