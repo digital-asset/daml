@@ -3,10 +3,7 @@
 
 package com.daml.caching
 
-import java.util.function.Supplier
-
 import com.daml.metrics.CacheMetrics
-import com.github.benmanes.caffeine.cache.stats.StatsCounter
 import com.github.benmanes.caffeine.{cache => caffeine}
 
 import scala.compat.java8.OptionConverters._
