@@ -47,8 +47,7 @@ object MetricsReporter {
     val defaultPort: Int = 2003
   }
 
-  final case class Prometheus(address: InetSocketAddress)
-    extends MetricsReporter {
+  final case class Prometheus(address: InetSocketAddress) extends MetricsReporter {
     override def register(registry: MetricRegistry): ScheduledReporter =
       PrometheusReporter
         .forRegistry(registry)

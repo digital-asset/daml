@@ -229,7 +229,7 @@ abstract class CommonCliSpecBase(
       val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "graphite:server:1234"))
       config shouldEqual None
     }
-    
+
     "parse a Prometheus metrics reporter when given" in {
       val expectedAddress = new InetSocketAddress("server", Prometheus.defaultPort)
       checkOption(

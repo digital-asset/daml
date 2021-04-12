@@ -18,15 +18,18 @@ object PrometheusReporter {
 
   def forRegistry(registry: MetricRegistry) = PrometheusReporter.Builder(registry)
 
-  case class Builder (registry: MetricRegistry, filter: MetricFilter = MetricFilter.ALL) {
+  case class Builder(registry: MetricRegistry, filter: MetricFilter = MetricFilter.ALL) {
     def withFilter(filter: MetricFilter): Builder = copy(filter = filter)
     def build(address: InetSocketAddress) = new PrometheusReporter(registry, filter, address)
   }
 
 }
 
-final class PrometheusReporter private (registry: MetricRegistry, filter: MetricFilter, address: InetSocketAddress)
-    extends ScheduledReporter(
+final class PrometheusReporter private (
+    registry: MetricRegistry,
+    filter: MetricFilter,
+    address: InetSocketAddress,
+) extends ScheduledReporter(
       registry,
       "prometheus-reporter",
       filter,
