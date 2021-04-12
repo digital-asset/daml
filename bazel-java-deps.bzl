@@ -84,6 +84,10 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
             "io.opentelemetry:opentelemetry-context:0.16.0",
             "io.opentelemetry:opentelemetry-api:0.16.0",
+            "io.prometheus:simpleclient:0.8.1",
+            "io.prometheus:simpleclient_dropwizard:0.8.1",
+            "io.prometheus:simpleclient_httpserver:0.8.1",
+            "io.prometheus:simpleclient_servlet:0.8.1",
 
             # Bumping versions of io.grpc:* has a few implications:
             # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
