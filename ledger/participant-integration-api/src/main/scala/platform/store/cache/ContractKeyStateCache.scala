@@ -9,25 +9,25 @@ import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
 
-object KeyStateCache {
+object ContractKeyStateCache {
   def apply(cacheSize: Long, metrics: Metrics)(implicit
       ec: ExecutionContext
-  ): StateCache[GlobalKey, KeyStateValue] =
+  ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
-      cache = SizedCache.from[GlobalKey, KeyStateValue](
+      cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.daml.execution.keyStateCache,
       ),
       metrics = metrics,
     )
+}
 
-  sealed trait KeyStateValue extends Product with Serializable
+sealed trait ContractKeyStateValue extends Product with Serializable
 
-  object KeyStateValue {
+object ContractKeyStateValue {
 
-    final case class Assigned(contractId: ContractId, createWitnesses: Set[Party])
-        extends KeyStateValue
+  final case class Assigned(contractId: ContractId, createWitnesses: Set[Party])
+      extends ContractKeyStateValue
 
-    final case object Unassigned extends KeyStateValue
-  }
+  final case object Unassigned extends ContractKeyStateValue
 }

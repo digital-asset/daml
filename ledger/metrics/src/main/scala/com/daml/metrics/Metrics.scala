@@ -53,7 +53,7 @@ final class Metrics(val registry: MetricRegistry) {
     object execution {
       private val Prefix: MetricName = daml.Prefix :+ "execution"
 
-      val keyStateCache = new CacheMetrics(registry, Prefix :+ "key_state_cache")
+      val keyStateCache: CacheMetrics = new CacheMetrics(registry, Prefix :+ "key_state_cache")
       val contractStateCache: CacheMetrics =
         new CacheMetrics(registry, Prefix :+ "contract_state_cache")
 

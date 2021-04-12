@@ -13,30 +13,32 @@ import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.ImmArray
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.ContractsStateCache.ContractStateValue.{Active, Archived}
-import com.daml.platform.store.cache.KeyStateCache.KeyStateValue.{Assigned, Unassigned}
+import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
+import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
+  ContractNotFound,
+  EmptyContractIds,
+  EventSequentialId,
+}
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
   ContractsReaderFixture,
   contractStore,
+  _,
 }
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{KeyAssigned, KeyUnassigned}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Millis, Span}
 import org.scalatest.wordspec.AsyncWordSpec
-import MutableCacheBackedContractStoreSpec._
-import com.daml.lf.transaction.GlobalKey
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
-  ContractNotFound,
-  EmptyContractIds,
-  EventSequentialId,
-}
 
 import scala.concurrent.Future
 import scala.math.BigInt.long2bigInt
@@ -52,6 +54,8 @@ class MutableCacheBackedContractStoreSpec
     "populate the caches from the contract state event stream" in {
       val actorSystem = ActorSystem("test")
       implicit val materializer: Materializer = Materializer(actorSystem)
+      implicit val patienceConfig: PatienceConfig =
+        PatienceConfig(timeout = scaled(Span(500, Millis)))
 
       val lastLedgerHead = new AtomicReference[Offset](Offset.beforeBegin)
       val capture_signalLedgerHead = lastLedgerHead.set _
@@ -70,17 +74,19 @@ class MutableCacheBackedContractStoreSpec
           store.keyCache.get(someKey) shouldBe Some(Assigned(cId_1, Set(charlie)))
           store.cacheOffset.get() shouldBe 1L
         }
+
         _ <- archivedEvent(c1, eventSequentialId = 2L)
         _ <- eventually {
           store.contractsCache.get(cId_1) shouldBe Some(Archived(Set(charlie)))
           store.keyCache.get(someKey) shouldBe Some(Unassigned)
           store.cacheOffset.get() shouldBe 2L
         }
-        offset1 = Offset.fromByteArray(1337.toByteArray)
-        _ <- ledgerEnd(offset1, 3L)
+
+        someOffset = Offset.fromByteArray(1337.toByteArray)
+        _ <- ledgerEnd(someOffset, 3L)
         _ <- eventually {
           store.cacheOffset.get() shouldBe 3L
-          lastLedgerHead.get() shouldBe offset1
+          lastLedgerHead.get() shouldBe someOffset
         }
       } yield succeed
     }
@@ -95,9 +101,11 @@ class MutableCacheBackedContractStoreSpec
       for {
         cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
         another_cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
+
         _ = store.cacheOffset.incrementAndGet()
         cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
         another_cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
+
         _ = store.cacheOffset.incrementAndGet()
         nonExistentCId = contractId(5)
         nonExistentCId_lookup <- store.lookupActiveContract(Set.empty, nonExistentCId)
@@ -125,9 +133,11 @@ class MutableCacheBackedContractStoreSpec
       for {
         cId1_lookup0 <- store.lookupActiveContract(Set(alice), cId_1)
         cId2_lookup0 <- store.lookupActiveContract(Set(bob), cId_2)
+
         _ = store.cacheOffset.incrementAndGet()
         cId1_lookup1 <- store.lookupActiveContract(Set(alice), cId_1)
         cid1_lookup1_archivalNotDivulged <- store.lookupActiveContract(Set(charlie), cId_1)
+
         _ = store.cacheOffset.incrementAndGet()
         cId2_lookup2 <- store.lookupActiveContract(Set(bob), cId_2)
         cid2_lookup2_divulged <- store.lookupActiveContract(Set(charlie), cId_2)
@@ -135,8 +145,10 @@ class MutableCacheBackedContractStoreSpec
       } yield {
         cId1_lookup0 shouldBe Some(contract1)
         cId2_lookup0 shouldBe Option.empty
+
         cId1_lookup1 shouldBe Option.empty
         cid1_lookup1_archivalNotDivulged shouldBe Some(contract1)
+
         cId2_lookup2 shouldBe Some(contract2)
         cid2_lookup2_divulged shouldBe Some(contract2)
         cid2_lookup2_nonVisible shouldBe Option.empty
@@ -148,11 +160,12 @@ class MutableCacheBackedContractStoreSpec
     "read-through the key state cache" in {
       val spyContractsReader = spy(ContractsReaderFixture())
       val store = contractStore(cachesSize = 1L, spyContractsReader)
+      val unassignedKey = globalKey("unassigned")
 
       for {
         assigned_firstLookup <- store.lookupContractKey(Set(alice), someKey)
         assigned_secondLookup <- store.lookupContractKey(Set(alice), someKey)
-        unassignedKey = globalKey("unassigned")
+
         _ = store.cacheOffset.incrementAndGet()
         unassigned_firstLookup <- store.lookupContractKey(Set(alice), unassignedKey)
         unassigned_secondLookup <- store.lookupContractKey(Set(alice), unassignedKey)
@@ -174,11 +187,14 @@ class MutableCacheBackedContractStoreSpec
       val store = contractStore(cachesSize = 0L)
       for {
         key_lookup0 <- store.lookupContractKey(Set(alice), someKey)
+
         _ = store.cacheOffset.incrementAndGet()
         key_lookup1 <- store.lookupContractKey(Set(alice), someKey)
+
         _ = store.cacheOffset.incrementAndGet()
         key_lookup2 <- store.lookupContractKey(Set(bob), someKey)
         key_lookup2_notVisible <- store.lookupContractKey(Set(charlie), someKey)
+
         _ = store.cacheOffset.incrementAndGet()
         key_lookup3 <- store.lookupContractKey(Set(bob), someKey)
       } yield {
@@ -209,18 +225,14 @@ class MutableCacheBackedContractStoreSpec
       val store = contractStore(cachesSize = 0L)
       store.cacheOffset.set(2L)
       recoverToSucceededIf[ContractNotFound] {
-        for {
-          _ <- store.lookupMaximumLedgerTime(Set(cId_1, cId_2))
-        } yield succeed
+        store.lookupMaximumLedgerTime(Set(cId_1, cId_2)).map(_ => succeed)
       }
     }
 
     "fail if the requested contract id set is empty" in {
       val store = contractStore(cachesSize = 0L)
       recoverToSucceededIf[EmptyContractIds] {
-        for {
-          _ <- store.lookupMaximumLedgerTime(Set.empty)
-        } yield succeed
+        store.lookupMaximumLedgerTime(Set.empty).map(_ => succeed)
       }
     }
   }
@@ -236,8 +248,8 @@ class MutableCacheBackedContractStoreSpec
     val created = ContractStateEvent.Created(
       contractId = contractId,
       contract = contract,
-      createLedgerEffectiveTime = createLedgerEffectiveTime,
       globalKey = maybeKey,
+      ledgerEffectiveTime = createLedgerEffectiveTime,
       stakeholders = stakeholders,
       eventOffset = Offset.beforeBegin, // Not used
       eventSequentialId = eventSequentialId,
@@ -294,8 +306,8 @@ object MutableCacheBackedContractStoreSpec {
       readerFixture,
       signalNewLedgerHead,
       new Metrics(new MetricRegistry),
-      contractsCacheSize = cachesSize,
-      keyCacheSize = cachesSize,
+      maxContractsCacheSize = cachesSize,
+      maxKeyCacheSize = cachesSize,
     )(scala.concurrent.ExecutionContext.global)
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {
