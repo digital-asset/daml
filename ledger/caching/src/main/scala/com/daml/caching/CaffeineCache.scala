@@ -3,7 +3,10 @@
 
 package com.daml.caching
 
+import java.util.function.Supplier
+
 import com.daml.metrics.CacheMetrics
+import com.github.benmanes.caffeine.cache.stats.StatsCounter
 import com.github.benmanes.caffeine.{cache => caffeine}
 
 import scala.compat.java8.OptionConverters._
@@ -14,6 +17,9 @@ object CaffeineCache {
       builder: caffeine.Caffeine[_ >: Key, _ >: Value],
       metrics: Option[CacheMetrics],
   ): ConcurrentCache[Key, Value] = {
+    metrics.foreach(cacheMetrics =>
+      builder.recordStats(() => new DropwizardStatsCounter(cacheMetrics))
+    )
     val cache = builder.build[Key, Value]
     metrics match {
       case None => new SimpleCaffeineCache(cache)
