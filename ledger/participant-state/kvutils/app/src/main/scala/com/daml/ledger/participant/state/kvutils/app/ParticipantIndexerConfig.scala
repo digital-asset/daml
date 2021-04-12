@@ -12,21 +12,21 @@ import com.daml.platform.indexer.IndexerConfig
   */
 final case class ParticipantIndexerConfig(
     allowExistingSchema: Boolean,
-    databaseConnectionPoolSize: Int = ParticipantIndexerConfig.defaultDatabaseConnectionPoolSize,
-    inputMappingParallelism: Int = ParticipantIndexerConfig.defaultInputMappingParallelism,
-    ingestionParallelism: Int = ParticipantIndexerConfig.defaultIngestionParallelism,
-    submissionBatchSize: Long = ParticipantIndexerConfig.defaultSubmissionBatchSize,
-    tailingRateLimitPerSecond: Int = ParticipantIndexerConfig.defaultTailingRateLimitPerSecond,
-    batchWithinMillis: Long = ParticipantIndexerConfig.defaultBatchWithinMillis,
-    enableCompression: Boolean = ParticipantIndexerConfig.defaultEnableCompression,
+    databaseConnectionPoolSize: Int = ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize,
+    inputMappingParallelism: Int = ParticipantIndexerConfig.DefaultInputMappingParallelism,
+    ingestionParallelism: Int = ParticipantIndexerConfig.DefaultIngestionParallelism,
+    submissionBatchSize: Long = ParticipantIndexerConfig.DefaultSubmissionBatchSize,
+    tailingRateLimitPerSecond: Int = ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond,
+    batchWithinMillis: Long = ParticipantIndexerConfig.DefaultBatchWithinMillis,
+    enableCompression: Boolean = ParticipantIndexerConfig.DefaultEnableCompression,
 )
 
 object ParticipantIndexerConfig {
-  val defaultDatabaseConnectionPoolSize: Int = IndexerConfig.DefaultDatabaseConnectionPoolSize
-  val defaultInputMappingParallelism: Int = IndexerConfig.DefaultInputMappingParallelism
-  val defaultIngestionParallelism: Int = IndexerConfig.DefaultIngestionParallelism
-  val defaultSubmissionBatchSize: Long = IndexerConfig.DefaultSubmissionBatchSize
-  val defaultTailingRateLimitPerSecond: Int = IndexerConfig.DefaultTailingRateLimitPerSecond
-  val defaultBatchWithinMillis: Long = IndexerConfig.DefaultBatchWithinMillis
-  val defaultEnableCompression: Boolean = IndexerConfig.DefaultEnableCompression
+  val DefaultDatabaseConnectionPoolSize: Int = IndexerConfig.DefaultDatabaseConnectionPoolSize
+  val DefaultInputMappingParallelism: Int = IndexerConfig.DefaultInputMappingParallelism
+  val DefaultIngestionParallelism: Int = IndexerConfig.DefaultIngestionParallelism
+  val DefaultSubmissionBatchSize: Long = IndexerConfig.DefaultSubmissionBatchSize
+  val DefaultTailingRateLimitPerSecond: Int = IndexerConfig.DefaultTailingRateLimitPerSecond
+  val DefaultBatchWithinMillis: Long = IndexerConfig.DefaultBatchWithinMillis
+  val DefaultEnableCompression: Boolean = IndexerConfig.DefaultEnableCompression
 }

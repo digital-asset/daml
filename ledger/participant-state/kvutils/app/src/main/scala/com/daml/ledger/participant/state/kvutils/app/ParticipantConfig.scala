@@ -19,18 +19,18 @@ final case class ParticipantConfig(
     portFile: Option[Path],
     serverJdbcUrl: String,
     maxCommandsInFlight: Option[Int],
-    managementServiceTimeout: Duration = ParticipantConfig.defaultManagementServiceTimeout,
+    managementServiceTimeout: Duration = ParticipantConfig.DefaultManagementServiceTimeout,
     indexerConfig: ParticipantIndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
-      ParticipantConfig.defaultApiServerDatabaseConnectionPoolSize,
+      ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
 )
 
 object ParticipantConfig {
   def defaultIndexJdbcUrl(participantId: ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
-  val defaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
+  val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
 
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
-  val defaultApiServerDatabaseConnectionPoolSize = 16
+  val DefaultApiServerDatabaseConnectionPoolSize = 16
 }
