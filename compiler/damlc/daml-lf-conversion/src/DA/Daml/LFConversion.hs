@@ -1301,10 +1301,10 @@ mkCase env scrutineeType resultType scrutinee galts =
             CaseAlternative CPDefault _ -> Right [alt]
             _ -> Right [alt, CaseAlternative CPDefault e]
     addCaseAlternative (GCAEquality EqualityAlternative{..}) elseBranch =
-        Left (mkIf (mkScrutineEquality eqaltPattern) eqaltBody (finalize elseBranch))
+        Left (mkIf (mkScrutineeEquality eqaltPattern) eqaltBody (finalize elseBranch))
 
-    mkScrutineEquality :: LF.Expr -> LF.Expr
-    mkScrutineEquality pattern
+    mkScrutineeEquality :: LF.Expr -> LF.Expr
+    mkScrutineeEquality pattern
         | TBuiltin scrutineeBuiltinType <- scrutineeType
         = mkBuiltinEqual (envLfVersion env) scrutineeBuiltinType `ETmApp` scrutinee `ETmApp` pattern
 
