@@ -322,8 +322,8 @@ object WebSocketService {
       ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
         q.toSeq map (_ rightMap { lfvKeys =>
           val khd +: ktl = lfvKeys.toVector
-          import dbbackend.Queries.{intersperse, concatFragment}
-          concatFragment(intersperse(OneAnd(khd, ktl) map (keyEquality(_)), sql" OR "))
+          import dbbackend.Queries.joinFragment
+          joinFragment(OneAnd(khd, ktl) map (keyEquality(_)), sql" OR ")
         })
       StreamPredicate(
         q.keySet,

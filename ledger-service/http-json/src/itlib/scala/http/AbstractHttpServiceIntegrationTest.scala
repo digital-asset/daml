@@ -728,6 +728,37 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
+  private[this] def randomTextN(n: Int) = {
+    import org.scalacheck.Gen
+    Gen
+      .buildableOfN[String, Char](n, Gen.alphaNumChar)
+      .sample
+      .getOrElse(sys.error(s"can't generate ${n}b string"))
+  }
+
+  Seq(
+    "& " -> "& bar",
+    "1kb of data" -> randomTextN(1000),
+    "2kb of data" -> randomTextN(2000),
+    "3kb of data" -> randomTextN(3000),
+    "4kb of data" -> randomTextN(4000),
+    "5kb of data" -> randomTextN(5000),
+  ).foreach { case (testLbl, testCurrency) =>
+    s"query record contains handles '$testLbl' strings properly" in withHttpService {
+      (uri, encoder, _) =>
+        searchExpectOk(
+          searchDataSet :+ iouCreateCommand(currency = testCurrency),
+          jsObject(
+            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+          ),
+          uri,
+          encoder,
+        ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
+          fields.get("currency") should ===(Some(JsString(testCurrency)))
+        })
+    }
+  }
+
   "query with query, two fields" in withHttpService { (uri, encoder, _) =>
     searchExpectOk(
       searchDataSet,

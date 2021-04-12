@@ -27,8 +27,8 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 
 sealed abstract class Queries {
-  import Queries._, InitDdl._
-  import Implicits._
+  import Queries.{Implicits => _, _}, InitDdl._
+  import Queries.Implicits._
 
   protected[this] def dropTableIfExists(table: String): Fragment
 
@@ -40,7 +40,7 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         contract
-        (contract_id """ ++ contractIdType ++ sql""" NOT NULL PRIMARY KEY
+        (contract_id """ ++ contractIdType ++ sql""" NOT NULL CONSTRAINT contract_k PRIMARY KEY
         ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
         ,""" ++ jsonColumn(sql"key") ++ sql"""
         ,""" ++ jsonColumn(contractColumnName) ++
@@ -87,7 +87,7 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         template_id
-        (tpid """ ++ bigSerialType ++ sql""" NOT NULL PRIMARY KEY
+        (tpid """ ++ bigSerialType ++ sql""" NOT NULL CONSTRAINT template_id_k PRIMARY KEY
         ,package_id """ ++ packageIdType ++ sql""" NOT NULL
         ,template_module_name """ ++ nameType ++ sql""" NOT NULL
         ,template_entity_name """ ++ nameType ++ sql""" NOT NULL
@@ -200,15 +200,6 @@ sealed abstract class Queries {
     } yield { inserted + updated }
   }
 
-  private[this] def caseLookup(m: Map[String, String], selector: Fragment): Fragment =
-    fr"CASE" ++ {
-      assert(m.nonEmpty, "existing offsets must be non-empty")
-      val when +: whens = m.iterator.map { case (k, v) =>
-        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
-      }.toVector
-      concatFragment(OneAnd(when, whens))
-    } ++ fr"ELSE NULL END"
-
   // different databases encode contract keys in different formats
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
@@ -298,13 +289,9 @@ sealed abstract class Queries {
       literalScalar: JsValue,
   ): Fragment
 
-  object Implicits {
-    implicit val `JsValue put`: Meta[JsValue] =
-      Meta[String].timap(_.parseJson)(_.compactPrint)
-
-    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
-      SurrogateTpId subst Meta[Long]
-  }
+  // unsure whether this will need to be instance dependent, but
+  // just fine to be an alias for now
+  private[http] val Implicits: Queries.Implicits.type = Queries.Implicits
 }
 
 object Queries {
@@ -352,7 +339,7 @@ object Queries {
     * @tparam T The traversable of queries that result.
     * @tparam Mark The "marker" indicating which query matched.
     */
-  private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
+  private[http] sealed abstract class MatchedQueryMarker[T[_], Mark]
       extends Product
       with Serializable
   private[http] object MatchedQueryMarker {
@@ -374,6 +361,9 @@ object Queries {
     case object GTEQ extends OrderOperator
   }
 
+  private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs, sep))
+
   private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
     val OneAnd(hd, tl) = xs
     def go(s: Int, e: Int): Fragment =
@@ -388,7 +378,7 @@ object Queries {
     hd ++ go(0, tl.size)
   }
 
-  private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
+  private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
     oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
 
   // Like groupBy but split into n maps where n is the longest list under groupBy.
@@ -410,8 +400,28 @@ object Queries {
       case _ => None
     }
 
+  private[dbbackend] def caseLookup[SelEq: Put, Then: Put](
+      m: Map[SelEq, Then],
+      selector: Fragment,
+  ): Fragment =
+    fr"CASE" ++ {
+      assert(m.nonEmpty, "existing offsets must be non-empty")
+      val when +: whens = m.iterator.map { case (k, v) =>
+        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
+      }.toVector
+      concatFragment(OneAnd(when, whens))
+    } ++ fr"ELSE NULL END"
+
   private[http] val Postgres: Queries = PostgresQueries
   private[http] val Oracle: Queries = OracleQueries
+
+  private[http] object Implicits {
+    implicit val `JsValue put`: Meta[JsValue] =
+      Meta[String].timap(_.parseJson)(_.compactPrint)
+
+    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
+      SurrogateTpId subst Meta[Long]
+  }
 
   private[dbbackend] object CompatImplicits {
     implicit def catsReducibleFromFoldable1[F[_]](implicit
@@ -491,7 +501,7 @@ private object PostgresQueries extends Queries {
       val assocedPreds = preds.map { case (tpid, predicate) =>
         sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
       }
-      val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
+      val unionPred = joinFragment(assocedPreds, sql" OR ")
       val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
                       FROM contract AS c
                       WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
@@ -624,43 +634,39 @@ private object OracleQueries extends Queries {
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
-    println("insert contracts")
-    println(dbcs)
-    val r = Update[(String, String, SurrogateTpId, JsValue, JsValue, String)](
+    val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
       """
-        MERGE INTO contract USING (SELECT 1 FROM DUAL) ON (contract_id = ?)
-        WHEN NOT MATCHED THEN INSERT (contract_id, tpid, key, payload, agreement_text)
+        INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
+        INTO contract (contract_id, tpid, key, payload, agreement_text)
         VALUES (?, ?, ?, ?, ?)
       """,
       logHandler0 = log,
     ).updateMany(
       dbcs
         .map { c =>
-//          println(c)
-          (c.contractId, c.contractId, c.templateId, c.key, c.payload, c.agreementText)
+          (c.contractId, c.templateId, c.key, c.payload, c.agreementText)
         }
     )
-    println("inserted")
     import cats.syntax.foldable._, cats.instances.vector._
-    val r2 = Update[(String, String, String, String)](
+    val r2 = Update[(String, String)](
       """
-        MERGE INTO signatories USING (SELECT 1 FROM DUAL) ON (contract_id = ? AND party = ?)
-        WHEN NOT MATCHED THEN INSERT (contract_id, party)
+        INSERT /*+ ignore_row_on_dupkey_index(signatories(contract_id, party)) */
+        INTO signatories (contract_id, party)
         VALUES (?, ?)
       """,
       logHandler0 = log,
     ).updateMany(
-      dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s, c.contractId, s)).toVector)
+      dbcs.foldMap(c => c.signatories.view.map(s => (c.contractId, s)).toVector)
     )
-    val r3 = Update[(String, String, String, String)](
+    val r3 = Update[(String, String)](
       """
-        MERGE INTO observers USING (SELECT 1 FROM DUAL) ON (contract_id = ? AND party = ?)
-        WHEN NOT MATCHED THEN INSERT (contract_id, party)
+        INSERT /*+ ignore_row_on_dupkey_index(observers(contract_id, party)) */
+        INTO observers (contract_id, party)
         VALUES (?, ?)
       """,
       logHandler0 = log,
     ).updateMany(
-      dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s, c.contractId, s)).toVector)
+      dbcs.foldMap(c => c.observers.view.map(s => (c.contractId, s)).toVector)
     )
     r *> r2 *> r3
   }
@@ -674,38 +680,66 @@ private object OracleQueries extends Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
-    val Seq((tpid, predicate @ _)) = queries // TODO SC handle more than one
-    println("selecting")
-    import Queries.CompatImplicits.catsReducibleFromFoldable1
-    // % is explicitly reserved by specification as a delimiter
-    val q = sql"""SELECT c.contract_id, key, payload, agreement_text, sd.parties, od.parties
-                  FROM (contract c
-                        LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
-                        LEFT JOIN observers om ON (c.contract_id = om.contract_id))
-                       LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
-                                  FROM signatories GROUP BY contract_id) sd
-                              ON (c.contract_id = sd.contract_id)
-                       LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
-                                  FROM observers GROUP BY contract_id) od
-                              ON (c.contract_id = od.contract_id)
-                  WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
-      fr" OR " ++ Fragments.in(fr"om.party", parties) ++ sql""")
-                        AND tpid = $tpid AND (""" ++ predicate ++ sql")"
+    // we effectively shadow Mark because Scala 2.12 doesn't quite get
+    // that it should use the GADT type equality otherwise
+    def queryByCondition[Mark0: Get](
+        tpid: Fragment,
+        queryConditions: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
+    ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
+      val queriesCondition = queryConditions match {
+        case q +-: qs =>
+          joinFragment(
+            OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
+              fr"($tpid = tpid AND (" ++ predicate ++ fr"))"
+            },
+            fr" OR ",
+          )
+      }
+      import Queries.CompatImplicits.catsReducibleFromFoldable1
+      // % is explicitly reserved by specification as a delimiter
+      val q =
+        sql"SELECT c.contract_id, " ++ tpid ++ sql""", key, payload, agreement_text, sd.parties, od.parties
+            FROM (contract c
+                  LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
+                  LEFT JOIN observers om ON (c.contract_id = om.contract_id))
+                 LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
+                            FROM signatories GROUP BY contract_id) sd
+                        ON (c.contract_id = sd.contract_id)
+                 LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
+                            FROM observers GROUP BY contract_id) od
+                        ON (c.contract_id = od.contract_id)
+            WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
+          fr" OR " ++ Fragments.in(fr"om.party", parties) ++
+          sql""")
+                  AND """ ++ queriesCondition
+      q.query[
+        (String, Mark0, JsValue, JsValue, Option[String], Option[String], Option[String])
+      ].map { case (cid, tpid, key, payload, agreement, pctSignatories, pctObservers) =>
+        DBContract(
+          contractId = cid,
+          templateId = tpid,
+          key = key.asJsObject.fields("key"),
+          payload = payload,
+          signatories = unpct(pctSignatories),
+          observers = unpct(pctObservers),
+          agreementText = agreement getOrElse "",
+        )
+      }
+    }
+
     trackMatchIndices match {
-      case MatchedQueryMarker.ByInt => sys.error("TODO websocket Oracle support")
-      case MatchedQueryMarker.Unused =>
-        q.query[(String, JsValue, JsValue, Option[String], Option[String], Option[String])].map {
-          case (cid, key, payload, agreement, pctSignatories, pctObservers) =>
-            DBContract(
-              contractId = cid,
-              templateId = tpid,
-              key = key.asJsObject.fields("key"),
-              payload = payload,
-              signatories = unpct(pctSignatories),
-              observers = unpct(pctObservers),
-              agreementText = agreement getOrElse "",
-            )
+      case MatchedQueryMarker.ByInt =>
+        type Ix = Int
+        // TODO we may UNION the resulting queries and aggregate the Ixes SQL-side,
+        // but this will probably necessitate the same PostgreSQL-side
+        uniqueSets(queries.zipWithIndex.map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
+          preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
+            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"tpid")
+            queryByCondition[Int](tpid, preds.transform((_, predIx) => predIx._1).toVector)
         }
+      case MatchedQueryMarker.Unused =>
+        val NonEmpty(nequeries) = queries
+        queryByCondition[SurrogateTpId](fr"tpid", nequeries)
     }
   }
 
@@ -721,27 +755,50 @@ private object OracleQueries extends Queries {
     path.elems.foldMap(_.fold(k => (".\"": Cord) ++ k :- '"', (_: _0.type) => "[0]"))
 
   // I cannot believe this function exists in 2021
+  // None if literal is too long
   // ORA-40454: path expression not a literal
-  private[this] def oraclePathEscape(readyPath: Cord): Fragment = {
-    val s = readyPath.toString
-    assert(
+  private[this] def oraclePathEscape(readyPath: Cord): Option[Fragment] = for {
+    readyPath <- Some(readyPath)
+    if readyPath.size <= literalStringSizeLimit
+    s = readyPath.toString
+    _ = assert(
       !s.startsWith("'") && !s.endsWith("'"),
       "Oracle JSON query syntax doesn't allow ' at beginning or ending",
     )
-    Fragment const0 ("'" + s.replace("'", "''") + "'")
-  }
+    escaped = s.replace("'", "''")
+    if escaped.length <= literalStringSizeLimit
+  } yield Fragment const0 ("'" + escaped + "'")
+  // ORA-01704: string literal too long
+  private[this] val literalStringSizeLimit = 4000
+
+  private[this] def oracleShortPathEscape(readyPath: Cord): Fragment =
+    oraclePathEscape(readyPath).getOrElse(
+      throw new IllegalArgumentException(s"path too long: $readyPath")
+    )
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
-    literal match {
-      case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
-        val pred = opath ++ "?(@ == " ++ literal.compactPrint :- ')'
-        sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pred) ++ sql")"
-      case JsObject(_) | JsArray(_) =>
-        sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(
-          opath
-        ) ++ sql"), ${literal.compactPrint: String})"
+    // you cannot put a positional parameter in a path, which _must_ be a literal
+    // so pass it as the path-local variable X instead
+    def existsForm[Lit: Put](literal: Lit) =
+      (
+        "?(@ == $X)", // not a Scala interpolation
+        sql" PASSING $literal AS X",
+      )
+    val predExtension = literal match {
+      case JsNumber(n) => Some(existsForm(n))
+      case JsString(s) => Some(existsForm(s))
+      case JsBoolean(_) | JsNull => Some((s"?(@ == $literal)", sql""))
+      case JsObject(_) | JsArray(_) => None
     }
+    predExtension.cata(
+      { case (pred, extension) =>
+        sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
+          oracleShortPathEscape(opath ++ pred) ++ extension ++ sql")"
+      },
+      sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
+        oracleShortPathEscape(opath) ++ sql" RETURNING CLOB), $literal)",
+    )
   }
 
   // XXX JsValue is _too big_ a type for `literal`; we can make this function
@@ -751,7 +808,7 @@ private object OracleQueries extends Queries {
     def ensureNotNull = {
       // we are only trying to reject None for an Optional record/variant/list
       val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
-      sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oraclePathEscape(pred) ++ sql")"
+      sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oracleShortPathEscape(pred) ++ sql")"
     }
     literal match {
       case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
@@ -764,7 +821,7 @@ private object OracleQueries extends Queries {
             val fieldPreds = OneAnd(hp, tp).map { case (ok, ov) =>
               containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
             }
-            concatFragment(intersperse(fieldPreds, sql" AND "))
+            joinFragment(fieldPreds, sql" AND ")
           case _ =>
             // a check *at root* for `@> {}` always succeeds, so don't bother querying
             if (path.elems.isEmpty) sql"1 = 1"
@@ -782,10 +839,29 @@ private object OracleQueries extends Queries {
     }
   }
 
+  // XXX as with containsAtContractPath, literalScalar is too big a type
   private[http] override def cmpContractPathToScalar(
       path: JsonPath,
       op: OrderOperator,
       literalScalar: JsValue,
-  ) =
-    sql"1 = 1" // TODO SC
+  ) = {
+    val literalRendered = literalScalar match {
+      case JsNumber(n) => sql"$n"
+      case JsString(s) => sql"$s"
+      case JsNull | JsBoolean(_) | JsArray(_) | JsObject(_) =>
+        throw new IllegalArgumentException(
+          s"${literalScalar.compactPrint} is not comparable in JSON queries"
+        )
+    }
+    import OrderOperator._
+    val opc = op match {
+      case LT => "<"
+      case LTEQ => "<="
+      case GT => ">"
+      case GTEQ => ">="
+    }
+    val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
+    sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
+      oracleShortPathEscape(pathc) ++ sql" PASSING " ++ literalRendered ++ sql" AS X)"
+  }
 }

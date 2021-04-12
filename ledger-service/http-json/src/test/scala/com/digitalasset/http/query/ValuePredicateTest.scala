@@ -41,6 +41,17 @@ class ValuePredicateTest
   import Ref.QualifiedName.{assertFromString => qn}
 
   private[this] val dummyPackageId = Ref.PackageId assertFromString "dummy-package-id"
+
+  private[this] val (tuple3Id, (tuple3DDT, tuple3VA)) = {
+    import shapeless.syntax.singleton._
+    val sig = Symbol("_1") ->> VA.int64 ::
+      Symbol("_2") ->> VA.text ::
+      Symbol("_3") ->> VA.bool ::
+      RNil
+    val id = Ref.Identifier(dummyPackageId, qn("Foo:Tuple3"))
+    (id, VA.record(id, sig))
+  }
+
   private[this] def eitherT = {
     import shapeless.syntax.singleton._
     val sig = Symbol("Left") ->> VA.int64 ::
@@ -66,6 +77,7 @@ class ValuePredicateTest
       dummyId -> iface
         .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty)))),
       eitherId -> eitherDDT,
+      tuple3Id -> tuple3DDT,
     ).lift
 
   "fromJsObject" should {
@@ -232,42 +244,71 @@ class ValuePredicateTest
       }
     }
 
-    // we aren't running the SQL, just looking at it
-    implicit val sjd: dbbackend.SupportedJdbcDriver = dbbackend.SupportedJdbcDriver.Postgres
-
     val sqlWheres = {
-      import doobie.implicits._, sjd.queries.Implicits._
+      import doobie.implicits._, dbbackend.Queries.Implicits._
       Table(
-        ("query", "type", "sql"),
-        ("42", VA.int64, sql"payload = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb"),
+        ("query", "type", "postgresql", "oraclesql"),
+        (
+          "42",
+          VA.int64,
+          sql"payload = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb",
+          sql"JSON_EQUAL(JSON_QUERY(payload, '$$' RETURNING CLOB), ${s"""{"$dummyFieldName":42}""".parseJson})",
+        ),
+        (
+          """{"_2": "hi there", "_3": false}""",
+          tuple3VA,
+          sql"payload @> ${"""{"foo":{"_2":"hi there","_3":false}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"."_2"?(@ == $$X)' PASSING ${"hi there"} AS X)"""
+            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."_3"?(@ == false)')""",
+        ),
+        (
+          "{}",
+          tuple3VA,
+          sql"payload @> ${"""{"foo":{}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(@ != null)')""",
+        ),
         (
           """{"%lte": 42}""",
           VA.int64,
           sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(@ <= $$X)' PASSING ${42L} AS X) AND 1 = 1""",
         ),
         (
           """{"tag": "Left", "value": "42"}""",
           eitherVA,
           sql"payload = ${"""{"foo": {"tag": "Left", "value": 42}}""".parseJson}::jsonb",
+          sql"JSON_EQUAL(JSON_QUERY(payload, '$$' RETURNING CLOB), ${s"""{"foo": {"tag": "Left", "value": 42}}""".parseJson})",
         ),
         (
           """{"tag": "Left", "value": {"%lte": 42}}""",
           eitherVA,
           sql"payload->${"foo"}->${"value"} <= ${"42".parseJson}::jsonb AND payload @> ${"""{"foo": {"tag": "Left"}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"."value"?(@ <= $$X)' PASSING ${42L} AS X)"""
+            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."tag"?(@ == $$X)' PASSING ${"Left"} AS X)""",
         ),
       )
     }
 
-    "compile to SQL" in forEvery(sqlWheres) { (query, va, sql: doobie.Fragment) =>
+    "compile to SQL" in forEvery(sqlWheres) { (query, va, postgreSql, oracleSql) =>
       val defs = typeInObject(va.t)
       val vp = ValuePredicate.fromJsObject(
         Map((dummyFieldName: String) -> query.parseJson),
         dummyTypeCon,
         defs,
       )
-      val frag = vp.toSqlWhereClause
-      frag.toString should ===(sql.toString)
-      fragmentElems(frag) should ===(fragmentElems(sql))
+      forEvery(
+        Table(
+          "backend" -> "sql",
+          dbbackend.SupportedJdbcDriver.Postgres -> postgreSql,
+          dbbackend.SupportedJdbcDriver.Oracle -> oracleSql,
+        )
+      ) { (backend, sql: doobie.Fragment) =>
+        // we aren't running the SQL, just looking at it
+        implicit val sjd: dbbackend.SupportedJdbcDriver = backend
+        val frag = vp.toSqlWhereClause
+        frag.toString should ===(sql.toString)
+        fragmentElems(frag) should ===(fragmentElems(sql))
+      }
     }
   }
 }
