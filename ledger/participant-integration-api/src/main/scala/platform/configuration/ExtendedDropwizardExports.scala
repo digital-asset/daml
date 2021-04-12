@@ -24,7 +24,7 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
     val basicMetricFamilySamples =
       super.fromSnapshotAndCount(dropwizardName, snapshot, count, factor, helpMessage)
 
-    val additionalMetrics = basicMetricFamilySamples.samples.asScala ++ List(
+    val extendedMetrics = basicMetricFamilySamples.samples.asScala ++ List(
       sampleBuilder
         .createSample(
           dropwizardName,
@@ -53,7 +53,7 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       basicMetricFamilySamples.name,
       basicMetricFamilySamples.`type`,
       basicMetricFamilySamples.help,
-      additionalMetrics.asJava,
+      extendedMetrics.asJava,
     )
   }
 
