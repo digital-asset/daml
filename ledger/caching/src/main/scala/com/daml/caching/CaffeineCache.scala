@@ -13,16 +13,13 @@ object CaffeineCache {
   def apply[Key <: AnyRef, Value <: AnyRef](
       builder: caffeine.Caffeine[_ >: Key, _ >: Value],
       metrics: Option[CacheMetrics],
-  ): ConcurrentCache[Key, Value] = {
-    metrics.foreach(cacheMetrics =>
-      builder.recordStats(() => new DropwizardStatsCounter(cacheMetrics))
-    )
-    val cache = builder.build[Key, Value]
+  ): ConcurrentCache[Key, Value] =
     metrics match {
-      case None => new SimpleCaffeineCache(cache)
-      case Some(metrics) => new InstrumentedCaffeineCache(cache, metrics)
+      case None => new SimpleCaffeineCache(builder.build[Key, Value])
+      case Some(metrics) =>
+        builder.recordStats(() => new DropwizardStatsCounter(metrics))
+        new InstrumentedCaffeineCache(builder.build[Key, Value], metrics)
     }
-  }
 
   private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.Cache[Key, Value]
