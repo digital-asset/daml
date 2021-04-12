@@ -62,17 +62,32 @@ private[preprocessing] final class TransactionPreprocessor(
       commands: BackStack[speedy.Command],
   ) {
     def update(
-        newCids: Iterable[ContractId],
+        newInputCids: Iterable[ContractId],
         newLocalCids: Iterable[ContractId],
         cmd: speedy.Command,
-    ): Acc = {
-      val globalCids = this.globalCids ++ newCids.filterNot(localCids)
-      if (newLocalCids.exists(globalCids))
-        fail("Conflicting discriminators between a global and local contract ID.")
-      Acc(globalCids, localCids ++ newLocalCids, commands :+ cmd)
-    }
+    ) = Acc(
+      globalCids ++ newInputCids.filterNot(localCids),
+      localCids ++ newLocalCids,
+      commands :+ cmd,
+    )
   }
 
+  /*
+   * Translate a transaction tree into a sequence of Speedy commands and collect the global CIDs.
+   *
+   * A contract ID `cid` is *local* w.r.t. a node `n`, if either:
+   *  - it is local in a previous node w.r.t. traversal order, or
+   *  - `n` is a create node such that `n.coid == cid`
+   * A contract ID `cid` is *global* in a root node `n`, if:
+   *  - it is
+   * A contract ID `cid` is *global* in a root node `n`, if
+   *  - `cid` is not local w.r.t. `n`, and
+   *  - if `cid` is an input of a `n`, i.e. :
+   *    * `n` is a create node and `cid` appear in the payload of the create contract (`n.arg`)
+   *    * `n` is an exercise node and `cid` appear in the exercise argument (`n.choosenValue`)
+   *    * `n` is an exercise node and `cid` is the ID of the exercise contract (`n.taretCoid`)
+   * A contract ID is *global* w.r.t a transaction `tx` if it is global w.r.t one of the root `tx`.
+   */
   @throws[PreprocessorException]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
@@ -108,6 +123,15 @@ private[preprocessing] final class TransactionPreprocessor(
           }
       }
     }
+
+    // The following check ensures that `localCids ∩ globalCids = ∅`.
+    // It is probably not 100% necessary, as the reinterpretation should catch the cases where it is not true.
+    // We still prefer to perform it here as:
+    //  - it is cheap,
+    //  - it early catches obviously buggy transaction,
+    //  - it is easier to reason about "soundness" of preprocessing under the disjointness assumption.
+    if (result.localCids exists result.globalCids)
+      fail("Conflicting discriminators between a global and local contract ID.")
 
     result.commands.toImmArray -> result.globalCids
   }
