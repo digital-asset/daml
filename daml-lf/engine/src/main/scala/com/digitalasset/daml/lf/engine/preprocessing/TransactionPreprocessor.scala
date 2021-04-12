@@ -74,18 +74,15 @@ private[preprocessing] final class TransactionPreprocessor(
 
   /*
    * Translate a transaction tree into a sequence of Speedy commands and collect the global CIDs.
-   *
-   * A contract ID `cid` is *local* w.r.t. a node `n`, if either:
+   * A contract ID `cid` is considered *local* w.r.t. a node `n`, if either:
    *  - it is local in a previous node w.r.t. traversal order, or
    *  - `n` is a create node such that `n.coid == cid`
-   * A contract ID `cid` is *global* in a root node `n`, if:
-   *  - it is
-   * A contract ID `cid` is *global* in a root node `n`, if
-   *  - `cid` is not local w.r.t. `n`, and
+   * A contract ID `cid` is considered *global* in a root node `n`, if
+   *  - `cid` is not considered local w.r.t. `n`, and
    *  - if `cid` is an input of a `n`, i.e. :
    *    * `n` is a create node and `cid` appear in the payload of the create contract (`n.arg`)
    *    * `n` is an exercise node and `cid` appear in the exercise argument (`n.choosenValue`)
-   *    * `n` is an exercise node and `cid` is the ID of the exercise contract (`n.taretCoid`)
+   *    * `n` is an exercise node and `cid` is the ID of the exercise contract (`n.targetCoid`)
    * A contract ID is *global* w.r.t a transaction `tx` if it is global w.r.t one of the root `tx`.
    */
   @throws[PreprocessorException]
@@ -128,7 +125,7 @@ private[preprocessing] final class TransactionPreprocessor(
     // It is probably not 100% necessary, as the reinterpretation should catch the cases where it is not true.
     // We still prefer to perform it here as:
     //  - it is cheap,
-    //  - it early catches obviously buggy transaction,
+    //  - it catches obviously buggy transaction,
     //  - it is easier to reason about "soundness" of preprocessing under the disjointness assumption.
     if (result.localCids exists result.globalCids)
       fail("Conflicting discriminators between a global and local contract ID.")

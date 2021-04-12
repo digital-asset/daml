@@ -101,18 +101,19 @@ Contract ID uniqueness
 ----------------------
 
 During interpretation local contract IDs are created without suffix.
-Ledger implementations are responsible for enforcing uniqueness of
-contract IDs on the whole ledger.  This can be done by enforcing
-global uniqueness of the seeds or by appropriately suffixing the
-contract IDs.  No other requirement (except the 94 bytes size limit)
-is assumed for those suffices.
+Ledger implementations are responsible for enforcing global uniqueness
+of all the contract IDs referenced by the ledger, including transient
+contract IDs.  This can be done by enforcing global uniqueness of the
+seeds or by appropriately suffixing the contract IDs.  No other
+requirement (except the 94 bytes size limit) is assumed for those
+suffices.
 
 The simplest approach consists to suffix all local contract ID with a
 uniquely global transaction ID. Alternatively central committer ledger
-can completely avoid suffixing by enforcing that same pair (submission
-seed, submission time) is never used more that once, the discriminator
-allocation scheme ensuring in this case the uniqueness of allocated
-discriminators.
+can completely avoid suffixing by enforcing that the pair (submission
+seed, submission time) is not used by two different submission, the
+discriminator allocation scheme ensuring in this case the uniqueness
+of allocated discriminators.
 
 
 Submission time
