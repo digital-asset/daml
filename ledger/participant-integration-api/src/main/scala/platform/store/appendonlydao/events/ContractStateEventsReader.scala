@@ -164,7 +164,7 @@ object ContractStateEventsReader {
                                          |WHERE
                                          |    event_sequential_id > ${range.startExclusive}
                                          |    and event_sequential_id <= ${range.endInclusive}
-                                         |    and (event_kind = ${EventKind.Create} or event_kind = ${EventKind.ConsumingExercise})
+                                         |    and (event_kind = 10 or event_kind = 20)
                                          |ORDER BY event_sequential_id ASC
                                          |""".stripMargin)
 
