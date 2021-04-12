@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1.RejectionReason._
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value
 import io.grpc.Status.Code
 
@@ -121,6 +122,11 @@ private[platform] object Conversions {
 
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
+
+  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Party]] =
+    SqlParser
+      .get[Array[String]](columnName)(Column.columnToArray)
+      .map(_.iterator.map(Party.assertFromString).toSet)
 
   // ContractIdString
 
@@ -231,7 +237,6 @@ private[platform] object Conversions {
       s.setArray(index, ts)
     }
   }
-
   // RejectionReason
 
   implicit def domainRejectionReasonToErrorCode(reason: domain.RejectionReason): Code =
@@ -262,5 +267,4 @@ private[platform] object Conversions {
         SubmitterCannotActViaParticipant(r.description)
       case r: domain.RejectionReason.InvalidLedgerTime => InvalidLedgerTime(r.description)
     }
-
 }

@@ -904,6 +904,7 @@ da_haskell_test(
 
 da_haskell_test(
     name = "package-manager",
+    size = "large",
     srcs = ["src/DamlcPkgManager.hs"],
     data = [
         ":pkg-manager-test.dar",

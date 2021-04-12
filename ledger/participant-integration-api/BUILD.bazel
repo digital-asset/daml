@@ -58,6 +58,9 @@ compile_deps = [
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
+    "@maven//:io_prometheus_simpleclient",
+    "@maven//:io_prometheus_simpleclient_dropwizard",
+    "@maven//:io_prometheus_simpleclient_httpserver",
 ]
 
 scala_compile_deps = [

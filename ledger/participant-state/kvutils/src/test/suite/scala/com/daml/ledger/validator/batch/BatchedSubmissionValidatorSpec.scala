@@ -47,7 +47,7 @@ class BatchedSubmissionValidatorSpec
       params: BatchedSubmissionValidatorParameters,
       metrics: Metrics = this.metrics,
   ): BatchedSubmissionValidator[CommitResult] =
-    new BatchedSubmissionValidator[CommitResult](
+    BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
