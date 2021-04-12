@@ -26,4 +26,6 @@ case class ApiServerConfig(
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,
+    // TODO append-only: remove after removing support for the current (mutating) schema
+    enableAppendOnlySchema: Boolean,
 )

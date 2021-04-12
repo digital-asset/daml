@@ -10,7 +10,11 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.on.memory.Owner
-import com.daml.ledger.participant.state.kvutils.app.{ParticipantConfig, ParticipantRunMode}
+import com.daml.ledger.participant.state.kvutils.app.{
+  ParticipantConfig,
+  ParticipantIndexerConfig,
+  ParticipantRunMode,
+}
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.resources.ResourceContext
@@ -51,7 +55,9 @@ trait MultiParticipantFixture
     port = Port.Dynamic,
     portFile = Some(participant1Portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId1),
-    allowExistingSchemaForIndex = false,
+    indexerConfig = ParticipantIndexerConfig(
+      allowExistingSchema = false
+    ),
     maxCommandsInFlight = None,
   )
   private val participantId2 = v1.ParticipantId.assertFromString("participant2")
@@ -63,7 +69,9 @@ trait MultiParticipantFixture
     port = Port.Dynamic,
     portFile = Some(participant2Portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId2),
-    allowExistingSchemaForIndex = false,
+    indexerConfig = ParticipantIndexerConfig(
+      allowExistingSchema = false
+    ),
     maxCommandsInFlight = None,
   )
   override protected lazy val suiteResource = {

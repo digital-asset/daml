@@ -20,7 +20,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
+import com.daml.platform.indexer.{Indexer, IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration.Duration
@@ -233,7 +233,7 @@ class IntegrityChecker[LogResult](
       resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[JdbcIndexer] =
+  ): ResourceOwner[Indexer] =
     for {
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
@@ -247,7 +247,7 @@ class IntegrityChecker[LogResult](
         lfValueTranslationCache,
       )
       migrating <- ResourceOwner.forFuture(() =>
-        indexerFactory.migrateSchema(allowExistingSchema = false, enableAppendOnlySchema = false)
+        indexerFactory.migrateSchema(allowExistingSchema = false)
       )
       migrated <- migrating
     } yield migrated

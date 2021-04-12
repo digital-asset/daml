@@ -38,11 +38,16 @@ trait ConfigProvider[ExtraConfig] {
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
-      databaseConnectionPoolSize = participantConfig.indexerDatabaseConnectionPoolSize,
+      databaseConnectionPoolSize = participantConfig.indexerConfig.databaseConnectionPoolSize,
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
-      allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
+      allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
+      inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
+      submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
+      tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
+      batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
+      enableCompression = participantConfig.indexerConfig.enableCompression,
     )
 
   def apiServerConfig(
@@ -62,6 +67,7 @@ trait ConfigProvider[ExtraConfig] {
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
+      enableAppendOnlySchema = config.enableAppendOnlySchema,
     )
 
   def commandConfig(
