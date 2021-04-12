@@ -1144,14 +1144,8 @@ convertExpr env0 e = do
 
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
 
-    go env (VarIn GHC_Types "RoundingCeiling"    ) args = pure (EBuiltin (BERoundingMode LitRoundingCeiling    ), args)
-    go env (VarIn GHC_Types "RoundingFloor"      ) args = pure (EBuiltin (BERoundingMode LitRoundingFloor      ), args)
-    go env (VarIn GHC_Types "RoundingDown"       ) args = pure (EBuiltin (BERoundingMode LitRoundingDown       ), args)
-    go env (VarIn GHC_Types "RoundingUp"         ) args = pure (EBuiltin (BERoundingMode LitRoundingUp         ), args)
-    go env (VarIn GHC_Types "RoundingHalfDown"   ) args = pure (EBuiltin (BERoundingMode LitRoundingHalfDown   ), args)
-    go env (VarIn GHC_Types "RoundingHalfEven"   ) args = pure (EBuiltin (BERoundingMode LitRoundingHalfEven   ), args)
-    go env (VarIn GHC_Types "RoundingHalfUp"     ) args = pure (EBuiltin (BERoundingMode LitRoundingHalfUp     ), args)
-    go env (VarIn GHC_Types "RoundingUnnecessary") args = pure (EBuiltin (BERoundingMode LitRoundingUnnecessary), args)
+    go env (VarIn GHC_Types (RoundingModeName roundingModeLit)) args =
+        pure (EBuiltin (BERoundingMode roundingModeLit), args)
 
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
@@ -1208,8 +1202,9 @@ convertExpr env0 e = do
             let fldName = fldNames !! fldIndex
             recTyp <- convertType env (varType bind)
             pure $ mkDictProj env (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
-    go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
+    go env o@(Case scrutinee bind resultType [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
+            -- opaque types have no patterns that can be matched
             TText -> asLet
             TDecimal -> asLet
             TNumeric _ -> asLet
@@ -1233,31 +1228,92 @@ convertExpr env0 e = do
                     bind' <- convertExpr env (Var bind)
                     ty <- convertType env $ varType bind
                     alt' <- convertAlt env ty alt
-                    pure $ ECase bind' [alt']
+                    resultType' <- convertType env resultType
+                    pure $ mkCase env ty resultType' bind' [alt']
 
       where
         asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
-    go env (Case scrutinee bind typ []) args = fmap (, args) $ do
-        -- GHC only generates empty case alternatives if it is sure the scrutinee will fail, LF doesn't support empty alternatives
-        scrutinee' <- convertExpr env scrutinee
-        typ' <- convertType env typ
-        bind' <- convVarWithType env bind
-        pure $
-          ELet (Binding bind' scrutinee') $
-          ECase (EVar $ convVar bind) [CaseAlternative CPDefault $ EBuiltin BEError `ETyApp` typ' `ETmApp` EBuiltin (BEText "Unreachable")]
-    go env (Case scrutinee bind _ (defaultLast -> alts)) args = fmap (, args) $ do
+    go env (Case scrutinee bind resultType (defaultLast -> alts)) args = fmap (, args) $ do
         scrutinee' <- convertExpr env scrutinee
         bindTy <- convertType env $ varType bind
         alts' <- mapM (convertAlt env bindTy) alts
         bind' <- convVarWithType env bind
-        if isDeadOcc (occInfo (idInfo bind))
-          then pure $ ECase scrutinee' alts'
-          else pure $
+        resultType' <- convertType env resultType
+        if isDeadOcc (occInfo (idInfo bind)) && all isNormalCaseAlternative alts'
+        then pure $ mkCase env bindTy resultType' scrutinee' alts'
+        else pure $
             ELet (Binding bind' scrutinee') $
-            ECase (EVar $ convVar bind) alts'
+            mkCase env bindTy resultType' (EVar $ convVar bind) alts'
     go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level" $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
+
+-- | Represents a case alternative with a generalized case pattern.
+data GeneralisedCaseAlternative
+    = GCAEquality EqualityAlternative
+        -- ^ Pattern matching via built-in equality.
+    | GCANormal CaseAlternative
+        -- ^ Normal case alternative that is directly supported by LF.
+        -- This includes the default case (CPDefault).
+    deriving (Eq, Ord)
+
+-- | Is this a normal case alternative?
+isNormalCaseAlternative :: GeneralisedCaseAlternative -> Bool
+isNormalCaseAlternative = \case
+    GCANormal _ -> True
+    _ -> False
+
+-- | Represents a case alternative that is not directly supported
+-- by LF's CaseAlternative syntax. In particular the pattern here
+-- is some expression that we want to use the built-in equality
+-- to match.
+data EqualityAlternative = EqualityAlternative
+    { eqaltPattern :: LF.Expr
+        -- ^ Pattern expression to test against. This is an inert
+        -- expression (can't raise errors, e.g. a constructor).
+    , eqaltBody :: LF.Expr
+        -- ^ Right-hand side of case alternative. Potentially divergent.
+    } deriving (Eq, Ord)
+
+-- | Make a case expression from GeneralisedCaseAlternatives.
+--
+-- The scrutinee will be evaluated multiple times unless all the
+-- case alternatives are normal case alternatives. So to prevent
+-- this, this function should only be used when either the scrutinee
+-- is inert (e.g. a bound variable), or all the alternatives are
+-- normal case alternatives ('GCANormal').
+mkCase :: Env -> LF.Type -> LF.Type -> LF.Expr -> [GeneralisedCaseAlternative] -> LF.Expr
+mkCase env scrutineeType resultType scrutinee galts =
+    finalize (foldr addCaseAlternative (Right []) galts)
+  where
+    finalize :: Either LF.Expr [CaseAlternative] -> LF.Expr
+    finalize (Left e) = e
+    finalize (Right []) = ECase scrutinee
+        [ CaseAlternative CPDefault $ EBuiltin BEError `ETyApp` resultType `ETmApp` EBuiltin (BEText "Unreachable") ]
+        -- GHC only generates empty case alternatives if it is sure the scrutinee will fail.
+        -- LF doesn't support empty alternatives, so we turn this into a non-empty alternative.
+    finalize (Right alts) = ECase scrutinee alts
+
+    addCaseAlternative :: GeneralisedCaseAlternative -> Either LF.Expr [CaseAlternative] -> Either LF.Expr [CaseAlternative]
+    addCaseAlternative (GCANormal alt) (Right alts) = Right (alt : alts)
+    addCaseAlternative (GCANormal alt) (Left e) =
+        case alt of
+            CaseAlternative CPDefault _ -> Right [alt]
+            _ -> Right [alt, CaseAlternative CPDefault e]
+    addCaseAlternative (GCAEquality EqualityAlternative{..}) elseBranch =
+        Left (mkIf (mkScrutineEquality eqaltPattern) eqaltBody (finalize elseBranch))
+
+    mkScrutineEquality :: LF.Expr -> LF.Expr
+    mkScrutineEquality pattern
+        | TBuiltin scrutineeBuiltinType <- scrutineeType
+        = mkBuiltinEqual (envLfVersion env) scrutineeBuiltinType `ETmApp` scrutinee `ETmApp` pattern
+
+        | envLfVersion env `supports` featureGenericComparison
+        = EBuiltin BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
+
+        | otherwise
+        = error "mkScrutineeEquality: No built-in equality exists for target LF version and type."
+
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool
@@ -1441,20 +1497,27 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
     Just DalfPackage{..} -> pure $ LF.PRImport dalfPackageId
     Nothing -> unknown unitId pkgMap
 
-convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
-convertAlt env ty (DEFAULT, [], x) = CaseAlternative CPDefault <$> convertExpr env x
+convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM GeneralisedCaseAlternative
+convertAlt env ty (DEFAULT, [], x) = GCANormal . CaseAlternative CPDefault <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
-    | NameIn GHC_Types "True" <- con = CaseAlternative (CPBool True) <$> convertExpr env x
-    | NameIn GHC_Types "False" <- con = CaseAlternative (CPBool False) <$> convertExpr env x
-    | NameIn GHC_Types "[]" <- con = CaseAlternative CPNil <$> convertExpr env x
-    | NameIn GHC_Tuple "()" <- con = CaseAlternative CPUnit <$> convertExpr env x
+    | NameIn GHC_Types "True" <- con = GCANormal . CaseAlternative (CPBool True) <$> convertExpr env x
+    | NameIn GHC_Types "False" <- con = GCANormal . CaseAlternative (CPBool False) <$> convertExpr env x
+    | NameIn GHC_Types "[]" <- con = GCANormal . CaseAlternative CPNil <$> convertExpr env x
+    | NameIn GHC_Tuple "()" <- con = GCANormal . CaseAlternative CPUnit <$> convertExpr env x
     | NameIn DA_Internal_Prelude "None" <- con
-    = CaseAlternative CPNone <$> convertExpr env x
+    = GCANormal . CaseAlternative CPNone <$> convertExpr env x
+
+    -- Rounding mode constructors do not have built-in LF support for pattern matching,
+    -- but we get the same result with equality tests.
+    | NameIn GHC_Types (RoundingModeName roundingModeLit) <- con
+    = GCAEquality . EqualityAlternative (EBuiltin (BERoundingMode roundingModeLit)) <$> convertExpr env x
+
 convertAlt env ty (DataAlt con, [a,b], x)
-    | NameIn GHC_Types ":" <- con = CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
+    | NameIn GHC_Types ":" <- con
+    = GCANormal . CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a], x)
     | NameIn DA_Internal_Prelude "Some" <- con
-    = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
+    = GCANormal . CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
 
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     let patTypeCon = tcon
@@ -1463,7 +1526,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
 
     case classifyDataCon con of
         EnumCon ->
-            CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
+            GCANormal . CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
 
         SimpleVariantCon -> do
             when (length vs /= dataConRepArity con) $
@@ -1472,7 +1535,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                 unsupported "Data constructor with multiple unnamed fields" alt
 
             let patBinder = maybe vArg convVar (listToMaybe vs)
-            CaseAlternative CPVariant{..} <$> convertExpr env x
+            GCANormal . CaseAlternative CPVariant{..} <$> convertExpr env x
 
         SimpleRecordCon ->
             unhandled "unreachable case -- convertAlt with simple record constructor" ()
@@ -1485,10 +1548,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                 Just vsFlds -> do
                     x' <- convertExpr env x
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
-                    pure $ CaseAlternative CPVariant{..} projBinds
-
-convertAlt _ TRoundingMode alt@(DataAlt con, _, _) = do
-    unsupported "Pattern matching on RoundingMode is not currently supported. Please use (==) instead" con
+                    pure . GCANormal $ CaseAlternative CPVariant{..} projBinds
 
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
@@ -1734,7 +1794,6 @@ convertTyCon env t
             "BigNumeric" -> pure TBigNumeric
             "RoundingMode" -> pure TRoundingMode
             _ -> defaultTyCon
-    -- TODO(DEL-6953): We need to add a condition on the package name as well.
     | NameIn DA_Internal_LF n <- t =
         case n of
             "Scenario" -> pure (TBuiltin BTScenario)
@@ -1965,6 +2024,7 @@ convVar = mkVar . varPrettyPrint
 
 convVarWithType :: Env -> Var -> ConvertM (ExprVarName, LF.Type)
 convVarWithType env v = (convVar v,) <$> convertType env (varType v)
+
 convVal :: Var -> ExprValName
 convVal = mkVal . varPrettyPrint
 

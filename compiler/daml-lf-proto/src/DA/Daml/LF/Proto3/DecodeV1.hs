@@ -770,8 +770,8 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
     Proto.Enumerated (Right mode) -> pure $ case mode of
        LF1.PrimLit_RoundingModeUP -> BERoundingMode LitRoundingUp
        LF1.PrimLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
-       LF1.PrimLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
        LF1.PrimLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
+       LF1.PrimLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
        LF1.PrimLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
        LF1.PrimLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
        LF1.PrimLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven

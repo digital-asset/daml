@@ -22,8 +22,6 @@ import "ghc-lib-parser" Class as GHC
 
 import Data.Generics.Uniplate.Data
 import Data.Maybe
-import Data.List
-import Data.Tuple.Extra
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -32,7 +30,8 @@ import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
 import Text.Read (readMaybe)
 import Control.Monad (guard)
-
+import qualified Data.Map.Strict as MS
+import qualified DA.Daml.LF.Ast as LF
 
 ----------------------------------------------------------------------
 -- GHC utility functions
@@ -192,6 +191,23 @@ pattern ConstraintTupleProjection :: Int -> Int -> GHC.Expr Var
 pattern ConstraintTupleProjection index arity <-
     Var (ConstraintTupleProjectionName index arity)
 
+pattern RoundingModeName :: LF.RoundingModeLiteral -> FastString
+pattern RoundingModeName lit <- (toRoundingModeLiteral . fsToText -> Just lit)
+
+toRoundingModeLiteral :: T.Text -> Maybe LF.RoundingModeLiteral
+toRoundingModeLiteral x = MS.lookup x roundingModeLiteralMap
+
+roundingModeLiteralMap :: MS.Map T.Text LF.RoundingModeLiteral
+roundingModeLiteralMap = MS.fromList
+    [ ("RoundingCeiling", LF.LitRoundingCeiling)
+    , ("RoundingFloor", LF.LitRoundingFloor)
+    , ("RoundingDown", LF.LitRoundingDown)
+    , ("RoundingUp", LF.LitRoundingUp)
+    , ("RoundingHalfDown", LF.LitRoundingHalfDown)
+    , ("RoundingHalfEven", LF.LitRoundingHalfEven)
+    , ("RoundingHalfUp", LF.LitRoundingHalfUp)
+    , ("RoundingUnnecessary", LF.LitRoundingUnnecessary)
+    ]
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->
@@ -243,12 +259,16 @@ hasDamlExceptionCtx t
 varPrettyPrint :: Var -> T.Text
 varPrettyPrint (varName -> x) = getOccText x <> (if isSystemName x then "_" <> T.pack (show $ nameUnique x) else "")
 
+-- | Move DEFAULT case to end of the alternatives list.
+--
+-- GHC always puts the DEFAULT case at the front of the list
+-- (see https://hackage.haskell.org/package/ghc-8.2.2/docs/CoreSyn.html#t:Expr).
+-- We move the DEFAULT case to the back because LF gives earlier
+-- patterns priority, so the DEFAULT case needs to be last.
 defaultLast :: [Alt Var] -> [Alt Var]
-defaultLast = uncurry (++) . partition ((/=) DEFAULT . fst3)
-
-isLitAlt :: Alt Var -> Bool
-isLitAlt (LitAlt{},_,_) = True
-isLitAlt _              = False
+defaultLast = \case
+    alt@(DEFAULT,_,_) : alts -> alts ++ [alt]
+    alts -> alts
 
 untick :: GHC.Expr b -> GHC.Expr b
 untick = \case

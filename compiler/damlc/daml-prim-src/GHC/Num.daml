@@ -25,7 +25,6 @@ import GHC.CString (fromString)
 import GHC.Err (error)
 import GHC.Integer.Type
 import GHC.Real
-import GHC.Show
 import GHC.Types
 
 default ()              -- Double isn't available yet,
@@ -176,9 +175,6 @@ instance Number BigNumeric
 instance Signed BigNumeric where
     signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
     abs x = if x <= aunit then negate x else x
-
-instance Show BigNumeric where
-    show = primitive @"BEToTextBigNumeric"
 
 #endif
 

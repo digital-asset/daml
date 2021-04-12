@@ -3807,13 +3807,17 @@ BigNumeric functions
   the given scale, the result is rounded accordingly the
   ``roundingMode`` as follows:
 
+  - ``'ROUNDING_UP'`` : Round away from zero
+
+  - ``'ROUNDING_DOWN'`` : Rounds towards zero
+
   - ``'ROUNDING_CEILING'`` : Rounds towards positive infinity.
 
   - ``'ROUNDING_FLOOR'`` : Rounds towards negative infinity
 
-  - ``'ROUNDING_DOWN'`` : Rounds towards towards zero
-
-  - ``'ROUNDING_UP'`` : Round towards away from zero
+  - ``'ROUNDING_HALF_UP'`` : Round towards the nearest neighbor unless
+    both neighbors are equidistant, in which case round away from
+    zero.
 
   - ``'ROUNDING_HALF_DOWN'`` : Round towards the nearest neighbor
     unless both neighbors are equidistant, in which case round towards
@@ -3822,10 +3826,6 @@ BigNumeric functions
   - ``'ROUNDING_HALF_EVEN'`` : Rounds towards the nearest neighbor
     unless both neighbors are equidistant, in which case round towards
     the even neighbor.
-
-  - ``'ROUNDING_HALF_UP'`` : Round towards the nearest neighbor unless
-    both neighbors are equidistant, in which case round away from
-    zero.
 
   - ``'ROUNDING_UNNECESSARY'`` : Throw `ArithmeticError` if the exact result cannot be
     represented.

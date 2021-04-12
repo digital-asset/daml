@@ -437,31 +437,6 @@ convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :
             (mkVar "x")
             (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
 
-convertPrim version "BERoundingUp" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingUp
-convertPrim version "BERoundingDown" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingDown
-convertPrim version "BERoundingCeiling" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingCeiling
-convertPrim version "BERoundingFloor" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingFloor
-convertPrim version "BERoundingHalfUp" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingHalfUp
-convertPrim version "BERoundingHalfDown" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingHalfDown
-convertPrim version "BERoundingHalfEven" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingHalfEven
-convertPrim version "BERoundingUnnecessary" TRoundingMode =
-    whenRuntimeSupports version featureBigNumeric TRoundingMode $
-      EBuiltin $ BERoundingMode LitRoundingUnnecessary
-
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ
 

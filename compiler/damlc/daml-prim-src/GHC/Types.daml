@@ -224,19 +224,19 @@ data BigNumeric =
 
 -- | Rounding modes for `BigNumeric` operations like `div` and `round` from `DA.BigNumeric`.
 data RoundingMode
-  = RoundingCeiling -- ^ Round towards positive infinity.
-  | RoundingFloor -- ^ Round towards negative infinity.
+  = RoundingUp -- ^ Round away from zero.
   | RoundingDown -- ^ Round towards zero.
-  | RoundingUp -- ^ Round away from zero.
+  | RoundingCeiling -- ^ Round towards positive infinity.
+  | RoundingFloor -- ^ Round towards negative infinity.
+  | RoundingHalfUp
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round away from zero.
   | RoundingHalfDown
       -- ^ Round towards the nearest neighbor unless both neighbors
       -- are equidistant, in which case round towards zero.
   | RoundingHalfEven
       -- ^ Round towards the nearest neighbor unless both neighbors
       -- are equidistant, in which case round towards the even neighbor.
-  | RoundingHalfUp
-      -- ^ Round towards the nearest neighbor unless both neighbors
-      -- are equidistant, in which case round away from zero.
   | RoundingUnnecessary
       -- ^ Do not round. Raises an error if the result cannot
       -- be represented without rounding at the targeted scale.
