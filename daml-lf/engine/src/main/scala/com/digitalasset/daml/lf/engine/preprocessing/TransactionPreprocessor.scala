@@ -113,6 +113,9 @@ private[preprocessing] final class TransactionPreprocessor(
    * uniqueness of all contract IDs (including transient contracts),
    * the reinterpretation of the generates transaction will succeeds
    * iff the original submission was valid and succeed.
+   *
+   * See review comments in https://github.com/digital-asset/daml/pull/9370
+   * for more details.
    */
   @throws[PreprocessorException]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
