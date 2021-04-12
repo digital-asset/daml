@@ -634,8 +634,6 @@ private object OracleQueries extends Queries {
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
-    println("insert contracts")
-    println(dbcs)
     val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
       """
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
@@ -646,11 +644,9 @@ private object OracleQueries extends Queries {
     ).updateMany(
       dbcs
         .map { c =>
-//          println(c)
           (c.contractId, c.templateId, c.key, c.payload, c.agreementText)
         }
     )
-    println("inserted")
     import cats.syntax.foldable._, cats.instances.vector._
     val r2 = Update[(String, String)](
       """
@@ -684,7 +680,6 @@ private object OracleQueries extends Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]],
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
-    println("selecting")
     // we effectively shadow Mark because Scala 2.12 doesn't quite get
     // that it should use the GADT type equality otherwise
     def queryByCondition[Mark0: Get](
