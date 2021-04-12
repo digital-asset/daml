@@ -355,7 +355,6 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
-
         val lookupLedgerEndSequentialId: Timer =
           registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
