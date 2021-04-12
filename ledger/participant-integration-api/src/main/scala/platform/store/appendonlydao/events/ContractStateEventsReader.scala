@@ -11,7 +11,6 @@ import anorm.SqlParser.{binaryStream, int, long}
 import anorm._
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.Conversions.{contractId, offset, _}
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -67,7 +66,7 @@ object ContractStateEventsReader {
       case EventKind.ConsumingExercise =>
         val templateId = raw.templateId.getOrElse(throw CreateMissingError("template_id"))
         val maybeGlobalKey =
-          decompressGlobalKey(templateId, raw.createKeyValue, raw.createKeyCompression)
+          decompressKey(templateId, raw.createKeyValue, raw.createKeyCompression)
         ContractStateEvent.Archived(
           contractId = raw.contractId,
           globalKey = maybeGlobalKey,
@@ -80,7 +79,7 @@ object ContractStateEventsReader {
         val createArgument =
           raw.createArgument.getOrElse(throw CreateMissingError("create_argument"))
         val maybeGlobalKey =
-          decompressGlobalKey(templateId, raw.createKeyValue, raw.createKeyCompression)
+          decompressKey(templateId, raw.createKeyValue, raw.createKeyCompression)
         val contract = getCachedOrDecompressContract(
           raw.contractId,
           templateId,
@@ -130,7 +129,7 @@ object ContractStateEventsReader {
     )
   }
 
-  private def decompressGlobalKey(
+  private def decompressKey(
       templateId: events.Identifier,
       maybeCreateKeyValue: Option[InputStream],
       maybeCreateKeyValueCompression: Option[Int],
@@ -141,7 +140,7 @@ object ContractStateEventsReader {
         maybeCreateKeyValueCompression
       )
       keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
-    } yield GlobalKey.assertBuild(templateId, keyValue.value)
+    } yield Key.assertBuild(templateId, keyValue.value)
 
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))

@@ -6,7 +6,6 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.lf.transaction.GlobalKey
 
 sealed trait ContractStateEvent extends Product with Serializable {
   def eventOffset: Offset
@@ -16,7 +15,7 @@ object ContractStateEvent {
   final case class Created(
       contractId: ContractId,
       contract: Contract,
-      globalKey: Option[GlobalKey],
+      globalKey: Option[Key],
       ledgerEffectiveTime: Instant,
       stakeholders: Set[Party],
       eventOffset: Offset,
@@ -24,7 +23,7 @@ object ContractStateEvent {
   ) extends ContractStateEvent
   final case class Archived(
       contractId: ContractId,
-      globalKey: Option[GlobalKey],
+      globalKey: Option[Key],
       stakeholders: Set[Party],
       eventOffset: Offset,
       eventSequentialId: Long,
