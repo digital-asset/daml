@@ -14,6 +14,14 @@ import com.daml.scalautil.Statement.discard
 
 private[appendonlydao] object ParametersTable {
 
+  object EventSequentialId {
+
+    /** The BeforeBegin value is established based on the assumption that the event sequential id column
+      * is of type BIGSERIAL
+      */
+    val BeforeBegin = 0L
+  }
+
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
   private val ParticipantIdColumnName: String = "participant_id"
@@ -34,7 +42,7 @@ private[appendonlydao] object ParametersTable {
     LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
 
   private val LedgerEndParserAndSequentialIdParser =
-    long(LedgerEndSequentialIdColumnName).?.map(_.getOrElse(0L))
+    long(LedgerEndSequentialIdColumnName).?.map(_.getOrElse(EventSequentialId.BeforeBegin))
 
   private val ConfigurationParser: RowParser[Option[Configuration]] =
     byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
