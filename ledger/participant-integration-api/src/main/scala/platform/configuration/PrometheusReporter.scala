@@ -38,7 +38,7 @@ final class PrometheusReporter private (
     ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val server = new HTTPServer(address.getHostName, address.getPort)
-  private val exports = new DropwizardExports(registry).register[DropwizardExports]()
+  private val exports = new ExtendedDropwizardExports(registry).register[DropwizardExports]()
   logger.info(s"Reporting prometheus metrics on ${address}")
 
   override def report(
