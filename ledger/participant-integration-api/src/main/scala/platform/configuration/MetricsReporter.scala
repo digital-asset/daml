@@ -94,12 +94,12 @@ object MetricsReporter {
       new URI(value)
     } catch {
       case NonFatal(exception) =>
-        throw new InvalidConfigException(invalidReadError + " " + exception.getMessage)
+        throw new InvalidConfigException(cliHint + " " + exception.getMessage)
     }
 
-  private val invalidReadError: String =
+  val cliHint: String =
     """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
 
   private def invalidRead: InvalidConfigException =
-    new InvalidConfigException(invalidReadError)
+    new InvalidConfigException(cliHint)
 }
