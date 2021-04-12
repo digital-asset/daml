@@ -4,7 +4,9 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 import java.time.Instant
-import java.util.Date
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+import java.util.{Date, UUID}
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
@@ -19,11 +21,13 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{WorkflowId, _}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.{TransactionId, WorkflowId}
+import com.daml.ledger.TransactionId
 import com.daml.lf.archive.Decode
-import com.daml.lf.data.Ref
+import com.daml.lf.crypto
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
@@ -32,11 +36,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.indexer.parallel._
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.{Conversions, DbType, LfValueTranslationCache}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.appendonlydao.events.{
+  CompressionStrategy,
   ContractsReader,
   EventsTableDelete,
   LfValueTranslation,
@@ -52,16 +58,20 @@ import com.daml.platform.store.dao.{
   MeteredLedgerReadDao,
   PersistenceResponse,
 }
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
+import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
+import scala.util.control.NonFatal
 
 private final case class ParsedPartyData(
     party: String,
@@ -81,6 +91,7 @@ private final case class ParsedPackageData(
 private final case class ParsedCommandData(deduplicateUntil: Instant)
 
 private class JdbcLedgerDao(
+    postgresDao: PostgresDAO,
     dbDispatcher: DbDispatcher,
     dbType: DbType,
     servicesExecutionContext: ExecutionContext,
@@ -91,6 +102,9 @@ private class JdbcLedgerDao(
     validatePartyAllocation: Boolean,
     enricher: Option[ValueEnricher],
 ) extends LedgerDao {
+  private val eventSeqId = new AtomicLong(0L)
+  private val lastConfiguration =
+    new AtomicReference[Option[(Configuration, Array[Byte])]](Option.empty)
 
   import JdbcLedgerDao._
 
@@ -216,14 +230,127 @@ private class JdbcLedgerDao(
       submissionId: String,
       configuration: Configuration,
       rejectionReason: Option[String],
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException("not supported") // TODO add support
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    val configurationBytes = Configuration.encode(configuration).toByteArray
+
+    val optExpectedGeneration: Option[Long] = lastConfiguration.get().map { _._1.generation + 1 }
+    val finalRejectionReason: Option[String] =
+      optExpectedGeneration match {
+        case Some(expGeneration)
+            if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+          // If we're not storing a rejection and the new generation is not succ of current configuration, then
+          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+          // pattern as with transactions.
+          Some(
+            s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}"
+          )
+
+        case _ =>
+          // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
+          // generation.
+          rejectionReason
+      }
+
+    if (finalRejectionReason.isEmpty) {
+      lastConfiguration.set(Some(configuration -> configurationBytes))
+    }
+
+    postgresDao.updateParams(offsetStep.offset, eventSeqId.get(), lastConfiguration.get().map(_._2))
+
+    val configurationEntry =
+      new DBDTOV1.ConfigurationEntry(
+        ledger_offset = offsetStep.offset.toByteArray,
+        recorded_at = recordedAt,
+        submission_id = submissionId,
+        typ = finalRejectionReason
+          .map(_ => JdbcLedgerDao.rejectType)
+          .getOrElse(JdbcLedgerDao.acceptType),
+        configuration = configurationBytes,
+        rejection_reason = finalRejectionReason,
+      )
+
+    val builder = RawDBBatchPostgreSQLV1.Builder()
+    builder.add(configurationEntry)
+    Try {
+      postgresDao.insertBatch(builder.build())
+      Future.successful(PersistenceResponse.Ok)
+    }.recover {
+      case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+        logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
+        Future.successful(PersistenceResponse.Duplicate)
+    }.get
+  }
 
   override def storePartyEntry(
       offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException("not supported") // TODO add support
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    val batch = RawDBBatchPostgreSQLV1.Builder()
+    partyEntry match {
+      case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
+        postgresDao.updateParams(
+          offsetStep.offset,
+          eventSeqId.get(),
+          lastConfiguration.get().map(_._2),
+        )
+
+        val dtos = Iterator(
+          new DBDTOV1.PartyEntry(
+            ledger_offset = offsetStep.offset.toByteArray,
+            recorded_at = recordTime,
+            submission_id = submissionIdOpt,
+            party = Some(partyDetails.party),
+            display_name = partyDetails.displayName,
+            typ = JdbcLedgerDao.acceptType,
+            rejection_reason = None,
+            is_local = Some(partyDetails.isLocal),
+          ),
+          new DBDTOV1.Party(
+            party = partyDetails.party,
+            display_name = partyDetails.displayName,
+            explicit = true,
+            ledger_offset = Some(offsetStep.offset.toByteArray),
+            is_local = partyDetails.isLocal,
+          ),
+        )
+
+        dtos.foreach(batch.add)
+
+        Try {
+          postgresDao.insertBatch(batch.build())
+          Future.successful(PersistenceResponse.Ok)
+        }.recover {
+          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+            logger.warn(
+              s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt"
+            )
+            Future.successful(PersistenceResponse.Duplicate)
+        }.get
+
+      case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
+        postgresDao.updateParams(
+          offsetStep.offset,
+          eventSeqId.get(),
+          lastConfiguration.get().map(_._2),
+        )
+
+        val dtos = Iterator(
+          new DBDTOV1.PartyEntry(
+            ledger_offset = offsetStep.offset.toByteArray,
+            recorded_at = recordTime,
+            submission_id = Some(submissionId),
+            party = None,
+            display_name = None,
+            typ = JdbcLedgerDao.rejectType,
+            rejection_reason = Some(reason),
+            is_local = None,
+          )
+        )
+        dtos.foreach(batch.add)
+        postgresDao.insertBatch(batch.build())
+        Future.successful(PersistenceResponse.Ok)
+    }
+  }
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
     "select * from party_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
@@ -343,10 +470,59 @@ private class JdbcLedgerDao(
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException(
-      "not supported by append-only code"
-    ) // TODO append-only: cleanup
+      workflowId: Option[String],
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+
+    val transactionAccepted =
+      Update.TransactionAccepted(
+        optSubmitterInfo = submitterInfo,
+        transactionMeta = TransactionMeta(
+          ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerEffectiveTime),
+          workflowId = workflowId.map(WorkflowId.assertFromString),
+          submissionTime = Time.Timestamp.assertFromInstant(
+            ledgerEffectiveTime
+          ), // TODO append-only: Cleanup, since it is NOT used downstream
+          submissionSeed = Hash.assertFromString(
+            "dummy"
+          ), // TODO append-only: Cleanup, since it is NOT used downstream
+          optUsedPackages = None,
+          optNodeSeeds = None,
+          optByKeyNodes = None,
+        ),
+        transaction = transaction,
+        transactionId = transactionId,
+        recordTime = Time.Timestamp.assertFromInstant(recordTime),
+        divulgedContracts = divulged.toList,
+        blindingInfo =
+          None, // The only caller of this method will be SqlLedger, which does not provide a blinding info
+      )
+
+    val dbdtovs = UpdateToDBDTOV1(
+      participantId = Ref.ParticipantId.assertFromString("dummy-not-used"),
+      translation = translation,
+      compressionStrategy = CompressionStrategy.none(metrics),
+    )(offsetStep.offset)(transactionAccepted)
+
+    val builder = RawDBBatchPostgreSQLV1.Builder()
+
+    dbdtovs.foreach(builder.add)
+
+    val eventsBatch = builder.build()
+
+    discard {
+      eventSeqId.updateAndGet(offsetSequentialId =>
+        offsetSequentialId + eventsBatch.offsetSequentialEventIds(offsetSequentialId)
+      )
+    }
+
+    postgresDao.insertBatch(eventsBatch)
+    postgresDao.updateParams(
+      offsetStep.offset,
+      eventSeqId.get(),
+      lastConfiguration.get().map(_._2),
+    )
+    Future.successful(PersistenceResponse.Ok)
+  }
 
   // TODO this private method is needed for wiring post-commit-validation for sandbox-classic integration later.
   //  Until then it is a protected field, to pass the build. TODO switch back to private.
@@ -369,8 +545,41 @@ private class JdbcLedgerDao(
       recordTime: Instant,
       offsetStep: OffsetStep,
       reason: RejectionReason,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException("not supported") // TODO add support
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    val submitter =
+      submitterInfo.getOrElse(
+        throw new RuntimeException("Submitter info should be present when storing rejections")
+      )
+
+    val dtos = Iterator(
+      new DBDTOV1.CommandCompletion(
+        completion_offset = offsetStep.offset.toByteArray,
+        record_time = recordTime,
+        application_id = submitter.applicationId,
+        submitters = submitter.actAs.toSet,
+        command_id = submitter.commandId,
+        transaction_id = None,
+        status_code = Some(Conversions.participantRejectionReasonToErrorCode(reason).value()),
+        status_message = Some(reason.description),
+      ),
+      new DBDTOV1.CommandDeduplication(
+        JdbcLedgerDao.deduplicationKey(
+          domain.CommandId(submitter.commandId),
+          submitter.actAs,
+        )
+      ),
+    )
+
+    val rawDBBatchPostgreSQLV1 = RawDBBatchPostgreSQLV1.Builder()
+    dtos.foreach(rawDBBatchPostgreSQLV1.add)
+    postgresDao.insertBatch(rawDBBatchPostgreSQLV1.build())
+    postgresDao.updateParams(
+      offsetStep.offset,
+      eventSeqId.get(),
+      lastConfiguration.get().map(_._2),
+    )
+    Future.successful(PersistenceResponse.Ok)
+  }
 
   override def storeInitialState(
       ledgerEntries: Vector[(Offset, LedgerEntry)],
@@ -469,8 +678,52 @@ private class JdbcLedgerDao(
       offsetStep: OffsetStep,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry],
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException("not supported") // TODO add support
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+
+    postgresDao.updateParams(
+      offsetStep.offset,
+      eventSeqId.get(),
+      lastConfiguration.get().map(_._2),
+    )
+
+    val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
+    val packageDtos = packages.iterator.map { case (archive, details) =>
+      new DBDTOV1.Package(
+        package_id = archive.getHash,
+        upload_id = uploadId,
+        source_description = details.sourceDescription,
+        size = archive.getPayload.size.toLong,
+        known_since = details.knownSince,
+        ledger_offset = offsetStep.offset.toByteArray,
+        _package = archive.toByteArray,
+      )
+    }
+    val packageEntries = optEntry.iterator.map {
+      case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
+        new DBDTOV1.PackageEntry(
+          ledger_offset = offsetStep.offset.toByteArray,
+          recorded_at = recordTime,
+          submission_id = Some(submissionId),
+          typ = JdbcLedgerDao.acceptType,
+          rejection_reason = None,
+        )
+      // TODO test rejections
+      case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
+        new DBDTOV1.PackageEntry(
+          ledger_offset = offsetStep.offset.toByteArray,
+          recorded_at = recordTime,
+          submission_id = Some(submissionId),
+          typ = JdbcLedgerDao.rejectType,
+          rejection_reason = Some(reason),
+        )
+    }
+
+    val batch = RawDBBatchPostgreSQLV1.Builder()
+    (packageDtos ++ packageEntries).foreach(batch.add)
+    postgresDao.insertBatch(batch.build())
+
+    Future.successful(PersistenceResponse.Ok)
+  }
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
     "select * from package_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
@@ -786,6 +1039,7 @@ private[platform] object JdbcLedgerDao {
         jdbcAsyncCommitMode,
       )
     } yield new JdbcLedgerDao(
+      JDBCPostgresDAO(jdbcUrl),
       dbDispatcher,
       DbType.jdbcType(jdbcUrl),
       servicesExecutionContext,

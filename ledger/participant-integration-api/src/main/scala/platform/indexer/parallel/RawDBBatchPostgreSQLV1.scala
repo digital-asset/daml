@@ -706,7 +706,7 @@ object RawDBBatchPostgreSQLV1 {
 
   // TODO append-only: idea: string is a bit chatty for timestamp communication, maybe we can switch to epoch somehow?
   private val PGTimestampFormat =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss") // FIXME +micros
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")
   def toPGTimestampString(instant: Instant): String =
     instant
       .atZone(ZoneOffset.UTC)

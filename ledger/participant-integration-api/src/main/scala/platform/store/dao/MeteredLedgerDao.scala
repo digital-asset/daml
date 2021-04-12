@@ -162,6 +162,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
+      workflowId: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransaction,
@@ -174,6 +175,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
         offsetStep,
         transaction,
         divulged,
+        workflowId,
       ),
     )
 

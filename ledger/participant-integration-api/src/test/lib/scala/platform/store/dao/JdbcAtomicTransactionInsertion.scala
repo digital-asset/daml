@@ -41,6 +41,7 @@ trait JdbcAtomicTransactionInsertion {
         offsetStep = offsetStep,
         divulged = divulgedContracts,
         ledgerEffectiveTime = tx.ledgerEffectiveTime,
+        workflowId = tx.workflowId,
       )
     } yield offsetStep.offset -> tx
   }

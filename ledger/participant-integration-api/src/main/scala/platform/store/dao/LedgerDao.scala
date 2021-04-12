@@ -251,6 +251,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
+      workflowId: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   // TODO append-only: cleanup

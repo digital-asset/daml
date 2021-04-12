@@ -226,6 +226,7 @@ trait ExecuteUpdate {
           offsetStep = offsetStep,
           transaction = transaction,
           divulged = divulgedContracts,
+          transactionMeta.workflowId,
         )
     }
   }
@@ -514,6 +515,7 @@ class AtomicExecuteUpdate(
             offsetStep = offsetStep,
             transaction = transaction,
             divulged = divulgedContracts,
+            workflowId = transactionMeta.workflowId,
           ),
         )
 

@@ -130,6 +130,7 @@ final class ExecuteUpdateSpec
         offsetStep = eqTo(CurrentOffset(offset)),
         transaction = eqTo(txMock),
         divulged = eqTo(List.empty[DivulgedContract]),
+        workflowId = None,
       )(any[LoggingContext])
     ).thenReturn(Future.successful(PersistenceResponse.Ok))
     dao
@@ -318,6 +319,7 @@ final class ExecuteUpdateSpec
                     offsetStep = eqTo(CurrentOffset(offset)),
                     transaction = eqTo(txMock),
                     divulged = eqTo(List.empty[DivulgedContract]),
+                    workflowId = None,
                   )(any[LoggingContext])
                 orderedEvents
                   .verify(ledgerDaoMock)
