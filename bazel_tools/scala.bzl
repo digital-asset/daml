@@ -381,9 +381,10 @@ rm -f {jar_output}
 def _scaladoc_jar_impl(ctx):
     # Detect an actual scala source file rather than a srcjar or other label
     srcFiles = [
-        src.path
-        for src in ctx.files.srcs
-        if src.is_source or src in ctx.files.generated_srcs
+# TODO: add a config param to omit the below
+#        src.path
+#        for src in ctx.files.srcs
+#        if src.is_source or src in ctx.files.generated_srcs
     ]
 
     if srcFiles != []:
