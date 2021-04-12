@@ -24,11 +24,13 @@ Run the tool using Bazel:
 The following options are supported:
 
     --help
-    --skip-byte-comparison  Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
-    --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
-    --index-only            Run only the indexing step of the integrity checker (useful to benchmark the indexer).
-    --jdbc-url              External JDBC url (useful for running against PostgreSQL).
-    --report-metrics          Print all registered metrics.
+    --skip-byte-comparison      Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
+    --sort-write-set            Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
+    --index-only                Run only the indexing step of the integrity checker (useful to benchmark the indexer).
+    --jdbc-url                  External JDBC url (useful for running against PostgreSQL).
+    --report-metrics            Print all registered metrics.
+    --expected-updates-output   The output path for expected updates. Useful for debugging. It might be worth sorting the output files and using a diff tool.
+    --actual-updates-output     Similarly, the output path for actual updates.
 
 # `benchmark-replay`
 
