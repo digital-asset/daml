@@ -392,7 +392,7 @@ object Config {
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
-        opt[Int]("index-input-mapping-parallelism")
+        opt[Int]("indexer-input-mapping-parallelism")
           .optional()
           .hidden()
           .action((p, c) => c.copy(indexerInputMappingParallelism = p))
