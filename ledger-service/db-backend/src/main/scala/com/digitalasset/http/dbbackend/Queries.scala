@@ -331,6 +331,7 @@ object Queries {
   private[dbbackend] object InitDdl {
     final case class CreateTable(name: String, create: Fragment) extends InitDdl
     final case class CreateIndex(create: Fragment) extends InitDdl
+    final case class CreateType(create: Fragment) extends InitDdl
   }
 
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
@@ -572,7 +573,7 @@ private object PostgresQueries extends Queries {
 }
 
 private object OracleQueries extends Queries {
-  import Queries._, Queries.InitDdl.CreateTable
+  import Queries._, Queries.InitDdl.{CreateTable, CreateType}
   import Implicits._
 
   protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
@@ -597,7 +598,14 @@ private object OracleQueries extends Queries {
   protected[this] override def jsonColumn(name: Fragment) =
     name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
 
-  protected[this] override def contractsTableSignatoriesObservers = sql""
+  protected[this] override def contractsTableSignatoriesObservers = sql"""
+    ,signatories PARTY_ARRAY NOT NULL
+    ,observers PARTY_ARRAY NOT NULL
+  """
+
+  private[this] val createPartyArrayType = CreateType(
+    sql"""CREATE OR REPLACE TYPE PARTY_ARRAY AS VARRAY (2147483647) OF $partyType NOT NULL"""
+  )
 
   private val createSignatoriesTable = CreateTable(
     "signatories",
@@ -624,7 +632,10 @@ private object OracleQueries extends Queries {
   )
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(createSignatoriesTable, createObserversTable)
+    (createPartyArrayType +: super.initDatabaseDdls) ++ Seq(
+      createSignatoriesTable,
+      createObserversTable,
+    )
 
   protected[this] type DBContractKey = JsValue
 
