@@ -105,16 +105,20 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           globalCids,
         ) map { case (tx, meta) =>
           // Annotate the transaction with the package dependencies. Since
-          // all commands are actions on a contract template, with a fully typed
+          // all commands are actions on a contract template (no rollback nodes as roots
+          // so .packageIds is always a singleton set), with a fully typed
           // argument, we only need to consider the templates mentioned in the command
           // to compute the full dependencies.
-          val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
-            val pkgId = cmd.templateId.packageId
+          val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (acc, cmd) =>
+            val pkgIds = cmd.templateIds.view.map(_.packageId).toSet
             val transitiveDeps =
-              compiledPackages
-                .getPackageDependencies(pkgId)
-                .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-            (pkgIds + pkgId) union transitiveDeps
+              pkgIds.foldLeft(Set.empty[PackageId])((acc, pkgId) =>
+                acc union
+                  compiledPackages
+                    .getPackageDependencies(pkgId)
+                    .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
+              )
+            acc union pkgIds union transitiveDeps
           }
           tx -> meta.copy(submissionSeed = Some(submissionSeed), usedPackages = deps)
         }
@@ -270,7 +274,13 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
-      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
+      loadPackages(
+        commands
+          .foldLeft(Set.empty[PackageId])((acc, cmd) =>
+            acc union cmd.templateIds.view.map(_.packageId).toSet[PackageId]
+          )
+          .toList
+      )
     ) {
       val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(

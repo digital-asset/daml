@@ -1627,6 +1627,9 @@ private[lf] final class Compiler(
       )
     case Command.LookupByKey(templateId, contractKey) =>
       LookupByKeyDefRef(templateId)(SEValue(contractKey))
+    case Command.Rollback(_) =>
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("rollback cmds are not supported")
   }
 
   private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
