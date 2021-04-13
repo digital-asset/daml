@@ -5,10 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.{Duration, Instant}
 
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.ReadServiceStateUpdateComparison.{
-  DefaultNormalizationSettings,
-  NormalizationSettings,
-}
 import com.daml.ledger.participant.state.v1.Update.{
   CommandRejected,
   ConfigurationChangeRejected,
@@ -34,7 +30,7 @@ final class StateUpdateComparisonSpec
       val right = aConfigurationChangeRejected.copy(rejectionReason = "another reason")
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, DefaultNormalizationSettings, List.empty)
+        .compareUpdates(left, right, List.empty, List.empty)
         .map(_ => succeed)
     }
 
@@ -54,7 +50,7 @@ final class StateUpdateComparisonSpec
           .compareUpdates(
             aCommandRejectedUpdate.copy(reason = left),
             aCommandRejectedUpdate.copy(reason = right),
-            DefaultNormalizationSettings,
+            List.empty,
             List.empty,
           )
           .map(_ => succeed)
@@ -69,9 +65,10 @@ final class StateUpdateComparisonSpec
       )
       val right =
         aTransactionAcceptedUpdate.copy(blindingInfo = Some(blindingInfo))
+      val normalizers = List(BlindingInfoNormalizer)
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, NormalizationSettings(ignoreBlindingInfo = true), List.empty)
+        .compareUpdates(left, right, normalizers, normalizers)
         .map(_ => succeed)
     }
 
@@ -82,9 +79,10 @@ final class StateUpdateComparisonSpec
       val right = aTransactionAcceptedUpdate.copy(transactionId =
         TransactionId.assertFromString("another transaction ID")
       )
+      val normalizers = List(TransactionIdNormalizer)
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, NormalizationSettings(ignoreTransactionId = true), List.empty)
+        .compareUpdates(left, right, normalizers, normalizers)
         .map(_ => succeed)
     }
 
@@ -95,13 +93,14 @@ final class StateUpdateComparisonSpec
       val right = aTransactionAcceptedUpdate.copy(transaction =
         buildATransaction(withFetchAndLookupByKeyNodes = false)
       )
+      val normalizers = List(FetchAndLookupByKeyNodeNormalizer)
 
       ReadServiceStateUpdateComparison
         .compareUpdates(
           left,
           right,
-          NormalizationSettings(ignoreFetchAndLookupByKeyNodes = true),
-          List.empty,
+          normalizers,
+          normalizers,
         )
         .map(_ => succeed)
     }

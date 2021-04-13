@@ -6,12 +6,12 @@ package com.daml.lf.kv
 import com.daml.lf.transaction._
 import com.daml.lf.value.Value.ContractId
 
-object Normalizer {
+object TransactionNormalizer {
 
   // KV specific normalization.
   // Drop Fetch, Lookup and Rollback nodes from a transaction, keeping Create and Exercise.
   // Also drop everything contained with a rollback node
-  def normalizeTransaction(
+  def normalize(
       tx: CommittedTransaction
   ): CommittedTransaction = {
 
