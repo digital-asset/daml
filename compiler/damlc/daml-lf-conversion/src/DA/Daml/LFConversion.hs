@@ -1301,15 +1301,18 @@ mkCase env scrutineeType resultType scrutinee galts =
     finalize (foldr addCaseAlternative (GCBAlts []) galts)
   where
     finalize :: GeneralisedCaseBody -> LF.Expr
-    finalize (GCExpr e) = e
-    finalize (GCAlts []) = ECase scrutinee
-        [ CaseAlternative CPDefault
-        $ EBuiltin BEError
-            `ETyApp` resultType
-            `ETmApp` EBuiltin (BEText "Unreachable") ]
-        -- GHC only generates empty case alternatives if it is sure the scrutinee will fail.
-        -- LF doesn't support empty alternatives, so we turn this into a non-empty alternative.
-    finalize (GCAlts alts) = ECase scrutinee alts
+    finalize = \case
+        GCBExpr e -> e
+        GCBAlts [] ->
+            ECase scrutinee
+                [ CaseAlternative CPDefault
+                $ EBuiltin BEError
+                    `ETyApp` resultType
+                    `ETmApp` EBuiltin (BEText "Unreachable") ]
+                -- GHC only generates empty case alternatives if it is sure the scrutinee will fail.
+                -- LF doesn't support empty alternatives, so we turn this into a non-empty alternative.
+        GCBAlts alts ->
+            ECase scrutinee alts
 
     addCaseAlternative :: GeneralisedCaseAlternative -> GeneralisedCaseBody -> GeneralisedCaseBody
     addCaseAlternative (GCA (GCPNormal pattern) rhs) (GCBAlts alts) =
