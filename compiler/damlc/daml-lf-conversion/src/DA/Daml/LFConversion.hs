@@ -1258,29 +1258,14 @@ data GeneralisedCasePattern
     deriving (Eq, Ord)
 
 -- | Generalised case alternative
-data GeneralisedCaseAlternative = GCA
-    { gcaPattern :: GeneralisedCasePattern
-    , gcaRHS :: LF.Expr
-        -- ^ Right-hand side of case alternative.
-    } deriving (Eq, Ord)
+data GeneralisedCaseAlternative = GCA GeneralisedCasePattern LF.Expr
+    deriving (Eq, Ord)
 
 -- | Is this a normal case alternative?
 isNormalCaseAlternative :: GeneralisedCaseAlternative -> Bool
 isNormalCaseAlternative = \case
     GCA (GCPNormal _) _ -> True
     _ -> False
-
--- | Represents a case alternative that is not directly supported
--- by LF's CaseAlternative syntax. In particular the pattern here
--- is some expression that we want to use the built-in equality
--- to match.
-data EqualityAlternative = EqualityAlternative
-    { eqaltPattern :: LF.Expr
-        -- ^ Pattern expression to test against. This is an inert
-        -- expression (can't raise errors, e.g. a constructor).
-    , eqaltBody :: LF.Expr
-        -- ^ Right-hand side of case alternative. Potentially divergent.
-    } deriving (Eq, Ord)
 
 -- | Represents the body of a generalised case expression.
 data GeneralisedCaseBody
