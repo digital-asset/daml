@@ -138,7 +138,7 @@ CREATE TABLE participant_events_create (
     create_observers text[] NOT NULL,
     create_agreement_text text,
     create_key_value bytea,
-    create_key_hash bytea,
+    create_key_hash text,
 
     -- * compression flags
     create_argument_compression SMALLINT,

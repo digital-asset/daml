@@ -186,17 +186,17 @@ private[platform] object Conversions {
 
   implicit object HashToStatement extends ToStatement[Hash] {
     override def set(s: PreparedStatement, i: Int, v: Hash): Unit =
-      s.setBytes(i, v.bytes.toByteArray)
+      s.setString(i, v.bytes.toHexString)
   }
 
   implicit val columnToHash: Column[Hash] =
     Column.nonNull((value: Any, meta) =>
-      Column.columnToByteArray(value, meta).map(Hash.assertFromByteArray)
+      Column.columnToString(value, meta).map(Hash.assertFromString)
     )
 
   implicit object HashMetaParameter extends ParameterMetaData[Hash] {
-    override val sqlType: String = ParameterMetaData.ByteArrayParameterMetaData.sqlType
-    override val jdbcType: Int = ParameterMetaData.ByteArrayParameterMetaData.jdbcType
+    override val sqlType: String = ParameterMetaData.StringParameterMetaData.sqlType
+    override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
   }
 
   // Array[String]

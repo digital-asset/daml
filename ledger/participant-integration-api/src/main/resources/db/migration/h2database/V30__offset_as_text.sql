@@ -1,7 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- change offset columns to text
+-- Migrate indexed byte array columns as text.
 --
 
 ALTER TABLE configuration_entries
@@ -23,6 +23,9 @@ ALTER TABLE parameters
 ALTER TABLE participant_command_completions
     ALTER COLUMN completion_offset SET DATA TYPE varchar;
 
+ALTER TABLE participant_contracts
+    ALTER COLUMN create_key_hash SET DATA TYPE varchar;
+
 ALTER TABLE participant_events
     ALTER COLUMN event_offset SET DATA TYPE varchar,
     ALTER COLUMN create_consumed_at SET DATA TYPE varchar;
@@ -33,7 +36,4 @@ ALTER TABLE parties
 
 ALTER TABLE party_entries
     ALTER COLUMN ledger_offset SET DATA TYPE varchar;
-
-
-
 
