@@ -146,8 +146,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       node: Node.GenNode[NodeId, Cid]
   ): Result[(speedy.Command, Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, List(node.templateId))) {
-      val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
-      cmd -> globalCids
+      unsafeTranslateNode(node)
     }
 
   def translateTransactionRoots[Cid <: Value.ContractId](

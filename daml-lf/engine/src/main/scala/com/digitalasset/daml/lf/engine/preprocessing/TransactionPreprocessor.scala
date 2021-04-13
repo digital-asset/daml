@@ -28,95 +28,143 @@ private[preprocessing] final class TransactionPreprocessor(
   // Translate a GenNode into an expression re-interpretable by the interpreter
   @throws[PreprocessorException]
   def unsafeTranslateNode[Cid <: Value.ContractId](
-      acc: (Set[Value.ContractId], Set[Value.ContractId]),
-      node: Node.GenNode[NodeId, Cid],
-  ): (speedy.Command, (Set[Value.ContractId], Set[Value.ContractId])) = {
-
-    val (localCids, globalCids) = acc
+      node: Node.GenNode[NodeId, Cid]
+  ): (speedy.Command, Set[Value.ContractId]) = {
 
     node match {
       case _: Node.NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         // how on earth can we turn a rollback node back into a speedy command?
         sys.error("rollback nodes are not supported")
-      case Node.NodeCreate(
-            coid @ _,
-            templateId,
-            arg,
-            agreementText @ _,
-            optLoc @ _,
-            sigs @ _,
-            stks @ _,
-            key @ _,
-            version @ _,
-          ) =>
-        if (globalCids(coid))
-          fail("Conflicting discriminators between a global and local contract ID.")
+      case create: Node.NodeCreate[Cid] =>
+        commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
 
-        val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessCreate(templateId, arg)
-        val newGlobalCids = globalCids + coid
-        val newLocalCids = localCids | newCids.filterNot(globalCids)
-        cmd -> (newLocalCids -> newGlobalCids)
-
-      case Node.NodeExercises(
-            coid,
-            template,
-            choice,
-            optLoc @ _,
-            consuming @ _,
-            actingParties @ _,
-            chosenVal,
-            stakeholders @ _,
-            signatories @ _,
-            choiceObservers @ _,
-            children @ _,
-            exerciseResult @ _,
-            key @ _,
-            byKey @ _,
-            version @ _,
-          ) =>
-        val templateId = template
-        val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal)
-        (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
-      case Node.NodeFetch(coid, templateId, _, _, _, _, _, _, _) =>
-        val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
-        (cmd, acc)
-      case Node.NodeLookupByKey(templateId, _, key, _, _) =>
-        val keyValue = unsafeAsValueWithNoContractIds(key.key)
-        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
-        (cmd, acc)
+      case exe: Node.NodeExercises[_, Cid] =>
+        commandPreprocessor.unsafePreprocessExercise(
+          exe.templateId,
+          exe.targetCoid,
+          exe.choiceId,
+          exe.chosenValue,
+        )
+      case fetch: Node.NodeFetch[Cid] =>
+        val cmd = commandPreprocessor.unsafePreprocessFetch(fetch.templateId, fetch.coid)
+        (cmd, Set.empty)
+      case lookup: Node.NodeLookupByKey[Cid] =>
+        val keyValue = unsafeAsValueWithNoContractIds(lookup.key.key)
+        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(lookup.templateId, keyValue)
+        (cmd, Set.empty)
     }
   }
 
+  // Accumulator used by unsafeTranslateTransactionRoots method.
+  private[this] case class Acc(
+      globalCids: Set[ContractId],
+      localCids: Set[ContractId],
+      commands: BackStack[speedy.Command],
+  ) {
+    def update(
+        newInputCids: Iterable[ContractId],
+        newLocalCids: Iterable[ContractId],
+        cmd: speedy.Command,
+    ) = Acc(
+      globalCids ++ newInputCids.filterNot(localCids),
+      localCids ++ newLocalCids,
+      commands :+ cmd,
+    )
+  }
+
+  /*
+   * Translates a transaction tree into a sequence of Speedy commands
+   * and collects the global contract IDs.
+   * A contract ID `cid` is considered *local* w.r.t. a node `n`, if
+   * either:
+   *  - it is local in any node appearing previously (w.r.t. traversal
+   *    order) in the transaction, or
+   *  - `n` is a create node such that `n.coid == cid`
+   *
+   * A contract ID `cid` is considered *global* in a root node `n`,
+   * if:
+   *  - `cid` is not considered local w.r.t. `n`, and
+   *  - if `cid` is reference in the input fields of a `n`, i.e. :
+   *    - `n` is a create node and `cid` appears in the payload of the
+   *      create contract (`n.arg`), or
+   *    - `n` is an exercise node and `cid` is the ID of the exercise
+   *      contract (`n.targetCoid`), or
+   *    - `n` is an exercise node and `cid` appears in the exercise
+   *      argument (`n.choosenValue`).
+   *
+   * A contract ID is considered *global* w.r.t. a transaction `tx` if
+   * it is global w.r.t. one of the roots of `tx`.
+   *
+   * Note that it is, in general, not possible to recover from a
+   * transaction, the original sequence of commands that generated this
+   * transaction. In particular:
+   *  - we cannot distinguish a exercise performed "by ID" from an
+   *    exercise performed "by key" (as of LF v1.13).
+   *  - we cannot distinguish a createAndExercise from a create
+   *    followed by an exercise.
+   *
+   * Consequently the sequence of commands and the set of global
+   * contract IDs generated by this method may be different from the
+   * original sequence of commands. In particular:
+   * - all exercises are translated into exercise by ID.
+   * - a cid is not considered global if there exists a create node
+   *   within the transaction that creates a contract with the same ID.
+   *
+   * Under the assumption that the underlying ledger guarantees the
+   * uniqueness of all contract IDs (including transient contracts),
+   * the reinterpretation of the generated transaction will succeed
+   * iff the original submission was valid and succeeded.
+   *
+   * See review comments in https://github.com/digital-asset/daml/pull/9370
+   * for more details.
+   */
   @throws[PreprocessorException]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
   ): (ImmArray[speedy.Command], Set[ContractId]) = {
 
-    type Acc = ((Set[Value.ContractId], Set[Value.ContractId]), BackStack[speedy.Command])
-
-    val ((localCids, _), cmds) =
-      tx.roots.foldLeft[Acc](((Set.empty, Set.empty), BackStack.empty)) {
-        case ((cids, stack), id) =>
-          tx.nodes.get(id) match {
-            case None =>
-              fail(s"invalid transaction, root refers to non-existing node $id")
-            case Some(node) =>
-              node match {
-                case _: Node.NodeFetch[_] =>
-                  fail(s"Transaction contains a fetch root node $id")
-                case _: Node.NodeLookupByKey[_] =>
-                  fail(s"Transaction contains a lookup by key root node $id")
-                case _ =>
-                  val (cmd, acc) = unsafeTranslateNode(cids, node)
-                  (acc, stack :+ cmd)
-              }
+    val result = tx.roots.foldLeft(Acc(Set.empty, Set.empty, BackStack.empty)) { (acc, id) =>
+      tx.nodes.get(id) match {
+        case None =>
+          fail(s"invalid transaction, root refers to non-existing node $id")
+        case Some(node) =>
+          node match {
+            case create: Node.NodeCreate[Cid] =>
+              val (cmd, newCids) =
+                commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+              acc.update(newCids, List(create.coid), cmd)
+            case exe: Node.NodeExercises[_, Cid] =>
+              val (cmd, newCids) = commandPreprocessor.unsafePreprocessExercise(
+                exe.templateId,
+                exe.targetCoid,
+                exe.choiceId,
+                exe.chosenValue,
+              )
+              val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
+              acc.update(newCids, newLocalCids, cmd)
+            case _: Node.NodeFetch[_] =>
+              fail(s"Transaction contains a fetch root node $id")
+            case _: Node.NodeLookupByKey[_] =>
+              fail(s"Transaction contains a lookup by key root node $id")
+            case _: Node.NodeRollback[_] =>
+              // TODO https://github.com/digital-asset/daml/issues/8020
+              // how on earth can we turn a rollback node back into a speedy command?
+              sys.error("rollback nodes are not supported")
           }
       }
+    }
 
-    cmds.toImmArray -> localCids
+    // The following check ensures that `localCids ∩ globalCids = ∅`.
+    // It is probably not 100% necessary, as the reinterpretation should catch the cases where it is not true.
+    // We still prefer to perform the check here as:
+    //  - it is cheap,
+    //  - it catches obviously buggy transaction,
+    //  - it is easier to reason about "soundness" of preprocessing under the disjointness assumption.
+    if (result.localCids exists result.globalCids)
+      fail("Conflicting discriminators between a global and local contract ID.")
+
+    result.commands.toImmArray -> result.globalCids
   }
 
 }
