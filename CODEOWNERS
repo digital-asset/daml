@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @hurryabit @gerolf-da @cocreature
-LATEST      @hurryabit @gerolf-da @bame-da @cocreature
+CODEOWNERS   @gerolf-da @cocreature
+LATEST       @gerolf-da @bame-da @cocreature
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -18,27 +18,27 @@ azure-cron.yml      @garyverhaegen-da
 NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 # Language
-/compiler/          @hurryabit @cocreature
-/libs-haskell/      @hurryabit @cocreature
-/daml-assistant/    @sofiafaro-da @hurryabit @cocreature
-/daml-script/       @cocreature @hurryabit @aherrmann-da @stefanobaghino-da
-/triggers/          @cocreature @hurryabit @aherrmann-da @stefanobaghino-da
+/compiler/           @cocreature
+/libs-haskell/       @cocreature
+/daml-assistant/    @sofiafaro-da  @cocreature
+/daml-script/       @cocreature  @aherrmann-da @stefanobaghino-da
+/triggers/          @cocreature  @aherrmann-da @stefanobaghino-da
 /ghc-lib/           @cocreature
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/archive/da/ @cocreature @hurryabit
+/daml-lf/archive/da/ @cocreature
 /daml-lf/data-scalacheck/ @S11001001 @cocreature
-/daml-lf/engine/ @cocreature @hurryabit
-/daml-lf/governance.rst @hurryabit
-/daml-lf/interpreter/ @cocreature @hurryabit
+/daml-lf/engine/ @cocreature
+/daml-lf/governance.rst
+/daml-lf/interpreter/ @cocreature
 /daml-lf/kv-transaction-support/ @cocreature @gerolf-da @miklos-da
-/daml-lf/repl/ @cocreature @hurryabit
-/daml-lf/scenario-interpreter/ @hurryabit @cocreature
-/daml-lf/spec/daml-lf-1.rst @cocreature @hurryabit
-/daml-lf/spec/transaction.rst @cocreature @hurryabit
-/daml-lf/spec/value.rst @cocreature @hurryabit
+/daml-lf/repl/ @cocreature
+/daml-lf/scenario-interpreter/  @cocreature
+/daml-lf/spec/daml-lf-1.rst @cocreature
+/daml-lf/spec/transaction.rst @cocreature
+/daml-lf/spec/value.rst @cocreature
 /daml-lf/transaction-test-lib/ @S11001001 @cocreature
 /daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @cocreature
 /daml-lf/transaction/src/main/scala/com/daml/lf/value/ @cocreature
@@ -57,7 +57,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /language-support/hs/       @nickchapman-da
 /language-support/java/     @cocreature @stefanobaghino-da
 /language-support/scala/    @S11001001 @cocreature @stefanobaghino-da
-/language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da @stefanobaghino-da
+/language-support/ts/        @robin-da @cocreature @garyverhaegen-da @stefanobaghino-da
 
 # Tools
 /extractor/         @S11001001 @stefanobaghino-da
@@ -65,7 +65,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
-/docs/              @bame-da @nemanja-da @hurryabit
+/docs/              @bame-da @nemanja-da
 /libs-scala/        @stefanobaghino-da @SamirTalwar-DA
 /libs-scala/contextualized-logging/    @S11001001
 /libs-scala/scala-utils/    @S11001001
