@@ -55,11 +55,10 @@ Overview
   transactions.  Moreover, a one-line summary of each version must be
   present in the ``daml-lf-X.proto`` and ``transaction.proto`` files.
 
-* Every change to Daml-LF values, nodes, transactions or languages
-  *must* be checked for governance rules conformance and be approved
-  by at least two persons among Rémy Haemmerle, Martin Huschenbett
-  and Sophia Mota. Proposed changes can be filed as tickets under
-  labels "component/daml-lf" and "discussion".
+* Every change to Daml-LF values, nodes, transactions or languages *must* be
+  checked for governance rules conformance and be approved by Rémy Haemmerle
+  and Sofia Faro. Proposed changes can be filed as tickets under labels
+  "component/daml-lf" and "discussion".
 
 Language
 --------
