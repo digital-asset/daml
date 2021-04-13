@@ -291,7 +291,7 @@ class ContractDiscriminatorFreshnessCheckSpec
 
     }
 
-    "fail when replaying a transaction when a cid appear before before being created" in {
+    "fail when preprocessing a transaction when a cid appear before before being created" in {
 
       val cid0: ContractId = ContractId.V1(crypto.Hash.hashPrivateKey("test"), Bytes.Empty)
 
@@ -309,28 +309,26 @@ class ContractDiscriminatorFreshnessCheckSpec
         keys = _ => None,
       )
 
-      val lastCreatedCid @ ContractId.V1(discriminator, suffix) = tx.fold(cid0) {
+      val lastCreatedCid = tx.fold(cid0) {
         case (_, (_, create: Node.NodeCreate[ContractId])) => create.coid
         case (acc, _) => acc
       }
 
       assert(lastCreatedCid != cid0)
-      assert(suffix != Bytes.assertFromString("0123"))
-
-      val conflictingCid = ContractId.V1(discriminator, Bytes.assertFromString("0123"))
 
       val newNodes = tx.fold(tx.nodes) {
         case (nodes, (nid, exe: Node.NodeExercises[NodeId, ContractId]))
             if exe.choiceId == "Identity" =>
-          nodes.updated(nid, exe.copy(chosenValue = Value.ValueContractId(conflictingCid)))
+          nodes.updated(nid, exe.copy(chosenValue = Value.ValueContractId(lastCreatedCid)))
         case (acc, _) => acc
       }
 
       val result =
         new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
           .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
+          .consume(_ => None, pkgs, _ => None)
 
-      inside(result) { case ResultError(err) =>
+      inside(result) { case Left(err) =>
         err.msg should include("Conflicting discriminators")
       }
 
