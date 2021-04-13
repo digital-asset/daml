@@ -74,7 +74,7 @@ private[preprocessing] final class TransactionPreprocessor(
 
   /*
    * Translates a transaction tree into a sequence of Speedy commands
-   * and collect the global contract IDs.
+   * and collects the global contract IDs.
    * A contract ID `cid` is considered *local* w.r.t. a node `n`, if
    * either:
    *  - it is local in a previous node w.r.t. traversal order, or
@@ -84,9 +84,9 @@ private[preprocessing] final class TransactionPreprocessor(
    * if:
    *  - `cid` is not considered local w.r.t. `n`, and
    *  - if `cid` is an input of a `n`, i.e. :
-   *    - `n` is a create node and `cid` appear in the payload of the
+   *    - `n` is a create node and `cid` appears in the payload of the
    *      create contract (`n.arg`)
-   *    - `n` is an exercise node and `cid` appear in the exercise
+   *    - `n` is an exercise node and `cid` appears in the exercise
    *      argument (`n.choosenValue`)
    *    - `n` is an exercise node and `cid` is the ID of the exercise
    *      contract (`n.targetCoid`).
@@ -95,8 +95,8 @@ private[preprocessing] final class TransactionPreprocessor(
    * it is global w.r.t. one of the roots of `tx`.
    *
    * Note that it is, in general, not possible to recover from a
-   * transaction, the original sequence of command that generate this
-   * latter. In particular:
+   * transaction, the original sequence of command that generated this
+   * transaction. In particular:
    *  - we cannot distinguish a exercise performed "by ID" from an
    *    exercise performed "by key" (as of LF v1.13).
    *  - we cannot distinguish a createAndExercise from a create
@@ -107,12 +107,12 @@ private[preprocessing] final class TransactionPreprocessor(
    * original sequence of commands. In particular:
    * - all exercises are translated into exercise by ID.
    * - a cid is not considered global if there exists a create node
-   *   within the transaction that create a contract with the same ID.
+   *   within the transaction that creates a contract with the same ID.
    *
-   * Under the assumption that the underline ledger guarantee the
+   * Under the assumption that the underlying ledger guarantees the
    * uniqueness of all contract IDs (including transient contracts),
-   * the reinterpretation of the generates transaction will succeeds
-   * iff the original submission was valid and succeed.
+   * the reinterpretation of the generated transaction will succeed
+   * iff the original submission was valid and succeeded.
    *
    * See review comments in https://github.com/digital-asset/daml/pull/9370
    * for more details.
