@@ -17,7 +17,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.{FiniteDuration, _}
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Success
 
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
@@ -33,12 +33,17 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     val stateCache = StateCache[String, String](cache, metrics)
 
     val asyncUpdatePromise = Promise[String]()
-    stateCache.putAsync("key", 1L, asyncUpdatePromise.future)
+    val putAsyncResult = stateCache.putAsync("key", 1L, asyncUpdatePromise.future)
     asyncUpdatePromise.completeWith(Future.successful("value"))
 
-    verify(cache, timeout(100)).put("key", "value")
-    // Async update should not insert in the cache
-    verifyNoMoreInteractions(cache)
+    for {
+      _ <- putAsyncResult
+    } yield {
+      verify(cache).put("key", "value")
+      // Async update should not insert in the cache
+      verifyNoMoreInteractions(cache)
+      succeed
+    }
   }
 
   it should "store the latest key update in face of conflicting pending updates" in {
@@ -58,8 +63,12 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
       promise.complete(Success(value))
     }
 
-    Await.result(Future.sequence(insertionFutures.toVector), 5.second).nonEmpty shouldBe true
-    assertCacheElements(stateCache)(insertions, `number of competing updates`)
+    for {
+      result <- Future.sequence(insertionFutures.toVector)
+    } yield {
+      result should not be empty
+      assertCacheElements(stateCache)(insertions, `number of competing updates`)
+    }
   }
 
   it should "putAsync 100_000 values for the same key in 1 second" in {
@@ -79,9 +88,12 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
       promise.complete(Success(value))
     }
 
-    Await.result(Future.sequence(insertionFutures.toVector), 5.second).nonEmpty shouldBe true
-
-    assertCacheElements(stateCache)(insertions, `number of competing updates`)
+    for {
+      result <- Future.sequence(insertionFutures.toVector)
+    } yield {
+      result should not be empty
+      assertCacheElements(stateCache)(insertions, `number of competing updates`)
+    }
   }
 
   behavior of s"${classOf[StateCache[_, _]].getSimpleName}.put"
@@ -93,13 +105,18 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     val stateCache = StateCache[String, String](cache, metrics)
 
     val asyncUpdatePromise = Promise[String]()
-    stateCache.putAsync("key", 1L, asyncUpdatePromise.future)
+    val putAsyncResult = stateCache.putAsync("key", 1L, asyncUpdatePromise.future)
     stateCache.put("key", 2L, "value")
     asyncUpdatePromise.completeWith(Future.successful("should not update the cache"))
 
-    verify(cache).put("key", "value")
-    // Async update with older `validAt` should not insert in the cache
-    verifyNoMoreInteractions(cache)
+    for {
+      _ <- putAsyncResult
+    } yield {
+      verify(cache).put("key", "value")
+      // Async update with older `validAt` should not insert in the cache
+      verifyNoMoreInteractions(cache)
+      succeed
+    }
   }
 
   it should "not update the cache if the update is older than other competing updates" in {
@@ -109,14 +126,18 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     val stateCache = StateCache[String, String](cache, metrics)
 
     val asyncUpdatePromise = Promise[String]()
-    val asyncPutResult = stateCache.putAsync("key", 2L, asyncUpdatePromise.future)
+    val putAsyncResult = stateCache.putAsync("key", 2L, asyncUpdatePromise.future)
     stateCache.put("key", 1L, "should not update the cache")
     asyncUpdatePromise.completeWith(Future.successful("value"))
-    Await.ready(asyncPutResult, 1.second)
 
-    verify(cache).put("key", "value")
-    // Synchronous update should not insert in the cache
-    verifyNoMoreInteractions(cache)
+    for {
+      _ <- putAsyncResult
+    } yield {
+      verify(cache).put("key", "value")
+      // Synchronous update should not insert in the cache
+      verifyNoMoreInteractions(cache)
+      succeed
+    }
   }
 
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =
