@@ -56,6 +56,7 @@ private[preprocessing] final class TransactionPreprocessor(
     }
   }
 
+  // Accumulator used by unsafeTranslateTransactionRoots method.
   private[this] case class Acc(
       globalCids: Set[ContractId],
       localCids: Set[ContractId],
@@ -77,25 +78,26 @@ private[preprocessing] final class TransactionPreprocessor(
    * and collects the global contract IDs.
    * A contract ID `cid` is considered *local* w.r.t. a node `n`, if
    * either:
-   *  - it is local in a previous node w.r.t. traversal order, or
+   *  - it is local in any node appearing previously (w.r.t. traversal
+   *    order) in the transaction, or
    *  - `n` is a create node such that `n.coid == cid`
    *
    * A contract ID `cid` is considered *global* in a root node `n`,
    * if:
    *  - `cid` is not considered local w.r.t. `n`, and
-   *  - if `cid` is an input of a `n`, i.e. :
+   *  - if `cid` is reference in the input fields of a `n`, i.e. :
    *    - `n` is a create node and `cid` appears in the payload of the
-   *      create contract (`n.arg`)
-   *    - `n` is an exercise node and `cid` appears in the exercise
-   *      argument (`n.choosenValue`)
+   *      create contract (`n.arg`), or
    *    - `n` is an exercise node and `cid` is the ID of the exercise
-   *      contract (`n.targetCoid`).
+   *      contract (`n.targetCoid`), or
+   *    - `n` is an exercise node and `cid` appears in the exercise
+   *      argument (`n.choosenValue`).
    *
    * A contract ID is considered *global* w.r.t. a transaction `tx` if
    * it is global w.r.t. one of the roots of `tx`.
    *
    * Note that it is, in general, not possible to recover from a
-   * transaction, the original sequence of command that generated this
+   * transaction, the original sequence of commands that generated this
    * transaction. In particular:
    *  - we cannot distinguish a exercise performed "by ID" from an
    *    exercise performed "by key" (as of LF v1.13).
