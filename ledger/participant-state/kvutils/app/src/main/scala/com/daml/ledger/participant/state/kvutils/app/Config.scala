@@ -110,7 +110,36 @@ object Config {
   ): OptionParser[Config[Extra]] = {
     val parser: OptionParser[Config[Extra]] =
       new OptionParser[Config[Extra]](name) {
-        head(name)
+        head(s"$name as a service")
+
+        cmd("dump-index-metadata")
+          .text(
+            "Connect to the index db. Print ledger id, ledger end and integration API version and quit."
+          )
+          .children {
+            arg[String]("  <jdbc-url>...")
+              .minOccurs(1)
+              .unbounded()
+              .text("The JDBC URL to connect to an index database")
+              .action((jdbcUrl, config) =>
+                config.copy(mode = config.mode match {
+                  case Mode.Run =>
+                    Mode.DumpIndexMetadata(Vector(jdbcUrl))
+                  case Mode.DumpIndexMetadata(jdbcUrls) =>
+                    Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
+                })
+              )
+          }
+
+        arg[File]("<archive>...")
+          .optional()
+          .unbounded()
+          .text(
+            "DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default."
+          )
+          .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
+
+        help("help").text("Print this help page.")
 
         opt[Map[String, String]]("participant")
           .unbounded()
@@ -275,14 +304,6 @@ object Config {
             s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is $DefaultTrackerRetentionPeriod."
           )
 
-        arg[File]("<archive>...")
-          .optional()
-          .unbounded()
-          .text(
-            "DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default."
-          )
-          .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
-
         opt[Int]("max-inbound-message-size")
           .optional()
           .text(
@@ -345,30 +366,13 @@ object Config {
 
         opt[MetricsReporter]("metrics-reporter")
           .optional()
+          .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
           .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
-          .hidden()
 
         opt[Duration]("metrics-reporting-interval")
           .optional()
+          .text("Set metric reporting interval.")
           .action((interval, config) => config.copy(metricsReportingInterval = interval))
-          .hidden()
-
-        cmd("dump-index-metadata")
-          .text("Print ledger id, ledger end and integration API version and quit.")
-          .children {
-            arg[String]("<jdbc-url>...")
-              .minOccurs(1)
-              .unbounded()
-              .text("The JDBC URL to connect to an index database")
-              .action((jdbcUrl, config) =>
-                config.copy(mode = config.mode match {
-                  case Mode.Run =>
-                    Mode.DumpIndexMetadata(Vector(jdbcUrl))
-                  case Mode.DumpIndexMetadata(jdbcUrls) =>
-                    Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
-                })
-              )
-          }
 
         checkConfig(c => {
           val participantsIdsWithNonUniqueShardNames = c.participants
@@ -412,8 +416,6 @@ object Config {
             s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
-
-        help("help").text(s"$name as a service.")
       }
     extraOptions(parser)
     parser
