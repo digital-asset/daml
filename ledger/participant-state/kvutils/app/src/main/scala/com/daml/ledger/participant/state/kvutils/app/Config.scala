@@ -40,6 +40,7 @@ final case class Config[Extra](
     trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
+    enableMutableContractStateCache: Boolean,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -71,6 +72,7 @@ object Config {
       trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       engineMode = EngineMode.Stable,
       enableAppendOnlySchema = false,
+      enableMutableContractStateCache = false,
       extra = extra,
     )
 
@@ -160,6 +162,8 @@ object Config {
               "indexer-tailing-rate-limit-per-second, " +
               "indexer-batch-within-millis, " +
               "indexer-enable-compression, " +
+              "contract-state-cache-max-size, " +
+              "contract-key-state-cache-max-size, " +
               "]"
           )
           .action((kv, config) => {
@@ -226,6 +230,14 @@ object Config {
               .map(Duration.parse)
               .getOrElse(ParticipantConfig.DefaultManagementServiceTimeout)
             val shardName = kv.get("shard-name")
+            val maxContractStateCacheSize = kv
+              .get("contract-state-cache-max-size")
+              .map(_.toLong)
+              .getOrElse(ParticipantConfig.DefaultMaxContractStateCacheSize)
+            val maxContractKeyStateCacheSize = kv
+              .get("contract-key-state-cache-max-size")
+              .map(_.toLong)
+              .getOrElse(ParticipantConfig.DefaultMaxContractKeyStateCacheSize)
             val partConfig = ParticipantConfig(
               runMode,
               participantId,
@@ -247,6 +259,8 @@ object Config {
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
+              maxContractStateCacheSize = maxContractStateCacheSize,
+              maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
             )
             config.copy(participants = config.participants :+ partConfig)
           })
@@ -416,6 +430,14 @@ object Config {
             s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
+
+        opt[Unit]("mutable-contract-state-cache-unsafe")
+          .optional()
+          .hidden()
+          .text(
+            "Experimental contract state cache for command execution. Should not be used in production."
+          )
+          .action((_, config) => config.copy(enableMutableContractStateCache = true))
       }
     extraOptions(parser)
     parser

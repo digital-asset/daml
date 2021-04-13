@@ -10,11 +10,12 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Sink}
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.resources.Resource
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.ContractKeyStateValue._
+import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
   ContractNotFound,
   EmptyContractIds,
@@ -279,12 +280,12 @@ object MutableCacheBackedContractStore {
   // Signal externally that the cache has caught up until the provided ledger head offset
   type SignalNewLedgerHead = Offset => Unit
 
-  def apply(
+  private[cache] def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
       metrics: Metrics,
-      maxContractsCacheSize: Long = 100000L,
-      maxKeyCacheSize: Long = 100000L,
+      maxContractsCacheSize: Long,
+      maxKeyCacheSize: Long,
   )(implicit
       executionContext: ExecutionContext
   ): MutableCacheBackedContractStore =
@@ -294,6 +295,25 @@ object MutableCacheBackedContractStore {
       signalNewLedgerHead,
       ContractKeyStateCache(maxKeyCacheSize, metrics),
       ContractsStateCache(maxContractsCacheSize, metrics),
+    )
+
+  def owner(
+      contractsReader: LedgerDaoContractsReader,
+      signalNewLedgerHead: Offset => Unit,
+      metrics: Metrics,
+      maxContractsCacheSize: Long,
+      maxKeyCacheSize: Long,
+  )(implicit
+      executionContext: ExecutionContext
+  ): Resource[MutableCacheBackedContractStore] =
+    Resource.successful(
+      MutableCacheBackedContractStore(
+        contractsReader,
+        signalNewLedgerHead,
+        metrics,
+        maxContractsCacheSize,
+        maxKeyCacheSize,
+      )
     )
 
   final case class ContractNotFound(contractIds: Set[ContractId])

@@ -81,6 +81,9 @@ final class StandaloneApiServer(
           lfValueTranslationCache = lfValueTranslationCache,
           enricher = valueEnricher,
           enableAppendOnlySchema = config.enableAppendOnlySchema,
+          maxContractStateCacheSize = config.maxContractStateCacheSize,
+          maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
+          enableMutableContractStateCache = config.enableMutableContractStateCache,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
