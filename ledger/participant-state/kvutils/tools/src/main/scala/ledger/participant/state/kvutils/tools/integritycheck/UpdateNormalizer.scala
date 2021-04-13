@@ -15,6 +15,14 @@ trait UpdateNormalizer {
   def normalize(update: Update): Update
 }
 
+object UpdateNormalizer {
+  val DefaultNormalizers = List(
+    RecordTimeNormalizer,
+    RejectionReasonDescriptionNormalizer,
+    ConfigurationChangeRejectionNormalizer,
+  )
+}
+
 /** Ignores the record time set later by post-execution because it's unimportant.
   * We only care about the update type and content.
   */

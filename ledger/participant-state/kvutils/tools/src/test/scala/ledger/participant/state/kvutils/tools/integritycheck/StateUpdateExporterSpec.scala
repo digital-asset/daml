@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import java.io.Writer
+import java.io.PrintWriter
 import java.nio.file.Path
 
 import akka.NotUsed
@@ -42,8 +42,8 @@ class StateUpdateExporterSpec
     "write updates" in {
       val expectedUpdatesPath = mock[Path]
       val actualUpdatesPath = mock[Path]
-      val expectedUpdatesWriter = mock[Writer]
-      val actualUpdatesWriter = mock[Writer]
+      val expectedUpdatesWriter = mock[PrintWriter]
+      val actualUpdatesWriter = mock[PrintWriter]
       StateUpdateExporter
         .write(
           aReadService,
@@ -55,14 +55,14 @@ class StateUpdateExporterSpec
           aConfig(Some(expectedUpdatesPath), Some(actualUpdatesPath)),
         )
         .map { _ =>
-          verify(expectedUpdatesWriter).write(matches("PublicPackageUpload.*\n"))
-          verify(actualUpdatesWriter).write(matches("PublicPackageUpload.*\n"))
+          verify(expectedUpdatesWriter).println(matches("PublicPackageUpload(.*)"))
+          verify(actualUpdatesWriter).println(matches("PublicPackageUpload(.*)"))
           succeed
         }
     }
 
     "not write anything if the config parameters were not provided" in {
-      val mockWriter = mock[Writer]
+      val mockWriter = mock[PrintWriter]
       StateUpdateExporter
         .write(
           aReadService,
