@@ -15,6 +15,8 @@ case class Config(
     indexOnly: Boolean = false,
     reportMetrics: Boolean = false,
     jdbcUrl: Option[String] = None,
+    expectedUpdatesPath: Option[Path] = None,
+    actualUpdatesPath: Option[Path] = None,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
@@ -57,6 +59,16 @@ object Config {
       opt[Unit]("report-metrics")
         .text("Print all registered metrics.")
         .action((_, config) => config.copy(reportMetrics = true))
+      opt[Path]("expected-updates-output")
+        .text("The output path for expected updates. Useful for debugging.")
+        .action((expectedUpdatesPath, config) =>
+          config.copy(expectedUpdatesPath = Some(expectedUpdatesPath))
+        )
+      opt[Path]("actual-updates-output")
+        .text("The output path for actual updates. Useful for debugging.")
+        .action((actualUpdatesPath, config) =>
+          config.copy(actualUpdatesPath = Some(actualUpdatesPath))
+        )
     }
 
   def parse(args: collection.Seq[String]): Option[Config] =
