@@ -360,7 +360,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           submissionTime = onLedger.ptx.submissionTime,
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
+          nodeSeeds = onLedger.ptx.actionNodeSeeds.toImmArray,
         )
         config.profileDir.foreach { dir =>
           val desc = Engine.profileDesc(tx)
