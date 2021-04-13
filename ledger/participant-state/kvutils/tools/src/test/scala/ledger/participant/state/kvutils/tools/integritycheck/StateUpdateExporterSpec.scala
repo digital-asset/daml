@@ -44,6 +44,7 @@ class StateUpdateExporterSpec
       val actualUpdatesPath = mock[Path]
       val expectedUpdatesWriter = mock[PrintWriter]
       val actualUpdatesWriter = mock[PrintWriter]
+      val expectedRegex = "PublicPackageUpload\\(.*\\)"
       StateUpdateExporter
         .write(
           aReadService,
@@ -55,8 +56,8 @@ class StateUpdateExporterSpec
           aConfig(Some(expectedUpdatesPath), Some(actualUpdatesPath)),
         )
         .map { _ =>
-          verify(expectedUpdatesWriter).println(matches("PublicPackageUpload(.*)"))
-          verify(actualUpdatesWriter).println(matches("PublicPackageUpload(.*)"))
+          verify(expectedUpdatesWriter).println(matches(expectedRegex))
+          verify(actualUpdatesWriter).println(matches(expectedRegex))
           succeed
         }
     }
