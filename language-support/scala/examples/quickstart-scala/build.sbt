@@ -3,7 +3,7 @@ import sbt._
 import Versions._
 
 version in ThisBuild := "0.0.1"
-scalaVersion in ThisBuild := "2.12.8"
+scalaVersion in ThisBuild := "SCALA_VERSION"
 isSnapshot := true
 
 lazy val parent = project
