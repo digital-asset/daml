@@ -9,6 +9,7 @@ load(
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
+load("@scala_version//:index.bzl", "scala_version")
 
 filegroup(
     name = "quickstart-scala-src",
@@ -23,21 +24,28 @@ filegroup(
 )
 
 genrule(
-    name = "quickstart-scala-dir",
+    name = "quickstart-scala",
     srcs = [
         ":quickstart-scala-src",
         "//docs:daml-assistant-iou-setup",
     ],
-    outs = ["quickstart-scala"],
+    outs = ["quickstart-scala.tar"],
     cmd = """
-        mkdir -p $@
-        cp -rL $(SRCS) $@
+        DIR=$$(mktemp -d)
+        mkdir $$DIR/quickstart-scala
+        trap "rm -rf $$DIR" EXIT
+        cp -rL $(SRCS) $$DIR/quickstart-scala/
+        sed -i 's/SCALA_VERSION/{scala_version}/' $$DIR/quickstart-scala/build.sbt
         rm -rf $@/target
         rm -rf $@/project/target
         rm -rf $@/application/target
         rm -rf $@/scala-codegen/target
-    """,
-    tools = [":quickstart-scala-bin"],  # this is to make sure that quickstart-scala compiles
+        $(execpath //bazel_tools/sh:mktar) $@ -C $$DIR quickstart-scala
+    """.format(scala_version = scala_version),
+    tools = [
+        ":quickstart-scala-bin",
+        "//bazel_tools/sh:mktar",
+    ],  # this is to make sure that quickstart-scala compiles
     visibility = ["//visibility:public"],
 )
 
