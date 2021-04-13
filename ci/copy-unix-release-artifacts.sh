@@ -26,8 +26,11 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $OUTPUT_DIR/github/$DAML_ON_SQL
 
     JSON_API=http-json-$RELEASE_TAG.jar
+    JSON_API_EE=http-json-$RELEASE_TAG-ee.jar
     bazel build //ledger-service/http-json:http-json-binary_deploy.jar
     cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $OUTPUT_DIR/github/$JSON_API
+    bazel build //ledger-service/http-json:http-json-binary-ee_deploy.jar
+    cp bazel-bin/ledger-service/http-json/http-json-binary-ee_deploy.jar $OUTPUT_DIR/artifactory/$JSON_API_EE
 
     TRIGGER_SERVICE=trigger-service-$RELEASE_TAG.jar
     TRIGGER_SERVICE_EE=trigger-service-$RELEASE_TAG-ee.jar
