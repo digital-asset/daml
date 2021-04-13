@@ -9,8 +9,6 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ports.Port
 import java.time.Duration
 
-import com.daml.platform.indexer.IndexerConfig
-
 final case class ParticipantConfig(
     mode: ParticipantRunMode,
     participantId: ParticipantId,
@@ -20,23 +18,19 @@ final case class ParticipantConfig(
     port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
-    allowExistingSchemaForIndex: Boolean,
     maxCommandsInFlight: Option[Int],
-    managementServiceTimeout: Duration = ParticipantConfig.defaultManagementServiceTimeout,
-    indexerDatabaseConnectionPoolSize: Int =
-      ParticipantConfig.defaultIndexerDatabaseConnectionPoolSize,
+    managementServiceTimeout: Duration = ParticipantConfig.DefaultManagementServiceTimeout,
+    indexerConfig: ParticipantIndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
-      ParticipantConfig.defaultApiServerDatabaseConnectionPoolSize,
+      ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
 )
 
 object ParticipantConfig {
   def defaultIndexJdbcUrl(participantId: ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
-  val defaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
-
-  val defaultIndexerDatabaseConnectionPoolSize = IndexerConfig.DefaultDatabaseConnectionPoolSize
+  val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
 
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
-  val defaultApiServerDatabaseConnectionPoolSize = 16
+  val DefaultApiServerDatabaseConnectionPoolSize = 16
 }

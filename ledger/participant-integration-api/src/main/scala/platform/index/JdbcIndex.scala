@@ -28,6 +28,7 @@ private[platform] object JdbcIndex {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
+      enableAppendOnlySchema: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole = serverRole,
@@ -39,6 +40,7 @@ private[platform] object JdbcIndex {
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,
       enricher = enricher,
+      enableAppendOnlySchema = enableAppendOnlySchema,
     ).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId)
     }

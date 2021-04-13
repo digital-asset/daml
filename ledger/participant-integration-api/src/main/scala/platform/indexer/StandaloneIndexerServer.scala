@@ -45,7 +45,7 @@ final class StandaloneIndexerServer(
         Resource
           .fromFuture(
             indexerFactory
-              .migrateSchema(config.allowExistingSchema, config.enableAppendOnlySchema)
+              .migrateSchema(config.allowExistingSchema)
           )
           .flatMap(startIndexer(indexer, _))
           .map { _ =>

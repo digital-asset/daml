@@ -193,7 +193,8 @@ object UpdateToDBDTOV1 {
 
             case (nodeId, exercise: Exercise) =>
               val eventId = EventId(u.transactionId, nodeId)
-              val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
+              val (exerciseArgument, exerciseResult, createKeyValue) =
+                translation.serialize(eventId, exercise)
               new DBDTOV1.Event(
                 event_kind = if (exercise.consuming) 20 else 25,
                 event_offset = Some(offset.toByteArray),
@@ -215,7 +216,8 @@ object UpdateToDBDTOV1 {
                 create_signatories = None,
                 create_observers = None,
                 create_agreement_text = None,
-                create_key_value = None,
+                create_key_value = createKeyValue
+                  .map(compressionStrategy.createKeyValueCompression.compress),
                 create_key_hash = None,
                 exercise_choice = Some(exercise.choiceId),
                 exercise_argument = Some(exerciseArgument)

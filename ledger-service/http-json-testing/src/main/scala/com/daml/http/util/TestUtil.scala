@@ -40,6 +40,9 @@ object TestUtil extends LazyLogging {
       content
     } match {
       case Success(value) => value
+      // only needed for Scala 2.12; 2.13 does this itself
+      case Failure(_: NullPointerException) =>
+        throw new java.io.FileNotFoundException(s"resource '$resourcePath' not found in classpath")
       case Failure(ex) => throw ex
     }
 

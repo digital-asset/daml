@@ -52,6 +52,7 @@ object Config {
     CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
+
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
       mode = Mode.Run,
@@ -119,11 +120,17 @@ object Config {
               "port-file, " +
               "server-jdbc-url, " +
               "api-server-connection-pool-size" +
-              "indexer-connection-pool-size" +
               "max-commands-in-flight, " +
               "management-service-timeout, " +
               "run-mode, " +
-              "shard-name" +
+              "shard-name, " +
+              "indexer-connection-pool-size, " +
+              "indexer-input-mapping-parallelism, " +
+              "indexer-ingestion-parallelism, " +
+              "indexer-submission-batch-size, " +
+              "indexer-tailing-rate-limit-per-second, " +
+              "indexer-batch-within-millis, " +
+              "indexer-enable-compression, " +
               "]"
           )
           .action((kv, config) => {
@@ -153,17 +160,42 @@ object Config {
             val apiServerConnectionPoolSize = kv
               .get("api-server-connection-pool-size")
               .map(_.toInt)
-              .getOrElse(ParticipantConfig.defaultApiServerDatabaseConnectionPoolSize)
+              .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize)
             val indexerConnectionPoolSize = kv
               .get("indexer-connection-pool-size")
               .map(_.toInt)
-              .getOrElse(ParticipantConfig.defaultIndexerDatabaseConnectionPoolSize)
+              .getOrElse(ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize)
+            val indexerInputMappingParallelism = kv
+              .get("indexer-input-mapping-parallelism")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.DefaultInputMappingParallelism)
+            val indexerIngestionParallelism = kv
+              .get("indexer-ingestion-parallelism")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.DefaultIngestionParallelism)
+            val indexerSubmissionBatchSize = kv
+              .get("indexer-submission-batch-size")
+              .map(_.toLong)
+              .getOrElse(ParticipantIndexerConfig.DefaultSubmissionBatchSize)
+            val indexerTailingRateLimitPerSecond = kv
+              .get("indexer-tailing-rate-limit-per-second")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond)
+            val indexerBatchWithinMillis = kv
+              .get("indexer-batch-within-millis")
+              .map(_.toLong)
+              .getOrElse(ParticipantIndexerConfig.DefaultBatchWithinMillis)
+            val indexerEnableCompression = kv
+              .get("indexer-enable-compression")
+              .map(_.toBoolean)
+              .getOrElse(ParticipantIndexerConfig.DefaultEnableCompression)
+
             val maxCommandsInFlight =
               kv.get("max-commands-in-flight").map(_.toInt)
             val managementServiceTimeout = kv
               .get("management-service-timeout")
               .map(Duration.parse)
-              .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
+              .getOrElse(ParticipantConfig.DefaultManagementServiceTimeout)
             val shardName = kv.get("shard-name")
             val partConfig = ParticipantConfig(
               runMode,
@@ -173,9 +205,17 @@ object Config {
               port,
               portFile,
               jdbcUrl,
-              indexerDatabaseConnectionPoolSize = indexerConnectionPoolSize,
+              indexerConfig = ParticipantIndexerConfig(
+                databaseConnectionPoolSize = indexerConnectionPoolSize,
+                allowExistingSchema = false,
+                inputMappingParallelism = indexerInputMappingParallelism,
+                ingestionParallelism = indexerIngestionParallelism,
+                submissionBatchSize = indexerSubmissionBatchSize,
+                tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,
+                batchWithinMillis = indexerBatchWithinMillis,
+                enableCompression = indexerEnableCompression,
+              ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
-              allowExistingSchemaForIndex = false,
               maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
             )

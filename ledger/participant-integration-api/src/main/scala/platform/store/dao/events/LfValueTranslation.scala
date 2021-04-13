@@ -106,13 +106,19 @@ final class LfValueTranslation(
     (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }
 
-  def serialize(eventId: EventId, exercise: Exercise): (Array[Byte], Option[Array[Byte]]) = {
+  def serialize(
+      eventId: EventId,
+      exercise: Exercise,
+  ): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
         .Exercise(exercise.versionedChosenValue, exercise.versionedExerciseResult),
     )
-    (serializeExerciseArgOrThrow(exercise), serializeNullableExerciseResultOrThrow(exercise))
+    (
+      serializeExerciseArgOrThrow(exercise),
+      serializeNullableExerciseResultOrThrow(exercise),
+    )
   }
 
   private[this] def consumeEnricherResult[V](

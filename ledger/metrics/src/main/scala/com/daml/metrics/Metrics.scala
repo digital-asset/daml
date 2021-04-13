@@ -309,6 +309,7 @@ final class Metrics(val registry: MetricRegistry) {
     object index {
       private val Prefix = daml.Prefix :+ "index"
 
+      val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
       val lookupContract: Timer = registry.timer(Prefix :+ "lookup_contract")
       val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
       val lookupFlatTransactionById: Timer =
@@ -470,6 +471,9 @@ final class Metrics(val registry: MetricRegistry) {
         val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
         val getAcsEventSeqIdRange: DatabaseMetrics =
           createDbMetrics("get_acs_event_sequential_id_range")
+        val getContractStateEvents: DatabaseMetrics = createDbMetrics(
+          "get_contract_state_events"
+        )
 
         object translation {
           private val Prefix: MetricName = db.Prefix :+ "translation"

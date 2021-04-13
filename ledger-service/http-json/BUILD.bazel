@@ -229,6 +229,7 @@ alias(
     da_scala_library(
         name = "integration-tests-lib-{}".format(edition),
         srcs = glob(["src/itlib/scala/**/*.scala"]),
+        resources = glob(["src/itlib/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",

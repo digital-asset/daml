@@ -3,10 +3,6 @@
 
 package com.daml.http
 
-final class WebsocketServiceIntegrationTest extends AbstractWebsocketServiceIntegrationTest {
-  override def jdbcConfig = None
-}
-
-final class WebsocketServiceWithPostgresIntTest
+final class WebsocketServiceWithOracleIntTest
     extends AbstractWebsocketServiceIntegrationTest
-    with HttpServicePostgresInt
+    with HttpServiceOracleInt
