@@ -128,12 +128,12 @@ projected rollback node. This way, information cannot be leaked through
 the arrangement of rollback nodes.
 
 The privacy section of the ledger model makes a point of saying that a
-ledger model should be **subaction-closed** to support projections. But
+contract model should be **subaction-closed** to support projections. But
 this requirement is not necessarily true once we introduce rollbacks.
 Rollback nodes may contain actions that are not valid as standalone actions,
 since they may have been interrupted prematurely by an exception.
 
-Instead, we require that the ledger model be **projection-closed**, i.e.
+Instead, we require that the contract model be **projection-closed**, i.e.
 closed under projections for any party 'p'. This is a weaker requirement
 that matches what we actually the need.
 
