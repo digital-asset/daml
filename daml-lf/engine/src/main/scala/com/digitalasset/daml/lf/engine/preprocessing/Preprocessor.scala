@@ -142,6 +142,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafePreprocessCommands(cmds)
     }
 
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  // Will crash for rollback nodes. Only used by Canton reinterpretation.
   def translateNode[Cid <: Value.ContractId](
       node: Node.GenNode[NodeId, Cid]
   ): Result[(speedy.Command, Set[Value.ContractId])] =

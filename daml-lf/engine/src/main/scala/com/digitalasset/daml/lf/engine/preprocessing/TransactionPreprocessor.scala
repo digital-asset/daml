@@ -34,7 +34,10 @@ private[preprocessing] final class TransactionPreprocessor(
     node match {
       case _: Node.NodeRollback[_] =>
         // TODO https://github.com/digital-asset/daml/issues/8020
-        // how on earth can we turn a rollback node back into a speedy command?
+        // This is only used for reinterpretation in Canton. We plan
+        // to make that take a speedy command directly instead of
+        // transaction nodes so crashing here is acceptable since we
+        // will only ever call it for root nodes.
         sys.error("rollback nodes are not supported")
       case create: Node.NodeCreate[Cid] =>
         commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
@@ -148,9 +151,7 @@ private[preprocessing] final class TransactionPreprocessor(
             case _: Node.NodeLookupByKey[_] =>
               fail(s"Transaction contains a lookup by key root node $id")
             case _: Node.NodeRollback[_] =>
-              // TODO https://github.com/digital-asset/daml/issues/8020
-              // how on earth can we turn a rollback node back into a speedy command?
-              sys.error("rollback nodes are not supported")
+              fail(s"Transaction contains a rollback root node $id")
           }
       }
     }
