@@ -12,23 +12,17 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{Macro, RowParser, SQL, SqlParser}
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{WorkflowId, _}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.TransactionId
 import com.daml.lf.archive.Decode
-import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -38,33 +32,13 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.indexer.parallel._
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.{Conversions, DbType, LfValueTranslationCache}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractsReader,
-  EventsTableDelete,
-  LfValueTranslation,
-  PostCommitValidation,
-  TransactionsReader,
-}
+import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.{
-  DeduplicationKeyMaker,
-  LedgerDao,
-  LedgerReadDao,
-  MeteredLedgerDao,
-  MeteredLedgerReadDao,
-  PersistenceResponse,
-}
-import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.dao._
+import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.{Conversions, DbType, LfValueTranslationCache}
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
@@ -233,25 +207,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     val configurationBytes = Configuration.encode(configuration).toByteArray
 
-    val optExpectedGeneration: Option[Long] = lastConfiguration.get().map { _._1.generation + 1 }
-    val finalRejectionReason: Option[String] =
-      optExpectedGeneration match {
-        case Some(expGeneration)
-            if rejectionReason.isEmpty && expGeneration != configuration.generation =>
-          // If we're not storing a rejection and the new generation is not succ of current configuration, then
-          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-          // pattern as with transactions.
-          Some(
-            s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}"
-          )
-
-        case _ =>
-          // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
-          // generation.
-          rejectionReason
-      }
-
-    if (finalRejectionReason.isEmpty) {
+    if (rejectionReason.isEmpty) {
       lastConfiguration.set(Some(configuration -> configurationBytes))
     }
 
@@ -262,15 +218,16 @@ private class JdbcLedgerDao(
         ledger_offset = offsetStep.offset.toByteArray,
         recorded_at = recordedAt,
         submission_id = submissionId,
-        typ = finalRejectionReason
+        typ = rejectionReason
           .map(_ => JdbcLedgerDao.rejectType)
           .getOrElse(JdbcLedgerDao.acceptType),
         configuration = configurationBytes,
-        rejection_reason = finalRejectionReason,
+        rejection_reason = rejectionReason,
       )
 
     val builder = RawDBBatchPostgreSQLV1.Builder()
     builder.add(configurationEntry)
+
     Try {
       postgresDao.insertBatch(builder.build())
       Future.successful(PersistenceResponse.Ok)
@@ -572,12 +529,15 @@ private class JdbcLedgerDao(
 
     val rawDBBatchPostgreSQLV1 = RawDBBatchPostgreSQLV1.Builder()
     dtos.foreach(rawDBBatchPostgreSQLV1.add)
+
     postgresDao.insertBatch(rawDBBatchPostgreSQLV1.build())
+
     postgresDao.updateParams(
       offsetStep.offset,
       eventSeqId.get(),
       lastConfiguration.get().map(_._2),
     )
+
     Future.successful(PersistenceResponse.Ok)
   }
 
