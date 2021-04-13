@@ -1248,19 +1248,26 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
--- | Represents a case alternative with a generalized case pattern.
-data GeneralisedCaseAlternative
-    = GCAEquality EqualityAlternative
+-- | Represents a generalised case pattern for a generalised case alternative.
+data GeneralisedCasePattern
+    = GCPEquality LF.Expr
         -- ^ Pattern matching via built-in equality.
-    | GCANormal CaseAlternative
+    | GCPNormal CasePattern
         -- ^ Normal case alternative that is directly supported by LF.
         -- This includes the default case (CPDefault).
     deriving (Eq, Ord)
 
+-- | Generalised case alternative
+data GeneralisedCaseAlternative = GCA
+    { gcaPattern :: GeneralisedCasePattern
+    , gcaRHS :: LF.Expr
+        -- ^ Right-hand side of case alternative.
+    } deriving (Eq, Ord)
+
 -- | Is this a normal case alternative?
 isNormalCaseAlternative :: GeneralisedCaseAlternative -> Bool
 isNormalCaseAlternative = \case
-    GCANormal _ -> True
+    GCA (GCPNormal _) _ -> True
     _ -> False
 
 -- | Represents a case alternative that is not directly supported
@@ -1276,7 +1283,7 @@ data EqualityAlternative = EqualityAlternative
     } deriving (Eq, Ord)
 
 -- | Represents the body of a generalised case expression.
-data GeneralizedCaseBody
+data GeneralisedCaseBody
     = GCBExpr LF.Expr
         -- ^ Expression representing the generalised case.
     | GCBAlts [CaseAlternative]
@@ -1293,7 +1300,7 @@ mkCase :: Env -> LF.Type -> LF.Type -> LF.Expr -> [GeneralisedCaseAlternative] -
 mkCase env scrutineeType resultType scrutinee galts =
     finalize (foldr addCaseAlternative (GCBAlts []) galts)
   where
-    finalize :: GeneralizedCaseBody -> LF.Expr
+    finalize :: GeneralisedCaseBody -> LF.Expr
     finalize (GCExpr e) = e
     finalize (GCAlts []) = ECase scrutinee
         [ CaseAlternative CPDefault
@@ -1305,12 +1312,12 @@ mkCase env scrutineeType resultType scrutinee galts =
     finalize (GCAlts alts) = ECase scrutinee alts
 
     addCaseAlternative :: GeneralisedCaseAlternative -> GeneralisedCaseBody -> GeneralisedCaseBody
-    addCaseAlternative (GCANormal alt) (GCBAlts alts) =
-        GCBAlts (alt : alts)
-    addCaseAlternative (GCANormal alt) (GCBExpr e) =
-        GCBAlts [alt, CaseAlternative CPDefault e]
-    addCaseAlternative (GCAEquality EqualityAlternative{..}) elseBranch =
-        GCBExpr (mkIf (mkScrutineeEquality eqaltPattern) eqaltBody (finalize elseBranch))
+    addCaseAlternative (GCA (GCPNormal pattern) rhs) (GCBAlts alts) =
+        GCBAlts (CaseAlternative pattern rhs : alts)
+    addCaseAlternative (GCA (GCPNormal pattern) rhs) (GCBExpr e) =
+        GCBAlts [CaseAlternative pattern rhs, CaseAlternative CPDefault e]
+    addCaseAlternative (GCA (GCPEquality expr) rhs) elseBranch =
+        GCBExpr (mkIf (mkScrutineeEquality expr) rhs (finalize elseBranch))
 
     mkScrutineeEquality :: LF.Expr -> LF.Expr
     mkScrutineeEquality pattern
@@ -1506,26 +1513,26 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
     Nothing -> unknown unitId pkgMap
 
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM GeneralisedCaseAlternative
-convertAlt env ty (DEFAULT, [], x) = GCANormal . CaseAlternative CPDefault <$> convertExpr env x
+convertAlt env ty (DEFAULT, [], x) = GCA (GCPNormal CPDefault) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
-    | NameIn GHC_Types "True" <- con = GCANormal . CaseAlternative (CPBool True) <$> convertExpr env x
-    | NameIn GHC_Types "False" <- con = GCANormal . CaseAlternative (CPBool False) <$> convertExpr env x
-    | NameIn GHC_Types "[]" <- con = GCANormal . CaseAlternative CPNil <$> convertExpr env x
-    | NameIn GHC_Tuple "()" <- con = GCANormal . CaseAlternative CPUnit <$> convertExpr env x
+    | NameIn GHC_Types "True" <- con = GCA (GCPNormal (CPBool True)) <$> convertExpr env x
+    | NameIn GHC_Types "False" <- con = GCA (GCPNormal (CPBool False)) <$> convertExpr env x
+    | NameIn GHC_Types "[]" <- con = GCA (GCPNormal CPNil) <$> convertExpr env x
+    | NameIn GHC_Tuple "()" <- con = GCA (GCPNormal CPUnit) <$> convertExpr env x
     | NameIn DA_Internal_Prelude "None" <- con
-    = GCANormal . CaseAlternative CPNone <$> convertExpr env x
+    = GCA (GCPNormal CPNone) <$> convertExpr env x
 
     -- Rounding mode constructors do not have built-in LF support for pattern matching,
     -- but we get the same result with equality tests.
     | NameIn GHC_Types (RoundingModeName roundingModeLit) <- con
-    = GCAEquality . EqualityAlternative (EBuiltin (BERoundingMode roundingModeLit)) <$> convertExpr env x
+    = GCA (GCPEquality (EBuiltin (BERoundingMode roundingModeLit))) <$> convertExpr env x
 
 convertAlt env ty (DataAlt con, [a,b], x)
     | NameIn GHC_Types ":" <- con
-    = GCANormal . CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
+    = GCA (GCPNormal (CPCons (convVar a) (convVar b))) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a], x)
     | NameIn DA_Internal_Prelude "Some" <- con
-    = GCANormal . CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
+    = GCA (GCPNormal (CPSome (convVar a))) <$> convertExpr env x
 
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     let patTypeCon = tcon
@@ -1534,7 +1541,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
 
     case classifyDataCon con of
         EnumCon ->
-            GCANormal . CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
+            GCA (GCPNormal (CPEnum patTypeCon patVariant)) <$> convertExpr env x
 
         SimpleVariantCon -> do
             when (length vs /= dataConRepArity con) $
@@ -1543,7 +1550,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                 unsupported "Data constructor with multiple unnamed fields" alt
 
             let patBinder = maybe vArg convVar (listToMaybe vs)
-            GCANormal . CaseAlternative CPVariant{..} <$> convertExpr env x
+            GCA (GCPNormal CPVariant{..}) <$> convertExpr env x
 
         SimpleRecordCon ->
             unhandled "unreachable case -- convertAlt with simple record constructor" ()
@@ -1556,7 +1563,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                 Just vsFlds -> do
                     x' <- convertExpr env x
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
-                    pure . GCANormal $ CaseAlternative CPVariant{..} projBinds
+                    pure $ GCA (GCPNormal CPVariant{..}) projBinds
 
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
