@@ -122,6 +122,21 @@ instance Show Decimal where
   show = primitive @"BEToText"
 #endif
 
+#ifdef DAML_BIGNUMERIC
+instance Show BigNumeric where
+  show = primitive @"BEToTextBigNumeric"
+instance Show RoundingMode where
+  show = \case
+    RoundingUp -> "RoundingUp"
+    RoundingDown -> "RoundingDown"
+    RoundingCeiling -> "RoundingCeiling"
+    RoundingFloor -> "RoundingFloor"
+    RoundingHalfUp -> "RoundingHalfUp"
+    RoundingHalfDown -> "RoundingHalfDown"
+    RoundingHalfEven -> "RoundingHalfEven"
+    RoundingUnnecessary -> "RoundingUnnecessary"
+#endif
+
 instance Show Text where
   show x = "\"" ++ x ++ "\""
 

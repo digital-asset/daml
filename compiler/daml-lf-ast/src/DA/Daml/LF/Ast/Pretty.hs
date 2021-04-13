@@ -204,14 +204,15 @@ instance Pretty PartyLiteral where
   pPrint = quotes . text . unPartyLiteral
 
 prettyRounding :: RoundingModeLiteral -> String
-prettyRounding LitRoundingUp = "ROUNDING_UP"
-prettyRounding LitRoundingDown = "ROUNDING_DOWN"
-prettyRounding LitRoundingCeiling = "ROUNDING_CEILING"
-prettyRounding LitRoundingFloor = "ROUNDING_FLOOR"
-prettyRounding LitRoundingHalfUp = "ROUNDING_HALF_UP"
-prettyRounding LitRoundingHalfDown = "ROUNDING_HALF_DOWN"
-prettyRounding LitRoundingHalfEven = "ROUNDING_HALF_EVEN"
-prettyRounding LitRoundingUnnecessary = "ROUNDING_UNNECESSARY"
+prettyRounding = \case
+  LitRoundingUp -> "ROUNDING_UP"
+  LitRoundingDown -> "ROUNDING_DOWN"
+  LitRoundingCeiling -> "ROUNDING_CEILING"
+  LitRoundingFloor -> "ROUNDING_FLOOR"
+  LitRoundingHalfUp -> "ROUNDING_HALF_UP"
+  LitRoundingHalfDown -> "ROUNDING_HALF_DOWN"
+  LitRoundingHalfEven -> "ROUNDING_HALF_EVEN"
+  LitRoundingUnnecessary -> "ROUNDING_UNNECESSARY"
 
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
