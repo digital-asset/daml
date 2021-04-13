@@ -30,6 +30,7 @@ TRIGGER_RUNNER=daml-trigger-runner-$RELEASE_TAG.jar
 TRIGGER_SERVICE=trigger-service-$RELEASE_TAG-ee.jar
 SCRIPT_RUNNER=daml-script-$RELEASE_TAG.jar
 NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
+HTTP_JSON=http-json-$RELEASE_TAG-ee.jar
 
 push daml-trigger-runner $TRIGGER_RUNNER
 push daml-trigger-runner $TRIGGER_RUNNER.asc
@@ -39,6 +40,8 @@ push non-repudiation $NON_REPUDIATION
 push non-repudiation $NON_REPUDIATION.asc
 push trigger-service $TRIGGER_SERVICE
 push trigger-service $TRIGGER_SERVICE.asc
+push http-json $HTTP_JSON
+push http-json $HTTP_JSON.asc
 
 for base in non-repudiation-core non-repudiation-client; do
     for end in .jar .pom -sources.jar -javadoc.jar; do
