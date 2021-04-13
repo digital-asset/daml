@@ -60,7 +60,7 @@ case class RawDBBatchPostgreSQLV1(
 }
 
 class EventsBatchDivulgence(
-    val event_offset: Array[Array[Byte]],
+    val event_offset: Array[String],
     val command_id: Array[String],
     val workflow_id: Array[String],
     val application_id: Array[String],
@@ -74,7 +74,7 @@ class EventsBatchDivulgence(
 )
 
 class EventsBatchCreate(
-    val event_offset: Array[Array[Byte]],
+    val event_offset: Array[String],
     val transaction_id: Array[String],
     val ledger_effective_time: Array[String], // timestamp
     val command_id: Array[String],
@@ -99,7 +99,7 @@ class EventsBatchCreate(
 )
 
 class EventsBatchExercise(
-    val event_offset: Array[Array[Byte]],
+    val event_offset: Array[String],
     val transaction_id: Array[String],
     val ledger_effective_time: Array[String], // timestamp
     val command_id: Array[String],
@@ -124,7 +124,7 @@ class EventsBatchExercise(
 )
 
 class ConfigurationEntriesBatch(
-    val ledger_offset: Array[Array[Byte]],
+    val ledger_offset: Array[String],
     val recorded_at: Array[String], // timestamp
     val submission_id: Array[String],
     val typ: Array[String],
@@ -133,7 +133,7 @@ class ConfigurationEntriesBatch(
 )
 
 class PackageEntriesBatch(
-    val ledger_offset: Array[Array[Byte]],
+    val ledger_offset: Array[String],
     val recorded_at: Array[String], // timestamp
     val submission_id: Array[String],
     val typ: Array[String],
@@ -146,7 +146,7 @@ class PackagesBatch(
     val source_description: Array[String],
     val size: Array[Long],
     val known_since: Array[String], // timestamp
-    val ledger_offset: Array[Array[Byte]],
+    val ledger_offset: Array[String],
     val _package: Array[Array[Byte]],
 )
 
@@ -154,12 +154,12 @@ class PartiesBatch(
     val party: Array[String],
     val display_name: Array[String],
     val explicit: Array[Boolean],
-    val ledger_offset: Array[Array[Byte]],
+    val ledger_offset: Array[String],
     val is_local: Array[Boolean],
 )
 
 class PartyEntriesBatch(
-    val ledger_offset: Array[Array[Byte]],
+    val ledger_offset: Array[String],
     val recorded_at: Array[String], // timestamp
     val submission_id: Array[String],
     val party: Array[String],
@@ -170,7 +170,7 @@ class PartyEntriesBatch(
 )
 
 class CommandCompletionsBatch(
-    val completion_offset: Array[Array[Byte]],
+    val completion_offset: Array[String],
     val record_time: Array[String], // timestamp
     val application_id: Array[String],
     val submitters: Array[String], // '|' separated list
@@ -185,7 +185,7 @@ class CommandDeduplicationBatch(val deduplication_key: Array[String])
 object RawDBBatchPostgreSQLV1 {
 
   case class EventsBatchBuilderDivulgence(
-      event_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      event_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       command_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       workflow_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       application_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
@@ -202,7 +202,7 @@ object RawDBBatchPostgreSQLV1 {
   )
 
   case class EventsBatchBuilderCreate(
-      event_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      event_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       transaction_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       ledger_effective_time: mutable.ArrayBuilder[String] =
         mutable.ArrayBuilder.make[String], // timestamp
@@ -236,7 +236,7 @@ object RawDBBatchPostgreSQLV1 {
   )
 
   case class EventsBatchBuilderExercise(
-      event_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      event_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       transaction_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       ledger_effective_time: mutable.ArrayBuilder[String] =
         mutable.ArrayBuilder.make[String], // timestamp
@@ -270,7 +270,7 @@ object RawDBBatchPostgreSQLV1 {
   )
 
   case class ConfigurationEntriesBatchBuilder(
-      ledger_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      ledger_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       recorded_at: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String], // timestamp
       submission_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       typ: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
@@ -279,7 +279,7 @@ object RawDBBatchPostgreSQLV1 {
   )
 
   case class PackageEntriesBatchBuilder(
-      ledger_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      ledger_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       recorded_at: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String], // timestamp
       submission_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       typ: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
@@ -292,7 +292,7 @@ object RawDBBatchPostgreSQLV1 {
       source_description: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       size: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make[Long],
       known_since: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String], // timestamp
-      ledger_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      ledger_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       _package: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
   )
 
@@ -300,12 +300,12 @@ object RawDBBatchPostgreSQLV1 {
       party: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       display_name: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       explicit: mutable.ArrayBuilder[Boolean] = mutable.ArrayBuilder.make[Boolean],
-      ledger_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      ledger_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       is_local: mutable.ArrayBuilder[Boolean] = mutable.ArrayBuilder.make[Boolean],
   )
 
   case class PartyEntriesBatchBuilder(
-      ledger_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      ledger_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       recorded_at: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String], // timestamp
       submission_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       party: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
@@ -317,7 +317,7 @@ object RawDBBatchPostgreSQLV1 {
   )
 
   case class CommandCompletionsBatchBuilder(
-      completion_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      completion_offset: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       record_time: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String], // timestamp
       application_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       submitters: mutable.ArrayBuilder[String] =

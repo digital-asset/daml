@@ -164,15 +164,17 @@ private[platform] object Conversions {
 
   implicit object OffsetToStatement extends ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setBytes(index, v.toByteArray)
+      s.setString(index, v.toHexString)
   }
 
   def offset(name: String): RowParser[Offset] =
-    SqlParser.get[Array[Byte]](name).map(Offset.fromByteArray)
+    SqlParser.get[String](name).map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
 
   implicit val columnToOffset: Column[Offset] =
     Column.nonNull((value: Any, meta) =>
-      Column.columnToByteArray(value, meta).map(Offset.fromByteArray)
+      Column
+        .columnToString(value, meta)
+        .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
     )
 
   // Instant

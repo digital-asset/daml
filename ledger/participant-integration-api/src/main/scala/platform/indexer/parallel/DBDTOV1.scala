@@ -10,7 +10,7 @@ trait DBDTOV1
 object DBDTOV1 {
 
   case class EventDivulgence(
-      event_offset: Option[Array[Byte]],
+      event_offset: Option[String],
       command_id: Option[String],
       workflow_id: Option[String],
       application_id: Option[String],
@@ -24,7 +24,7 @@ object DBDTOV1 {
   ) extends DBDTOV1
 
   case class EventCreate(
-      event_offset: Option[Array[Byte]],
+      event_offset: Option[String],
       transaction_id: Option[String],
       ledger_effective_time: Option[Instant],
       command_id: Option[String],
@@ -50,7 +50,7 @@ object DBDTOV1 {
 
   case class EventExercise(
       consuming: Boolean,
-      event_offset: Option[Array[Byte]],
+      event_offset: Option[String],
       transaction_id: Option[String],
       ledger_effective_time: Option[Instant],
       command_id: Option[String],
@@ -76,7 +76,7 @@ object DBDTOV1 {
 
   // TODO wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...
   class ConfigurationEntry(
-      val ledger_offset: Array[Byte],
+      val ledger_offset: String,
       val recorded_at: Instant,
       val submission_id: String,
       val typ: String,
@@ -85,7 +85,7 @@ object DBDTOV1 {
   ) extends DBDTOV1
 
   class PackageEntry(
-      val ledger_offset: Array[Byte],
+      val ledger_offset: String,
       val recorded_at: Instant,
       val submission_id: Option[String],
       val typ: String,
@@ -98,12 +98,12 @@ object DBDTOV1 {
       val source_description: Option[String],
       val size: Long,
       val known_since: Instant,
-      val ledger_offset: Array[Byte],
+      val ledger_offset: String,
       val _package: Array[Byte],
   ) extends DBDTOV1
 
   class PartyEntry(
-      val ledger_offset: Array[Byte],
+      val ledger_offset: String,
       val recorded_at: Instant,
       val submission_id: Option[String],
       val party: Option[String],
@@ -117,12 +117,12 @@ object DBDTOV1 {
       val party: String,
       val display_name: Option[String],
       val explicit: Boolean,
-      val ledger_offset: Option[Array[Byte]],
+      val ledger_offset: Option[String],
       val is_local: Boolean,
   ) extends DBDTOV1
 
   class CommandCompletion(
-      val completion_offset: Array[Byte],
+      val completion_offset: String,
       val record_time: Instant,
       val application_id: String,
       val submitters: Set[String],

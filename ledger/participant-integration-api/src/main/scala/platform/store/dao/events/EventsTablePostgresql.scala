@@ -44,7 +44,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
 
     val batchSize = info.events.size
     val eventIds = Array.ofDim[String](batchSize)
-    val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
+    val eventOffsets = Array.fill[String](batchSize)(tx.offset.toHexString)
     val contractIds = Array.ofDim[String](batchSize)
     val transactionIds = Array.fill(batchSize)(tx.transactionId.asInstanceOf[String])
     val workflowIds = Array.fill(batchSize)(tx.workflowId.map(_.asInstanceOf[String]).orNull)
@@ -62,7 +62,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val createSignatories = Array.ofDim[String](batchSize)
     val createObservers = Array.ofDim[String](batchSize)
     val createAgreementTexts = Array.ofDim[String](batchSize)
-    val createConsumedAt = Array.ofDim[Array[Byte]](batchSize)
+    val createConsumedAt = Array.ofDim[String](batchSize)
     val createKeyValues = Array.ofDim[Array[Byte]](batchSize)
     val exerciseConsuming = Array.ofDim[java.lang.Boolean](batchSize)
     val exerciseChoices = Array.ofDim[String](batchSize)
@@ -225,7 +225,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
 
   private def insertEvents(
       eventIds: Array[String],
-      eventOffsets: Array[Array[Byte]],
+      eventOffsets: Array[String],
       contractIds: Array[String],
       transactionIds: Array[String],
       workflowIds: Array[String],
@@ -241,7 +241,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       createSignatories: Array[String],
       createObservers: Array[String],
       createAgreementTexts: Array[String],
-      createConsumedAt: Array[Array[Byte]],
+      createConsumedAt: Array[String],
       createKeyValues: Array[Array[Byte]],
       exerciseConsuming: Array[java.lang.Boolean],
       exerciseChoices: Array[String],
