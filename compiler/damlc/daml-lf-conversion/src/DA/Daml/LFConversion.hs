@@ -1275,6 +1275,13 @@ data EqualityAlternative = EqualityAlternative
         -- ^ Right-hand side of case alternative. Potentially divergent.
     } deriving (Eq, Ord)
 
+-- | Represents the body of a generalised case expression.
+data GeneralizedCaseBody
+    = GCBExpr LF.Expr
+        -- ^ Expression representing the generalised case.
+    | GCBAlts [CaseAlternative]
+        -- ^ Alternatives for a regular case statement.
+
 -- | Make a case expression from GeneralisedCaseAlternatives.
 --
 -- The scrutinee will be evaluated multiple times unless all the
@@ -1284,24 +1291,26 @@ data EqualityAlternative = EqualityAlternative
 -- normal case alternatives ('GCANormal').
 mkCase :: Env -> LF.Type -> LF.Type -> LF.Expr -> [GeneralisedCaseAlternative] -> LF.Expr
 mkCase env scrutineeType resultType scrutinee galts =
-    finalize (foldr addCaseAlternative (Right []) galts)
+    finalize (foldr addCaseAlternative (GCBAlts []) galts)
   where
-    finalize :: Either LF.Expr [CaseAlternative] -> LF.Expr
-    finalize (Left e) = e
-    finalize (Right []) = ECase scrutinee
-        [ CaseAlternative CPDefault $ EBuiltin BEError `ETyApp` resultType `ETmApp` EBuiltin (BEText "Unreachable") ]
+    finalize :: GeneralizedCaseBody -> LF.Expr
+    finalize (GCExpr e) = e
+    finalize (GCAlts []) = ECase scrutinee
+        [ CaseAlternative CPDefault
+        $ EBuiltin BEError
+            `ETyApp` resultType
+            `ETmApp` EBuiltin (BEText "Unreachable") ]
         -- GHC only generates empty case alternatives if it is sure the scrutinee will fail.
         -- LF doesn't support empty alternatives, so we turn this into a non-empty alternative.
-    finalize (Right alts) = ECase scrutinee alts
+    finalize (GCAlts alts) = ECase scrutinee alts
 
-    addCaseAlternative :: GeneralisedCaseAlternative -> Either LF.Expr [CaseAlternative] -> Either LF.Expr [CaseAlternative]
-    addCaseAlternative (GCANormal alt) (Right alts) = Right (alt : alts)
-    addCaseAlternative (GCANormal alt) (Left e) =
-        case alt of
-            CaseAlternative CPDefault _ -> Right [alt]
-            _ -> Right [alt, CaseAlternative CPDefault e]
+    addCaseAlternative :: GeneralisedCaseAlternative -> GeneralisedCaseBody -> GeneralisedCaseBody
+    addCaseAlternative (GCANormal alt) (GCBAlts alts) =
+        GCBAlts (alt : alts)
+    addCaseAlternative (GCANormal alt) (GCBExpr e) =
+        GCBAlts [alt, CaseAlternative CPDefault e]
     addCaseAlternative (GCAEquality EqualityAlternative{..}) elseBranch =
-        Left (mkIf (mkScrutineeEquality eqaltPattern) eqaltBody (finalize elseBranch))
+        GCBExpr (mkIf (mkScrutineeEquality eqaltPattern) eqaltBody (finalize elseBranch))
 
     mkScrutineeEquality :: LF.Expr -> LF.Expr
     mkScrutineeEquality pattern
@@ -1313,7 +1322,6 @@ mkCase env scrutineeType resultType scrutinee galts =
 
         | otherwise
         = error "mkScrutineeEquality: No built-in equality exists for target LF version and type."
-
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool
