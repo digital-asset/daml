@@ -118,7 +118,7 @@ private class JdbcLedgerDao(
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
     dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(ParametersTable.getLedgerEnd)
 
-  override def lookupLedgerEndAndSequentialId()(implicit
+  override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
   ): Future[(Offset, Long)] =
     dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(

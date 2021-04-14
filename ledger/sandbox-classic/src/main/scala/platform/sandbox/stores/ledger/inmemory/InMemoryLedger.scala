@@ -60,7 +60,6 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -657,13 +656,6 @@ private[sandbox] final class InMemoryLedger(
   ): Future[Unit] =
     // sandbox-classic in-memory ledger does not support pruning
     Future.failed(Status.UNIMPLEMENTED.asRuntimeException())
-
-  override def contractStateEvents(startExclusive: Option[(Offset, Long)])(implicit
-      loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
-    throw new UnsupportedOperationException(
-      "Contract state events streaming not supported"
-    ) // TODO should we support it?
 }
 
 private[sandbox] object InMemoryLedger {

@@ -23,7 +23,7 @@ let shared = rec {
     openssl
     gnupatch
     patchelf
-    postgresql_12
+    postgresql_9_6
     protobuf3_8
     python3
     toxiproxy

@@ -35,19 +35,13 @@ private[appendonlydao] object ParametersTable {
   private val LedgerEndOffsetAndSequentialIdParser =
     (offset(LedgerEndColumnName).? ~ long(LedgerEndSequentialIdColumnName).?)
       .map(SqlParser.flatten)
-      .map { case (maybeOffset, maybeEventSeqId) =>
-        (
-          maybeOffset.getOrElse(Offset.beforeBegin),
-          maybeEventSeqId.getOrElse(EventSequentialId.BeforeBegin),
-        )
+      .map {
+        case (Some(offset), Some(seqId)) => (offset, seqId)
+        case (Some(offset), None) => (offset, EventSequentialId.BeforeBegin)
+        case (None, None) => (Offset.beforeBegin, EventSequentialId.BeforeBegin)
+        case (None, Some(_)) =>
+          throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
       }
-// TDT throws InvalidLedgerEnd
-//      .map {
-//        case (Some(offset), Some(seqId)) => (offset, seqId)
-//        case (Some(offset), None) => (offset, EventSequentialId.BeforeBegin)
-//        case (None, None) => (Offset.beforeBegin, EventSequentialId.BeforeBegin)
-//        case (None, Some(_)) => throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
-//      }
 
   private val ConfigurationParser: RowParser[Option[Configuration]] =
     byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
@@ -104,7 +98,6 @@ private[appendonlydao] object ParametersTable {
 
 }
 
-// TDT Should this class be here?
-object EventSequentialId {
+private[platform] object EventSequentialId {
   val BeforeBegin = 0L
 }

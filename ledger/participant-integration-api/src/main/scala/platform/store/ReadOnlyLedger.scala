@@ -28,7 +28,6 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
@@ -51,10 +50,6 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionTreesResponse), NotUsed]
-
-  def contractStateEvents(startExclusive: Option[(Offset, Long)])(implicit
-      loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed]
 
   def ledgerEnd()(implicit loggingContext: LoggingContext): Offset
 

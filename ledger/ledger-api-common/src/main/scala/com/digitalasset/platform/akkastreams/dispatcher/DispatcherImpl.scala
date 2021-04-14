@@ -71,8 +71,7 @@ final class DispatcherImpl[Index: Ordering](
         case c: Closed => c
       } match {
       case Running(prev, disp) =>
-        if (Ordering[Index].gt(head, prev))
-          disp.signal()
+        if (Ordering[Index].gt(head, prev)) disp.signal()
       case _: Closed =>
         logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
