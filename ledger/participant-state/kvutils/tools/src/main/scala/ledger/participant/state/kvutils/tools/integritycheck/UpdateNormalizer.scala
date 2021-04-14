@@ -72,17 +72,6 @@ object ConfigurationChangeRejectionNormalizer extends UpdateNormalizer {
   }
 }
 
-/** We may not want to check transaction ID as it is generated from the serialized form of a Daml submission
-  * which is not expected to stay the same across Daml SDK versions.
-  */
-object TransactionIdNormalizer extends UpdateNormalizer {
-  override def normalize(update: Update): Update = update match {
-    case t: Update.TransactionAccepted =>
-      t.copy(transactionId = TransactionId.assertFromString("ignored"))
-    case _ => update
-  }
-}
-
 /** We may not want to check blinding info as we haven't always populated these. */
 object BlindingInfoNormalizer extends UpdateNormalizer {
   override def normalize(update: Update): Update = update match {

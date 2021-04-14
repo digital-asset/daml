@@ -72,20 +72,6 @@ final class StateUpdateComparisonSpec
         .map(_ => succeed)
     }
 
-    "ignore transaction ID for TransactionAccepted updates" in {
-      val left = aTransactionAcceptedUpdate.copy(transactionId =
-        TransactionId.assertFromString("a transaction ID")
-      )
-      val right = aTransactionAcceptedUpdate.copy(transactionId =
-        TransactionId.assertFromString("another transaction ID")
-      )
-      val normalizers = List(TransactionIdNormalizer)
-
-      ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, normalizers, normalizers)
-        .map(_ => succeed)
-    }
-
     "ignore fetch and lookup by key nodes for TransactionAccepted updates" in {
       val left = aTransactionAcceptedUpdate.copy(transaction =
         buildATransaction(withFetchAndLookupByKeyNodes = true)
