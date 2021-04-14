@@ -41,7 +41,7 @@ object StateUpdateExporter {
   private def write(
       readService: ReadService,
       outputWriter: PrintWriter,
-      normalizers: List[UpdateNormalizer],
+      normalizers: Seq[UpdateNormalizer],
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,

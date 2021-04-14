@@ -17,12 +17,12 @@ case class Config(
     jdbcUrl: Option[String] = None,
     expectedUpdatesPath: Option[Path] = None,
     actualUpdatesPath: Option[Path] = None,
-    expectedUpdatesNormalizers: List[UpdateNormalizer] = List(
+    expectedUpdatesNormalizers: Seq[UpdateNormalizer] = List(
       TransactionIdNormalizer,
       BlindingInfoNormalizer,
       FetchAndLookupByKeyNodeNormalizer,
     ),
-    actualUpdatesNormalizers: List[UpdateNormalizer] =
+    actualUpdatesNormalizers: Seq[UpdateNormalizer] =
       List(TransactionIdNormalizer, BlindingInfoNormalizer, FetchAndLookupByKeyNodeNormalizer),
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString

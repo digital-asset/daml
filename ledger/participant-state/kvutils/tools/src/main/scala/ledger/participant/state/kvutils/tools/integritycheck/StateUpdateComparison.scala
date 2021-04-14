@@ -18,8 +18,8 @@ trait StateUpdateComparison {
 final class ReadServiceStateUpdateComparison(
     expectedReadService: ReplayingReadService,
     actualReadService: ReplayingReadService,
-    expectedUpdatesNormalizers: List[UpdateNormalizer],
-    actualUpdatesNormalizers: List[UpdateNormalizer],
+    expectedUpdatesNormalizers: Seq[UpdateNormalizer],
+    actualUpdatesNormalizers: Seq[UpdateNormalizer],
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -74,8 +74,8 @@ object ReadServiceStateUpdateComparison {
   private[integritycheck] def compareUpdates(
       expectedUpdate: Update,
       actualUpdate: Update,
-      expectedUpdatesNormalizers: List[UpdateNormalizer],
-      actualUpdatesNormalizers: List[UpdateNormalizer],
+      expectedUpdatesNormalizers: Seq[UpdateNormalizer],
+      actualUpdatesNormalizers: Seq[UpdateNormalizer],
   ): Future[Unit] = {
     val expectedNormalizedUpdate =
       (expectedUpdatesNormalizers ++ DefaultNormalizers).foldLeft(expectedUpdate) {
