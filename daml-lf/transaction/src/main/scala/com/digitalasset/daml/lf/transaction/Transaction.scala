@@ -307,11 +307,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     */
   final def fold[A](z: A)(f: (A, (Nid, Node.GenNode[Nid, Cid])) => A): A = {
     var acc = z
-    foreach { (nodeId, node) =>
-      // make sure to not tie the knot by mistake by evaluating early //TODO: ???
-      val acc2 = acc //TODO: why is this necessary?
-      acc = f(acc2, (nodeId, node))
-    }
+    foreach((nodeId, node) => acc = f(acc, (nodeId, node)))
     acc
   }
 
