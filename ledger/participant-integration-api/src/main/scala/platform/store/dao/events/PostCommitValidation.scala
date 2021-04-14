@@ -111,14 +111,14 @@ private[dao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[RejectionReason] = {
       def foldInformees[T](tx: CommittedTransaction, init: T)(
-          f: (T, String) => T
+          f: (T, Party) => T
       ): T =
         tx.fold(init) { case (accum, (_, node)) =>
           node.informeesOfNode.foldLeft(accum)(f)
         }
 
       val informees = foldInformees(transaction, Seq.empty[Party]) { (informeesSoFar, partyId) =>
-        Party.assertFromString(partyId) +: informeesSoFar
+        partyId +: informeesSoFar
       }
       val allocatedInformees = data.lookupParties(informees).map(_.party)
       if (allocatedInformees.toSet == informees.toSet)
