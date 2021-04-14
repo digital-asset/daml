@@ -92,7 +92,7 @@ class EventsBatchCreate(
     val create_observers: Array[String], // '|' separated list
     val create_agreement_text: Array[String],
     val create_key_value: Array[Array[Byte]],
-    val create_key_hash: Array[Array[Byte]],
+    val create_key_hash: Array[String],
     val event_sequential_id: Array[Long],
     val create_argument_compression: Array[java.lang.Integer],
     val create_key_value_compression: Array[java.lang.Integer],
@@ -227,7 +227,7 @@ object RawDBBatchPostgreSQLV1 {
         mutable.ArrayBuilder.make[String], // '|' separated list
       create_agreement_text: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       create_key_value: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
-      create_key_hash: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      create_key_hash: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       event_sequential_id: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make[Long],
       create_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
         mutable.ArrayBuilder.make[java.lang.Integer],

@@ -42,7 +42,7 @@ object DBDTOV1 {
       create_observers: Option[Set[String]],
       create_agreement_text: Option[String],
       create_key_value: Option[Array[Byte]],
-      create_key_hash: Option[Array[Byte]],
+      create_key_hash: Option[String],
       create_argument_compression: Option[Int],
       create_key_value_compression: Option[Int],
       // missing: event_sequential_id: Long - this will be assigned only at batches
