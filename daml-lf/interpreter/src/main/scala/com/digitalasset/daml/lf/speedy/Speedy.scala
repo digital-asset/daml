@@ -1366,15 +1366,18 @@ private[lf] object Speedy {
     * execution of the handler code (which might decide to re-throw). Otherwise we call
     * throwUnhandledException to apply the message function to the exception payload,
     * producing a text message.
+    * In addition to exception handlers, we also stop unwinding at submitMustFail.
     */
   private[speedy] def unwindToHandler(machine: Machine, payload: SValue): Unit = {
-    @tailrec def unwind(): Option[KTryCatchHandler] = {
+    @tailrec def unwind(): Option[Either[KTryCatchHandler, KCatchSubmitMustFail]] = {
       if (machine.kontDepth() == 0) {
         None
       } else {
         machine.popKont() match {
           case handler: KTryCatchHandler =>
-            Some(handler)
+            Some(Left(handler))
+          case mustFail: KCatchSubmitMustFail =>
+            Some(Right(mustFail))
           case _: KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
               onLedger.ptx = onLedger.ptx.abortExercises
@@ -1387,11 +1390,14 @@ private[lf] object Speedy {
       }
     }
     unwind() match {
-      case Some(kh) =>
+      case Some(Left(kh)) =>
         kh.restore()
         machine.popTempStackToBase()
         machine.ctrl = kh.handler
         machine.pushEnv(payload) // payload on stack where handler expects it
+      case Some(Right(mustFail @ _)) =>
+        machine.restoreBase(mustFail.envSize)
+        machine.returnValue = SValue.SValue.True
       case None =>
         machine.kontStack.clear()
         machine.env.clear()

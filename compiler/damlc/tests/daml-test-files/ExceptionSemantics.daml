@@ -1,0 +1,134 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+module ExceptionSemantics where
+
+import DA.Exception (throw)
+
+exception E
+  where
+    message "E"
+
+template K
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+    key (p, v) : (Party, Int)
+    maintainer key._1
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice Throw : ()
+      controller p
+      do throw E
+    nonconsuming choice Catch : ()
+      controller p
+      do try (exercise self Throw)
+         catch
+           E -> pure ()
+
+    nonconsuming choice TransientDuplicate : ()
+      with
+        i : Int
+      controller p
+      do try do
+           create (K p i)
+           create (K p i)
+           throw E
+         catch
+           E -> pure ()
+    nonconsuming choice NonTransientDuplicate : ()
+      with
+        i : Int
+      controller p
+      do try do
+           create (K p i)
+           throw E
+         catch
+           E -> pure ()
+    nonconsuming choice RollbackKey : ()
+      with
+        i : Int
+      controller p
+      do try do
+           create (K p i)
+           throw E
+         catch
+           E -> create (K p i) >> pure ()
+
+    nonconsuming choice RollbackArchive : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i)
+         try (archive cid >> throw E)
+         catch
+           E -> archive cid
+
+    nonconsuming choice NonRollbackArchive : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i)
+         try (archive cid)
+         catch
+           E -> pure ()
+         archive cid
+
+template Fetcher
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+    choice Fetch : K
+      with
+        cid : ContractId K
+      controller obs
+      do fetch cid
+    choice RollbackFetch : ()
+      with
+        cid : ContractId K
+      controller obs
+      do try (fetch cid >> throw E)
+         catch
+           E -> pure ()
+
+unhandledException = scenario do
+  p <- getParty "p"
+  submitMustFail p $ createAndExercise (T p) Throw
+  pure ()
+
+duplicateKey = scenario do
+  p <- getParty "p"
+  -- transient duplicate key in rollback
+  submitMustFail p $ createAndExercise (T p) (TransientDuplicate 0)
+  submit p $ create (K p 1)
+  -- duplicate key error with contract created outside of rollback
+  submitMustFail p $ createAndExercise (T p) (NonTransientDuplicate 1)
+  -- no duplicate key error if key creation got rolled back
+  submit p $ createAndExercise (T p) (RollbackKey 2)
+  pure ()
+
+rollbackArchive = scenario do
+  p <- getParty "p"
+  submit p $ createAndExercise (T p) (RollbackArchive 0)
+  submitMustFail p $ createAndExercise (T p) (NonRollbackArchive 0)
+
+divulgence = scenario do
+  p1 <- getParty "p1"
+  p2 <- getParty "p2"
+  cid <- submit p1 $ create (K p1 0)
+  divulger <- submit p2 $ create (Fetcher p2 p1)
+  fetcher <- submit p1 $ create (Fetcher p1 p2)
+  submitMustFail p2 $ exercise fetcher (Fetch cid)
+  submit p1 $ exercise divulger (RollbackFetch cid)
+  submit p2 $ exercise fetcher (Fetch cid)
+  pure ()

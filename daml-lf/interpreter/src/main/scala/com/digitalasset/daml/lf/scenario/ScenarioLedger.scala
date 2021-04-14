@@ -394,20 +394,45 @@ object ScenarioLedger {
       richTr: RichTransaction,
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
-    type ExerciseNodeProcessing = (Option[NodeId], List[NodeId])
+
+    // The subset of LedgerData that is unmodified by a rollback node.
+    final case class ActiveLedgerState(
+        activeContracts: Set[ContractId],
+        activeKeys: Map[GlobalKey, ContractId],
+    ) {}
+
+    final case class ProcessingNode(
+        mbParentId: Option[NodeId],
+        children: List[NodeId],
+        // For rollback nodes, we store the previous state here and restore it.
+        // For exercise nodes, we don’t need to restore anything.
+        prevState: Option[ActiveLedgerState],
+    )
 
     @tailrec
     def processNodes(
         mbCache0: Either[UniqueKeyViolation, LedgerData],
-        enps: List[ExerciseNodeProcessing],
+        enps: List[ProcessingNode],
     ): Either[UniqueKeyViolation, LedgerData] = {
       mbCache0 match {
         case Left(err) => Left(err)
         case Right(cache0) =>
           enps match {
             case Nil => Right(cache0)
-            case (_, Nil) :: restENPs => processNodes(Right(cache0), restENPs)
-            case (mbParentId, nodeId :: restOfNodeIds) :: restENPs =>
+            case ProcessingNode(_, Nil, optPrevState) :: restENPs => {
+              val cache1 = optPrevState.fold(cache0) { case prevState =>
+                cache0.copy(
+                  activeContracts = prevState.activeContracts,
+                  activeKeys = prevState.activeKeys,
+                )
+              }
+              processNodes(Right(cache1), restENPs)
+            }
+            case (processingNode @ ProcessingNode(
+                  mbParentId,
+                  nodeId :: restOfNodeIds,
+                  _,
+                )) :: restENPs =>
               val eventId = EventId(trId.id, nodeId)
               richTr.transaction.nodes.get(nodeId) match {
                 case None =>
@@ -424,12 +449,20 @@ object ScenarioLedger {
                   )
                   val newCache =
                     cache0.copy(nodeInfos = cache0.nodeInfos + (eventId -> newLedgerNodeInfo))
-                  val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
+                  val idsToProcess = processingNode.copy(children = restOfNodeIds) :: restENPs
 
                   node match {
-                    case _: NodeRollback[_] =>
-                      // TODO https://github.com/digital-asset/daml/issues/8020
-                      sys.error("rollback nodes are not supported")
+                    case rollback: NodeRollback[NodeId] =>
+                      val activeState =
+                        ActiveLedgerState(newCache.activeContracts, newCache.activeKeys)
+                      processNodes(
+                        Right(newCache),
+                        ProcessingNode(
+                          Some(nodeId),
+                          rollback.children.toList,
+                          Some(activeState),
+                        ) :: idsToProcess,
+                      )
 
                     case nc: NodeCreate[ContractId] =>
                       val newCache1 =
@@ -481,7 +514,7 @@ object ScenarioLedger {
 
                       processNodes(
                         Right(newCache1),
-                        (Some(nodeId) -> ex.children.toList) :: idsToProcess,
+                        ProcessingNode(Some(nodeId), ex.children.toList, None) :: idsToProcess,
                       )
 
                     case nlkup: NodeLookupByKey[ContractId] =>
@@ -504,7 +537,10 @@ object ScenarioLedger {
     }
 
     val mbCacheAfterProcess =
-      processNodes(Right(ledgerData), List(None -> richTr.transaction.roots.toList))
+      processNodes(
+        Right(ledgerData),
+        List(ProcessingNode(None, richTr.transaction.roots.toList, None)),
+      )
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
       // NOTE(MH): Since `addDisclosures` is biased towards existing

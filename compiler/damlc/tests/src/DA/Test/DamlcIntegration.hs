@@ -26,7 +26,8 @@ import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
-import qualified DA.Service.Logger.Impl.Pure as Logger
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
@@ -108,7 +109,8 @@ main = do
  LfVersionOpt lfVer <- do
      let parser = optionCLParser <* many (strArgument @String mempty)
      execParser (info parser forwardOptions)
- SS.withScenarioService lfVer Logger.makeNopHandle scenarioConf $ \scenarioService -> do
+ scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+ SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
