@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.stores.ledger.sql
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
@@ -37,6 +37,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
@@ -333,7 +334,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, contractStore, null /* TDT NOOO! */, dispatcher)
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -535,4 +536,11 @@ private final class SqlLedger(
           ()
         }(DEC)
     }
+
+  override def contractStateEvents(startExclusive: Option[(Offset, Long)])(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
+    throw new UnsupportedOperationException(
+      "Contract state events streaming not supported"
+    ) // TDT should we support it?
 }

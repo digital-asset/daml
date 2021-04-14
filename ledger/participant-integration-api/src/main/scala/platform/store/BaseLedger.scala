@@ -34,7 +34,9 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -45,6 +47,7 @@ private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     contractStore: ContractStore,
+    contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
 
@@ -83,6 +86,18 @@ private[platform] abstract class BaseLedger(
         ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)
       ),
       endInclusive,
+    )
+
+  override def contractStateEvents(
+      startExclusive: Option[(Offset, Long)]
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
+    contractStateEventsDispatcher.startingAt(
+      startExclusive.getOrElse(Offset.beforeBegin -> EventSequentialId.BeforeBegin),
+      RangeSource(
+        ledgerDao.transactionsReader.getContractStateEvents(_, _)
+      ),
     )
 
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = dispatcher.getHead()

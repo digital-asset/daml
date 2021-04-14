@@ -47,10 +47,12 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
 
-  def lookupLedgerEndSequentialId()(implicit loggingContext: LoggingContext): Future[Long] =
+  def lookupLedgerEndAndSequentialId()(implicit
+      loggingContext: LoggingContext
+  ): Future[(Offset, Long)] =
     Timed.future(
       metrics.daml.index.db.lookupLedgerEndSequentialId,
-      ledgerDao.lookupLedgerEndSequentialId(),
+      ledgerDao.lookupLedgerEndAndSequentialId(),
     )
 
   override def lookupInitialLedgerEnd()(implicit

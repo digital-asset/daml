@@ -134,7 +134,9 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+        "--participant=participant-id=example,port=6865,server-jdbc-url=jdbc:postgresql://localhost:5432/indexdb?user=indexdb,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
     ],
 )
 
