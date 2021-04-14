@@ -29,7 +29,6 @@ jobs:
     final_job_name: da_ghc_lib
 
 - job: Linux
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -72,7 +71,6 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_scala_2_13
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -148,7 +146,6 @@ jobs:
     final_job_name: patch_bazel_windows
 
 - job: Windows
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -185,7 +182,6 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_oracle
-  condition: false
   dependsOn:
     - da_ghc_lib
   timeoutInMinutes: 360
@@ -257,12 +253,11 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_ts_libs
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
-      #condition: and(succeeded(),
-      #               not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
+  condition: and(succeeded(),
+                 not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
   timeoutInMinutes: 360
   pool:
     name: ubuntu_20_04
@@ -276,7 +271,6 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_linux
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -296,7 +290,6 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_macos
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -317,7 +310,6 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_windows
-  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -404,8 +396,7 @@ jobs:
       name: out
 
 - job: collect_build_data
-  condition: false
-    #condition: always()
+  condition: always()
   dependsOn:
     - Linux
     - Linux_oracle
