@@ -15,7 +15,7 @@ import io.grpc.Status
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
     extends LedgerTestSuite {
@@ -95,6 +95,38 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
         activeContracts.size == 2,
         s"There should be 2 active contracts, but received $activeContracts",
       )
+    }
+  })
+
+  test(
+    "CDLargeSubmittersNumber",
+    "Deduplicate commands with a large number of submitters",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    /** Postgres has a limit on the index row size of 2712.
+      * We test that a large submitters number doesn't cause failure because of that limit.
+      */
+    for {
+      // Need to manually allocate parties to avoid db string compression
+      parties <- Future.traverse(1 to 50) { number =>
+        ledger.allocateParty(
+          partyIdHint =
+            Some(s"deduplicationRandomParty_${number}_" + Random.alphanumeric.take(100).mkString),
+          displayName = Some(s"Clone $number"),
+        )
+      }
+      request = ledger
+        .submitRequest(
+          actAs = parties.toList,
+          readAs = parties.toList,
+          commands = DummyWithAnnotation(parties.head, "First submission").create.command,
+        )
+        .update(
+          _.commands.deduplicationTime := deduplicationTime.asProtobuf
+        )
+      _ <- ledger.submit(request)
+    } yield {
+      ()
     }
   })
 
