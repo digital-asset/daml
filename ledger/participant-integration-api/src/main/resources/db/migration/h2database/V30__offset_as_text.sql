@@ -16,7 +16,8 @@ ALTER TABLE packages
 
 
 ALTER TABLE parameters
-    ALTER COLUMN ledger_end SET DATA TYPE varchar,
+    ALTER COLUMN ledger_end SET DATA TYPE varchar;
+ALTER TABLE parameters
     ALTER COLUMN participant_pruned_up_to_inclusive SET DATA TYPE varchar;
 
 
@@ -27,7 +28,8 @@ ALTER TABLE participant_contracts
     ALTER COLUMN create_key_hash SET DATA TYPE varchar;
 
 ALTER TABLE participant_events
-    ALTER COLUMN event_offset SET DATA TYPE varchar,
+    ALTER COLUMN event_offset SET DATA TYPE varchar;
+ALTER TABLE participant_events
     ALTER COLUMN create_consumed_at SET DATA TYPE varchar;
 
 
