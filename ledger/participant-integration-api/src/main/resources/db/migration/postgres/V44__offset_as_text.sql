@@ -1,8 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- Change indexed bytea columns to text
---
+-- Change indexed bytea columns to varchar.
 
 ALTER TABLE configuration_entries
     ALTER COLUMN ledger_offset TYPE VARCHAR USING encode(ledger_offset, 'hex');
