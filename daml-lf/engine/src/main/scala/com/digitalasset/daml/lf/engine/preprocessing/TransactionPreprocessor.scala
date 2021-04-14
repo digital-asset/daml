@@ -27,15 +27,11 @@ private[preprocessing] final class TransactionPreprocessor(
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
   @throws[PreprocessorException]
-  def unsafeTranslateNode[Cid <: Value.ContractId](
-      node: Node.GenNode[NodeId, Cid]
+  def unsafeTranslateActionNode[Cid <: Value.ContractId](
+      node: Node.GenActionNode[NodeId, Cid]
   ): (speedy.Command, Set[Value.ContractId]) = {
 
     node match {
-      case _: Node.NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        // how on earth can we turn a rollback node back into a speedy command?
-        sys.error("rollback nodes are not supported")
       case create: Node.NodeCreate[Cid] =>
         commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
 
@@ -126,9 +122,7 @@ private[preprocessing] final class TransactionPreprocessor(
 
     val result = tx.roots.foldLeft(Acc(Set.empty, Set.empty, BackStack.empty)) { (acc, id) =>
       tx.nodes.get(id) match {
-        case None =>
-          fail(s"invalid transaction, root refers to non-existing node $id")
-        case Some(node) =>
+        case Some(node: Node.GenActionNode[_, Cid]) =>
           node match {
             case create: Node.NodeCreate[Cid] =>
               val (cmd, newCids) =
@@ -147,11 +141,11 @@ private[preprocessing] final class TransactionPreprocessor(
               fail(s"Transaction contains a fetch root node $id")
             case _: Node.NodeLookupByKey[_] =>
               fail(s"Transaction contains a lookup by key root node $id")
-            case _: Node.NodeRollback[_] =>
-              // TODO https://github.com/digital-asset/daml/issues/8020
-              // how on earth can we turn a rollback node back into a speedy command?
-              sys.error("rollback nodes are not supported")
           }
+        case Some(_: Node.NodeRollback[NodeId]) =>
+          fail(s"invalid transaction, root refers to a rollback node $id")
+        case None =>
+          fail(s"invalid transaction, root refers to non-existing node $id")
       }
     }
 

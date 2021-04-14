@@ -182,7 +182,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
         node = entry match {
           case (_, nr: Node.NodeRollback[_]) =>
             nr.copy(children = ImmArray.empty)
-          case (_, n: Node.LeafOnlyNode[V.ContractId]) => n
+          case (_, n: Node.LeafOnlyActionNode[V.ContractId]) => n
           case (_, ne: Node.NodeExercises[_, V.ContractId]) =>
             ne.copy(children = ImmArray.empty)
         }

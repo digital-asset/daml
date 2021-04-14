@@ -21,6 +21,7 @@ import com.daml.lf.engine.{
   ResultNeedPackage,
   Error => DamlLfError,
 }
+import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.packages.DeduplicatingPackageLoader
@@ -82,7 +83,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               Some(meta.nodeSeeds),
               Some(
                 updateTx.nodes
-                  .collect { case (nodeId, node) if node.byKey => nodeId }
+                  .collect { case (nodeId, node: Node.GenActionNode[_, _]) if node.byKey => nodeId }
                   .to(ImmArray)
               ),
             ),

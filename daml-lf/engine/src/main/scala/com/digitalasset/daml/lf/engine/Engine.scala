@@ -133,14 +133,14 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenNode[NodeId, Value.ContractId],
+      node: GenActionNode[NodeId, Value.ContractId],
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
       checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandWithCids <- preprocessor.translateNode(node)
+      commandWithCids <- preprocessor.translateActionNode(node)
       (command, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(

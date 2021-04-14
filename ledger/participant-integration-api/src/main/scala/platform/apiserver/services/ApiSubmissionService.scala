@@ -26,7 +26,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{ContractNotFound, ReplayMismatch}
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{Node, SubmittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -200,7 +200,15 @@ private[apiserver] final class ApiSubmissionService private[services] (
   )(implicit loggingContext: LoggingContext): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
       val partiesInTransaction =
-        transaction.nodes.valuesIterator.flatMap(_.informeesOfNode).toSeq.distinct
+        transaction.nodes.valuesIterator
+          .flatMap {
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            //  Check impact of rollback
+            case (n: Node.GenActionNode[_, _]) => n.informeesOfNode
+            case (_: Node.NodeRollback[_]) => List.empty
+          }
+          .toSeq
+          .distinct
       for {
         fetchedParties <- partyManagementService.getParties(partiesInTransaction)
         knownParties = fetchedParties.iterator.map(_.party).toSet

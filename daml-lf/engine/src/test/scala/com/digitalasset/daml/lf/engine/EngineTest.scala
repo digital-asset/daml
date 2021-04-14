@@ -30,7 +30,7 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
-import com.daml.lf.transaction.Node.GenNode
+import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -63,8 +63,8 @@ class EngineTest
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
-  private[this] def byKeyNodes[Nid, Cid](tx: VersionedTransaction[Nid, Cid]) =
-    tx.nodes.collect { case (nodeId, node) if node.byKey => nodeId }.toSet
+  private[this] def byKeyNodes[Nid, _](tx: VersionedTransaction[Nid, _]) =
+    tx.nodes.collect { case (nodeId, node: GenActionNode[_, _]) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
@@ -1450,8 +1450,8 @@ class EngineTest
 
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.nodes.iterator.collect {
-        case entry @ (_, Node.NodeFetch(_, _, _, _, _, _, _, _, _)) => entry
+      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.NodeFetch[ContractId]) =>
+        nid -> fetch
       }
 
       fetchNodes.foreach { case (nid, n) =>
@@ -1461,9 +1461,7 @@ class EngineTest
             .reinterpret(
               n.requiredAuthorizers,
               n,
-              txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) =>
-                seed
-              },
+              txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
             )
@@ -2143,7 +2141,7 @@ object EngineTest {
           currentStep <- engine
             .reinterpret(
               submitters,
-              tx.transaction.nodes(nodeId),
+              tx.transaction.nodes(nodeId).asInstanceOf[GenActionNode[NodeId, ContractId]],
               nodeSeedMap.get(nodeId),
               txMeta.submissionTime,
               ledgerEffectiveTime,

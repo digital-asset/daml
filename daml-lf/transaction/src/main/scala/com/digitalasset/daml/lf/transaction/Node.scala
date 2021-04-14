@@ -16,15 +16,43 @@ import scalaz.syntax.equal._
   */
 object Node {
 
-  /** Transaction nodes parametrized over identifier type */
-  sealed trait GenNode[+Nid, +Cid]
+  sealed abstract class GenNode[+Nid, +Cid]
       extends Product
       with Serializable
-      with NodeInfo
       with CidContainer[GenNode[Nid, Cid]] {
+    def version: TransactionVersion
+
+    def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit
+
+    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
+  }
+
+  object GenNode extends CidContainer2[GenNode] {
+    override private[lf] def map2[A1, B1, A2, B2](
+        f1: A1 => A2,
+        f2: B1 => B2,
+    ): GenNode[A1, B1] => GenNode[A2, B2] = {
+      case action: GenActionNode[A1, B1] =>
+        GenActionNode.map2(f1, f2)(action)
+      case rollback: NodeRollback[A1] =>
+        rollback.copy(children = rollback.children.map(f1))
+    }
+
+    override private[lf] def foreach2[A, B](f1: A => Unit, f2: B => Unit): GenNode[A, B] => Unit = {
+      case action: GenActionNode[A, B] =>
+        GenActionNode.foreach2(f1, f2)(action)
+      case rollback: NodeRollback[A] =>
+        rollback.foreach2(f1, f2)
+    }
+  }
+
+  /** action nodes parametrized over identifier type */
+  sealed abstract class GenActionNode[+Nid, +Cid]
+      extends GenNode[Nid, Cid]
+      with NodeInfo
+      with CidContainer[GenActionNode[Nid, Cid]] {
 
     def templateId: TypeConName
-    def version: TransactionVersion
 
     final override protected def self: this.type = this
 
@@ -41,25 +69,19 @@ object Node {
 
     def byKey: Boolean
 
-    def foreach2(fNid: Nid => Unit, fCid: Cid => Unit) =
-      GenNode.foreach2(fNid, fCid)(this)
-
-    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
+    def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit =
+      GenActionNode.foreach2(fNid, fCid)(this)
 
     protected def versionValue[Cid2 >: Cid](v: Value[Cid2]): VersionedValue[Cid2] =
       VersionedValue(version, v)
   }
 
-  object GenNode extends CidContainer2[GenNode] {
+  object GenActionNode extends CidContainer2[GenActionNode] {
 
     override private[lf] def map2[A1, A2, B1, B2](
         f1: A1 => B1,
         f2: A2 => B2,
-    ): GenNode[A1, A2] => GenNode[B1, B2] = {
-      case self @ NodeRollback(children, version @ _) =>
-        self.copy(
-          children = children.map(f1)
-        )
+    ): GenActionNode[A1, A2] => GenActionNode[B1, B2] = {
       case self @ NodeCreate(
             coid,
             _,
@@ -131,9 +153,7 @@ object Node {
     override private[lf] def foreach2[A, B](
         f1: A => Unit,
         f2: B => Unit,
-    ): GenNode[A, B] => Unit = {
-      case NodeRollback(children, version @ _) =>
-        children.foreach(f1)
+    ): GenActionNode[A, B] => Unit = {
       case NodeCreate(
             coid,
             templateI @ _,
@@ -196,7 +216,7 @@ object Node {
   }
 
   /** A transaction node that can't possibly refer to `Nid`s. */
-  sealed trait LeafOnlyNode[+Cid] extends GenNode[Nothing, Cid]
+  sealed trait LeafOnlyActionNode[+Cid] extends GenActionNode[Nothing, Cid]
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid](
@@ -210,7 +230,7 @@ object Node {
       key: Option[KeyWithMaintainers[Value[Cid]]],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyNode[Cid]
+  ) extends LeafOnlyActionNode[Cid]
       with NodeInfo.Create {
 
     override def byKey: Boolean = false
@@ -240,7 +260,7 @@ object Node {
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyNode[Cid]
+  ) extends LeafOnlyActionNode[Cid]
       with NodeInfo.Fetch {
 
     override private[lf] def updateVersion(version: TransactionVersion): NodeFetch[Cid] =
@@ -272,7 +292,7 @@ object Node {
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends GenNode[Nid, Cid]
+  ) extends GenActionNode[Nid, Cid]
       with NodeInfo.Exercise {
     @deprecated("use actingParties instead", since = "1.1.2")
     private[daml] def controllers: actingParties.type = actingParties
@@ -299,7 +319,7 @@ object Node {
       result: Option[Cid],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyNode[Cid]
+  ) extends LeafOnlyActionNode[Cid]
       with NodeInfo.LookupByKey {
 
     override def keyMaintainers: Set[Party] = key.maintainers
@@ -352,20 +372,15 @@ object Node {
       children: ImmArray[Nid],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends GenNode[Nid, Nothing]
-      with NodeInfo.Rollback {
-
-    override def templateId: TypeConName =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
+  ) extends GenNode[Nid, Nothing] {
 
     override private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] =
       copy(version = version)
 
-    override def byKey: Boolean =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
+    override def foreach2(fNid: Nid => Unit, fCid: Nothing => Unit): Unit =
+      children.foreach(fNid)
 
+    override protected def self: GenNode[Nid, Nothing] = this
   }
 
 }

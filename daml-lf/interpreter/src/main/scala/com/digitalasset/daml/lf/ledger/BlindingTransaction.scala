@@ -6,13 +6,7 @@ package com.daml.lf.ledger
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Node.{
-  NodeRollback,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-}
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
 
@@ -64,35 +58,35 @@ object BlindingTransaction {
         parentExerciseWitnesses: Set[Party],
         nodeId: NodeId,
     ): BlindState = {
-      val node =
-        tx.nodes
-          .getOrElse(
-            nodeId,
-            throw new IllegalArgumentException(
-              s"processNode - precondition violated: node $nodeId not present"
-            ),
+      val action = tx.nodes.get(nodeId) match {
+        case Some(action: Node.GenActionNode[NodeId, ContractId]) =>
+          action
+        case Some(_: Node.NodeRollback[_]) =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          throw sys.error("Rollback node not supported")
+        case None =>
+          throw new IllegalArgumentException(
+            s"processNode - precondition violated: node $nodeId not present"
           )
-      val witnesses = parentExerciseWitnesses union node.informeesOfNode
+      }
+
+      val witnesses = parentExerciseWitnesses union action.informeesOfNode
 
       // nodes of every type are disclosed to their witnesses
       val state = state0.discloseNode(witnesses, nodeId)
 
-      node match {
-        case _: NodeRollback[_] =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          // can rollback nodes also cause divulgence?
-          state
+      action match {
 
-        case _: NodeCreate[ContractId] => state
-        case _: NodeLookupByKey[ContractId] => state
+        case _: Node.NodeCreate[ContractId] => state
+        case _: Node.NodeLookupByKey[ContractId] => state
 
         // fetch & exercise nodes cause divulgence
 
-        case fetch: NodeFetch[ContractId] =>
+        case fetch: Node.NodeFetch[ContractId] =>
           state
             .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
 
-        case ex: NodeExercises[NodeId, ContractId] =>
+        case ex: Node.NodeExercises[NodeId, ContractId] =>
           val state1 =
             state.divulgeCoidTo(
               (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,

@@ -64,7 +64,7 @@ final class TransactionBuilder(
         rb.copy(children = children(nid).toImmArray)
       case (nid, exe: TxExercise) =>
         exe.copy(children = children(nid).toImmArray)
-      case (_, node: Node.LeafOnlyNode[ContractId]) =>
+      case (_, node: Node.LeafOnlyActionNode[ContractId]) =>
         node
     }
     val finalRoots = roots.toImmArray
