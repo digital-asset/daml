@@ -134,6 +134,7 @@ jobs:
       condition: and(succeeded(), eq(variables.is_release, 'true'))
     - bash: |
         set -x
+        eval "$(dev-env/bin/dade-assist)"
         lsof /var/tmp/_bazel_vsts
         lsof /Users/vsts/.bazel-cache
       name: debug
