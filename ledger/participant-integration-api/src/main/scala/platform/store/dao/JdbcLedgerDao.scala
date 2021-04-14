@@ -813,12 +813,10 @@ private class JdbcLedgerDao(
       commandId: domain.CommandId,
       submitters: List[Ref.Party],
   ): String = {
-    val submitterPart =
-      if (submitters.length == 1)
-        submitters.head
-      else
-        submitters.sorted(Ordering.String).distinct.mkString("%")
-    commandId.unwrap + "%" + submitterPart
+    val hashedSubmitters =
+      DeduplicationKeyHashing.hashSubmitters(submitters.sorted(Ordering.String).distinct)
+
+    commandId.unwrap + "%" + hashedSubmitters
   }
 
   override def deduplicateCommand(
