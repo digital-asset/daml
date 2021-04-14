@@ -1,7 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- change offset columns to text
+-- Change indexed bytea columns to text
 --
 
 ALTER TABLE configuration_entries
@@ -17,7 +17,7 @@ ALTER TABLE packages
 
 ALTER TABLE parameters
     ALTER COLUMN ledger_end TYPE VARCHAR USING encode(ledger_end, 'hex'),
-    ALTER COLUMN participant_pruned_up_to_inclusive TYPE VARCHAR USING encode(ledger_end, 'hex');
+    ALTER COLUMN participant_pruned_up_to_inclusive TYPE VARCHAR USING encode(participant_pruned_up_to_inclusive, 'hex');
 
 
 ALTER TABLE participant_command_completions
@@ -36,5 +36,3 @@ ALTER TABLE party_entries
 
 ALTER TABLE parties
     ALTER COLUMN ledger_offset TYPE VARCHAR USING encode(ledger_offset, 'hex');
-
--- UPDATE parameters SET participant_pruned_up_to_inclusive='' WHERE participant_pruned_up_to_inclusive IS NULL;
