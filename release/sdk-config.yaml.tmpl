@@ -107,6 +107,10 @@ commands:
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/test-script-logback.xml", "daml-sdk/daml-sdk.jar", "test-script"]
   desc: "Run all Daml script tests in a DAR"
+- name: export
+  path: daml-helper/daml-helper
+  args: ["run-jar", "--logback-config=daml-sdk/export-logback.xml", "daml-sdk/daml-sdk.jar", "export"]
+  desc: "Export Daml ledger state"
 - name: repl
   path: damlc/damlc
   args: ["repl"]

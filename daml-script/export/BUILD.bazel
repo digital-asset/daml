@@ -9,6 +9,8 @@ load(
     "silencer_plugin",
 )
 
+exports_files(["src/main/resources/logback.xml"])
+
 da_scala_binary(
     name = "export",
     srcs = glob(["src/main/scala/**/*.scala"]),
