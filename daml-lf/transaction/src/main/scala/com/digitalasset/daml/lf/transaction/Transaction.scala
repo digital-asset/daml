@@ -281,13 +281,16 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   // TODO: https://github.com/digital-asset/daml/issues/8020
   //  for now we assume that rollback node cannot be a root of a transaction.
+  @throws[IllegalArgumentException]
   def rootNodes: ImmArray[Node.GenActionNode[Nid, Cid]] =
     roots.map(nid =>
       nodes(nid) match {
         case action: Node.GenActionNode[Nid, Cid] =>
           action
         case _: Node.NodeRollback[_] =>
-          sys.error("illed-formed transaction")
+          throw new IllegalArgumentException(
+            s"invalid transaction, root refers to a Rollback node $nid"
+          )
       }
     )
 
