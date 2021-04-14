@@ -28,4 +28,7 @@ case class ApiServerConfig(
     managementServiceTimeout: Duration,
     // TODO append-only: remove after removing support for the current (mutating) schema
     enableAppendOnlySchema: Boolean,
+    maxContractStateCacheSize: Long,
+    maxContractKeyStateCacheSize: Long,
+    enableMutableContractStateCache: Boolean,
 )

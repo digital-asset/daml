@@ -21,7 +21,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.cache.TranslationCacheBackedContractStore
+import com.daml.platform.store.cache.{
+  MutableCacheBackedContractStore,
+  TranslationCacheBackedContractStore,
+}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, ReadOnlyLedger}
@@ -48,6 +51,9 @@ private[platform] object ReadOnlySqlLedger {
       enricher: ValueEnricher,
       // TODO append-only: remove after removing support for the current (mutating) schema
       enableAppendOnlySchema: Boolean,
+      maxContractStateCacheSize: Long,
+      maxContractKeyStateCacheSize: Long,
+      enableMutableContractStateCache: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
 
@@ -135,9 +141,18 @@ private[platform] object ReadOnlySqlLedger {
     def contractsStoreOwner(
         lfValueTranslationCache: LfValueTranslationCache.Cache,
         contractsReader: LedgerDaoContractsReader,
-    ): Resource[ContractStore] =
-      TranslationCacheBackedContractStore
-        .owner(lfValueTranslationCache, contractsReader)
+    )(implicit executionContext: ExecutionContext): Resource[ContractStore] =
+      if (enableMutableContractStateCache)
+        MutableCacheBackedContractStore.owner(
+          contractsReader = contractsReader,
+          signalNewLedgerHead = _ => (), // TODO mutable contract state cache: wire up dispatcher
+          metrics = metrics,
+          maxContractsCacheSize = maxContractStateCacheSize,
+          maxKeyCacheSize = maxContractKeyStateCacheSize,
+        )
+      else
+        TranslationCacheBackedContractStore
+          .owner(lfValueTranslationCache, contractsReader)
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(

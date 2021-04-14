@@ -68,6 +68,9 @@ trait ConfigProvider[ExtraConfig] {
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
+      maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
+      maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
+      enableMutableContractStateCache = config.enableMutableContractStateCache,
     )
 
   def commandConfig(

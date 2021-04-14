@@ -235,7 +235,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   portFile = config.portFile,
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
+                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   enableAppendOnlySchema = false,
+                  maxContractStateCacheSize = 0L,
+                  maxContractKeyStateCacheSize = 0L,
+                  enableMutableContractStateCache = false,
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,
