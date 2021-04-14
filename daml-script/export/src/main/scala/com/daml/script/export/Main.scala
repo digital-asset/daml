@@ -45,26 +45,32 @@ object Main {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
-    for {
-      client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
-      acs <- LedgerUtils.getACS(client, config.parties, config.start)
-      trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
-      acsPkgRefs = TreeUtils.contractsReferences(acs.values)
-      treePkgRefs = TreeUtils.treesReferences(trees)
-      pkgRefs = acsPkgRefs ++ treePkgRefs
-      pkgs <- Dependencies.fetchPackages(client, pkgRefs.toList)
-      _ = Export.writeExport(
-        config.sdkVersion,
-        config.damlScriptLib,
-        config.outputPath,
-        acs,
-        trees,
-        pkgRefs,
-        pkgs,
-        config.acsBatchSize,
-      )
-    } yield ()
+  ): Future[Unit] = {
+    config.exportType match {
+      case Some(exportScript: ExportScript) =>
+        for {
+          client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
+          acs <- LedgerUtils.getACS(client, config.parties, config.start)
+          trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
+          acsPkgRefs = TreeUtils.contractsReferences(acs.values)
+          treePkgRefs = TreeUtils.treesReferences(trees)
+          pkgRefs = acsPkgRefs ++ treePkgRefs
+          pkgs <- Dependencies.fetchPackages(client, pkgRefs.toList)
+          _ = Export.writeExport(
+            exportScript.sdkVersion,
+            exportScript.damlScriptLib,
+            exportScript.outputPath,
+            acs,
+            trees,
+            pkgRefs,
+            pkgs,
+            exportScript.acsBatchSize,
+          )
+        } yield ()
+      case None =>
+        Future.successful(())
+    }
+  }
 
   val clientConfig: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = "script-export",

@@ -149,10 +149,14 @@ final class IT
         parties = parties,
         start = offset,
         end = ledgerEnd,
-        acsBatchSize = 2,
-        outputPath = tmpDir,
-        damlScriptLib = damlScriptLib.toString,
-        sdkVersion = SdkVersion.sdkVersion,
+        exportType = Some(
+          ExportScript(
+            outputPath = tmpDir,
+            acsBatchSize = 2,
+            damlScriptLib = damlScriptLib.toString,
+            sdkVersion = SdkVersion.sdkVersion,
+          )
+        ),
       )
     )
     // compile script export

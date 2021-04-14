@@ -14,11 +14,16 @@ final case class Config(
     parties: List[String],
     start: LedgerOffset,
     end: LedgerOffset,
+    exportType: Option[ExportType],
+)
+
+sealed trait ExportType
+final case class ExportScript(
     acsBatchSize: Int,
     outputPath: Path,
     sdkVersion: String,
     damlScriptLib: String,
-)
+) extends ExportType
 
 object Config {
   def parse(args: Array[String]): Option[Config] =
@@ -34,16 +39,21 @@ object Config {
   }
 
   private val parser = new scopt.OptionParser[Config]("script-export") {
+    help("help")
+      .text("Show this help message.")
     opt[String]("host")
       .required()
       .action((x, c) => c.copy(ledgerHost = x))
+      .text("Daml ledger host to connect to.")
     opt[Int]("port")
       .required()
       .action((x, c) => c.copy(ledgerPort = x))
+      .text("Daml ledger port to connect to.")
     opt[String]("party")
       .required()
       .unbounded()
       .action((x, c) => c.copy(parties = x :: c.parties))
+      .text("Export ledger state as seen by these parties.")
     opt[String]("start")
       .optional()
       .action((x, c) => c.copy(start = parseLedgerOffset(x)))
@@ -56,20 +66,50 @@ object Config {
       .text(
         "The transaction offset (inclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."
       )
-    opt[Int]("acs-batch-size")
-      .optional()
-      .action((x, c) => c.copy(acsBatchSize = x))
-      .validate(x =>
-        if (x <= 0) { failure("ACS batch size must be greater than zero") }
-        else { success }
+    cmd("script")
+      .action((_, c) => c.copy(exportType = Some(EmptyExportScript)))
+      .text("Export ledger state in Daml script format")
+      .children(
+        opt[Int]("acs-batch-size")
+          .optional()
+          .action(actionExportScript((x, c) => c.copy(acsBatchSize = x)))
+          .validate(x =>
+            if (x <= 0) { failure("ACS batch size must be greater than zero") }
+            else { success }
+          )
+          .text("Batch this many create commands into one transaction when recreating the ACS."),
+        opt[File]('o', "output")
+          .required()
+          .action(actionExportScript((x, c) => c.copy(outputPath = x.toPath)))
+          .text("Create the Daml script under this directory prefix."),
+        opt[String]("sdk-version")
+          .required()
+          .action(actionExportScript((x, c) => c.copy(sdkVersion = x)))
+          .text("Specify this Daml Connect version in the generated project."),
       )
-      .text("Batch this many create commands into one transaction when recreating the ACS.")
-    opt[File]('o', "output")
-      .required()
-      .action((x, c) => c.copy(outputPath = x.toPath))
-    opt[String]("sdk-version")
-      .required()
-      .action((x, c) => c.copy(sdkVersion = x))
+    checkConfig(c =>
+      c.exportType match {
+        case None => failure("Must specify export type")
+        case Some(_) => success
+      }
+    )
+  }
+
+  private val EmptyExportScript = ExportScript(
+    outputPath = null,
+    sdkVersion = "",
+    acsBatchSize = 10,
+    damlScriptLib = "daml-script",
+  )
+
+  private def actionExportScript[T](f: (T, ExportScript) => ExportScript): (T, Config) => Config = {
+    case (x, c) => {
+      val exportScript = c.exportType match {
+        case Some(exportScript: ExportScript) => exportScript
+        case _ => EmptyExportScript
+      }
+      c.copy(exportType = Some(f(x, exportScript)))
+    }
   }
 
   private val Empty = Config(
@@ -78,9 +118,6 @@ object Config {
     parties = List(),
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-    acsBatchSize = 10,
-    outputPath = null,
-    sdkVersion = "",
-    damlScriptLib = "daml-script",
+    exportType = None,
   )
 }
