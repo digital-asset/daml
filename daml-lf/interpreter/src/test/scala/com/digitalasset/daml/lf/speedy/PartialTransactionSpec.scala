@@ -103,9 +103,9 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
           .beginExercises_ // open an exercise context
           .insertCreate_ // create the contract cid_1_0
           .beginTry // open a try context
-          .insertCreate_ // create the contract cid_1_2
+          .insertCreate_ // create the contract cid_1_1
           .endTry // close the try context
-          .insertCreate_ // create the contract cid_1_3
+          .insertCreate_ // create the contract cid_1_2
           .endExercises_ // close the exercise context normally
           .insertCreate_ // create the contract cid_2
       )
@@ -137,8 +137,8 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
           .beginTry // open a first try context
           .beginExercises_ // open an exercise context
           .insertCreate_ // create the contract cid_1_0
+          .insertCreate_ // create the contract cid_1_1
           .insertCreate_ // create the contract cid_1_2
-          .insertCreate_ // create the contract cid_1_3
           // an exception is thrown
           .abortExercises // close abruptly the exercise due to an uncaught exception
           .rollbackTry_ // the try context handles the exception
@@ -151,9 +151,9 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
           .beginTry // open a first try context
           .beginExercises_ // open an exercise context
           .insertCreate_ // create the contract cid_1_0
-          .insertCreate_ // create the contract cid_1_2
+          .insertCreate_ // create the contract cid_1_1
           .beginTry // open a second try context
-          .insertCreate_ // create the contract cid_1_3
+          .insertCreate_ // create the contract cid_1_2
           // an exception is thrown
           .abortTry // the second try context does not handle the exception
           .abortExercises // close abruptly the exercise due to an uncaught exception
@@ -175,9 +175,9 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
           .insertCreate_ // create the contract cid_2
       )
 
-      run1 shouldBe Seq(cid_0, cid_2)
-      run2 shouldBe Seq(cid_0, cid_2)
-      run3 shouldBe Seq(cid_0, cid_1_0, cid_1_2, cid_2)
+      run1 shouldBe Seq(cid_0, cid_1_0, cid_1_1, cid_1_2, cid_2)
+      run2 shouldBe Seq(cid_0, cid_1_0, cid_1_1, cid_1_2, cid_2)
+      run3 shouldBe Seq(cid_0, cid_1_0, cid_1_1, cid_1_2, cid_2)
     }
   }
 

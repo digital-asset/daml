@@ -4,25 +4,26 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.Ast._
+import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.PartialTransaction._
-import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction, LeafNode}
+import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeRollback}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.validation.Validation
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value._
+import com.daml.lf.value.Value.{ValueRecord, ValueInt64}
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
+  import ExceptionTest._
 
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
@@ -194,43 +195,60 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        }
       """)
 
-  val testCases = Table[String, List[Long]](
+  val testCases = Table[String, List[Tree]](
     ("expression", "expected-number-of-contracts"),
     ("create0", Nil),
-    ("create1", List(100)),
-    ("create2", List(100, 200)),
-    ("create3", List(100, 200, 300)),
-    ("create3nested", List(100, 200, 300)),
-    ("create3catchNoThrow", List(100, 200, 300)),
-    ("create3throwAndCatch", List(300)),
-    ("create3throwAndOuterCatch", List(300)),
-    ("exer1", List(100, 400, 500, 200, 300)),
-    ("exer2", List(100, 300)),
+    ("create1", List(C(100))),
+    ("create2", List(C(100), C(200))),
+    ("create3", List(C(100), C(200), C(300))),
+    ("create3nested", List(C(100), C(200), C(300))),
+    ("create3catchNoThrow", List(C(100), C(200), C(300))),
+    ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+    ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+    ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
+    ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
   )
 
-  forEvery(testCases) { (exp: String, expected: List[Long]) =>
+  forEvery(testCases) { (exp: String, expected: List[Tree]) =>
     s"""$exp, contracts expected: $expected """ in {
       val party = Party.assertFromString("Alice")
       val lit: PrimLit = PLParty(party)
       val arg: Expr = EPrimLit(lit)
       val example: Expr = EApp(e"M:$exp", arg)
       val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example, party)
-      val ids: Seq[Long] = contractValuesInOrder(tx)
+      val ids: List[Tree] = shapeOfTransaction(tx)
       ids shouldBe expected
     }
   }
 
-  private def contractValuesInOrder(tx: SubmittedTransaction): Seq[Long] = {
-    tx.fold(Vector.empty[Long]) {
-      case (acc, (_, create: Node.NodeCreate[Value.ContractId])) =>
-        create.arg match {
-          case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
-            acc :+ n
-          case _ =>
-            sys.error(s"unexpected create.arg: ${create.arg}")
-        }
-      case (acc, _) => acc
+}
+
+object ExceptionTest {
+
+  sealed trait Tree //minimal transaction tree, for purposes of writing test expectation
+  final case class C(x: Long) extends Tree //Create Node
+  final case class X(x: List[Tree]) extends Tree //Exercise Node
+  final case class R(x: List[Tree]) extends Tree //Rollback Node
+
+  private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
+    def trees(nid: NodeId): List[Tree] = {
+      tx.nodes(nid) match {
+        case create: NodeCreate[_] =>
+          create.arg match {
+            case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
+              List(C(n))
+            case _ =>
+              sys.error(s"unexpected create.arg: ${create.arg}")
+          }
+        case _: LeafNode =>
+          Nil
+        case node: NodeExercises[_, _] =>
+          List(X(node.children.toList.flatMap(nid => trees(nid))))
+        case node: NodeRollback[_] =>
+          List(R(node.children.toList.flatMap(nid => trees(nid))))
+      }
     }
+    tx.roots.toList.flatMap(nid => trees(nid))
   }
 
 }
