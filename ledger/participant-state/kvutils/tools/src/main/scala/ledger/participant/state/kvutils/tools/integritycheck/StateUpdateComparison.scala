@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.DefaultNormalizers
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.MandatoryNormalizers
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -78,12 +78,12 @@ object ReadServiceStateUpdateComparison {
       actualUpdatesNormalizers: Seq[UpdateNormalizer],
   ): Future[Unit] = {
     val expectedNormalizedUpdate =
-      (expectedUpdatesNormalizers ++ DefaultNormalizers).foldLeft(expectedUpdate) {
+      (expectedUpdatesNormalizers ++ MandatoryNormalizers).foldLeft(expectedUpdate) {
         case (update, normalizer) =>
           normalizer.normalize(update)
       }
     val actualNormalizedUpdate =
-      (actualUpdatesNormalizers ++ DefaultNormalizers).foldLeft(actualUpdate) {
+      (actualUpdatesNormalizers ++ MandatoryNormalizers).foldLeft(actualUpdate) {
         case (update, normalizer) =>
           normalizer.normalize(update)
       }

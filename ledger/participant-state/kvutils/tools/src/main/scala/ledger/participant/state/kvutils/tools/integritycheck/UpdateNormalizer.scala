@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import com.daml.ledger.participant.state.v1.{RejectionReason, TransactionId, Update}
+import com.daml.ledger.participant.state.v1.{RejectionReason, Update}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.kv.TransactionNormalizer
 import com.daml.lf.transaction.CommittedTransaction
@@ -16,7 +16,7 @@ trait UpdateNormalizer {
 }
 
 object UpdateNormalizer {
-  val DefaultNormalizers = List(
+  val MandatoryNormalizers = List(
     RecordTimeNormalizer,
     RejectionReasonDescriptionNormalizer,
     ConfigurationChangeRejectionNormalizer,

@@ -7,7 +7,7 @@ import java.io.PrintWriter
 import java.nio.file.Path
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.DefaultNormalizers
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.MandatoryNormalizers
 import com.daml.ledger.participant.state.v1.ReadService
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,7 +49,7 @@ object StateUpdateExporter {
     readService
       .stateUpdates(None)
       .runForeach { case (_, update) =>
-        val normalizedUpdate = (normalizers ++ DefaultNormalizers).foldLeft(update) {
+        val normalizedUpdate = (normalizers ++ MandatoryNormalizers).foldLeft(update) {
           case (update, normalizer) =>
             normalizer.normalize(update)
         }
