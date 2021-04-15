@@ -253,6 +253,7 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ValueLimitsIT",
     ],
 )
 
@@ -265,6 +266,7 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ValueLimitsIT",
     ],
 )
 
