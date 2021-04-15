@@ -108,8 +108,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset]
 
-  /** Looks up the current ledger end sequential id */
-  def lookupLedgerEndSequentialId()(implicit loggingContext: LoggingContext): Future[Long]
+  /** Looks up the current ledger end as the offset and event sequential id */
+  def lookupLedgerEndOffsetAndSequentialId()(implicit
+      loggingContext: LoggingContext
+  ): Future[(Offset, Long)]
 
   /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]

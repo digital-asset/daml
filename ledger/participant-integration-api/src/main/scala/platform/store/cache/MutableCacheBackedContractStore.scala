@@ -4,21 +4,26 @@
 package com.daml.platform.store.cache
 
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
+import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.Resource
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
+  CacheIndex,
   ContractNotFound,
   EmptyContractIds,
+  SignalNewLedgerHead,
+  SubscribeToContractStateEvents,
 }
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.ContractStateEvent.LedgerEndMarker
@@ -29,28 +34,45 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
   KeyState,
 }
+import com.daml.scalautil.Statement.discard
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
-    signalNewLedgerHead: Offset => Unit,
+    signalNewLedgerHead: SignalNewLedgerHead,
+    subscribeToContractStateEvents: SubscribeToContractStateEvents,
     private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
-)(implicit
-    executionContext: ExecutionContext
-) extends ContractStore {
-  private val logger = ContextualizedLogger.get(getClass)
-  private[cache] val cacheOffset = new AtomicLong(0L)
+    minBackoffStreamRestart: FiniteDuration,
+)(implicit mat: Materializer, executionContext: ExecutionContext, loggingContext: LoggingContext)
+    extends ContractStore
+    with AutoCloseable {
 
-  def consumeFrom(implicit
-      loggingContext: LoggingContext
-  ): Flow[ContractStateEvent, Unit, NotUsed] =
-    Flow[ContractStateEvent]
-      .wireTap(debugEvents(_))
-      .alsoTo(Sink.foreach(updateCaches))
-      .map(updateOffsets)
+  private val logger = ContextualizedLogger.get(getClass)
+
+  private[cache] val cacheIndex = new CacheIndex()
+
+  private val (contractStateUpdateKillSwitch, contractStateUpdateDone) =
+    RestartSource
+      .withBackoff(
+        RestartSettings(
+          minBackoff = minBackoffStreamRestart,
+          maxBackoff = 10.seconds,
+          randomFactor = 0.2,
+        )
+      )(() =>
+        subscribeToContractStateEvents
+          .tupled(cacheIndex.get)
+          .wireTap(debugEvents(_))
+          .alsoTo(Sink.foreach(updateCaches))
+          .map(updateOffsets)
+      )
+      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
+      .run()
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
@@ -100,7 +122,7 @@ class MutableCacheBackedContractStore(
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ) = {
-    val currentCacheOffset = cacheOffset.get()
+    val currentCacheOffset = cacheIndex.getSequentialId
     val fetchStateRequest =
       Timed.future(
         metrics.daml.index.lookupContract,
@@ -186,7 +208,7 @@ class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext) = {
-    val currentOffset = cacheOffset.get()
+    val currentOffset = cacheIndex.getSequentialId
     val eventualResult = contractsReader.lookupKeyState(key, currentOffset)
     val eventualValue = eventualResult.map(toKeyCacheValue)
 
@@ -200,7 +222,7 @@ class MutableCacheBackedContractStore(
     one.intersect(other).nonEmpty
 
   private def updateOffsets(event: ContractStateEvent): Unit = {
-    cacheOffset.set(event.eventSequentialId)
+    cacheIndex.set(event.eventOffset, event.eventSequentialId)
     metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(event.eventSequentialId)
     event match {
       case LedgerEndMarker(eventOffset, _) => signalNewLedgerHead(eventOffset)
@@ -273,43 +295,61 @@ class MutableCacheBackedContractStore(
           s"Ledger end reached: $eventOffset -> $eventSequentialId"
         )
     }
+
+  override def close(): Unit = {
+    contractStateUpdateKillSwitch.shutdown()
+
+    discard(Await.ready(contractStateUpdateDone, 10.seconds))
+  }
 }
 
 object MutableCacheBackedContractStore {
   type EventSequentialId = Long
   // Signal externally that the cache has caught up until the provided ledger head offset
   type SignalNewLedgerHead = Offset => Unit
+  // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
+  type SubscribeToContractStateEvents = (Offset, Long) => Source[ContractStateEvent, NotUsed]
 
   private[cache] def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
+      subscribeToContractStateEvents: SubscribeToContractStateEvents,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
+      minBackoffStreamRestart: FiniteDuration = 100.millis,
   )(implicit
-      executionContext: ExecutionContext
+      mat: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): MutableCacheBackedContractStore =
     new MutableCacheBackedContractStore(
       metrics,
       contractsReader,
       signalNewLedgerHead,
+      subscribeToContractStateEvents,
       ContractKeyStateCache(maxKeyCacheSize, metrics),
       ContractsStateCache(maxContractsCacheSize, metrics),
+      minBackoffStreamRestart,
     )
 
   def owner(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: Offset => Unit,
+      subscribeToContractStateEvents: SubscribeToContractStateEvents,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
   )(implicit
-      executionContext: ExecutionContext
+      mat: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Resource[MutableCacheBackedContractStore] =
     Resource.successful(
       MutableCacheBackedContractStore(
         contractsReader,
         signalNewLedgerHead,
+        subscribeToContractStateEvents,
         metrics,
         maxContractsCacheSize,
         maxKeyCacheSize,
@@ -325,4 +365,18 @@ object MutableCacheBackedContractStore {
       extends IllegalArgumentException(
         "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
       )
+
+  private[cache] class CacheIndex {
+    private val offsetRef =
+      new AtomicReference(Offset.beforeBegin -> EventSequentialId.beforeBegin)
+
+    def set(offset: Offset, sequentialId: EventSequentialId): Unit =
+      offsetRef.set(offset -> sequentialId)
+
+    def get: (Offset, EventSequentialId) = offsetRef.get()
+
+    def getSequentialId: EventSequentialId = offsetRef.get()._2
+
+    def getOffset: Offset = offsetRef.get()._1
+  }
 }
