@@ -21,10 +21,13 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.dao
+import com.daml.platform.store.dao.LedgerReadDao
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
+
+import com.daml.platform.store.appendonlydao
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -58,9 +61,7 @@ private[platform] object ReadOnlySqlLedger {
         ledger <- ledgerOwner(ledgerDao, ledgerId).acquire()
       } yield ledger
 
-    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId)(implicit
-        context: ResourceContext
-    ) =
+    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
       if (enableMutableContractStateCache)
         new ReadOnlySqlLedgerWithMutableContractStateCache.Owner(
           ledgerDao,
@@ -119,8 +120,8 @@ private[platform] object ReadOnlySqlLedger {
     private def ledgerDaoOwner(
         servicesExecutionContext: ExecutionContext
     ): ResourceOwner[LedgerReadDao] =
-      if (enableAppendOnlySchema) {
-        com.daml.platform.store.appendonlydao.JdbcLedgerDao.readOwner(
+      if (enableAppendOnlySchema)
+        appendonlydao.JdbcLedgerDao.readOwner(
           serverRole,
           jdbcUrl,
           databaseConnectionPoolSize,
@@ -130,8 +131,8 @@ private[platform] object ReadOnlySqlLedger {
           lfValueTranslationCache,
           Some(enricher),
         )
-      } else {
-        JdbcLedgerDao.readOwner(
+      else
+        dao.JdbcLedgerDao.readOwner(
           serverRole,
           jdbcUrl,
           databaseConnectionPoolSize,
@@ -141,7 +142,6 @@ private[platform] object ReadOnlySqlLedger {
           lfValueTranslationCache,
           Some(enricher),
         )
-      }
   }
 }
 
@@ -157,9 +157,6 @@ private[index] abstract class ReadOnlySqlLedger(
       contractStore,
       dispatcher,
     ) {
-
-  protected def ledgerEndUpdateKillSwitch: UniqueKillSwitch
-  protected def ledgerEndUpdateDone: Future[Done]
 
   // Periodically remove all expired deduplication cache entries.
   // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing
@@ -181,13 +178,10 @@ private[index] abstract class ReadOnlySqlLedger(
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
-    // Terminate the dispatcher first so that it doesn't trigger new queries.
-    dispatcher.close()
-
     deduplicationCleanupKillSwitch.shutdown()
-    ledgerEndUpdateKillSwitch.shutdown()
+
     Await.result(deduplicationCleanupDone, 10.seconds)
-    Await.result(ledgerEndUpdateDone, 10.seconds)
+
     super.close()
   }
 }

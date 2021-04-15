@@ -6,21 +6,18 @@ import akka.{Done, NotUsed}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.MutableCacheBackedContractStore
 import com.daml.platform.store.dao.LedgerReadDao
-import com.daml.platform.store.dao.events.ContractStateEvent
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.concurrent.{Await, Future}
 
 private[index] object ReadOnlySqlLedgerWithMutableContractStateCache {
-
   final class Owner(
       ledgerDao: LedgerReadDao,
       ledgerId: LedgerId,
@@ -42,7 +39,7 @@ private[index] object ReadOnlySqlLedgerWithMutableContractStateCache {
           ledgerEndSequentialId,
         ).acquire()
         generalDispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
-        contractStore <- contractStoreOwner(generalDispatcher)
+        contractStore <- contractStoreOwner(generalDispatcher, contractStateEventsDispatcher)
         ledger <- ledgerOwner(contractStateEventsDispatcher, generalDispatcher, contractStore)
           .acquire()
       } yield ledger
@@ -64,12 +61,24 @@ private[index] object ReadOnlySqlLedgerWithMutableContractStateCache {
         )
     }
 
-    private def contractStoreOwner(generalDispatcher: Dispatcher[Offset])(implicit
+    private def contractStoreOwner(
+        generalDispatcher: Dispatcher[Offset],
+        contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
+    )(implicit
         context: ResourceContext
     ) =
       MutableCacheBackedContractStore.owner(
         contractsReader = ledgerDao.contractsReader,
         signalNewLedgerHead = generalDispatcher.signalNewHead,
+        subscribeToContractStateEvents = (offset: Offset, eventSequentialId: Long) =>
+          contractStateEventsDispatcher
+            .startingAt(
+              offset -> eventSequentialId,
+              RangeSource(
+                ledgerDao.transactionsReader.getContractStateEvents(_, _)
+              ),
+            )
+            .map(_._2),
         metrics = metrics,
         maxContractsCacheSize = maxContractStateCacheSize,
         maxKeyCacheSize = maxContractKeyStateCacheSize,
@@ -82,7 +91,7 @@ private[index] object ReadOnlySqlLedgerWithMutableContractStateCache {
       }
       Dispatcher.owner(
         name = "contract-state-events",
-        zeroIndex = (Offset.beforeBegin, EventSequentialId.BeforeBegin),
+        zeroIndex = (Offset.beforeBegin, EventSequentialId.beforeBegin),
         headAtInitialization = (ledgerEnd, evtSeqId),
       )
     }
@@ -104,7 +113,6 @@ private final class ReadOnlySqlLedgerWithMutableContractStateCache(
     dispatcher: Dispatcher[Offset],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(ledgerId, ledgerDao, contractStore, dispatcher) {
-  private val logger = ContextualizedLogger.get(getClass)
 
   protected val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
@@ -121,36 +129,10 @@ private final class ReadOnlySqlLedgerWithMutableContractStateCache(
       )
       .run()
 
-  private val (contractStateUpdateKillSwitch, contractStateUpdateDone) =
-    contractStateEvents
-      .map(_._2)
-      .via(contractStore.consumeFrom)
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
-      .run()
-
-  contractStateUpdateDone
-    .onComplete { // TDT No bueno, it dies silently
-      case Failure(exception) =>
-        logger.error("Event state consumption stream failed", exception)
-      case Success(_) =>
-        logger.info("Finished consuming state events")
-    }(mat.executionContext)
-
-  private def contractStateEvents(implicit
-      loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
-    contractStateEventsDispatcher.startingAt(
-      Offset.beforeBegin -> EventSequentialId.BeforeBegin, // Always start from initialization head
-      RangeSource(
-        ledgerDao.transactionsReader.getContractStateEvents(_, _)
-      ),
-    )
-
   override def close(): Unit = {
-    contractStateEventsDispatcher.close() // TDT why not handle with a resource?
-    contractStateUpdateKillSwitch.shutdown()
-    Await.result(contractStateUpdateDone, 10.seconds)
+    ledgerEndUpdateKillSwitch.shutdown()
+
+    Await.ready(ledgerEndUpdateDone, 10.seconds)
 
     super.close()
   }

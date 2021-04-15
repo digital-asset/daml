@@ -16,10 +16,11 @@ import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.LedgerReadDao
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 private[index] object ReadOnlySqlLedgerWithTranslationCache {
+
   final class Owner(
       ledgerDao: LedgerReadDao,
       ledgerId: LedgerId,
@@ -88,4 +89,12 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )
       .run()
+
+  override def close(): Unit = {
+    ledgerEndUpdateKillSwitch.shutdown()
+
+    Await.result(ledgerEndUpdateDone, 10.seconds)
+
+    super.close()
+  }
 }

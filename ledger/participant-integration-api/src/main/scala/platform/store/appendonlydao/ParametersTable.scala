@@ -37,8 +37,8 @@ private[appendonlydao] object ParametersTable {
       .map(SqlParser.flatten)
       .map {
         case (Some(offset), Some(seqId)) => (offset, seqId)
-        case (Some(offset), None) => (offset, EventSequentialId.BeforeBegin)
-        case (None, None) => (Offset.beforeBegin, EventSequentialId.BeforeBegin)
+        case (Some(offset), None) => (offset, EventSequentialId.beforeBegin)
+        case (None, None) => (Offset.beforeBegin, EventSequentialId.beforeBegin)
         case (None, Some(_)) =>
           throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
       }
@@ -99,5 +99,5 @@ private[appendonlydao] object ParametersTable {
 }
 
 private[platform] object EventSequentialId {
-  val BeforeBegin = 0L
+  val beforeBegin = 0L
 }
