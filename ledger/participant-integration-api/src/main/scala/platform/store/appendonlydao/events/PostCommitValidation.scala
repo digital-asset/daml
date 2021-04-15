@@ -7,7 +7,6 @@ import java.sql.Connection
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReason}
-import com.daml.lf.transaction.{Node => LFNode}
 
 /** Performs post-commit validation on transactions for Sandbox Classic.
   * This is intended exclusively as a temporary replacement for
@@ -111,21 +110,7 @@ private[appendonlydao] object PostCommitValidation {
     private def validateParties(
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[RejectionReason] = {
-      def foldInformees[T](tx: CommittedTransaction, init: T)(
-          f: (T, Party) => T
-      ): T =
-        tx.fold(init) {
-          case (accum, (_, node: LFNode.GenActionNode[_, _])) =>
-            node.informeesOfNode.foldLeft(accum)(f)
-          case (accum, (_, _: LFNode.NodeRollback[_])) =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            //  Check impact of rollback
-            accum
-        }
-
-      val informees = foldInformees(transaction, Seq.empty[Party]) { (informeesSoFar, partyId) =>
-        partyId +: informeesSoFar
-      }
+      val informees = transaction.informees.toSeq
       val allocatedInformees = data.lookupParties(informees).map(_.party)
       if (allocatedInformees.toSet == informees.toSet)
         None

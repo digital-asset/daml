@@ -279,6 +279,16 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   def roots: ImmArray[Nid]
 
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  //  check this make seen w.r.t. the ledger model
+  /** The informees of a all transaction.
+    */
+  def informees: Set[Ref.Party] =
+    nodes.values.foldLeft(Set.empty[Ref.Party]) {
+      case (acc, node: Node.GenActionNode[_, _]) => acc | node.informeesOfNode
+      case (acc, _: Node.NodeRollback[_]) => acc
+    }
+
   // TODO: https://github.com/digital-asset/daml/issues/8020
   //  for now we assume that rollback node cannot be a root of a transaction.
   @throws[IllegalArgumentException]
