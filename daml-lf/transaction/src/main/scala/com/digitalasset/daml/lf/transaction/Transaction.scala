@@ -279,6 +279,13 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   def roots: ImmArray[Nid]
 
+  /** The union of the informees of a all the action nodes. */
+  lazy val informees: Set[Ref.Party] =
+    nodes.values.foldLeft(Set.empty[Ref.Party]) {
+      case (acc, node: Node.GenActionNode[_, _]) => acc | node.informeesOfNode
+      case (acc, _: Node.NodeRollback[_]) => acc
+    }
+
   // TODO: https://github.com/digital-asset/daml/issues/8020
   //  for now we assume that rollback node cannot be a root of a transaction.
   @throws[IllegalArgumentException]
