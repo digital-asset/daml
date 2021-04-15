@@ -14,9 +14,9 @@ import com.daml.ledger.test.semantic.RaceTests._
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.timer.Delayed
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.Success
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 final class RaceConditionIT extends LedgerTestSuite {
 
@@ -28,9 +28,9 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot concurrently create multiple non-transient contracts with the same key",
     runConcurrently = true,
   ) { implicit ec => ledger => alice =>
-    val Attempts = 5
+    val attempts = (1 to 5).toVector
     Future
-      .traverse(1 to Attempts) { _ =>
+      .traverse(attempts) { _ =>
         ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
       }
       .map { results =>
@@ -47,10 +47,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot archive the same contract multiple times",
     runConcurrently = true,
   ) { implicit ec => ledger => alice =>
-    val Attempts = 5
+    val attempts = (1 to 5).toVector
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
-      _ <- Future.traverse(1 to Attempts) { _ =>
+      _ <- Future.traverse(attempts) { _ =>
         ledger.exercise(alice, contract.exerciseContractWithKey_Archive).transform(Success(_))
       }
       transactions <- transactions(ledger, alice)
@@ -129,7 +129,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     for {
       wrapper <- ledger.create(alice, CreateWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
-        attempts = 20,
+        numberOfAttempts = 20,
         once = ledger.create(alice, ContractWithKey(alice)).map(_ => ()),
         repeated =
           ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateTransient).map(_ => ()),
@@ -155,7 +155,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     for {
       contract <- ledger.create(alice, ContractWithKey(alice))
       _ <- executeRepeatedlyWithRandomDelay(
-        attempts = 10,
+        numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
         repeated = ledger.exercise(alice, contract.exerciseContractWithKey_Exercise),
       )
@@ -182,7 +182,7 @@ final class RaceConditionIT extends LedgerTestSuite {
       contract <- ledger.create(alice, ContractWithKey(alice))
       fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
       _ <- executeRepeatedlyWithRandomDelay(
-        attempts = 10,
+        numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
         repeated = ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch),
       )
@@ -208,7 +208,7 @@ final class RaceConditionIT extends LedgerTestSuite {
       contract <- ledger.create(alice, ContractWithKey(alice))
       looker <- ledger.create(alice, LookupWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
-        attempts = 20,
+        numberOfAttempts = 20,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
       )
@@ -232,7 +232,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     for {
       looker <- ledger.create(alice, LookupWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
-        attempts = 5,
+        numberOfAttempts = 5,
         once = ledger.create(alice, ContractWithKey(alice)),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
       )
@@ -251,15 +251,14 @@ final class RaceConditionIT extends LedgerTestSuite {
   }
 
   private def executeRepeatedlyWithRandomDelay[T](
-      attempts: Int,
+      numberOfAttempts: Int,
       once: => Future[T],
       repeated: => Future[T],
-  )(implicit
-      ec: ExecutionContext
-  ) = {
-    Future.traverse(1 to attempts) { attempt =>
+  )(implicit ec: ExecutionContext): Future[Vector[Try[T]]] = {
+    val attempts = (1 to numberOfAttempts).toVector
+    Future.traverse(attempts) { attempt =>
       scheduleWithRandomDelay(upTo = 20.millis) { _ =>
-        (if (attempt == attempts) {
+        (if (attempt == numberOfAttempts) {
            once
          } else {
            repeated
