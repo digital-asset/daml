@@ -311,6 +311,7 @@ alias(
             "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_tpolecat_doobie_core",
             "@maven//:org_tpolecat_doobie_free",
+            "@maven//:org_tpolecat_doobie_postgres",
             "@maven//:org_typelevel_cats_core",
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
