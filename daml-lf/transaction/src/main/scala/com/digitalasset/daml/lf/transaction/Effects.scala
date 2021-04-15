@@ -6,75 +6,68 @@ package com.daml.lf.transaction
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-/** The effects of the transaction, that is what contracts
-  * were consumed and created, and what contract keys were updated.
-  */
-/** @param consumedContracts
+import scala.collection.immutable.{TreeMap, TreeSet}
+
+/** The effects of a transaction, that is:
+  * @param consumedContracts
   *     The contracts consumed by this transaction.
-  *     When committing the transaction these contracts must be marked consumed.
-  *     A contract should be marked consumed when the transaction is committed,
-  *     regardless of the ledger effective time of the transaction (e.g. a transaction
-  *     with an earlier ledger effective time that gets committed later would find the
-  *     contract inactive).
   * @param createdContracts
   *     The contracts created by this transaction.
-  *     When the transaction is committed, keys marking the activeness of these
-  *     contracts should be created. The key should be a combination of the transaction
-  *     id and the relative contract id (that is, the node index).
   * @param updatedContractKeys
   *     The contract keys created or updated as part of the transaction.
   */
 final case class Effects(
-    consumedContracts: List[ContractId],
-    createdContracts: List[(ContractId, Node.NodeCreate[ContractId])],
-    updatedContractKeys: Map[GlobalKey, Option[ContractId]],
+    consumedContracts: TreeSet[ContractId],
+    createdContracts: TreeMap[ContractId, Node.NodeCreate[ContractId]],
+    updatedContractKeys: TreeMap[GlobalKey, Option[ContractId]],
 )
 
 /** utilities to compute the effects of a DAML transaction */
 object Effects {
 
-  val Empty = Effects(List.empty, List.empty, Map.empty)
+  val Empty = Effects(TreeSet.empty, TreeMap.empty, TreeMap.empty)
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(tx: Transaction.Transaction): Effects = {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     //  fold bottom up (with reversed roots!) and skip creates of archived contracts.
-    tx.fold(Effects.Empty) { case (effects, (_, node)) =>
+    tx.fold(Effects.Empty) { case (acc, (_, node)) =>
       node match {
+        case create: Node.NodeCreate[Value.ContractId] =>
+          val createdContracts = acc.createdContracts.updated(create.coid, create)
+          val updatedContractKeys = create.key match {
+            case Some(keyWithMaintainers) =>
+              val globalKey = GlobalKey.assertBuild(create.templateId, keyWithMaintainers.key)
+              acc.updatedContractKeys.updated(globalKey, Some(create))
+            case None =>
+              acc.updatedContractKeys
+          }
+          acc.copy(
+            createdContracts = createdContracts,
+            updatedContractKeys = updatedContractKeys,
+          )
+
+        case exe: Node.NodeExercises[NodeId, Value.ContractId] if exe.consuming =>
+          val consumedContracts = acc.consumedContracts + exe.targetCoid
+          val updatedContractKeys = exe.key match {
+            case Some(keyWithMaintainers) =>
+              val globalKey = GlobalKey.assertBuild(exe.templateId, keyWithMaintainers.key)
+              acc.updatedContractKeys.updated(globalKey, None)
+            case None =>
+              acc.updatedContractKeys
+          }
+          acc.copy(
+            consumedContracts = consumedContracts,
+            updatedContractKeys = updatedContractKeys,
+          )
+
+        case _: Node.NodeLookupByKey[_] | _: Node.NodeLookupByKey[_] |
+            _: Node.NodeExercises[_, _] =>
+          acc
+
         case _: Node.NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           sys.error("rollback nodes are not supported")
-        case _: Node.NodeFetch[Value.ContractId] =>
-          effects
-        case create: Node.NodeCreate[Value.ContractId] =>
-          effects.copy(
-            createdContracts = create.coid -> create :: effects.createdContracts,
-            updatedContractKeys = create.key
-              .fold(effects.updatedContractKeys)(keyWithMaintainers =>
-                effects.updatedContractKeys.updated(
-                  GlobalKey.assertBuild(create.coinst.template, keyWithMaintainers.key),
-                  Some(create.coid),
-                )
-              ),
-          )
-
-        case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
-          if (exe.consuming) {
-            effects.copy(
-              consumedContracts = exe.targetCoid :: effects.consumedContracts,
-              updatedContractKeys = exe.key
-                .fold(effects.updatedContractKeys)(key =>
-                  effects.updatedContractKeys.updated(
-                    GlobalKey.assertBuild(exe.templateId, key.key),
-                    None,
-                  )
-                ),
-            )
-          } else {
-            effects
-          }
-        case _: Node.NodeLookupByKey[Value.ContractId] =>
-          effects
       }
     }
   }

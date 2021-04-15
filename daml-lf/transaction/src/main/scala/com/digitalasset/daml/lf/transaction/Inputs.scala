@@ -7,23 +7,16 @@ import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-import scala.collection.immutable.TreeSet
+import scala.collection.immutable.{TreeMap, TreeSet}
 
-/** The inputs of the transaction, that is:
-  *   - the contracts were fetched
-  *   - all the parties involved
-  *   - all the contract keys creted, consumed, fetch, or looked up.
-  */
-/** @param contracts
-  *     The contracts fetched by this transaction.
-  *
+/** The Input of a transactions, that is:
+  * @param contracts
+  *     The contracts fetched or looked up by the transaction.
   * @param parties
-  *     The contracts created by this transaction.
-  *     When the transaction is committed, keys marking the activeness of these
-  *     contracts should be created. The key should be a combination of the transaction
-  *     id and the relative contract id (that is, the node index).
+  *     The union of the informees of all the nodes of the transaction
   * @param keys
-  *     The contract keys created or updated as part of the transaction.
+  *     The contract keys created, exercise, fetched or lookup or updated
+  *      as part of the transaction.
   */
 case class Inputs(
     contracts: TreeSet[ContractId],
@@ -50,7 +43,7 @@ object Inputs {
         addContract(coid)
 
     def addPartyInputs(parties: Set[Ref.Party]): Unit =
-      parties.toList.sorted(Ref.Party.ordering).foreach(addParty)
+      parties.foreach(addParty)
 
     def addContractKey(
         tmplId: Ref.Identifier,
@@ -60,28 +53,31 @@ object Inputs {
 
     tx.foreach { case (_, node) =>
       node match {
-        case _: Node.NodeRollback[_] =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
         case fetch: Node.NodeFetch[Value.ContractId] =>
           addContractInput(fetch.coid)
           fetch.key.foreach(addContractKey(fetch.templateId, _))
+          addPartyInputs(fetch.informeesOfNode)
 
         case create: Node.NodeCreate[Value.ContractId] =>
           create.key.foreach(addContractKey(create.templateId, _))
+          addPartyInputs(create.informeesOfNode)
 
         case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
           addContractInput(exe.targetCoid)
           exe.key.foreach(addContractKey(exe.templateId, _))
+          addPartyInputs(exe.informeesOfNode)
 
         case lookup: Node.NodeLookupByKey[Value.ContractId] =>
           // We need both the contract key state and the contract state. The latter is used to verify
           // that the submitter can access the contract.
           lookup.result.foreach(addContractInput)
           addContractKey(lookup.templateId, lookup.key)
-      }
+          addPartyInputs(lookup.informeesOfNode)
 
-      addPartyInputs(node.informeesOfNode)
+        case _: Node.NodeRollback[_] =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
+      }
     }
   }
 
