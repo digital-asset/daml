@@ -16,11 +16,17 @@ trait UpdateNormalizer {
 }
 
 object UpdateNormalizer {
-  val MandatoryNormalizers = List(
+  private val MandatoryNormalizers = List(
     RecordTimeNormalizer,
     RejectionReasonDescriptionNormalizer,
     ConfigurationChangeRejectionNormalizer,
   )
+
+  def normalize(update: Update, updateNormalizers: Seq[UpdateNormalizer]): Update = {
+    (updateNormalizers ++ MandatoryNormalizers).foldLeft(update) { case (update, normalizer) =>
+      normalizer.normalize(update)
+    }
+  }
 }
 
 /** Ignores the record time set later by post-execution because it's unimportant.

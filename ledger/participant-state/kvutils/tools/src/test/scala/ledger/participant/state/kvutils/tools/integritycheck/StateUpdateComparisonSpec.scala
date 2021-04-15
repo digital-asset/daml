@@ -50,8 +50,8 @@ final class StateUpdateComparisonSpec
           .compareUpdates(
             aCommandRejectedUpdate.copy(reason = left),
             aCommandRejectedUpdate.copy(reason = right),
-            List.empty,
-            List.empty,
+            expectedUpdatesNormalizers = List.empty,
+            actualUpdatesNormalizers = List.empty,
           )
           .map(_ => succeed)
       }
@@ -85,8 +85,8 @@ final class StateUpdateComparisonSpec
         .compareUpdates(
           left,
           right,
-          normalizers,
-          normalizers,
+          expectedUpdatesNormalizers = normalizers,
+          actualUpdatesNormalizers = normalizers,
         )
         .map(_ => succeed)
     }
