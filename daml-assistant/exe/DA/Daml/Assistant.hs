@@ -375,7 +375,6 @@ argWhitelist = S.fromList
     , "oauth2-middleware"
     , "script"
     , "test-script"
-    , "export"
     ]
 
 mkLogTable :: [(T.Text, A.Value)] -> A.Value
