@@ -696,22 +696,29 @@ private object OracleQueries extends Queries {
           )
       }
       import Queries.CompatImplicits.catsReducibleFromFoldable1
+      val outerSelectList =
+        sql"""contract_id, template_id, key, payload, agreement_text,
+              pctSignatories, pctObservers"""
       // % is explicitly reserved by specification as a delimiter
-      val q =
-        sql"SELECT c.contract_id, " ++ tpid ++ sql""", key, payload, agreement_text, sd.parties, od.parties
-            FROM (contract c
-                  LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
-                  LEFT JOIN observers om ON (c.contract_id = om.contract_id))
-                 LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
-                            FROM signatories GROUP BY contract_id) sd
-                        ON (c.contract_id = sd.contract_id)
-                 LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
-                            FROM observers GROUP BY contract_id) od
-                        ON (c.contract_id = od.contract_id)
-            WHERE (""" ++ Fragments.in(fr"sm.party", parties) ++
-          fr" OR " ++ Fragments.in(fr"om.party", parties) ++
-          sql""")
-                  AND """ ++ queriesCondition
+      val dupQ =
+        sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, agreement_text,
+                     sd.parties pctSignatories, od.parties pctObservers,
+                     row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber
+              FROM (contract c
+                    LEFT JOIN signatories sm ON (c.contract_id = sm.contract_id)
+                    LEFT JOIN observers om ON (c.contract_id = om.contract_id))
+                   LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
+                              FROM signatories GROUP BY contract_id) sd
+                          ON (c.contract_id = sd.contract_id)
+                   LEFT JOIN (SELECT contract_id, LISTAGG(party, '%') parties
+                              FROM observers GROUP BY contract_id) od
+                          ON (c.contract_id = od.contract_id)
+              WHERE (${Fragments.in(fr"sm.party", parties)}
+                     OR ${Fragments.in(fr"om.party", parties)})
+                    AND $queriesCondition"""
+      // see https://github.com/digital-asset/daml/issues/9388#issuecomment-820538688
+      // for a demonstration
+      val q = sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1"
       q.query[
         (String, Mark0, JsValue, JsValue, Option[String], Option[String], Option[String])
       ].map { case (cid, tpid, key, payload, agreement, pctSignatories, pctObservers) =>
