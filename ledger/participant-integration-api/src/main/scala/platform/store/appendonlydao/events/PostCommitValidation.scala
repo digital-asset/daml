@@ -110,9 +110,9 @@ private[appendonlydao] object PostCommitValidation {
     private def validateParties(
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[RejectionReason] = {
-      val informees = transaction.informees.toSeq
-      val allocatedInformees = data.lookupParties(informees).map(_.party)
-      if (allocatedInformees.toSet == informees.toSet)
+      val informees = transaction.informees
+      val allocatedInformees = data.lookupParties(informees.toSeq).map(_.party)
+      if (allocatedInformees.toSet == informees)
         None
       else
         Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
