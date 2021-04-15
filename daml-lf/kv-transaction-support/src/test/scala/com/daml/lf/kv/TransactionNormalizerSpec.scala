@@ -11,13 +11,16 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import com.daml.lf.data.ImmArray
 
-class NormalizerSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+class TransactionNormalizerSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalaCheckDrivenPropertyChecks {
 
   "normalizerTransaction" should {
 
     "only keeps Create and Exercise nodes" in {
       forAll(noDanglingRefGenVersionedTransaction(allowRollback = true)) { tx =>
-        val normalized = Normalizer.normalizeTransaction(CommittedTransaction(tx))
+        val normalized = TransactionNormalizer.normalize(CommittedTransaction(tx))
 
         val nidsBefore: Set[NodeId] = tx.nodes.keySet
         val nidsAfter: Set[NodeId] = normalized.nodes.keySet

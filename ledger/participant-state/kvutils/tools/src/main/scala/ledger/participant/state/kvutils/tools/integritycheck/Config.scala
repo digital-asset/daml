@@ -17,6 +17,8 @@ case class Config(
     jdbcUrl: Option[String] = None,
     expectedUpdatesPath: Option[Path] = None,
     actualUpdatesPath: Option[Path] = None,
+    expectedUpdatesNormalizers: Seq[UpdateNormalizer] = Seq.empty,
+    actualUpdatesNormalizers: Seq[UpdateNormalizer] = Seq.empty,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }

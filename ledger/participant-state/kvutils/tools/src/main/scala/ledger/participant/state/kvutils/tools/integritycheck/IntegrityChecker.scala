@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import java.io.{BufferedWriter, FileWriter}
+import java.io.PrintWriter
 import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.ActorSystem
@@ -58,6 +58,8 @@ class IntegrityChecker[LogResult](
     val stateUpdates = new ReadServiceStateUpdateComparison(
       expectedReadServiceFactory.createReadService,
       actualReadServiceFactory.createReadService,
+      config.expectedUpdatesNormalizers,
+      config.actualUpdatesNormalizers,
     )
 
     checkIntegrity(
@@ -94,7 +96,7 @@ class IntegrityChecker[LogResult](
       _ <- StateUpdateExporter.write(
         expectedReadServiceFactory.createReadService,
         actualReadServiceFactory.createReadService,
-        path => new BufferedWriter(new FileWriter(path.toFile)),
+        path => new PrintWriter(path.toFile),
         config,
       )
       _ <- compareStateUpdates(config, stateUpdates)
