@@ -280,7 +280,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   def roots: ImmArray[Nid]
 
   /** The union of the informees of a all the action nodes. */
-  def informees: Set[Ref.Party] =
+  lazy val informees: Set[Ref.Party] =
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
       case (acc, node: Node.GenActionNode[_, _]) => acc | node.informeesOfNode
       case (acc, _: Node.NodeRollback[_]) => acc
