@@ -230,7 +230,7 @@ jobs:
         }
         trap cleanup EXIT
         testConnection() {
-            docker exec oracle bash -c 'sqlplus -L system/hunter2@//localhost:1521/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
+            docker exec oracle bash -c 'sqlplus -L system/'"$ORACLE_PWD"'@//localhost:1521/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
         }
         until testConnection
         do
