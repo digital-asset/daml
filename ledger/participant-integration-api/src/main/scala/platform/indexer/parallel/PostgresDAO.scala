@@ -32,11 +32,53 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     c
   }
 
-  private val preparedInsertEventsBatch = connection.prepareStatement(
+  private val preparedInsertEventsBatchDivulgence = connection.prepareStatement(
     """
-      |INSERT INTO participant_events
+      |INSERT INTO participant_events_divulgence
       | (
-      |   event_kind,
+      |   contract_id,
+      |   command_id,
+      |   workflow_id,
+      |   application_id,
+      |   submitters,
+      |   create_argument,
+      |   template_id,
+      |   tree_event_witnesses,
+      |   event_sequential_id,
+      |   create_argument_compression
+      | )
+      | SELECT
+      |   contract_id_in,
+      |   command_id_in,
+      |   workflow_id_in,
+      |   application_id_in,
+      |   string_to_array(submitters_in, '|'),
+      |   create_argument_in,
+      |   template_id_in,
+      |   string_to_array(tree_event_witnesses_in, '|'),
+      |   event_sequential_id_in,
+      |   create_argument_compression_in::smallint
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?)
+      | as t(
+      |   contract_id_in,
+      |   command_id_in,
+      |   workflow_id_in,
+      |   application_id_in,
+      |   submitters_in,
+      |   create_argument_in,
+      |   template_id_in,
+      |   tree_event_witnesses_in,
+      |   event_sequential_id_in,
+      |   create_argument_compression_in
+      | );
+      |
+      |""".stripMargin
+  )
+
+  private val preparedInsertEventsBatchCreate = connection.prepareStatement(
+    """
+      |INSERT INTO participant_events_create
+      | (
       |   event_id,
       |   event_offset,
       |   contract_id,
@@ -53,22 +95,14 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   create_agreement_text,
       |   create_key_value,
       |   create_key_hash,
-      |   exercise_choice,
-      |   exercise_argument,
-      |   exercise_result,
-      |   exercise_actors,
-      |   exercise_child_event_ids,
       |   template_id,
       |   flat_event_witnesses,
       |   tree_event_witnesses,
       |   event_sequential_id,
       |   create_argument_compression,
-      |   create_key_value_compression,
-      |   exercise_argument_compression,
-      |   exercise_result_compression
+      |   create_key_value_compression
       | )
       | SELECT
-      |   event_kind_in,
       |   event_id_in,
       |   event_offset_in,
       |   contract_id_in,
@@ -85,22 +119,14 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   create_agreement_text_in,
       |   create_key_value_in,
       |   create_key_hash_in,
-      |   exercise_choice_in,
-      |   exercise_argument_in,
-      |   exercise_result_in,
-      |   string_to_array(exercise_actors_in, '|'),
-      |   string_to_array(exercise_child_event_ids_in, '|'),
       |   template_id_in,
       |   string_to_array(flat_event_witnesses_in, '|'),
       |   string_to_array(tree_event_witnesses_in, '|'),
       |   event_sequential_id_in,
       |   create_argument_compression_in::smallint,
-      |   create_key_value_compression_in::smallint,
-      |   exercise_argument_compression_in::smallint,
-      |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      |   create_key_value_compression_in::smallint
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       | as t(
-      |   event_kind_in,
       |   event_id_in,
       |   event_offset_in,
       |   contract_id_in,
@@ -117,6 +143,77 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   create_agreement_text_in,
       |   create_key_value_in,
       |   create_key_hash_in,
+      |   template_id_in,
+      |   flat_event_witnesses_in,
+      |   tree_event_witnesses_in,
+      |   event_sequential_id_in,
+      |   create_argument_compression_in,
+      |   create_key_value_compression_in
+      | );
+      |
+      |""".stripMargin
+  )
+
+  private val preparedInsertEventsBatchConsumingExercise = connection.prepareStatement(
+    """
+      |INSERT INTO participant_events_consuming_exercise
+      | (
+      |   event_id,
+      |   event_offset,
+      |   contract_id,
+      |   transaction_id,
+      |   ledger_effective_time,
+      |   node_index,
+      |   command_id,
+      |   workflow_id,
+      |   application_id,
+      |   submitters,
+      |   exercise_choice,
+      |   exercise_argument,
+      |   exercise_result,
+      |   exercise_actors,
+      |   exercise_child_event_ids,
+      |   template_id,
+      |   flat_event_witnesses,
+      |   tree_event_witnesses,
+      |   event_sequential_id,
+      |   exercise_argument_compression,
+      |   exercise_result_compression
+      | )
+      | SELECT
+      |   event_id_in,
+      |   event_offset_in,
+      |   contract_id_in,
+      |   transaction_id_in,
+      |   ledger_effective_time_in::timestamp,
+      |   node_index_in,
+      |   command_id_in,
+      |   workflow_id_in,
+      |   application_id_in,
+      |   string_to_array(submitters_in, '|'),
+      |   exercise_choice_in,
+      |   exercise_argument_in,
+      |   exercise_result_in,
+      |   string_to_array(exercise_actors_in, '|'),
+      |   string_to_array(exercise_child_event_ids_in, '|'),
+      |   template_id_in,
+      |   string_to_array(flat_event_witnesses_in, '|'),
+      |   string_to_array(tree_event_witnesses_in, '|'),
+      |   event_sequential_id_in,
+      |   exercise_argument_compression_in::smallint,
+      |   exercise_result_compression_in::smallint
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      | as t(
+      |   event_id_in,
+      |   event_offset_in,
+      |   contract_id_in,
+      |   transaction_id_in,
+      |   ledger_effective_time_in,
+      |   node_index_in,
+      |   command_id_in,
+      |   workflow_id_in,
+      |   application_id_in,
+      |   submitters_in,
       |   exercise_choice_in,
       |   exercise_argument_in,
       |   exercise_result_in,
@@ -126,8 +223,82 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   flat_event_witnesses_in,
       |   tree_event_witnesses_in,
       |   event_sequential_id_in,
-      |   create_argument_compression_in,
-      |   create_key_value_compression_in,
+      |   exercise_argument_compression_in,
+      |   exercise_result_compression_in
+      | );
+      |
+      |""".stripMargin
+  )
+
+  private val preparedInsertEventsBatchNonConsumingExercise = connection.prepareStatement(
+    """
+      |INSERT INTO participant_events_non_consuming_exercise
+      | (
+      |   event_id,
+      |   event_offset,
+      |   contract_id,
+      |   transaction_id,
+      |   ledger_effective_time,
+      |   node_index,
+      |   command_id,
+      |   workflow_id,
+      |   application_id,
+      |   submitters,
+      |   exercise_choice,
+      |   exercise_argument,
+      |   exercise_result,
+      |   exercise_actors,
+      |   exercise_child_event_ids,
+      |   template_id,
+      |   flat_event_witnesses,
+      |   tree_event_witnesses,
+      |   event_sequential_id,
+      |   exercise_argument_compression,
+      |   exercise_result_compression
+      | )
+      | SELECT
+      |   event_id_in,
+      |   event_offset_in,
+      |   contract_id_in,
+      |   transaction_id_in,
+      |   ledger_effective_time_in::timestamp,
+      |   node_index_in,
+      |   command_id_in,
+      |   workflow_id_in,
+      |   application_id_in,
+      |   string_to_array(submitters_in, '|'),
+      |   exercise_choice_in,
+      |   exercise_argument_in,
+      |   exercise_result_in,
+      |   string_to_array(exercise_actors_in, '|'),
+      |   string_to_array(exercise_child_event_ids_in, '|'),
+      |   template_id_in,
+      |   string_to_array(flat_event_witnesses_in, '|'),
+      |   string_to_array(tree_event_witnesses_in, '|'),
+      |   event_sequential_id_in,
+      |   exercise_argument_compression_in::smallint,
+      |   exercise_result_compression_in::smallint
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      | as t(
+      |   event_id_in,
+      |   event_offset_in,
+      |   contract_id_in,
+      |   transaction_id_in,
+      |   ledger_effective_time_in,
+      |   node_index_in,
+      |   command_id_in,
+      |   workflow_id_in,
+      |   application_id_in,
+      |   submitters_in,
+      |   exercise_choice_in,
+      |   exercise_argument_in,
+      |   exercise_result_in,
+      |   exercise_actors_in,
+      |   exercise_child_event_ids_in,
+      |   template_id_in,
+      |   flat_event_witnesses_in,
+      |   tree_event_witnesses_in,
+      |   event_sequential_id_in,
       |   exercise_argument_compression_in,
       |   exercise_result_compression_in
       | );
@@ -378,10 +549,25 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       )
     )
 
-    rawDBBatchPostgreSQLV1.eventsBatch.foreach(batch =>
+    rawDBBatchPostgreSQLV1.eventsBatchDivulgence.foreach(batch =>
       execute(
-        preparedInsertEventsBatch,
-        batch.event_kind,
+        preparedInsertEventsBatchDivulgence,
+        batch.contract_id,
+        batch.command_id,
+        batch.workflow_id,
+        batch.application_id,
+        batch.submitters,
+        batch.create_argument,
+        batch.template_id,
+        batch.tree_event_witnesses,
+        batch.event_sequential_id,
+        batch.create_argument_compression,
+      )
+    )
+
+    rawDBBatchPostgreSQLV1.eventsBatchCreate.foreach(batch =>
+      execute(
+        preparedInsertEventsBatchCreate,
         batch.event_id,
         batch.event_offset,
         batch.contract_id,
@@ -398,6 +584,28 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         batch.create_agreement_text,
         batch.create_key_value,
         batch.create_key_hash,
+        batch.template_id,
+        batch.flat_event_witnesses,
+        batch.tree_event_witnesses,
+        batch.event_sequential_id,
+        batch.create_argument_compression,
+        batch.create_key_value_compression,
+      )
+    )
+
+    rawDBBatchPostgreSQLV1.eventsBatchConsumingExercise.foreach(batch =>
+      execute(
+        preparedInsertEventsBatchConsumingExercise,
+        batch.event_id,
+        batch.event_offset,
+        batch.contract_id,
+        batch.transaction_id,
+        batch.ledger_effective_time,
+        batch.node_index,
+        batch.command_id,
+        batch.workflow_id,
+        batch.application_id,
+        batch.submitters,
         batch.exercise_choice,
         batch.exercise_argument,
         batch.exercise_result,
@@ -407,8 +615,33 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         batch.flat_event_witnesses,
         batch.tree_event_witnesses,
         batch.event_sequential_id,
-        batch.create_argument_compression,
-        batch.create_key_value_compression,
+        batch.exercise_argument_compression,
+        batch.exercise_result_compression,
+      )
+    )
+
+    rawDBBatchPostgreSQLV1.eventsBatchNonConsumingExercise.foreach(batch =>
+      execute(
+        preparedInsertEventsBatchNonConsumingExercise,
+        batch.event_id,
+        batch.event_offset,
+        batch.contract_id,
+        batch.transaction_id,
+        batch.ledger_effective_time,
+        batch.node_index,
+        batch.command_id,
+        batch.workflow_id,
+        batch.application_id,
+        batch.submitters,
+        batch.exercise_choice,
+        batch.exercise_argument,
+        batch.exercise_result,
+        batch.exercise_actors,
+        batch.exercise_child_event_ids,
+        batch.template_id,
+        batch.flat_event_witnesses,
+        batch.tree_event_witnesses,
+        batch.event_sequential_id,
         batch.exercise_argument_compression,
         batch.exercise_result_compression,
       )
@@ -521,7 +754,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
     offset.foreach { existingOffset =>
-      List(1, 2, 3, 4, 5, 6, 7).foreach(
+      List(1, 2, 3, 4, 5, 6, 7, 8, 9).foreach(
         preparedDeleteIngestionOverspillEntries.setBytes(_, existingOffset.toByteArray)
       )
       preparedDeleteIngestionOverspillEntries.execute()
@@ -576,8 +809,21 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |FROM participant_command_completions
       |WHERE completion_offset > ?;
       |
+      |-- TODO append-only: how do we remove divulgence events? They don't have an event_offset
+      |-- DELETE
+      |-- FROM participant_events_divulgence
+      |-- WHERE event_offset > ?;
+      |
       |DELETE
-      |FROM participant_events
+      |FROM participant_events_create
+      |WHERE event_offset > ?;
+      |
+      |DELETE
+      |FROM participant_events_consuming_exercise
+      |WHERE event_offset > ?;
+      |
+      |DELETE
+      |FROM participant_events_non_consuming_exercise
       |WHERE event_offset > ?;
       |
       |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here

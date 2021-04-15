@@ -15,7 +15,10 @@ import scala.collection.mutable
 //   - scala macros
 //   - some persistence mapper which is not getting in the way (unlikely for this specific usage)
 case class RawDBBatchPostgreSQLV1(
-    eventsBatch: Option[EventsBatch],
+    eventsBatchDivulgence: Option[EventsBatchDivulgence],
+    eventsBatchCreate: Option[EventsBatchCreate],
+    eventsBatchConsumingExercise: Option[EventsBatchExercise],
+    eventsBatchNonConsumingExercise: Option[EventsBatchExercise],
     configurationEntriesBatch: Option[ConfigurationEntriesBatch],
     packageEntriesBatch: Option[PackageEntriesBatch],
     packagesBatch: Option[PackagesBatch],
@@ -23,10 +26,43 @@ case class RawDBBatchPostgreSQLV1(
     partyEntriesBatch: Option[PartyEntriesBatch],
     commandCompletionsBatch: Option[CommandCompletionsBatch],
     commandDeduplicationBatch: Option[CommandDeduplicationBatch],
+) {
+  def offsetSequentialEventIds(offset: Long): Long = {
+    var idsUsed: Long = 0
+    eventsBatchDivulgence.foreach(batch => {
+      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
+      idsUsed += batch.event_sequential_id.length
+    })
+    eventsBatchCreate.foreach(batch => {
+      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
+      idsUsed += batch.event_sequential_id.length
+    })
+    eventsBatchConsumingExercise.foreach(batch => {
+      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
+      idsUsed += batch.event_sequential_id.length
+    })
+    eventsBatchNonConsumingExercise.foreach(batch => {
+      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
+      idsUsed += batch.event_sequential_id.length
+    })
+    idsUsed
+  }
+}
+
+class EventsBatchDivulgence(
+    val command_id: Array[String],
+    val workflow_id: Array[String],
+    val application_id: Array[String],
+    val submitters: Array[String], // '|' separated list
+    val contract_id: Array[String],
+    val template_id: Array[String],
+    val tree_event_witnesses: Array[String], // '|' separated list
+    val create_argument: Array[Array[Byte]],
+    val event_sequential_id: Array[Long],
+    val create_argument_compression: Array[java.lang.Integer],
 )
 
-class EventsBatch(
-    val event_kind: Array[Int],
+class EventsBatchCreate(
     val event_offset: Array[Array[Byte]],
     val transaction_id: Array[String],
     val ledger_effective_time: Array[String], // timestamp
@@ -46,14 +82,31 @@ class EventsBatch(
     val create_agreement_text: Array[String],
     val create_key_value: Array[Array[Byte]],
     val create_key_hash: Array[Array[Byte]],
+    val event_sequential_id: Array[Long],
+    val create_argument_compression: Array[java.lang.Integer],
+    val create_key_value_compression: Array[java.lang.Integer],
+)
+
+class EventsBatchExercise(
+    val event_offset: Array[Array[Byte]],
+    val transaction_id: Array[String],
+    val ledger_effective_time: Array[String], // timestamp
+    val command_id: Array[String],
+    val workflow_id: Array[String],
+    val application_id: Array[String],
+    val submitters: Array[String], // '|' separated list
+    val node_index: Array[java.lang.Integer],
+    val event_id: Array[String],
+    val contract_id: Array[String],
+    val template_id: Array[String],
+    val flat_event_witnesses: Array[String], // '|' separated list
+    val tree_event_witnesses: Array[String], // '|' separated list
     val exercise_choice: Array[String],
     val exercise_argument: Array[Array[Byte]],
     val exercise_result: Array[Array[Byte]],
     val exercise_actors: Array[String], // '|' separated list
     val exercise_child_event_ids: Array[String], // '|' separated list
     val event_sequential_id: Array[Long],
-    val create_argument_compression: Array[java.lang.Integer],
-    val create_key_value_compression: Array[java.lang.Integer],
     val exercise_argument_compression: Array[java.lang.Integer],
     val exercise_result_compression: Array[java.lang.Integer],
 )
@@ -119,8 +172,23 @@ class CommandDeduplicationBatch(val deduplication_key: Array[String])
 
 object RawDBBatchPostgreSQLV1 {
 
-  case class EventsBatchBuilder(
-      event_kind: mutable.ArrayBuilder[Int] = mutable.ArrayBuilder.make[Int],
+  case class EventsBatchBuilderDivulgence(
+      command_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      workflow_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      application_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      submitters: mutable.ArrayBuilder[String] =
+        mutable.ArrayBuilder.make[String], // '|' separated list
+      contract_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      template_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      tree_event_witnesses: mutable.ArrayBuilder[String] =
+        mutable.ArrayBuilder.make[String], // '|' separated list
+      create_argument: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      event_sequential_id: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make[Long],
+      create_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make[java.lang.Integer],
+  )
+
+  case class EventsBatchBuilderCreate(
       event_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
       transaction_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       ledger_effective_time: mutable.ArrayBuilder[String] =
@@ -147,6 +215,32 @@ object RawDBBatchPostgreSQLV1 {
       create_agreement_text: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       create_key_value: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
       create_key_hash: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      event_sequential_id: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make[Long],
+      create_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make[java.lang.Integer],
+      create_key_value_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make[java.lang.Integer],
+  )
+
+  case class EventsBatchBuilderExercise(
+      event_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
+      transaction_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      ledger_effective_time: mutable.ArrayBuilder[String] =
+        mutable.ArrayBuilder.make[String], // timestamp
+      command_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      workflow_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      application_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      submitters: mutable.ArrayBuilder[String] =
+        mutable.ArrayBuilder.make[String], // '|' separated list
+      node_index: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make[java.lang.Integer],
+      event_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      contract_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      template_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
+      flat_event_witnesses: mutable.ArrayBuilder[String] =
+        mutable.ArrayBuilder.make[String], // '|' separated list
+      tree_event_witnesses: mutable.ArrayBuilder[String] =
+        mutable.ArrayBuilder.make[String], // '|' separated list
       exercise_choice: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       exercise_argument: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
       exercise_result: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
@@ -155,10 +249,6 @@ object RawDBBatchPostgreSQLV1 {
       exercise_child_event_ids: mutable.ArrayBuilder[String] =
         mutable.ArrayBuilder.make[String], // '|' separated list
       event_sequential_id: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make[Long],
-      create_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
-        mutable.ArrayBuilder.make[java.lang.Integer],
-      create_key_value_compression: mutable.ArrayBuilder[java.lang.Integer] =
-        mutable.ArrayBuilder.make[java.lang.Integer],
       exercise_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
         mutable.ArrayBuilder.make[java.lang.Integer],
       exercise_result_compression: mutable.ArrayBuilder[java.lang.Integer] =
@@ -234,20 +324,57 @@ object RawDBBatchPostgreSQLV1 {
 
     import DBDTOV1._
 
-    var eventsBatchBuilder: EventsBatchBuilder = _
-    var configurationEntriesBatchBuilder: ConfigurationEntriesBatchBuilder = _
-    var packageEntriesBatchBuilder: PackageEntriesBatchBuilder = _
-    var packagesBatchBuilder: PackagesBatchBuilder = _
-    var partiesBatchBuilder: PartiesBatchBuilder = _
-    var partyEntriesBatchBuilder: PartyEntriesBatchBuilder = _
-    var commandCompletionsBatchBuilder: CommandCompletionsBatchBuilder = _
-    var commandDeduplicationBatchBuilder: CommandDeduplicationBatchBuilder = _
+    private[this] var eventsBatchBuilderDivulgence: EventsBatchBuilderDivulgence = _
+    private[this] var eventsBatchBuilderCreate: EventsBatchBuilderCreate = _
+    private[this] var eventsBatchBuilderConsumingExercise: EventsBatchBuilderExercise = _
+    private[this] var eventsBatchBuilderNonConsumingExercise: EventsBatchBuilderExercise = _
+    private[this] var configurationEntriesBatchBuilder: ConfigurationEntriesBatchBuilder = _
+    private[this] var packageEntriesBatchBuilder: PackageEntriesBatchBuilder = _
+    private[this] var packagesBatchBuilder: PackagesBatchBuilder = _
+    private[this] var partiesBatchBuilder: PartiesBatchBuilder = _
+    private[this] var partyEntriesBatchBuilder: PartyEntriesBatchBuilder = _
+    private[this] var commandCompletionsBatchBuilder: CommandCompletionsBatchBuilder = _
+    private[this] var commandDeduplicationBatchBuilder: CommandDeduplicationBatchBuilder = _
+
+    // Sequential ID within this batch. The final sequential ID
+    private[this] var eventSequentialId: Long = 0
+    private[this] def nextEventSequentialId() = {
+      val result = eventSequentialId
+      eventSequentialId = eventSequentialId + 1
+      result
+    }
 
     def add(entry: DBDTOV1): Unit = {
       entry match {
-        case e: Event =>
-          if (eventsBatchBuilder == null) eventsBatchBuilder = EventsBatchBuilder()
-          eventsBatchBuilder.event_kind += e.event_kind
+        case e: EventDivulgence =>
+          val eventsBatchBuilder: EventsBatchBuilderDivulgence =
+            if (eventsBatchBuilderDivulgence == null) {
+              eventsBatchBuilderDivulgence = EventsBatchBuilderDivulgence()
+              eventsBatchBuilderDivulgence
+            } else {
+              eventsBatchBuilderDivulgence
+            }
+          eventsBatchBuilder.command_id += e.command_id.orNull
+          eventsBatchBuilder.workflow_id += e.workflow_id.orNull
+          eventsBatchBuilder.application_id += e.application_id.orNull
+          eventsBatchBuilder.submitters += e.submitters.map(encodeTextArray).orNull
+          eventsBatchBuilder.contract_id += e.contract_id
+          eventsBatchBuilder.template_id += e.template_id.orNull
+          eventsBatchBuilder.tree_event_witnesses += encodeTextArray(e.tree_event_witnesses)
+          eventsBatchBuilder.create_argument += e.create_argument.orNull
+          eventsBatchBuilder.event_sequential_id += nextEventSequentialId()
+          eventsBatchBuilder.create_argument_compression += e.create_argument_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
+
+        case e: EventCreate =>
+          val eventsBatchBuilder: EventsBatchBuilderCreate =
+            if (eventsBatchBuilderCreate == null) {
+              eventsBatchBuilderCreate = EventsBatchBuilderCreate()
+              eventsBatchBuilderCreate
+            } else {
+              eventsBatchBuilderCreate
+            }
           eventsBatchBuilder.event_offset += e.event_offset.orNull
           eventsBatchBuilder.transaction_id += e.transaction_id.orNull
           eventsBatchBuilder.ledger_effective_time += e.ledger_effective_time
@@ -269,6 +396,46 @@ object RawDBBatchPostgreSQLV1 {
           eventsBatchBuilder.create_agreement_text += e.create_agreement_text.orNull
           eventsBatchBuilder.create_key_value += e.create_key_value.orNull
           eventsBatchBuilder.create_key_hash += e.create_key_hash.orNull
+          eventsBatchBuilder.event_sequential_id += nextEventSequentialId()
+          eventsBatchBuilder.create_argument_compression += e.create_argument_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
+          eventsBatchBuilder.create_key_value_compression += e.create_key_value_compression
+            .map(x => x: java.lang.Integer)
+            .orNull
+
+        case e: EventExercise =>
+          val eventsBatchBuilder: EventsBatchBuilderExercise =
+            if (e.consuming) {
+              if (eventsBatchBuilderConsumingExercise == null) {
+                eventsBatchBuilderConsumingExercise = EventsBatchBuilderExercise()
+                eventsBatchBuilderConsumingExercise
+              } else {
+                eventsBatchBuilderConsumingExercise
+              }
+            } else {
+              if (eventsBatchBuilderNonConsumingExercise == null) {
+                eventsBatchBuilderNonConsumingExercise = EventsBatchBuilderExercise()
+                eventsBatchBuilderNonConsumingExercise
+              } else {
+                eventsBatchBuilderNonConsumingExercise
+              }
+            }
+          eventsBatchBuilder.event_offset += e.event_offset.orNull
+          eventsBatchBuilder.transaction_id += e.transaction_id.orNull
+          eventsBatchBuilder.ledger_effective_time += e.ledger_effective_time
+            .map(toPGTimestampString)
+            .orNull
+          eventsBatchBuilder.command_id += e.command_id.orNull
+          eventsBatchBuilder.workflow_id += e.workflow_id.orNull
+          eventsBatchBuilder.application_id += e.application_id.orNull
+          eventsBatchBuilder.submitters += e.submitters.map(encodeTextArray).orNull
+          eventsBatchBuilder.node_index += e.node_index.map(x => x: java.lang.Integer).orNull
+          eventsBatchBuilder.event_id += e.event_id.orNull
+          eventsBatchBuilder.contract_id += e.contract_id
+          eventsBatchBuilder.template_id += e.template_id.orNull
+          eventsBatchBuilder.flat_event_witnesses += encodeTextArray(e.flat_event_witnesses)
+          eventsBatchBuilder.tree_event_witnesses += encodeTextArray(e.tree_event_witnesses)
           eventsBatchBuilder.exercise_choice += e.exercise_choice.orNull
           eventsBatchBuilder.exercise_argument += e.exercise_argument.orNull
           eventsBatchBuilder.exercise_result += e.exercise_result.orNull
@@ -276,13 +443,7 @@ object RawDBBatchPostgreSQLV1 {
           eventsBatchBuilder.exercise_child_event_ids += e.exercise_child_event_ids
             .map(encodeTextArray)
             .orNull
-          eventsBatchBuilder.event_sequential_id += 0 // this will be filled at later stage in processing
-          eventsBatchBuilder.create_argument_compression += e.create_argument_compression
-            .map(x => x: java.lang.Integer)
-            .orNull
-          eventsBatchBuilder.create_key_value_compression += e.create_key_value_compression
-            .map(x => x: java.lang.Integer)
-            .orNull
+          eventsBatchBuilder.event_sequential_id += nextEventSequentialId()
           eventsBatchBuilder.exercise_argument_compression += e.exercise_argument_compression
             .map(x => x: java.lang.Integer)
             .orNull
@@ -362,9 +523,22 @@ object RawDBBatchPostgreSQLV1 {
     }
 
     def build(): RawDBBatchPostgreSQLV1 = RawDBBatchPostgreSQLV1(
-      eventsBatch = Option(eventsBatchBuilder).map(b =>
-        new EventsBatch(
-          event_kind = b.event_kind.result(),
+      eventsBatchDivulgence = Option(eventsBatchBuilderDivulgence).map(b =>
+        new EventsBatchDivulgence(
+          command_id = b.command_id.result(),
+          workflow_id = b.workflow_id.result(),
+          application_id = b.application_id.result(),
+          submitters = b.submitters.result(),
+          contract_id = b.contract_id.result(),
+          template_id = b.template_id.result(),
+          tree_event_witnesses = b.tree_event_witnesses.result(),
+          create_argument = b.create_argument.result(),
+          event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          create_argument_compression = b.create_argument_compression.result(),
+        )
+      ),
+      eventsBatchCreate = Option(eventsBatchBuilderCreate).map(b =>
+        new EventsBatchCreate(
           event_offset = b.event_offset.result(),
           transaction_id = b.transaction_id.result(),
           ledger_effective_time = b.ledger_effective_time.result(),
@@ -384,14 +558,57 @@ object RawDBBatchPostgreSQLV1 {
           create_agreement_text = b.create_agreement_text.result(),
           create_key_value = b.create_key_value.result(),
           create_key_hash = b.create_key_hash.result(),
+          event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          create_argument_compression = b.create_argument_compression.result(),
+          create_key_value_compression = b.create_key_value_compression.result(),
+        )
+      ),
+      eventsBatchConsumingExercise = Option(eventsBatchBuilderConsumingExercise).map(b =>
+        new EventsBatchExercise(
+          event_offset = b.event_offset.result(),
+          transaction_id = b.transaction_id.result(),
+          ledger_effective_time = b.ledger_effective_time.result(),
+          command_id = b.command_id.result(),
+          workflow_id = b.workflow_id.result(),
+          application_id = b.application_id.result(),
+          submitters = b.submitters.result(),
+          node_index = b.node_index.result(),
+          event_id = b.event_id.result(),
+          contract_id = b.contract_id.result(),
+          template_id = b.template_id.result(),
+          flat_event_witnesses = b.flat_event_witnesses.result(),
+          tree_event_witnesses = b.tree_event_witnesses.result(),
           exercise_choice = b.exercise_choice.result(),
           exercise_argument = b.exercise_argument.result(),
           exercise_result = b.exercise_result.result(),
           exercise_actors = b.exercise_actors.result(),
           exercise_child_event_ids = b.exercise_child_event_ids.result(),
           event_sequential_id = b.event_sequential_id.result(), // will be populated later
-          create_argument_compression = b.create_argument_compression.result(),
-          create_key_value_compression = b.create_key_value_compression.result(),
+          exercise_argument_compression = b.exercise_argument_compression.result(),
+          exercise_result_compression = b.exercise_result_compression.result(),
+        )
+      ),
+      eventsBatchNonConsumingExercise = Option(eventsBatchBuilderNonConsumingExercise).map(b =>
+        new EventsBatchExercise(
+          event_offset = b.event_offset.result(),
+          transaction_id = b.transaction_id.result(),
+          ledger_effective_time = b.ledger_effective_time.result(),
+          command_id = b.command_id.result(),
+          workflow_id = b.workflow_id.result(),
+          application_id = b.application_id.result(),
+          submitters = b.submitters.result(),
+          node_index = b.node_index.result(),
+          event_id = b.event_id.result(),
+          contract_id = b.contract_id.result(),
+          template_id = b.template_id.result(),
+          flat_event_witnesses = b.flat_event_witnesses.result(),
+          tree_event_witnesses = b.tree_event_witnesses.result(),
+          exercise_choice = b.exercise_choice.result(),
+          exercise_argument = b.exercise_argument.result(),
+          exercise_result = b.exercise_result.result(),
+          exercise_actors = b.exercise_actors.result(),
+          exercise_child_event_ids = b.exercise_child_event_ids.result(),
+          event_sequential_id = b.event_sequential_id.result(), // will be populated later
           exercise_argument_compression = b.exercise_argument_compression.result(),
           exercise_result_compression = b.exercise_result_compression.result(),
         )

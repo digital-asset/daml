@@ -104,14 +104,8 @@ object RunningDBBatch {
     )
 
   def seqMapper(prev: RunningDBBatch, curr: RunningDBBatch): RunningDBBatch = {
-    var seqEventId = prev.lastSeqEventId
-    curr.batch.eventsBatch.foreach { eventsBatch =>
-      eventsBatch.event_sequential_id.indices.foreach { i =>
-        seqEventId += 1
-        eventsBatch.event_sequential_id(i) = seqEventId
-      }
-    }
-    curr.copy(lastSeqEventId = seqEventId)
+    val idsUsed = curr.batch.offsetSequentialEventIds(prev.lastSeqEventId + 1)
+    curr.copy(lastSeqEventId = prev.lastSeqEventId + idsUsed)
   }
 
   private val nullBatch = RawDBBatchPostgreSQLV1.Builder().build()

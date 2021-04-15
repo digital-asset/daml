@@ -9,8 +9,20 @@ trait DBDTOV1
 
 object DBDTOV1 {
 
-  case class Event(
-      event_kind: Int,
+  case class EventDivulgence(
+      command_id: Option[String],
+      workflow_id: Option[String],
+      application_id: Option[String],
+      submitters: Option[Set[String]],
+      contract_id: String,
+      template_id: Option[String],
+      tree_event_witnesses: Set[String],
+      create_argument: Option[Array[Byte]],
+      create_argument_compression: Option[Int],
+      // missing: event_sequential_id: Long - this will be assigned only at batches
+  ) extends DBDTOV1
+
+  case class EventCreate(
       event_offset: Option[Array[Byte]],
       transaction_id: Option[String],
       ledger_effective_time: Option[Instant],
@@ -30,13 +42,31 @@ object DBDTOV1 {
       create_agreement_text: Option[String],
       create_key_value: Option[Array[Byte]],
       create_key_hash: Option[Array[Byte]],
+      create_argument_compression: Option[Int],
+      create_key_value_compression: Option[Int],
+      // missing: event_sequential_id: Long - this will be assigned only at batches
+  ) extends DBDTOV1
+
+  case class EventExercise(
+      consuming: Boolean,
+      event_offset: Option[Array[Byte]],
+      transaction_id: Option[String],
+      ledger_effective_time: Option[Instant],
+      command_id: Option[String],
+      workflow_id: Option[String],
+      application_id: Option[String],
+      submitters: Option[Set[String]],
+      node_index: Option[Int],
+      event_id: Option[String],
+      contract_id: String,
+      template_id: Option[String],
+      flat_event_witnesses: Set[String],
+      tree_event_witnesses: Set[String],
       exercise_choice: Option[String],
       exercise_argument: Option[Array[Byte]],
       exercise_result: Option[Array[Byte]],
       exercise_actors: Option[Set[String]],
       exercise_child_event_ids: Option[Set[String]],
-      create_argument_compression: Option[Int],
-      create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       // missing: event_sequential_id: Long - this will be assigned only at batches

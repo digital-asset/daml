@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
+import com.daml.platform.indexer.parallel
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
@@ -145,13 +146,12 @@ object UpdateToDBDTOV1 {
           }
           .reverse
 
-        val events = preorderTraversal.iterator
+        val events: Iterator[DBDTOV1] = preorderTraversal.iterator
           .collect { // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
             case (nodeId, create: Create) =>
               val eventId = EventId(u.transactionId, nodeId)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-              new DBDTOV1.Event(
-                event_kind = 10,
+              new DBDTOV1.EventCreate(
                 event_offset = Some(offset.toByteArray),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
@@ -177,26 +177,19 @@ object UpdateToDBDTOV1 {
                 create_key_hash = create.key
                   .map(convertLfValueKey(create.templateId, _))
                   .map(_.hash.bytes.toByteArray),
-                exercise_choice = None,
-                exercise_argument = None,
-                exercise_result = None,
-                exercise_actors = None,
-                exercise_child_event_ids = None,
                 create_argument_compression = compressionStrategy.createArgumentCompression.id,
                 create_key_value_compression =
                   compressionStrategy.createKeyValueCompression.id.filter(_ =>
                     createKeyValue.isDefined
                   ),
-                exercise_argument_compression = None,
-                exercise_result_compression = None,
               )
 
             case (nodeId, exercise: Exercise) =>
               val eventId = EventId(u.transactionId, nodeId)
-              val (exerciseArgument, exerciseResult, createKeyValue) =
+              val (exerciseArgument, exerciseResult, _) =
                 translation.serialize(eventId, exercise)
-              new DBDTOV1.Event(
-                event_kind = if (exercise.consuming) 20 else 25,
+              new parallel.DBDTOV1.EventExercise(
+                consuming = exercise.consuming,
                 event_offset = Some(offset.toByteArray),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
@@ -212,13 +205,7 @@ object UpdateToDBDTOV1 {
                   if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
                 tree_event_witnesses =
                   blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-                create_argument = None,
-                create_signatories = None,
-                create_observers = None,
-                create_agreement_text = None,
-                create_key_value = createKeyValue
-                  .map(compressionStrategy.createKeyValueCompression.compress),
-                create_key_hash = None,
+                // TODO append-only: createKeyValue is not stored, check whether we need it for upcoming ledger API additions
                 exercise_choice = Some(exercise.choiceId),
                 exercise_argument = Some(exerciseArgument)
                   .map(compressionStrategy.exerciseArgumentCompression.compress),
@@ -230,8 +217,6 @@ object UpdateToDBDTOV1 {
                     .map(EventId(u.transactionId, _).toLedgerString.toString)
                     .toSet
                 ),
-                create_argument_compression = None,
-                create_key_value_compression = None,
                 exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
                 exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
               )
@@ -242,39 +227,19 @@ object UpdateToDBDTOV1 {
           .toMap
         val divulgences = blinding.divulgence.iterator.map { case (contractId, visibleToParties) =>
           val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-          new DBDTOV1.Event(
-            event_kind = 0,
-            event_offset = None,
-            transaction_id = None,
-            ledger_effective_time = None,
+          new DBDTOV1.EventDivulgence(
             command_id = u.optSubmitterInfo.map(_.commandId),
             workflow_id = u.transactionMeta.workflowId,
             application_id = u.optSubmitterInfo.map(_.applicationId),
             submitters = u.optSubmitterInfo.map(_.actAs.toSet),
-            node_index = None,
-            event_id = None,
             contract_id = contractId.coid,
             template_id = contractInst.map(_.template.toString),
-            flat_event_witnesses = Set.empty,
             tree_event_witnesses = visibleToParties.map(_.toString),
             create_argument = contractInst
               .map(_.arg)
               .map(translation.serialize(contractId, _))
               .map(compressionStrategy.createArgumentCompression.compress),
-            create_signatories = None,
-            create_observers = None,
-            create_agreement_text = None,
-            create_key_value = None,
-            create_key_hash = None,
-            exercise_choice = None,
-            exercise_argument = None,
-            exercise_result = None,
-            exercise_actors = None,
-            exercise_child_event_ids = None,
             create_argument_compression = compressionStrategy.createArgumentCompression.id,
-            create_key_value_compression = None,
-            exercise_argument_compression = None,
-            exercise_result_compression = None,
           )
         }
 

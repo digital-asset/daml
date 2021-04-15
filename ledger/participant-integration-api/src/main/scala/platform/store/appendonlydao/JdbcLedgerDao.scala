@@ -827,7 +827,10 @@ private[platform] object JdbcLedgerDao {
         |truncate table parameters cascade;
         |truncate table participant_command_completions cascade;
         |truncate table participant_command_submissions cascade;
-        |truncate table participant_events cascade;
+        |truncate table participant_events_divulgence cascade;
+        |truncate table participant_events_create cascade;
+        |truncate table participant_events_consuming_exercise cascade;
+        |truncate table participant_events_non_consuming_exercise cascade;
         |truncate table parties cascade;
         |truncate table party_entries cascade;
       """.stripMargin
