@@ -81,6 +81,7 @@ data Command
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
+    | LedgerExport { flags :: LedgerFlags, exportFlags :: LedgerExportFlags }
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
@@ -284,6 +285,9 @@ commandParser = subparser $ fold
             , command "reset" $ info
                 (ledgerResetCmd <**> helper)
                 (progDesc "Archive all currently active contracts.")
+            , command "export" $ info
+                (ledgerExportCmd <**> helper)
+                (progDesc "Export ledger state.")
             ]
         ]
 
@@ -335,6 +339,20 @@ commandParser = subparser $ fold
 
     ledgerResetCmd = LedgerReset
         <$> ledgerFlags (ShowJsonApi True)
+
+    ledgerExportCmd = LedgerExport
+        <$> ledgerFlags (ShowJsonApi False)
+        <*> ledgerExportFlags
+      where
+        ledgerExportFlags = LedgerExportFlags
+            <$> many (option str (long "party" <> metavar "PARTY" <> help "Export ledger state as seen by these parties."))
+            <*> optional (option str (long "start" <> metavar "OFFSET" <> help "The transaction offset (exclusive) for the start position of the export. Optional, by default the export includes the beginning of the ledger."))
+            <*> optional (option str (long "end" <> metavar "OFFSET" <> help "The transaction offset (exclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."))
+            <*> hsubparser (command "script" (info ledgerExportScript (progDesc "Export ledger state in Daml script format")))
+        ledgerExportScript = LedgerExportScript
+            <$> optional (option auto (long "acs-batch-size" <> metavar "SIZE" <> help "Batch this many create commands into one transaction when recreating the ACS."))
+            <*> option str (short 'o' <> long "output" <> metavar "FILEPATH" <> help "Create the Daml script under this directory prefix.")
+            <*> optional (option str (long "sdk-version" <> metavar "VERSION" <> help "Specify this Daml Connect version in the generated project."))
 
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags (ShowJsonApi False)
@@ -467,5 +485,6 @@ runCommand = \case
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
+    LedgerExport {..} -> runLedgerExport flags exportFlags
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
