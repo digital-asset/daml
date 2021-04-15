@@ -142,7 +142,7 @@ final case class GenTransaction[Nid, +Cid](
                       nr.children ++: nids
                     },
                   )
-                case _: Node.LeafOnlyNode[Cid] => go(newErrors, newVisited, nids)
+                case _: Node.LeafOnlyActionNode[Cid] => go(newErrors, newVisited, nids)
                 case ne: Node.NodeExercises[Nid, Cid] =>
                   go(
                     newErrors,
@@ -279,6 +279,21 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   def roots: ImmArray[Nid]
 
+  // TODO: https://github.com/digital-asset/daml/issues/8020
+  //  for now we assume that rollback node cannot be a root of a transaction.
+  @throws[IllegalArgumentException]
+  def rootNodes: ImmArray[Node.GenActionNode[Nid, Cid]] =
+    roots.map(nid =>
+      nodes(nid) match {
+        case action: Node.GenActionNode[Nid, Cid] =>
+          action
+        case _: Node.NodeRollback[_] =>
+          throw new IllegalArgumentException(
+            s"invalid transaction, root refers to a Rollback node $nid"
+          )
+      }
+    )
+
   /** This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
@@ -293,7 +308,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         f(nodeId, node)
         node match {
           case nr: Node.NodeRollback[Nid] => go(nr.children ++: toVisit)
-          case _: Node.LeafOnlyNode[Cid] => go(toVisit)
+          case _: Node.LeafOnlyActionNode[Cid] => go(toVisit)
           case ne: Node.NodeExercises[Nid, Cid] => go(ne.children ++: toVisit)
         }
     }
@@ -332,7 +347,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         node match {
           case nr: Node.NodeRollback[Nid] =>
             go(nr.children.map(_ -> newPathState) ++: toVisit)
-          case _: Node.LeafOnlyNode[Cid] => go(toVisit)
+          case _: Node.LeafOnlyActionNode[Cid] => go(toVisit)
           case ne: Node.NodeExercises[Nid, Cid] =>
             go(ne.children.map(_ -> newPathState) ++: toVisit)
         }
@@ -368,7 +383,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   final def foreachInExecutionOrder(
       exerciseBegin: (Nid, Node.NodeExercises[Nid, Cid]) => Boolean,
       rollbackBegin: (Nid, Node.NodeRollback[Nid]) => Boolean,
-      leaf: (Nid, Node.LeafOnlyNode[Cid]) => Unit,
+      leaf: (Nid, Node.LeafOnlyActionNode[Cid]) => Unit,
       exerciseEnd: (Nid, Node.NodeExercises[Nid, Cid]) => Unit,
       rollbackEnd: (Nid, Node.NodeRollback[Nid]) => Unit,
   ): Unit = {
@@ -394,7 +409,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
               } else {
                 loop(rest, stack)
               }
-            case node: Node.LeafOnlyNode[Cid] =>
+            case node: Node.LeafOnlyActionNode[Cid] =>
               leaf(nid, node)
               loop(rest, stack)
           }
@@ -421,7 +436,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   final def foldInExecutionOrder[A](z: A)(
       exerciseBegin: (A, Nid, Node.NodeExercises[Nid, Cid]) => (A, Boolean),
       rollbackBegin: (A, Nid, Node.NodeRollback[Nid]) => (A, Boolean),
-      leaf: (A, Nid, Node.LeafOnlyNode[Cid]) => A,
+      leaf: (A, Nid, Node.LeafOnlyActionNode[Cid]) => A,
       exerciseEnd: (A, Nid, Node.NodeExercises[Nid, Cid]) => A,
       rollbackEnd: (A, Nid, Node.NodeRollback[Nid]) => A,
   ): A = {
@@ -456,7 +471,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   }
 
   final def guessSubmitter: Either[String, Party] =
-    roots.map(nodes(_).requiredAuthorizers) match {
+    rootNodes.map(_.requiredAuthorizers) match {
       case ImmArray() =>
         Left(s"Empty transaction")
       case ImmArrayCons(head, _) if head.size != 1 =>
@@ -548,7 +563,7 @@ object Transaction {
 
   /** Transaction nodes */
   type Node = Node.GenNode[NodeId, Value.ContractId]
-  type LeafNode = Node.LeafOnlyNode[Value.ContractId]
+  type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     * ledger-update. These transactions are consumed by either the

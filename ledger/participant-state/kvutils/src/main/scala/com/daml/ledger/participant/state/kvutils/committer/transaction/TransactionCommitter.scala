@@ -21,6 +21,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party, TypeConName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node.NodeRollback
 import com.daml.lf.transaction.{
   BlindingInfo,
   GlobalKey,
@@ -408,8 +409,13 @@ private[kvutils] class TransactionCommitter(
       def foldInformeeParties(tx: Tx.Transaction, init: Boolean)(
           f: (Boolean, String) => Boolean
       ): Boolean =
-        tx.fold(init) { case (accum, (_, node)) =>
-          node.informeesOfNode.foldLeft(accum)(f)
+        tx.fold(init) {
+          case (accum, (_, node: Node.GenActionNode[_, _])) =>
+            node.informeesOfNode.foldLeft(accum)(f)
+          case (accum, (_, _: NodeRollback[_])) =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            //  Check impact of rollback
+            accum
         }
 
       val allExist =

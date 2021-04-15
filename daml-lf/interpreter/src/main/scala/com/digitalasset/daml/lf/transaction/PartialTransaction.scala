@@ -27,7 +27,7 @@ private[lf] object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
   type Node = Node.GenNode[NodeId, Value.ContractId]
-  type LeafNode = Node.LeafOnlyNode[Value.ContractId]
+  type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -222,7 +222,7 @@ private[lf] case class PartialTransaction(
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
           case rb: Node.NodeRollback[NodeId] => rb.children.toSeq
-          case _: Node.LeafOnlyNode[_] => Nil
+          case _: Node.LeafOnlyActionNode[_] => Nil
           case ex: Node.NodeExercises[NodeId, _] => ex.children.toSeq
         }.toSet
 

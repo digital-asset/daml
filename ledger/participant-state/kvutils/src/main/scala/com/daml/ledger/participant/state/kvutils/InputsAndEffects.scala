@@ -78,34 +78,38 @@ private[kvutils] object InputsAndEffects {
 
     tx.foreach { case (_, node) =>
       node match {
+        case action: Node.GenActionNode[NodeId, Value.ContractId] =>
+          action match {
+            case fetch: Node.NodeFetch[Value.ContractId] =>
+              addContractInput(fetch.coid)
+              fetch.key.foreach { keyWithMaintainers =>
+                inputs += contractKeyToStateKey(fetch.templateId, keyWithMaintainers.key)
+              }
+
+            case create: Node.NodeCreate[Value.ContractId] =>
+              create.key.foreach { keyWithMaintainers =>
+                inputs += contractKeyToStateKey(create.coinst.template, keyWithMaintainers.key)
+              }
+
+            case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
+              addContractInput(exe.targetCoid)
+              exe.key.foreach { keyWithMaintainers =>
+                inputs += contractKeyToStateKey(exe.templateId, keyWithMaintainers.key)
+              }
+
+            case lookup: Node.NodeLookupByKey[Value.ContractId] =>
+              // We need both the contract key state and the contract state. The latter is used to verify
+              // that the submitter can access the contract.
+              lookup.result.foreach(addContractInput)
+              inputs += contractKeyToStateKey(lookup.templateId, lookup.key.key)
+          }
+
+          inputs ++= partyInputs(action.informeesOfNode)
+
         case _: Node.NodeRollback[_] =>
           // TODO https://github.com/digital-asset/daml/issues/8020
           sys.error("rollback nodes are not supported")
-        case fetch: Node.NodeFetch[Value.ContractId] =>
-          addContractInput(fetch.coid)
-          fetch.key.foreach { keyWithMaintainers =>
-            inputs += contractKeyToStateKey(fetch.templateId, keyWithMaintainers.key)
-          }
-
-        case create: Node.NodeCreate[Value.ContractId] =>
-          create.key.foreach { keyWithMaintainers =>
-            inputs += contractKeyToStateKey(create.coinst.template, keyWithMaintainers.key)
-          }
-
-        case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
-          addContractInput(exe.targetCoid)
-          exe.key.foreach { keyWithMaintainers =>
-            inputs += contractKeyToStateKey(exe.templateId, keyWithMaintainers.key)
-          }
-
-        case lookup: Node.NodeLookupByKey[Value.ContractId] =>
-          // We need both the contract key state and the contract state. The latter is used to verify
-          // that the submitter can access the contract.
-          lookup.result.foreach(addContractInput)
-          inputs += contractKeyToStateKey(lookup.templateId, lookup.key.key)
       }
-
-      inputs ++= partyInputs(node.informeesOfNode)
     }
 
     inputs.toList

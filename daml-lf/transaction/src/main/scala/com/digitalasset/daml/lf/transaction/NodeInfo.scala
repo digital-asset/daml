@@ -85,16 +85,4 @@ object NodeInfo {
       keyMaintainers
   }
 
-  trait Rollback extends NodeInfo {
-
-    final def requiredAuthorizers: Set[Party] =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
-
-    final def informeesOfNode: Set[Party] =
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      sys.error("rollback nodes are not supported")
-
-  }
-
 }

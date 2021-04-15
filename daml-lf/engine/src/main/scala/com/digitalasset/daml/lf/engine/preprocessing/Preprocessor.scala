@@ -142,18 +142,18 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafePreprocessCommands(cmds)
     }
 
-  def translateNode[Cid <: Value.ContractId](
-      node: Node.GenNode[NodeId, Cid]
+  def translateActionNode[Cid <: Value.ContractId](
+      node: Node.GenActionNode[NodeId, Cid]
   ): Result[(speedy.Command, Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, List(node.templateId))) {
-      unsafeTranslateNode(node)
+      unsafeTranslateActionNode(node)
     }
 
   def translateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
-      getDependencies(List.empty, tx.roots.toList.map(id => tx.nodes(id).templateId))
+      getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
     ) {
       unsafeTranslateTransactionRoots(tx)
     }
