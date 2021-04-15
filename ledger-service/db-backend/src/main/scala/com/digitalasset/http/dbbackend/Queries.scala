@@ -30,6 +30,8 @@ sealed abstract class Queries {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
+  type SqlInterpol
+
   protected[this] def dropTableIfExists(table: String): Fragment
 
   /** for use when generating predicates */
@@ -206,12 +208,12 @@ sealed abstract class Queries {
 
   final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
-  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
+  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] =
     primInsertContracts(dbcs.map(_.mapKeyPayloadParties(toDBContractKey(_), _.toJson, _.toArray)))
 
   protected[this] def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
-  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int]
+  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int]
 
   final def deleteContracts[F[_]: Foldable](
       cids: F[String]
@@ -231,8 +233,7 @@ sealed abstract class Queries {
       predicate: Fragment,
   )(implicit
       log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
+      ipol: SqlInterpol,
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
     selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
       .map(_ copy (templateId = ()))
@@ -251,8 +252,7 @@ sealed abstract class Queries {
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
+      ipol: SqlInterpol,
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]]
 
   private[http] final def fetchById(
@@ -261,8 +261,7 @@ sealed abstract class Queries {
       contractId: String,
   )(implicit
       log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
+      ipol: SqlInterpol,
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"c.contract_id = $contractId").option
 
@@ -272,8 +271,7 @@ sealed abstract class Queries {
       key: JsValue,
   )(implicit
       log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
+      ipol: SqlInterpol,
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, keyEquality(key)).option
 
@@ -295,6 +293,8 @@ sealed abstract class Queries {
 }
 
 object Queries {
+  type Aux[DataInterpol] = Queries { type SqlInterpol = DataInterpol }
+
   sealed trait SurrogateTpIdTag
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
   type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
@@ -412,8 +412,13 @@ object Queries {
       concatFragment(OneAnd(when, whens))
     } ++ fr"ELSE NULL END"
 
-  private[http] val Postgres: Queries = PostgresQueries
-  private[http] val Oracle: Queries = OracleQueries
+  private[http] val Postgres: Aux[SqlInterpolation.StringArray] = PostgresQueries
+  private[http] val Oracle: Aux[SqlInterpolation.Unused] = OracleQueries
+
+  private[http] object SqlInterpolation {
+    final class StringArray()(implicit val gas: Get[Array[String]], val pas: Put[Array[String]])
+    final class Unused()
+  }
 
   private[http] object Implicits {
     implicit val `JsValue put`: Meta[JsValue] =
@@ -447,6 +452,8 @@ private object PostgresQueries extends Queries {
   import Queries._, Queries.InitDdl.CreateIndex
   import Implicits._
 
+  type SqlInterpol = Queries.SqlInterpolation.StringArray
+
   protected[this] override def dropTableIfExists(table: String) =
     Fragment.const(s"DROP TABLE IF EXISTS ${table}")
 
@@ -477,7 +484,8 @@ private object PostgresQueries extends Queries {
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
-  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] =
+  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
+    import ipol.pas
     Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
       """
         INSERT INTO contract
@@ -486,6 +494,7 @@ private object PostgresQueries extends Queries {
       """,
       logHandler0 = log,
     ).updateMany(dbcs)
+  }
 
   private[http] override def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
@@ -493,8 +502,7 @@ private object PostgresQueries extends Queries {
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
+      ipol: SqlInterpol,
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     val partyVector = parties.toVector
     def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
@@ -502,6 +510,7 @@ private object PostgresQueries extends Queries {
         sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
       }
       val unionPred = joinFragment(assocedPreds, sql" OR ")
+      import ipol.{gas, pas}
       val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
                       FROM contract AS c
                       WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
@@ -575,6 +584,8 @@ private object OracleQueries extends Queries {
   import Queries._, Queries.InitDdl.CreateTable
   import Implicits._
 
+  type SqlInterpol = Queries.SqlInterpolation.Unused
+
   protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
       EXECUTE IMMEDIATE 'DROP TABLE ' || $table;
     EXCEPTION
@@ -633,7 +644,7 @@ private object OracleQueries extends Queries {
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
-  )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int] = {
+  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
     val r = Update[(String, SurrogateTpId, JsValue, JsValue, String)](
       """
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
@@ -677,8 +688,7 @@ private object OracleQueries extends Queries {
       trackMatchIndices: MatchedQueryMarker[T, Mark],
   )(implicit
       log: LogHandler,
-      gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]],
+      ipol: SqlInterpol,
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     // we effectively shadow Mark because Scala 2.12 doesn't quite get
     // that it should use the GADT type equality otherwise
