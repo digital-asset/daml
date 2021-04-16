@@ -13,11 +13,14 @@ module DA.Daml.Helper.Ledger (
     L.ClientSSLKeyCertPair(..),
     L.TimeoutSeconds,
     JsonFlag(..),
+    LedgerExportFlags(..),
+    LedgerExportType(..),
     runDeploy,
     runLedgerListParties,
     runLedgerAllocateParties,
     runLedgerUploadDar,
     runLedgerFetchDar,
+    runLedgerExport,
     runLedgerNavigator,
     runLedgerReset,
     runLedgerGetDalfs,
@@ -498,6 +501,45 @@ reset args = do
     HttpJson ->
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
+
+data LedgerExportFlags = LedgerExportFlags
+  { parties :: [String]
+  , start :: Maybe String
+  , end :: Maybe String
+  , export :: LedgerExportType
+  }
+
+data LedgerExportType = LedgerExportScript
+  { acsBatchSize :: Maybe Int
+  , output :: String
+  , sdkVersion :: Maybe String
+  }
+
+-- | Run export against configured ledger.
+runLedgerExport :: LedgerFlags -> LedgerExportFlags -> IO ()
+runLedgerExport flags LedgerExportFlags {..} = do
+    args <- getDefaultArgs flags
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "export-logback.xml")
+    -- TODO[AH]: Use parties from daml.yaml by default.
+    -- TODO[AH]: Use SDK version from daml.yaml by default.
+    let exportArgs = concat
+          [ case export of
+              LedgerExportScript {..} -> concat
+                [ ["script", "--output", output]
+                , maybe [] (\x -> ["--acs-batch-size", show x]) acsBatchSize
+                , maybe [] (\x -> ["--sdk-version", x]) sdkVersion
+                ]
+          , ["--host", host args, "--port", show (port args)]
+          , concat [ ["--party", party] | party <- parties ]
+          , maybe [] (\x -> ["--start", x]) start
+          , maybe [] (\x -> ["--end", x]) end
+          ]
+    withJar
+      damlSdkJar
+      [logbackArg]
+      ("export" : exportArgs) $ \ph -> do
+        exitCode <- waitExitCode ph
+        exitWith exitCode
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
