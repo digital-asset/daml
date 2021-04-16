@@ -13,6 +13,7 @@ import com.daml.http.{Main => JsonApi}
 import com.daml.navigator.{NavigatorBackend => Navigator}
 import com.daml.platform.sandbox.{SandboxMain => SandboxClassic}
 import com.daml.platform.sandboxnext.{Main => Sandbox}
+import com.daml.script.export.{Main => Export}
 
 object SdkMain {
   def main(args: Array[String]): Unit = {
@@ -22,6 +23,7 @@ object SdkMain {
       case "trigger" => Trigger.main(rest)
       case "script" => Script.main(rest)
       case "test-script" => TestScript.main(rest)
+      case "export" => Export.main(rest)
       case "codegen" => Codegen.main(rest)
       case "extractor" => Extractor.main(rest)
       case "json-api" => JsonApi.main(rest)

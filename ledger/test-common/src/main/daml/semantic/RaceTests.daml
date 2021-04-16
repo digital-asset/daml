@@ -3,6 +3,8 @@
 
 module RaceTests where
 
+import DA.Optional (isSome)
+
 type RaceKey = Text
 
 template DummyContract with
@@ -42,11 +44,6 @@ template LookupResult with
   where
     signatory owner
 
-foundContract (result : Optional (ContractId ContractWithKey)) : Bool =
-  case result of
-    Some val -> True
-    None -> False
-
 template LookupWrapper with
     owner : Party
   where
@@ -56,7 +53,7 @@ template LookupWrapper with
       nonconsuming LookupWrapper_Lookup : ()
         do
           optionalContractId <- lookupByKey @ContractWithKey owner
-          create LookupResult with owner = owner, found = foundContract(optionalContractId)
+          create LookupResult with owner = owner, found = isSome optionalContractId
           pure ()
 
 template CreateWrapper with

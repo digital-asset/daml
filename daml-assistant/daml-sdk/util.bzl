@@ -10,6 +10,7 @@ def deps(edition):
         "//ledger/sandbox:sandbox-{}".format(edition),
         "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
         "//navigator/backend:navigator-library",
+        "//daml-script/export",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service:trigger-service",
         "//triggers/service/auth:oauth2-middleware",

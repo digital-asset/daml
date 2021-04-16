@@ -18,6 +18,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerAllocateParties,
     runLedgerUploadDar,
     runLedgerFetchDar,
+    runLedgerExport,
     runLedgerNavigator,
     runLedgerReset,
     runLedgerGetDalfs,
@@ -498,6 +499,26 @@ reset args = do
     HttpJson ->
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
+
+-- | Run export against configured ledger.
+runLedgerExport :: LedgerFlags -> [String] -> IO ()
+runLedgerExport flags remainingArguments = do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "export-logback.xml")
+    let isHelp = any (\x -> x `elem` ["-h", "--help"]) remainingArguments
+    ledgerFlags <- if isHelp then
+        -- Don't use getDefaultArgs here so that --help can be used outside a daml project.
+        pure []
+      else do
+        args <- getDefaultArgs flags
+        -- TODO[AH]: Use parties from daml.yaml by default.
+        -- TODO[AH]: Use SDK version from daml.yaml by default.
+        pure ["--host", host args, "--port", show (port args)]
+    withJar
+      damlSdkJar
+      [logbackArg]
+      ("export" : remainingArguments ++ ledgerFlags) $ \ph -> do
+        exitCode <- waitExitCode ph
+        exitWith exitCode
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
