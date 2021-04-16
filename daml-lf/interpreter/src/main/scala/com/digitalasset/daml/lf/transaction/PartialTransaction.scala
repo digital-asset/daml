@@ -129,7 +129,18 @@ private[lf] object PartialTransaction {
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
   }
 
-  final case class TryContextInfo(nodeId: NodeId, parent: Context) extends ContextInfo {
+  final case class ActiveLedgerState(
+      consumedBy: Map[Value.ContractId, NodeId],
+      keys: Map[GlobalKey, Option[Value.ContractId]],
+  )
+
+  final case class TryContextInfo(
+      nodeId: NodeId,
+      parent: Context,
+      // beginState stores the consumed contracts at the beginning of
+      // the try so that we can restore them on rollback.
+      beginState: ActiveLedgerState,
+  ) extends ContextInfo {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
 
@@ -193,6 +204,12 @@ private[lf] case class PartialTransaction(
 ) {
 
   import PartialTransaction._
+
+  private def activeState: ActiveLedgerState =
+    ActiveLedgerState(consumedBy, keys)
+
+  private def resetActiveState(state: ActiveLedgerState): PartialTransaction =
+    copy(consumedBy = state.consumedBy, keys = state.keys)
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -501,7 +518,7 @@ private[lf] case class PartialTransaction(
     */
   def beginTry: PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val info = TryContextInfo(nid, context)
+    val info = TryContextInfo(nid, context, activeState)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = Context(info, BackStack.empty, context.nextActionChildIdx),
@@ -549,7 +566,7 @@ private[lf] case class PartialTransaction(
         copy(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
-        )
+        ).resetActiveState(info.beginState)
       case _ =>
         noteAbort(Tx.NonCatchContext)
     }
