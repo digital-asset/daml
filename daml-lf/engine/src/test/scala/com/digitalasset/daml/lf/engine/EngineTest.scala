@@ -2030,6 +2030,107 @@ class EngineTest
         )
       }
     }
+
+    "exceptions" should {
+      val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+      val lookupPackage = allExceptionsPkgs.get(_)
+      val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+      val tId = Identifier(exceptionsPkgId, "Exceptions:T")
+      val let = Time.Timestamp.now()
+      val submissionSeed = hash("rollback")
+      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+      val cid = toContractId("#1")
+      val contracts = Map(
+        cid -> ContractInst(
+          TypeConName(exceptionsPkgId, "Exceptions:K"),
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0))))
+          ),
+          "",
+        )
+      )
+      val lookupContract = contracts.get(_)
+      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+        (key.globalKey.templateId, key.globalKey.key) match {
+          case (
+                `kId`,
+                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
+              ) =>
+            Some(cid)
+          case _ =>
+            None
+        }
+      def run(cmd: Command) = {
+        val Right((cmds, globalCids)) = preprocessor
+          .preprocessCommands(ImmArray(cmd))
+          .consume(lookupContract, lookupPackage, lookupKey)
+        engine
+          .interpretCommands(
+            validating = false,
+            submitters = Set(party),
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+            globalCids = globalCids,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
+      }
+      "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
+        val command = CreateAndExerciseCommand(
+          tId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "RollbackArchiveTransient",
+          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+        )
+        run(command) shouldBe a[Right[_, _]]
+      }
+      "archive of transient contract in try prevents consuming choice after try if not rolled back" in {
+        val command = CreateAndExerciseCommand(
+          tId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "ArchiveTransient",
+          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+        )
+        run(command) shouldBe a[Left[_, _]]
+      }
+      "rolled-back archive of non-transient contract does not prevent consuming choice after rollback" in {
+        val command = CreateAndExerciseCommand(
+          tId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "RollbackArchiveNonTransient",
+          ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+        )
+        run(command) shouldBe a[Right[_, _]]
+      }
+      "archive of non-transient contract in try prevents consuming choice after try if not rolled back" in {
+        val command = CreateAndExerciseCommand(
+          tId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "ArchiveNonTransient",
+          ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+        )
+        run(command) shouldBe a[Left[_, _]]
+      }
+      "key updates in rollback node are rolled back" in {
+        val command = CreateAndExerciseCommand(
+          tId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "RollbackKey",
+          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+        )
+        run(command) shouldBe a[Right[_, _]]
+      }
+      "key updates in try are not rolled back if no exception is thrown" in {
+        val command = CreateAndExerciseCommand(
+          tId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "Key",
+          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+        )
+        run(command) shouldBe a[Right[_, _]]
+      }
+    }
   }
 
   "Engine.preloadPackage" should {

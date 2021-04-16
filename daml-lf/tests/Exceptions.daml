@@ -1,0 +1,92 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Exceptions where
+
+import DA.Assert
+import DA.Exception (throw)
+
+exception E
+  where
+    message "E"
+
+template K
+  with
+    p : Party
+    v : Int
+    t : Text
+  where
+    signatory p
+    key (p, v) : (Party, Int)
+    maintainer key._1
+
+data Rollback = NoException | Throw
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice RollbackArchiveTransient : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "")
+         try (archive cid >> throw E)
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice ArchiveTransient : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "")
+         try archive cid >> pure ()
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice RollbackArchiveNonTransient : ()
+      with
+        cid : ContractId K
+      controller p
+      do try archive cid >> throw E
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice ArchiveNonTransient : ()
+      with
+        cid : ContractId K
+      controller p
+      do try archive cid >> pure ()
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice RollbackKey : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "before")
+         try do
+           archive cid
+           create (K p i "rollback")
+           throw E
+         catch
+           E -> pure ()
+         (_, k) <- fetchByKey @K (p, i)
+         k === K p i "before"
+
+    nonconsuming choice Key : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "before")
+         try archive cid >> create (K p i "rollback") >> pure ()
+         catch
+           E -> pure ()
+         (_, k) <- fetchByKey @K (p, i)
+         k === K p i "rollback"
