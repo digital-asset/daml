@@ -78,9 +78,9 @@ private[state] object Conversions {
       .build
   }
 
-  def contractKeyToStateKey(tmplId: Identifier, key: Value[ContractId]): DamlStateKey = {
+  def contractKeyToStateKey(templateId: Identifier, key: Value[ContractId]): DamlStateKey = {
     DamlStateKey.newBuilder
-      .setContractKey(encodeContractKey(tmplId, key))
+      .setContractKey(encodeContractKey(templateId, key))
       .build
   }
 

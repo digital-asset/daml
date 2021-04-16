@@ -8,9 +8,11 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
+import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
@@ -45,32 +47,37 @@ class KeyValueSubmission(metrics: Metrics) {
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
       val encodedSubInfo = buildSubmitterInfo(submitterInfo)
-      val usedPackages = meta.optUsedPackages.getOrElse(
-        throw new InternalError("Transaction was not annotated with used packages")
-      )
-      val parties = tx.informees ++ submitterInfo.actAs
-      val inputContracts = tx.inputContracts
-      val contractKeys = tx.contractKeys
+      val packageIdStates = meta.optUsedPackages
+        .getOrElse(
+          throw new InternalError("Transaction was not annotated with used packages")
+        )
+        .map(Conversions.packageStateKey)
+      val partyStates =
+        (tx.informees ++ submitterInfo.actAs).toList.map(Conversions.partyStateKey)
+      val contractIdStates =
+        tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
+      val contractKeyStates =
+        tx.contractKeys[ContractId].map { case (templateId, key) =>
+          Conversions.contractKeyToStateKey(templateId, key)
+        }
 
-      val cs = DamlSubmission.newBuilder
-      cs.addInputDamlState(commandDedupKey(encodedSubInfo))
-      cs.addInputDamlState(configurationStateKey)
-      usedPackages.foreach(pkgId => cs.addInputDamlState(Conversions.packageStateKey(pkgId)))
-      parties.foreach(party => cs.addInputDamlState(Conversions.partyStateKey(party)))
-      inputContracts.foreach(cid => cs.addInputDamlState(Conversions.contractIdToStateKey(cid)))
-      contractKeys.foreach { case (tmplId, key) =>
-        cs.addInputDamlState(Conversions.contractKeyToStateKey(tmplId, key))
-      }
-      cs.setTransactionEntry(
-        DamlTransactionEntry.newBuilder
-          .setTransaction(Conversions.encodeTransaction(tx))
-          .setSubmitterInfo(encodedSubInfo)
-          .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
-          .setWorkflowId(meta.workflowId.getOrElse(""))
-          .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
-          .setSubmissionTime(buildTimestamp(meta.submissionTime))
-      )
-      cs.build
+      DamlSubmission.newBuilder
+        .addInputDamlState(commandDedupKey(encodedSubInfo))
+        .addInputDamlState(configurationStateKey)
+        .addAllInputDamlState(packageIdStates.asJava)
+        .addAllInputDamlState(partyStates.asJava)
+        .addAllInputDamlState(contractIdStates.asJava)
+        .addAllInputDamlState(contractKeyStates.asJava)
+        .setTransactionEntry(
+          DamlTransactionEntry.newBuilder
+            .setTransaction(Conversions.encodeTransaction(tx))
+            .setSubmitterInfo(encodedSubInfo)
+            .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
+            .setWorkflowId(meta.workflowId.getOrElse(""))
+            .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
+            .setSubmissionTime(buildTimestamp(meta.submissionTime))
+        )
+        .build()
     }
 
   /** Prepare a package upload submission. */
