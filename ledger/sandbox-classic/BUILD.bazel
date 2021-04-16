@@ -111,21 +111,6 @@ da_scala_binary(
     ],
 )
 
-genrule(
-    name = "sandbox-classic-tarball",
-    srcs = [
-        ":sandbox-classic-binary_deploy.jar",
-    ],
-    outs = ["sandbox-classic-tarball.tar.gz"],
-    cmd = """
-        mkdir -p sandbox-classic-tarball/sandbox
-        cp -L $(location :sandbox-classic-binary_deploy.jar) sandbox-classic-tarball/sandbox/sandbox-classic-{mvn}.jar
-        $(execpath //bazel_tools/sh:mktgz) $@ -C sandbox-classic-tarball sandbox
-    """.format(mvn = mvn_version),
-    tools = ["//bazel_tools/sh:mktgz"],
-    visibility = ["//visibility:public"],
-)
-
 da_scala_library(
     name = "sandbox-classic-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
