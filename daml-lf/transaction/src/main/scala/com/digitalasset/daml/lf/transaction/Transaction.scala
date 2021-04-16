@@ -388,16 +388,18 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     * This includes the keys created, exercised, fetched, or lookup, even those
     * that refer to transient contracts or that appear under a roolback node.
     */
-  final def contractKeys[Cid2 >: Cid]: Set[(Ref.Identifier, Value[Cid2])] = {
-    fold(Set.empty[(Ref.Identifier, Value[Cid2])]) {
-      case (acc, (_, node: Node.NodeCreate[Cid])) =>
-        node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
-      case (acc, (_, node: Node.NodeExercises[_, Cid])) =>
-        node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
-      case (acc, (_, node: Node.NodeFetch[Cid])) =>
-        node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
-      case (acc, (_, node: Node.NodeLookupByKey[Cid])) =>
-        acc + ((node.templateId, node.key.key))
+  final def contractKeys(implicit
+      ev: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
+  ): Set[GlobalKey] = {
+    ev(this).fold(Set.empty[GlobalKey]) {
+      case (acc, (_, node: Node.NodeCreate[Value.ContractId])) =>
+        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
+      case (acc, (_, node: Node.NodeExercises[_, Value.ContractId])) =>
+        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
+      case (acc, (_, node: Node.NodeFetch[Value.ContractId])) =>
+        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
+      case (acc, (_, node: Node.NodeLookupByKey[Value.ContractId])) =>
+        acc + GlobalKey.assertBuild(node.templateId, node.key.key)
       case (acc, (_, _: Node.NodeRollback[_])) =>
         acc
     }

@@ -367,7 +367,9 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
           "RolledBackFetchByKey",
           "RolledBackSuccessfulLookup",
           "RolledBackUnsuccessfulLookup",
-        ).map(s => Ref.Identifier.assertFromString(s"-pkg-:Mod:$s") -> V.ValueText(s)).toSet
+        ).map(s =>
+          GlobalKey.assertBuild(Ref.Identifier.assertFromString(s"-pkg-:Mod:$s"), V.ValueText(s))
+        ).toSet
 
       builder.build().contractKeys shouldBe expectedResults
     }

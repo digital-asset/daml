@@ -57,32 +57,20 @@ private[state] object Conversions {
   }
 
   def encodeContractKey(tmplId: Identifier, key: Value[ContractId]): DamlContractKey =
-    GlobalKey
-      .build(tmplId, key)
-      .fold(
-        err => throw Err.EncodeError("GlobalKey", err),
-        encodeGlobalKey,
-      )
+    encodeGlobalKey(
+      GlobalKey
+        .build(tmplId, key)
+        .fold(msg => throw Err.InvalidSubmission(msg), identity)
+    )
 
   def decodeIdentifier(protoIdent: ValueOuterClass.Identifier): Identifier =
-    ValueCoder
-      .decodeIdentifier(protoIdent)
-      .getOrElse(
-        throw Err
-          .DecodeError("Identifier", s"Cannot decode identifier: $protoIdent")
-      )
+    assertDecode("Identifier", ValueCoder.decodeIdentifier(protoIdent))
 
-  def globalKeyToStateKey(key: GlobalKey): DamlStateKey = {
-    DamlStateKey.newBuilder
-      .setContractKey(encodeGlobalKey(key))
-      .build
-  }
+  def globalKeyToStateKey(key: GlobalKey): DamlStateKey =
+    DamlStateKey.newBuilder.setContractKey(encodeGlobalKey(key)).build
 
-  def contractKeyToStateKey(templateId: Identifier, key: Value[ContractId]): DamlStateKey = {
-    DamlStateKey.newBuilder
-      .setContractKey(encodeContractKey(templateId, key))
-      .build
-  }
+  def contractKeyToStateKey(templateId: Identifier, key: Value[ContractId]): DamlStateKey =
+    DamlStateKey.newBuilder.setContractKey(encodeContractKey(templateId, key)).build
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
     val sortedUniqueSubmitters =

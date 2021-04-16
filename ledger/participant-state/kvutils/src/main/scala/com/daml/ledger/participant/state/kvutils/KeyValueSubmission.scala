@@ -54,12 +54,8 @@ class KeyValueSubmission(metrics: Metrics) {
         .map(Conversions.packageStateKey)
       val partyStates =
         (tx.informees ++ submitterInfo.actAs).toList.map(Conversions.partyStateKey)
-      val contractIdStates =
-        tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
-      val contractKeyStates =
-        tx.contractKeys[ContractId].map { case (templateId, key) =>
-          Conversions.contractKeyToStateKey(templateId, key)
-        }
+      val contractIdStates = tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
+      val contractKeyStates = tx.contractKeys.map(Conversions.globalKeyToStateKey)
 
       DamlSubmission.newBuilder
         .addInputDamlState(commandDedupKey(encodedSubInfo))
