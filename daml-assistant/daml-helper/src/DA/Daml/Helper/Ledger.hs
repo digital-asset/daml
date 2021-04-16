@@ -13,8 +13,6 @@ module DA.Daml.Helper.Ledger (
     L.ClientSSLKeyCertPair(..),
     L.TimeoutSeconds,
     JsonFlag(..),
-    LedgerExportFlags(..),
-    LedgerExportType(..),
     runDeploy,
     runLedgerListParties,
     runLedgerAllocateParties,
@@ -502,42 +500,23 @@ reset args = do
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
 
-data LedgerExportFlags = LedgerExportFlags
-  { parties :: [String]
-  , start :: Maybe String
-  , end :: Maybe String
-  , export :: LedgerExportType
-  }
-
-data LedgerExportType = LedgerExportScript
-  { acsBatchSize :: Maybe Int
-  , output :: String
-  , sdkVersion :: Maybe String
-  }
-
 -- | Run export against configured ledger.
-runLedgerExport :: LedgerFlags -> LedgerExportFlags -> IO ()
-runLedgerExport flags LedgerExportFlags {..} = do
-    args <- getDefaultArgs flags
+runLedgerExport :: LedgerFlags -> [String] -> IO ()
+runLedgerExport flags remainingArguments = do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "export-logback.xml")
-    -- TODO[AH]: Use parties from daml.yaml by default.
-    -- TODO[AH]: Use SDK version from daml.yaml by default.
-    let exportArgs = concat
-          [ case export of
-              LedgerExportScript {..} -> concat
-                [ ["script", "--output", output]
-                , maybe [] (\x -> ["--acs-batch-size", show x]) acsBatchSize
-                , maybe [] (\x -> ["--sdk-version", x]) sdkVersion
-                ]
-          , ["--host", host args, "--port", show (port args)]
-          , concat [ ["--party", party] | party <- parties ]
-          , maybe [] (\x -> ["--start", x]) start
-          , maybe [] (\x -> ["--end", x]) end
-          ]
+    let isHelp = any (\x -> x `elem` ["-h", "--help"]) remainingArguments
+    ledgerFlags <- if isHelp then
+        -- Don't use getDefaultArgs here so that --help can be used outside a daml project.
+        pure []
+      else do
+        args <- getDefaultArgs flags
+        -- TODO[AH]: Use parties from daml.yaml by default.
+        -- TODO[AH]: Use SDK version from daml.yaml by default.
+        pure ["--host", host args, "--port", show (port args)]
     withJar
       damlSdkJar
       [logbackArg]
-      ("export" : exportArgs) $ \ph -> do
+      ("export" : remainingArguments ++ ledgerFlags) $ \ph -> do
         exitCode <- waitExitCode ph
         exitWith exitCode
 

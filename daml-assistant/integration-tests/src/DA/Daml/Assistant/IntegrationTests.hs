@@ -450,10 +450,9 @@ damlStartTests getDamlStart =
               withTempDir $ \exportDir -> do
                   withCurrentDirectory projDir $ do
                       callCommand $ unwords
-                          [ "daml ledger export"
+                          [ "daml ledger export script"
                           , "--host localhost --port " <> show sandboxPort
                           , "--party Alice"
-                          , "script"
                           , "--output " <> exportDir <> " --sdk-version " <> sdkVersion
                           ]
                   withCurrentDirectory exportDir $ do
