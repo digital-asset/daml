@@ -512,7 +512,7 @@ runLedgerExport flags remainingArguments = do
         args <- getDefaultArgs flags
         -- TODO[AH]: Use parties from daml.yaml by default.
         -- TODO[AH]: Use SDK version from daml.yaml by default.
-        pure $ ["--host", host args, "--port", show (port args)]
+        pure ["--host", host args, "--port", show (port args)]
     withJar
       damlSdkJar
       [logbackArg]
