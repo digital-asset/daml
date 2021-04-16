@@ -5,18 +5,21 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.language.{Util => AstUtil}
+import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.PartialTransaction._
 import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.Value
+import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class PartialTransactionSpec extends AnyWordSpec with Matchers {
+class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("PartialTransactionSpec")
   private[this] val templateId = data.Ref.Identifier.assertFromString("pkg:Mod:Template")
   private[this] val choiceId = data.Ref.Name.assertFromString("choice")
   private[this] val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("My contract"))
+  private[this] val party = data.Ref.Party.assertFromString("Alice")
 
   private[this] val initialState = PartialTransaction.initial(
     _ => TransactionVersion.maxVersion,
@@ -25,14 +28,11 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    ptx.finish match {
-      case CompleteTransaction(tx) =>
-        tx.fold(Vector.empty[Value.ContractId]) {
-          case (acc, (_, create: Node.NodeCreate[Value.ContractId])) => acc :+ create.coid
-          case (acc, _) => acc
-        }
-      case IncompleteTransaction(_) =>
-        sys.error("unexpected error")
+    inside(ptx.finish) { case CompleteTransaction(tx) =>
+      tx.fold(Vector.empty[Value.ContractId]) {
+        case (acc, (_, create: Node.NodeCreate[Value.ContractId])) => acc :+ create.coid
+        case (acc, _) => acc
+      }
     }
   }
 
@@ -40,12 +40,12 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
 
     def insertCreate_ : PartialTransaction =
       ptx.insertCreate(
-        None,
+        Authorize(Set(party)),
         templateId,
         Value.ValueUnit,
         "agreement",
         None,
-        Set.empty,
+        Set(party),
         Set.empty,
         None,
       ) match {
@@ -55,14 +55,14 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers {
 
     def beginExercises_ : PartialTransaction =
       ptx.beginExercises(
-        auth = None,
+        Authorize(Set(party)),
         targetId = cid,
         templateId = templateId,
         choiceId = choiceId,
         optLocation = None,
         consuming = false,
-        actingParties = Set.empty,
-        signatories = Set.empty,
+        actingParties = Set(party),
+        signatories = Set(party),
         stakeholders = Set.empty,
         choiceObservers = Set.empty,
         mbKey = None,
