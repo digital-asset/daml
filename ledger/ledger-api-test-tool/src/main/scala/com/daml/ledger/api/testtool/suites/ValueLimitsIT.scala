@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.test.model.Test.DummyWithAnnotation
@@ -14,13 +15,9 @@ import scala.util.Random
 
 final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
 
-  /** Postgres has a limit on the index row size of 2712.
-    * We test that a large submitters number doesn't cause deduplication failure because of that limit.
-    * THIS TEST CASE DOES NOT TEST ANY OTHER FAILURES THAT MAY BE CAUSED BY A LARGE SUBMITTERS NUMBER
-    */
   test(
-    "VLDeduplicateWithLargeSubmittersNumber",
-    "Deduplicate commands with a large number of submitters",
+    "VLLargeSubmittersNumberCreateContract",
+    "Create a contract with a large submitters number",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
@@ -42,7 +39,9 @@ final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
           _.commands.deduplicationTime := deduplicationTime.asProtobuf
         )
       _ <- ledger.submit(request)
+      contracts <- ledger.activeContracts(parties.head)
     } yield {
+      assertSingleton("Single create contract expected", contracts)
       ()
     }
   })
