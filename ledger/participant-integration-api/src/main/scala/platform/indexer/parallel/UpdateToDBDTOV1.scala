@@ -228,6 +228,7 @@ object UpdateToDBDTOV1 {
         val divulgences = blinding.divulgence.iterator.map { case (contractId, visibleToParties) =>
           val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
           new DBDTOV1.EventDivulgence(
+            event_offset = Some(offset.toByteArray),
             command_id = u.optSubmitterInfo.map(_.commandId),
             workflow_id = u.transactionMeta.workflowId,
             application_id = u.optSubmitterInfo.map(_.applicationId),

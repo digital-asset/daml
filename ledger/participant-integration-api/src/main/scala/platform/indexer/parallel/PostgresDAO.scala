@@ -36,6 +36,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     """
       |INSERT INTO participant_events_divulgence
       | (
+      |   event_offset,
       |   contract_id,
       |   command_id,
       |   workflow_id,
@@ -48,6 +49,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   create_argument_compression
       | )
       | SELECT
+      |   event_offset_in,
       |   contract_id_in,
       |   command_id_in,
       |   workflow_id_in,
@@ -58,8 +60,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   string_to_array(tree_event_witnesses_in, '|'),
       |   event_sequential_id_in,
       |   create_argument_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?)
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?)
       | as t(
+      |   event_offset_in,
       |   contract_id_in,
       |   command_id_in,
       |   workflow_id_in,
@@ -552,6 +555,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     rawDBBatchPostgreSQLV1.eventsBatchDivulgence.foreach(batch =>
       execute(
         preparedInsertEventsBatchDivulgence,
+        batch.event_offset,
         batch.contract_id,
         batch.command_id,
         batch.workflow_id,
@@ -809,10 +813,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |FROM participant_command_completions
       |WHERE completion_offset > ?;
       |
-      |-- TODO append-only: how do we remove divulgence events? They don't have an event_offset
-      |-- DELETE
-      |-- FROM participant_events_divulgence
-      |-- WHERE event_offset > ?;
+      |DELETE
+      |FROM participant_events_divulgence
+      |WHERE event_offset > ?;
       |
       |DELETE
       |FROM participant_events_create

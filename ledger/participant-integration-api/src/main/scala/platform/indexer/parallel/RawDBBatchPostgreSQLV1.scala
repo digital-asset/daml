@@ -60,6 +60,7 @@ case class RawDBBatchPostgreSQLV1(
 }
 
 class EventsBatchDivulgence(
+    val event_offset: Array[Array[Byte]],
     val command_id: Array[String],
     val workflow_id: Array[String],
     val application_id: Array[String],
@@ -183,6 +184,7 @@ class CommandDeduplicationBatch(val deduplication_key: Array[String])
 object RawDBBatchPostgreSQLV1 {
 
   case class EventsBatchBuilderDivulgence(
+      event_offset: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
       command_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       workflow_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       application_id: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
@@ -365,6 +367,7 @@ object RawDBBatchPostgreSQLV1 {
             } else {
               eventsBatchBuilderDivulgence
             }
+          eventsBatchBuilder.event_offset += e.event_offset.orNull
           eventsBatchBuilder.command_id += e.command_id.orNull
           eventsBatchBuilder.workflow_id += e.workflow_id.orNull
           eventsBatchBuilder.application_id += e.application_id.orNull
@@ -536,6 +539,7 @@ object RawDBBatchPostgreSQLV1 {
     def build(): RawDBBatchPostgreSQLV1 = RawDBBatchPostgreSQLV1(
       eventsBatchDivulgence = Option(eventsBatchBuilderDivulgence).map(b =>
         new EventsBatchDivulgence(
+          event_offset = b.event_offset.result(),
           command_id = b.command_id.result(),
           workflow_id = b.workflow_id.result(),
           application_id = b.application_id.result(),

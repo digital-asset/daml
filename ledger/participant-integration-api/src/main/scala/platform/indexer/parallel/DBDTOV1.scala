@@ -10,6 +10,7 @@ trait DBDTOV1
 object DBDTOV1 {
 
   case class EventDivulgence(
+      event_offset: Option[Array[Byte]],
       command_id: Option[String],
       workflow_id: Option[String],
       application_id: Option[String],

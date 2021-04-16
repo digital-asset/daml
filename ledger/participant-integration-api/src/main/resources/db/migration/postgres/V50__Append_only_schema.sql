@@ -60,6 +60,7 @@ CREATE TABLE participant_events_divulgence (
     event_sequential_id bigserial NOT NULL, -- TODO append-only: temporarily readding bigserial for original write paths
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
+    event_offset bytea NOT NULL,
 
     -- * transaction metadata
     command_id text,
@@ -78,6 +79,9 @@ CREATE TABLE participant_events_divulgence (
     -- * compression flags
     create_argument_compression SMALLINT
 );
+
+-- offset index: used to translate to sequential_id
+CREATE INDEX participant_events_divulgence_event_offset ON participant_events_divulgence USING btree (event_offset);
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_divulgence_event_sequential_id ON participant_events_divulgence USING btree (event_sequential_id);
