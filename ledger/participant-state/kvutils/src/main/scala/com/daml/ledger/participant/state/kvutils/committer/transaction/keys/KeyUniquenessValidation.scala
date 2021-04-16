@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.globalKey
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.{
   Duplicate,
   KeyValidationState,
@@ -24,9 +23,8 @@ private[keys] object KeyUniquenessValidation {
         node match {
           case exercise: Node.NodeExercises[NodeId, ContractId]
               if exercise.key.isDefined && exercise.consuming =>
-            val stateKey = Conversions.globalKeyToStateKey(
-              globalKey(exercise.templateId, exercise.key.get.key)
-            )
+            val stateKey =
+              Conversions.contractKeyToStateKey(exercise.templateId, exercise.key.get.key)
             Right(
               keyValidationState + KeyValidationState(
                 activeStateKeys = activeStateKeys - stateKey
@@ -35,9 +33,7 @@ private[keys] object KeyUniquenessValidation {
 
           case create: Node.NodeCreate[ContractId] if create.key.isDefined =>
             val stateKey =
-              Conversions.globalKeyToStateKey(
-                globalKey(create.coinst.template, create.key.get.key)
-              )
+              Conversions.contractKeyToStateKey(create.coinst.template, create.key.get.key)
 
             if (activeStateKeys.contains(stateKey))
               Left(Duplicate)

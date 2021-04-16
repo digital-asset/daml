@@ -364,12 +364,29 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     globalState
   }
 
-  final def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
-    fold(Map.empty[Cid2, Nid]) {
+  final def localContracts[Cid2 >: Cid]: Map[Cid2, (Nid, Node.NodeCreate[Cid2])] =
+    fold(Map.empty[Cid2, (Nid, Node.NodeCreate[Cid2])]) {
       case (acc, (nid, create: Node.NodeCreate[Cid])) =>
-        acc.updated(create.coid, nid)
+        acc.updated(create.coid, nid -> create)
       case (acc, _) => acc
     }
+
+  /** Returns the IDs of all the consumed contracts.
+    *  This includes transient contracts but it does not include contracts
+    *  consumed in rollback nodes.
+    */
+  final def consumedContracts[Cid2 >: Cid]: Set[Cid2] =
+    foldInExecutionOrder(Set.empty[Cid2])(
+      exerciseBegin = (acc, _, exe) => {
+        val acc0 = if (exe.consuming) { acc + exe.targetCoid }
+        else acc
+        (acc0, true)
+      },
+      rollbackBegin = (acc, _, _) => (acc, false),
+      leaf = (acc, _, _) => acc,
+      exerciseEnd = (acc, _, _) => acc,
+      rollbackEnd = (acc, _, _) => acc,
+    )
 
   /** Returns the IDs of all input contracts that are used by this transaction.
     */
@@ -403,6 +420,37 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, (_, _: Node.NodeRollback[_])) =>
         acc
     }
+  }
+
+  /** The contract keys created or updated as part of the transaction.
+    *  This includes updates to transient contracts (by mapping them to None)
+    *  but it does not include any updates under rollback nodes.
+    */
+  final def updatedContractKeys(implicit
+      ev: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
+  ): Map[GlobalKey, Option[Value.ContractId]] = {
+    ev(this).foldInExecutionOrder(Map.empty[GlobalKey, Option[Value.ContractId]])(
+      exerciseBegin = {
+        case (acc, _, exec) if exec.consuming =>
+          (
+            exec.key.fold(acc)(key =>
+              acc.updated(GlobalKey.assertBuild(exec.templateId, key.key), None)
+            ),
+            true,
+          )
+        case (acc, _, _) => (acc, true)
+      },
+      rollbackBegin = (acc, _, _) => (acc, false),
+      leaf = {
+        case (acc, _, create: Node.NodeCreate[Value.ContractId]) =>
+          create.key.fold(acc)(key =>
+            acc.updated(GlobalKey.assertBuild(create.templateId, key.key), Some(create.coid))
+          )
+        case (acc, _, _: Node.NodeFetch[_] | _: Node.NodeLookupByKey[_]) => acc
+      },
+      exerciseEnd = (acc, _, _) => acc,
+      rollbackEnd = (acc, _, _) => acc,
+    )
   }
 
   // This method visits to all nodes of the transaction in execution order.

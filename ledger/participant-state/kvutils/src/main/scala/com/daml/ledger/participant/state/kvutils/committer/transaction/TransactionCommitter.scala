@@ -12,18 +12,17 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.validateKeys
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party, TypeConName}
+import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
-  GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
@@ -448,30 +447,31 @@ private[kvutils] class TransactionCommitter(
       blindingInfo: BlindingInfo,
       commitContext: CommitContext,
   ): Unit = {
-    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
-    val cid2nid: Value.ContractId => NodeId =
-      transactionEntry.transaction.localContracts
+    val localContracts = transactionEntry.transaction.localContracts
+    val consumedContracts = transactionEntry.transaction.consumedContracts
+    val contractKeys = transactionEntry.transaction.updatedContractKeys
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
-    for ((key, createNode) <- effects.createdContracts) {
+    localContracts.foreach { case (cid, (nid, createNode)) =>
       val cs = DamlContractState.newBuilder
       cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
-      val localDisclosure =
-        blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
+      val localDisclosure = blindingInfo.disclosure(nid)
       cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
       cs.setContractInstance(
         Conversions.encodeContractInstance(createNode.versionedCoinst)
       )
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
-          Conversions.encodeGlobalKey(
-            globalKey(createNode.coinst.template, keyWithMaintainers.key)
-          )
+          Conversions.encodeContractKey(createNode.coinst.template, keyWithMaintainers.key)
         )
       }
-      commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
+      commitContext.set(
+        Conversions.contractIdToStateKey(cid),
+        DamlStateValue.newBuilder.setContractState(cs).build,
+      )
     }
     // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
-    for (key <- effects.consumedContracts) {
+    consumedContracts.foreach { cid =>
+      val key = Conversions.contractIdToStateKey(cid)
       val cs = getContractState(commitContext, key)
       commitContext.set(
         key,
@@ -497,9 +497,10 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract keys.
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
-    for ((key, contractKeyState) <- effects.updatedContractKeys) {
+    contractKeys.foreach { case (contractKey, contractKeyState) =>
+      val stateKey = Conversions.globalKeyToStateKey(contractKey)
       val (k, v) =
-        updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
+        updateContractKeyWithContractKeyState(ledgerEffectiveTime, stateKey, contractKeyState)
       commitContext.set(k, v)
     }
   }
@@ -769,14 +770,4 @@ private[kvutils] object TransactionCommitter {
       }
     } yield parseTimestamp(dedupTimestamp).toInstant
 
-  private[committer] def damlContractKey(
-      templateId: TypeConName,
-      keyValue: Value[ContractId],
-  ): DamlContractKey =
-    encodeGlobalKey(globalKey(templateId, keyValue))
-
-  private[transaction] def globalKey(tmplId: Identifier, key: Value[ContractId]) =
-    GlobalKey
-      .build(tmplId, key)
-      .fold(msg => throw Err.InternalError(msg), identity)
 }
