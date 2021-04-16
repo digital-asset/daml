@@ -47,11 +47,11 @@ final class TransactionBuilder(
   def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes(parentId) match {
-      case _: TxExercise =>
+      case _: TxExercise | _: TxRollback =>
         children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
-          s"Node ${parentId.index} either does not exist or is not an exercise"
+          s"Node ${parentId.index} either does not exist or is not an exercise or rollback"
         )
     }
     nodeId
@@ -93,17 +93,46 @@ final class TransactionBuilder(
       signatories: Seq[String],
       observers: Seq[String],
       key: Option[Value],
+  ): Create =
+    create(ContractId.assertFromString(id), template, argument, signatories, observers, key)
+
+  def create(
+      id: ContractId,
+      template: String,
+      argument: Value,
+      signatories: Seq[String],
+      observers: Seq[String],
+      key: Option[Value],
+  ): Create =
+    create(
+      id,
+      template,
+      argument,
+      signatories,
+      observers,
+      key,
+      signatories,
+    )
+
+  def create(
+      id: ContractId,
+      template: String,
+      argument: Value,
+      signatories: Seq[String],
+      observers: Seq[String],
+      key: Option[Value],
+      maintainers: Seq[String],
   ): Create = {
     val templateId = Ref.Identifier.assertFromString(template)
     Create(
-      coid = ContractId.assertFromString(id),
+      coid = id,
       templateId = templateId,
       arg = argument,
       agreementText = "",
       optLocation = None,
       signatories = signatories.map(Ref.Party.assertFromString).toSet,
       stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
-      key = key.map(keyWithMaintainers(maintainers = signatories, _)),
+      key = key.map(keyWithMaintainers(maintainers = maintainers, _)),
       version = pkgTxVersion(templateId.packageId),
     )
   }
@@ -170,6 +199,14 @@ final class TransactionBuilder(
       version = pkgTxVersion(contract.coinst.template.packageId),
     )
 
+  def rollback(): Rollback =
+    Rollback(
+      children = ImmArray.empty,
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      //  the version of a rollback node should be determined from its children.
+      //  in the case of there being no children we can simple drop the entire rollback node.
+      version = TransactionVersion.VDev,
+    )
 }
 
 object TransactionBuilder {
@@ -183,15 +220,18 @@ object TransactionBuilder {
   type Exercise = Node.NodeExercises[NodeId, ContractId]
   type Fetch = Node.NodeFetch[ContractId]
   type LookupByKey = Node.NodeLookupByKey[ContractId]
+  type Rollback = Node.NodeRollback[NodeId]
   type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
 
   type TxExercise = Node.NodeExercises[NodeId, ContractId]
+  type TxRollback = Node.NodeRollback[NodeId]
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
 
   private val Create = Node.NodeCreate
   private val Exercise = Node.NodeExercises
   private val Fetch = Node.NodeFetch
   private val LookupByKey = Node.NodeLookupByKey
+  private val Rollback = Node.NodeRollback
   private val KeyWithMaintainers = Node.KeyWithMaintainers
 
   def apply(): TransactionBuilder =
