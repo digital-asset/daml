@@ -140,8 +140,9 @@ CREATE TABLE participant_events_create (
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT
 );
--- these columns contain data that is generally incompressible, so don't try it
-ALTER TABLE participant_events_create ALTER COLUMN create_key_hash  SET STORAGE EXTERNAL;
+-- disable compression for columns containing data that is generally incompressible, this reduces the CPU usage
+-- text and bytea values are compressed by default, "STORAGE EXTERNAL" disables the compression
+ALTER TABLE participant_events_create ALTER COLUMN create_key_hash SET STORAGE EXTERNAL;
 
 -- offset index: used to translate to sequential_id
 CREATE INDEX participant_events_create_event_offset ON participant_events_create USING btree (event_offset);

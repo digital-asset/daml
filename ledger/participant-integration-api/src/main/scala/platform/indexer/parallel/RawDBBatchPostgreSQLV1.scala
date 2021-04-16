@@ -8,6 +8,16 @@ import java.time.{Instant, ZoneOffset}
 
 import scala.collection.mutable
 
+trait RawDBBatch {
+
+  /** Adds the given offset to all event IDs in this batch, and returns the number of events affected.
+    *
+    * Note: Batches are expected to assign sequential event IDs within the batch, these "local" IDs are converted
+    * to "global" IDs in a separate stage that sequences the batches.
+    */
+  def offsetSequentialEventIds(offset: Long): Long
+}
+
 // TODO append-only: hurts one to look around here, the whole file is a boilerplate, including related PostgreDAO artifacts (prepared statements and execution of them)
 // TODO append-only: ideas:
 //   - switch to weakly/runtime-typed: probably slower, verification problematic, ugly in a strongly typed context
@@ -26,8 +36,8 @@ case class RawDBBatchPostgreSQLV1(
     partyEntriesBatch: Option[PartyEntriesBatch],
     commandCompletionsBatch: Option[CommandCompletionsBatch],
     commandDeduplicationBatch: Option[CommandDeduplicationBatch],
-) {
-  def offsetSequentialEventIds(offset: Long): Long = {
+) extends RawDBBatch {
+  override def offsetSequentialEventIds(offset: Long): Long = {
     var idsUsed: Long = 0
     eventsBatchDivulgence.foreach(batch => {
       batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
@@ -336,7 +346,8 @@ object RawDBBatchPostgreSQLV1 {
     private[this] var commandCompletionsBatchBuilder: CommandCompletionsBatchBuilder = _
     private[this] var commandDeduplicationBatchBuilder: CommandDeduplicationBatchBuilder = _
 
-    // Sequential ID within this batch. The final sequential ID
+    // Sequential ID within this batch. These local sequential IDs are converted to global IDs at a later stage.
+    // See RawDBBatch.offsetSequentialEventIds()
     private[this] var eventSequentialId: Long = 0
     private[this] def nextEventSequentialId() = {
       val result = eventSequentialId
