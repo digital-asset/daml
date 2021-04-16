@@ -384,6 +384,24 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, _) => acc
     } -- localContracts.keySet
 
+  /** Return all the contract keys created, exercised, fetched or lookup by this transation.
+    */
+  final def contractKeys[Cid2 >: Cid]: Set[(Ref.Identifier, Value[Cid2])] = {
+    fold(Set.empty[(Ref.Identifier, Value[Cid2])]) {
+      case (acc, (_, node: Node.NodeCreate[Cid])) =>
+        node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
+      case (acc, (_, node: Node.NodeExercises[_, Cid])) =>
+        node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
+      case (acc, (_, node: Node.NodeFetch[Cid])) =>
+        node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
+      case (acc, (_, node: Node.NodeLookupByKey[Cid])) =>
+        acc + ((node.templateId, node.key.key))
+      case (_, (_, _: Node.NodeRollback[_])) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("Rollback node not support")
+    }
+  }
+
   // This method visits to all nodes of the transaction in execution order.
   // Exercise/rollback nodes are visited twice: when execution reaches them and when execution leaves their body.
   // On the first visit of an execution/rollback node, the caller can prevent traversal of the children

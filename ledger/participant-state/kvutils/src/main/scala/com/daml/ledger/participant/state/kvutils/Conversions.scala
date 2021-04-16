@@ -56,6 +56,14 @@ private[state] object Conversions {
       .build
   }
 
+  def encodeContractKey(tmplId: Identifier, key: Value[ContractId]): DamlContractKey =
+    GlobalKey
+      .build(tmplId, key)
+      .fold(
+        err => throw Err.EncodeError("GlobalKey", err),
+        encodeGlobalKey,
+      )
+
   def decodeIdentifier(protoIdent: ValueOuterClass.Identifier): Identifier =
     ValueCoder
       .decodeIdentifier(protoIdent)
@@ -67,6 +75,12 @@ private[state] object Conversions {
   def globalKeyToStateKey(key: GlobalKey): DamlStateKey = {
     DamlStateKey.newBuilder
       .setContractKey(encodeGlobalKey(key))
+      .build
+  }
+
+  def contractKeyToStateKey(tmplId: Identifier, key: Value[ContractId]): DamlStateKey = {
+    DamlStateKey.newBuilder
+      .setContractKey(encodeContractKey(tmplId, key))
       .build
   }
 

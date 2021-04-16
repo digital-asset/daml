@@ -44,24 +44,33 @@ class KeyValueSubmission(metrics: Metrics) {
       tx: SubmittedTransaction,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
-      val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
       val encodedSubInfo = buildSubmitterInfo(submitterInfo)
+      val usedPackages = meta.optUsedPackages.getOrElse(
+        throw new InternalError("Transaction was not annotated with used packages")
+      )
+      val parties = tx.informees ++ submitterInfo.actAs
+      val inputContracts = tx.inputContracts
+      val contractKeys = tx.contractKeys
 
-      DamlSubmission.newBuilder
-        .addInputDamlState(commandDedupKey(encodedSubInfo))
-        .addInputDamlState(configurationStateKey)
-        .addAllInputDamlState(submitterInfo.actAs.map(partyStateKey).asJava)
-        .addAllInputDamlState(inputDamlStateFromTx.asJava)
-        .setTransactionEntry(
-          DamlTransactionEntry.newBuilder
-            .setTransaction(Conversions.encodeTransaction(tx))
-            .setSubmitterInfo(encodedSubInfo)
-            .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
-            .setWorkflowId(meta.workflowId.getOrElse(""))
-            .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
-            .setSubmissionTime(buildTimestamp(meta.submissionTime))
-        )
-        .build
+      val cs = DamlSubmission.newBuilder
+      cs.addInputDamlState(commandDedupKey(encodedSubInfo))
+      cs.addInputDamlState(configurationStateKey)
+      usedPackages.foreach(pkgId => cs.addInputDamlState(Conversions.packageStateKey(pkgId)))
+      parties.foreach(party => cs.addInputDamlState(Conversions.partyStateKey(party)))
+      inputContracts.foreach(cid => cs.addInputDamlState(Conversions.contractIdToStateKey(cid)))
+      contractKeys.foreach { case (tmplId, key) =>
+        cs.addInputDamlState(Conversions.contractKeyToStateKey(tmplId, key))
+      }
+      cs.setTransactionEntry(
+        DamlTransactionEntry.newBuilder
+          .setTransaction(Conversions.encodeTransaction(tx))
+          .setSubmitterInfo(encodedSubInfo)
+          .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
+          .setWorkflowId(meta.workflowId.getOrElse(""))
+          .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
+          .setSubmissionTime(buildTimestamp(meta.submissionTime))
+      )
+      cs.build
     }
 
   /** Prepare a package upload submission. */
