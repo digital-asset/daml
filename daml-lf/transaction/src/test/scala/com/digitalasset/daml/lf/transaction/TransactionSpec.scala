@@ -12,6 +12,7 @@ import com.daml.lf.transaction.GenTransaction.{
   OrphanedNode,
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeRollback}
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
@@ -25,6 +26,7 @@ import scala.language.implicitConversions
 import scala.util.Random
 
 class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+
   import TransactionSpec._
 
   "isWellFormed" - {
@@ -194,10 +196,12 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
 
     "fail if version is different" in {
       val versions = TransactionVersion.All
+
       def diffVersion(v: TransactionVersion) = {
         val randomVersion = versions(Random.nextInt(versions.length - 1))
         if (randomVersion != v) randomVersion else versions.last
       }
+
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val m = n.updateVersion(diffVersion(n.version))
         isReplayedBy(n, m) shouldBe Symbol("left")
@@ -266,6 +270,106 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       tx2 shouldBe tx1
       tx1 shouldBe Right(tx.map2(identity, mapping2))
 
+    }
+  }
+
+  "contractKeys" - {
+    "return all the contract key" in {
+      // TODO: https://github.com/digital-asset/daml/issues/8020
+      // change VDev to  TransactionVersion.StableVersions.max once exception are released
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val parties = List("Alice")
+
+      def create(s: String) = builder
+        .create(
+          id = s"#$s",
+          template = s"-pkg-:Mod:$s",
+          argument = V.ValueUnit,
+          signatories = parties,
+          observers = parties,
+          key = Some(V.ValueText(s)),
+        )
+
+      def exe(s: String, consuming: Boolean, byKey: Boolean) =
+        builder
+          .exercise(
+            contract = create(s),
+            choice = s"Choice$s",
+            actingParties = parties.toSet,
+            consuming = consuming,
+            argument = V.ValueUnit,
+            byKey = byKey,
+          )
+
+      def fetch(s: String, byKey: Boolean) =
+        builder.fetch(contract = create(s), byKey = byKey)
+
+      def lookup(s: String, found: Boolean) =
+        builder.lookupByKey(contract = create(s), found = found)
+
+      val root1 =
+        builder.create(
+          "#root",
+          template = "-pkg-:Mod:Root",
+          argument = V.ValueUnit,
+          signatories = parties,
+          observers = parties,
+          key = None,
+        )
+
+      val root2 = builder.exercise(
+        root1,
+        "ExerciseRoot",
+        actingParties = parties.toSet,
+        consuming = true,
+        argument = V.ValueUnit,
+      )
+
+      builder.add(root1)
+      val exeId = builder.add(root2)
+      builder.add(create("Create"))
+      builder.add(exe("NonConsumingExerciseById", false, false), exeId)
+      builder.add(exe("ConsumingExerciseById", true, false), exeId)
+      builder.add(exe("NonConsumingExerciseByKey", false, true), exeId)
+      builder.add(exe("NonConsumingExerciseByKey", true, true), exeId)
+      builder.add(fetch("FetchById", false), exeId)
+      builder.add(fetch("FetchByKey", true), exeId)
+      builder.add(lookup("SuccessfulLookup", true), exeId)
+      builder.add(lookup("UnsuccessfulLookup", true), exeId)
+      val rollbackId = builder.add(Node.NodeRollback(ImmArray.empty, root2.version))
+      builder.add(create("RolledBackCreate"))
+      builder.add(exe("RolledBackNonConsumingExerciseById", false, false), rollbackId)
+      builder.add(exe("RolledBackConsumingExerciseById", true, false), rollbackId)
+      builder.add(exe("RolledBackNonConsumingExerciseByKey", false, true), rollbackId)
+      builder.add(exe("RolledBackNonConsumingExerciseByKey", true, true), rollbackId)
+      builder.add(fetch("RolledBackFetchById", false), rollbackId)
+      builder.add(fetch("RolledBackFetchByKey", true), rollbackId)
+      builder.add(lookup("RolledBackSuccessfulLookup", true), rollbackId)
+      builder.add(lookup("RolledBackUnsuccessfulLookup", true), rollbackId)
+
+      val expectedResults =
+        Iterator(
+          "Create",
+          "NonConsumingExerciseById",
+          "ConsumingExerciseById",
+          "NonConsumingExerciseByKey",
+          "NonConsumingExerciseByKey",
+          "FetchById",
+          "FetchByKey",
+          "SuccessfulLookup",
+          "UnsuccessfulLookup",
+          "RolledBackCreate",
+          "RolledBackNonConsumingExerciseById",
+          "RolledBackConsumingExerciseById",
+          "RolledBackNonConsumingExerciseByKey",
+          "RolledBackNonConsumingExerciseByKey",
+          "RolledBackFetchById",
+          "RolledBackFetchByKey",
+          "RolledBackSuccessfulLookup",
+          "RolledBackUnsuccessfulLookup",
+        ).map(s => Ref.Identifier.assertFromString(s"-pkg-:Mod:$s") -> V.ValueText(s)).toSet
+
+      builder.build().contractKeys shouldBe expectedResults
     }
   }
 }

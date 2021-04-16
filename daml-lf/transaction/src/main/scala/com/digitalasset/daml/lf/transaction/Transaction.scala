@@ -384,7 +384,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, _) => acc
     } -- localContracts.keySet
 
-  /** Return all the contract keys created, exercised, fetched or lookup by this transation.
+  /** Return all the contract keys references by this transaction.
+    * This includes the keys created, exercised, fetched, or lookup, even those
+    * that refer to transient contracts or that appear under a roolback node.
     */
   final def contractKeys[Cid2 >: Cid]: Set[(Ref.Identifier, Value[Cid2])] = {
     fold(Set.empty[(Ref.Identifier, Value[Cid2])]) {
@@ -396,9 +398,8 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         node.key.fold(acc)(key => acc + ((node.templateId, key.key)))
       case (acc, (_, node: Node.NodeLookupByKey[Cid])) =>
         acc + ((node.templateId, node.key.key))
-      case (_, (_, _: Node.NodeRollback[_])) =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("Rollback node not support")
+      case (acc, (_, _: Node.NodeRollback[_])) =>
+        acc
     }
   }
 

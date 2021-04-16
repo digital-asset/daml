@@ -77,7 +77,7 @@ class KeyValueSubmission(metrics: Metrics) {
             .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
             .setSubmissionTime(buildTimestamp(meta.submissionTime))
         )
-        .build()
+        .build
     }
 
   /** Prepare a package upload submission. */
