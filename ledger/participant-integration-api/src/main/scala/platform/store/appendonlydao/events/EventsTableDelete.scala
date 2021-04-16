@@ -16,15 +16,7 @@ object EventsTableDelete {
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
     SQL"""
           -- Divulgence events
-          delete from participant_events_divulgence as delete_events
-          where
-            delete_events.event_offset <= $endInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise as archive_events
-              WHERE
-                archive_events.event_offset <= $endInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            );
+          -- TODO append-only: prune divulgence events. These don't have an event_offset.
           -- Create events
           delete from participant_events_create as delete_events
           where
@@ -35,13 +27,14 @@ object EventsTableDelete {
                 archive_events.event_offset <= $endInclusive AND
                 archive_events.contract_id = delete_events.contract_id
             );
-          -- Exercise events
+          -- Exercise events (consuming)
           delete from participant_events_consuming_exercise as delete_events
           where
-            delete_events.event_offset <= $endInclusive and
-          delete from participant_events_non_>consuming_exercise as delete_events
+            delete_events.event_offset <= $endInclusive;
+          -- Exercise events (non-consuming)
+          delete from participant_events_non_consuming_exercise as delete_events
           where
-            delete_events.event_offset <= $endInclusive and
+            delete_events.event_offset <= $endInclusive;
        """
 
 }

@@ -338,3 +338,35 @@ conformance_test(
         "--verbose",
     ],
 )
+
+conformance_test(
+    name = "conformance-test-append-only-pruning",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865",
+        "--index-append-only-schema-unsafe",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-multi-party-submission",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865",
+        "--index-append-only-schema-unsafe",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
