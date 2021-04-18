@@ -122,18 +122,18 @@ class MutableCacheBackedContractStore(
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ) = {
-    val currentCacheOffset = cacheIndex.getSequentialId
+    val currentCacheSequentialId = cacheIndex.getSequentialId
     val fetchStateRequest =
       Timed.future(
         metrics.daml.index.lookupContract,
-        contractsReader.lookupContractState(contractId, currentCacheOffset),
+        contractsReader.lookupContractState(contractId, currentCacheSequentialId),
       )
     val eventualValue = fetchStateRequest.map(toContractCacheValue)
 
     for {
       _ <- contractsCache.putAsync(
         key = contractId,
-        validAt = currentCacheOffset,
+        validAt = currentCacheSequentialId,
         eventualValue = eventualValue,
       )
       value <- eventualValue
@@ -208,12 +208,12 @@ class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext) = {
-    val currentOffset = cacheIndex.getSequentialId
-    val eventualResult = contractsReader.lookupKeyState(key, currentOffset)
+    val currentCacheSequentialId = cacheIndex.getSequentialId
+    val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
     val eventualValue = eventualResult.map(toKeyCacheValue)
 
     for {
-      _ <- keyCache.putAsync(key, currentOffset, eventualValue)
+      _ <- keyCache.putAsync(key, currentCacheSequentialId, eventualValue)
       value <- eventualValue
     } yield value
   }

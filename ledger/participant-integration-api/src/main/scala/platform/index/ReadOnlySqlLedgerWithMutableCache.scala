@@ -88,10 +88,6 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       )
 
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
-      implicit val ordering: Ordering[(Offset, Long)] = Ordering.fromLessThan {
-        case ((fOffset, fSeqId), (sOffset, sSeqId)) =>
-          (fOffset < sOffset) || (fOffset == sOffset && fSeqId < sSeqId)
-      }
       Dispatcher.owner(
         name = "contract-state-events",
         zeroIndex = (Offset.beforeBegin, EventSequentialId.beforeBegin),

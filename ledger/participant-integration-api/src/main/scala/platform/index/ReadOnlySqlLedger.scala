@@ -21,18 +21,18 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao
 import com.daml.platform.store.dao.LedgerReadDao
-import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
+import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, appendonlydao, dao}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
-
-import com.daml.platform.store.appendonlydao
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 private[platform] object ReadOnlySqlLedger {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   final class Owner(
       serverRole: ServerRole,
@@ -51,8 +51,6 @@ private[platform] object ReadOnlySqlLedger {
       enableMutableContractStateCache: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
-
-    private val logger = ContextualizedLogger.get(this.getClass)
 
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] =
       for {
