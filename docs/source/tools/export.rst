@@ -10,11 +10,11 @@ Introduction
 ************
 
 Daml ledger exports read the transaction history or active contract set (ACS)
-from the ledger and write it to disk encoded as a :doc:`Daml Script
-</daml-script/index>` that will reproduce the ledger state when executed. This
-can be useful to migrate the history or state of a ledger from one network to
-another, or to replicate the ledger state locally for testing or debugging
-purposes.
+from the ledger and write it to disk encoded as a
+:doc:`Daml Script </daml-script/index>` that will reproduce the ledger state
+when executed. This can be useful to migrate the history or state of a ledger
+from one network to another, or to replicate the ledger state locally for
+testing or debugging purposes.
 
 Usage
 *****
