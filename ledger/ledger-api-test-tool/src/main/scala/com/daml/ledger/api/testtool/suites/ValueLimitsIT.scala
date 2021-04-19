@@ -8,7 +8,6 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.test.model.Test.DummyWithAnnotation
-import com.daml.timer.Delayed
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -31,7 +30,7 @@ final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
         )
       }
       request = ledger
-        .submitRequest(
+        .submitAndWaitRequest(
           actAs = parties.toList,
           readAs = parties.toList,
           commands = DummyWithAnnotation(parties.head, "First submission").create.command,
@@ -39,8 +38,7 @@ final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
         .update(
           _.commands.deduplicationTime := deduplicationTime.asProtobuf
         )
-      _ <- ledger.submit(request)
-      _ <- Delayed.by(1.second)(())
+      _ <- ledger.submitAndWait(request)
       contracts <- ledger.activeContracts(parties.head)
     } yield {
       assertSingleton("Single create contract expected", contracts)
