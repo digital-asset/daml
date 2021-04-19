@@ -274,7 +274,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
   }
 
   "contractKeys" - {
-    "return all the contract key" in {
+    "return all the contract keys" in {
       // TODO: https://github.com/digital-asset/daml/issues/8020
       // change VDev to  TransactionVersion.StableVersions.max once exception are released
       val builder = TransactionBuilder(TransactionVersion.VDev)
