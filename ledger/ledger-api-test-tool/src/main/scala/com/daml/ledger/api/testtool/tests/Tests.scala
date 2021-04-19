@@ -35,7 +35,6 @@ object Tests {
       new RaceConditionIT,
       new SemanticTests,
       new TransactionServiceIT,
-      new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
     )
