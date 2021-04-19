@@ -4,7 +4,6 @@
 package com.daml.platform.indexer.parallel
 
 import java.util.UUID
-
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
@@ -12,6 +11,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.dao.DeduplicationKeyMaker
 
 // TODO append-only: target to separation per update-type to it's own function + unit tests
 object UpdateToDBDTOV1 {
@@ -36,7 +36,7 @@ object UpdateToDBDTOV1 {
             status_message = Some(u.reason.description),
           ),
           new DBDTOV1.CommandDeduplication(
-            JdbcLedgerDao.deduplicationKey(
+            DeduplicationKeyMaker.make(
               domain.CommandId(u.submitterInfo.commandId),
               u.submitterInfo.actAs,
             )
