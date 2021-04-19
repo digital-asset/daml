@@ -891,7 +891,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
             _ = inside(sharedAccountObject) { case JsObject(obj) =>
               inside((obj get "owners", obj get "number")) {
                 case (Some(JsArray(owners)), Some(JsString(number))) =>
-                  // FIXME Question for the reviewer: should we make guarantees regarding the ordering?
                   owners should contain theSameElementsAs Vector(JsString("Alice"), JsString("Bob"))
                   number shouldBe sharedAccountNumber
               }
