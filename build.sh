@@ -27,4 +27,4 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-bazel test --runs_per_test=8 //language-support/ts/codegen/tests:build-and-lint-test
+bazel test --runs_per_test=50 //language-support/ts/codegen/tests:build-and-lint-test
