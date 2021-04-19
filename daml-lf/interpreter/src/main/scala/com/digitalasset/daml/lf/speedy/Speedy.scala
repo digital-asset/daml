@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
-import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
+import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.ExercisesContextInfo
 import com.daml.lf.speedy.SError._
@@ -108,8 +108,6 @@ private[lf] object Speedy {
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
-      /* Controls if authorization checks are performed during evaluation */
-      val checkAuthorization: CheckAuthorizationMode,
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -330,13 +328,7 @@ private[lf] object Speedy {
         }
       }
 
-    private[lf] def auth: Option[Authorize] =
-      withOnLedger("checkAuthorization") { onLedger =>
-        onLedger.checkAuthorization match {
-          case CheckAuthorizationMode.On => Some(Authorize(this.contextActors))
-          case CheckAuthorizationMode.Off => None
-        }
-      }
+    private[lf] def auth: Authorize = Authorize(this.contextActors)
 
     def addLocalContract(
         coid: V.ContractId,
@@ -803,7 +795,6 @@ private[lf] object Speedy {
         globalCids: Set[V.ContractId],
         committers: Set[Party],
         validating: Boolean = false,
-        checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine = {
       val pkg2TxVersion =
@@ -819,7 +810,6 @@ private[lf] object Speedy {
         lastLocation = None,
         ledgerMode = OnLedger(
           validating = validating,
-          checkAuthorization = checkAuthorization,
           ptx = PartialTransaction.initial(pkg2TxVersion, submissionTime, initialSeeding),
           committers = committers,
           commitLocation = None,

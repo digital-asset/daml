@@ -280,7 +280,7 @@ private[lf] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
-      auth: Option[Authorize],
+      auth: Authorize,
       templateId: Ref.Identifier,
       arg: Value[Value.ContractId],
       agreementText: String,
@@ -333,7 +333,7 @@ private[lf] case class PartialTransaction(
   private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
-      auth: Option[Authorize],
+      auth: Authorize,
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
@@ -363,7 +363,7 @@ private[lf] case class PartialTransaction(
   }
 
   def insertLookup(
-      auth: Option[Authorize],
+      auth: Authorize,
       templateId: TypeConName,
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers[Value[Nothing]],
@@ -385,7 +385,7 @@ private[lf] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
-      auth: Option[Authorize],
+      auth: Authorize,
       targetId: Value.ContractId,
       templateId: TypeConName,
       choiceId: ChoiceName,
@@ -575,16 +575,12 @@ private[lf] case class PartialTransaction(
   private def noteAuthFails(
       nid: NodeId,
       f: Authorize => List[FailedAuthorization],
-      authM: Option[Authorize],
+      auth: Authorize,
   ): PartialTransaction = {
-    authM match {
-      case None => this // authorization checking is disabled
-      case Some(auth) =>
-        f(auth) match {
-          case Nil => this
-          case fa :: _ => // take just the first failure //TODO: dont compute all!
-            noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
-        }
+    f(auth) match {
+      case Nil => this
+      case fa :: _ => // take just the first failure //TODO: dont compute all!
+        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
     }
   }
 
