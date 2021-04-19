@@ -389,9 +389,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     * that refer transient contracts or that appear under a rollback node.
     */
   final def contractKeys(implicit
-      ev: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
+      evidence: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
   ): Set[GlobalKey] = {
-    ev(this).fold(Set.empty[GlobalKey]) {
+    evidence(this).fold(Set.empty[GlobalKey]) {
       case (acc, (_, node: Node.NodeCreate[Value.ContractId])) =>
         node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
       case (acc, (_, node: Node.NodeExercises[_, Value.ContractId])) =>
