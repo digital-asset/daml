@@ -171,6 +171,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   workflow_id,
       |   application_id,
       |   submitters,
+      |   create_key_value,
       |   exercise_choice,
       |   exercise_argument,
       |   exercise_result,
@@ -194,6 +195,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   workflow_id_in,
       |   application_id_in,
       |   string_to_array(submitters_in, '|'),
+      |   create_key_value_in,
       |   exercise_choice_in,
       |   exercise_argument_in,
       |   exercise_result_in,
@@ -205,7 +207,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   event_sequential_id_in,
       |   exercise_argument_compression_in::smallint,
       |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       | as t(
       |   event_id_in,
       |   event_offset_in,
@@ -217,6 +219,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   workflow_id_in,
       |   application_id_in,
       |   submitters_in,
+      |   create_key_value_in,
       |   exercise_choice_in,
       |   exercise_argument_in,
       |   exercise_result_in,
@@ -247,6 +250,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   workflow_id,
       |   application_id,
       |   submitters,
+      |   create_key_value,
       |   exercise_choice,
       |   exercise_argument,
       |   exercise_result,
@@ -270,6 +274,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   workflow_id_in,
       |   application_id_in,
       |   string_to_array(submitters_in, '|'),
+      |   create_key_value_in,
       |   exercise_choice_in,
       |   exercise_argument_in,
       |   exercise_result_in,
@@ -281,7 +286,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   event_sequential_id_in,
       |   exercise_argument_compression_in::smallint,
       |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       | as t(
       |   event_id_in,
       |   event_offset_in,
@@ -293,6 +298,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   workflow_id_in,
       |   application_id_in,
       |   submitters_in,
+      |   create_key_value_in,
       |   exercise_choice_in,
       |   exercise_argument_in,
       |   exercise_result_in,
@@ -610,6 +616,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         batch.workflow_id,
         batch.application_id,
         batch.submitters,
+        batch.create_key_value,
         batch.exercise_choice,
         batch.exercise_argument,
         batch.exercise_result,
@@ -637,6 +644,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         batch.workflow_id,
         batch.application_id,
         batch.submitters,
+        batch.create_key_value,
         batch.exercise_choice,
         batch.exercise_argument,
         batch.exercise_result,
@@ -758,7 +766,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
     offset.foreach { existingOffset =>
-      List(1, 2, 3, 4, 5, 6, 7, 8, 9).foreach(
+      List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
         preparedDeleteIngestionOverspillEntries.setBytes(_, existingOffset.toByteArray)
       )
       preparedDeleteIngestionOverspillEntries.execute()

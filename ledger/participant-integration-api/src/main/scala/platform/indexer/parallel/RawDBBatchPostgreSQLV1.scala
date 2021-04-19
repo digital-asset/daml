@@ -112,6 +112,7 @@ class EventsBatchExercise(
     val template_id: Array[String],
     val flat_event_witnesses: Array[String], // '|' separated list
     val tree_event_witnesses: Array[String], // '|' separated list
+    val create_key_value: Array[Array[Byte]],
     val exercise_choice: Array[String],
     val exercise_argument: Array[Array[Byte]],
     val exercise_result: Array[Array[Byte]],
@@ -253,6 +254,7 @@ object RawDBBatchPostgreSQLV1 {
         mutable.ArrayBuilder.make[String], // '|' separated list
       tree_event_witnesses: mutable.ArrayBuilder[String] =
         mutable.ArrayBuilder.make[String], // '|' separated list
+      create_key_value: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
       exercise_choice: mutable.ArrayBuilder[String] = mutable.ArrayBuilder.make[String],
       exercise_argument: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
       exercise_result: mutable.ArrayBuilder[Array[Byte]] = mutable.ArrayBuilder.make[Array[Byte]],
@@ -450,6 +452,7 @@ object RawDBBatchPostgreSQLV1 {
           eventsBatchBuilder.template_id += e.template_id.orNull
           eventsBatchBuilder.flat_event_witnesses += encodeTextArray(e.flat_event_witnesses)
           eventsBatchBuilder.tree_event_witnesses += encodeTextArray(e.tree_event_witnesses)
+          eventsBatchBuilder.create_key_value += e.create_key_value.orNull
           eventsBatchBuilder.exercise_choice += e.exercise_choice.orNull
           eventsBatchBuilder.exercise_argument += e.exercise_argument.orNull
           eventsBatchBuilder.exercise_result += e.exercise_result.orNull
@@ -593,6 +596,7 @@ object RawDBBatchPostgreSQLV1 {
           template_id = b.template_id.result(),
           flat_event_witnesses = b.flat_event_witnesses.result(),
           tree_event_witnesses = b.tree_event_witnesses.result(),
+          create_key_value = b.create_key_value.result(),
           exercise_choice = b.exercise_choice.result(),
           exercise_argument = b.exercise_argument.result(),
           exercise_result = b.exercise_result.result(),
@@ -618,6 +622,7 @@ object RawDBBatchPostgreSQLV1 {
           template_id = b.template_id.result(),
           flat_event_witnesses = b.flat_event_witnesses.result(),
           tree_event_witnesses = b.tree_event_witnesses.result(),
+          create_key_value = b.create_key_value.result(),
           exercise_choice = b.exercise_choice.result(),
           exercise_argument = b.exercise_argument.result(),
           exercise_result = b.exercise_result.result(),

@@ -186,7 +186,7 @@ object UpdateToDBDTOV1 {
 
             case (nodeId, exercise: Exercise) =>
               val eventId = EventId(u.transactionId, nodeId)
-              val (exerciseArgument, exerciseResult, _) =
+              val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
               new parallel.DBDTOV1.EventExercise(
                 consuming = exercise.consuming,
@@ -205,7 +205,8 @@ object UpdateToDBDTOV1 {
                   if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
                 tree_event_witnesses =
                   blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-                // TODO append-only: createKeyValue is not stored, check whether we need it for upcoming ledger API additions
+                create_key_value = createKeyValue
+                  .map(compressionStrategy.createKeyValueCompression.compress),
                 exercise_choice = Some(exercise.choiceId),
                 exercise_argument = Some(exerciseArgument)
                   .map(compressionStrategy.exerciseArgumentCompression.compress),

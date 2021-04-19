@@ -208,6 +208,9 @@ CREATE TABLE participant_events_consuming_exercise (
     flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- stakeholders of create events and consuming exercise events
     tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
 
+    -- * information about the corresponding create event
+    create_key_value bytea,        -- used for the mutable state cache
+
     -- * exercise events (consuming and non_consuming)
     exercise_choice text NOT NULL,
     exercise_argument bytea NOT NULL,
@@ -275,6 +278,9 @@ CREATE TABLE participant_events_non_consuming_exercise (
     template_id text NOT NULL,
     flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- stakeholders of create events and consuming exercise events
     tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
+
+    -- * information about the corresponding create event
+    create_key_value bytea,        -- used for the mutable state cache
 
     -- * exercise events (consuming and non_consuming)
     exercise_choice text NOT NULL,
@@ -412,7 +418,7 @@ CREATE VIEW participant_events
             NULL::text[] as create_signatories,
             NULL::text[] as create_observers,
             NULL::text as create_agreement_text,
-            NULL::bytea as create_key_value,
+            create_key_value,
             NULL::bytea as create_key_hash,
             exercise_choice,
             exercise_argument,
@@ -445,7 +451,7 @@ CREATE VIEW participant_events
             NULL::text[] as create_signatories,
             NULL::text[] as create_observers,
             NULL::text as create_agreement_text,
-            NULL::bytea as create_key_value,
+            create_key_value,
             NULL::bytea as create_key_hash,
             exercise_choice,
             exercise_argument,

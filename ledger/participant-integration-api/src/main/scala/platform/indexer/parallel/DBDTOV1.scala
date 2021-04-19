@@ -63,6 +63,7 @@ object DBDTOV1 {
       template_id: Option[String],
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
+      create_key_value: Option[Array[Byte]],
       exercise_choice: Option[String],
       exercise_argument: Option[Array[Byte]],
       exercise_result: Option[Array[Byte]],
