@@ -39,6 +39,12 @@ class KeyValueSubmission(metrics: Metrics) {
       effects.createdContracts.map(_._1) ++ effects.consumedContracts
     }
 
+  private def submissionParties(
+      submitterInfo: SubmitterInfo,
+      tx: SubmittedTransaction,
+  ): Set[Party] =
+    tx.informees ++ submitterInfo.actAs
+
   /** Prepare a transaction submission. */
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
@@ -52,8 +58,7 @@ class KeyValueSubmission(metrics: Metrics) {
           throw new InternalError("Transaction was not annotated with used packages")
         )
         .map(Conversions.packageStateKey)
-      val partyStates =
-        (tx.informees ++ submitterInfo.actAs).toList.map(Conversions.partyStateKey)
+      val partyStates = submissionParties(submitterInfo, tx).toList.map(Conversions.partyStateKey)
       val contractIdStates = tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
       val contractKeyStates = tx.contractKeys.map(Conversions.globalKeyToStateKey)
 
