@@ -49,8 +49,6 @@ final class TransactionBuilder(
     nodes(parentId) match {
       case _: TxExercise | _: TxRollback =>
         children += parentId -> (children(parentId) :+ nodeId)
-      case _: TxRollBack =>
-        children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
           s"Node ${parentId.index} either does not exist or is not an exercise or rollback"
