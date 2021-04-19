@@ -17,6 +17,16 @@ template Account with
     key (owner, number) : (Party, Text)
     maintainer key._1
 
+template SharedAccount with
+    owners : [Party]
+    number : Text
+    status : AccountStatus
+  where
+    signatory owners
+
+    key (owners, number) : ([Party], Text)
+    maintainer key._1
+
 data Foo = Bar Int | Baz BazRecord | Qux
     deriving (Eq, Show)
 

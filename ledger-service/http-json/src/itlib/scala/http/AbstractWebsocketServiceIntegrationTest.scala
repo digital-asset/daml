@@ -20,7 +20,7 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
-import spray.json.{JsNull, JsObject, JsString, JsValue}
+import spray.json.{JsArray, JsNull, JsObject, JsString, JsValue}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -855,6 +855,68 @@ abstract class AbstractWebsocketServiceIntegrationTest
         case _ => None
       } map ((_, archives map (_.contractId))) toRightDisjunction jsv
     case _ => -\/(jsv)
+  }
+
+  "no duplicates should be returned when retrieving contracts for multiple parties" in withHttpService {
+    (uri, encoder, _) =>
+      val aliceAndBob = List("Alice", "Bob")
+      val sharedAccountNumber = "4444"
+      val jwtForAliceAndBob = jwtForParties(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
+      import spray.json._
+
+      val (killSwitch, source) = singleClientQueryStream(
+        jwt = jwtForAliceAndBob,
+        serviceUri = uri,
+        query = """{"templateIds": ["Account:SharedAccount"]}""",
+      )
+        .viaMat(KillSwitches.single)(Keep.right)
+        .preMaterialize()
+
+      def test: Sink[JsValue, Future[ShouldHaveEnded]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
+            (status, _) <- liftF(
+              postCreateCommand(
+                sharedAccountCreateCommand(aliceAndBob, sharedAccountNumber),
+                encoder,
+                uri,
+                headers = headersWithPartyAuth(aliceAndBob),
+              )
+            )
+            _ = status shouldBe a[StatusCodes.Success]
+            ContractDelta(Vector((_, sharedAccountObject)), _, Some(lastSeenOffset)) <- readOne
+            _ = inside(sharedAccountObject) { case JsObject(obj) =>
+              inside((obj get "owners", obj get "number")) {
+                case (Some(JsArray(owners)), Some(JsString(number))) =>
+                  // FIXME Question for the reviewer: should we make guarantees regarding the ordering?
+                  owners should contain theSameElementsAs Vector(JsString("Alice"), JsString("Bob"))
+                  number shouldBe sharedAccountNumber
+              }
+            }
+            ContractDelta(Vector(), _, Some(_)) <- readOne
+            _ = killSwitch.shutdown()
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + lastSeenOffset).size - 1
+          } yield
+          // don't count empty events block if lastSeenOffset does not change
+          ShouldHaveEnded(
+            liveStartOffset = liveStartOffset,
+            msgCount = 2 + hbCount,
+            lastSeenOffset = lastSeenOffset,
+          )
+        )
+      }
+
+      for {
+        result <- source via parseResp runWith test
+      } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
+        succeed
+      }
   }
 
   "ContractKeyStreamRequest" - {
