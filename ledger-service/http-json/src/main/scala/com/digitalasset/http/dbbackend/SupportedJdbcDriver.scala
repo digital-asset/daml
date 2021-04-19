@@ -3,8 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import doobie.{Get, Put}
-
 /** A nullary typeclass of incompatible JDBC operations and settings, selected by
   * the options passed to json-api at startup.
   *
@@ -13,24 +11,31 @@ import doobie.{Get, Put}
   * nullary.  If that changes in the future, a phantom type parameter should be
   * introduced so as to distinguish instances by type.
   */
-final class SupportedJdbcDriver(
+sealed abstract class SupportedJdbcDriver private (
     label: String,
-    private[http] val queries: Queries,
     private[http] val retrySqlStates: Set[String],
-)(implicit
-    private[http] val gvs: Get[Vector[String]],
-    private[http] val pvs: Put[Vector[String]],
-    private[http] val pls: Put[List[String]],
-    private[http] val pas: Put[Array[String]],
 ) {
+  type SqlInterpol
+  private[http] val queries: Queries.Aux[SqlInterpol]
+  private[http] implicit val ipol: SqlInterpol
   override def toString = s"SupportedJdbcDriver($label)"
 }
 
 object SupportedJdbcDriver {
+  private final class Instance[SI](
+      label: String,
+      override val queries: Queries.Aux[SI],
+      retrySqlStates: Set[String],
+  )(implicit override val ipol: SI)
+      extends SupportedJdbcDriver(label, retrySqlStates) {
+    type SqlInterpol = SI
+  }
+
   val Postgres: SupportedJdbcDriver = {
     import doobie.postgres.implicits._
     import doobie.postgres.sqlstate.{class23 => postgres_class23}
-    new SupportedJdbcDriver(
+    implicit val ipol: Queries.Postgres.SqlInterpol = new Queries.SqlInterpolation.StringArray()
+    new Instance(
       label = "PostgreSQL",
       queries = Queries.Postgres,
       retrySqlStates =
@@ -39,10 +44,8 @@ object SupportedJdbcDriver {
   }
 
   val Oracle: SupportedJdbcDriver = {
-    // import doobie.postgres.implicits.unliftedStringArrayType // TODO s11 just a thought
-    implicit val qqq: doobie.Meta[Array[String]] =
-      doobie.Meta[Int].timap(Array.fill(_)("x"))(_.length)
-    new SupportedJdbcDriver(
+    implicit val ipol: Queries.Oracle.SqlInterpol = new Queries.SqlInterpolation.Unused()
+    new Instance(
       label = "Oracle",
       queries = Queries.Oracle,
       // all oracle class 23 errors yield 23000; if we want to check for *unique*

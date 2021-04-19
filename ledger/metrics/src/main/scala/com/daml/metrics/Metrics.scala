@@ -389,8 +389,8 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
-        val getLedgerEndSequentialId: DatabaseMetrics = createDbMetrics(
-          "get_ledger_end_sequential_id"
+        val getLedgerEndOffsetAndSequentialId: DatabaseMetrics = createDbMetrics(
+          "get_ledger_end_offset_and_sequential_id"
         )
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(

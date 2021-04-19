@@ -445,6 +445,21 @@ damlStartTests getDamlStart =
                           ]
                   contents <- readFileUTF8 (projDir </> "output.json")
                   lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
+        , testCase "daml export script" $ do
+              DamlStartResource {projDir, sandboxPort} <- getDamlStart
+              withTempDir $ \exportDir -> do
+                  withCurrentDirectory projDir $ do
+                      callCommand $ unwords
+                          [ "daml ledger export script"
+                          , "--host localhost --port " <> show sandboxPort
+                          , "--party Alice"
+                          , "--output " <> exportDir <> " --sdk-version " <> sdkVersion
+                          ]
+                  withCurrentDirectory exportDir $ do
+                      didGenerateExportDaml <- doesFileExist "Export.daml"
+                      didGenerateDamlYaml <- doesFileExist "daml.yaml"
+                      didGenerateExportDaml @?= True
+                      didGenerateDamlYaml @?= True
         , testCase "trigger service startup" $ do
               DamlStartResource {sandboxPort} <- getDamlStart
               withDevNull $ \devNull1 -> do

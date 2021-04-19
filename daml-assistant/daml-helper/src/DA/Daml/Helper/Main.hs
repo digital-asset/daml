@@ -81,6 +81,7 @@ data Command
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
+    | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
@@ -284,6 +285,9 @@ commandParser = subparser $ fold
             , command "reset" $ info
                 (ledgerResetCmd <**> helper)
                 (progDesc "Archive all currently active contracts.")
+            , command "export" $ info
+                (ledgerExportCmd <**> helper)
+                (forwardOptions <> progDesc "Export ledger state.")
             ]
         ]
 
@@ -335,6 +339,13 @@ commandParser = subparser $ fold
 
     ledgerResetCmd = LedgerReset
         <$> ledgerFlags (ShowJsonApi True)
+
+    ledgerExportCmd = subparser $
+        command "script" (info scriptOptions (progDesc "Export ledger state in Daml script format" <> forwardOptions))
+      where
+        scriptOptions = LedgerExport
+          <$> ledgerFlags (ShowJsonApi False)
+          <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
 
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags (ShowJsonApi False)
@@ -467,5 +478,6 @@ runCommand = \case
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
+    LedgerExport {..} -> runLedgerExport flags remainingArguments
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments

@@ -53,7 +53,7 @@ class HttpServiceWithPostgresIntTest
   private def selectAllDbContracts
       : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
     import dao.logHandler
-    import doobie.implicits._
+    import doobie.implicits._, doobie.postgres.implicits._
     import dao.jdbcDriver._, queries.Implicits._
 
     val q =

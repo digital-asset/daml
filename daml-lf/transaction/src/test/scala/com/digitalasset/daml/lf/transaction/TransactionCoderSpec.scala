@@ -293,10 +293,13 @@ class TransactionCoderSpec
       value.toBuilder.setVersion(version).build()
 
     "fail if try to encode a create node containing value with version different from node" in {
-      forAll(malformedCreateNodeGen, transactionVersionGen(maxVersion = V12), minSuccessful(5)) {
-        (node, version) =>
-          whenever(node.version <= V11 && node.version != version) {
-            val nodeVersion = node.version
+      forAll(
+        transactionVersionGen(maxVersion = V11),
+        transactionVersionGen(maxVersion = V12),
+        minSuccessful(5),
+      ) { (nodeVersion, version) =>
+        whenever(nodeVersion != version) {
+          forAll(malformedCreateNodeGenWithVersion(nodeVersion)) { node =>
             val encodeVersion = ValueCoder.encodeValueVersion(version)
             val Right(encodedNode) = TransactionCoder.encodeNode(
               TransactionCoder.NidEncoder,
@@ -335,6 +338,8 @@ class TransactionCoderSpec
               ) shouldBe a[Left[_, _]]
             )
           }
+
+        }
       }
     }
 

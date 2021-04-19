@@ -311,6 +311,19 @@ object ValueGenerators {
   val malformedCreateNodeGen: Gen[NodeCreate[Value.ContractId]] = {
     for {
       version <- transactionVersionGen()
+      node <- malformedCreateNodeGenWithVersion(version)
+    } yield node
+  }
+
+  /** Makes create nodes with the given version that violate the rules:
+    *
+    * 1. stakeholders may not be a superset of signatories
+    * 2. key's maintainers may not be a subset of signatories
+    */
+  def malformedCreateNodeGenWithVersion(
+      version: TransactionVersion
+  ): Gen[NodeCreate[Value.ContractId]] = {
+    for {
       coid <- coidGen
       templateId <- idGen
       arg <- valueGen

@@ -129,7 +129,18 @@ private[lf] object PartialTransaction {
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
   }
 
-  final case class TryContextInfo(nodeId: NodeId, parent: Context) extends ContextInfo {
+  final case class ActiveLedgerState(
+      consumedBy: Map[Value.ContractId, NodeId],
+      keys: Map[GlobalKey, Option[Value.ContractId]],
+  )
+
+  final case class TryContextInfo(
+      nodeId: NodeId,
+      parent: Context,
+      // beginState stores the consumed contracts at the beginning of
+      // the try so that we can restore them on rollback.
+      beginState: ActiveLedgerState,
+  ) extends ContextInfo {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
 
@@ -193,6 +204,12 @@ private[lf] case class PartialTransaction(
 ) {
 
   import PartialTransaction._
+
+  private def activeState: ActiveLedgerState =
+    ActiveLedgerState(consumedBy, keys)
+
+  private def resetActiveState(state: ActiveLedgerState): PartialTransaction =
+    copy(consumedBy = state.consumedBy, keys = state.keys)
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -263,7 +280,7 @@ private[lf] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
-      auth: Option[Authorize],
+      auth: Authorize,
       templateId: Ref.Identifier,
       arg: Value[Value.ContractId],
       agreementText: String,
@@ -316,7 +333,7 @@ private[lf] case class PartialTransaction(
   private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
-      auth: Option[Authorize],
+      auth: Authorize,
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
@@ -346,7 +363,7 @@ private[lf] case class PartialTransaction(
   }
 
   def insertLookup(
-      auth: Option[Authorize],
+      auth: Authorize,
       templateId: TypeConName,
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers[Value[Nothing]],
@@ -368,7 +385,7 @@ private[lf] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
-      auth: Option[Authorize],
+      auth: Authorize,
       targetId: Value.ContractId,
       templateId: TypeConName,
       choiceId: ChoiceName,
@@ -501,7 +518,7 @@ private[lf] case class PartialTransaction(
     */
   def beginTry: PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val info = TryContextInfo(nid, context)
+    val info = TryContextInfo(nid, context, activeState)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = Context(info, BackStack.empty, context.nextActionChildIdx),
@@ -549,7 +566,7 @@ private[lf] case class PartialTransaction(
         copy(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
-        )
+        ).resetActiveState(info.beginState)
       case _ =>
         noteAbort(Tx.NonCatchContext)
     }
@@ -558,16 +575,12 @@ private[lf] case class PartialTransaction(
   private def noteAuthFails(
       nid: NodeId,
       f: Authorize => List[FailedAuthorization],
-      authM: Option[Authorize],
+      auth: Authorize,
   ): PartialTransaction = {
-    authM match {
-      case None => this // authorization checking is disabled
-      case Some(auth) =>
-        f(auth) match {
-          case Nil => this
-          case fa :: _ => // take just the first failure //TODO: dont compute all!
-            noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
-        }
+    f(auth) match {
+      case Nil => this
+      case fa :: _ => // take just the first failure //TODO: dont compute all!
+        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
     }
   }
 

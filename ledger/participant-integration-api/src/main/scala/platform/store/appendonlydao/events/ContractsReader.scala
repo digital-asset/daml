@@ -304,6 +304,15 @@ private[appendonlydao] sealed class ContractsReader(
             AND #$tree_event_witnessesWhere
           LIMIT 1 -- limit here to guide planner wrt expected number of results
        ),
+       -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
+       create_event_unrestricted AS (
+         SELECT contract_id, template_id
+           FROM participant_events, parameters
+          WHERE contract_id = $contractId
+            AND event_kind = 10  -- create
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+          LIMIT 1 -- limit here to guide planner wrt expected number of results
+       ),
        divulged_contract AS (
          SELECT divulgence_events.contract_id,
                 -- Note: the divulgance_event.template_id can be NULL
