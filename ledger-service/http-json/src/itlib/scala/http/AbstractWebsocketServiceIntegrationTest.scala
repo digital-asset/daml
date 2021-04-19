@@ -20,7 +20,7 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
-import spray.json.{JsArray, JsNull, JsObject, JsString, JsValue}
+import spray.json.{JsNull, JsObject, JsString, JsValue}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
