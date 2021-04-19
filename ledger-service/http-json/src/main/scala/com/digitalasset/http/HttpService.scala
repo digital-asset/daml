@@ -312,9 +312,11 @@ object HttpService extends StrictLogging {
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
   ): Future[Error \/ DamlLedgerClient] =
-    LedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig).map(
-      _.leftMap(Error.fromLedgerClientError)
-    )
+    LedgerClient
+      .fromRetried(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig, 600)
+      .map(
+        _.leftMap(Error.fromLedgerClientError)
+      )
 
   private def createPortFile(
       file: Path,
