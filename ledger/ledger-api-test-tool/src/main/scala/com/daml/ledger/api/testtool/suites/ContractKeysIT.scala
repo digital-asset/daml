@@ -332,4 +332,23 @@ final class ContractKeysIT extends LedgerTestSuite {
       )
     }
   })
+  test(
+    "CKDuplicateTransient",
+    "Duplicate contract keys should raise errors even when both are transient",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val keyId = ledger.nextKeyId()
+    for {
+      tk <- ledger.create(party, TextKeyOperations(party))
+      failure <- ledger
+        .exercise(party, tk.exerciseTKODuplicateTransient(_, keyId))
+        .mustFail("Duplicate key")
+    } yield {
+      assertGrpcError(
+        failure,
+        Status.Code.ABORTED,
+        "DuplicateKey",
+      )
+    }
+  })
 }

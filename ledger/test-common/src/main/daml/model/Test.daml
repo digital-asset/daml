@@ -373,6 +373,16 @@ template TextKeyOperations
           cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
           return ()
 
+    controller tkoParty can
+      nonconsuming TKODuplicateTransient : ()
+        with
+          k : Text
+        do
+          cid1 <- create (TextKey tkoParty k [])
+          cid2 <- create (TextKey tkoParty k [])
+          archive cid1
+          archive cid2
+
 -- dummy contract to be divulged out-of-band
 template Divulgence1
   with
