@@ -6,14 +6,12 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.test.model.Test.DummyWithAnnotation
 
 import scala.concurrent.Future
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Random
 
-final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
+final class ValueLimitsIT extends LedgerTestSuite {
 
   test(
     "VLLargeSubmittersNumberCreateContract",
@@ -35,9 +33,6 @@ final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
           readAs = parties.toList,
           commands = DummyWithAnnotation(parties.head, "First submission").create.command,
         )
-        .update(
-          _.commands.deduplicationTime := deduplicationTime.asProtobuf
-        )
       _ <- ledger.submitAndWait(request)
       contracts <- ledger.activeContracts(parties.head)
     } yield {
@@ -45,11 +40,5 @@ final class ValueLimitsIT(timeoutScaleFactor: Double) extends LedgerTestSuite {
       ()
     }
   })
-
-  private val deduplicationTime = 3.seconds * timeoutScaleFactor match {
-    case duration: FiniteDuration => duration
-    case _ =>
-      throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
-  }
 
 }
