@@ -13,6 +13,9 @@ import com.daml.lf.value.Value.ContractId
   * "Disclosure" tells us which transaction nodes to communicate to which
   * parties.
   * See https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
+  * Note that rollback nodes are a bit special here: Even if the node
+  * itself is not disclosed, a party will be disclosed if a node was below a
+  * rollback node. That information is not included in blinding info at this point.
   *
   * "Divulgence" tells us which contracts to communicate to which parties
   * so that their participant nodes can perform post-commit validation.
