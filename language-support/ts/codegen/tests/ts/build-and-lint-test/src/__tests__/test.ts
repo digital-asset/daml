@@ -54,6 +54,8 @@ const spawnJvm = (jar: string, args: string[], jvmArgs: string[] = []): ChildPro
 beforeAll(async () => {
   console.log ('build-and-lint-1.0.0 (' + buildAndLint.packageId + ") loaded");
   const darPath = getEnv('DAR');
+  console.log('SPAWNING SANDBOX');
+  console.log(new Date().toUTCString());
   sandboxProcess = spawnJvm(
     getEnv('SANDBOX'),
     [
@@ -66,11 +68,15 @@ beforeAll(async () => {
       darPath
     ],
   );
+  console.log('WAITING SANDBOX');
+  console.log(new Date().toUTCString());
   await waitOn({resources: [`file:${SANDBOX_PORT_FILE}`]})
+  console.log('WAITED SANDBOX');
+  console.log(new Date().toUTCString());
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
   sandboxPort = parseInt(sandboxPortData);
   console.log('Sandbox listening on port ' + sandboxPort.toString());
-
+  console.log(new Date().toUTCString());
   jsonApiProcess = spawnJvm(
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
@@ -78,13 +84,20 @@ beforeAll(async () => {
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
     ['-Dakka.http.server.request-timeout=60s'],
   )
+  console.log('WAITING JSON API');
+  console.log(new Date().toUTCString());
   await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
+  console.log('WAITED JSON API');
+  console.log(new Date().toUTCString());
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
   jsonApiPort = parseInt(jsonApiPortData);
   console.log('JSON API listening on port ' + jsonApiPort.toString());
+  console.log(new Date().toUTCString());
 }, 120_000);
 
 afterAll(() => {
+  console.log("DEATH");
+  console.log(new Date().toUTCString());
   if (sandboxProcess) {
     sandboxProcess.kill("SIGTERM");
   }
