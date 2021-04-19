@@ -60,7 +60,7 @@ final class TransactionBuilder(
   def build(): Tx.Transaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
-      case (nid, rb: Node.NodeRollback[NodeId]) =>
+      case (nid, rb: TxRollBack) =>
         rb.copy(children = children(nid).toImmArray)
       case (nid, exe: TxExercise) =>
         exe.copy(children = children(nid).toImmArray)
@@ -226,6 +226,7 @@ object TransactionBuilder {
   type TxExercise = Node.NodeExercises[NodeId, ContractId]
   type TxRollback = Node.NodeRollback[NodeId]
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
+  type TxRollBack = Node.NodeRollback[NodeId]
 
   private val Create = Node.NodeCreate
   private val Exercise = Node.NodeExercises

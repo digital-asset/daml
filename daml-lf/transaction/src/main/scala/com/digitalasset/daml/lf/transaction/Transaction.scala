@@ -384,6 +384,27 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, _) => acc
     } -- localContracts.keySet
 
+  /** Return all the contract keys referenced by this transaction.
+    * This includes the keys created, exercised, fetched, or looked up, even those
+    * that refer transient contracts or that appear under a rollback node.
+    */
+  final def contractKeys(implicit
+      ev: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
+  ): Set[GlobalKey] = {
+    ev(this).fold(Set.empty[GlobalKey]) {
+      case (acc, (_, node: Node.NodeCreate[Value.ContractId])) =>
+        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
+      case (acc, (_, node: Node.NodeExercises[_, Value.ContractId])) =>
+        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
+      case (acc, (_, node: Node.NodeFetch[Value.ContractId])) =>
+        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
+      case (acc, (_, node: Node.NodeLookupByKey[Value.ContractId])) =>
+        acc + GlobalKey.assertBuild(node.templateId, node.key.key)
+      case (acc, (_, _: Node.NodeRollback[_])) =>
+        acc
+    }
+  }
+
   // This method visits to all nodes of the transaction in execution order.
   // Exercise/rollback nodes are visited twice: when execution reaches them and when execution leaves their body.
   // On the first visit of an execution/rollback node, the caller can prevent traversal of the children

@@ -8,9 +8,11 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
+import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
@@ -37,6 +39,12 @@ class KeyValueSubmission(metrics: Metrics) {
       effects.createdContracts.map(_._1) ++ effects.consumedContracts
     }
 
+  private def submissionParties(
+      submitterInfo: SubmitterInfo,
+      tx: SubmittedTransaction,
+  ): Set[Party] =
+    tx.informees ++ submitterInfo.actAs
+
   /** Prepare a transaction submission. */
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
@@ -44,14 +52,23 @@ class KeyValueSubmission(metrics: Metrics) {
       tx: SubmittedTransaction,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
-      val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
       val encodedSubInfo = buildSubmitterInfo(submitterInfo)
+      val packageIdStates = meta.optUsedPackages
+        .getOrElse(
+          throw new InternalError("Transaction was not annotated with used packages")
+        )
+        .map(Conversions.packageStateKey)
+      val partyStates = submissionParties(submitterInfo, tx).toList.map(Conversions.partyStateKey)
+      val contractIdStates = tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
+      val contractKeyStates = tx.contractKeys.map(Conversions.globalKeyToStateKey)
 
       DamlSubmission.newBuilder
         .addInputDamlState(commandDedupKey(encodedSubInfo))
         .addInputDamlState(configurationStateKey)
-        .addAllInputDamlState(submitterInfo.actAs.map(partyStateKey).asJava)
-        .addAllInputDamlState(inputDamlStateFromTx.asJava)
+        .addAllInputDamlState(packageIdStates.asJava)
+        .addAllInputDamlState(partyStates.asJava)
+        .addAllInputDamlState(contractIdStates.asJava)
+        .addAllInputDamlState(contractKeyStates.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder
             .setTransaction(Conversions.encodeTransaction(tx))
