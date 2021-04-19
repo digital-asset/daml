@@ -16,9 +16,9 @@ object ContractKeyStateCache {
     StateCache(
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
-        metrics.daml.execution.keyStateCache,
+        metrics.daml.execution.cache.keyState,
       ),
-      metrics = metrics,
+      registerUpdateTimer = metrics.daml.execution.cache.registerCacheUpdate,
     )
 }
 

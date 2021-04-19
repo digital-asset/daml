@@ -3,9 +3,10 @@
 
 package com.daml.platform.store.cache
 
+import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.Timed
 import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard
 
@@ -15,8 +16,8 @@ import scala.concurrent.{ExecutionContext, Future}
 /** This class is a wrapper around a Caffeine cache designed to handle
   * correct resolution of concurrent updates for the same key.
   */
-private[platform] case class StateCache[K, V](cache: Cache[K, V], metrics: Metrics)(implicit
-    ec: ExecutionContext
+private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdateTimer: Timer)(
+    implicit ec: ExecutionContext
 ) {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
@@ -46,19 +47,23 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], metrics: Metri
     * @param validAt ordering discriminator for pending updates for the same key
     * @param value the value to insert
     */
-  def put(key: K, validAt: Long, value: V): Unit = pendingUpdates.synchronized {
-    val competingLatestForKey =
-      pendingUpdates
-        .get(key)
-        .map { pendingUpdate =>
-          val oldLatestValidAt = pendingUpdate.latestValidAt
-          pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
-          oldLatestValidAt
-        }
-        .getOrElse(Long.MinValue)
+  def put(key: K, validAt: Long, value: V): Unit = Timed.value(
+    registerUpdateTimer, {
+      pendingUpdates.synchronized {
+        val competingLatestForKey =
+          pendingUpdates
+            .get(key)
+            .map { pendingUpdate =>
+              val oldLatestValidAt = pendingUpdate.latestValidAt
+              pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
+              oldLatestValidAt
+            }
+            .getOrElse(Long.MinValue)
 
-    if (competingLatestForKey < validAt) cache.put(key, value) else ()
-  }
+        if (competingLatestForKey < validAt) cache.put(key, value) else ()
+      }
+    },
+  )
 
   /** Update the cache asynchronously.
     *
@@ -73,14 +78,17 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], metrics: Metri
     */
   final def putAsync(key: K, validAt: Long, eventualValue: Future[V])(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] = pendingUpdates.synchronized {
-    val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
-    if (pendingUpdatesForKey.latestValidAt < validAt) {
-      pendingUpdatesForKey.latestValidAt = validAt
-      pendingUpdatesForKey.pendingCount += 1
-      registerEventualCacheUpdate(key, eventualValue, validAt)
-    } else Future.unit
-  }
+  ): Future[Unit] = Timed.value(
+    registerUpdateTimer,
+    pendingUpdates.synchronized {
+      val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
+      if (pendingUpdatesForKey.latestValidAt < validAt) {
+        pendingUpdatesForKey.latestValidAt = validAt
+        pendingUpdatesForKey.pendingCount += 1
+        registerEventualCacheUpdate(key, eventualValue, validAt)
+      } else Future.unit
+    },
+  )
 
   private def registerEventualCacheUpdate(
       key: K,

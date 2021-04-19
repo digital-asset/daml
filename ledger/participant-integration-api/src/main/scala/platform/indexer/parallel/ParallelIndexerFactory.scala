@@ -96,6 +96,8 @@ object ParallelIndexerFactory {
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
               ingestTail = postgresDaoPool.execute[RunningDBBatch, RunningDBBatch](
                 (batch: RunningDBBatch, dao: PostgresDAO) => {
+                  metrics.daml.indexer.ledgerEndSequentialId
+                    .updateValue(batch.lastSeqEventId)
                   dao.updateParams(
                     ledgerEnd = batch.lastOffset,
                     eventSeqId = batch.lastSeqEventId,

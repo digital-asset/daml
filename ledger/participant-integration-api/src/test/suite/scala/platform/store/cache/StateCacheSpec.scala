@@ -22,7 +22,9 @@ import scala.util.Success
 
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val metrics = new Metrics(new MetricRegistry)
+  private val cacheUpdateTimer = new Metrics(
+    new MetricRegistry
+  ).daml.execution.cache.registerCacheUpdate
 
   behavior of s"${classOf[StateCache[_, _]].getSimpleName}.putAsync"
 
@@ -30,7 +32,7 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](cache, metrics)
+    val stateCache = StateCache[String, String](cache, cacheUpdateTimer)
 
     val asyncUpdatePromise = Promise[String]()
     val putAsyncResult = stateCache.putAsync("key", 1L, asyncUpdatePromise.future)
@@ -102,7 +104,7 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](cache, metrics)
+    val stateCache = StateCache[String, String](cache, cacheUpdateTimer)
 
     val asyncUpdatePromise = Promise[String]()
     val putAsyncResult = stateCache.putAsync("key", 1L, asyncUpdatePromise.future)
@@ -123,7 +125,7 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](cache, metrics)
+    val stateCache = StateCache[String, String](cache, cacheUpdateTimer)
 
     val asyncUpdatePromise = Promise[String]()
     val putAsyncResult = stateCache.putAsync("key", 2L, asyncUpdatePromise.future)
@@ -148,7 +150,7 @@ class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ev
           .maximumSize(cacheSize),
         None,
       ),
-      metrics = metrics,
+      registerUpdateTimer = cacheUpdateTimer,
     )(scala.concurrent.ExecutionContext.global)
 
   private def prepare(

@@ -53,10 +53,6 @@ final class Metrics(val registry: MetricRegistry) {
     object execution {
       private val Prefix: MetricName = daml.Prefix :+ "execution"
 
-      val keyStateCache: CacheMetrics = new CacheMetrics(registry, Prefix :+ "key_state_cache")
-      val contractStateCache: CacheMetrics =
-        new CacheMetrics(registry, Prefix :+ "contract_state_cache")
-
       val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
       val lookupActiveContractPerExecution: Timer =
         registry.timer(Prefix :+ "lookup_active_contract_per_execution")
@@ -76,6 +72,24 @@ final class Metrics(val registry: MetricRegistry) {
 
       // Commands being executed by the engine (not currently fetching data)
       val engineRunning: Meter = registry.meter(Prefix :+ "engine_running")
+
+      object cache {
+        private val Prefix: MetricName = execution.Prefix :+ "cache"
+
+        val keyState: CacheMetrics = new CacheMetrics(registry, Prefix :+ "key_state")
+        val contractState: CacheMetrics =
+          new CacheMetrics(registry, Prefix :+ "contract_state")
+
+        val registerCacheUpdate: Timer = registry.timer(Prefix :+ "register_update")
+
+        val dispatcherLag: Timer = registry.timer(Prefix :+ "dispatcher_lag")
+
+        val indexSequentialId = new VarGauge[Long](0L)
+        registry.register(
+          Prefix :+ "index_sequential_id",
+          indexSequentialId,
+        )
+      }
     }
 
     object kvutils {
@@ -527,11 +541,8 @@ final class Metrics(val registry: MetricRegistry) {
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
 
-      val currentStateCacheSequentialIdGauge = new VarGauge[Long](0L)
-      registry.register(
-        Prefix :+ "current_state_cache_sequential_id",
-        currentStateCacheSequentialIdGauge,
-      )
+      val ledgerEndSequentialId = new VarGauge[Long](0L)
+      registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
     }
 
     // TODO append-only: streamline metrics upon cleanup
