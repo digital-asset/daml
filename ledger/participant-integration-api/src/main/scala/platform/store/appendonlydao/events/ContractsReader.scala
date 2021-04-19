@@ -20,6 +20,7 @@ import com.daml.platform.store.appendonlydao.events.SqlFunctions.{
   PostgresSqlFunctions,
 }
 import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
@@ -150,13 +151,14 @@ private[appendonlydao] sealed class ContractsReader(
   override def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
       contractId: ContractId,
+      ledgerEndSequentialId: Option[EventSequentialId] = None,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
 
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          lookupActiveContractAndLoadArgumentQuery(contractId, readers)
+          lookupActiveContractAndLoadArgumentQuery(contractId, readers, ledgerEndSequentialId)
             .as(contractRowParser.singleOpt)
         }
         .map(_.map { case (templateId, createArgument, createArgumentCompression) =>
@@ -180,13 +182,14 @@ private[appendonlydao] sealed class ContractsReader(
       readers: Set[Party],
       contractId: ContractId,
       createArgument: Value,
+      ledgerEndSequentialId: Option[EventSequentialId] = None,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
 
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          lookupActiveContractWithCachedArgumentQuery(contractId, readers)
+          lookupActiveContractWithCachedArgumentQuery(contractId, readers, ledgerEndSequentialId)
             .as(contractWithoutValueRowParser.singleOpt)
         }
         .map(
@@ -208,42 +211,54 @@ private[appendonlydao] sealed class ContractsReader(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
         implicit connection =>
-          lookupContractKeyQuery(readers, key).as(contractId("contract_id").singleOpt)
+          lookupContractKeyQuery(readers, key).as(
+            contractId("contract_id").singleOpt
+          )
       },
     )
 
   private def lookupActiveContractAndLoadArgumentQuery(
       contractId: ContractId,
       readers: Set[Party],
+      // TODO append-only: Remove SQL references to `parameters` table when removing the `ledgerEndSequentialId` parameter optionality
+      ledgerEndSequentialId: Option[EventSequentialId],
   ) = {
     val tree_event_witnessesWhere =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
+
+    val ledgerEndLimit =
+      ledgerEndSequentialId.map(_.toString).getOrElse("parameters.ledger_end_sequential_id")
+
+    val fromTables = ledgerEndSequentialId
+      .map(_ => "participant_events")
+      .getOrElse("participant_events, parameters")
+
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
-           FROM participant_events, parameters
+           FROM #$fromTables
           WHERE contract_id = $contractId
             AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= #$ledgerEndLimit
             AND #$tree_event_witnessesWhere  -- only use visible archivals
           LIMIT 1
        ),
        create_event AS (
          SELECT contract_id, template_id, create_argument, create_argument_compression
-           FROM participant_events, parameters
+           FROM #$fromTables
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= #$ledgerEndLimit
             AND #$tree_event_witnessesWhere
           LIMIT 1 -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
        create_event_unrestricted AS (
          SELECT contract_id, template_id, create_argument, create_argument_compression
-           FROM participant_events, parameters
+           FROM #$fromTables
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= #$ledgerEndLimit
           LIMIT 1 -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
@@ -260,7 +275,7 @@ private[appendonlydao] sealed class ContractsReader(
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+            AND divulgence_events.event_sequential_id <= #$ledgerEndLimit
             AND #$tree_event_witnessesWhere
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
@@ -281,36 +296,45 @@ private[appendonlydao] sealed class ContractsReader(
   private def lookupActiveContractWithCachedArgumentQuery(
       contractId: ContractId,
       readers: Set[Party],
+      // TODO append-only: Remove SQL references to `parameters` table when removing the `ledgerEndSequentialId` parameter optionality
+      ledgerEndSequentialId: Option[EventSequentialId],
   ) = {
     val tree_event_witnessesWhere =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
 
+    val ledgerEndLimit =
+      ledgerEndSequentialId.map(_.toString).getOrElse("parameters.ledger_end_sequential_id")
+
+    val fromTables = ledgerEndSequentialId
+      .map(_ => "participant_events")
+      .getOrElse("participant_events, parameters")
+
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
-           FROM participant_events, parameters
+           FROM #$fromTables
           WHERE contract_id = $contractId
             AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= #$ledgerEndLimit
             AND #$tree_event_witnessesWhere  -- only use visible archivals
           LIMIT 1
        ),
        create_event AS (
          SELECT contract_id, template_id
-           FROM participant_events, parameters
+           FROM #$fromTables
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= #$ledgerEndLimit
             AND #$tree_event_witnessesWhere
           LIMIT 1 -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
        create_event_unrestricted AS (
          SELECT contract_id, template_id
-           FROM participant_events, parameters
+           FROM #$fromTables
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= #$ledgerEndLimit
           LIMIT 1 -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
@@ -325,7 +349,7 @@ private[appendonlydao] sealed class ContractsReader(
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+            AND divulgence_events.event_sequential_id <= #$ledgerEndLimit
             AND #$tree_event_witnessesWhere
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events

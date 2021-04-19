@@ -8,6 +8,7 @@ import java.time.Instant
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 
 import scala.concurrent.Future
@@ -25,28 +26,36 @@ private[platform] trait LedgerDaoContractsReader {
 
   /** Looks up an active or divulged contract if it is visible for the given party.
     *
+    * TODO append-only: Remove optionality of `ledgerEndSequentialId` when it's no longer needed for compatibility with the legacy `dao`
+    *
     * @param readers a set of parties for one of which the contract must be visible
     * @param contractId the contract id to query
+    * @param ledgerEndSequentialId optionally, the ledger end sequential id against which the query should be executed
     * @return the optional [[Contract]] value
     */
   def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
       contractId: ContractId,
+      ledgerEndSequentialId: Option[EventSequentialId] = None,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]]
 
   /** Looks up an active or divulged contract if it is visible for the given party.
     * This method uses the provided create argument for building the [[Contract]] value
     * instead of decoding it again.
     *
+    * TODO append-only: Remove optionality of `ledgerEndSequentialId` when it's no longer needed for compatibility with the legacy `dao`
+    *
     * @param readers a set of parties for one of which the contract must be visible
     * @param contractId the contract id to query
     * @param createArgument the contract create argument
+    * @param ledgerEndSequentialId optionally, the ledger end sequential id against which the query should be executed
     * @return the optional [[Contract]] value
     */
   def lookupActiveContractWithCachedArgument(
       readers: Set[Party],
       contractId: ContractId,
       createArgument: Value,
+      ledgerEndSequentialId: Option[EventSequentialId] = None,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]]
 
   /** Looks up a Contract given a contract key and a party

@@ -19,6 +19,7 @@ import com.daml.platform.store.dao.events.ContractsReader._
 import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -45,7 +46,7 @@ private[dao] sealed class ContractsReader(
   override def lookupContractKey(
       key: Key,
       readers: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] = {
     Timed.future(
       metrics.daml.index.db.lookupKey, {
         val stakeholdersWhere =
@@ -58,11 +59,14 @@ private[dao] sealed class ContractsReader(
         }
       },
     )
+  }
 
   override def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
       contractId: ContractId,
-  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
+      ledgerEndSequentialId: Option[Long],
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
+    discard(ledgerEndSequentialId) // ledger end sequential id available only for append-only schema
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
@@ -84,12 +88,15 @@ private[dao] sealed class ContractsReader(
           )
         }),
     )
+  }
 
   override def lookupActiveContractWithCachedArgument(
       readers: Set[Party],
       contractId: ContractId,
       createArgument: Value,
-  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
+      ledgerEndSequentialId: Option[Long],
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
+    discard(ledgerEndSequentialId) // ledger end sequential id available only for append-only schema
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
@@ -106,18 +113,19 @@ private[dao] sealed class ContractsReader(
           )
         ),
     )
+  }
 
   override def lookupKeyState(key: Key, validAt: Long)(implicit
       loggingContext: LoggingContext
   ): Future[KeyState] = {
-    val _ = (key, validAt)
+    discard((key, validAt))
     Future.failed(NotSupportedError("lookupKeyState"))
   }
 
   override def lookupContractState(contractId: ContractId, before: Long)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractState]] = {
-    val _ = (contractId, before)
+    discard((contractId, before))
     Future.failed(NotSupportedError("lookupContractState"))
   }
 }

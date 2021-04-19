@@ -180,6 +180,7 @@ class MutableCacheBackedContractStore(
           forParties,
           contractId,
           contract.arg,
+          Some(cacheIndex.getSequentialId),
         )
       case _: Archived =>
         // We need to fetch the contract here since the archival
@@ -187,6 +188,7 @@ class MutableCacheBackedContractStore(
         contractsReader.lookupActiveContractAndLoadArgument(
           forParties,
           contractId,
+          Some(cacheIndex.getSequentialId),
         )
     }
 

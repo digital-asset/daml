@@ -434,6 +434,7 @@ object MutableCacheBackedContractStoreSpec {
     override def lookupActiveContractAndLoadArgument(
         forParties: Set[Party],
         contractId: ContractId,
+        ledgerEndSequentialId: Option[EventSequentialId] = None,
     )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
       (contractId, forParties) match {
         case (`cId_2`, parties) if parties.contains(charlie) =>
@@ -449,13 +450,18 @@ object MutableCacheBackedContractStoreSpec {
         forParties: Set[Party],
         contractId: ContractId,
         createArgument: Value,
+        ledgerEndSequentialId: Option[EventSequentialId] = None,
     )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
       (contractId, forParties) match {
         case (`cId_2`, parties) if parties.contains(charlie) => Future.successful(Some(contract2))
         case _ => Future.successful(Option.empty)
       }
 
-    override def lookupContractKey(key: Key, forParties: Set[Party])(implicit
+    override def lookupContractKey(
+        key: Key,
+        forParties: Set[Party],
+        ledgerEndSequentialId: Option[EventSequentialId] = None,
+    )(implicit
         loggingContext: LoggingContext
     ): Future[Option[ContractId]] = throw new RuntimeException("This method should not be called")
   }
