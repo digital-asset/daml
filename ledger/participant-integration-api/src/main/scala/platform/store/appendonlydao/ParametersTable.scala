@@ -6,22 +6,13 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 
 import anorm.SqlParser.{byteArray, long}
-import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
+import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.platform.store.Conversions.{ledgerString, offset, participantId}
 import com.daml.scalautil.Statement.discard
 
 private[appendonlydao] object ParametersTable {
-
-  object EventSequentialId {
-
-    /** The BeforeBegin value is established based on the assumption that the event sequential id column
-      * is of type BIGSERIAL
-      */
-    val BeforeBegin = 0L
-  }
-
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
   private val ParticipantIdColumnName: String = "participant_id"
@@ -41,8 +32,16 @@ private[appendonlydao] object ParametersTable {
   private val LedgerEndOrBeforeBeginParser: RowParser[Offset] =
     LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
 
-  private val LedgerEndParserAndSequentialIdParser =
-    long(LedgerEndSequentialIdColumnName).?.map(_.getOrElse(EventSequentialId.BeforeBegin))
+  private val LedgerEndOffsetAndSequentialIdParser =
+    (offset(LedgerEndColumnName).? ~ long(LedgerEndSequentialIdColumnName).?)
+      .map(SqlParser.flatten)
+      .map {
+        case (Some(offset), Some(seqId)) => (offset, seqId)
+        case (Some(offset), None) => (offset, EventSequentialId.beforeBegin)
+        case (None, None) => (Offset.beforeBegin, EventSequentialId.beforeBegin)
+        case (None, Some(_)) =>
+          throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
+      }
 
   private val ConfigurationParser: RowParser[Option[Configuration]] =
     byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
@@ -57,8 +56,8 @@ private[appendonlydao] object ParametersTable {
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
 
-  private val SelectLedgerEndAndSequentialId =
-    SQL"select #$LedgerEndSequentialIdColumnName from #$TableName"
+  private val SelectLedgerEndOffsetAndSequentialId =
+    SQL"select #$LedgerEndColumnName, #$LedgerEndSequentialIdColumnName from #$TableName"
 
   def getLedgerId(connection: Connection): Option[LedgerId] =
     SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
@@ -83,8 +82,9 @@ private[appendonlydao] object ParametersTable {
   def getLedgerEnd(connection: Connection): Offset =
     SelectLedgerEnd.as(LedgerEndOrBeforeBeginParser.single)(connection)
 
-  def getLedgerEndSequentialId(connection: Connection): Long =
-    SelectLedgerEndAndSequentialId.as(LedgerEndParserAndSequentialIdParser.single)(connection)
+  // TODO mutable contract state cache - use only one getLedgerEnd method
+  def getLedgerEndOffsetAndSequentialId(connection: Connection): (Offset, Long) =
+    SelectLedgerEndOffsetAndSequentialId.as(LedgerEndOffsetAndSequentialIdParser.single)(connection)
 
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
@@ -93,4 +93,11 @@ private[appendonlydao] object ParametersTable {
     SQL"select #$LedgerEndColumnName, #$ConfigurationColumnName from #$TableName".as(
       LedgerEndAndConfigurationParser.single
     )(connection)
+
+  case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
+
+}
+
+private[platform] object EventSequentialId {
+  val beforeBegin = 0L
 }

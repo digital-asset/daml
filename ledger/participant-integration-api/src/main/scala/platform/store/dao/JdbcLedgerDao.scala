@@ -118,9 +118,9 @@ private class JdbcLedgerDao(
     * and it will throw if used. Implemented here only for
     * conformance with the common [[LedgerDao]] interface.
     */
-  override def lookupLedgerEndSequentialId()(implicit
+  override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
-  ): Future[Long] =
+  ): Future[(Offset, Long)] =
     throw new UnsupportedOperationException("not supported")
 
   override def lookupInitialLedgerEnd()(implicit
