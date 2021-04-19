@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.PartialTransaction.VisibleByKey
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -1182,10 +1183,13 @@ private[lf] object SBuiltin {
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
-        case Some(mbCoid) =>
-          machine.returnValue = SOptional(mbCoid.map(SContractId))
-        case None =>
-          // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
+        case Some(None) =>
+          machine.returnValue = SOptional(None)
+        // TODO https://github.com/digital-asset/daml/issues/9454 Check visibility of transient contracts
+        case Some(Some((coid, VisibleByKey.Visible | VisibleByKey.Transient))) =>
+          machine.returnValue = SOptional(Some(SContractId(coid)))
+        case Some(Some((_, VisibleByKey.Unknown))) | None =>
+          // if we cannot find it here, send help, and make sure to update [[PartialTransaction.keys]] after
           // that.
           throw SpeedyHungry(
             SResultNeedKey(
@@ -1193,7 +1197,9 @@ private[lf] object SBuiltin {
               onLedger.committers,
               {
                 case SKeyLookupResult.Found(cid) =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
+                  onLedger.ptx = onLedger.ptx.copy(keys =
+                    onLedger.ptx.keys + (gkey -> Some((cid, VisibleByKey.Visible)))
+                  )
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
@@ -1267,9 +1273,10 @@ private[lf] object SBuiltin {
       onLedger.ptx.keys.get(gkey) match {
         case Some(None) =>
           crash(s"Could not find key $gkey")
-        case Some(Some(coid)) =>
+        // TODO https://github.com/digital-asset/daml/issues/9454 Check visibility of transient contracts
+        case Some(Some((coid, VisibleByKey.Transient | VisibleByKey.Visible))) =>
           machine.returnValue = SContractId(coid)
-        case None =>
+        case None | Some(Some((_, VisibleByKey.Unknown))) =>
           // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
           // that.
           throw SpeedyHungry(
@@ -1278,7 +1285,9 @@ private[lf] object SBuiltin {
               onLedger.committers,
               {
                 case SKeyLookupResult.Found(cid) =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
+                  onLedger.ptx = onLedger.ptx.copy(keys =
+                    onLedger.ptx.keys + (gkey -> Some((cid, VisibleByKey.Visible)))
+                  )
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
@@ -1815,6 +1824,8 @@ private[lf] object SBuiltin {
         throw DamlEFailedAuthorization(nid, fa)
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
+      case Some(Tx.DuplicateContractKey(key)) =>
+        throw DamlEDuplicateContractKey(key)
       case Some(Tx.NonExerciseContext) =>
         crash("internal error: end exercise in non exercise context")
       case Some(Tx.NonCatchContext) =>

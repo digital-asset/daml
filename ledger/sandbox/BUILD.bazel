@@ -43,6 +43,7 @@ alias(
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/language",
+            "//daml-lf/transaction",
             "//language-support/scala/bindings",
             "//ledger/caching",
             "//ledger/ledger-api-auth",

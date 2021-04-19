@@ -184,6 +184,7 @@ class ApiSubmissionServiceSpec
   it should "return proper gRPC status codes for DamlLf errors" in {
     val errorsToStatuses = Map(
       ErrorCause.DamlLf(ContractNotFound(null)) -> Status.ABORTED,
+      ErrorCause.DamlLf(DuplicateContractKey(null)) -> Status.ABORTED,
       ErrorCause.DamlLf(
         ReplayMismatch(ReplayNodeMismatch(null, null, null, null))
       ) -> Status.ABORTED,

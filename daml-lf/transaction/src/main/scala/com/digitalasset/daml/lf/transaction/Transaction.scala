@@ -657,6 +657,25 @@ object Transaction {
       consumedBy: NodeId,
   ) extends TransactionError
 
+  /** Signals that within the transaction we got to a point where
+    * two contracts with the same key were active.
+    *
+    * Note that speedy only detects duplicate key collisions
+    * if both contracts are used in the transaction (fetched/created/looked up/…).
+    * In particular, a standalone create will never produce a duplicate key
+    * error if the global contract with the duplicate key is not used in the same
+    * transaction.
+    *
+    * At the moment, Speedy also only if the two contracts are actually active at the same time.
+    * It makes no attempts to detect contract key inconsistencies, e.g.,
+    * a local create with key A, followed by an archive, followed by a global fetch
+    * with key A. This is just a more complex version of the standalone create where
+    * the global key is not fetched at all and should be caught by the ledger.
+    */
+  final case class DuplicateContractKey(
+      key: GlobalKey
+  ) extends TransactionError
+
   final case class AuthFailureDuringExecution(
       nid: NodeId,
       fa: FailedAuthorization,

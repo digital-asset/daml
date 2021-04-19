@@ -113,6 +113,10 @@ final class Conversions(
             .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
             .build
         )
+      case SError.DamlEDuplicateContractKey(key) =>
+        builder.setScenarioCommitError(
+          proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+        )
       case SError.DamlEFailedAuthorization(nid, fa) =>
         builder.setScenarioCommitError(
           proto.CommitError.newBuilder

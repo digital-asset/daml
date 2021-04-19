@@ -616,3 +616,80 @@ template NoMaintainer
       controller sig
       do
         pure ()
+
+template DuplicateKeyOperations
+  with
+    p : Party
+  where
+    signatory p
+
+    choice DuplicateBothTransient : ()
+      controller p
+      do cid1 <- create (WithKey p 42)
+         cid2 <- create (WithKey p 42)
+         archive cid1
+         archive cid2
+
+    choice DuplicateNoArchive : ()
+      controller p
+      do _ <- create (WithKey p 42)
+         _ <- create (WithKey p 42)
+         pure ()
+
+    choice DuplicateGlobalFetchByKey : ()
+      controller p
+      do _ <- fetchByKey @WithKey (p, 42)
+         cid1 <- create (WithKey p 42)
+         archive cid1
+
+    choice DuplicateGlobalFetchByKeyAfter : ()
+      controller p
+      do cid1 <- create (WithKey p 42)
+         _ <- fetchByKey @WithKey (p, 42)
+         archive cid1
+
+    choice DuplicateGlobalLookupByKey : ()
+      controller p
+      do Some _ <- lookupByKey @WithKey (p, 42)
+         cid1 <- create (WithKey p 42)
+         archive cid1
+
+    choice DuplicateGlobalLookupByKeyAfter : ()
+      controller p
+      do cid1 <- create (WithKey p 42)
+         Some _ <- lookupByKey @WithKey (p, 42)
+         archive cid1
+
+    choice DuplicateGlobalExerciseByKey : ()
+      controller p
+      do _ <- exerciseByKey @WithKey (p, 42) (SumToK 0)
+         cid1 <- create (WithKey p 42)
+         archive cid1
+
+    choice DuplicateGlobalExerciseByKeyAfter : ()
+      controller p
+      do cid1 <- create (WithKey p 42)
+         _ <- exerciseByKey @WithKey (p, 42) (SumToK 0)
+         archive cid1
+
+    choice DuplicateGlobalFetch : ()
+      with
+        cid : ContractId WithKey
+      controller p
+      do _ <- fetch cid
+         cid1 <- create (WithKey p 42)
+         archive cid1
+
+    choice DuplicateGlobalFetchAfter : ()
+      with
+        cid : ContractId WithKey
+      controller p
+      do cid1 <- create (WithKey p 42)
+         _ <- fetch cid
+         archive cid1
+
+    choice DuplicateGlobal : ()
+      controller p
+      do cid1 <- create (WithKey p 42)
+         archive cid1
+

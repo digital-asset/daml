@@ -10,13 +10,14 @@ import com.daml.lf.language.Ast
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
   GenTransaction,
   GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion => TxVersion,
   Transaction => Tx,
+  TransactionVersion => TxVersion,
 }
 import com.daml.lf.value.Value
 import com.github.ghik.silencer.silent
@@ -28,6 +29,24 @@ private[lf] object PartialTransaction {
   type NodeIdx = Value.NodeIdx
   type Node = Node.GenNode[NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
+
+  sealed trait VisibleByKey
+  object VisibleByKey {
+    // We know about the key but we do not know if it is visible to
+    // actAs union readAs. This happens for example, if a contract
+    // that has a contract key was fetched but not fetched by key.
+    // This can be used for duplicate key detection but key lookups
+    // and fetches have to throw SResultNeedKey.
+    final case object Unknown extends VisibleByKey
+    // We fetched or looked up the contract by key via SResultNeedKey
+    // so we know it is visible and can be useud to cache
+    // further lookups.
+    final case object Visible extends VisibleByKey
+    // Transient contract created in this transaction.
+    // TODO (MK): Currently, we do not run visibility checks on those.
+    // This is a bug, see https://github.com/digital-asset/daml/issues/9454
+    final case object Transient extends VisibleByKey
+  }
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -131,7 +150,7 @@ private[lf] object PartialTransaction {
 
   final case class ActiveLedgerState(
       consumedBy: Map[Value.ContractId, NodeId],
-      keys: Map[GlobalKey, Option[Value.ContractId]],
+      keys: Map[GlobalKey, Option[(Value.ContractId, VisibleByKey)]],
   )
 
   final case class TryContextInfo(
@@ -146,10 +165,12 @@ private[lf] object PartialTransaction {
 
   def initial(
       pkg2TxVersion: Ref.PackageId => TxVersion,
+      contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
   ) = PartialTransaction(
     pkg2TxVersion,
+    contractKeyUniqueness,
     submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -193,6 +214,7 @@ private[lf] object PartialTransaction {
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
+    contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
@@ -200,7 +222,7 @@ private[lf] case class PartialTransaction(
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keys: Map[GlobalKey, Option[Value.ContractId]],
+    keys: Map[GlobalKey, Option[(Value.ContractId, PartialTransaction.VisibleByKey)]],
 ) {
 
   import PartialTransaction._
@@ -325,7 +347,11 @@ private[lf] case class PartialTransaction(
         case None => Right((cid, ptx))
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
-          Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
+          val tx = mustNotExist(
+            ck,
+            ptx.copy(keys = ptx.keys.updated(ck, Some((cid, VisibleByKey.Transient)))),
+          )
+          Right((cid, tx))
       }
     }
   }
@@ -358,7 +384,8 @@ private[lf] case class PartialTransaction(
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(node),
+      key,
+      _.insertLeafNode(node),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
   }
 
@@ -429,7 +456,8 @@ private[lf] case class PartialTransaction(
         mustBeActive(
           targetId,
           templateId,
-          copy(
+          mbKey,
+          _.copy(
             nextNodeIdx = nextNodeIdx + 1,
             context = Context(ec, BackStack.empty, 0),
             // important: the semantics of DAML dictate that contracts are immediately
@@ -592,16 +620,37 @@ private[lf] case class PartialTransaction(
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
 
   /** Guard the execution of a step with the unconsumedness of a
-    * `ContractId`
+    * `ContractId` and check that there is no other contract with the
+    *  same contract key.
     */
   private[this] def mustBeActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      f: => PartialTransaction,
+      optKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      f: PartialTransaction => PartialTransaction,
   ): PartialTransaction =
     consumedBy.get(coid) match {
-      case None => f
+      case None =>
+        val ptx = insertActiveKey(coid, templateId, optKey)
+        if (ptx.aborted.isEmpty) {
+          f(ptx)
+        } else {
+          ptx
+        }
       case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
+    }
+
+  /** Guard the execution of a step with the non-existence of a contract key.
+    * This only has an effect with ContractKeyUniquenessMode.On.
+    */
+  private[this] def mustNotExist(
+      key: GlobalKey,
+      f: => PartialTransaction,
+  ): PartialTransaction =
+    contractKeyUniqueness match {
+      case ContractKeyUniquenessMode.Off => f
+      case ContractKeyUniquenessMode.On =>
+        keys.get(key).flatten.fold(f)(_ => noteAbort(Tx.DuplicateContractKey(key)))
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
@@ -612,6 +661,31 @@ private[lf] case class PartialTransaction(
       context = context.addActionChild(nid),
       nodes = nodes.updated(nid, node),
     )
+  }
+
+  private[this] def insertActiveKey(
+      cid: Value.ContractId,
+      templateId: TypeConName,
+      optKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+  ): PartialTransaction = {
+    val optGlobalKey = optKey.map(key => GlobalKey(templateId, key.key))
+
+    (contractKeyUniqueness, optGlobalKey) match {
+      case (ContractKeyUniquenessMode.Off, _) => this
+      case (_, None) => this
+      case (ContractKeyUniquenessMode.On, Some(key)) =>
+        keys.get(key) match {
+          case None | Some(None) =>
+            // First time we see this key or we saw it and it got archived since.
+            copy(
+              keys = keys.updated(key, Some((cid, VisibleByKey.Unknown)))
+            )
+          case Some(Some((prevCid, _))) if prevCid == cid =>
+            // Visibility can only be >= than Unknown so no need to modify anthing.
+            this
+          case Some(Some(_)) => noteAbort(Tx.DuplicateContractKey(key))
+        }
+    }
   }
 
 }

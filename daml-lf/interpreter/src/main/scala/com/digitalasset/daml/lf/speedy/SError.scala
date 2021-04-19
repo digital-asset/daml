@@ -77,6 +77,14 @@ object SError {
       consumedBy: NodeId,
   ) extends SErrorDamlException
 
+  /** Two contracts with the same key were active at the same time.
+    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * for more details.
+    */
+  final case class DamlEDuplicateContractKey(
+      key: GlobalKey
+  ) extends SErrorDamlException
+
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
       reason: String

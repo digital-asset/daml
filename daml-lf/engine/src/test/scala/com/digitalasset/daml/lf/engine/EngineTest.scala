@@ -14,6 +14,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -30,6 +31,7 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import org.scalactic.Equality
@@ -1699,6 +1701,166 @@ class EngineTest
     run("GetTime").map(_._2.dependsOnTime) shouldBe Right(true)
     run("FactorialOfThree").map(_._2.dependsOnTime) shouldBe Right(false)
 
+  }
+
+  "duplicate contract key" should {
+    val dkoId = Identifier(basicTestsPkgId, "BasicTests:DuplicateKeyOperations")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("rollback")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+    def run(cmd: Command, engine: Engine = engine) = {
+      val Right((cmds, globalCids)) = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+          globalCids = globalCids,
+        )
+        .consume(lookupContract, lookupPackage, lookupKey)
+    }
+    val dupTransient = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateBothTransient",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupNonTransient = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateNoArchive",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalFetchByKey = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalFetchByKey",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalFetchByKeyAfter = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalFetchByKeyAfter",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalLookupByKey = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalLookupByKey",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalLookupByKeyAfter = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalLookupByKeyAfter",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalExerciseByKey = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalExerciseByKey",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalExerciseByKeyAfter = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalExerciseByKeyAfter",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val dupGlobalFetch = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalFetch",
+      ValueRecord(None, ImmArray((None, ValueContractId(toContractId("#BasicTests:WithKey:1"))))),
+    )
+    val dupGlobalFetchAfter = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobalFetchAfter",
+      ValueRecord(None, ImmArray((None, ValueContractId(toContractId("#BasicTests:WithKey:1"))))),
+    )
+    val dupGlobal = CreateAndExerciseCommand(
+      dkoId,
+      ValueRecord(None, ImmArray((None, ValueParty(alice)))),
+      "DuplicateGlobal",
+      ValueRecord(None, ImmArray.empty),
+    )
+    val allCmds = Seq(
+      dupTransient,
+      dupNonTransient,
+      dupGlobalFetchByKey,
+      dupGlobalFetchByKeyAfter,
+      dupGlobalLookupByKey,
+      dupGlobalLookupByKeyAfter,
+      dupGlobalExerciseByKey,
+      dupGlobalExerciseByKeyAfter,
+      dupGlobalFetch,
+      dupGlobalFetchAfter,
+      dupGlobal,
+    )
+    "duplicate key error for transient contracts" in {
+      inside(run(dupTransient)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "duplicate key error for non-transient contracts" in {
+      inside(run(dupNonTransient)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "duplicate key error with global contract if it is fetch-by-key’d" in {
+      inside(run(dupGlobalFetchByKey)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "no duplicate key error if global contract is fetch-by-key’d afterwards" in {
+      run(dupGlobalFetchByKeyAfter) shouldBe a[Right[_, _]]
+    }
+    "duplicate key error with global contract if it is lookup-by-key’d" in {
+      inside(run(dupGlobalLookupByKey)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "no duplicate key error if global contract is lookup-by-key’d afterwards" in {
+      run(dupGlobalLookupByKeyAfter) shouldBe a[Right[_, _]]
+    }
+    "duplicate key error with global contract if it is exercise-by-key’d" in {
+      inside(run(dupGlobalExerciseByKey)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "no duplicate key error with global contract if it is exercise-by-key’d afterwards" in {
+      run(dupGlobalExerciseByKeyAfter) shouldBe a[Right[_, _]]
+    }
+    "duplicate key error with global contract if it is fetch’d" in {
+      inside(run(dupGlobalFetch)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "duplicate key error with global contract if it is fetch’d afterwards" in {
+      inside(run(dupGlobalFetchAfter)) { case Left(err) =>
+        err shouldBe a[DuplicateContractKey]
+      }
+    }
+    "no duplicate key error if global contract is not used" in {
+      run(dupGlobal) shouldBe a[Right[_, _]]
+    }
+    "no duplicate key errors if contract key uniqueness is off" in {
+      val engine = new Engine(
+        EngineConfig(
+          LanguageVersion.DevVersions,
+          contractKeyUniqueness = ContractKeyUniquenessMode.Off,
+        )
+      )
+      allCmds.foreach { cmd =>
+        run(cmd, engine) shouldBe a[Right[_, _]]
+      }
+    }
   }
 
   "fetching contracts that have keys correctly fills in the transaction structure" when {

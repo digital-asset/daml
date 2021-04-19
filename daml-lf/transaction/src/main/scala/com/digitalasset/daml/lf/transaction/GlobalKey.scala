@@ -45,3 +45,11 @@ final case class GlobalKeyWithMaintainers(
     globalKey: GlobalKey,
     maintainers: Set[Ref.Party],
 )
+
+// Canton in non-uck mode does not provide uniqueness so
+// we allow turning it off in the engine.
+sealed trait ContractKeyUniquenessMode
+object ContractKeyUniquenessMode {
+  case object On extends ContractKeyUniquenessMode
+  case object Off extends ContractKeyUniquenessMode
+}
