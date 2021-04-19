@@ -384,9 +384,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, _) => acc
     } -- localContracts.keySet
 
-  /** Return all the contract keys references by this transaction.
-    * This includes the keys created, exercised, fetched, or lookup, even those
-    * that refer to transient contracts or that appear under a roolback node.
+  /** Return all the contract keys referenced by this transaction.
+    * This includes the keys created, exercised, fetched, or looked up, even those
+    * that refer transient contracts or that appear under a rollback node.
     */
   final def contractKeys(implicit
       ev: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
