@@ -3,6 +3,8 @@
 
 package com.daml.script.export
 
+import java.time.Instant
+
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
@@ -10,6 +12,7 @@ import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Graphs
 import scalaz.std.option._
 import scalaz.std.iterable._
@@ -398,6 +401,12 @@ object TreeUtils {
       case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
         evParties(Kind.Created(createdEvent)) ++ evParties(Kind.Exercised(exercisedEvent))
     }
+  }
+
+  def timestampFromTree(tree: TransactionTree): Timestamp = {
+    Timestamp.assertFromInstant(
+      Instant.ofEpochSecond(tree.getEffectiveAt.seconds, tree.getEffectiveAt.nanos.toLong)
+    )
   }
 
   def treeRefs(t: TransactionTree): Set[Identifier] =

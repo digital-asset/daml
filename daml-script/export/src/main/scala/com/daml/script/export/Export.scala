@@ -24,12 +24,13 @@ object Export {
       pkgRefs: Set[PackageId],
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
       acsBatchSize: Int,
+      setTime: Boolean,
   ) = {
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Export.daml"),
       Encode
-        .encodeTransactionTreeStream(acs, trees, acsBatchSize)
+        .encodeTransactionTreeStream(acs, trees, acsBatchSize, setTime)
         .render(80)
         .getBytes(StandardCharsets.UTF_8),
     )

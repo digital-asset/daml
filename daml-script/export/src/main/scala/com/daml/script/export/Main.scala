@@ -65,6 +65,7 @@ object Main {
             pkgRefs,
             pkgs,
             exportScript.acsBatchSize,
+            exportScript.setTime,
           )
         } yield ()
       case None =>
