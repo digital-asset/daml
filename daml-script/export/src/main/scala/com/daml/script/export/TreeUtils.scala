@@ -21,7 +21,7 @@ import scalaz.syntax.foldable._
 
 import scala.collection.compat._
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 object TreeUtils {
   sealed trait Selector
@@ -318,7 +318,11 @@ object TreeUtils {
     }
   }
 
-  sealed trait Submit {
+  sealed trait Action
+
+  final case class SetTime(timestamp: Timestamp) extends Action
+
+  sealed trait Submit extends Action {
     def submitters: Set[Party]
     def commands: Seq[Command]
   }
@@ -356,6 +360,23 @@ object TreeUtils {
   ) extends Submit
       with SubmitTree
       with SubmitMulti
+
+  object Action {
+    def fromTrees(trees: Seq[TransactionTree]): Seq[Action] = {
+      var currentTime = Timestamp.MinValue
+      val result = ArrayBuffer.newBuilder[Action]
+      trees.foreach { tree =>
+        val timestamp = timestampFromTree(tree)
+        val submit = Submit.fromTree(tree)
+        if (timestamp > currentTime) {
+          currentTime = timestamp
+          result += SetTime(timestamp)
+        }
+        result += submit
+      }
+      result.result()
+    }
+  }
 
   object Submit {
     def fromTree(tree: TransactionTree): Submit = {
