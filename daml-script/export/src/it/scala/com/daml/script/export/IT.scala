@@ -153,6 +153,7 @@ final class IT
           ExportScript(
             outputPath = tmpDir,
             acsBatchSize = 2,
+            setTime = false,
             damlScriptLib = damlScriptLib.toString,
             sdkVersion = SdkVersion.sdkVersion,
           )
