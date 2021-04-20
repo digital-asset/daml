@@ -134,7 +134,8 @@ if a contract was divulged to one of the configured parties, but the event that
 initially created that contract is not visible to any of the configured
 parties. This may also occur if a contract was archived before the configured
 start offset, such that it is neither part of the recreated ACS nor created in
-any of the exported transactions.
+any of the exported transactions, and another live contract retains a reference
+to this archived contract.
 
 Contracts Created and Referenced in Same Transaction
 ====================================================
