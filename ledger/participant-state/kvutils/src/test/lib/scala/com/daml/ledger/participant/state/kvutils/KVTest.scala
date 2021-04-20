@@ -178,6 +178,7 @@ object KVTest {
       state.engine
         .submit(
           submitters = Set(submitter),
+          readAs = Set.empty,
           cmds = Commands(
             commands = ImmArray(command),
             ledgerEffectiveTime = state.recordTime,

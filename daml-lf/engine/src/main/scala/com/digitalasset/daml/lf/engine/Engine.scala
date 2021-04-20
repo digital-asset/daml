@@ -17,6 +17,7 @@ import com.daml.lf.value.Value
 import java.nio.file.Files
 
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.ValidationMode
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 
@@ -86,6 +87,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def submit(
       submitters: Set[Party],
+      readAs: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -95,7 +97,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       .preprocessCommands(cmds.commands)
       .flatMap { case (processedCmds, globalCids) =>
         interpretCommands(
-          validating = false,
+          validationMode = ValidationMode.Submitting(readAs),
           submitters = submitters,
           commands = processedCmds,
           ledgerTime = cmds.ledgerEffectiveTime,
@@ -142,7 +144,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       (command, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
-        validating = true,
+        validationMode = ValidationMode.Validating,
         submitters = submitters,
         commands = ImmArray(command),
         ledgerTime = ledgerEffectiveTime,
@@ -165,7 +167,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
-        validating = true,
+        validationMode = ValidationMode.Validating,
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
@@ -256,7 +258,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     * [[seeding]] is seeding used to derive node seed and contractId discriminator.
     */
   private[engine] def interpretCommands(
-      validating: Boolean,
+      validationMode: ValidationMode,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
       commands: ImmArray[speedy.Command],
@@ -276,7 +278,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        validating = validating,
+        validationMode = validationMode,
       )
       interpretLoop(machine, ledgerTime)
     }

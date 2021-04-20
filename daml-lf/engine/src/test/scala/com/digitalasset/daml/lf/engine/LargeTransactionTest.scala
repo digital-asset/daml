@@ -222,6 +222,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     engine
       .submit(
         submitters = Set(submitter),
+        readAs = Set.empty,
         Commands(ImmArray(cmd), Time.Timestamp.now(), cmdReference),
         participant,
         seed,

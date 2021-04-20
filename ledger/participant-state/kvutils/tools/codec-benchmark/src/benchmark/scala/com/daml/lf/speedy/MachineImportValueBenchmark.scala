@@ -7,6 +7,7 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, TypedValue, assertDecode}
 import com.daml.lf.data.Time
 import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.transaction.ValidationMode
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
@@ -26,6 +27,7 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
     expr = null,
     globalCids = Set.empty,
     committers = Set.empty,
+    validationMode = ValidationMode.Submitting(Set.empty),
   )
 
   @Setup

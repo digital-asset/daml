@@ -23,7 +23,7 @@ import com.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey,
 }
-import com.daml.lf.transaction.{GlobalKey, NodeId}
+import com.daml.lf.transaction.{GlobalKey, NodeId, ValidationMode}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf._
@@ -68,6 +68,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
     expr = null,
     globalCids = Set.empty,
     committers = Set.empty,
+    validationMode = ValidationMode.Submitting(Set.empty),
     traceLog = traceLog,
   )
   val onLedger = machine.ledgerMode match {
@@ -161,6 +162,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
       machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
       onLedger.committers = actAs.toSet
+      onLedger.validationMode = ValidationMode.Submitting(readAs)
       var result: RichTransaction = null
       while (result == null) {
         machine.run() match {

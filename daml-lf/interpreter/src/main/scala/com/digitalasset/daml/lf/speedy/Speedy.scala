@@ -17,7 +17,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.{Node, TransactionVersion}
+import com.daml.lf.transaction.{Node, TransactionVersion, ValidationMode}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -106,8 +106,11 @@ private[lf] object Speedy {
       key: Option[Node.KeyWithMaintainers[V[Nothing]]],
   )
 
+  // Note that validationMode and committers are only mutable for
+  // scenarios and Daml Script. Once we switch to creating
+  // a fresh machine per run, we can drop this.
   private[lf] final case class OnLedger(
-      val validating: Boolean,
+      var validationMode: ValidationMode,
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -794,7 +797,7 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
-        validating: Boolean = false,
+        validationMode: ValidationMode,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine = {
       val pkg2TxVersion =
@@ -809,7 +812,7 @@ private[lf] object Speedy {
         kontStack = initialKontStack(),
         lastLocation = None,
         ledgerMode = OnLedger(
-          validating = validating,
+          validationMode = validationMode,
           ptx = PartialTransaction.initial(pkg2TxVersion, submissionTime, initialSeeding),
           committers = committers,
           commitLocation = None,
@@ -836,6 +839,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateE: Expr,
         committer: Party,
+        validationMode: ValidationMode = ValidationMode.Submitting(Set.empty),
     ): Machine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
       Machine(
@@ -845,6 +849,7 @@ private[lf] object Speedy {
         expr = SEApp(updateSE, Array(SEValue.Token)),
         globalCids = Set.empty,
         committers = Set(committer),
+        validationMode = validationMode,
       )
     }
 
@@ -862,6 +867,7 @@ private[lf] object Speedy {
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
+      validationMode = ValidationMode.Submitting(Set.empty),
     )
 
     @throws[PackageNotFound]
