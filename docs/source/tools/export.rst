@@ -66,7 +66,7 @@ The generated Daml code contains the following top-level definitions:
   script to understand the exported ledger state or history, and you can modify
   this script for debugging or testing purposes.
 ``testExport : Script ()``
-  A Daml script that will first invoke ``allocateParties`` and then ``export``.
+  A Daml script that will first invoke ``allocateParties`` and then ``export``. This can be useful to test it in Daml Studio.
 
 In most simple cases the generated Daml script will use the functions
 ``submit`` or ``submitMulti`` to issue ledger commands that reproduce a
