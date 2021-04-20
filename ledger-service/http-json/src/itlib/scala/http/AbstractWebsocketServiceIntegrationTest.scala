@@ -857,6 +857,69 @@ abstract class AbstractWebsocketServiceIntegrationTest
     case _ => -\/(jsv)
   }
 
+  "no duplicates should be returned when retrieving contracts for multiple parties" in withHttpService {
+    (uri, encoder, _) =>
+      val aliceAndBob = List("Alice", "Bob")
+      val jwtForAliceAndBob = jwtForParties(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
+      import spray.json._
+
+      def test(
+          expectedContractId: String,
+          killSwitch: UniqueKillSwitch,
+      ): Sink[JsValue, Future[ShouldHaveEnded]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            Vector((sharedAccountId, sharedAccount)) <- readAcsN(1)
+            _ = sharedAccountId shouldBe expectedContractId
+            ContractDelta(Vector(), _, Some(offset)) <- readOne
+            _ = inside(sharedAccount) { case JsObject(obj) =>
+              inside((obj get "owners", obj get "number")) {
+                case (Some(JsArray(owners)), Some(JsString(number))) =>
+                  owners should contain theSameElementsAs Vector(JsString("Alice"), JsString("Bob"))
+                  number shouldBe "4444"
+              }
+            }
+            ContractDelta(Vector(), _, Some(_)) <- readOne
+            _ = killSwitch.shutdown()
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + offset).size - 1
+          } yield
+          // don't count empty events block if lastSeenOffset does not change
+          ShouldHaveEnded(
+            liveStartOffset = offset,
+            msgCount = 2 + hbCount,
+            lastSeenOffset = offset,
+          )
+        )
+      }
+
+      for {
+        (status, value) <-
+          postCreateCommand(
+            cmd = sharedAccountCreateCommand(owners = aliceAndBob, "4444"),
+            encoder = encoder,
+            uri = uri,
+            headers = headersWithPartyAuth(aliceAndBob),
+          )
+        _ = status shouldBe a[StatusCodes.Success]
+        expectedContractId = getContractId(getResult(value))
+        (killSwitch, source) = singleClientQueryStream(
+          jwt = jwtForAliceAndBob,
+          serviceUri = uri,
+          query = """{"templateIds": ["Account:SharedAccount"]}""",
+        )
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+        result <- source via parseResp runWith test(expectedContractId.unwrap, killSwitch)
+      } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
+        succeed
+      }
+  }
+
   "ContractKeyStreamRequest" - {
     import spray.json._, json.JsonProtocol._
     val baseVal =

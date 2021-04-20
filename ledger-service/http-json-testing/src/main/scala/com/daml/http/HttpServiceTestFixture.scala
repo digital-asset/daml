@@ -434,6 +434,29 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     domain.CreateCommand(templateId, arg, None)
   }
 
+  def sharedAccountCreateCommand(
+      owners: Seq[String],
+      number: String,
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now),
+  ): domain.CreateCommand[v.Record] = {
+    val templateId = domain.TemplateId(None, "Account", "SharedAccount")
+    val timeValue = v.Value(time)
+    val enabledVariantValue =
+      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
+    val arg = v.Record(
+      fields = List(
+        v.RecordField(
+          "owners",
+          Some(v.Value(v.Value.Sum.List(v.List(owners.map(o => v.Value(v.Value.Sum.Party(o))))))),
+        ),
+        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+        v.RecordField("status", Some(enabledVariantValue)),
+      )
+    )
+
+    domain.CreateCommand(templateId, arg, None)
+  }
+
   def getContractId(result: JsValue): domain.ContractId =
     inside(result.asJsObject.fields.get("contractId")) { case Some(JsString(contractId)) =>
       domain.ContractId(contractId)
