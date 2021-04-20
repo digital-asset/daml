@@ -7,6 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.script.export.TreeUtils.{Command, SimpleCommand, Submit}
 import com.google.protobuf
 
@@ -21,6 +22,7 @@ object TestData {
     )
   )
   val defaultExerciseResult = Value().withUnit(protobuf.empty.Empty())
+  val defaultTimestamp = Timestamp.Epoch
 
   sealed trait Event
   sealed case class Created(
@@ -58,7 +60,10 @@ object TestData {
     }
   }
 
-  sealed case class Tree(rootEvents: Seq[Event]) {
+  sealed case class Tree(
+      rootEvents: Seq[Event],
+      timestamp: Timestamp = defaultTimestamp,
+  ) {
     def toTransactionTree: TransactionTree = {
       var count = 0
       def go(
@@ -110,7 +115,10 @@ object TestData {
         transactionId = "txid",
         commandId = "cmdid",
         workflowId = "flowid",
-        effectiveAt = None,
+        effectiveAt = Some(
+          protobuf.timestamp.Timestamp
+            .of(timestamp.toInstant.getEpochSecond, timestamp.toInstant.getNano)
+        ),
         offset = "",
         eventsById = eventsById,
         rootEventIds = rootEventIds,
