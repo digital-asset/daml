@@ -4,7 +4,7 @@
 Ledger Export
 #############
 
-Export is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
+Export is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 
 Introduction
 ************
