@@ -10,6 +10,7 @@ import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
+import com.github.ghik.silencer.silent
 import scala.collection.{mutable, immutable => imm}
 import scala.collection.compat._
 import java.time.{Instant, LocalDate, LocalDateTime}
@@ -309,13 +310,21 @@ object PrimitiveInstances {
   implicit def textMapFactory[V]: Factory[(String, V), TextMap[V]] =
     TextMap.factory
 
-  implicit def genMapFactory[K, V]: Compat.CanBuildFrom[GenMap[_, _], (K, V), GenMap[K, V]] = {
-    type CBF[M[_, _]] = Compat.CanBuildFrom[M[_, _], (K, V), M[K, V]]
+  implicit def genMapFactory[K, V]: Compat.CanBuildFrom[imm.Map[_, _], (K, V), GenMap[K, V]] = {
+    type CBF[M[_, _]] = Compat.CanBuildFrom[imm.Map[_, _], (K, V), M[K, V]]
+    @silent("local val genMapFactory in method genMapFactory is never used")
+    val genMapFactory = () // prevent recursion
     GenMap.subst[CBF](implicitly[CBF[imm.Map]])
   }
 
   /** Applied in contexts that ''expect'' a `TextMap`, iff -Xsource:2.13. */
   implicit def textMapFromMap[V](m: imm.Map[String, V]): TextMap[V] = TextMap fromMap m
+
+  /** Applied in contexts that ''expect'' a `GenMap`, iff -Xsource:2.13. */
+  implicit def genMapFromMap[K, V](m: imm.Map[K, V]): GenMap[K, V] = {
+    type Id2[M[_, _]] = M[K, V]
+    GenMap.subst[Id2](m)
+  }
 
   implicit final class GenMapCompanionMethods(private val self: GenMap.type) extends AnyVal {
     private[binding] def subst[F[_[_, _]]](tc: F[imm.Map]): F[GenMap] =
