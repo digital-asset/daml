@@ -57,7 +57,7 @@ DROP TABLE participant_events CASCADE;
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_divulgence (
     -- * event identification
-    event_sequential_id bigserial NOT NULL, -- TODO append-only: temporarily readding bigserial for original write paths
+    event_sequential_id bigint NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
     event_offset bytea NOT NULL,
@@ -106,7 +106,7 @@ CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_create (
     -- * event identification
-    event_sequential_id bigserial NOT NULL, -- TODO append-only: temporarily readding bigserial for original write paths
+    event_sequential_id bigint NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
@@ -184,7 +184,7 @@ CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_consuming_exercise (
     -- * event identification
-    event_sequential_id bigserial NOT NULL, -- TODO append-only: temporarily readding bigserial for original write paths
+    event_sequential_id bigint NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
@@ -255,7 +255,7 @@ CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participan
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_non_consuming_exercise (
     -- * event identification
-    event_sequential_id bigserial NOT NULL, -- TODO append-only: temporarily readding bigserial for original write paths
+    event_sequential_id bigint NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
