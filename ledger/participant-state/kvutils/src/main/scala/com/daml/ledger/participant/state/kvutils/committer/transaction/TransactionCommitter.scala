@@ -451,7 +451,7 @@ private[kvutils] class TransactionCommitter(
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
-    localContracts.foreach { case (cid, (nid, createNode)) =>
+    for((cid, (nid, createNode)) <- localContracts) {
       val cs = DamlContractState.newBuilder
       cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
       val localDisclosure = blindingInfo.disclosure(nid)
@@ -497,7 +497,7 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract keys.
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
-    contractKeys.foreach { case (contractKey, contractKeyState) =>
+    for ((contractKey, contractKeyState) <- contractKeys) {
       val stateKey = Conversions.globalKeyToStateKey(contractKey)
       val (k, v) =
         updateContractKeyWithContractKeyState(ledgerEffectiveTime, stateKey, contractKeyState)
