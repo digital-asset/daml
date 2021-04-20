@@ -45,6 +45,12 @@ CREATE TABLE parameters (
     participant_id text,
     participant_pruned_up_to_inclusive bytea
 );
+ALTER TABLE parameters SET (log_autovacuum_min_duration = 0);
+ALTER TABLE parameters SET (autovacuum_vacuum_scale_factor = 0);
+ALTER TABLE parameters SET (autovacuum_vacuum_threshold = 100);
+ALTER TABLE parameters SET (autovacuum_vacuum_cost_limit = 1000);
+ALTER TABLE parameters SET (autovacuum_vacuum_cost_delay = 10);
+ALTER TABLE parameters SET (fillfactor = 20);
 
 -- create, divulgence, consuming, and non-consuming events
 -- statically partitioned to the individual event types so that the planner has solid statistics
