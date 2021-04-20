@@ -22,7 +22,7 @@ object UpdateNormalizer {
     ConfigurationChangeRejectionNormalizer,
   )
 
-  def normalize(initialUpdate: Update, normalizers: Seq[UpdateNormalizer]): Update = {
+  def normalize(initialUpdate: Update, normalizers: Iterable[UpdateNormalizer]): Update = {
     (normalizers ++ MandatoryNormalizers).foldLeft(initialUpdate) { case (update, normalizer) =>
       normalizer.normalize(update)
     }
