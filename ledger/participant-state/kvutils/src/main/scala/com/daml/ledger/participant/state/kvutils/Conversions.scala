@@ -14,7 +14,14 @@ import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{GlobalKey, _}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  GlobalKey,
+  NodeId,
+  Transaction,
+  TransactionCoder,
+  TransactionOuterClass,
+}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}

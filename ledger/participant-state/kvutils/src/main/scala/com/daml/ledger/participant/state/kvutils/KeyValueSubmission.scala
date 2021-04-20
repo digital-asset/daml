@@ -35,8 +35,7 @@ class KeyValueSubmission(metrics: Metrics) {
     */
   def transactionOutputs(tx: SubmittedTransaction): List[DamlStateKey] =
     metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
-      val effects = InputsAndEffects.computeEffects(tx)
-      effects.createdContracts.map(_._1) ++ effects.consumedContracts
+      (tx.localContracts.keys ++ tx.consumedContracts).map(Conversions.contractIdToStateKey).toList
     }
 
   private def submissionParties(

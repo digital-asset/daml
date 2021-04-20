@@ -11,10 +11,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, co
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.{
-  DamlTransactionEntrySummary,
-  damlContractKey,
-}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation
 import com.daml.ledger.participant.state.kvutils.committer.{
   CommitContext,
@@ -621,7 +618,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       val key = {
         val aCreateNode = createNode("#dummy")
-        damlContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
+        Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
       }
       forAll(cases) { (transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
         val context = commitContextWithContractStateKeys(
