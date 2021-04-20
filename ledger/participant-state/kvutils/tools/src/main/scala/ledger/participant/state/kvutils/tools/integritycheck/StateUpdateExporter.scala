@@ -25,14 +25,14 @@ object StateUpdateExporter {
         StateUpdateExporter.write(
           expectedReadService,
           outputWriterFactory(path),
-          config.expectedUpdatesNormalizers,
+          config.expectedUpdateNormalizers,
         )
       )
       _ <- config.actualUpdatesPath.fold(Future.unit)(path =>
         StateUpdateExporter.write(
           actualReadService,
           outputWriterFactory(path),
-          config.actualUpdatesNormalizers,
+          config.actualUpdateNormalizers,
         )
       )
     } yield ()
@@ -41,7 +41,7 @@ object StateUpdateExporter {
   private def write(
       readService: ReadService,
       outputWriter: PrintWriter,
-      normalizers: Seq[UpdateNormalizer],
+      normalizers: Iterable[UpdateNormalizer],
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
