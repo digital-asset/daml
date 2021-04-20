@@ -5,7 +5,6 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 import java.time.Instant
 import java.util.Date
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
@@ -46,6 +45,7 @@ import com.daml.platform.store.appendonlydao.events.{
 }
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
+  DeduplicationKeyMaker,
   LedgerDao,
   LedgerReadDao,
   MeteredLedgerDao,
@@ -531,7 +531,7 @@ private class JdbcLedgerDao(
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { implicit conn =>
-      val key = deduplicationKey(commandId, submitters)
+      val key = DeduplicationKeyMaker.make(commandId, submitters)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
         .on(
@@ -579,7 +579,7 @@ private class JdbcLedgerDao(
       commandId: domain.CommandId,
       submitters: List[Party],
   )(implicit conn: Connection): Unit = {
-    val key = deduplicationKey(commandId, submitters)
+    val key = DeduplicationKeyMaker.make(commandId, submitters)
     SQL_DELETE_COMMAND
       .on("deduplicationKey" -> key)
       .execute()
@@ -882,18 +882,6 @@ private[platform] object JdbcLedgerDao {
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
     ): Unit = ()
-  }
-
-  def deduplicationKey(
-      commandId: domain.CommandId,
-      submitters: List[Ref.Party],
-  ): String = {
-    val submitterPart =
-      if (submitters.length == 1)
-        submitters.head
-      else
-        submitters.sorted(Ordering.String).distinct.mkString("%")
-    commandId.unwrap + "%" + submitterPart
   }
 
   val acceptType = "accept"
