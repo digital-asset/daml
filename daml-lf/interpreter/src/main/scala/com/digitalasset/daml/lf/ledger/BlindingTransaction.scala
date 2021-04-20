@@ -57,51 +57,55 @@ object BlindingTransaction {
         state0: BlindState,
         parentExerciseWitnesses: Set[Party],
         nodeId: NodeId,
-    ): BlindState = {
-      val action = tx.nodes.get(nodeId) match {
+    ): BlindState =
+      tx.nodes.get(nodeId) match {
         case Some(action: Node.GenActionNode[NodeId, ContractId]) =>
-          action
-        case Some(_: Node.NodeRollback[_]) =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          throw sys.error("Rollback node not supported")
+          val witnesses = parentExerciseWitnesses union action.informeesOfNode
+
+          // nodes of every type are disclosed to their witnesses
+          val state = state0.discloseNode(witnesses, nodeId)
+
+          action match {
+
+            case _: Node.NodeCreate[ContractId] => state
+            case _: Node.NodeLookupByKey[ContractId] => state
+
+            // fetch & exercise nodes cause divulgence
+
+            case fetch: Node.NodeFetch[ContractId] =>
+              state
+                .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
+
+            case ex: Node.NodeExercises[NodeId, ContractId] =>
+              val state1 =
+                state.divulgeCoidTo(
+                  (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
+                  ex.targetCoid,
+                )
+
+              ex.children.foldLeft(state1) { (s, childNodeId) =>
+                processNode(
+                  s,
+                  witnesses,
+                  childNodeId,
+                )
+              }
+          }
+        case Some(rollback: Node.NodeRollback[NodeId]) =>
+          // Rollback nodes are disclosed to the witnesses of the parent exercise.
+          val state = state0.discloseNode(parentExerciseWitnesses, nodeId)
+          rollback.children.foldLeft(state) { (s, childNodeId) =>
+            processNode(
+              s,
+              parentExerciseWitnesses,
+              childNodeId,
+            )
+          }
         case None =>
           throw new IllegalArgumentException(
             s"processNode - precondition violated: node $nodeId not present"
           )
       }
-
-      val witnesses = parentExerciseWitnesses union action.informeesOfNode
-
-      // nodes of every type are disclosed to their witnesses
-      val state = state0.discloseNode(witnesses, nodeId)
-
-      action match {
-
-        case _: Node.NodeCreate[ContractId] => state
-        case _: Node.NodeLookupByKey[ContractId] => state
-
-        // fetch & exercise nodes cause divulgence
-
-        case fetch: Node.NodeFetch[ContractId] =>
-          state
-            .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
-
-        case ex: Node.NodeExercises[NodeId, ContractId] =>
-          val state1 =
-            state.divulgeCoidTo(
-              (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
-              ex.targetCoid,
-            )
-
-          ex.children.foldLeft(state1) { (s, childNodeId) =>
-            processNode(
-              s,
-              witnesses,
-              childNodeId,
-            )
-          }
-      }
-    }
 
     val finalState =
       tx.roots.foldLeft(BlindState.Empty) { (s, nodeId) =>
