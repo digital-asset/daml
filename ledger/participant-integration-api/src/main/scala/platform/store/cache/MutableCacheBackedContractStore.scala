@@ -18,13 +18,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
-  CacheIndex,
-  ContractNotFound,
-  EmptyContractIds,
-  SignalNewLedgerHead,
-  SubscribeToContractStateEvents,
-}
+import com.daml.platform.store.cache.MutableCacheBackedContractStore._
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
@@ -223,7 +217,8 @@ class MutableCacheBackedContractStore(
 
   private def updateOffsets(event: ContractStateEvent): Unit = {
     cacheIndex.set(event.eventOffset, event.eventSequentialId)
-    metrics.daml.indexer.currentStateCacheSequentialIdGauge.updateValue(event.eventSequentialId)
+    metrics.daml.execution.cache.indexSequentialId
+      .updateValue(event.eventSequentialId)
     event match {
       case LedgerEndMarker(eventOffset, _) => signalNewLedgerHead(eventOffset)
       case _ => ()
