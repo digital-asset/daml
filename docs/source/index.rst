@@ -112,6 +112,7 @@ Daml Documentation
    :caption: Early Access Features
 
    tools/extractor
+   tools/export
    daml-integration-kit/index
    tools/visual
    concepts/interoperability
