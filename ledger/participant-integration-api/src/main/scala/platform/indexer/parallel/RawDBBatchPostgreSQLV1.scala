@@ -119,6 +119,7 @@ class EventsBatchExercise(
     val exercise_actors: Array[String], // '|' separated list
     val exercise_child_event_ids: Array[String], // '|' separated list
     val event_sequential_id: Array[Long],
+    val create_key_value_compression: Array[java.lang.Integer],
     val exercise_argument_compression: Array[java.lang.Integer],
     val exercise_result_compression: Array[java.lang.Integer],
 )
@@ -263,6 +264,8 @@ object RawDBBatchPostgreSQLV1 {
       exercise_child_event_ids: mutable.ArrayBuilder[String] =
         mutable.ArrayBuilder.make[String], // '|' separated list
       event_sequential_id: mutable.ArrayBuilder[Long] = mutable.ArrayBuilder.make[Long],
+      create_key_value_compression: mutable.ArrayBuilder[java.lang.Integer] =
+        mutable.ArrayBuilder.make[java.lang.Integer],
       exercise_argument_compression: mutable.ArrayBuilder[java.lang.Integer] =
         mutable.ArrayBuilder.make[java.lang.Integer],
       exercise_result_compression: mutable.ArrayBuilder[java.lang.Integer] =
@@ -603,6 +606,7 @@ object RawDBBatchPostgreSQLV1 {
           exercise_actors = b.exercise_actors.result(),
           exercise_child_event_ids = b.exercise_child_event_ids.result(),
           event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          create_key_value_compression = b.create_key_value_compression.result(),
           exercise_argument_compression = b.exercise_argument_compression.result(),
           exercise_result_compression = b.exercise_result_compression.result(),
         )
@@ -629,6 +633,7 @@ object RawDBBatchPostgreSQLV1 {
           exercise_actors = b.exercise_actors.result(),
           exercise_child_event_ids = b.exercise_child_event_ids.result(),
           event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          create_key_value_compression = b.create_key_value_compression.result(),
           exercise_argument_compression = b.exercise_argument_compression.result(),
           exercise_result_compression = b.exercise_result_compression.result(),
         )

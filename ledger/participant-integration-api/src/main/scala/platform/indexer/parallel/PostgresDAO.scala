@@ -182,6 +182,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   flat_event_witnesses,
       |   tree_event_witnesses,
       |   event_sequential_id,
+      |   create_key_value_compression,
       |   exercise_argument_compression,
       |   exercise_result_compression
       | )
@@ -206,9 +207,10 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   string_to_array(flat_event_witnesses_in, '|'),
       |   string_to_array(tree_event_witnesses_in, '|'),
       |   event_sequential_id_in,
+      |   create_key_value_compression_in::smallint,
       |   exercise_argument_compression_in::smallint,
       |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       | as t(
       |   event_id_in,
       |   event_offset_in,
@@ -230,6 +232,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   flat_event_witnesses_in,
       |   tree_event_witnesses_in,
       |   event_sequential_id_in,
+      |   create_key_value_compression_in,
       |   exercise_argument_compression_in,
       |   exercise_result_compression_in
       | );
@@ -261,6 +264,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   flat_event_witnesses,
       |   tree_event_witnesses,
       |   event_sequential_id,
+      |   create_key_value_compression,
       |   exercise_argument_compression,
       |   exercise_result_compression
       | )
@@ -285,9 +289,10 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   string_to_array(flat_event_witnesses_in, '|'),
       |   string_to_array(tree_event_witnesses_in, '|'),
       |   event_sequential_id_in,
+      |   create_key_value_compression_in::smallint,
       |   exercise_argument_compression_in::smallint,
       |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       | as t(
       |   event_id_in,
       |   event_offset_in,
@@ -309,6 +314,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |   flat_event_witnesses_in,
       |   tree_event_witnesses_in,
       |   event_sequential_id_in,
+      |   create_key_value_compression_in,
       |   exercise_argument_compression_in,
       |   exercise_result_compression_in
       | );
@@ -627,6 +633,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         batch.flat_event_witnesses,
         batch.tree_event_witnesses,
         batch.event_sequential_id,
+        batch.create_key_value_compression,
         batch.exercise_argument_compression,
         batch.exercise_result_compression,
       )
@@ -655,6 +662,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         batch.flat_event_witnesses,
         batch.tree_event_witnesses,
         batch.event_sequential_id,
+        batch.create_key_value_compression,
         batch.exercise_argument_compression,
         batch.exercise_result_compression,
       )
