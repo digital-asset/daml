@@ -57,6 +57,17 @@ class PrimitiveSpec extends AnyWordSpec with Matchers {
       "preserve type" in {
         isExactly(mapped, ofType[GenMap[Int, Int]])
       }
+
+      import org.scalatest.matchers.dsl.ResultOfATypeInvocation
+      import scala.collection.immutable.{HashMap, ListMap}
+      Seq[(ResultOfATypeInvocation[_ <: Map[_, _]], GenMap[Int, Int])](
+        a[HashMap[_, _]] -> HashMap(1 -> 2),
+        a[ListMap[_, _]] -> ListMap(1 -> 2),
+      ).foreach { case (mapClass, classedMap) =>
+        s"preserve class ${mapClass.clazz.getSimpleName}" in {
+          classedMap.map(identity) shouldBe mapClass
+        }
+      }
     }
   }
 }
