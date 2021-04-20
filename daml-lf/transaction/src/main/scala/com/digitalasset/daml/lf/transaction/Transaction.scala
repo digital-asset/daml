@@ -378,9 +378,8 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   final def consumedContracts[Cid2 >: Cid]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
       exerciseBegin = (acc, _, exe) => {
-        val acc0 = if (exe.consuming) { acc + exe.targetCoid }
-        else acc
-        (acc0, true)
+        if (exe.consuming) { (acc + exe.targetCoid, true) }
+        else { (acc, true) }
       },
       rollbackBegin = (acc, _, _) => (acc, false),
       leaf = (acc, _, _) => acc,
