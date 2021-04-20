@@ -10,47 +10,39 @@
 -- reconstructed from the log of create and archive events.
 ---------------------------------------------------------------------------------------------------
 
--- This migration is work in progress. Data continuity is not implemented yet.
--- Even though this migration is hidden behind a feature flag, we add safety checks
--- that prevent it from running on a non-empty database.
-CREATE TABLE safety_check(
-    event_table_is_empty boolean NOT NULL,
-    parameter_table_is_empty boolean NOT NULL
-);
-INSERT INTO safety_check
-VALUES (
-   CASE
-       WHEN (SELECT count(*) FROM participant_events) > 0 THEN NULL
-       ELSE true
-   END,
-   CASE
-       WHEN (SELECT count(*) FROM parameters) > 0 THEN NULL
-       ELSE true
-   END
-);
-DROP TABLE safety_check;
+---------------------------------------------------------------------------------------------------
+-- Migrations history table
+-- Stores which events were touched by which migration, to simplify fixing migration issues.
+---------------------------------------------------------------------------------------------------
 
--- drop the mutable tables
-DROP table participant_contracts CASCADE;
-DROP table participant_contract_witnesses CASCADE;
+CREATE TABLE participant_migration_history (
+    -- * name of the migration
+    name text NOT NULL,
 
--- alter table parameters
-DROP TABLE parameters;
-CREATE TABLE parameters (
-    ledger_id text NOT NULL,
-    ledger_end text,
-    ledger_end_sequential_id bigint, -- new field: the sequential_event_id up to which all events have been ingested
-    external_ledger_end text,
-    configuration bytea,
-    participant_id text,
-    participant_pruned_up_to_inclusive text
+    -- * last event inserted before the migration was run
+    ledger_end_sequential_id_before bigint,
+
+    -- * last event inserted after the migration was run
+    ledger_end_sequential_id_after bigint
+    -- NOTE: events between ledger_end_sequential_id_before and ledger_end_sequential_id_after
+    -- were created by the migration itself.
+);
+INSERT INTO participant_migration_history VALUES (
+    'V50',
+    (SELECT max(event_sequential_id) FROM participant_events),
+    NULL -- updated at the end
 );
 
--- create, divulgence, consuming, and non-consuming events
--- statically partitioned to the individual event types so that the planner has solid statistics
+---------------------------------------------------------------------------------------------------
+-- Events tables
 --
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
-DROP TABLE participant_events CASCADE;
+-- The events tables are modified in the following order:
+--   1. Create new append-only tables for events
+--   2. Copy data from the old mutable tables into the new tables
+--   3. Drop the old mutable tables
+--   4. Create a view that contains the union of all events
+---------------------------------------------------------------------------------------------------
+
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
@@ -60,7 +52,7 @@ CREATE TABLE participant_events_divulgence (
     event_sequential_id bigint NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
-    event_offset text NOT NULL,
+    event_offset text, -- offset of the transaction that divulged the contract
 
     -- * transaction metadata
     command_id text,
@@ -319,6 +311,262 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise USING gin (flat_event_witnesses);
 CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise USING gin (tree_event_witnesses);
 
+
+
+---------------------------------------------------------------------------------------------------
+-- Data migration
+---------------------------------------------------------------------------------------------------
+
+-- Insert all create events and use the participant_contracts table
+-- to fill in the create_key_hash for _active_ contracts.
+INSERT INTO participant_events_create
+(
+    event_sequential_id,
+    event_offset,
+    transaction_id,
+    ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    node_index,
+    event_id,
+    contract_id,
+    template_id,
+    flat_event_witnesses,
+    tree_event_witnesses,
+    create_argument,
+    create_argument_compression,
+    create_signatories,
+    create_observers,
+    create_agreement_text,
+    create_key_value,
+    create_key_value_compression,
+    create_key_hash
+)
+SELECT
+    participant_events.event_sequential_id,
+    participant_events.event_offset,
+    participant_events.transaction_id,
+    participant_events.ledger_effective_time,
+    participant_events.command_id,
+    participant_events.workflow_id,
+    participant_events.application_id,
+    participant_events.submitters,
+    participant_events.node_index,
+    participant_events.event_id,
+    participant_events.contract_id,
+    participant_events.template_id,
+    participant_events.flat_event_witnesses,
+    participant_events.tree_event_witnesses,
+    participant_events.create_argument,
+    participant_events.create_argument_compression,
+    participant_events.create_signatories,
+    participant_events.create_observers,
+    participant_events.create_agreement_text,
+    participant_events.create_key_value,
+    participant_events.create_key_value_compression,
+    participant_contracts.create_key_hash -- only works for active contracts
+FROM participant_events LEFT JOIN participant_contracts USING (contract_id)
+WHERE participant_events.exercise_consuming IS NULL -- create events
+ORDER BY participant_events.event_sequential_id;
+
+-- Insert all consuming exercise events
+INSERT INTO participant_events_consuming_exercise
+(
+    event_sequential_id,
+    event_offset,
+    transaction_id,
+    ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    node_index,
+    event_id,
+    contract_id,
+    template_id,
+    flat_event_witnesses,
+    tree_event_witnesses,
+    create_key_value,
+    create_key_value_compression,
+    exercise_choice,
+    exercise_argument,
+    exercise_argument_compression,
+    exercise_result,
+    exercise_result_compression,
+    exercise_actors,
+    exercise_child_event_ids
+)
+SELECT
+    participant_events.event_sequential_id,
+    participant_events.event_offset,
+    participant_events.transaction_id,
+    participant_events.ledger_effective_time,
+    participant_events.command_id,
+    participant_events.workflow_id,
+    participant_events.application_id,
+    participant_events.submitters,
+    participant_events.node_index,
+    participant_events.event_id,
+    participant_events.contract_id,
+    participant_events.template_id,
+    participant_events.flat_event_witnesses,
+    participant_events.tree_event_witnesses,
+    participant_events.create_key_value,
+    participant_events.create_key_value_compression,
+    participant_events.exercise_choice,
+    participant_events.exercise_argument,
+    participant_events.exercise_argument_compression,
+    participant_events.exercise_result,
+    participant_events.exercise_result_compression,
+    participant_events.exercise_actors,
+    participant_events.exercise_child_event_ids
+FROM participant_events
+WHERE participant_events.exercise_consuming = TRUE -- consuming exercise events
+ORDER BY participant_events.event_sequential_id;
+
+-- Insert all non-consuming exercise events
+INSERT INTO participant_events_non_consuming_exercise
+(
+    event_sequential_id,
+    event_offset,
+    transaction_id,
+    ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    node_index,
+    event_id,
+    contract_id,
+    template_id,
+    flat_event_witnesses,
+    tree_event_witnesses,
+    create_key_value,
+    create_key_value_compression,
+    exercise_choice,
+    exercise_argument,
+    exercise_argument_compression,
+    exercise_result,
+    exercise_result_compression,
+    exercise_actors,
+    exercise_child_event_ids
+)
+SELECT
+    participant_events.event_sequential_id,
+    participant_events.event_offset,
+    participant_events.transaction_id,
+    participant_events.ledger_effective_time,
+    participant_events.command_id,
+    participant_events.workflow_id,
+    participant_events.application_id,
+    participant_events.submitters,
+    participant_events.node_index,
+    participant_events.event_id,
+    participant_events.contract_id,
+    participant_events.template_id,
+    participant_events.flat_event_witnesses,
+    participant_events.tree_event_witnesses,
+    participant_events.create_key_value,
+    participant_events.create_key_value_compression,
+    participant_events.exercise_choice,
+    participant_events.exercise_argument,
+    participant_events.exercise_argument_compression,
+    participant_events.exercise_result,
+    participant_events.exercise_result_compression,
+    participant_events.exercise_actors,
+    participant_events.exercise_child_event_ids
+FROM participant_events
+WHERE participant_events.exercise_consuming = FALSE -- non-consuming exercise events
+ORDER BY participant_events.event_sequential_id;
+
+-- Temporary sequence and table used to generate sequential IDs that appear after
+-- all other already existing sequential IDs.
+-- We are using plain temporary objects to minimize the amount of database-specific SQL features used.
+CREATE SEQUENCE temp_divulgence_sequential_id START 1;
+CREATE TABLE temp_ledger_end_sequential_info (
+    ledger_end_sequential_id bigint NOT NULL
+);
+INSERT INTO temp_ledger_end_sequential_info(
+    SELECT coalesce(max(event_sequential_id), 0) FROM participant_events
+);
+
+-- A temporary table with data for existing divulgence events.
+-- Divulgence events did not exist before, we need to assign a new sequential ID for them.
+-- They will all be inserted after all other events, i.e., at a point later than the transaction
+-- that actually lead to the divulgence. This is OK, as we only use the for lookups
+-- AND we can recognize these divulgence events from not having an associated ???.
+-- In addition, we want to avoid rewriting the event_sequential_id of other events
+-- for data continuity reasons.
+CREATE TABLE temp_divulged_contracts (
+    event_sequential_id bigint NOT NULL,
+    contract_id text NOT NULL,
+    divulgees text[] NOT NULL
+);
+INSERT INTO temp_divulged_contracts (
+    event_sequential_id,
+    contract_id,
+    divulgees
+)
+SELECT
+    nextval('temp_divulgence_sequential_id') + ledger_end_sequential_id,
+    contract_id,
+    array_agg(contract_witness)
+FROM
+    participant_contract_witnesses
+        INNER JOIN participant_contracts USING (contract_id)
+        LEFT JOIN participant_events USING (contract_id),
+    temp_ledger_end_sequential_info
+WHERE (NOT create_stakeholders @> array[contract_witness])
+    AND exercise_consuming IS NULL -- create events only
+    AND (tree_event_witnesses IS NULL OR NOT tree_event_witnesses @> array[contract_witness])
+GROUP BY contract_id, ledger_end_sequential_id;
+
+INSERT INTO participant_events_divulgence (
+    event_sequential_id,
+    event_offset,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    contract_id,
+    template_id,
+    tree_event_witnesses,
+    create_argument,
+    create_argument_compression
+)
+SELECT
+    event_sequential_id,
+    -- The following 5 fields are metadata of the transaction that lead to the divulgence.
+    -- We can't reconstruct this information from the old schema.
+    NULL, -- TODO append-only: this is the only reason why the event_offset is nullable. Use some non-null offset instead?
+    NULL,
+    'flyway-migration',
+    NULL,
+    NULL,
+    contract_id,
+    template_id,
+    divulgees,
+    create_argument,
+    create_argument_compression
+FROM temp_divulged_contracts INNER JOIN participant_contracts USING (contract_id);
+
+-- Drop temporary tables
+DROP TABLE temp_divulged_contracts;
+DROP TABLE temp_ledger_end_sequential_info;
+DROP SEQUENCE temp_divulgence_sequential_id;
+
+
+---------------------------------------------------------------------------------------------------
+-- Drop old tables, at this point all data has been copied to the new tables
+---------------------------------------------------------------------------------------------------
+
+DROP TABLE participant_contracts CASCADE;
+DROP TABLE participant_contract_witnesses CASCADE;
+DROP TABLE participant_events CASCADE;
+
+
 ---------------------------------------------------------------------------------------------------
 -- Events table: view of all events
 ---------------------------------------------------------------------------------------------------
@@ -333,144 +581,173 @@ CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON 
 -- TODO append-only: EITHER only include columns that are used in queries that use this view OR verify that the query planning
 -- is not negatively affected by a long list of columns that are never used.
 CREATE VIEW participant_events
-    AS
-        SELECT
-            0::smallint as event_kind,
-            event_sequential_id,
-            NULL::text as event_offset,
-            NULL::text as transaction_id,
-            NULL::timestamp without time zone as ledger_effective_time,
-            command_id,
-            workflow_id,
-            application_id,
-            submitters,
-            NULL::integer as node_index,
-            NULL::text as event_id,
-            contract_id,
-            template_id,
-            NULL::text[] as flat_event_witnesses,
-            tree_event_witnesses,
-            create_argument,
-            NULL::text[] as create_signatories,
-            NULL::text[] as create_observers,
-            NULL::text as create_agreement_text,
-            NULL::bytea as create_key_value,
-            NULL::text as create_key_hash,
-            NULL::text as exercise_choice,
-            NULL::bytea as exercise_argument,
-            NULL::bytea as exercise_result,
-            NULL::text[] as exercise_actors,
-            NULL::text[] as exercise_child_event_ids,
-            create_argument_compression,
-            NULL::smallint as create_key_value_compression,
-            NULL::smallint as exercise_argument_compression,
-            NULL::smallint as exercise_result_compression
-        FROM participant_events_divulgence
-    UNION ALL
-        SELECT
-            10::smallint as event_kind,
-            event_sequential_id,
-            event_offset,
-            transaction_id,
-            ledger_effective_time,
-            command_id,
-            workflow_id,
-            application_id,
-            submitters,
-            node_index,
-            event_id,
-            contract_id,
-            template_id,
-            flat_event_witnesses,
-            tree_event_witnesses,
-            create_argument,
-            create_signatories,
-            create_observers,
-            create_agreement_text,
-            create_key_value,
-            create_key_hash,
-            NULL::text as exercise_choice,
-            NULL::bytea as exercise_argument,
-            NULL::bytea as exercise_result,
-            NULL::text[] as exercise_actors,
-            NULL::text[] as exercise_child_event_ids,
-            create_argument_compression,
-            create_key_value_compression,
-            NULL::smallint as exercise_argument_compression,
-            NULL::smallint as exercise_result_compression
-        FROM participant_events_create
-    UNION ALL
-        SELECT
-            20::smallint as event_kind,
-            event_sequential_id,
-            event_offset,
-            transaction_id,
-            ledger_effective_time,
-            command_id,
-            workflow_id,
-            application_id,
-            submitters,
-            node_index,
-            event_id,
-            contract_id,
-            template_id,
-            flat_event_witnesses,
-            tree_event_witnesses,
-            NULL::bytea as create_argument,
-            NULL::text[] as create_signatories,
-            NULL::text[] as create_observers,
-            NULL::text as create_agreement_text,
-            create_key_value,
-            NULL::text as create_key_hash,
-            exercise_choice,
-            exercise_argument,
-            exercise_result,
-            exercise_actors,
-            exercise_child_event_ids,
-            NULL::smallint as create_argument_compression,
-            create_key_value_compression,
-            exercise_argument_compression,
-            exercise_result_compression
-        FROM participant_events_consuming_exercise
-    UNION ALL
-        SELECT
-            25::smallint as event_kind,
-            event_sequential_id,
-            event_offset,
-            transaction_id,
-            ledger_effective_time,
-            command_id,
-            workflow_id,
-            application_id,
-            submitters,
-            node_index,
-            event_id,
-            contract_id,
-            template_id,
-            flat_event_witnesses,
-            tree_event_witnesses,
-            NULL::bytea as create_argument,
-            NULL::text[] as create_signatories,
-            NULL::text[] as create_observers,
-            NULL::text as create_agreement_text,
-            create_key_value,
-            NULL::text as create_key_hash,
-            exercise_choice,
-            exercise_argument,
-            exercise_result,
-            exercise_actors,
-            exercise_child_event_ids,
-            NULL::smallint as create_argument_compression,
-            create_key_value_compression,
-            exercise_argument_compression,
-            exercise_result_compression
-        FROM participant_events_non_consuming_exercise
+AS
+SELECT
+    0::smallint as event_kind,
+    event_sequential_id,
+    NULL::text as event_offset,
+    NULL::text as transaction_id,
+    NULL::timestamp without time zone as ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    NULL::integer as node_index,
+    NULL::text as event_id,
+    contract_id,
+    template_id,
+    NULL::text[] as flat_event_witnesses,
+    tree_event_witnesses,
+    create_argument,
+    NULL::text[] as create_signatories,
+    NULL::text[] as create_observers,
+    NULL::text as create_agreement_text,
+    NULL::bytea as create_key_value,
+    NULL::text as create_key_hash,
+    NULL::text as exercise_choice,
+    NULL::bytea as exercise_argument,
+    NULL::bytea as exercise_result,
+    NULL::text[] as exercise_actors,
+    NULL::text[] as exercise_child_event_ids,
+    create_argument_compression,
+    NULL::smallint as create_key_value_compression,
+    NULL::smallint as exercise_argument_compression,
+    NULL::smallint as exercise_result_compression
+FROM participant_events_divulgence
+UNION ALL
+SELECT
+    10::smallint as event_kind,
+    event_sequential_id,
+    event_offset,
+    transaction_id,
+    ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    node_index,
+    event_id,
+    contract_id,
+    template_id,
+    flat_event_witnesses,
+    tree_event_witnesses,
+    create_argument,
+    create_signatories,
+    create_observers,
+    create_agreement_text,
+    create_key_value,
+    create_key_hash,
+    NULL::text as exercise_choice,
+    NULL::bytea as exercise_argument,
+    NULL::bytea as exercise_result,
+    NULL::text[] as exercise_actors,
+    NULL::text[] as exercise_child_event_ids,
+    create_argument_compression,
+    create_key_value_compression,
+    NULL::smallint as exercise_argument_compression,
+    NULL::smallint as exercise_result_compression
+FROM participant_events_create
+UNION ALL
+SELECT
+    20::smallint as event_kind,
+    event_sequential_id,
+    event_offset,
+    transaction_id,
+    ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    node_index,
+    event_id,
+    contract_id,
+    template_id,
+    flat_event_witnesses,
+    tree_event_witnesses,
+    NULL::bytea as create_argument,
+    NULL::text[] as create_signatories,
+    NULL::text[] as create_observers,
+    NULL::text as create_agreement_text,
+    create_key_value,
+    NULL::text as create_key_hash,
+    exercise_choice,
+    exercise_argument,
+    exercise_result,
+    exercise_actors,
+    exercise_child_event_ids,
+    NULL::smallint as create_argument_compression,
+    create_key_value_compression,
+    exercise_argument_compression,
+    exercise_result_compression
+FROM participant_events_consuming_exercise
+UNION ALL
+SELECT
+    25::smallint as event_kind,
+    event_sequential_id,
+    event_offset,
+    transaction_id,
+    ledger_effective_time,
+    command_id,
+    workflow_id,
+    application_id,
+    submitters,
+    node_index,
+    event_id,
+    contract_id,
+    template_id,
+    flat_event_witnesses,
+    tree_event_witnesses,
+    NULL::bytea as create_argument,
+    NULL::text[] as create_signatories,
+    NULL::text[] as create_observers,
+    NULL::text as create_agreement_text,
+    create_key_value,
+    NULL::text as create_key_hash,
+    exercise_choice,
+    exercise_argument,
+    exercise_result,
+    exercise_actors,
+    exercise_child_event_ids,
+    NULL::smallint as create_argument_compression,
+    create_key_value_compression,
+    exercise_argument_compression,
+    exercise_result_compression
+FROM participant_events_non_consuming_exercise
 ;
 
+
+
 ---------------------------------------------------------------------------------------------------
--- Indices
+-- Parameters table
 ---------------------------------------------------------------------------------------------------
 
--- completions table
---------------------
+-- new field: the sequential_event_id up to which all events have been ingested
+ALTER TABLE parameters ADD COLUMN ledger_end_sequential_id bigint;
+UPDATE parameters SET ledger_end_sequential_id = (
+    SELECT max(event_sequential_id) FROM participant_events
+);
+
+-- For this migration ledger_end_sequential_id_before will not be equal to ledger_end_sequential_id_after,
+-- as this migration creates divulgence events.
+UPDATE participant_migration_history
+SET ledger_end_sequential_id_after = (
+    SELECT max(ledger_end_sequential_id) FROM parameters
+)
+WHERE name = 'V50';
+
+
+---------------------------------------------------------------------------------------------------
+-- Completions table
+---------------------------------------------------------------------------------------------------
+
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions USING btree (completion_offset, application_id);
+
+
+
+---------------------------------------------------------------------------------------------------
+-- Finalize
+---------------------------------------------------------------------------------------------------
+-- TODO append-only: VACUUM ANALYZE should be run in a separate migration script.
+-- Flyway doesn't like mixing transactional and non-transactional statements within a single migration.
+-- COMMIT;
+-- VACUUM ANALYZE;
