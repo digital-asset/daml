@@ -18,15 +18,14 @@ Structure
 +++++++++
 
 Under the new feature, Daml programs can raise and catch exceptions.
-When an exception is caught, the current subtransaction is rolled
-back to a certain point -- the beginning of the `try-catch` block.
+When an exception is caught in a `catch` block, the subtransaction
+starting at the corresponding `try` block is rolled back.
 
 To support this in our ledger model, we need to modify the transaction
 structure to indicate which subtransactions were rolled back. We do this
-by introducing **rollback nodes** in the transaction. Each rollback nodes
-contain a rolled back subtransaction. Rollback nodes are not considered
-ledger actions, since there are too many differences between rollback
-nodes and .
+by introducing **rollback nodes** in the transaction. Each rollback node
+contains a rolled back subtransaction. Rollback nodes are not considered
+ledger actions.
 
 Therefore we define transactions as a list of **nodes**, where
 each node is either a ledger action or a rollback node. This is reflected
