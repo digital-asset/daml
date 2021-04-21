@@ -117,7 +117,14 @@ reset_cache() {
             echo "Killing $pid..."
             kill -s KILL $pid
         done
-        umount $mount_point
+        for pid in $(lsof $mount_point | sed 1d | awk '{print $2}' | sort -u); do
+            echo "Killing $pid..."
+            kill -s KILL $pid
+        done
+        if mount -l | grep $mount_point; then
+            umount $mount_point
+        fi
+        rm -rf $mount_point
     fi
 
     rm -f $file
