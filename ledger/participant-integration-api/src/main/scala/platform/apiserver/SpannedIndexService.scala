@@ -34,7 +34,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Event, Spans}
+import com.daml.telemetry.{Event, Spans}
 
 import scala.concurrent.Future
 

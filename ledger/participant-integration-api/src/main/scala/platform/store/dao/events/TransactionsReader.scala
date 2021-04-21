@@ -8,7 +8,6 @@ import java.sql.Connection
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
-import com.daml
 import com.daml.ledger.api.TraceIdentifiers
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
@@ -30,6 +29,8 @@ import com.daml.platform.store.dao.{
   LedgerDaoTransactionsReader,
   PaginatingAsyncStream,
 }
+import com.daml.telemetry
+import com.daml.telemetry.{ParticipantTracer, SpanAttribute, Spans}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -132,7 +133,7 @@ private[dao] final class TransactionsReader(
         case (_, response) =>
           response.transactions.foreach(txn =>
             Spans.addEventToSpan(
-              daml.metrics.Event("transaction", TraceIdentifiers.fromTransaction(txn)),
+              telemetry.Event("transaction", TraceIdentifiers.fromTransaction(txn)),
               span,
             )
           )
@@ -222,7 +223,7 @@ private[dao] final class TransactionsReader(
         case (_, response) =>
           response.transactions.foreach(txn =>
             Spans.addEventToSpan(
-              daml.metrics.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
+              telemetry.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
               span,
             )
           )
@@ -301,7 +302,7 @@ private[dao] final class TransactionsReader(
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
         Spans.addEventToSpan(
-          com.daml.metrics.Event("contract", Map((SpanAttribute.Offset, response.offset))),
+          telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
           span,
         )
       })

@@ -40,12 +40,12 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{SpanAttribute, Spans}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.telemetry.{SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
