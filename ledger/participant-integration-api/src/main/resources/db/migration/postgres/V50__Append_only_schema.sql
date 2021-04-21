@@ -38,12 +38,12 @@ DROP table participant_contract_witnesses CASCADE;
 DROP TABLE parameters;
 CREATE TABLE parameters (
     ledger_id text NOT NULL,
-    ledger_end bytea,
+    ledger_end text,
     ledger_end_sequential_id bigint, -- new field: the sequential_event_id up to which all events have been ingested
     external_ledger_end text,
     configuration bytea,
     participant_id text,
-    participant_pruned_up_to_inclusive bytea
+    participant_pruned_up_to_inclusive text
 );
 
 -- create, divulgence, consuming, and non-consuming events
@@ -60,7 +60,7 @@ CREATE TABLE participant_events_divulgence (
     event_sequential_id bigint NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
-    event_offset bytea NOT NULL,
+    event_offset text NOT NULL,
 
     -- * transaction metadata
     command_id text,
@@ -110,7 +110,7 @@ CREATE TABLE participant_events_create (
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
-    event_offset bytea NOT NULL,
+    event_offset text NOT NULL,
 
     -- * transaction metadata
     transaction_id text NOT NULL,
@@ -138,7 +138,7 @@ CREATE TABLE participant_events_create (
     create_observers text[] NOT NULL,
     create_agreement_text text,
     create_key_value bytea,
-    create_key_hash bytea,
+    create_key_hash text,
 
     -- * compression flags
     create_argument_compression SMALLINT,
@@ -188,7 +188,7 @@ CREATE TABLE participant_events_consuming_exercise (
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
-    event_offset bytea NOT NULL,
+    event_offset text NOT NULL,
 
     -- * transaction metadata
     transaction_id text NOT NULL,
@@ -259,7 +259,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
-    event_offset bytea NOT NULL,
+    event_offset text NOT NULL,
 
     -- * transaction metadata
     transaction_id text NOT NULL,
@@ -335,7 +335,7 @@ CREATE VIEW participant_events
         SELECT
             0::smallint as event_kind,
             event_sequential_id,
-            NULL::bytea as event_offset,
+            NULL::text as event_offset,
             NULL::text as transaction_id,
             NULL::timestamp without time zone as ledger_effective_time,
             command_id,
@@ -353,7 +353,7 @@ CREATE VIEW participant_events
             NULL::text[] as create_observers,
             NULL::text as create_agreement_text,
             NULL::bytea as create_key_value,
-            NULL::bytea as create_key_hash,
+            NULL::text as create_key_hash,
             NULL::text as exercise_choice,
             NULL::bytea as exercise_argument,
             NULL::bytea as exercise_result,
@@ -419,7 +419,7 @@ CREATE VIEW participant_events
             NULL::text[] as create_observers,
             NULL::text as create_agreement_text,
             create_key_value,
-            NULL::bytea as create_key_hash,
+            NULL::text as create_key_hash,
             exercise_choice,
             exercise_argument,
             exercise_result,
@@ -452,7 +452,7 @@ CREATE VIEW participant_events
             NULL::text[] as create_observers,
             NULL::text as create_agreement_text,
             create_key_value,
-            NULL::bytea as create_key_hash,
+            NULL::text as create_key_hash,
             exercise_choice,
             exercise_argument,
             exercise_result,
