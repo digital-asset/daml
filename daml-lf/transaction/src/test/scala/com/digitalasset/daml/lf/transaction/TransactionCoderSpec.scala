@@ -133,10 +133,31 @@ class TransactionCoderSpec
       }
     }
 
+    "do NodeRollback" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val Right(encodedNode) =
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                NodeId(0),
+                normalizedNode,
+              )
+          TransactionCoder
+            .decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              txVersion,
+              encodedNode,
+            ) shouldBe Right((NodeId(0), normalizedNode))
+      }
+    }
+
     "do transactions" in
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // should work with rollback
-      forAll(noDanglingRefGenVersionedTransaction(allowRollback = false), minSuccessful(50)) { tx =>
+      forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
           tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
@@ -167,9 +188,7 @@ class TransactionCoderSpec
       }
 
     "transactions decoding should fail when unsupported transaction version received" in
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // should work with rollback
-      forAll(noDanglingRefGenTransaction(allowRollback = false), minSuccessful(50)) { tx =>
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(stringVersionGen, minSuccessful(20)) { badTxVer =>
           whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
@@ -701,9 +720,7 @@ class TransactionCoderSpec
 
   private[this] def normalizeNode[Nid](node: Node.GenNode[Nid, ContractId]) =
     node match {
-      case _: NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
+      case rb: NodeRollback[Nid] => rb //nothing to normalize
       case exe: NodeExercises[Nid, ContractId] => normalizeExe(exe)
       case fetch: NodeFetch[ContractId] => normalizeFetch(fetch)
       case create: NodeCreate[ContractId] => normalizeCreate(create)

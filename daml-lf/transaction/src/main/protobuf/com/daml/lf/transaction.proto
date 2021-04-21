@@ -45,6 +45,7 @@ message Node {
         NodeFetch fetch = 4;
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
+        NodeRollback rollback = 7;
     }
 
     string version = 63; // *since 11*, optional
@@ -110,6 +111,10 @@ message NodeLookupByKey {
     KeyWithMaintainers key_with_maintainers = 2;
     reserved 3; // was contract_id
     com.daml.lf.value.ContractId contract_id_struct = 4;
+}
+
+message NodeRollback {
+    repeated string children = 1; // node ids
 }
 
 // architecture-handbook-entry-end: Nodes

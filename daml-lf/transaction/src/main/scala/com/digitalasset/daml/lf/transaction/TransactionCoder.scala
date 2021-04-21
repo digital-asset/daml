@@ -260,9 +260,11 @@ object TransactionCoder {
         nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
-        case _: NodeRollback[_] =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
+        case ne @ NodeRollback(_, _) =>
+          val builder = TransactionOuterClass.NodeRollback.newBuilder()
+          ne.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+          Right(nodeBuilder.setRollback(builder).build())
+
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
           val builder = TransactionOuterClass.NodeCreate.newBuilder()
           nc.stakeholders.foreach(builder.addStakeholders)
@@ -449,6 +451,18 @@ object TransactionCoder {
     val nodeId = decodeNid.fromString(protoNode.getNodeId)
 
     protoNode.getNodeTypeCase match {
+      case NodeTypeCase.ROLLBACK =>
+        val protoRollback = protoNode.getRollback
+        val childrenOrError = protoRollback.getChildrenList.asScala
+          .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
+            case (Left(e), _) => Left(e)
+            case (Right(ids), s) => decodeNid.fromString(s).map(ids :+ _)
+          }
+          .map(_.toImmArray)
+        for {
+          ni <- nodeId
+          children <- childrenOrError
+        } yield ni -> NodeRollback(children, nodeVersion)
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
         for {
@@ -754,6 +768,9 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, NodeInfo] =
     protoNode.getNodeTypeCase match {
+      case NodeTypeCase.ROLLBACK =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("protoNodeInfo, rollback nodes are not supported")
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
         for {

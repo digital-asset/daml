@@ -368,7 +368,7 @@ object ValueGenerators {
   }
 
   /** Makes rollback node with some random child IDs. */
-  val rollbackNodeGen: Gen[NodeRollback[NodeId]] = {
+  val danglingRefRollbackNodeGen: Gen[NodeRollback[NodeId]] = {
     for {
       version <- transactionVersionGen()
       children <- Gen
@@ -480,10 +480,7 @@ object ValueGenerators {
    *
    */
 
-  def noDanglingRefGenTransaction(
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      allowRollback: Boolean // all tests should pass when true; then optionality can be removed
-  ): Gen[GenTransaction[NodeId, ContractId]] = {
+  val noDanglingRefGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -491,13 +488,13 @@ object ValueGenerators {
     ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] = {
 
       val exerciseFreq = if (maxDepth <= 0) 0 else 1
-      val rollbackFreq = if (maxDepth <= 0) 0 else (if (allowRollback) 1 else 0)
+      val rollbackFreq = if (maxDepth <= 0) 0 else 1
 
       def nodeGen(nodeId: NodeId): Gen[(NodeId, HashMap[NodeId, Tx.Node])] =
         for {
           node <- Gen.frequency(
             exerciseFreq -> danglingRefExerciseNodeGen,
-            rollbackFreq -> rollbackNodeGen,
+            rollbackFreq -> danglingRefRollbackNodeGen,
             1 -> malformedCreateNodeGen,
             2 -> fetchNodeGen,
           )
@@ -541,12 +538,9 @@ object ValueGenerators {
     }
   }
 
-  def noDanglingRefGenVersionedTransaction(
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      allowRollback: Boolean // all tests should pass when true; then optionality can be removed
-  ): Gen[VersionedTransaction[NodeId, ContractId]] = {
+  val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId, ContractId]] = {
     for {
-      tx <- noDanglingRefGenTransaction(allowRollback)
+      tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
       nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId, ContractId]])) {

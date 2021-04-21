@@ -224,6 +224,10 @@ object KeyValueCommitting {
 
       node.getNodeTypeCase match {
 
+        case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          sys.error("rollback nodes are not supported")
+
         case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
           val protoCreate = node.getCreate
           TransactionCoder.nodeKey(nodeVersion, protoCreate) match {
