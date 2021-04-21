@@ -39,7 +39,7 @@ private[lf] object PartialTransaction {
     // and fetches have to throw SResultNeedKey.
     final case object Unknown extends VisibleByKey
     // We fetched or looked up the contract by key via SResultNeedKey
-    // so we know it is visible and can be useud to cache
+    // so we know it is visible and can be used to cache
     // further lookups.
     final case object Visible extends VisibleByKey
     // Transient contract created in this transaction.
