@@ -153,7 +153,7 @@ final class IT
           ExportScript(
             outputPath = tmpDir,
             acsBatchSize = 2,
-            setTime = false,
+            setTime = true,
             damlScriptLib = damlScriptLib.toString,
             sdkVersion = SdkVersion.sdkVersion,
           )
@@ -185,7 +185,7 @@ final class IT
       dar,
       Ref.Identifier(dar.main._1, Ref.QualifiedName.assertFromString("Export:export")),
       inputValue = Some(JsArray(parties.map(JsString(_)).toVector)),
-      timeMode = ScriptTimeMode.WallClock,
+      timeMode = ScriptTimeMode.Static,
       initialClients = Participants(
         default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
         participants = Map.empty,
