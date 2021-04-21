@@ -48,6 +48,9 @@ object HttpService extends StrictLogging {
   // used only to populate a required field in LedgerClientConfiguration
   private val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
 
+  // default to 10 minutes for ledger connection retry period when ledger is not ready on start
+  private val MaxInitialLedgerConnectRetryAttempts = 600
+
   private type ET[A] = EitherT[Future, Error, A]
 
   object Error {
@@ -312,9 +315,17 @@ object HttpService extends StrictLogging {
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
   ): Future[Error \/ DamlLedgerClient] =
-    LedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig).map(
-      _.leftMap(Error.fromLedgerClientError)
-    )
+    LedgerClient
+      .fromRetried(
+        ledgerHost,
+        ledgerPort,
+        clientConfig,
+        nonRepudiationConfig,
+        MaxInitialLedgerConnectRetryAttempts,
+      )
+      .map(
+        _.leftMap(Error.fromLedgerClientError)
+      )
 
   private def createPortFile(
       file: Path,

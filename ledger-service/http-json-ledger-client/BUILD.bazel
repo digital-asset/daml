@@ -20,6 +20,7 @@ da_scala_library(
         "//ledger-service/http-json-cli:base",
         "//ledger-service/utils",
         "//ledger/ledger-api-common",
+        "//libs-scala/timer-utils",
     ],
 )
 
