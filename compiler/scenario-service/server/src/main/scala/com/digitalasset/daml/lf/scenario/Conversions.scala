@@ -161,6 +161,16 @@ final class Conversions(
             .build
         )
 
+      case SError.DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+        builder.setScenarioContractKeyNotVisible(
+          proto.ScenarioError.ContractKeyNotVisible.newBuilder
+            .setContractRef(mkContractRef(coid, gk.templateId))
+            .addAllActAs(actAs.map(convertParty(_)).asJava)
+            .addAllReadAs(readAs.map(convertParty(_)).asJava)
+            .addAllStakeholders(stakeholders.map(convertParty).asJava)
+            .build
+        )
+
       case SError.ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder

@@ -143,7 +143,12 @@ class ContractDiscriminatorFreshnessCheckSpec
         participantId = participant,
         submissionSeed = submissionSeed,
       )
-      .consume(pcs, pkgs, keyWithMaintainers => keys(keyWithMaintainers.globalKey))
+      .consume(
+        pcs,
+        pkgs,
+        keyWithMaintainers => keys(keyWithMaintainers.globalKey),
+        VisibleByKey.fromSubmitters(Set(alice)),
+      )
 
   val engine = Engine.DevEngine()
 
@@ -326,7 +331,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       val result =
         new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
           .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
-          .consume(_ => None, pkgs, _ => None)
+          .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible)
 
       inside(result) { case Left(err) =>
         err.msg should include("Conflicting discriminators")

@@ -18,8 +18,10 @@ import com.daml.lf.engine.{
   ResultError,
   ResultNeedContract,
   ResultNeedKey,
+  ResultNeedLocalKeyVisible,
   ResultNeedPackage,
   Error => DamlLfError,
+  VisibleByKey,
 }
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
@@ -54,13 +56,12 @@ private[apiserver] final class StoreBackedCommandExecutor(
     // DAML ledger model.
     // When checking DAML authorization rules, the engine verifies that the actAs parties are sufficient to
     // authorize the resulting transaction.
-    val contractReaders = commands.actAs ++ commands.readAs
     val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
       engine.submit(commitAuthorizers, commands.commands, participant, submissionSeed),
     )
-    consume(contractReaders, submissionResult)
+    consume(commands.actAs, commands.readAs, submissionResult)
       .map { submission =>
         (for {
           result <- submission
@@ -95,10 +96,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
       }
   }
 
-  private def consume[A](readers: Set[Ref.Party], result: Result[A])(implicit
+  private def consume[A](actAs: Set[Ref.Party], readAs: Set[Ref.Party], result: Result[A])(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
+    val readers = actAs ++ readAs
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)
@@ -141,6 +143,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId))
               )
             }
+
+        case ResultNeedLocalKeyVisible(stakeholders, resume) =>
+          val visible = VisibleByKey.fromSubmitters(actAs, readAs)(stakeholders)
+          resolveStep(Timed.trackedValue(metrics.daml.execution.engineRunning, resume(visible)))
 
         case ResultNeedPackage(packageId, resume) =>
           packageLoader

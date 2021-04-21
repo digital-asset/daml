@@ -700,6 +700,69 @@ main =
                     , "  fromAnyTemplate c3.argument === Some (T p 3)"
                     ]
                 expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:",
+              testCase "local key visibility" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.Foldable"
+                    , "import Daml.Script"
+                    , "template WithKey"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "    key p : Party"
+                    , "    maintainer key"
+                    , "template LocalKeyVisibility"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "  where"
+                    , "    signatory p1"
+                    , "    observer p2"
+                    , "    nonconsuming choice LocalLookup : ()"
+                    , "      controller p2"
+                    , "      do cid <- create (WithKey p1)"
+                    , "         Some _ <- lookupByKey @WithKey p1"
+                    , "         archive cid"
+                    , "    nonconsuming choice LocalFetch : ()"
+                    , "      controller p2"
+                    , "      do cid <- create (WithKey p1)"
+                    , "         _ <- fetchByKey @WithKey p1"
+                    , "         archive cid"
+                    , "localLookup = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submit p2 $ exerciseCmd cid LocalLookup"
+                    , "localFetch = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submit p2 $ exerciseCmd cid LocalLookup"
+                    , "localLookupFetchMustFail = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submitMustFail p2 $ exerciseCmd cid LocalLookup"
+                    , "  submitMustFail p2 $ exerciseCmd cid LocalFetch"
+                    , "localLookupFetchMulti = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submitMulti [p2] [p1]  $ exerciseCmd cid LocalLookup"
+                    , "  submitMulti [p2] [p1] $ exerciseCmd cid LocalFetch"
+                    ]
+                expectScriptFailure rs (vr "localLookup") $ \r ->
+                  matchRegex r "not visible to the committer"
+                expectScriptFailure rs (vr "localFetch") $ \r ->
+                  matchRegex r "not visible to the committer"
+                expectScriptSuccess rs (vr "localLookupFetchMustFail") $ \r ->
+                  matchRegex r "Active contracts:"
+                expectScriptSuccess rs (vr "localLookupFetchMulti") $ \r ->
                   matchRegex r "Active contracts:"
             ]
   where

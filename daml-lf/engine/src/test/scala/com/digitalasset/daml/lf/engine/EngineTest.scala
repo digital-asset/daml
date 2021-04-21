@@ -192,7 +192,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
 
     }
@@ -204,7 +204,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -218,7 +218,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Left[_, _]]
     }
 
@@ -234,7 +234,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -250,7 +250,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -265,7 +265,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -280,7 +280,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -295,7 +295,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res.left.value.msg should startWith("Missing record label n for record")
     }
 
@@ -310,7 +310,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res.left.value.msg should startWith(
         "Impossible to exercise by key, no key is defined for template"
       )
@@ -327,7 +327,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res.left.value.msg should startWith("mismatching type")
     }
 
@@ -349,7 +349,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
 
     }
@@ -369,7 +369,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -391,7 +391,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Left[_, _]]
     }
 
@@ -410,7 +410,7 @@ class EngineTest
 
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Left[_, _]]
     }
 
@@ -433,12 +433,12 @@ class EngineTest
 
       translator
         .translateValue(typ, someValue)
-        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
+        .consume(lookupContract, allOptionalPackages.get, lookupKey, allKeysVisible) shouldEqual
         Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
-        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
+        .consume(lookupContract, allOptionalPackages.get, lookupKey, allKeysVisible) shouldEqual
         Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(None))))
 
     }
@@ -454,7 +454,7 @@ class EngineTest
           TTyConApp(id, ImmArray.empty),
           wrongRecord,
         )
-        .consume(lookupContract, lookupPackage, lookupKey) shouldBe a[Left[_, _]]
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible) shouldBe a[Left[_, _]]
     }
   }
 
@@ -464,13 +464,14 @@ class EngineTest
     val command =
       CreateCommand(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
     val submissionSeed = hash("minimal create command")
+    val submitters = Set(party)
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     res shouldBe a[Right[_, _]]
     val interpretResult = engine
-      .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
     "be translated" in {
       interpretResult shouldBe a[Right[_, _]]
@@ -495,9 +496,10 @@ class EngineTest
     "be validated" in {
       val Right((tx, meta)) = interpretResult
       val Right(submitter) = tx.guessSubmitter
+      val submitters = Set(submitter)
       val validated = engine
-        .validate(Set(submitter), tx, let, participant, meta.submissionTime, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       validated match {
         case Left(e) =>
           fail(e.msg)
@@ -545,12 +547,12 @@ class EngineTest
       val cmd = command(templateId, signatories)
       val res = preprocessor
         .preprocessCommands(ImmArray(cmd))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(actAs))
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
       engine
         .submit(actAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(actAs))
     }
 
     "be translated" in {
@@ -582,7 +584,12 @@ class EngineTest
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
         val validated = engine
           .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
         validated match {
           case Left(e) =>
             fail(e.msg)
@@ -637,10 +644,11 @@ class EngineTest
     val cid = toContractId("#BasicTests:Simple:1")
     val command =
       ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))
+    val submitters = Set(party)
 
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     res shouldBe a[Right[_, _]]
     val interpretResult =
       res
@@ -655,7 +663,12 @@ class EngineTest
               seeding = seeding,
               globalCids = globalCids,
             )
-            .consume(lookupContract, lookupPackage, lookupKey)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+              VisibleByKey.fromSubmitters(submitters),
+            )
         }
     val Right((tx, txMeta)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
@@ -663,7 +676,12 @@ class EngineTest
     "be translated" in {
       val Right((rtx, _)) = engine
         .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(submitter)),
+        )
       isReplayedBy(tx, rtx) shouldBe Right(())
     }
 
@@ -685,7 +703,12 @@ class EngineTest
     "be validated" in {
       val validated = engine
         .validate(Set(submitter), tx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(submitter)),
+        )
       validated match {
         case Left(e) =>
           fail(e.msg)
@@ -715,16 +738,17 @@ class EngineTest
       "SumToK",
       ValueRecord(None, ImmArray((None, ValueInt64(5)))),
     )
+    val submitters = Set(alice)
 
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     res shouldBe a[Right[_, _]]
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(Set(alice), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       submitResult.left.value.msg should startWith("dependency error: couldn't find key")
     }
   }
@@ -740,10 +764,11 @@ class EngineTest
       "SumToK",
       ValueRecord(None, ImmArray((None, ValueInt64(5)))),
     )
+    val submitters = Set(alice)
 
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     res shouldBe a[Right[_, _]]
     val result =
       res
@@ -751,22 +776,32 @@ class EngineTest
           engine
             .interpretCommands(
               validating = false,
-              submitters = Set(alice),
+              submitters = submitters,
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
               globalCids = globalCids,
             )
-            .consume(lookupContract, lookupPackage, lookupKey)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+              VisibleByKey.fromSubmitters(submitters),
+            )
         }
     val Right((tx, txMeta)) = result
     val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val submitResult = engine
-        .submit(Set(alice), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(submitter)),
+        )
         .map(_._1)
       (result.map(_._1) |@| submitResult)((tx, rtx) => isReplayedBy(tx, rtx)) shouldBe Right(
         Right(())
@@ -785,8 +820,13 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .validate(submitters, tx, let, participant, let, submissionSeed)
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(submitter)),
+        )
       validated match {
         case Left(e) =>
           fail(e.msg)
@@ -832,18 +872,19 @@ class EngineTest
           argument = SValue.SUnit,
         )
       )
+      val submitters = Set(alice)
 
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
         err.msg should include(
@@ -869,17 +910,19 @@ class EngineTest
         )
       )
 
+      val submitters = Set(alice)
+
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
         err.msg should include(
@@ -902,17 +945,19 @@ class EngineTest
         )
       )
 
+      val submitters = Set(alice)
+
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
         err.msg should include(
@@ -936,9 +981,11 @@ class EngineTest
         ValueRecord(Some(hello), ImmArray.empty),
       )
 
+    val submitters = Set(party)
+
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     res shouldBe a[Right[_, _]]
     val interpretResult =
       res
@@ -946,14 +993,19 @@ class EngineTest
           engine
             .interpretCommands(
               validating = false,
-              submitters = Set(party),
+              submitters = submitters,
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
               globalCids = globalCids,
             )
-            .consume(lookupContract, lookupPackage, lookupKey)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+              VisibleByKey.fromSubmitters(submitters),
+            )
         }
 
     val Right((tx, txMeta)) = interpretResult
@@ -980,7 +1032,12 @@ class EngineTest
     "be validated" in {
       val validated = engine
         .validate(Set(submitter), tx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(submitter)),
+        )
       validated match {
         case Left(e) =>
           fail(e.msg)
@@ -998,7 +1055,7 @@ class EngineTest
       val list = ValueNil
       val res = preprocessor
         .translateValue(TList(TBuiltin(BTInt64)), list)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldEqual Right(SList(FrontStack.empty))
     }
@@ -1007,7 +1064,7 @@ class EngineTest
       val list = ValueList(FrontStack(ValueInt64(1)))
       val res = preprocessor
         .translateValue(TList(TBuiltin(BTInt64)), list)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldEqual Right(SList(FrontStack(ImmArray(SInt64(1)))))
     }
@@ -1018,7 +1075,7 @@ class EngineTest
       )
       val res = preprocessor
         .translateValue(TList(TBuiltin(BTInt64)), list)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldEqual Right(
         SValue.SList(FrontStack(ImmArray(SInt64(1), SInt64(2), SInt64(3), SInt64(4), SInt64(5))))
@@ -1034,7 +1091,7 @@ class EngineTest
           TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.empty),
           nested,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
         .swap
         .toOption
         .get
@@ -1067,7 +1124,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
           rec,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res shouldBe a[Right[_, _]]
     }
 
@@ -1087,7 +1144,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
           rec,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldBe a[Right[_, _]]
     }
@@ -1108,7 +1165,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
           rec,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldBe a[Right[_, _]]
     }
@@ -1126,7 +1183,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
           rec,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldBe a[Left[_, _]]
     }
@@ -1144,7 +1201,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
           rec,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldBe a[Right[_, _]]
     }
@@ -1162,7 +1219,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
           rec,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       res shouldBe a[Left[_, _]]
     }
@@ -1182,9 +1239,11 @@ class EngineTest
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
     )
 
+    val submitters = Set(bob)
+
     val Right((tx, txMeta)) = engine
-      .submit(Set(bob), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
     val submissionTime = txMeta.submissionTime
 
@@ -1192,18 +1251,18 @@ class EngineTest
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
     val Right((cmds, globalCids)) = preprocessor
       .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     val Right((rtx, _)) = engine
       .interpretCommands(
         validating = false,
-        submitters = Set(bob),
+        submitters = submitters,
         commands = cmds,
         ledgerTime = let,
         submissionTime = submissionTime,
         seeding = InitialSeeding.TransactionSeed(txSeed),
         globalCids = globalCids,
       )
-      .consume(lookupContract, lookupPackage, lookupKey)
+      .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
     "be translated" in {
       isReplayedBy(tx, rtx) shouldBe Right(())
@@ -1284,18 +1343,24 @@ class EngineTest
       val transactionSeed =
         crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
 
+      val submitters = Set(bob)
       val Right((tx, _)) =
         engine
           .interpretCommands(
             validating = false,
-            submitters = Set(bob),
+            submitters = submitters,
             commands = cmds,
             ledgerTime = let,
             submissionTime = submissionTime,
             seeding = InitialSeeding.TransactionSeed(transactionSeed),
             globalCids,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
       val Seq(_, noid1) = tx.transaction.nodes.keys.toSeq.sortBy(_.index)
       val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
@@ -1415,23 +1480,30 @@ class EngineTest
         ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))),
       )
 
+      val submitters = Set(exerciseActor)
+
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       res
         .flatMap { case (cmds, globalCids) =>
           engine
             .interpretCommands(
               validating = false,
-              submitters = Set(exerciseActor),
+              submitters = submitters,
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
               globalCids = globalCids,
             )
-            .consume(lookupContract, lookupPackage, lookupKey)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+              VisibleByKey.fromSubmitters(submitters),
+            )
         }
 
     }
@@ -1465,7 +1537,12 @@ class EngineTest
               txMeta.submissionTime,
               let,
             )
-            .consume(lookupContract, lookupPackage, lookupKey)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+              VisibleByKey.fromSubmitters(n.requiredAuthorizers),
+            )
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
       }
     }
@@ -1520,10 +1597,17 @@ class EngineTest
 
       val let = Time.Timestamp.now()
 
+      val submitters = Set(alice)
+
       val reinterpreted =
         engine
-          .reinterpret(Set(alice), fetchNode, None, let, let)
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .reinterpret(submitters, fetchNode, None, let, let)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
 
       reinterpreted shouldBe a[Right[_, _]]
     }
@@ -1581,7 +1665,12 @@ class EngineTest
       )
       val Right((tx, _)) = engine
         .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
-        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+        .consume(
+          lookupContractMap.get,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(alice)),
+        )
 
       val expectedByKeyNodes = tx.transaction.nodes.collect {
         case (id, _: Node.NodeLookupByKey[_]) => id
@@ -1598,9 +1687,16 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
       )
+      val submitters = Set(alice)
+
       val Right((tx, txMeta)) = engine
         .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
-        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+        .consume(
+          lookupContractMap.get,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(submitters),
+        )
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
       val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
@@ -1610,13 +1706,18 @@ class EngineTest
         Engine
           .DevEngine()
           .reinterpret(
-            Set(alice),
+            submitters,
             lookupNode,
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -1630,18 +1731,30 @@ class EngineTest
       )
       val Right((tx, txMeta)) = engine
         .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
-        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+        .consume(
+          lookupContractMap.get,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(Set(alice)),
+        )
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
       val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
       lookupNode.result shouldBe None
 
+      val submitters = Set(alice)
+
       val Right((reinterpreted, _)) =
         Engine
           .DevEngine()
-          .reinterpret(Set(alice), lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .reinterpret(submitters, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -1654,17 +1767,19 @@ class EngineTest
         speedy.Command.LookupByKey(templateId, SParty(alice))
       )
 
+      val submitters = Set(alice)
+
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
         err.msg should include(
@@ -1685,14 +1800,15 @@ class EngineTest
           choiceId = choiceName,
           choiceArgument = ValueRecord(None, ImmArray.empty),
         )
+      val submitters = Set(party)
       engine
         .submit(
-          Set(party),
+          submitters,
           Commands(ImmArray(command), Time.Timestamp.now(), "test"),
           participant,
           submissionSeed,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     }
 
     run("FactorialOfThree").map(_._2.dependsOnTime) shouldBe Right(false)
@@ -1715,17 +1831,24 @@ class EngineTest
 
       val cmd = speedy.Command.Fetch(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
+      val submitters = Set(alice)
+
       val Right((tx, _)) = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = ImmArray(cmd),
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = Set(fetchedCid),
         )
-        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+        .consume(
+          lookupContractMap.get,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(submitters),
+        )
 
       tx.transaction.nodes.values.headOption match {
         case Some(Node.NodeFetch(_, _, _, _, _, _, key, _, _)) =>
@@ -1765,6 +1888,8 @@ class EngineTest
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
 
+      val submitters = Set(alice)
+
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(
           ImmArray(
@@ -1776,19 +1901,29 @@ class EngineTest
             )
           )
         )
-        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+        .consume(
+          lookupContractMap.get,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(submitters),
+        )
 
       val Right((tx, _)) = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+        .consume(
+          lookupContractMap.get,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(submitters),
+        )
 
       tx.transaction.nodes
         .collectFirst { case (id, nf: Node.NodeFetch[_]) =>
@@ -1839,7 +1974,7 @@ class EngineTest
     def run(cmds: ImmArray[Command]) =
       engine
         .submit(Set(alice), Commands(cmds, now, ""), participant, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(Set(alice)))
 
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
@@ -1886,7 +2021,7 @@ class EngineTest
       )
       engine
         .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-        .consume(_ => None, lookupPackage, _ => None)
+        .consume(_ => None, lookupPackage, _ => None, VisibleByKey.fromSubmitters(Set(party)))
     }
 
     "produce a quadratic number of nodes" in {
@@ -1902,7 +2037,12 @@ class EngineTest
           submitter <- tx.guessSubmitter.left.map(ValidationError)
           res <- engine
             .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
-            .consume(_ => None, lookupPackage, _ => None)
+            .consume(
+              _ => None,
+              lookupPackage,
+              _ => None,
+              VisibleByKey.fromSubmitters(Set(submitter)),
+            )
         } yield res
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
@@ -1948,13 +2088,15 @@ class EngineTest
           ImmArray.empty,
         )
 
+      val submitters = Set(alice)
+
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(
           ImmArray(
             CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)
           )
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       val result = engine
         .interpretCommands(
@@ -1966,7 +2108,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       result shouldBe a[Right[_, _]]
     }
 
@@ -1979,21 +2121,23 @@ class EngineTest
           ImmArray((Some[Name]("owner"), ValueParty(alice))),
         )
 
+      val submitters = Set(alice)
+
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       result shouldBe a[Left[_, _]]
       val Left(err) = result
       err.msg should not include ("Boom")
@@ -2009,20 +2153,22 @@ class EngineTest
           ImmArray((Some[Name]("sig"), ValueParty(alice))),
         )
 
+      val submitters = Set(alice)
+
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
         err.msg should include(
@@ -2061,20 +2207,31 @@ class EngineTest
             None
         }
       def run(cmd: Command) = {
+        val submitters = Set(party)
         val Right((cmds, globalCids)) = preprocessor
           .preprocessCommands(ImmArray(cmd))
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
         engine
           .interpretCommands(
             validating = false,
-            submitters = Set(party),
+            submitters = submitters,
             commands = cmds,
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
             globalCids = globalCids,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
       }
       "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
         val command = CreateAndExerciseCommand(
@@ -2186,6 +2343,8 @@ class EngineTest
 
 object EngineTest {
 
+  val allKeysVisible = (_: Set[Party]) => VisibleByKey.Visible
+
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
 
@@ -2247,7 +2406,12 @@ object EngineTest {
               txMeta.submissionTime,
               ledgerEffectiveTime,
             )
-            .consume(contracts0.get, lookupPackages, k => keys0.get(k.globalKey))
+            .consume(
+              contracts0.get,
+              lookupPackages,
+              k => keys0.get(k.globalKey),
+              VisibleByKey.fromSubmitters(submitters),
+            )
           (tr1, meta1) = currentStep
           (contracts1, keys1) = tr1.transaction.fold((contracts0, keys0)) {
             case (

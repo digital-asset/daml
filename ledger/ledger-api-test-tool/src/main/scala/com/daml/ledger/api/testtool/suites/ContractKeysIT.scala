@@ -332,4 +332,35 @@ final class ContractKeysIT extends LedgerTestSuite {
       )
     }
   })
+
+  test(
+    "CKLocalKeyVisibility",
+    "Visibility should be checked for fetch-by-key/lookup-by-key of contracts created in the current transaction",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      for {
+        ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
+        _ <- synchronize(ledger1, ledger2)
+        failedLookup <- ledger2
+          .exercise(party2, ops.exerciseLocalLookup(_))
+          .mustFail("lookup not visible")
+        failedFetch <- ledger2
+          .exercise(party2, ops.exerciseLocalFetch(_))
+          .mustFail("fetch not visible")
+        _ <- ledger2.exercise(
+          actAs = List(party2),
+          readAs = List(party1),
+          ops.exerciseLocalLookup(party2),
+        )
+        _ <- ledger2.exercise(
+          actAs = List(party2),
+          readAs = List(party1),
+          ops.exerciseLocalFetch(party2),
+        )
+      } yield {
+        assertGrpcError(failedLookup, Status.Code.INVALID_ARGUMENT, "not visible")
+        assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "not visible")
+      }
+  })
 }
