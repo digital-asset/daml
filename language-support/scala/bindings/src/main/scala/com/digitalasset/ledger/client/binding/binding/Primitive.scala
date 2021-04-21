@@ -310,8 +310,8 @@ object PrimitiveInstances {
   implicit def textMapFactory[V]: Factory[(String, V), TextMap[V]] =
     TextMap.factory
 
-  implicit def genMapFactory[K, V]: Compat.CanBuildFrom[imm.Map[_, _], (K, V), GenMap[K, V]] = {
-    type CBF[M[_, _]] = Compat.CanBuildFrom[imm.Map[_, _], (K, V), M[K, V]]
+  implicit def genMapFactory[K, V]: Factory[(K, V), GenMap[K, V]] = {
+    type CBF[M[_, _]] = Factory[(K, V), M[K, V]]
     @silent("local val genMapFactory in method genMapFactory is never used")
     val genMapFactory = () // prevent recursion
     GenMap.subst[CBF](implicitly[CBF[imm.Map]])
