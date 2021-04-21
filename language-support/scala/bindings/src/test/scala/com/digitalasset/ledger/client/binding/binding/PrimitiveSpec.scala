@@ -30,6 +30,16 @@ class PrimitiveSpec extends AnyWordSpec with Matchers {
       }
     }
 
+    "part of a contract" should {
+      "construct with Map" in {
+        import Primitive.Int64
+        final case class FakeContract(m: GenMap[Int64, Int64])
+        val withGm = FakeContract(GenMap(1L -> 2L))
+        val withM = FakeContract(Map(1L -> 2L))
+        withM should ===(withGm)
+      }
+    }
+
     /* 2.13 only
     "converting with .to(GenMap)" should {
       "preserve identity" in {
