@@ -60,7 +60,10 @@ private[export] object Encode {
       acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
         treeRefs(_)
       )
-    val moduleRefs = refs.map(_.moduleName).toSet
+    val usesSetTime = actions.any(_.isInstanceOf[SetTime])
+    val timeRefs: Set[String] = if (usesSetTime) { Set("DA.Date", "DA.Time") }
+    else { Set.empty }
+    val moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
       Doc.text("module Export where") /
       Doc.text("import Daml.Script") /
@@ -99,8 +102,8 @@ private[export] object Encode {
       Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
 
   private def encodeLocalDate(d: LocalDate): Doc = {
-    val formatter = DateTimeFormatter.ofPattern("uuuu MMM d")
-    Doc.text("(date ") + Doc.text(formatter.format(d)) + Doc.text(")")
+    val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
+    Doc.text("(DA.Date.date ") + Doc.text(formatter.format(d)) + Doc.text(")")
   }
 
   private[export] def encodeValue(
@@ -164,7 +167,7 @@ private[export] object Encode {
   private def encodeTimestamp(timestamp: ZonedDateTime): Doc = {
     val formatter = DateTimeFormatter.ofPattern("H m s")
     parens(
-      Doc.text("time ") + encodeLocalDate(timestamp.toLocalDate) + Doc.text(" ") + Doc.text(
+      Doc.text("DA.Time.time ") + encodeLocalDate(timestamp.toLocalDate) + Doc.text(" ") + Doc.text(
         formatter.format(timestamp)
       )
     )
