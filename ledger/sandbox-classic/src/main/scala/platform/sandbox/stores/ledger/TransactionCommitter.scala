@@ -36,9 +36,9 @@ object LegacyTransactionCommitter extends TransactionCommitter {
     val contractMapping =
       transaction
         .localContracts[Value.ContractId]
-        .transform((_, nid) =>
+        .transform { case (_, (nid, _)) =>
           Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString))
-        )
+        }
         .withDefault(identity)
 
     CommittedTransaction(VersionedTransaction.map2(identity[NodeId], contractMapping)(transaction))

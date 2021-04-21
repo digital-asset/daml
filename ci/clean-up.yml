@@ -7,29 +7,8 @@ steps:
 
     eval "$(dev-env/bin/dade-assist)"
 
-    exec 1> >(while IFS= read -r line; do echo "$(date -Is) [out]: $line"; done)
-    exec 2> >(while IFS= read -r line; do echo "$(date -Is) [err]: $line"; done >&2)
-
-    # Location of the disk cache for CI servers set in their init files:
-    # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
-    # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
-
-    case $(uname) in
-    Linux)
-        cache_1=/home/vsts/.cache/bazel
-        cache_2=/home/vsts/.bazel-cache
-    ;;
-    Darwin)
-        cache_1=/var/tmp/_bazel_vsts
-        cache_2=/Users/vsts/.bazel-cache
-    ;;
-    esac
-
-    for cache in $cache_1 $cache_2; do
-        for pid in $(lsof $cache | sed 1d | awk '{print $2}' | sort -u); do
-            kill -s KILL $pid
-        done
-    done
+    exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)
+    exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [err]: $line"; done >&2)
 
     df -h .
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then

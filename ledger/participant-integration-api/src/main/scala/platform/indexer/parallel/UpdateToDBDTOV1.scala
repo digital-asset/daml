@@ -4,7 +4,6 @@
 package com.daml.platform.indexer.parallel
 
 import java.util.UUID
-
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
@@ -12,6 +11,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.dao.DeduplicationKeyMaker
 
 // TODO append-only: target to separation per update-type to it's own function + unit tests
 object UpdateToDBDTOV1 {
@@ -26,7 +26,7 @@ object UpdateToDBDTOV1 {
         // TODO append-only: we might want to tune up deduplications so it is also a temporal query
         Iterator(
           new DBDTOV1.CommandCompletion(
-            completion_offset = offset.toByteArray,
+            completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
             application_id = u.submitterInfo.applicationId,
             submitters = u.submitterInfo.actAs.toSet,
@@ -36,7 +36,7 @@ object UpdateToDBDTOV1 {
             status_message = Some(u.reason.description),
           ),
           new DBDTOV1.CommandDeduplication(
-            JdbcLedgerDao.deduplicationKey(
+            DeduplicationKeyMaker.make(
               domain.CommandId(u.submitterInfo.commandId),
               u.submitterInfo.actAs,
             )
@@ -46,7 +46,7 @@ object UpdateToDBDTOV1 {
       case u: Update.ConfigurationChanged =>
         Iterator(
           new DBDTOV1.ConfigurationEntry(
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.acceptType,
@@ -58,7 +58,7 @@ object UpdateToDBDTOV1 {
       case u: Update.ConfigurationChangeRejected =>
         Iterator(
           new DBDTOV1.ConfigurationEntry(
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.rejectType,
@@ -70,7 +70,7 @@ object UpdateToDBDTOV1 {
       case u: Update.PartyAddedToParticipant =>
         Iterator(
           new DBDTOV1.PartyEntry(
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
             party = Some(u.party),
@@ -83,7 +83,7 @@ object UpdateToDBDTOV1 {
             party = u.party,
             display_name = Some(u.displayName),
             explicit = true,
-            ledger_offset = Some(offset.toByteArray),
+            ledger_offset = Some(offset.toHexString),
             is_local = u.participantId == participantId,
           ),
         )
@@ -91,7 +91,7 @@ object UpdateToDBDTOV1 {
       case u: Update.PartyAllocationRejected =>
         Iterator(
           new DBDTOV1.PartyEntry(
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
             party = None,
@@ -111,13 +111,13 @@ object UpdateToDBDTOV1 {
             source_description = u.sourceDescription,
             size = archive.getPayload.size.toLong,
             known_since = u.recordTime.toInstant,
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             _package = archive.toByteArray,
           )
         }
         val packageEntries = u.submissionId.iterator.map(submissionId =>
           new DBDTOV1.PackageEntry(
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(submissionId),
             typ = JdbcLedgerDao.acceptType,
@@ -129,7 +129,7 @@ object UpdateToDBDTOV1 {
       case u: Update.PublicPackageUploadRejected =>
         Iterator(
           new DBDTOV1.PackageEntry(
-            ledger_offset = offset.toByteArray,
+            ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
             typ = JdbcLedgerDao.rejectType,
@@ -145,14 +145,13 @@ object UpdateToDBDTOV1 {
           }
           .reverse
 
-        val events = preorderTraversal.iterator
+        val events: Iterator[DBDTOV1] = preorderTraversal.iterator
           .collect { // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
             case (nodeId, create: Create) =>
               val eventId = EventId(u.transactionId, nodeId)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-              new DBDTOV1.Event(
-                event_kind = 10,
-                event_offset = Some(offset.toByteArray),
+              DBDTOV1.EventCreate(
+                event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
                 command_id = u.optSubmitterInfo.map(_.commandId),
@@ -176,28 +175,21 @@ object UpdateToDBDTOV1 {
                   .map(compressionStrategy.createKeyValueCompression.compress),
                 create_key_hash = create.key
                   .map(convertLfValueKey(create.templateId, _))
-                  .map(_.hash.bytes.toByteArray),
-                exercise_choice = None,
-                exercise_argument = None,
-                exercise_result = None,
-                exercise_actors = None,
-                exercise_child_event_ids = None,
+                  .map(_.hash.bytes.toHexString),
                 create_argument_compression = compressionStrategy.createArgumentCompression.id,
                 create_key_value_compression =
                   compressionStrategy.createKeyValueCompression.id.filter(_ =>
                     createKeyValue.isDefined
                   ),
-                exercise_argument_compression = None,
-                exercise_result_compression = None,
               )
 
             case (nodeId, exercise: Exercise) =>
               val eventId = EventId(u.transactionId, nodeId)
               val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
-              new DBDTOV1.Event(
-                event_kind = if (exercise.consuming) 20 else 25,
-                event_offset = Some(offset.toByteArray),
+              DBDTOV1.EventExercise(
+                consuming = exercise.consuming,
+                event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
                 command_id = u.optSubmitterInfo.map(_.commandId),
@@ -212,13 +204,8 @@ object UpdateToDBDTOV1 {
                   if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
                 tree_event_witnesses =
                   blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-                create_argument = None,
-                create_signatories = None,
-                create_observers = None,
-                create_agreement_text = None,
                 create_key_value = createKeyValue
                   .map(compressionStrategy.createKeyValueCompression.compress),
-                create_key_hash = None,
                 exercise_choice = Some(exercise.choiceId),
                 exercise_argument = Some(exerciseArgument)
                   .map(compressionStrategy.exerciseArgumentCompression.compress),
@@ -230,8 +217,6 @@ object UpdateToDBDTOV1 {
                     .map(EventId(u.transactionId, _).toLedgerString.toString)
                     .toSet
                 ),
-                create_argument_compression = None,
-                create_key_value_compression = None,
                 exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
                 exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
               )
@@ -242,45 +227,26 @@ object UpdateToDBDTOV1 {
           .toMap
         val divulgences = blinding.divulgence.iterator.map { case (contractId, visibleToParties) =>
           val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-          new DBDTOV1.Event(
-            event_kind = 0,
-            event_offset = None,
-            transaction_id = None,
-            ledger_effective_time = None,
+          DBDTOV1.EventDivulgence(
+            event_offset = Some(offset.toHexString),
             command_id = u.optSubmitterInfo.map(_.commandId),
             workflow_id = u.transactionMeta.workflowId,
             application_id = u.optSubmitterInfo.map(_.applicationId),
             submitters = u.optSubmitterInfo.map(_.actAs.toSet),
-            node_index = None,
-            event_id = None,
             contract_id = contractId.coid,
             template_id = contractInst.map(_.template.toString),
-            flat_event_witnesses = Set.empty,
             tree_event_witnesses = visibleToParties.map(_.toString),
             create_argument = contractInst
               .map(_.arg)
               .map(translation.serialize(contractId, _))
               .map(compressionStrategy.createArgumentCompression.compress),
-            create_signatories = None,
-            create_observers = None,
-            create_agreement_text = None,
-            create_key_value = None,
-            create_key_hash = None,
-            exercise_choice = None,
-            exercise_argument = None,
-            exercise_result = None,
-            exercise_actors = None,
-            exercise_child_event_ids = None,
             create_argument_compression = compressionStrategy.createArgumentCompression.id,
-            create_key_value_compression = None,
-            exercise_argument_compression = None,
-            exercise_result_compression = None,
           )
         }
 
         val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>
           new DBDTOV1.CommandCompletion(
-            completion_offset = offset.toByteArray,
+            completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
             application_id = submitterInfo.applicationId,
             submitters = submitterInfo.actAs.toSet,

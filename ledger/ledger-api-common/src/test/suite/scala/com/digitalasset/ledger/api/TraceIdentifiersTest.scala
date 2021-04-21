@@ -4,7 +4,7 @@
 package com.daml.ledger.api
 
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.daml.metrics.SpanAttribute
+import com.daml.telemetry.SpanAttribute
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers._
 

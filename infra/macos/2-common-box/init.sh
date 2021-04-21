@@ -72,8 +72,6 @@ cat <<'RESET_CACHES' > $CACHE_SCRIPT
 
 set -euo pipefail
 
-set -x
-
 reset_cache() {
     local file mount_point
     file=$1
@@ -85,7 +83,14 @@ reset_cache() {
             echo "Killing $pid..."
             kill -s KILL $pid
         done
-        hdiutil detach "$mount_point"
+        for pid in $(lsof $mount_point | sed 1d | awk '{print $2}' | sort -u); do
+            echo "Killing $pid..."
+            kill -s KILL $pid
+        done
+        if hdiutil info | grep $mount_point; then
+            hdiutil detach "$mount_point"
+        fi
+        rm -rf $mount_point
     fi
 
     rm -f "${file}.sparseimage"

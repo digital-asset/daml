@@ -62,8 +62,8 @@ object ContractsTablePostgres extends ContractsTable {
       divulgedSize
     )(null)
 
-    val contractIds, templateIds, stakeholders = Array.ofDim[String](batchSize)
-    val createArgs, hashes = Array.ofDim[Array[Byte]](batchSize)
+    val contractIds, hashes, templateIds, stakeholders = Array.ofDim[String](batchSize)
+    val createArgs = Array.ofDim[Array[Byte]](batchSize)
 
     contractsInfo.netCreates.iterator.zipWithIndex.foreach { case (create, idx) =>
       contractIds(idx) = create.coid.coid
@@ -72,7 +72,7 @@ object ContractsTablePostgres extends ContractsTable {
       createArgs(idx) = serialized.createArguments(create.coid)
       hashes(idx) = create.key
         .map(convertLfValueKey(create.templateId, _))
-        .map(_.hash.bytes.toByteArray)
+        .map(_.hash.bytes.toHexString)
         .orNull
     }
 

@@ -3,8 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
 
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlContractKey
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.damlContractKey
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.{
   Inconsistent,
   KeyValidationState,
@@ -74,7 +74,7 @@ private[keys] object KeyConsistencyValidation {
       case None => Right(keyValidationState)
       case Some(submittedKeyWithMaintainers) =>
         val submittedDamlContractKey =
-          damlContractKey(templateId, submittedKeyWithMaintainers.key)
+          Conversions.encodeContractKey(templateId, submittedKeyWithMaintainers.key)
         val newKeyValidationState =
           keyValidationState + ConsistencyKeyValidationState(
             submittedContractKeysToContractIds = Map(

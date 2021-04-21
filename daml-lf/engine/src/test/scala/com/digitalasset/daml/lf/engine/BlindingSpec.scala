@@ -193,4 +193,48 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       ),
     )
   }
+  "rollback" in {
+    val builder = TransactionBuilder()
+    val cid1 = builder.newCid
+    val cid2 = builder.newCid
+    val create1 = builder.create(
+      id = cid1,
+      template = "pkgid:M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("A", "B"),
+      observers = Seq(),
+      key = None,
+    )
+    val ex1 = builder.add(
+      builder.exercise(create1, "Choice", true, Set("C"), ValueRecord(None, ImmArray.empty))
+    )
+    val rollback = builder.add(builder.rollback(), ex1)
+    val create2 = builder.create(
+      id = cid2,
+      template = "pkgid:M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("D"),
+      observers = Seq(),
+      key = None,
+    )
+    val create2Node = builder.add(create2, rollback)
+    val ex2 = builder.add(
+      builder
+        .exercise(contract = create2, "Choice", true, Set("F"), ValueRecord(None, ImmArray.empty)),
+      rollback,
+    )
+    val blindingInfo = Blinding.blind(builder.build())
+    blindingInfo shouldBe BlindingInfo(
+      disclosure = Map(
+        ex1 -> Set("A", "B", "C"),
+        rollback -> Set("A", "B", "C"),
+        create2Node -> Set("A", "B", "C", "D"),
+        ex2 -> Set("A", "B", "C", "D", "F"),
+      ),
+      divulgence = Map(
+        cid1 -> Set(),
+        cid2 -> Set("A", "B", "C"),
+      ),
+    )
+  }
 }

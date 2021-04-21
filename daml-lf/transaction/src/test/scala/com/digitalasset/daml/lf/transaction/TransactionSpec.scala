@@ -374,6 +374,82 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       builder.build().contractKeys shouldBe expectedResults
     }
   }
+
+  def create(builder: TransactionBuilder, parties: Seq[String], key: Option[String] = None) = {
+    val cid: ContractId = builder.newCid
+    val node = builder.create(
+      id = cid,
+      template = "-pkg-:Mod:T",
+      argument = V.ValueUnit,
+      signatories = parties,
+      observers = Seq(),
+      key = key.map(V.ValueText(_)),
+    )
+    (cid, node)
+  }
+  def exercise(
+      builder: TransactionBuilder,
+      create: Node.NodeCreate[ContractId],
+      parties: Seq[String],
+      consuming: Boolean,
+  ) =
+    builder.exercise(
+      contract = create,
+      choice = "C",
+      actingParties = parties.toSet,
+      consuming = consuming,
+      argument = V.ValueUnit,
+      byKey = false,
+    )
+
+  "consumedContract" - {
+    "return the IDs of consumed contracts" in {
+      val builder = TransactionBuilder()
+      val parties = Seq("Alice")
+      val (cid0, create0) = create(builder, parties)
+      val (_, create1) = create(builder, parties)
+      val (cid2, create2) = create(builder, parties)
+      val (_, create3) = create(builder, parties)
+      builder.add(exercise(builder, create0, parties, true))
+      builder.add(create1)
+      builder.add(create2)
+      val exeNid1 = builder.add(exercise(builder, create1, parties, false))
+      val exeNid2 = builder.add(exercise(builder, create2, parties, true), exeNid1)
+      builder.add(exercise(builder, create3, parties, false), exeNid2)
+      val rollback = builder.add(builder.rollback(), exeNid2)
+      builder.add(exercise(builder, create3, parties, true), rollback)
+      builder.build().consumedContracts shouldBe Set(cid0, cid2)
+    }
+  }
+
+  "updatedContractKeys" - {
+    "return all the updated contract keys" in {
+      val builder = TransactionBuilder()
+      val parties = Seq("Alice")
+      val (cid0, create0) = create(builder, parties, Some("key0"))
+      val (_, create1) = create(builder, parties, Some("key1"))
+      val (_, create2) = create(builder, parties, Some("key2"))
+      val (cid3, create3) = create(builder, parties, Some("key2"))
+      val (_, create4) = create(builder, parties, Some("key2"))
+      val (_, create5) = create(builder, parties, Some("key3"))
+      builder.add(create0)
+      builder.add(exercise(builder, create0, parties, false))
+      builder.add(create1)
+      val ex = builder.add(exercise(builder, create1, parties, true))
+      builder.add(create2, ex)
+      builder.add(exercise(builder, create2, parties, true), ex)
+      builder.add(create3, ex)
+      val rollback = builder.add(builder.rollback())
+      builder.add(exercise(builder, create0, parties, true), rollback)
+      builder.add(create5, rollback)
+      builder.add(exercise(builder, create3, parties, true), rollback)
+      builder.add(create4, rollback)
+      def key(s: String) =
+        GlobalKey.assertBuild(Ref.Identifier.assertFromString("-pkg-:Mod:T"), V.ValueText(s))
+      builder.build().updatedContractKeys shouldBe
+        Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
+    }
+  }
 }
 
 object TransactionSpec {
