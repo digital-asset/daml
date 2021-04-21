@@ -14,7 +14,6 @@ object Compat {
   ] =
     immutable.MapOps[K, V, CC, C]
 
-  private[binding] type CanBuildFrom[-A, -B, +That] = scala.collection.Factory[B, That]
   private[binding] type MapFactory[CC[K, V]] = scala.collection.MapFactory[CC]
 
   type DummyImplicit = scala.DummyImplicit

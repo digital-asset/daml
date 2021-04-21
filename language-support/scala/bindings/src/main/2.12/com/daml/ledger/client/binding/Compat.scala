@@ -14,8 +14,6 @@ object Compat {
   ] =
     immutable.MapLike[K, V, C]
 
-  private[binding] type CanBuildFrom[-A, -B, +That] =
-    scala.collection.generic.CanBuildFrom[A, B, That]
   private[binding] type MapFactory[
       CC[K, +V] <: immutable.Map[K, V] with immutable.MapLike[K, V, CC[K, V]]
   ] = scala.collection.generic.ImmutableMapFactory[CC]
