@@ -25,6 +25,10 @@ where scenarios cannot be used (with the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
 
+.. hint::
+
+  Remember that you can load all the example code by running ``daml new script-example --template script-example``
+
 Usage
 =====
 
