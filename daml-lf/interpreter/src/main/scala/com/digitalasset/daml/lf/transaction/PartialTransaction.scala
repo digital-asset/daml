@@ -201,16 +201,19 @@ private[lf] object PartialTransaction {
   *                 the transaction was in when aborted. It is up to
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
-  *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and contract ids. We must
-  *              do this because contract ids can be archived as
-  *              part of execution, and we must record these archivals locally.
-  *              Note: it is important for keys that we know to not be present
-  *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for contract ids that
-  *              we archive. This is not an optimization and is required for
-  *              correct semantics, since otherwise lookups for keys for
-  *              locally archived contract ids will succeed wrongly.
+  *  @param keys The contract keys we know to be active or not active at the current
+  *              point in the transaction. We know a contract key is active
+  *              if a contract with this key was fetched, exercised, fetched by key,
+  *              successfully looked up by key and if it was created in the transaction.
+  *              We know it is not active if we observed a consuming exercise on a contract with
+  *              this key or a negative lookup by key.
+  *              In addition to activeness, we also need to track visibility-by-key to ensure
+  *              that fetch-by-key and lookup-by-key only succeed if (actAs union readAs) contains
+  *              a stakeholder. For fetch-by-key and lookup-by-key of global contracts this
+  *              is validated by the ledger, for fetches and exercises we do not know this information
+  *              so we have to ask the legder but can cache it afterwards.
+  *              Note that all this information is restored after a rollback node,
+  *              so it only tracks currently active/not-active keys.
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
