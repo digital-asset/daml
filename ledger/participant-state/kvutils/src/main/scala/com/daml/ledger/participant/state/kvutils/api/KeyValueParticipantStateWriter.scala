@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.metrics.Metrics
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 
 import scala.compat.java8.FutureConverters
 
@@ -25,7 +26,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
@@ -52,7 +53,8 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         sourceDescription.getOrElse(""),
         writer.participantId,
       )
-    commit(submissionId, submission)
+    // TODO(KVL-874): stop using NoOp
+    commit(submissionId, submission)(NoOpTelemetryContext)
   }
 
   override def submitConfiguration(
@@ -63,7 +65,8 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
-    commit(submissionId, submission)
+    // TODO(KVL-874): stop using NoOp
+    commit(submissionId, submission)(NoOpTelemetryContext)
   }
 
   override def allocateParty(
@@ -79,7 +82,8 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         displayName,
         writer.participantId,
       )
-    commit(submissionId, submission)
+    // TODO(KVL-874): stop using NoOp
+    commit(submissionId, submission)(NoOpTelemetryContext)
   }
 
   override def currentHealth(): HealthStatus = writer.currentHealth()
@@ -91,7 +95,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       correlationId: String,
       submission: DamlSubmission,
       metadata: Option[CommitMetadata] = None,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
       writer.commit(
         correlationId,

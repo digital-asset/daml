@@ -8,7 +8,6 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
@@ -21,6 +20,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.mockito.captor.{ArgCaptor, Captor}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
@@ -34,6 +34,9 @@ class KeyValueParticipantStateWriterSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+
+  import KeyValueParticipantStateWriterSpec._
+
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = ArgCaptor[Raw.Envelope]
@@ -118,6 +121,8 @@ class KeyValueParticipantStateWriterSpec
 object KeyValueParticipantStateWriterSpec {
 
   import MockitoSugar._
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   private val aParty = Ref.Party.assertFromString("aParty")
 

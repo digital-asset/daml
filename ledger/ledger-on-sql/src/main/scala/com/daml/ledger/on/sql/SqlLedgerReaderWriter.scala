@@ -30,6 +30,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.telemetry.TelemetryContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.MismatchException
@@ -77,7 +78,7 @@ final class SqlLedgerReaderWriter(
       correlationId: String,
       envelope: Raw.Envelope,
       metadata: CommitMetadata,
-  ): sc.Future[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): sc.Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)(committerExecutionContext)
 }
 

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -32,5 +33,5 @@ trait LedgerWriter extends ReportsHealth {
       correlationId: String,
       envelope: Raw.Envelope,
       metadata: CommitMetadata,
-  ): Future[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult]
 }

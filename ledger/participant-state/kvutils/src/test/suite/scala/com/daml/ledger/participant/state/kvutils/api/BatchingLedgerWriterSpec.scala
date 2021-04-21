@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.logging.LoggingContext
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.protobuf.ByteString
 import org.mockito.captor.{ArgCaptor, Captor}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -93,6 +94,9 @@ class BatchingLedgerWriterSpec
 }
 
 object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar {
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
+
   private val aCorrelationId = "aCorrelationId"
   private val aSubmission = Raw.Envelope(ByteString.copyFromUtf8("a submission"))
 
