@@ -158,8 +158,6 @@ Transaction Time
 ================
 
 Daml ledger exports may fail to reproduce the ledger state or transaction
-history if contracts are sensitive to ledger time. The current implementation
-does not attempt to reproduce the history faithfully with regard to ledger
-time. In future this will be implemented by optionally issuing ``setTime``
-commands in the generated Daml script. However, this is not supported by all
-ledgers.
+history if contracts are sensitive to ledger time. You can enable the
+``--set-time`` option to issue ``setTime`` commands in the generated Daml
+script. However, this is not supported by all ledgers.
