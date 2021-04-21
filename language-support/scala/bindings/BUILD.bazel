@@ -57,10 +57,6 @@ da_scala_test_suite(
         "@maven//:org_scalatestplus_scalacheck_1_14",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
-    silent_annotations = True,
     deps = [
         ":bindings",
     ],
