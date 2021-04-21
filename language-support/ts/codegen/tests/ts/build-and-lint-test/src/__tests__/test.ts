@@ -93,7 +93,7 @@ beforeAll(async () => {
   jsonApiPort = parseInt(jsonApiPortData);
   console.log('JSON API listening on port ' + jsonApiPort.toString());
   console.log(new Date().toUTCString());
-}, 30_000);
+}, 300_000);
 
 afterAll(() => {
   console.log("DEATH");
