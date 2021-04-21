@@ -49,7 +49,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
 
-  implicit private val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
+  private implicit val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
   private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
