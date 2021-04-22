@@ -288,6 +288,21 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   keyIsReplayedBy(key1, key2) &&
                   result1 === result2 =>
               loop(rest1, rest2, stack)
+            case (
+                  Node.NodeRollback(
+                    children1,
+                    version1,
+                  ),
+                  Node.NodeRollback(
+                    children2,
+                    version2,
+                  ),
+                ) if version1 == version2 =>
+              loop(
+                children1.iterator.to(LazyList),
+                children2.iterator.to(LazyList),
+                stack,
+              )
             case _ =>
               Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
           }
