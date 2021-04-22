@@ -246,6 +246,8 @@ object TransactionCoder {
       enclosingVersion: TransactionVersion,
       nodeId: Nid,
       node: GenNode[Nid, Cid],
+      disableVersionCheck: Boolean =
+        false, //true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeVersion = node.version
     if (enclosingVersion < nodeVersion)
@@ -266,7 +268,7 @@ object TransactionCoder {
           nr.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
           for {
             _ <- Either.cond(
-              test = nr.version >= TransactionVersion.minExceptions,
+              test = nr.version >= TransactionVersion.minExceptions || disableVersionCheck,
               right = (),
               left = EncodeError(node.version, isTooOldFor = "rollback nodes"),
             )
@@ -464,7 +466,9 @@ object TransactionCoder {
           _ <- Either.cond(
             test = nodeVersion >= TransactionVersion.minExceptions,
             right = (),
-            left = DecodeError(s"rollback node unexpected in transaction of version $nodeVersion"),
+            left = DecodeError(
+              s"rollback node (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
+            ),
           )
           ni <- nodeId
           children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
