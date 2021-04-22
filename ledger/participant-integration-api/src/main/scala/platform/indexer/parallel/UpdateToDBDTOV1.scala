@@ -217,6 +217,7 @@ object UpdateToDBDTOV1 {
                     .map(EventId(u.transactionId, _).toLedgerString.toString)
                     .toSet
                 ),
+                create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
                 exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
                 exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
               )

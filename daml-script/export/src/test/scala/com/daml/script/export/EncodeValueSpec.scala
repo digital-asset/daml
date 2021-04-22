@@ -93,12 +93,12 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
         Map.empty,
         Map.empty,
         v.Value.Sum.Timestamp(assertMicrosFromInstant(date.toInstant())),
-      ).render(80) shouldBe "(time (date 1999 Nov 16) 13 37 42)"
+      ).render(80) shouldBe "(DA.Time.time (DA.Date.date 1999 DA.Date.Nov 16) 13 37 42)"
     }
     "date" in {
       val date = LocalDate.of(1999, 11, 16)
       encodeValue(Map.empty, Map.empty, v.Value.Sum.Date(date.toEpochDay().toInt))
-        .render(80) shouldBe "(date 1999 Nov 16)"
+        .render(80) shouldBe "(DA.Date.date 1999 DA.Date.Nov 16)"
     }
     "optional" in {
       encodeValue(Map.empty, Map.empty, v.Value.Sum.Optional(v.Optional()))

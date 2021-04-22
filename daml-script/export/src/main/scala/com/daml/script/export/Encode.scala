@@ -24,12 +24,14 @@ private[export] object Encode {
       acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
       acsBatchSize: Int,
+      setTime: Boolean,
   ): Doc = {
     val parties = partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
 
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    val submits = trees.map(Submit.fromTree)
+    val actions = Action.fromTrees(trees, setTime)
+    val submits: Seq[Submit] = actions.collect { case submit: Submit => submit }
     val submitCidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
     val cidRefs = acsCidRefs ++ submitCidRefs
 
@@ -52,7 +54,10 @@ private[export] object Encode {
       acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
         treeRefs(_)
       )
-    val moduleRefs = refs.map(_.moduleName).toSet
+    val usesSetTime = actions.any(_.isInstanceOf[SetTime])
+    val timeRefs: Set[String] = if (usesSetTime) { Set("DA.Date", "DA.Time") }
+    else { Set.empty }
+    val moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
       Doc.text("module Export where") /
       Doc.text("import Daml.Script") /
@@ -71,7 +76,7 @@ private[export] object Encode {
       (Doc.text("export Parties{..} = do") /
         stackNonEmpty(
           encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize)
-            +: submits.map(encodeSubmit(partyMap, cidMap, cidRefs, _))
+            +: actions.map(encodeAction(partyMap, cidMap, cidRefs, _))
             :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -91,8 +96,8 @@ private[export] object Encode {
       Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
 
   private def encodeLocalDate(d: LocalDate): Doc = {
-    val formatter = DateTimeFormatter.ofPattern("uuuu MMM d")
-    Doc.text("(date ") + Doc.text(formatter.format(d)) + Doc.text(")")
+    val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
+    Doc.text("(DA.Date.date ") + Doc.text(formatter.format(d)) + Doc.text(")")
   }
 
   private[export] def encodeValue(
@@ -126,12 +131,7 @@ private[export] object Encode {
         case Sum.Unit(_) => Doc.text("()")
         case Sum.Timestamp(micros) =>
           val t: ZonedDateTime = Timestamp.assertFromLong(micros).toInstant.atZone(ZoneId.of("UTC"))
-          val formatter = DateTimeFormatter.ofPattern("H m s")
-          parens(
-            Doc.text("time ") + encodeLocalDate(t.toLocalDate) + Doc.text(" ") + Doc.text(
-              formatter.format(t)
-            )
-          )
+          encodeTimestamp(t)
         case Sum.Date(daysSinceEpoch) =>
           val d = Date.assertFromDaysSinceEpoch(daysSinceEpoch)
           encodeLocalDate(LocalDate.ofEpochDay(d.days.toLong))
@@ -156,6 +156,15 @@ private[export] object Encode {
       }
 
     go(v)
+  }
+
+  private def encodeTimestamp(timestamp: ZonedDateTime): Doc = {
+    val formatter = DateTimeFormatter.ofPattern("H m s")
+    parens(
+      Doc.text("DA.Time.time ") + encodeLocalDate(timestamp.toLocalDate) + Doc.text(" ") + Doc.text(
+        formatter.format(timestamp)
+      )
+    )
   }
 
   private def quotes(v: Doc) =
@@ -316,6 +325,10 @@ private[export] object Encode {
     ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
   }
 
+  private[export] def encodeSetTime(timestamp: Timestamp): Doc = {
+    "setTime" &: encodeTimestamp(timestamp.toInstant.atZone(ZoneId.of("UTC")))
+  }
+
   private[export] def encodeACS(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -359,6 +372,18 @@ private[export] object Encode {
       .hang(2)
     val cidBinds = referencedCids.map(bindCid(cidMap, _))
     Doc.stack(treeBind +: cidBinds)
+  }
+
+  def encodeAction(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      cidRefs: Set[ContractId],
+      action: Action,
+  ): Doc = {
+    action match {
+      case SetTime(timestamp) => encodeSetTime(timestamp)
+      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, submit)
+    }
   }
 
   private def encodePath(tree: Doc, path: List[Selector]): Doc = {

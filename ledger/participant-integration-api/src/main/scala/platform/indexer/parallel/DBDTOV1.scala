@@ -69,6 +69,7 @@ object DBDTOV1 {
       exercise_result: Option[Array[Byte]],
       exercise_actors: Option[Set[String]],
       exercise_child_event_ids: Option[Set[String]],
+      create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       // missing: event_sequential_id: Long - this will be assigned only at batches

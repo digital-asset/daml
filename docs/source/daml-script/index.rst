@@ -25,6 +25,10 @@ application scripting, to test automation logic and also for
 
 You can also use Daml Script interactively using :doc:`/daml-repl/index`.
 
+.. hint::
+
+  Remember that you can load all the example code by running ``daml new script-example --template script-example``
+
 Usage
 =====
 

@@ -20,6 +20,7 @@ final case class Config(
 sealed trait ExportType
 final case class ExportScript(
     acsBatchSize: Int,
+    setTime: Boolean,
     outputPath: Path,
     sdkVersion: String,
     damlScriptLib: String,
@@ -78,6 +79,12 @@ object Config {
             else { success }
           )
           .text("Batch this many create commands into one transaction when recreating the ACS."),
+        opt[Boolean]("set-time")
+          .optional()
+          .action(actionExportScript((x, c) => c.copy(setTime = x)))
+          .text(
+            "Emit setTime commands to replicate transaction time stamps. Only works on ledgers in static-time mode."
+          ),
         opt[File]('o', "output")
           .required()
           .action(actionExportScript((x, c) => c.copy(outputPath = x.toPath)))
@@ -99,6 +106,7 @@ object Config {
     outputPath = null,
     sdkVersion = "",
     acsBatchSize = 10,
+    setTime = false,
     damlScriptLib = "daml-script",
   )
 
