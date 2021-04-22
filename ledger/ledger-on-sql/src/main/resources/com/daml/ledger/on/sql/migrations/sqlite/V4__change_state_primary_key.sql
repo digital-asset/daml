@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 CREATE TABLE ${table.prefix}state_new
 (
     key_hash VARBINARY(2048) PRIMARY KEY NOT NULL,

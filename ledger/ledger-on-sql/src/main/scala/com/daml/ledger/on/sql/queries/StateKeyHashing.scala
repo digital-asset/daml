@@ -9,9 +9,12 @@ import java.security.MessageDigest
 
 object StateKeyHashing {
   def hash(key: Raw.StateKey): Array[Byte] =
+    hash(key.bytes.toByteArray)
+
+  def hash(bytes: Array[Byte]): Array[Byte] =
     MessageDigest
       .getInstance("SHA-256")
-      .digest(key.bytes.toByteArray)
+      .digest(bytes)
 
 //  final case class HashedStateKey(bytes: Array[Byte])
 
