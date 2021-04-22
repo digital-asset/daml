@@ -180,16 +180,27 @@ private[lf] object PartialTransaction {
   *                 the transaction was in when aborted. It is up to
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
-  *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and contract ids. We must
-  *              do this because contract ids can be archived as
-  *              part of execution, and we must record these archivals locally.
-  *              Note: it is important for keys that we know to not be present
-  *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for contract ids that
-  *              we archive. This is not an optimization and is required for
-  *              correct semantics, since otherwise lookups for keys for
-  *              locally archived contract ids will succeed wrongly.
+  *  @param keys A local store of the contract keys used for lookups and fetches by keys
+  *              (including exercise by key). Each of those operations will be resolved
+  *              against this map first. Only if there is no entry in here
+  *              (but not if there is an entry mapped to None), will we ask the ledger.
+  *
+  *              This map is mutated by the following operations:
+  *              1. fetch-by-key/lookup-by-key/exercise-by-key will insert an
+  *                 an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
+  *              2. ACS mutating operations if the corresponding contract has a key. Specifically,
+  *                 2.1. A create will set the corresponding map entry to Some(cid) if the contract has a key.
+  *                 2.2. A consuming choice will set the corresponding map entry to None if the contract has a key.
+  *
+  *              On a rollback, we restore the state at the beginning of the rollback. Note that
+  *              This means that at the moment, we will query (by-key) for a global contract again even if
+  *              we queried it in a rollback node already.
+  *              TODO (MK) This should be fixed for performance and to ensure that the engine
+  *              never queries a key more than once thereby giving us consistency within a transaction.
+  *
+  *              Note that the engine is also used in Canton’s non-uck (unique contract key) mode.
+  *              In that mode, duplicate keys should not be an error. We provide no stability
+  *              guarantees for this mode at this point so tests can be changed freely.
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,

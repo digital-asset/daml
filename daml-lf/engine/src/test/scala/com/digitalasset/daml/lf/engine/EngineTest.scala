@@ -2177,6 +2177,112 @@ class EngineTest
       }
     }
 
+    // Note that we provide no stability for multi key semantics so
+    // these tests serve only as an indication of the curren tbehavior
+    // but can be changed freely.
+    "multi keys" should {
+      val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
+      val lookupPackage = allMultiKeysPkgs.get(_)
+      val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
+      val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
+      val let = Time.Timestamp.now()
+      val submissionSeed = hash("multikeys")
+      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+
+      val cid1 = toContractId("#1")
+      val cid2 = toContractId("#2")
+      val keyedInst = ContractInst(
+        TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
+        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(party))))),
+        "",
+      )
+      val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
+      val lookupContract = contracts.get(_)
+      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+        (key.globalKey.templateId, key.globalKey.key) match {
+          case (
+                `keyedId`,
+                ValueParty(`party`),
+              ) =>
+            Some(cid1)
+          case _ =>
+            None
+        }
+      def run(choice: String, argument: Value[Value.ContractId]) = {
+        val cmd = CreateAndExerciseCommand(
+          opsId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          choice,
+          argument,
+        )
+        val Right((cmds, globalCids)) = preprocessor
+          .preprocessCommands(ImmArray(cmd))
+          .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
+        engine
+          .interpretCommands(
+            validating = false,
+            submitters = Set(party),
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+            globalCids = globalCids,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
+      }
+      val emptyRecord = ValueRecord(None, ImmArray.empty)
+      // The cid returned by a fetchByKey at the beginning
+      val keyResultCid = ValueRecord(None, ImmArray((None, ValueContractId(cid1))))
+      // The cid not returned by a fetchByKey at the beginning
+      val nonKeyResultCid = ValueRecord(None, ImmArray((None, ValueContractId(cid2))))
+      val twoCids =
+        ValueRecord(None, ImmArray((None, ValueContractId(cid1)), (None, ValueContractId(cid2))))
+      val createOverwritesLocal = ("CreateOverwritesLocal", emptyRecord)
+      val createOverwritesUnknownGlobal = ("CreateOverwritesUnknownGlobal", emptyRecord)
+      val createOverwritesKnownGlobal = ("CreateOverwritesKnownGlobal", emptyRecord)
+      val fetchDoesNotOverwriteGlobal = ("FetchDoesNotOverwriteGlobal", nonKeyResultCid)
+      val fetchDoesNotOverwriteLocal = ("FetchDoesNotOverwriteLocal", keyResultCid)
+      val localArchiveOverwritesUnknownGlobal = ("LocalArchiveOverwritesUnknownGlobal", emptyRecord)
+      val localArchiveOverwritesKnownGlobal = ("LocalArchiveOverwritesKnownGlobal", emptyRecord)
+      val globalArchiveOverwritesUnknownGlobal = ("GlobalArchiveOverwritesUnknownGlobal", twoCids)
+      val globalArchiveOverwritesKnownGlobal1 = ("GlobalArchiveOverwritesKnownGlobal1", twoCids)
+      val globalArchiveOverwritesKnownGlobal2 = ("GlobalArchiveOverwritesKnownGlobal2", twoCids)
+      val rollbackCreateNonRollbackFetchByKey = ("RollbackCreateNonRollbackFetchByKey", emptyRecord)
+      val rollbackFetchByKeyNonRollbackCreate = ("RollbackFetchByKeyNonRollbackCreate", emptyRecord)
+      val rollbackFetchNonRollbackCreate = ("RollbackFetchNonRollbackCreate", keyResultCid)
+      val rollbackGlobalArchiveNonRollbackCreate =
+        ("RollbackGlobalArchiveNonRollbackCreate", keyResultCid)
+      val rollbackCreateNonRollbackGlobalArchive =
+        ("RollbackCreateNonRollbackGlobalArchive", keyResultCid)
+      val rollbackGlobalArchiveUpdates =
+        ("RollbackGlobalArchiveUpdates", twoCids)
+
+      "non-uck mode" in {
+        val allCases = Table(
+          ("choice", "argument"),
+          createOverwritesLocal,
+          createOverwritesUnknownGlobal,
+          createOverwritesKnownGlobal,
+          fetchDoesNotOverwriteGlobal,
+          fetchDoesNotOverwriteLocal,
+          localArchiveOverwritesUnknownGlobal,
+          localArchiveOverwritesKnownGlobal,
+          globalArchiveOverwritesUnknownGlobal,
+          globalArchiveOverwritesKnownGlobal1,
+          globalArchiveOverwritesKnownGlobal2,
+          rollbackCreateNonRollbackFetchByKey,
+          rollbackFetchByKeyNonRollbackCreate,
+          rollbackFetchNonRollbackCreate,
+          rollbackGlobalArchiveNonRollbackCreate,
+          rollbackCreateNonRollbackGlobalArchive,
+          rollbackGlobalArchiveUpdates,
+        )
+        forEvery(allCases) { case (name, arg) =>
+          run(name, arg) shouldBe a[Right[_, _]]
+        }
+      }
+    }
+
     "exceptions" should {
       val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
       val lookupPackage = allExceptionsPkgs.get(_)
