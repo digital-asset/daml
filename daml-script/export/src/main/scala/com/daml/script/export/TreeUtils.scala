@@ -362,19 +362,23 @@ object TreeUtils {
       with SubmitMulti
 
   object Action {
-    def fromTrees(trees: Seq[TransactionTree]): Seq[Action] = {
-      var currentTime = Timestamp.MinValue
-      val result = ArrayBuffer.newBuilder[Action]
-      trees.foreach { tree =>
-        val timestamp = timestampFromTree(tree)
-        val submit = Submit.fromTree(tree)
-        if (timestamp > currentTime) {
-          currentTime = timestamp
-          result += SetTime(timestamp)
+    def fromTrees(trees: Seq[TransactionTree], setTime: Boolean): Seq[Action] = {
+      if (setTime) {
+        var currentTime = Timestamp.MinValue
+        val result = ArrayBuffer.newBuilder[Action]
+        trees.foreach { tree =>
+          val timestamp = timestampFromTree(tree)
+          val submit = Submit.fromTree(tree)
+          if (timestamp > currentTime) {
+            currentTime = timestamp
+            result += SetTime(timestamp)
+          }
+          result += submit
         }
-        result += submit
+        result.result().toSeq
+      } else {
+        trees.map(Submit.fromTree)
       }
-      result.result().toSeq
     }
   }
 

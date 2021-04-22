@@ -30,13 +30,7 @@ private[export] object Encode {
     val partyMap = partyMapping(parties)
 
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    val actions: Seq[Action] = {
-      if (setTime) {
-        Action.fromTrees(trees)
-      } else {
-        trees.map(Submit.fromTree)
-      }
-    }
+    val actions = Action.fromTrees(trees, setTime)
     val submits: Seq[Submit] = actions.collect { case submit: Submit => submit }
     val submitCidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
     val cidRefs = acsCidRefs ++ submitCidRefs
