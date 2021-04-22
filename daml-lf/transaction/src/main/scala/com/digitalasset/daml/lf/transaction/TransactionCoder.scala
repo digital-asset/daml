@@ -6,6 +6,7 @@ package transaction
 
 import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
@@ -459,12 +460,6 @@ object TransactionCoder {
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.ROLLBACK =>
         val protoRollback = protoNode.getRollback
-        val childrenOrError = protoRollback.getChildrenList.asScala
-          .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
-            case (Left(e), _) => Left(e)
-            case (Right(ids), s) => decodeNid.fromString(s).map(ids :+ _)
-          }
-          .map(_.toImmArray)
         for {
           _ <- Either.cond(
             test = nodeVersion >= TransactionVersion.minExceptions,
@@ -472,7 +467,7 @@ object TransactionCoder {
             left = DecodeError(s"rollback node unexpected in transaction of version $nodeVersion"),
           )
           ni <- nodeId
-          children <- childrenOrError
+          children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
         } yield ni -> NodeRollback(children, nodeVersion)
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
@@ -534,13 +529,6 @@ object TransactionCoder {
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
-        val childrenOrError = protoExe.getChildrenList.asScala
-          .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
-            case (Left(e), _) => Left(e)
-            case (Right(ids), s) => decodeNid.fromString(s).map(ids :+ _)
-          }
-          .map(_.toImmArray)
-
         for {
           rv <- decodeValue(
             decodeCid,
@@ -552,7 +540,7 @@ object TransactionCoder {
             decodeOptionalKeyWithMaintainers(decodeCid, nodeVersion, protoExe.getKeyWithMaintainers)
           ni <- nodeId
           targetCoid <- decodeCid.decode(protoExe.getContractIdStruct)
-          children <- childrenOrError
+          children <- decodeChildren(decodeNid, protoExe.getChildrenList)
           cv <- decodeValue(
             decodeCid,
             nodeVersion,
@@ -598,6 +586,18 @@ object TransactionCoder {
         } yield ni -> NodeLookupByKey[Cid](templateId, None, key, cid, nodeVersion)
       case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
     }
+  }
+
+  private[this] def decodeChildren[Nid](
+      decodeNid: DecodeNid[Nid],
+      strList: ProtocolStringList,
+  ): Either[DecodeError, ImmArray[Nid]] = {
+    strList.asScala
+      .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
+        case (Left(e), _) => Left(e)
+        case (Right(ids), s) => decodeNid.fromString(s).map(ids :+ _)
+      }
+      .map(_.toImmArray)
   }
 
   /** Encode a [[GenTransaction[Nid, Cid]]] to protobuf using [[TransactionVersion]] provided by the libary.
