@@ -4,13 +4,13 @@
 package com.daml.ledger.client.binding
 
 import encoding.ExerciseOn
-import com.daml.lf.data.InsertOrdMap
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
+import com.github.ghik.silencer.silent
 import scala.collection.{mutable, immutable => imm}
 import scala.collection.compat._
 import java.time.{Instant, LocalDate, LocalDateTime}
@@ -51,7 +51,7 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type TextMap[+V] <: imm.Map[String, V] with Compat.MapLike[String, V, TextMap[V]]
+  type TextMap[+V] <: imm.Map[String, V] with Compat.MapLike[String, V, imm.Map, TextMap[V]]
   val TextMap: TextMapApi
 
   @deprecated("Use TextMap", since = "0.13.40")
@@ -59,8 +59,9 @@ sealed abstract class Primitive extends PrimitiveInstances {
   @deprecated("Use TextMap", since = "0.13.40")
   val Map: TextMap.type
 
-  type GenMap[K, +V] = InsertOrdMap[K, V]
-  val GenMap: InsertOrdMap.type = InsertOrdMap
+  type GenMap[K, +V] <: imm.Map[K, V] with Compat.MapLike[K, V, GenMap, GenMap[K, V]]
+  val GenMap: Compat.MapFactory[GenMap]
+  private[binding] def substGenMap[F[_[_, _]]](tc: F[imm.Map]): F[GenMap]
 
   type ChoiceId = ApiTypes.Choice
   val ChoiceId: ApiTypes.Choice.type = ApiTypes.Choice
@@ -168,6 +169,10 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   override val Map = TextMap
+
+  type GenMap[K, +V] = imm.Map[K, V]
+  override val GenMap = imm.Map
+  private[binding] override def substGenMap[F[_[_, _]]](tc: F[GenMap]) = tc
 
   object Date extends DateApi {
     import com.daml.api.util.TimestampConversion
@@ -300,11 +305,29 @@ sealed abstract class PrimitiveInstances
 // do not import this._, use -Xsource:2.13 scalac option instead
 object PrimitiveInstances {
   import language.implicitConversions
-  import Primitive.TextMap
+  import Primitive.{GenMap, TextMap}
 
   implicit def textMapFactory[V]: Factory[(String, V), TextMap[V]] =
     TextMap.factory
 
+  implicit def genMapFactory[K, V]: Factory[(K, V), GenMap[K, V]] = {
+    type CBF[M[_, _]] = Factory[(K, V), M[K, V]]
+    @silent("local val genMapFactory in method genMapFactory is never used")
+    val genMapFactory = () // prevent recursion
+    GenMap.subst[CBF](implicitly[CBF[imm.Map]])
+  }
+
   /** Applied in contexts that ''expect'' a `TextMap`, iff -Xsource:2.13. */
   implicit def textMapFromMap[V](m: imm.Map[String, V]): TextMap[V] = TextMap fromMap m
+
+  /** Applied in contexts that ''expect'' a `GenMap`, iff -Xsource:2.13. */
+  implicit def genMapFromMap[K, V](m: imm.Map[K, V]): GenMap[K, V] = {
+    type Id2[M[_, _]] = M[K, V]
+    GenMap.subst[Id2](m)
+  }
+
+  implicit final class GenMapCompanionMethods(private val self: GenMap.type) extends AnyVal {
+    private[binding] def subst[F[_[_, _]]](tc: F[imm.Map]): F[GenMap] =
+      Primitive substGenMap tc
+  }
 }

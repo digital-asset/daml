@@ -124,7 +124,10 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueTextMap[A: Show]: Show[P.TextMap[A]] = P.TextMap.leibniz[A].subst(mapShow)
 
-    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = P.GenMap.insertMapShow
+    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = {
+      type SM[M[_, _]] = Show[M[K, V]]
+      P.GenMap.subst[SM](implicitly[SM[Map]])
+    }
 
   }
 

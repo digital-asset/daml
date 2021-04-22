@@ -67,10 +67,6 @@ class DataTypeIT extends AnyWordSpec with Matchers {
     "idempotent on genMap" in {
       Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
     }
-
-    "preserve order of genMap entries" in {
-      Value.decode[T](Value.encode(genMap)).map(_.keys) shouldBe Some(Seq(pair1, pair2, pair3))
-    }
   }
 
   "variance" should {

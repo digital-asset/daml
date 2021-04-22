@@ -9,7 +9,6 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.daml.lf.data.InsertOrdMap
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.v1.{value => rpcvalue}
 import com.daml.ledger.client.binding.{Primitive => P}
@@ -171,7 +170,7 @@ object ShrinkEncoding extends ShrinkEncoding {
       shrinkContainer2[Lambda[(uk, v) => P.TextMap[v]], String, A]
 
     override implicit def valueGenMap[K: Shrink, V: Shrink]: Shrink[P.GenMap[K, V]] =
-      shrinkContainer2[InsertOrdMap, K, V]
+      shrinkContainer2[P.GenMap, K, V]
 
   }
 

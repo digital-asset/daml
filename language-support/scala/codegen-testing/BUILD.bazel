@@ -51,7 +51,7 @@ testing_utils = [
 
 da_scala_library(
     name = "codegen-testing-testing",
-    srcs = testing_utils + glob(["src/test/{}/**/*.scala".format(scala_major_version)]),
+    srcs = testing_utils + glob(["src/test/{}/com/**/*.scala".format(scala_major_version)]),
     plugins = [
         # Plugins have to be specified as JARs.
         "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
@@ -82,13 +82,16 @@ da_scala_test_suite(
             "src/test/scala/**/*.scala",
         ],
         exclude = testing_utils,
-    ),
+    ) + glob(["src/test/{}/scala/**/*.scala".format(scala_major_version)]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalatestplus_scalacheck_1_14",
         "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     silent_annotations = True,
     deps = [
