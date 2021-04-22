@@ -7,6 +7,7 @@ import scala.collection.{MapFactory, MapFactoryDefaults}
 import scala.collection.immutable.{AbstractMap, Iterable, StrictOptimizedMapOps}
 import scala.collection.mutable.ReusableBuilder
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 abstract class AbstractInsertOrdMap[K, +V]
     extends AbstractMap[K, V]
     with StrictOptimizedMapOps[K, V, InsertOrdMap, InsertOrdMap[K, V]]
@@ -15,6 +16,7 @@ abstract class AbstractInsertOrdMap[K, +V]
 
 }
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 abstract class InsertOrdMapCompanion extends MapFactory[InsertOrdMap] { this: InsertOrdMap.type =>
 
   protected type Factory[A, B] = Unit

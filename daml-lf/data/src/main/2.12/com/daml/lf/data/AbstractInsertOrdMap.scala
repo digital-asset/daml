@@ -6,6 +6,7 @@ package com.daml.lf.data
 import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
 import scala.collection.immutable.{AbstractMap, Map}
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 abstract class AbstractInsertOrdMap[K, +V]
     extends AbstractMap[K, V]
     with Map[K, V]
@@ -20,6 +21,7 @@ abstract class AbstractInsertOrdMap[K, +V]
 
 }
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 abstract class InsertOrdMapCompanion extends ImmutableMapFactory[InsertOrdMap] {
   this: InsertOrdMap.type =>
 
