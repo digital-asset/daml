@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.SubmissionResult.Acknowledged
-import com.daml.telemetry.TelemetryContext
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -18,6 +18,8 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   "commit" should {
     "delegate to cheap writer in case of no estimated interpretation cost" in {
@@ -34,7 +36,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterCheap, times(1))
-          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])(any[TelemetryContext])
         succeed
       }
     }
@@ -53,7 +55,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterCheap, times(1))
-          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])(any[TelemetryContext])
         succeed
       }
     }
@@ -72,7 +74,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterExpensive, times(1))
-          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])(any[TelemetryContext])
         succeed
       }
     }
@@ -91,7 +93,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterExpensive, times(1))
-          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+          .commit(any[String], any[Raw.Envelope], any[CommitMetadata])(any[TelemetryContext])
         succeed
       }
     }
