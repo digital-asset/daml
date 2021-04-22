@@ -19,13 +19,10 @@ import com.daml.lf.value.Value.ContractId
 private[keys] object KeyConsistencyValidation {
   def checkNodeKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
-      node: Node.GenNode[NodeId, ContractId],
+      node: Node.GenActionNode[NodeId, ContractId],
       keyValidationState: KeyValidationState,
   ): KeyValidationStatus =
     node match {
-      case _: Node.NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
       case exercise: Node.NodeExercises[NodeId, ContractId] =>
         checkKeyConsistency(
           contractKeysToContractIds,
