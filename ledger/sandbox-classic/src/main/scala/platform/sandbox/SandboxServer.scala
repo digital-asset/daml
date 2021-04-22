@@ -246,6 +246,9 @@ final class SandboxServer(
             keys = { _ =>
               sys.error("Unexpected request of contract key")
             },
+            localKeyVisible = { _ =>
+              sys.error("Unexpected request of local contract key visibility")
+            },
           )
           .left
           .foreach(err => sys.error(err.detailMsg))

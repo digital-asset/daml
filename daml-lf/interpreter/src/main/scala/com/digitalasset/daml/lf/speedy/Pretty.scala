@@ -84,6 +84,22 @@ private[lf] object Pretty {
               (line + prettyPartialTransactionNode(node)).nested(4)
           })
 
+      case DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+        text(
+          "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
+        ) & prettyContractId(coid) &
+          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
+          prettyValue(false)(gk.key) &
+          text("No reading party is a stakeholder:") &
+          text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
+            .tightBracketBy(char('{'), char('}')) &
+          text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
+            .tightBracketBy(char('{'), char('}')) +
+          char('.') / text("Stakeholders:") & intercalate(
+            comma + space,
+            stakeholders.map(prettyParty),
+          ) + char('.')
+
       case DamlEWronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(

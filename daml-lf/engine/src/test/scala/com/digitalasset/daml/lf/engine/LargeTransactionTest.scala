@@ -232,6 +232,9 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         { _ =>
           sys.error("TODO keys for LargeTransactionTest")
         },
+        { _ =>
+          sys.error("TODO keys for LargeTransactionTest")
+        },
       ) match {
       case Left(err) =>
         fail(s"Unexpected error: $err")

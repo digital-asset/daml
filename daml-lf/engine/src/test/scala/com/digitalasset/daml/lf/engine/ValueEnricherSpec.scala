@@ -76,7 +76,9 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
   val keyCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Key"))
 
   private[this] val engine = Engine.DevEngine()
-  engine.preloadPackage(pkgId, pkg).consume(_ => None, _ => None, _ => None)
+  engine
+    .preloadPackage(pkgId, pkg)
+    .consume(_ => None, _ => None, _ => None, _ => VisibleByKey.Visible)
 
   private[this] val enricher = new ValueEnricher(engine)
 

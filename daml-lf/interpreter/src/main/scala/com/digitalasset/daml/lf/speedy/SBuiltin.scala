@@ -1182,6 +1182,25 @@ private[lf] object SBuiltin {
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
+        case Some(Some(coid)) if onLedger.localContracts.contains(coid) =>
+          val cachedContract = onLedger.cachedContracts
+            .get(coid)
+            .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
+          val stakeholders = cachedContract.signatories union cachedContract.observers
+          throw SpeedyHungry(
+            SResultNeedLocalKeyVisible(
+              stakeholders,
+              onLedger.committers,
+              {
+                case SVisibleByKey.Visible =>
+                  machine.returnValue = SOptional(Some(SContractId(coid)))
+                case SVisibleByKey.NotVisible(actAs, readAs) =>
+                  machine.ctrl = SEDamlException(
+                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  )
+              },
+            )
+          )
         case Some(mbCoid) =>
           machine.returnValue = SOptional(mbCoid.map(SContractId))
         case None =>
@@ -1267,6 +1286,25 @@ private[lf] object SBuiltin {
       onLedger.ptx.keys.get(gkey) match {
         case Some(None) =>
           crash(s"Could not find key $gkey")
+        case Some(Some(coid)) if onLedger.localContracts.contains(coid) =>
+          val cachedContract = onLedger.cachedContracts
+            .get(coid)
+            .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
+          val stakeholders = cachedContract.signatories union cachedContract.observers
+          throw SpeedyHungry(
+            SResultNeedLocalKeyVisible(
+              stakeholders,
+              onLedger.committers,
+              {
+                case SVisibleByKey.Visible =>
+                  machine.returnValue = SContractId(coid)
+                case SVisibleByKey.NotVisible(actAs, readAs) =>
+                  machine.ctrl = SEDamlException(
+                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  )
+              },
+            )
+          )
         case Some(Some(coid)) =>
           machine.returnValue = SContractId(coid)
         case None =>

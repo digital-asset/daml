@@ -77,6 +77,14 @@ object SError {
       consumedBy: NodeId,
   ) extends SErrorDamlException
 
+  final case class DamlELocalContractKeyNotVisible(
+      coid: ContractId,
+      key: GlobalKey,
+      actAs: Set[Party],
+      readAs: Set[Party],
+      stakeholders: Set[Party],
+  ) extends SErrorDamlException
+
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
       reason: String

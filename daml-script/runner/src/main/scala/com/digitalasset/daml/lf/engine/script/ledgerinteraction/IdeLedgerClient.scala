@@ -171,6 +171,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
               .lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb)
               .toTry
               .get
+          case SResultNeedLocalKeyVisible(stakeholders, committers @ _, cb) =>
+            val visible = SVisibleByKey.fromSubmitters(actAs.toSet, readAs)(stakeholders)
+            cb(visible)
           case SResultFinalValue(SUnit) =>
             onLedger.ptx.finish match {
               case PartialTransaction.CompleteTransaction(tx) =>
