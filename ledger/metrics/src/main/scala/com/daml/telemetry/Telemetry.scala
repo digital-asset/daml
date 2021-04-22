@@ -5,6 +5,7 @@ package com.daml.telemetry
 
 import java.util.{Map => jMap}
 
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.Future
@@ -28,7 +29,7 @@ trait Telemetry {
     * Originally, it has been created to carry tracing metadata across boundaries, and
     * to create complete traces.
     *
-    * @see [[TelemetryContext.encodeMetadata()]]
+    * @see [[com.daml.telemetry.TelemetryContext.encodeMetadata()]]
     */
   def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext
 
@@ -43,7 +44,7 @@ trait Telemetry {
   def runFutureInSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (SpanAttribute, String)*
+      attributes: (AttributeKey[String], String)*
   )(
       body: TelemetryContext => Future[T]
   ): Future[T] = {
@@ -58,7 +59,7 @@ trait Telemetry {
     * @param body the code to be run in the new span.
     * @return the context based on the new span.
     */
-  def runInSpan[T](spanName: String, kind: SpanKind, attributes: (SpanAttribute, String)*)(
+  def runInSpan[T](spanName: String, kind: SpanKind, attributes: (AttributeKey[String], String)*)(
       body: TelemetryContext => T
   ): T = {
     rootContext.runInNewSpan(spanName, kind, attributes: _*)(body)

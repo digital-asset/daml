@@ -45,10 +45,10 @@ class GrpcCommandSubmissionService(
     implicit val telemetryContext: TelemetryContext =
       DefaultTelemetry.contextFromGrpcThreadLocalContext()
     request.commands.foreach { commands =>
-      telemetryContext.setAttribute(SpanAttribute.ApplicationId, commands.applicationId)
-      telemetryContext.setAttribute(SpanAttribute.CommandId, commands.commandId)
-      telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
-      telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
+      telemetryContext.setAttribute(SpanAttribute.ApplicationId.key, commands.applicationId)
+      telemetryContext.setAttribute(SpanAttribute.CommandId.key, commands.commandId)
+      telemetryContext.setAttribute(SpanAttribute.Submitter.key, commands.party)
+      telemetryContext.setAttribute(SpanAttribute.WorkflowId.key, commands.workflowId)
     }
     Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
