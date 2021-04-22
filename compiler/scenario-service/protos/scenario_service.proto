@@ -240,6 +240,9 @@ message ScenarioError {
     // Error was raised via the error builtin
     string user_error = 13;
 
+    // Unhandled exception
+    Value unhandled_exception = 26;
+
     // Errors related to update interpretation.
     TemplatePreconditionViolated template_precond_violated = 14;
     ContractNotActive update_local_contract_not_active = 15;
@@ -559,6 +562,10 @@ message Node {
     string contract_id = 3; // optional, if empty, we haven't found a contract
   }
 
+  message Rollback {
+    repeated NodeId children = 1;
+  }
+
   NodeId node_id = 1;
   sfixed64 effective_at = 2;
   repeated Disclosure disclosures = 3;
@@ -574,5 +581,6 @@ message Node {
     Fetch fetch = 9;
     Exercise exercise = 10;
     LookupByKey lookup_by_key = 11;
+    Rollback rollback = 12;
   }
 }

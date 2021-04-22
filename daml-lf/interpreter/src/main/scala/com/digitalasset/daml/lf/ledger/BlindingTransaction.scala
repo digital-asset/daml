@@ -62,7 +62,7 @@ object BlindingTransaction {
         case Some(action: Node.GenActionNode[NodeId, ContractId]) =>
           val witnesses = parentExerciseWitnesses union action.informeesOfNode
 
-          // nodes of every type are disclosed to their witnesses
+          // actions of every type are disclosed to their witnesses
           val state = state0.discloseNode(witnesses, nodeId)
 
           action match {
