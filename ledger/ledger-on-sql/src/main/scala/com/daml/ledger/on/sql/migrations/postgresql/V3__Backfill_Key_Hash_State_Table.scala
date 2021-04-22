@@ -26,7 +26,6 @@ private[migrations] class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigr
       keys: Iterator[Array[Byte]],
       tablePrefix: String,
   ): Iterator[BatchSql] = {
-    //TODO: proper prefix and remove key_hash selecting
     val UpdateKeyHashes = s"UPDATE ${tablePrefix}state SET key_hash = {key_hash} WHERE key = {key}"
 
     keys
@@ -50,7 +49,6 @@ private[migrations] class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigr
   private def stateKeys(
       tablePrefix: String
   )(implicit connection: Connection): Iterator[Array[Byte]] = {
-    //TODO: proper prefix and remove key_hash selecting
     val SelectStateRows = s"SELECT key FROM ${tablePrefix}state"
     val loadStateRows = connection.createStatement()
     loadStateRows.setFetchSize(BatchSize)
