@@ -34,7 +34,7 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, V12, V13, VDev}
+  import TransactionVersion.{V10, V11, V12, V13, VDev, minExceptions}
 
   private[this] val transactionVersions = Table("transaction version", V10, V11, V12, V13, VDev)
 
@@ -133,8 +133,10 @@ class TransactionCoderSpec
       }
     }
 
+    val fromRollbackVersions = TransactionVersion.All.filter(_ >= minExceptions)
+
     "do NodeRollback" in {
-      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder(fromRollbackVersions)) {
         case (node, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
           val Right(encodedNode) =
@@ -285,6 +287,23 @@ class TransactionCoderSpec
 
           result.isLeft shouldBe shouldFail
         }
+      }
+    }
+
+    "fail if try encode rollback node in version < minExceptions" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val result = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              NodeId(0),
+              normalizedNode,
+            )
+
+          result.isLeft shouldBe (nodeVersion < minExceptions)
       }
     }
 

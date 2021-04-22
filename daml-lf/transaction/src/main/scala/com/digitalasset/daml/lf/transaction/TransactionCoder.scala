@@ -260,10 +260,16 @@ object TransactionCoder {
         nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
-        case ne @ NodeRollback(_, _) =>
+        case nr @ NodeRollback(_, _) =>
           val builder = TransactionOuterClass.NodeRollback.newBuilder()
-          ne.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
-          Right(nodeBuilder.setRollback(builder).build())
+          nr.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+          for {
+            _ <- Either.cond(
+              test = nr.version >= TransactionVersion.minExceptions,
+              right = (),
+              left = EncodeError(node.version, isTooOldFor = "rollback nodes"),
+            )
+          } yield nodeBuilder.setRollback(builder).build()
 
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
           val builder = TransactionOuterClass.NodeCreate.newBuilder()
@@ -460,6 +466,11 @@ object TransactionCoder {
           }
           .map(_.toImmArray)
         for {
+          _ <- Either.cond(
+            test = nodeVersion >= TransactionVersion.minExceptions,
+            right = (),
+            left = DecodeError(s"rollback node unexpected in transaction of version $nodeVersion"),
+          )
           ni <- nodeId
           children <- childrenOrError
         } yield ni -> NodeRollback(children, nodeVersion)
