@@ -79,7 +79,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .build
       val envelope = Envelope.enclose(batch)
       writer
-        // Use the NoOpTelemetryContext, as it's not going to be used on production.
+        // Use the NoOpTelemetryContext, as support for batching will be removed soon.
         .commit(correlationId, envelope, CommitMetadata.Empty)(NoOpTelemetryContext)
         .map {
           case SubmissionResult.Acknowledged => ()

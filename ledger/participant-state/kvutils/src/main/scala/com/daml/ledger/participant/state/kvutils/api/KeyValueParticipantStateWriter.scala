@@ -53,7 +53,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         sourceDescription.getOrElse(""),
         writer.participantId,
       )
-    // TODO(KVL-874): stop using NoOp
     commit(submissionId, submission)(NoOpTelemetryContext)
   }
 
@@ -65,7 +64,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
-    // TODO(KVL-874): stop using NoOp
     commit(submissionId, submission)(NoOpTelemetryContext)
   }
 
@@ -82,7 +80,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         displayName,
         writer.participantId,
       )
-    // TODO(KVL-874): stop using NoOp
     commit(submissionId, submission)(NoOpTelemetryContext)
   }
 
