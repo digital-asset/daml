@@ -374,7 +374,7 @@ object TreeUtils {
         }
         result += submit
       }
-      result.result()
+      result.result().toSeq
     }
   }
 
