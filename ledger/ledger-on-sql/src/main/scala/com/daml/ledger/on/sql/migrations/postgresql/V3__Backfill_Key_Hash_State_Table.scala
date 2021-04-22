@@ -9,19 +9,25 @@ import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 import java.sql.{Connection, ResultSet}
 import scala.collection.compat.immutable.LazyList
+import scala.jdk.CollectionConverters._
 
 private[migrations] class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigration {
 
   private val BatchSize = 1000
+  private val TablePrefixPlaceholderName = "table.prefix"
 
   override def migrate(context: Context): Unit = {
     implicit val conn: Connection = context.getConnection
-    batchUpdatesFor(stateKeys).foreach(_.execute())
+    val prefix = tablePrefix(context)
+    batchUpdatesFor(stateKeys(prefix), prefix).foreach(_.execute())
   }
 
-  private def batchUpdatesFor(keys: Iterator[Array[Byte]]): Iterator[BatchSql] = {
+  private def batchUpdatesFor(
+      keys: Iterator[Array[Byte]],
+      tablePrefix: String,
+  ): Iterator[BatchSql] = {
     //TODO: proper prefix and remove key_hash selecting
-    val UpdateKeyHashes = "UPDATE ledger_state SET key_hash = {key_hash} WHERE key = {key}"
+    val UpdateKeyHashes = s"UPDATE ${tablePrefix}state SET key_hash = {key_hash} WHERE key = {key}"
 
     keys
       .map { key =>
@@ -33,7 +39,6 @@ private[migrations] class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigr
       .to(LazyList)
       .grouped(BatchSize)
       .map { batch =>
-        println(s"BATCH OF SIZE: ${batch.length}")
         BatchSql(
           UpdateKeyHashes,
           batch.head,
@@ -42,9 +47,11 @@ private[migrations] class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigr
       }
   }
 
-  private def stateKeys(implicit connection: Connection): Iterator[Array[Byte]] = {
+  private def stateKeys(
+      tablePrefix: String
+  )(implicit connection: Connection): Iterator[Array[Byte]] = {
     //TODO: proper prefix and remove key_hash selecting
-    val SelectStateRows = "SELECT key FROM ledger_state"
+    val SelectStateRows = s"SELECT key FROM ${tablePrefix}state"
     val loadStateRows = connection.createStatement()
     loadStateRows.setFetchSize(BatchSize)
     val rows: ResultSet = loadStateRows.executeQuery(SelectStateRows)
@@ -56,4 +63,11 @@ private[migrations] class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigr
         rows.getBytes("key")
     }
   }
+
+  private def tablePrefix(context: Context) =
+    context.getConfiguration
+      .getPlaceholders()
+      .asScala
+      .getOrElse(TablePrefixPlaceholderName, throw new RuntimeException("Table prefix missing."))
+
 }
