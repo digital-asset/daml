@@ -34,7 +34,7 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, V12, V13, VDev}
+  import TransactionVersion.{V10, V11, V12, V13, VDev, minExceptions}
 
   private[this] val transactionVersions = Table("transaction version", V10, V11, V12, V13, VDev)
 
@@ -133,10 +133,33 @@ class TransactionCoderSpec
       }
     }
 
+    val fromRollbackVersions = TransactionVersion.All.filter(_ >= minExceptions)
+
+    "do NodeRollback" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder(fromRollbackVersions)) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val Right(encodedNode) =
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                NodeId(0),
+                normalizedNode,
+              )
+          TransactionCoder
+            .decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              txVersion,
+              encodedNode,
+            ) shouldBe Right((NodeId(0), normalizedNode))
+      }
+    }
+
     "do transactions" in
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // should work with rollback
-      forAll(noDanglingRefGenVersionedTransaction(allowRollback = false), minSuccessful(50)) { tx =>
+      forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
           tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
@@ -167,9 +190,7 @@ class TransactionCoderSpec
       }
 
     "transactions decoding should fail when unsupported transaction version received" in
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // should work with rollback
-      forAll(noDanglingRefGenTransaction(allowRollback = false), minSuccessful(50)) { tx =>
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(stringVersionGen, minSuccessful(20)) { badTxVer =>
           whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
@@ -266,6 +287,23 @@ class TransactionCoderSpec
 
           result.isLeft shouldBe shouldFail
         }
+      }
+    }
+
+    "fail if try encode rollback node in version < minExceptions" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val result = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              NodeId(0),
+              normalizedNode,
+            )
+
+          result.isLeft shouldBe (nodeVersion < minExceptions)
       }
     }
 
@@ -595,6 +633,31 @@ class TransactionCoderSpec
       }
     }
 
+    "fail if we try to decode a rollback node in a version < minExceptions" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) { case (node, (v1, v2)) =>
+        val normalizedNode = normalizeNode(node.updateVersion(v1))
+        val Right(encodedNode) =
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              v1,
+              NodeId(0),
+              normalizedNode,
+              disableVersionCheck = true, //so the bad proto can be created
+            )
+        val result =
+          TransactionCoder
+            .decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              v2,
+              encodedNode,
+            )
+        result.isLeft shouldBe (v1 < minExceptions)
+      }
+    }
+
     "ignore field observers in version < 11" in {
 
       forAll(
@@ -701,9 +764,7 @@ class TransactionCoderSpec
 
   private[this] def normalizeNode[Nid](node: Node.GenNode[Nid, ContractId]) =
     node match {
-      case _: NodeRollback[_] =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("rollback nodes are not supported")
+      case rb: NodeRollback[Nid] => rb //nothing to normalize
       case exe: NodeExercises[Nid, ContractId] => normalizeExe(exe)
       case fetch: NodeFetch[ContractId] => normalizeFetch(fetch)
       case create: NodeCreate[ContractId] => normalizeCreate(create)

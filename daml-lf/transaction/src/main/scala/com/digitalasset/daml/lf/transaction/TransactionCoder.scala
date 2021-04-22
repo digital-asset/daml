@@ -6,6 +6,7 @@ package transaction
 
 import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
@@ -245,6 +246,8 @@ object TransactionCoder {
       enclosingVersion: TransactionVersion,
       nodeId: Nid,
       node: GenNode[Nid, Cid],
+      disableVersionCheck: Boolean =
+        false, //true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeVersion = node.version
     if (enclosingVersion < nodeVersion)
@@ -260,9 +263,17 @@ object TransactionCoder {
         nodeBuilder.setVersion(node.version.protoValue)
 
       node match {
-        case _: NodeRollback[_] =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
+        case nr @ NodeRollback(_, _) =>
+          val builder = TransactionOuterClass.NodeRollback.newBuilder()
+          nr.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+          for {
+            _ <- Either.cond(
+              test = nr.version >= TransactionVersion.minExceptions || disableVersionCheck,
+              right = (),
+              left = EncodeError(node.version, isTooOldFor = "rollback nodes"),
+            )
+          } yield nodeBuilder.setRollback(builder).build()
+
         case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
           val builder = TransactionOuterClass.NodeCreate.newBuilder()
           nc.stakeholders.foreach(builder.addStakeholders)
@@ -449,6 +460,19 @@ object TransactionCoder {
     val nodeId = decodeNid.fromString(protoNode.getNodeId)
 
     protoNode.getNodeTypeCase match {
+      case NodeTypeCase.ROLLBACK =>
+        val protoRollback = protoNode.getRollback
+        for {
+          _ <- Either.cond(
+            test = nodeVersion >= TransactionVersion.minExceptions,
+            right = (),
+            left = DecodeError(
+              s"rollback node (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
+            ),
+          )
+          ni <- nodeId
+          children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
+        } yield ni -> NodeRollback(children, nodeVersion)
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
         for {
@@ -509,13 +533,6 @@ object TransactionCoder {
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
-        val childrenOrError = protoExe.getChildrenList.asScala
-          .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
-            case (Left(e), _) => Left(e)
-            case (Right(ids), s) => decodeNid.fromString(s).map(ids :+ _)
-          }
-          .map(_.toImmArray)
-
         for {
           rv <- decodeValue(
             decodeCid,
@@ -527,7 +544,7 @@ object TransactionCoder {
             decodeOptionalKeyWithMaintainers(decodeCid, nodeVersion, protoExe.getKeyWithMaintainers)
           ni <- nodeId
           targetCoid <- decodeCid.decode(protoExe.getContractIdStruct)
-          children <- childrenOrError
+          children <- decodeChildren(decodeNid, protoExe.getChildrenList)
           cv <- decodeValue(
             decodeCid,
             nodeVersion,
@@ -573,6 +590,18 @@ object TransactionCoder {
         } yield ni -> NodeLookupByKey[Cid](templateId, None, key, cid, nodeVersion)
       case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
     }
+  }
+
+  private[this] def decodeChildren[Nid](
+      decodeNid: DecodeNid[Nid],
+      strList: ProtocolStringList,
+  ): Either[DecodeError, ImmArray[Nid]] = {
+    strList.asScala
+      .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
+        case (Left(e), _) => Left(e)
+        case (Right(ids), s) => decodeNid.fromString(s).map(ids :+ _)
+      }
+      .map(_.toImmArray)
   }
 
   /** Encode a [[GenTransaction[Nid, Cid]]] to protobuf using [[TransactionVersion]] provided by the libary.
@@ -754,6 +783,9 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, NodeInfo] =
     protoNode.getNodeTypeCase match {
+      case NodeTypeCase.ROLLBACK =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("protoNodeInfo, rollback nodes are not supported")
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
         for {
