@@ -742,7 +742,7 @@ main =
                     , "  p1 <- allocateParty \"p1\""
                     , "  p2 <- allocateParty \"p2\""
                     , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
-                    , "  submit p2 $ exerciseCmd cid LocalLookup"
+                    , "  submit p2 $ exerciseCmd cid LocalFetch"
                     , "localLookupFetchMustFail = do"
                     , "  p1 <- allocateParty \"p1\""
                     , "  p2 <- allocateParty \"p2\""
