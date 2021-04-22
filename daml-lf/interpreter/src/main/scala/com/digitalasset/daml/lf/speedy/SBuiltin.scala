@@ -1182,7 +1182,7 @@ private[lf] object SBuiltin {
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
-        case Some(Some(coid)) if onLedger.localContracts.contains(coid) =>
+        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
             .get(coid)
             .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
@@ -1286,7 +1286,7 @@ private[lf] object SBuiltin {
       onLedger.ptx.keys.get(gkey) match {
         case Some(None) =>
           crash(s"Could not find key $gkey")
-        case Some(Some(coid)) if onLedger.localContracts.contains(coid) =>
+        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
             .get(coid)
             .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
