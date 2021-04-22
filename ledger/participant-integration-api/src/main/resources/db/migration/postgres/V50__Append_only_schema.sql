@@ -219,6 +219,7 @@ CREATE TABLE participant_events_consuming_exercise (
     exercise_child_event_ids text[] NOT NULL,
 
     -- * compression flags
+    create_key_value_compression SMALLINT,
     exercise_argument_compression SMALLINT,
     exercise_result_compression SMALLINT
 );
@@ -290,6 +291,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     exercise_child_event_ids text[] NOT NULL,
 
     -- * compression flags
+    create_key_value_compression SMALLINT,
     exercise_argument_compression SMALLINT,
     exercise_result_compression SMALLINT
 );
@@ -426,7 +428,7 @@ CREATE VIEW participant_events
             exercise_actors,
             exercise_child_event_ids,
             NULL::smallint as create_argument_compression,
-            NULL::smallint as create_key_value_compression,
+            create_key_value_compression,
             exercise_argument_compression,
             exercise_result_compression
         FROM participant_events_consuming_exercise
@@ -459,7 +461,7 @@ CREATE VIEW participant_events
             exercise_actors,
             exercise_child_event_ids,
             NULL::smallint as create_argument_compression,
-            NULL::smallint as create_key_value_compression,
+            create_key_value_compression,
             exercise_argument_compression,
             exercise_result_compression
         FROM participant_events_non_consuming_exercise
