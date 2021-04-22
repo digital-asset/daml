@@ -45,7 +45,8 @@ message Node {
         NodeFetch fetch = 4;
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
-        NodeRollback rollback = 7;
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        NodeRollback rollback = 7; //*since DEV* // TODO: update to version when exceptions land
     }
 
     string version = 63; // *since 11*, optional
@@ -113,7 +114,8 @@ message NodeLookupByKey {
     com.daml.lf.value.ContractId contract_id_struct = 4;
 }
 
-message NodeRollback {
+// TODO https://github.com/digital-asset/daml/issues/8020
+message NodeRollback { // *since DEV* // TODO: update to version when exceptions land
     repeated string children = 1; // node ids
 }
 
