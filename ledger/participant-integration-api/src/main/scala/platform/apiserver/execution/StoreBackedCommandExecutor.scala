@@ -101,6 +101,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
+    val isVisible = VisibleByKey.fromSubmitters(actAs, readAs)
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)
@@ -145,7 +146,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-          val visible = VisibleByKey.fromSubmitters(actAs, readAs)(stakeholders)
+          val visible = isVisible(stakeholders)
           resolveStep(Timed.trackedValue(metrics.daml.execution.engineRunning, resume(visible)))
 
         case ResultNeedPackage(packageId, resume) =>
