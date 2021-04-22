@@ -54,7 +54,9 @@ class KeyValueParticipantStateWriterSpec
         anInterpretationCost,
       )
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(transactionCaptor.value)(_.hasTransactionEntry)
       correlationIdCaptor.value should be(expectedCorrelationId)
       val actualCommitMetadata = metadataCaptor.value
@@ -71,7 +73,9 @@ class KeyValueParticipantStateWriterSpec
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(packageUploadCaptor.value)(_.hasPackageUploadEntry)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -86,7 +90,9 @@ class KeyValueParticipantStateWriterSpec
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(configurationCaptor.value)(_.hasConfigurationSubmission)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -101,7 +107,9 @@ class KeyValueParticipantStateWriterSpec
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(partyAllocationCaptor.value)(_.hasPartyAllocationEntry)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -146,7 +154,11 @@ object KeyValueParticipantStateWriterSpec {
       correlationIdCaptor: Captor[String] = ArgCaptor[String],
   ): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(correlationIdCaptor.capture, envelopeCaptor.capture, metadataCaptor.capture))
+    when(
+      writer.commit(correlationIdCaptor.capture, envelopeCaptor.capture, metadataCaptor.capture)(
+        ArgCaptor[TelemetryContext]
+      )
+    )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer

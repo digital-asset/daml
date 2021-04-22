@@ -66,7 +66,7 @@ class BatchingLedgerWriterSpec
           any[String],
           eqTo(expectedBatch),
           argThat((metadata: CommitMetadata) => metadata.estimatedInterpretationCost.isEmpty),
-        )
+        )(any[TelemetryContext])
         submissionResult should be(SubmissionResult.Acknowledged)
       }
     }
@@ -83,7 +83,9 @@ class BatchingLedgerWriterSpec
         result2 <- batchingWriter.commit("test2", aSubmission, someCommitMetadata)
         result3 <- batchingWriter.commit("test3", aSubmission, someCommitMetadata)
       } yield {
-        verify(mockWriter, times(3)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+        verify(mockWriter, times(3)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+          any[TelemetryContext]
+        )
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
         batchingWriter.currentHealth() should be(HealthStatus.healthy)
       }
@@ -122,7 +124,11 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
 
   private def createMockWriter(captor: Option[Captor[Raw.Envelope]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(any[String], captor.map(_.capture).getOrElse(any), any[CommitMetadata]))
+    when(
+      writer.commit(any[String], captor.map(_.capture).getOrElse(any), any[CommitMetadata])(
+        any[TelemetryContext]
+      )
+    )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     when(writer.currentHealth()).thenReturn(HealthStatus.healthy)

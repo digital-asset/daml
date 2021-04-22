@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.SubmissionResult.Acknowledged
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.telemetry.TelemetryContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -19,13 +19,15 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
-
   "commit" should {
     "delegate to cheap writer in case of no estimated interpretation cost" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = None)
       val mockWriterCheap = mock[LedgerWriter]
-      when(mockWriterCheap.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
+      when(
+        mockWriterCheap.commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+          any[TelemetryContext]
+        )
+      )
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(1L, mockWriterCheap, mock[LedgerWriter])
@@ -40,7 +42,11 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to cheap writer in case estimated interpretation cost is below threshold" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = Some(1))
       val mockWriterCheap = mock[LedgerWriter]
-      when(mockWriterCheap.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
+      when(
+        mockWriterCheap.commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+          any[TelemetryContext]
+        )
+      )
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(2L, mockWriterCheap, mock[LedgerWriter])
@@ -55,7 +61,11 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to expensive writer in case estimated interpretation cost reaches the threshold" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = Some(1))
       val mockWriterExpensive = mock[LedgerWriter]
-      when(mockWriterExpensive.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
+      when(
+        mockWriterExpensive.commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+          any[TelemetryContext]
+        )
+      )
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(1L, mock[LedgerWriter], mockWriterExpensive)
@@ -70,7 +80,11 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     "delegate to expensive writer in case threshold is 0" in {
       val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = None)
       val mockWriterExpensive = mock[LedgerWriter]
-      when(mockWriterExpensive.commit(any[String], any[Raw.Envelope], any[CommitMetadata]))
+      when(
+        mockWriterExpensive.commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+          any[TelemetryContext]
+        )
+      )
         .thenReturn(Future.successful(Acknowledged))
       val instance =
         new InterpretationCostBasedLedgerWriterChooser(0L, mock[LedgerWriter], mockWriterExpensive)
