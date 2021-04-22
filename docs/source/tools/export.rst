@@ -120,6 +120,14 @@ behavior. Both flags accept ledger offsets, either the special offsets
 
 .. TODO[AH] Provide a reference or hints how to obtain arbitrary ledger offsets.
 
+Transaction Time
+****************
+
+Daml ledger exports may fail to reproduce the ledger state or transaction
+history if contracts are sensitive to ledger time. You can enable the
+``--set-time`` option to issue ``setTime`` commands in the generated Daml
+script. However, this is not supported by all ledgers.
+
 .. _export-caveats:
 
 Caveats
@@ -153,13 +161,3 @@ If the configured parties only see part of a given transaction tree, then
 events that were originally emitted by a choice may be lifted to the root of
 the transaction tree. This could produce a transaction tree that cannot be
 replicated using the ledger API. In such cases Daml ledger export will fail.
-
-Transaction Time
-================
-
-Daml ledger exports may fail to reproduce the ledger state or transaction
-history if contracts are sensitive to ledger time. The current implementation
-does not attempt to reproduce the history faithfully with regard to ledger
-time. In future this will be implemented by optionally issuing ``setTime``
-commands in the generated Daml script. However, this is not supported by all
-ledgers.

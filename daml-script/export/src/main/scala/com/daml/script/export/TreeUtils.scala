@@ -3,6 +3,8 @@
 
 package com.daml.script.export
 
+import java.time.Instant
+
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
@@ -10,6 +12,7 @@ import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Graphs
 import scalaz.std.option._
 import scalaz.std.iterable._
@@ -18,7 +21,7 @@ import scalaz.syntax.foldable._
 
 import scala.collection.compat._
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 object TreeUtils {
   sealed trait Selector
@@ -315,7 +318,11 @@ object TreeUtils {
     }
   }
 
-  sealed trait Submit {
+  sealed trait Action
+
+  final case class SetTime(timestamp: Timestamp) extends Action
+
+  sealed trait Submit extends Action {
     def submitters: Set[Party]
     def commands: Seq[Command]
   }
@@ -353,6 +360,27 @@ object TreeUtils {
   ) extends Submit
       with SubmitTree
       with SubmitMulti
+
+  object Action {
+    def fromTrees(trees: Seq[TransactionTree], setTime: Boolean): Seq[Action] = {
+      if (setTime) {
+        var currentTime = Timestamp.MinValue
+        val result = ArrayBuffer.newBuilder[Action]
+        trees.foreach { tree =>
+          val timestamp = timestampFromTree(tree)
+          val submit = Submit.fromTree(tree)
+          if (timestamp > currentTime) {
+            currentTime = timestamp
+            result += SetTime(timestamp)
+          }
+          result += submit
+        }
+        result.result().toSeq
+      } else {
+        trees.map(Submit.fromTree)
+      }
+    }
+  }
 
   object Submit {
     def fromTree(tree: TransactionTree): Submit = {
@@ -398,6 +426,12 @@ object TreeUtils {
       case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
         evParties(Kind.Created(createdEvent)) ++ evParties(Kind.Exercised(exercisedEvent))
     }
+  }
+
+  def timestampFromTree(tree: TransactionTree): Timestamp = {
+    Timestamp.assertFromInstant(
+      Instant.ofEpochSecond(tree.getEffectiveAt.seconds, tree.getEffectiveAt.nanos.toLong)
+    )
   }
 
   def treeRefs(t: TransactionTree): Set[Identifier] =
