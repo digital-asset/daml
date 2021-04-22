@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.telemetry.TelemetryContext
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 
 /** An interface to change a ledger via a participant.
   *
@@ -94,12 +94,29 @@ trait WriteService
     *                                    daml-lf/spec/contract-id.rst.
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
+    * @param telemetryContext            Implicit context for tracing.
     * @return an async result of a SubmissionResult
     */
-  def submitTransaction(
+  def submitTransactionWithTelemetry(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
+
+  @deprecated("Will be removed in 1.14.0", since = "1.13.0")
+  def submitTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction,
+      estimatedInterpretationCost: Long,
+  ): CompletionStage[SubmissionResult] =
+    submitTransactionWithTelemetry(
+      submitterInfo,
+      transactionMeta,
+      transaction,
+      estimatedInterpretationCost,
+    )(
+      NoOpTelemetryContext
+    )
 }

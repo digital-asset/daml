@@ -12,7 +12,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
   * @param ledgerEffectiveTime: the submitter-provided time at which the
   *   transaction should be interpreted. This is the time returned by the
   *   DAML interpreter on a `getTime :: Update Time` call. See the docs on
-  *   [[WriteService.submitTransaction]] for how it relates to the notion of
+  *   [[WriteService.submitTransactionWithTelemetry]] for how it relates to the notion of
   *   `recordTime`.
   *
   * @param workflowId: a submitter-provided identifier used for monitoring

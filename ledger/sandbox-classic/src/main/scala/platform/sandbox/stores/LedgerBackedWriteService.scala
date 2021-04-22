@@ -35,7 +35,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
-  override def submitTransaction(
+  override def submitTransactionWithTelemetry(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,

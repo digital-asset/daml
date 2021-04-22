@@ -31,7 +31,7 @@ case class ReadWriteServiceBridge(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  override def submitTransaction(
+  override def submitTransactionWithTelemetry(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
