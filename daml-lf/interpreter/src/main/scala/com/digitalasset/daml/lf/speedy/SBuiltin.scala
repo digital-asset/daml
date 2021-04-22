@@ -1072,7 +1072,7 @@ private[lf] object SBuiltin {
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
           if (cached.templateId != templateId) {
-            if (onLedger.localContracts.contains(coid)) {
+            if (onLedger.ptx.localContracts.contains(coid)) {
               // This should be prevented by the type checker so it’s an internal error.
               crash(s"contract $coid ($templateId) not found from partial transaction")
             } else {
@@ -1354,7 +1354,6 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       checkToken(args.get(1))
-      onLedger.localContracts = Set.empty
       onLedger.cachedContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.committers = extractParties(args.get(0))
