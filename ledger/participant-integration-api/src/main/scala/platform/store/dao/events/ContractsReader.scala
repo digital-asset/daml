@@ -59,8 +59,7 @@ private[dao] sealed class ContractsReader(
           implicit connection =>
             SQL"""select pc.contract_id from #$contractsTable
                  where #$stakeholdersWhere and contract_witness in ($readers)
-                 and #${sqlFunctions.equalsClause("create_key_hash")} ${key.hash} #${sqlFunctions
-              .equalsClauseEnd()}
+                 and create_key_hash = ${key.hash}
                  #${sqlFunctions.limitClause(1)}"""
               .as(contractId("contract_id").singleOpt)
         }

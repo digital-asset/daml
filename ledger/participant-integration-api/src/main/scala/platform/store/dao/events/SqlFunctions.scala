@@ -17,18 +17,6 @@ private[dao] trait SqlFunctions {
   def toArray(value: String): String
 
   def limitClause(numRows: Int): String
-
-  def equalsClause(left: String): String
-
-  def equalsClauseEnd(): String
-
-  def greaterThanClause(left: String, right: Any): String
-
-  def greaterThanClauseStart(left: String): String
-
-  def greaterThanClauseEnd(): String
-
-  def lessThanOrEqualToClause(left: String, right: Any): String
 }
 
 private[dao] object SqlFunctions {
@@ -45,24 +33,12 @@ private[dao] object SqlFunctions {
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
       s"$arrayColumn && array[${format(parties)}]::varchar[]"
 
-    def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
+    override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"array(select unnest($arrayColumn) intersect select unnest(array[${format(parties)}]))"
 
-    def toArray(value: String) = s"array['$value']"
+    override def toArray(value: String) = s"array['$value']"
 
-    def limitClause(numRows: Int) = s"limit $numRows"
-
-    def equalsClause(left: String) = s"$left = "
-
-    def equalsClauseEnd(): String = ""
-
-    def greaterThanClause(left: String, right: Any) = s"$left > $right"
-
-    def greaterThanClauseStart(left: String): String = s"$left > "
-
-    def greaterThanClauseEnd(): String = ""
-
-    def lessThanOrEqualToClause(left: String, right: Any) = s"$left <= $right"
+    override def limitClause(numRows: Int) = s"limit $numRows"
   }
 
   object H2SqlFunctions extends SqlFunctions {
@@ -72,27 +48,14 @@ private[dao] object SqlFunctions {
       else
         parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
 
-    def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
+    override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"array_intersection($arrayColumn, array[${format(parties)}])"
 
-    def toArray(value: String) = s"array['$value']"
+    override def toArray(value: String) = s"array['$value']"
 
-    def limitClause(numRows: Int) = s"limit $numRows"
-
-    def equalsClause(left: String) = s"$left = "
-
-    def equalsClauseEnd(): String = ""
-
-    def greaterThanClause(left: String, right: Any) = s"$left > $right"
-
-    def greaterThanClauseStart(left: String): String = s"$left > "
-
-    def greaterThanClauseEnd(): String = ""
-
-    def lessThanOrEqualToClause(left: String, right: Any) = s"$left <= $right"
+    override def limitClause(numRows: Int) = s"limit $numRows"
   }
 
-  //TODO need to properly implement this for Oracle
   object OracleSqlFunctions extends SqlFunctions {
     //TODO BH: this is likely extremely inefficient
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
@@ -100,24 +63,12 @@ private[dao] object SqlFunctions {
         .map(party => s"('$party') IN (SELECT * FROM TABLE($arrayColumn))")
         .mkString("(", " or ", ")")
 
-    def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
+    override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"CAST(MULTISET(select unique $arrayColumn.* FROM TABLE($arrayColumn) $arrayColumn intersect select * from TABLE(VARCHAR_ARRAY(${format(parties)}))) as VARCHAR_ARRAY)"
 
-    def toArray(value: String) = s"VARCHAR_ARRAY('$value')"
+    override def toArray(value: String) = s"VARCHAR_ARRAY('$value')"
 
-    def limitClause(numRows: Int) = s"fetch next $numRows rows only"
-
-    def equalsClause(left: String) = s"$left = "
-
-    def equalsClauseEnd(): String = ""
-
-    def greaterThanClause(left: String, right: Any) = s"$left > $right"
-
-    def greaterThanClauseStart(left: String): String = s"$left > "
-
-    def greaterThanClauseEnd(): String = ""
-
-    def lessThanOrEqualToClause(left: String, right: Any) = s"$left <= $right"
+    override def limitClause(numRows: Int) = s"fetch next $numRows rows only"
   }
 
 }
