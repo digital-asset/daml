@@ -595,7 +595,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   }
 
   "validateContractKeys" should {
-    def createNode(contractId: String): Create =
+    def newCreateNodeWithFixedKey(contractId: String): Create =
       create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
     def freshContractId: String =
@@ -605,7 +605,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         found: Boolean,
         inRollback: Boolean,
     ): SubmittedTransaction = {
-      val lookup = txBuilder.lookupByKey(createNode(contractId = s"#$freshContractId"), found)
+      val lookup =
+        txBuilder.lookupByKey(newCreateNodeWithFixedKey(contractId = s"#$freshContractId"), found)
       val builder = TransactionBuilder()
       if (inRollback) {
         val rollback = builder.add(txBuilder.rollback())
@@ -616,8 +617,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       builder.buildSubmitted()
     }
 
-    val mykey = {
-      val aCreateNode = createNode("#dummy")
+    val conflictingKey = {
+      val aCreateNode = newCreateNodeWithFixedKey("#dummy")
       Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
     }
 
@@ -651,8 +652,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "return DuplicateKeys when two local contracts conflict" in {
       val builder = TransactionBuilder()
-      builder.add(createNode(s"#$freshContractId"))
-      builder.add(createNode(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(mykey -> None)
       val result = validate(context, transaction)
@@ -665,7 +666,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "return DuplicateKeys when a create in a rollback conflicts with a global key" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(createNode(s"#$freshContractId"), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(mykey -> Some(s"#freshContractId"))
       val result = validate(context, transaction)
@@ -678,8 +679,8 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "not return DuplicateKeys between local contracts if first create is rolled back" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(createNode(s"#$freshContractId"), rollback)
-      builder.add(createNode(s"#freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#freshContractId"))
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(mykey -> None)
       val result = validate(context, transaction)
@@ -688,9 +689,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "return DuplicateKeys between local contracts even if second create is rolled back" in {
       val builder = TransactionBuilder()
-      builder.add(createNode(s"#freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#freshContractId"))
       val rollback = builder.add(builder.rollback())
-      builder.add(createNode(s"#$freshContractId"), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(mykey -> None)
       val result = validate(context, transaction)
