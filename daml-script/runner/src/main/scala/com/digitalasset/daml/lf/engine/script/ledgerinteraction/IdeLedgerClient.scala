@@ -154,7 +154,6 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       // Clear state at the beginning like in SBSBeginCommit for scenarios.
       machine.returnValue = null
       onLedger.commitLocation = optLocation
-      onLedger.localContracts = Set.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.cachedContracts = Map.empty
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
@@ -171,6 +170,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
               .lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb)
               .toTry
               .get
+          case SResultNeedLocalKeyVisible(stakeholders, committers @ _, cb) =>
+            val visible = SVisibleByKey.fromSubmitters(actAs.toSet, readAs)(stakeholders)
+            cb(visible)
           case SResultFinalValue(SUnit) =>
             onLedger.ptx.finish match {
               case PartialTransaction.CompleteTransaction(tx) =>

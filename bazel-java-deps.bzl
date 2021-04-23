@@ -84,6 +84,7 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
             "io.opentelemetry:opentelemetry-context:0.16.0",
             "io.opentelemetry:opentelemetry-api:0.16.0",
+            "io.opentelemetry:opentelemetry-semconv:0.16.0-alpha",
             "io.prometheus:simpleclient:0.8.1",
             "io.prometheus:simpleclient_dropwizard:0.8.1",
             "io.prometheus:simpleclient_httpserver:0.8.1",

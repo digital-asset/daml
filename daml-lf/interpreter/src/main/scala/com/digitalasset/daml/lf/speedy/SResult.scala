@@ -94,6 +94,35 @@ object SResult {
       cb: SKeyLookupResult => Boolean,
   ) extends SResult
 
+  final case class SResultNeedLocalKeyVisible(
+      stakeholders: Set[Party],
+      committers: Set[Party],
+      cb: SVisibleByKey => Unit,
+  ) extends SResult
+
+  sealed abstract class SVisibleByKey
+  object SVisibleByKey {
+    // actAs and readAs are only included for better error messages.
+    final case class NotVisible(
+        actAs: Set[Party],
+        readAs: Set[Party],
+    ) extends SVisibleByKey
+    final case object Visible extends SVisibleByKey
+
+    def fromSubmitters(
+        actAs: Set[Party],
+        readAs: Set[Party] = Set.empty,
+    ): Set[Party] => SVisibleByKey = {
+      val readers = actAs union readAs
+      stakeholders =>
+        if (readers.intersect(stakeholders).nonEmpty) {
+          SVisibleByKey.Visible
+        } else {
+          SVisibleByKey.NotVisible(actAs, readAs)
+        }
+    }
+  }
+
   sealed abstract class SKeyLookupResult
   object SKeyLookupResult {
     final case class Found(coid: ContractId) extends SKeyLookupResult

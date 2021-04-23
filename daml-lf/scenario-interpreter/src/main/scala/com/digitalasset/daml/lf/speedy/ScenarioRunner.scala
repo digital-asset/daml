@@ -102,6 +102,11 @@ final case class ScenarioRunner(
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
           // We never have readAs parties in scenarios.
           lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, Set.empty, cb)
+
+        case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
+          // We never have readAs parties in scenarios.
+          val visible = SVisibleByKey.fromSubmitters(committers, Set.empty)(stakeholders)
+          cb(visible)
       }
     }
     val endTime = System.nanoTime()

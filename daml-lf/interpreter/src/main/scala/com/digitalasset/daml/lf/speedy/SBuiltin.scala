@@ -1072,7 +1072,7 @@ private[lf] object SBuiltin {
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
           if (cached.templateId != templateId) {
-            if (onLedger.localContracts.contains(coid)) {
+            if (onLedger.ptx.localContracts.contains(coid)) {
               // This should be prevented by the type checker so it’s an internal error.
               crash(s"contract $coid ($templateId) not found from partial transaction")
             } else {
@@ -1182,6 +1182,25 @@ private[lf] object SBuiltin {
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
+        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
+          val cachedContract = onLedger.cachedContracts
+            .get(coid)
+            .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
+          val stakeholders = cachedContract.signatories union cachedContract.observers
+          throw SpeedyHungry(
+            SResultNeedLocalKeyVisible(
+              stakeholders,
+              onLedger.committers,
+              {
+                case SVisibleByKey.Visible =>
+                  machine.returnValue = SOptional(Some(SContractId(coid)))
+                case SVisibleByKey.NotVisible(actAs, readAs) =>
+                  machine.ctrl = SEDamlException(
+                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  )
+              },
+            )
+          )
         case Some(mbCoid) =>
           machine.returnValue = SOptional(mbCoid.map(SContractId))
         case None =>
@@ -1267,6 +1286,25 @@ private[lf] object SBuiltin {
       onLedger.ptx.keys.get(gkey) match {
         case Some(None) =>
           crash(s"Could not find key $gkey")
+        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
+          val cachedContract = onLedger.cachedContracts
+            .get(coid)
+            .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
+          val stakeholders = cachedContract.signatories union cachedContract.observers
+          throw SpeedyHungry(
+            SResultNeedLocalKeyVisible(
+              stakeholders,
+              onLedger.committers,
+              {
+                case SVisibleByKey.Visible =>
+                  machine.returnValue = SContractId(coid)
+                case SVisibleByKey.NotVisible(actAs, readAs) =>
+                  machine.ctrl = SEDamlException(
+                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  )
+              },
+            )
+          )
         case Some(Some(coid)) =>
           machine.returnValue = SContractId(coid)
         case None =>
@@ -1316,7 +1354,6 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       checkToken(args.get(1))
-      onLedger.localContracts = Set.empty
       onLedger.cachedContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.committers = extractParties(args.get(0))

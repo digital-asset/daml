@@ -373,6 +373,26 @@ template TextKeyOperations
           cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
           return ()
 
+template LocalKeyVisibilityOperations
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+
+    nonconsuming choice LocalLookup : ()
+      controller obs
+      do cid <- create (TextKey sig "" [])
+         Some _ <- lookupByKey @TextKey (sig, "")
+         archive cid
+
+    nonconsuming choice LocalFetch : ()
+      controller obs
+      do cid <- create (TextKey sig "" [])
+         _ <- fetchByKey @TextKey (sig, "")
+         archive cid
+
 -- dummy contract to be divulged out-of-band
 template Divulgence1
   with

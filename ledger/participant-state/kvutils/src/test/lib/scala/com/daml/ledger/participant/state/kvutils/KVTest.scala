@@ -15,7 +15,7 @@ import com.daml.lf.command.{Command, Commands}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction
 import com.daml.metrics.Metrics
@@ -198,6 +198,7 @@ object KVTest {
             state.damlState
               .get(Conversions.globalKeyToStateKey(globalKey.globalKey))
               .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
+          localKeyVisible = VisibleByKey.fromSubmitters(Set(submitter)),
         )
         .fold(error => throw new RuntimeException(error.detailMsg), identity)
     }
