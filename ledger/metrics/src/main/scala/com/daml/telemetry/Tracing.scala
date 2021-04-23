@@ -21,7 +21,7 @@ object Tracing {
     buffer.toMap
   }
 
-  def decodeTraceMetadata(data: java.util.Map[String, String]): Option[Context] = {
+  def decodeTraceMetadata(data: java.util.Map[String, String]): Option[Context] =
     if (data == null) {
       None
     } else {
@@ -30,8 +30,6 @@ object Tracing {
           .extract(Context.root, data.asScala.toMap, TracingMetadataGetter)
       )
     }
-
-  }
 
   /** Helper object used by TextMapPropagator.inject().
     */
