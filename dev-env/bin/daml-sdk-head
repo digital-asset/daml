@@ -21,6 +21,7 @@ PROFILING=0
 SKIP_JARS=0
 JUST_DAMLC=0
 SHA=0
+EE=0
 for opt in "$@"; do
   case "$opt" in
     "--nuke")
@@ -38,6 +39,9 @@ for opt in "$@"; do
     "--sha")
       SHA=1
       ;;
+    "--ee")
+      EE=1
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
@@ -46,6 +50,7 @@ for opt in "$@"; do
       echo "  --skip-jars  Skip building and installing the JARs."
       echo "  --damlc  Update damlc only, if daml-head is already installed."
       echo "  --sha Include SHA information in version number."
+      echo "  --ee Build the EE edition."
 
       exit 1
   esac
@@ -136,10 +141,15 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-# Building here separately so the user can see the build process which could take a while
-bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:sdk-release-tarball-ce.tar.gz
+SDK_RELEASE_TARBALL="sdk-release-tarball-ce.tar.gz"
+if [ $EE = 1 ]; then
+    SDK_RELEASE_TARBALL="sdk-release-tarball-ee.tar.gz"
+fi
 
-readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/sdk-release-tarball-ce.tar.gz"
+# Building here separately so the user can see the build process which could take a while
+bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:$SDK_RELEASE_TARBALL
+
+readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/$SDK_RELEASE_TARBALL"
 readonly SDK_TEMP_DIR="$(mktemp -d)"
 readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
 mkdir -p "$SDK_DIR"
