@@ -15,6 +15,7 @@ private[events] final case class EventsRange[A](startExclusive: A, endInclusive:
 }
 
 private[events] object EventsRange {
+
   private val EmptyLedgerEventSeqId = 0L
 
   // (0, 0] -- non-existent range
@@ -66,7 +67,7 @@ private[events] object EventsRange {
       // 2 - Need to figure out order by event_offset alternative
       // 3 - Need to get group by to work field even works
       case Oracle =>
-        SQL"select nvl(max(event_sequential_id),0) from participant_events where (dbms_lob.compare(event_offset, ${offset}) IN (0, -1)) fetch next 1 rows only"
+        SQL"select nvl(max(event_sequential_id),0) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc fetch next 1 rows only"
       case _ =>
         SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc limit 1"
     }

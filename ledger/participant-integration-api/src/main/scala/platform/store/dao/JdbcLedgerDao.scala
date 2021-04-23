@@ -256,7 +256,7 @@ private class JdbcLedgerDao(
               rejectionReason
           }
 
-        ParametersTable.updateLedgerEnd(offsetStep, dbType)
+        ParametersTable.updateLedgerEnd(offsetStep)
         val savepoint = conn.setSavepoint()
         val configurationBytes = Configuration.encode(configuration).toByteArray
         val typ = if (finalRejectionReason.isEmpty) {
@@ -311,7 +311,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      ParametersTable.updateLedgerEnd(offsetStep, dbType)
+      ParametersTable.updateLedgerEnd(offsetStep)
       val savepoint = conn.setSavepoint()
 
       partyEntry match {
@@ -546,7 +546,7 @@ private class JdbcLedgerDao(
   private def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-      ParametersTable.updateLedgerEnd(offsetStep, dbType),
+      ParametersTable.updateLedgerEnd(offsetStep),
     )
 
   override def storeRejection(
@@ -560,7 +560,7 @@ private class JdbcLedgerDao(
       for (info <- submitterInfo) {
         handleError(offsetStep.offset, info, recordTime, reason)
       }
-      ParametersTable.updateLedgerEnd(offsetStep, dbType)
+      ParametersTable.updateLedgerEnd(offsetStep)
       Ok
     }
   }
@@ -607,7 +607,7 @@ private class JdbcLedgerDao(
                 .execute()
           }
         }
-        ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd), dbType)
+        ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
     }
   }
 
@@ -641,7 +641,9 @@ private class JdbcLedgerDao(
         |values ({party}, {display_name}, {ledger_offset}, {explicit}, {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES = {
-        SQL(s"""select package_id, source_description, known_since, ${queries.escapeReservedWord("size")} from packages""")
+    SQL(s"""select package_id, source_description, known_since, ${queries.escapeReservedWord(
+      "size"
+    )} from packages""")
   }
 
   private val SQL_SELECT_PACKAGE =
@@ -713,7 +715,7 @@ private class JdbcLedgerDao(
     logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        ParametersTable.updateLedgerEnd(offsetStep, dbType)
+        ParametersTable.updateLedgerEnd(offsetStep)
 
         if (packages.nonEmpty) {
           val uploadId =
@@ -1161,7 +1163,7 @@ private[platform] object JdbcLedgerDao {
         .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
     }
 
-    protected[JdbcLedgerDao] def escapeReservedWord(word: String) : String
+    protected[JdbcLedgerDao] def escapeReservedWord(word: String): String
   }
 
   object PostgresQueries extends Queries {
@@ -1212,7 +1214,8 @@ private[platform] object JdbcLedgerDao {
     }
 
     // spaces which are subsequently trimmed left only for readability
-    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String = s""" "$word" """.trim
+    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String =
+      s""" "$word" """.trim
   }
 
   object H2DatabaseQueries extends Queries {
@@ -1257,7 +1260,8 @@ private[platform] object JdbcLedgerDao {
     ): Unit = ()
 
     //H2 needs a backtick to escape reserved words, double-quote is problematic
-    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String = s""" `$word` """.trim
+    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String =
+      s""" `$word` """.trim
 
   }
 
@@ -1302,20 +1306,20 @@ private[platform] object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries where
-        |({startExclusive} is null or dbms_lob.compare(ledger_offset, {startExclusive}) = 1) and
-        |(dbms_lob.compare(ledger_offset, {endInclusive}) IN (0, -1))
+        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries where
-        |({startExclusive} is null or dbms_lob.compare(ledger_offset, {startExclusive}) = 1) and
-        |(dbms_lob.compare(ledger_offset, {endInclusive}) IN (0, -1))
+        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES =
       """select * from configuration_entries where
-        |({startExclusive} is null or dbms_lob.compare(ledger_offset, {startExclusive}) = 1) and
-        |(dbms_lob.compare(ledger_offset, {endInclusive}) IN (0, -1))
+        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override def limit(numberOfItems: Int): String = s"fetch next $numberOfItems rows only"
@@ -1351,6 +1355,7 @@ private[platform] object JdbcLedgerDao {
     }
 
     // spaces which are subsequently trimmed left only for readability
-    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String = s""" "$word" """.trim
+    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String =
+      s""" "$word" """.trim
   }
 }
