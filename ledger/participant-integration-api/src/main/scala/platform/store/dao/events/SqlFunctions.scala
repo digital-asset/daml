@@ -18,7 +18,7 @@ private[dao] trait SqlFunctions {
 
   def limitClause(numRows: Int): String
 
-  def groupByIncludingBlobAndArrayColumns(cols: Seq[String]): String = s"group by (${cols.mkString(", ")})"
+  def groupByIncludingBinaryAndArrayColumns(cols: Seq[String]): String = s"group by (${cols.mkString(", ")})"
 }
 
 private[dao] object SqlFunctions {
@@ -73,7 +73,7 @@ private[dao] object SqlFunctions {
     override def limitClause(numRows: Int) = s"fetch next $numRows rows only"
 
     // Oracle cannot group by including columns which are BLOB or VARRAY
-    override def groupByIncludingBlobAndArrayColumns(cols: Seq[String]): String = ""
+    override def groupByIncludingBinaryAndArrayColumns(cols: Seq[String]): String = ""
   }
 
 }

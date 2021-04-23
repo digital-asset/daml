@@ -150,7 +150,7 @@ private[events] object EventsTableFlatEvents {
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
               and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
-          #${sqlFunctions.groupByIncludingBlobAndArrayColumns(groupByColumns)}
+          #${sqlFunctions.groupByIncludingBinaryAndArrayColumns(groupByColumns)}
           order by event_sequential_id"""
   }
 
