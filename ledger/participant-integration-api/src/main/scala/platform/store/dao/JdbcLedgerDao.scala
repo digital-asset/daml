@@ -5,7 +5,6 @@ package com.daml.platform.store.dao
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.platform.store.DbType.Oracle
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -98,7 +97,7 @@ private class JdbcLedgerDao(
 
   import JdbcLedgerDao._
 
-  val queries = dbType match {
+  private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
     case DbType.Oracle => OracleQueries
@@ -642,17 +641,7 @@ private class JdbcLedgerDao(
         |values ({party}, {display_name}, {ledger_offset}, {explicit}, {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES = {
-    dbType match {
-      case Oracle =>
-        SQL("""select package_id, source_description, known_since, "size"
-            |from packages
-            |""".stripMargin)
-      case _ =>
-        SQL("""select package_id, source_description, known_since, size
-            |from packages
-            |""".stripMargin)
-    }
-
+        SQL(s"""select package_id, source_description, known_since, ${queries.escapeReservedWord("size")} from packages""")
   }
 
   private val SQL_SELECT_PACKAGE =
@@ -1171,6 +1160,8 @@ private[platform] object JdbcLedgerDao {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
         .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
     }
+
+    protected[JdbcLedgerDao] def escapeReservedWord(word: String) : String
   }
 
   object PostgresQueries extends Queries {
@@ -1219,6 +1210,9 @@ private[platform] object JdbcLedgerDao {
         statement.close()
       }
     }
+
+    // spaces which are subsequently trimmed left only for readability
+    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String = s""" "$word" """.trim
   }
 
   object H2DatabaseQueries extends Queries {
@@ -1261,6 +1255,9 @@ private[platform] object JdbcLedgerDao {
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
     ): Unit = ()
+
+    //H2 needs a backtick to escape reserved words, double-quote is problematic
+    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String = s""" `$word` """.trim
 
   }
 
@@ -1352,5 +1349,8 @@ private[platform] object JdbcLedgerDao {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
         .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
     }
+
+    // spaces which are subsequently trimmed left only for readability
+    override protected[JdbcLedgerDao] def escapeReservedWord(word: String): String = s""" "$word" """.trim
   }
 }
