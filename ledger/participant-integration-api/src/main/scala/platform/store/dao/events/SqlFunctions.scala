@@ -17,6 +17,8 @@ private[dao] trait SqlFunctions {
   def toArray(value: String): String
 
   def limitClause(numRows: Int): String
+
+  def groupByIncludingBlobAndArrayColumns(cols: Seq[String]): String = s"group by (${cols.mkString(", ")})"
 }
 
 private[dao] object SqlFunctions {
@@ -57,7 +59,7 @@ private[dao] object SqlFunctions {
   }
 
   object OracleSqlFunctions extends SqlFunctions {
-    //TODO BH: this is likely extremely inefficient
+    //TODO BH: this is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
       parties
         .map(party => s"('$party') IN (SELECT * FROM TABLE($arrayColumn))")
@@ -69,6 +71,9 @@ private[dao] object SqlFunctions {
     override def toArray(value: String) = s"VARCHAR_ARRAY('$value')"
 
     override def limitClause(numRows: Int) = s"fetch next $numRows rows only"
+
+    // Oracle cannot group by including columns which are BLOB or VARRAY
+    override def groupByIncludingBlobAndArrayColumns(cols: Seq[String]): String = ""
   }
 
 }
