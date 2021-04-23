@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter, SqlStringInterpolation}
+import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.DivulgedContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.ContractsTable.Executable
@@ -16,10 +16,8 @@ import com.daml.platform.store.OracleArrayConversions._
 object ContractsTableOracle extends ContractsTable {
 
   private val insertContractQuery: String =
-    s"""merge into participant_contracts using dual
-       | on (contract_id = {contract_id})
-       | when not matched then
-       | insert (contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders)
+    s"""insert /*+ ignore_row_on_dupkey_index(participant_contracts(contract_id)) */
+       | into participant_contracts (contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders)
        | values ({contract_id}, {template_id}, {create_argument}, {create_argument_compression}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})""".stripMargin
 
   override def toExecutables(
@@ -30,12 +28,6 @@ object ContractsTableOracle extends ContractsTable {
     deleteContracts = buildDeletes(info),
     insertContracts = buildInserts(tx, info, serialized),
   )
-
-  override def lookupContractKeyGlobally(
-      key: Key
-  )(implicit connection: Connection): Option[ContractId] =
-    SQL"select participant_contracts.contract_id from participant_contracts where create_key_hash = ${key.hash}"
-      .as(contractId("contract_id").singleOpt)
 
   private def insertContract(
       contractId: ContractId,

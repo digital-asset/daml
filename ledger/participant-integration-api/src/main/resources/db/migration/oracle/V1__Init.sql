@@ -311,7 +311,6 @@ create table participant_contracts
 );
 
 -- support looking up a contract by key
--- TODO BH: consider whether ORA_HASH() could help
 create unique index participant_contracts_idx on participant_contracts (create_key_hash);
 
 
