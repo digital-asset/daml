@@ -44,11 +44,11 @@ deriving instance Show a => Show (NonEmpty a)
 
 instance DA.Internal.Record.HasField "hd" (NonEmpty a) a where
     getField (NonEmpty x _) = x
-    setField x (NonEmpty _ xs) = NonEmpty x xs
+    setField (NonEmpty _ xs) x = NonEmpty x xs
 
 instance DA.Internal.Record.HasField "tl" (NonEmpty a) [a] where
     getField (NonEmpty _ xs) = xs
-    setField xs (NonEmpty x _) = NonEmpty x xs
+    setField (NonEmpty x _) xs = NonEmpty x xs
 
 instance Semigroup (NonEmpty a) where
   (<>) = append

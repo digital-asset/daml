@@ -148,6 +148,6 @@ instance Ord k => Monoid (Set k) where
 
 instance DA.Internal.Record.HasField "map" (Set k) (Map k ()) where
   getField (Set m) = m
-  setField m _ = Set m
+  setField _ m = Set m
 
 #endif

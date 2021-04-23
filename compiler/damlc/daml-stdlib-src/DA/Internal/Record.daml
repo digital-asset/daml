@@ -67,78 +67,78 @@ import GHC.Integer.Type() -- required for Integer primitives
 -- Likewise, if we want to set the value in the field, we can use the `setField` function:
 --
 -- ```
--- setFoo : Int -> MyRecord -> MyRecord
--- setFoo a r = setField @"foo" a r
+-- setFoo : MyRecord -> Int -> MyRecord
+-- setFoo r a = setField @"foo" r a
 --
--- setBar : Text -> MyRecord -> MyRecord
--- setBar a r = setField @"bar" a r
+-- setBar : MyRecord -> Text -> MyRecord
+-- setBar r a = setField @"bar" r a
 -- ```
 class HasField (x : Symbol) r a | x r -> a where
     getField : r -> a
-    setField : a -> r -> r
+    setField : r -> a -> r
 
 -- | HIDE Not re-exported in DA.Record
 getFieldPrim : forall (f : Symbol) rec fld. rec -> fld
 getFieldPrim = getFieldPrim
 
 -- | HIDE Not re-exported in DA.Record
-setFieldPrim : forall (f : Symbol) rec fld. fld -> rec -> rec
+setFieldPrim : forall (f : Symbol) rec fld. rec -> fld -> rec
 setFieldPrim = setFieldPrim
 
 -- we have _1/.. for pairs to quintuples
 
 instance HasField "_1" (a,b) a where
     getField (a,_) = a
-    setField a (_,b) = (a,b)
+    setField (_,b) a = (a,b)
 
 instance HasField "_2" (a,b) b where
     getField (_,b) = b
-    setField b (a,_) = (a,b)
+    setField (a,_) b = (a,b)
 
 instance HasField "_1" (a,b,c) a where
     getField (a,_,_) = a
-    setField a (_,b,c) = (a,b,c)
+    setField (_,b,c) a = (a,b,c)
 
 instance HasField "_2" (a,b,c) b where
     getField (_,b,_) = b
-    setField b (a,_,c) = (a,b,c)
+    setField (a,_,c) b = (a,b,c)
 
 instance HasField "_3" (a,b,c) c where
     getField (_,_,c) = c
-    setField c (a,b,_) = (a,b,c)
+    setField (a,b,_) c = (a,b,c)
 
 instance HasField "_1" (a,b,c,d) a where
     getField (a,_,_,_) = a
-    setField a (_,b,c,d) = (a,b,c,d)
+    setField (_,b,c,d) a = (a,b,c,d)
 
 instance HasField "_2" (a,b,c,d) b where
     getField (_,b,_,_) = b
-    setField b (a,_,c,d) = (a,b,c,d)
+    setField (a,_,c,d) b = (a,b,c,d)
 
 instance HasField "_3" (a,b,c,d) c where
     getField (_,_,c,_) = c
-    setField c (a,b,_,d) = (a,b,c,d)
+    setField (a,b,_,d) c = (a,b,c,d)
 
 instance HasField "_4" (a,b,c,d) d where
     getField (_,_,_,d) = d
-    setField d (a,b,c,_) = (a,b,c,d)
+    setField (a,b,c,_) d = (a,b,c,d)
 
 instance HasField "_1" (a,b,c,d,e) a where
     getField (a,_,_,_,_) = a
-    setField a (_,b,c,d,e) = (a,b,c,d,e)
+    setField (_,b,c,d,e) a = (a,b,c,d,e)
 
 instance HasField "_2" (a,b,c,d,e) b where
     getField (_,b,_,_,_) = b
-    setField b (a,_,c,d,e) = (a,b,c,d,e)
+    setField (a,_,c,d,e) b = (a,b,c,d,e)
 
 instance HasField "_3" (a,b,c,d,e) c where
     getField (_,_,c,_,_) = c
-    setField c (a,b,_,d,e) = (a,b,c,d,e)
+    setField (a,b,_,d,e) c = (a,b,c,d,e)
 
 instance HasField "_4" (a,b,c,d,e) d where
     getField (_,_,_,d,_) = d
-    setField d (a,b,c,_,e) = (a,b,c,d,e)
+    setField (a,b,c,_,e) d = (a,b,c,d,e)
 
 instance HasField "_5" (a,b,c,d,e) e where
     getField (_,_,_,_,e) = e
-    setField e (a,b,c,d,_) = (a,b,c,d,e)
+    setField (a,b,c,d,_) e = (a,b,c,d,e)

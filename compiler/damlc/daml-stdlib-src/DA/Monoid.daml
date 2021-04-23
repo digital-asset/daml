@@ -68,12 +68,12 @@ instance Multiplicative a => Monoid (Product a) where
 
 instance DA.Internal.Record.HasField "getAll" All Bool where
   getField (All x) = x
-  setField x _ = All x
+  setField _ x = All x
 
 instance DA.Internal.Record.HasField "getAny" Any Bool where
   getField (Any x) = x
-  setField x _ = Any x
+  setField _ x = Any x
 
 instance DA.Internal.Record.HasField "appEndo" (Endo a) (a -> a) where
   getField (Endo f) = f
-  setField f _ = Endo f
+  setField _ f = Endo f

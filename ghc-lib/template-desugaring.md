@@ -133,7 +133,7 @@ _choice_IouTransfer
               [toParties (owner)],
      \ self this@Iou {..} arg@Transfer {..}
        -> let
-          in do create (DA.Internal.Record.setField @"owner" newOwner this),
+          in do create (DA.Internal.Record.setField @"owner" this newOwner),
      PreConsuming)
 ```
 

@@ -89,14 +89,14 @@ instanceTemplate abstract selector record field = ClsInstD noE $ ClsInstDecl noE
         get = funbind var_getField [] $ noL $ HsVar noE $ rdrNameFieldOcc selector
 
         set = funbind var_setField
-            [VarPat noE $ noL vA, VarPat noE $ noL vR] $
+            [VarPat noE $ noL vR, VarPat noE $ noL vA] $
             noL $ RecordUpd noE (noL $ GHC.HsVar noE $ noL vR)
                 [noL $ HsRecField (noL (Unambiguous noE (rdrNameFieldOcc selector))) (noL $ GHC.HsVar noE $ noL vA) False]
 
         getAbstract = funbind var_getField [] $
             noL (HsVar noE $ noL var_getFieldPrim) `mkAppType` fldName `mkAppType` noL record `mkAppType` noL field
         setAbstract = funbind var_setField [] $
-            noL (HsVar noE $ noL var_setFieldPrim) `mkAppType` fldName `mkAppType` noL record `mkAppType` noL field
+            noL (HsVar noE $ noL var_setFieldPrim) `mkAppType` fldName `mkAppType`  noL record `mkAppType` noL field
 
         fldName = mkSelector $ GHC.rdrNameFieldOcc selector
 
@@ -174,7 +174,7 @@ onExp (L o (SectionR _ mid@(isDot -> True) rhs))
 onExp (L o upd@RecordUpd{rupd_expr,rupd_flds=L _ (HsRecField (fmap rdrNameAmbiguousFieldOcc -> lbl) arg pun):flds})
     | let sel = mkSelector lbl
     , let arg2 = if pun then noL $ HsVar noE lbl else arg
-    , let expr = mkParen $ mkVar var_setField `mkAppType` sel `mkApp` arg2 `mkApp` rupd_expr -- 'rupd_expr' never needs bracketing.
+    , let expr = mkParen $ mkVar var_setField `mkAppType` sel `mkApp` rupd_expr `mkApp` arg2 -- 'rupd_expr' never needs bracketing.
     = onExp $ if null flds then expr else L o upd{rupd_expr=expr,rupd_flds=flds}
 
 onExp x = descend onExp x
