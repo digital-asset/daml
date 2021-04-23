@@ -82,7 +82,7 @@ beforeAll(async () => {
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
   jsonApiPort = parseInt(jsonApiPortData);
   console.log('JSON API listening on port ' + jsonApiPort.toString());
-}, 120_000);
+}, 300_000);
 
 afterAll(() => {
   if (sandboxProcess) {
