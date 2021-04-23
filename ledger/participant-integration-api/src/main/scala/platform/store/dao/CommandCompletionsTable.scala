@@ -58,7 +58,7 @@ private[platform] object CommandCompletionsTable {
     dbType match {
       case Oracle =>
         SQL"""select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions
-             where ($startExclusive is null or DBMS_LOB.COMPARE(completion_offset, $startExclusive) = 1) and (DBMS_LOB.COMPARE(completion_offset, $endInclusive) IN (0,-1))
+             where ($startExclusive is null or completion_offset > $startExclusive) and completion_offset <= $endInclusive
              and application_id = $applicationId
              and #$submittersInPartiesClause
              """

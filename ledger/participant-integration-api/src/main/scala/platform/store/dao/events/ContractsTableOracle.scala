@@ -34,7 +34,7 @@ object ContractsTableOracle extends ContractsTable {
   override def lookupContractKeyGlobally(
       key: Key
   )(implicit connection: Connection): Option[ContractId] =
-    SQL"select participant_contracts.contract_id from participant_contracts where DBMS_LOB.compare(create_key_hash, ${key.hash}) = 0"
+    SQL"select participant_contracts.contract_id from participant_contracts where create_key_hash = ${key.hash}"
       .as(contractId("contract_id").singleOpt)
 
   private def insertContract(
