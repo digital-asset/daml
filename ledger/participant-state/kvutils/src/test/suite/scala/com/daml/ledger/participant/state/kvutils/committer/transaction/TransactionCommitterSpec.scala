@@ -625,20 +625,28 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "return Inconsistent when a contract key resolves to a different contract ID than submitted by a participant" in {
 
       val cases =
-        Seq((false, Some(s"#$freshContractId")), (true, Some(s"#$freshContractId")), (true, None))
-          .flatMap { case (found, contractIdAtCommitter) =>
+        Seq(
+          ("existing global key was not found", false, Some(s"#$freshContractId")),
+          (
+            "existing global key was mapped to the wrong contract id",
+            true,
+            Some(s"#$freshContractId"),
+          ),
+          ("no global key exists but lookup succeeded", true, None),
+        )
+          .flatMap { case (name, found, contractIdAtCommitter) =>
             Seq(false, true).map(inRollback =>
-              newLookupByKeySubmittedTransaction(found, inRollback) -> contractIdAtCommitter
+              (name, newLookupByKeySubmittedTransaction(found, inRollback), contractIdAtCommitter)
             )
           }
 
-      val casesTbl = Table(
-        "transaction" -> "contractIdAtCommitter",
+      val casesTable = Table(
+        ("name", "transaction", "contractIdAtCommitter"),
         cases: _*
       )
 
-      forAll(casesTbl) {
-        (transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
+      forAll(casesTable) {
+        (_, transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
           val context = commitContextWithContractStateKeys(
             mykey -> contractIdAtCommitter
           )
