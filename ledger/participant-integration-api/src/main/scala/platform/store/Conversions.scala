@@ -239,20 +239,6 @@ private[platform] object Conversions {
   implicit val ledgerStringMetaParameter: ParameterMetaData[Ref.LedgerString] =
     new SubTypeOfStringMetaParameter[Ref.LedgerString]
 
-  // HexString
-
-  implicit val columnToHexString: Column[Ref.HexString] =
-    stringColumnToX(Ref.HexString.fromString)
-
-  implicit val hexStringToStatement: ToStatement[Ref.HexString] =
-    new SubTypeOfStringToStatement[Ref.HexString]
-
-  def hexString(columnName: String): RowParser[Ref.HexString] =
-    SqlParser.get[Ref.HexString](columnName)(columnToHexString)
-
-  implicit val hexStringMetaParameter: ParameterMetaData[Ref.HexString] =
-    new SubTypeOfStringMetaParameter[Ref.HexString]
-
   // EventId
 
   implicit val columnToEventId: Column[EventId] =
