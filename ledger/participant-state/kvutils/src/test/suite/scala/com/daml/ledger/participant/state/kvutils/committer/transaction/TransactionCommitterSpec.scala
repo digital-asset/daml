@@ -676,7 +676,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val rollback = builder.add(builder.rollback())
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
       val transaction = builder.buildSubmitted()
-      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#freshContractId"))
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#$freshContractId"))
       val result = validate(context, transaction)
       result shouldBe a[StepStop]
       val rejectionReason =
