@@ -146,8 +146,8 @@ private[transaction] object ContractKeysValidation {
   ) {
 
     /** Earlier active state keys are discarded.
-      *        submitted contract key mapping is merged biased towards earlier
-      *        assignments.
+      * submitted contract key mapping is merged biased towards earlier
+      * assignments.
       */
     def +(state: KeyValidationState): KeyValidationState = {
       val newContractKeyMappings =
