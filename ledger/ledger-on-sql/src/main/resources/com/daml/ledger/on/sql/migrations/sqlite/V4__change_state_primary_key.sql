@@ -1,6 +1,3 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
 CREATE TABLE ${table.prefix}state_new
 (
     key_hash VARBINARY(2048) PRIMARY KEY NOT NULL,
@@ -13,4 +10,3 @@ INSERT INTO ${table.prefix}state_new (key_hash, key, value)
 
 DROP TABLE ${table.prefix}state;
 ALTER TABLE ${table.prefix}state_new RENAME TO ${table.prefix}state;
-
