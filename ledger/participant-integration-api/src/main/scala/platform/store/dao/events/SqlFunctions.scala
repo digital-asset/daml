@@ -18,7 +18,8 @@ private[dao] trait SqlFunctions {
 
   def limitClause(numRows: Int): String
 
-  def groupByIncludingBinaryAndArrayColumns(cols: Seq[String]): String = s"group by (${cols.mkString(", ")})"
+  def groupByIncludingBinaryAndArrayColumns(cols: Seq[String]): String =
+    s"group by (${cols.mkString(", ")})"
 }
 
 private[dao] object SqlFunctions {

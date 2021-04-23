@@ -137,7 +137,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
       extends Product
       with Serializable
   private[EventsTableFlatEventsRangeQueries] object QueryParts {
-    final case class ByArith(read: (EventsRange[Long], String) => SimpleSql[Row]) extends QueryParts
+    final case class ByArith(read: (EventsRange[Long], Option[Int]) => SimpleSql[Row])
+        extends QueryParts
     final case class ByLimit(saferRead: SimpleSql[Row]) extends QueryParts
     import language.implicitConversions
     implicit def `go by limit`(saferRead: SimpleSql[Row]): ByLimit = ByLimit(saferRead)
@@ -156,7 +157,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       QueryParts.ByArith(
-        read = (range, _) =>
+        read = (range, limitOpt) => {
+          val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
           SQL"""
             select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
                    case when #${sqlFunctions
@@ -165,7 +167,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
+            order by event_sequential_id #$limitClause"""
+        }
       )
     }
 
@@ -178,7 +181,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       QueryParts.ByArith(
-        read = (range, _) =>
+        read = (range, limitOpt) => {
+          val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
           SQL"""
             select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
                    case when #${sqlFunctions
@@ -188,7 +192,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
                   and template_id in ($templateIds)
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
+            order by event_sequential_id #$limitClause"""
+        }
       )
     }
 
@@ -204,14 +209,17 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
-        read = (range, _) => SQL"""
+        read = (range, limitOpt) => {
+          val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
+          SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
+            order by event_sequential_id #$limitClause"""
+        }
       )
     }
 
@@ -228,7 +236,9 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
-        read = (range, _) => SQL"""
+        read = (range, limitOpt) => {
+          val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
+          SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -236,7 +246,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
                   and template_id in ($templateIds)
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
+            order by event_sequential_id #$limitClause"""
+        }
       )
     }
 
@@ -257,14 +268,17 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
-        read = (range, _) => SQL"""
+        read = (range, limitOpt) => {
+          val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
+          SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$partiesAndTemplatesCondition
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
+            order by event_sequential_id #$limitClause"""
+        }
       )
     }
 
@@ -288,14 +302,17 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
-        read = (range, _) => SQL"""
+        read = (range, limitOpt) => {
+          val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
+          SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
+            order by event_sequential_id #$limitClause"""
+        }
       )
     }
 

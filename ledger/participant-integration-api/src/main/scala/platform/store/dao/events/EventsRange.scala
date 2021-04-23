@@ -63,13 +63,17 @@ private[events] object EventsRange {
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
     // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
 
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc #${SqlFunctions(dbType).limitClause(1)}"
+    SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc #${SqlFunctions(dbType)
+      .limitClause(1)}"
       .as(get[Long](1).singleOpt)(connection)
       .getOrElse(EmptyLedgerEventSeqId)
   }
 
   private[events] def readPage[A](
-      read: (EventsRange[Long], String) => SimpleSql[Row], // takes range and limit sub-expression
+      read: (
+          EventsRange[Long],
+          Option[Int],
+      ) => SimpleSql[Row], // takes range and limit sub-expression
       row: RowParser[A],
       range: EventsRange[Long],
       pageSize: Int,
@@ -78,7 +82,7 @@ private[events] object EventsRange {
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
     SqlSequence
       .vector(
-        read(range copy (endInclusive = guessedPageEnd), "") withFetchSize Some(pageSize),
+        read(range copy (endInclusive = guessedPageEnd), None) withFetchSize Some(pageSize),
         row,
       )
       .flatMap { arithPage =>
@@ -90,7 +94,7 @@ private[events] object EventsRange {
             .vector(
               read(
                 range copy (startExclusive = guessedPageEnd),
-                s"limit ${minPageSize - found: Int}",
+                Some(minPageSize - found),
               ) withFetchSize Some(minPageSize - found),
               row,
             )
