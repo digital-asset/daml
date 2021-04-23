@@ -25,32 +25,6 @@ import scala.language.implicitConversions
 private[platform] object OracleArrayConversions {
   import oracle.jdbc.OracleConnection
 
-//    @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-//    implicit def arrayToParameter[A <: AnyRef](implicit m: ParameterMetaData[A]): ToStatement[Array[A]] =
-//      new ToStatement[Array[A]] {
-//        def set(s: PreparedStatement, i: Int, arr: Array[A]) = {
-//          val OracleArrayName = m.sqlType match {
-//            case "VARCHAR" => "VARCHAR_ARRAY"
-////              SYS.ODCIVARCHAR2LIST
-//            case "SMALLINT" => "SMALLINT_ARRAY"
-//            case "BYTEA" => "BYTE_ARRAY_ARRAY"
-//            case "LONGVARBINARY" => "BYTE_ARRAY_ARRAY"
-//            case "TIMESTAMP" => "TIMESTAMP_ARRAY"
-//            case "BOOLEAN" => "BOOLEAN_ARRAY"
-//          }
-//          if (arr == (null: AnyRef)) {
-//            s.setNull(i, JDBCType.ARRAY.getVendorTypeNumber, OracleArrayName)
-//          }
-//          else {
-//            s.setObject(
-//              i,
-//              unwrapConnection(s).createARRAY(OracleArrayName, arr.map(a => a: AnyRef)),
-//              JDBCType.ARRAY.getVendorTypeNumber,
-//            )
-//          }
-//        }
-//      }
-
   implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
     override def sqlType: String = "ARRAY"
     override def jdbcType: Int = java.sql.Types.ARRAY
@@ -67,39 +41,30 @@ private[platform] object OracleArrayConversions {
   abstract sealed class ArrayToStatement[T](oracleTypeName: String)
       extends ToStatement[Array[T]]
       with NotNullGuard {
-    private val OracleArrayName: String = oracleTypeName match {
-      case "VARCHAR" => "VARCHAR_ARRAY"
-      case "SMALLINT" => "SMALLINT_ARRAY"
-      case "LONGVARBINARY" => "BYTE_ARRAY_ARRAY"
-      case "TIMESTAMP" => "TIMESTAMP_ARRAY"
-      case "BOOLEAN" => "BOOLEAN_ARRAY"
-      case s: String => throw new IllegalArgumentException(s)
-    }
-
     override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
       if (v == (null: AnyRef)) {
-        s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, OracleArrayName)
+        s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, oracleTypeName)
       } else {
         s.setObject(
           index,
-          unwrapConnection(s).createARRAY(OracleArrayName, v.asInstanceOf[Array[AnyRef]]),
+          unwrapConnection(s).createARRAY(oracleTypeName, v.asInstanceOf[Array[AnyRef]]),
           JDBCType.ARRAY.getVendorTypeNumber,
         )
       }
     }
   }
 
-  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("LONGVARBINARY")
+  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTE_ARRAY_ARRAY")
 
-  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
+  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP_ARRAY")
 
-  implicit object RefPartyArrayToStatement extends ArrayToStatement[Ref.Party]("VARCHAR")
+  implicit object RefPartyArrayToStatement extends ArrayToStatement[Ref.Party]("VARCHAR_ARRAY")
 
-  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
+  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR_ARRAY")
 
-  implicit object IntegerArrayToStatement extends ArrayToStatement[Integer]("SMALLINT")
+  implicit object IntegerArrayToStatement extends ArrayToStatement[Integer]("SMALLINT_ARRAY")
 
-  implicit object BooleanArrayToStatement extends ArrayToStatement[java.lang.Boolean]("BOOLEAN")
+  implicit object BooleanArrayToStatement extends ArrayToStatement[java.lang.Boolean]("BOOLEAN_ARRAY")
 
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
