@@ -12,6 +12,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
 import com.daml.metrics.Metrics
+import com.daml.telemetry.TelemetryContext
 
 /** Implements read and write operations required for running a participant server.
   *
@@ -46,7 +47,7 @@ class KeyValueParticipantState(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.submitTransaction(
       submitterInfo,
       transactionMeta,

@@ -26,6 +26,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.platform.common.MismatchException
 import com.daml.platform.testing.TestDarReader
 import org.scalatest.Inside._
@@ -48,7 +49,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
 
-  implicit private val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
+  private implicit val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
