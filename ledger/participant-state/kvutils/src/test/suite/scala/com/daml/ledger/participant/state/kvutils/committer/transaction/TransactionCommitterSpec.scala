@@ -595,57 +595,124 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   }
 
   "validateContractKeys" should {
+    def createNode(contractId: String): Create =
+      create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
+
+    def freshContractId: String =
+      s"testContractId-${UUID.randomUUID().toString.take(10)}"
+
+    def newLookupByKeySubmittedTransaction(
+        found: Boolean,
+        inRollback: Boolean,
+    ): SubmittedTransaction = {
+      val lookup = txBuilder.lookupByKey(createNode(contractId = s"#$freshContractId"), found)
+      val builder = TransactionBuilder()
+      if (inRollback) {
+        val rollback = builder.add(txBuilder.rollback())
+        builder.add(lookup, rollback)
+      } else {
+        builder.add(lookup)
+      }
+      builder.buildSubmitted()
+    }
+
+    val mykey = {
+      val aCreateNode = createNode("#dummy")
+      Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
+    }
+
     "return Inconsistent when a contract key resolves to a different contract ID than submitted by a participant" in {
-      def createNode(contractId: String): Create =
-        create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
-      def newLookupByKeySubmittedTransaction(found: Boolean): SubmittedTransaction =
-        TransactionBuilder.justSubmitted(
-          txBuilder.lookupByKey(createNode(contractId = s"#$freshContractId"), found)
-        )
+      val cases =
+        Seq((false, Some(s"#$freshContractId")), (true, Some(s"#$freshContractId")), (true, None))
+          .flatMap { case (found, contractIdAtCommitter) =>
+            Seq(false, true).map(inRollback =>
+              newLookupByKeySubmittedTransaction(found, inRollback) -> contractIdAtCommitter
+            )
+          }
 
-      val lookupByKeyNotFound =
-        newLookupByKeySubmittedTransaction(found = false)
-      val lookupByKeyFound1 = newLookupByKeySubmittedTransaction(found = true)
-      val lookupByKeyFound2 = newLookupByKeySubmittedTransaction(found = true)
-
-      val cases = Table(
+      val casesTbl = Table(
         "transaction" -> "contractIdAtCommitter",
-        lookupByKeyNotFound -> Some(s"#$freshContractId"),
-        lookupByKeyFound1 -> Some(s"#$freshContractId"),
-        lookupByKeyFound2 -> None,
+        cases: _*
       )
 
-      val key = {
-        val aCreateNode = createNode("#dummy")
-        Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
-      }
-      forAll(cases) { (transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
-        val context = commitContextWithContractStateKeys(
-          key -> contractIdAtCommitter
-        )
-        val result =
-          ContractKeysValidation
-            .validateKeys(transactionCommitter)
-            .apply(
-              context,
-              DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
-            )
-        result shouldBe a[StepStop]
-        val rejectionReason =
-          getTransactionRejectionReason(result).getInconsistent.getDetails
-        rejectionReason should startWith("InconsistentKeys")
+      forAll(casesTbl) {
+        (transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
+          val context = commitContextWithContractStateKeys(
+            mykey -> contractIdAtCommitter
+          )
+          val result = validate(context, transaction)
+          result shouldBe a[StepStop]
+          val rejectionReason =
+            getTransactionRejectionReason(result).getInconsistent.getDetails
+          rejectionReason should startWith("InconsistentKeys")
       }
     }
+
+    "return DuplicateKeys when two local contracts conflict" in {
+      val builder = TransactionBuilder()
+      builder.add(createNode(s"#$freshContractId"))
+      builder.add(createNode(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(mykey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "return DuplicateKeys when a create in a rollback conflicts with a global key" in {
+      val builder = TransactionBuilder()
+      val rollback = builder.add(builder.rollback())
+      builder.add(createNode(s"#$freshContractId"), rollback)
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(mykey -> Some(s"#freshContractId"))
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "not return DuplicateKeys between local contracts if first create is rolled back" in {
+      val builder = TransactionBuilder()
+      val rollback = builder.add(builder.rollback())
+      builder.add(createNode(s"#$freshContractId"), rollback)
+      builder.add(createNode(s"#freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(mykey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepContinue[_]]
+    }
+
+    "return DuplicateKeys between local contracts even if second create is rolled back" in {
+      val builder = TransactionBuilder()
+      builder.add(createNode(s"#freshContractId"))
+      val rollback = builder.add(builder.rollback())
+      builder.add(createNode(s"#$freshContractId"), rollback)
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(mykey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    def validate(ctx: CommitContext, transaction: SubmittedTransaction) =
+      ContractKeysValidation
+        .validateKeys(transactionCommitter)
+        .apply(
+          ctx,
+          DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
+        )
 
     def contractKeyState(contractId: String): DamlContractKeyState =
       DamlContractKeyState
         .newBuilder()
         .setContractId(contractId)
         .build()
-
-    def freshContractId: String =
-      s"testContractId-${UUID.randomUUID().toString.take(10)}"
 
     def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
       DamlStateKey

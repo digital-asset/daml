@@ -112,14 +112,18 @@ private[transaction] object ContractKeysValidation {
       initialState: KeyValidationState,
   ): KeyValidationStatus =
     for {
-      stateAfterUniquenessCheck <- checkNodeKeyUniqueness(
-        node,
-        initialState,
+      stateAfterUniquenessCheck <- initialState.onActiveStateKeys(
+        checkNodeKeyUniqueness(
+          node,
+          _,
+        )
       )
-      finalState <- checkNodeKeyConsistency(
-        contractKeysToContractIds,
-        node,
-        stateAfterUniquenessCheck,
+      finalState <- stateAfterUniquenessCheck.onSubmittedContractKeysToContractIds(
+        checkNodeKeyConsistency(
+          contractKeysToContractIds,
+          node,
+          _,
+        )
       )
     } yield finalState
 
@@ -145,19 +149,29 @@ private[transaction] object ContractKeysValidation {
       ]],
   ) {
 
-    /** Earlier active state keys are discarded.
-      * submitted contract key mapping is merged biased towards earlier
-      * assignments.
-      */
-    def +(state: KeyValidationState): KeyValidationState = {
-      val newContractKeyMappings =
-        state.submittedContractKeysToContractIds -- submittedContractKeysToContractIds.keySet
-      new KeyValidationState(
-        activeStateKeys = state.activeStateKeys,
-        submittedContractKeysToContractIds =
-          submittedContractKeysToContractIds ++ newContractKeyMappings,
+    def onSubmittedContractKeysToContractIds(
+        f: Map[DamlContractKey, Option[
+          RawContractId
+        ]] => Either[KeyValidationError, Map[DamlContractKey, Option[
+          RawContractId
+        ]]]
+    ): KeyValidationStatus =
+      f(submittedContractKeysToContractIds).map(newSubmitted =>
+        new KeyValidationState(
+          activeStateKeys = this.activeStateKeys,
+          submittedContractKeysToContractIds = newSubmitted,
+        )
       )
-    }
+
+    def onActiveStateKeys(
+        f: Set[DamlStateKey] => Either[KeyValidationError, Set[DamlStateKey]]
+    ): KeyValidationStatus =
+      f(activeStateKeys).map(newActive =>
+        new KeyValidationState(
+          activeStateKeys = newActive,
+          submittedContractKeysToContractIds = this.submittedContractKeysToContractIds,
+        )
+      )
   }
 
   private[keys] object KeyValidationState {
@@ -174,11 +188,6 @@ private[transaction] object ContractKeysValidation {
 
   private[keys] type KeyValidationStatus =
     Either[KeyValidationError, KeyValidationState]
-
-  def currentStatus(
-      statusStack: Either[KeyValidationError, List[KeyValidationState]]
-  ): KeyValidationStatus =
-    statusStack.map(_.head)
 
   def onCurrentStatus[E, A](
       statusStack: Either[E, List[A]]
