@@ -42,13 +42,13 @@ class KeyValueParticipantState(
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     readerAdapter.stateUpdates(beginAfter)
 
-  override def submitTransactionWithTelemetry(
+  override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
-    writerAdapter.submitTransactionWithTelemetry(
+    writerAdapter.submitTransaction(
       submitterInfo,
       transactionMeta,
       transaction,

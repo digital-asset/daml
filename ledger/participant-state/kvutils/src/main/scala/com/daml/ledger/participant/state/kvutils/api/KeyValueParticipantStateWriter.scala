@@ -21,7 +21,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
-  override def submitTransactionWithTelemetry(
+  override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,

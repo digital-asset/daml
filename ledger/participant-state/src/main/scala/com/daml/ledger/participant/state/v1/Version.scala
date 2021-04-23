@@ -10,7 +10,7 @@ package com.daml.ledger.participant.state.v1
   * [after 100.13.39]:
   * - [[WritePackagesService.uploadPackages]] and [[WritePartyService.allocateParty]]
   *   now return [[SubmissionResult]]. Responses to these requests are communicated
-  *   as events, just like with [[WriteService.submitTransactionWithTelemetry]].
+  *   as events, just like with [[WriteService.submitTransaction]].
   *
   * [after 100.13.37]:
   * - Moved configuration serialization from kvutils to participant-state. This is used both by

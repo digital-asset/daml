@@ -14,7 +14,7 @@ import com.daml.telemetry.TelemetryContext
 
 final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
 
-  override def submitTransactionWithTelemetry(
+  override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
@@ -23,7 +23,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
     Timed.timedAndTrackedCompletionStage(
       metrics.daml.services.write.submitTransaction,
       metrics.daml.services.write.submitTransactionRunning,
-      delegate.submitTransactionWithTelemetry(
+      delegate.submitTransaction(
         submitterInfo,
         transactionMeta,
         transaction,

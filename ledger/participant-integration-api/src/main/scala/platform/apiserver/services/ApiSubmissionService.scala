@@ -263,7 +263,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
     writeService
-      .submitTransactionWithTelemetry(
+      .submitTransaction(
         result.submitterInfo,
         result.transactionMeta,
         result.transaction,

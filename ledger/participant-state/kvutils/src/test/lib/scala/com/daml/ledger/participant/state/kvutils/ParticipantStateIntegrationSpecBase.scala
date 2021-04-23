@@ -26,9 +26,9 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.platform.common.MismatchException
 import com.daml.platform.testing.TestDarReader
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.scalatest.Inside._
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
@@ -304,7 +304,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(alice),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -324,7 +324,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -334,7 +334,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           // Below submission is a duplicate, should get dropped.
           result3 <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -342,7 +342,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             )
             .toScala
           result4 <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(alice, commandIds._2),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -374,7 +374,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .toScala // offset now at [1,0]
           (offset1, _) <- waitForNextUpdate(ps, None)
           result2 <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(alice, "X1"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -383,7 +383,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(alice, "X2"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -417,7 +417,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
           // Submit without allocation
           _ <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(unallocatedParty),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
@@ -444,7 +444,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .runWith(Sink.head)
             .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
           _ <- ps
-            .submitTransactionWithTelemetry(
+            .submitTransaction(
               submitterInfo(party = newParty),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,

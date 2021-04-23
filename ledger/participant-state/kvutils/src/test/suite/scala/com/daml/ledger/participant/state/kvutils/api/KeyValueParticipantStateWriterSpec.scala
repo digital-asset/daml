@@ -47,7 +47,7 @@ class KeyValueParticipantStateWriterSpec
       val recordTime = newRecordTime()
       val expectedCorrelationId = "correlation ID"
 
-      instance.submitTransactionWithTelemetry(
+      instance.submitTransaction(
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
         TransactionBuilder.EmptySubmitted,
