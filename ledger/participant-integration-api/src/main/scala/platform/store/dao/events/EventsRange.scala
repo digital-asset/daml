@@ -6,7 +6,6 @@ import anorm.SqlParser.get
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.store.DbType
-import com.daml.platform.store.DbType.Oracle
 
 // (startExclusive, endInclusive]
 private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
@@ -63,16 +62,8 @@ private[events] object EventsRange {
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
     // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    val query = dbType match {
-      // 2 - Need to figure out order by event_offset alternative
-      // 3 - Need to get group by to work field even works
-      case Oracle =>
-        SQL"select nvl(max(event_sequential_id),0) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc fetch next 1 rows only"
-      case _ =>
-        SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc limit 1"
-    }
 
-    query
+    SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc #${SqlFunctions(dbType).limitClause(1)}"
       .as(get[Long](1).singleOpt)(connection)
       .getOrElse(EmptyLedgerEventSeqId)
   }
