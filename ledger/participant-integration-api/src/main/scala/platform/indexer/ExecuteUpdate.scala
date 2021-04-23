@@ -61,7 +61,7 @@ object ExecuteUpdate {
       loggingContext: LoggingContext,
   ): ResourceOwner[ExecuteUpdate] =
     dbType match {
-      case DbType.Postgres =>
+      case DbType.Postgres | DbType.Oracle =>
         PipelinedExecuteUpdate.owner(
           ledgerDao,
           metrics,
@@ -72,15 +72,6 @@ object ExecuteUpdate {
         )
       case DbType.H2Database =>
         AtomicExecuteUpdate.owner(
-          ledgerDao,
-          metrics,
-          participantId,
-          updatePreparationParallelism,
-          executionContext,
-          loggingContext,
-        )
-      case DbType.Oracle =>
-        PipelinedExecuteUpdate.owner(
           ledgerDao,
           metrics,
           participantId,
