@@ -6,20 +6,17 @@ package com.daml.telemetry
 import java.util.{HashMap => jHashMap, Map => jMap}
 
 import com.daml.dec.DirectExecutionContext
-import io.grpc.MethodDescriptor
-import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
-import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 trait TelemetryContext {
 
-  /** Sets or replaces the value of attribute `key` to `value`.
+  /** Sets or replaces the value of `attribute` to `value`.
     */
-  def setAttribute[T](key: AttributeKey[T], value: T): TelemetryContext
+  def setAttribute(attribute: SpanAttribute, value: String): TelemetryContext
 
   /** Creates a new span and runs the computation inside it.
     * The new span has its parent set as the span associated with the current context.
@@ -34,7 +31,7 @@ trait TelemetryContext {
   def runFutureInNewSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => Future[T]
   ): Future[T]
@@ -52,7 +49,7 @@ trait TelemetryContext {
   def runInNewSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => T
   ): T
@@ -82,35 +79,19 @@ trait TelemetryContext {
 
 }
 
-object TelemetryContext {
-
-  /** Sets the attributes extracted from the given gRPC `MethodDescriptor`.
-    */
-  def setGrpcAttributes(
-      methodDescriptor: MethodDescriptor[_, _]
-  )(implicit telemetryContext: TelemetryContext): Unit = {
-    telemetryContext.setAttribute(SemanticAttributes.RPC_SYSTEM, "grpc")
-    telemetryContext.setAttribute(
-      SemanticAttributes.RPC_SERVICE,
-      methodDescriptor.getServiceName,
-    )
-    ()
-  }
-}
-
 /** Default implementation of TelemetryContext. Uses OpenTelemetry to generate and gather traces.
   */
 protected class DefaultTelemetryContext(protected val span: Span) extends TelemetryContext {
 
-  def setAttribute[T](key: AttributeKey[T], value: T): TelemetryContext = {
-    span.setAttribute(key, value)
+  def setAttribute(attribute: SpanAttribute, value: String): TelemetryContext = {
+    span.setAttribute(attribute.key, value)
     this
   }
 
   override def runFutureInNewSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => Future[T]
   ): Future[T] = {
@@ -130,7 +111,7 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
   override def runInNewSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => T
   ): T = {
@@ -146,7 +127,7 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
   protected def createSubSpan(
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   ): Span = {
     val subSpan =
       ParticipantTracer
@@ -155,9 +136,9 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
         .setSpanKind(kind.kind)
         .startSpan()
     for {
-      (key, value) <- attributes
+      (attribute, value) <- attributes
     } {
-      subSpan.setAttribute(key, value)
+      subSpan.setAttribute(attribute.key, value)
     }
     subSpan
   }
@@ -186,14 +167,14 @@ protected object RootDefaultTelemetryContext extends DefaultTelemetryContext(Spa
   override protected def createSubSpan(
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   ): Span = {
     val subSpan =
       ParticipantTracer.spanBuilder(spanName).setNoParent().setSpanKind(kind.kind).startSpan()
     for {
-      (key, value) <- attributes
+      (attribute, value) <- attributes
     } {
-      subSpan.setAttribute(key, value)
+      subSpan.setAttribute(attribute.key, value)
     }
     subSpan
   }
@@ -205,12 +186,12 @@ protected object RootDefaultTelemetryContext extends DefaultTelemetryContext(Spa
   */
 object NoOpTelemetryContext extends TelemetryContext {
 
-  def setAttribute[T](key: AttributeKey[T], value: T): TelemetryContext = this
+  def setAttribute(attribute: SpanAttribute, value: String): TelemetryContext = this
 
   override def runFutureInNewSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => Future[T]
   ): Future[T] = {
@@ -220,7 +201,7 @@ object NoOpTelemetryContext extends TelemetryContext {
   override def runInNewSpan[T](
       spanName: String,
       kind: SpanKind,
-      attributes: (AttributeKey[String], String)*
+      attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => T
   ): T = {
