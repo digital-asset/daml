@@ -54,7 +54,8 @@ private[platform] object OracleArrayConversions {
     }
   }
 
-  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTE_ARRAY_ARRAY")
+  implicit object ByteArrayArrayToStatement
+      extends ArrayToStatement[Array[Byte]]("BYTE_ARRAY_ARRAY")
 
   implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP_ARRAY")
 
@@ -64,7 +65,8 @@ private[platform] object OracleArrayConversions {
 
   implicit object IntegerArrayToStatement extends ArrayToStatement[Integer]("SMALLINT_ARRAY")
 
-  implicit object BooleanArrayToStatement extends ArrayToStatement[java.lang.Boolean]("BOOLEAN_ARRAY")
+  implicit object BooleanArrayToStatement
+      extends ArrayToStatement[java.lang.Boolean]("BOOLEAN_ARRAY")
 
   implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {

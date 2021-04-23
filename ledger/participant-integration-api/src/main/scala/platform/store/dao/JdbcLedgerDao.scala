@@ -12,7 +12,17 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import anorm.{
+  BatchSql,
+  Macro,
+  NamedParameter,
+  Row,
+  RowParser,
+  SQL,
+  SimpleSql,
+  SqlParser,
+  SqlStringInterpolation,
+}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
@@ -39,11 +49,7 @@ import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
-import com.daml.platform.store.dao.CommandCompletionsTable.{
-  prepareCompletionInsert,
-  prepareCompletionsDelete,
-  prepareRejectionInsert,
-}
+import com.daml.platform.store.dao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events._
@@ -92,7 +98,7 @@ private class JdbcLedgerDao(
 
   import JdbcLedgerDao._
 
-  private val queries = dbType match {
+  val queries = dbType match {
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
     case DbType.Oracle => OracleQueries
@@ -449,7 +455,7 @@ private class JdbcLedgerDao(
       rejectionReason: RejectionReason,
   )(implicit connection: Connection): Unit = {
     stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
-    prepareRejectionInsert(info, offset, recordTime, rejectionReason, dbType).execute()
+    queries.prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
     ()
   }
 
@@ -534,7 +540,7 @@ private class JdbcLedgerDao(
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
       submitterInfo
-        .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime, dbType))
+        .map(queries.prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
         .foreach(_.execute()),
     )
 
@@ -589,16 +595,17 @@ private class JdbcLedgerDao(
                 blindingInfo = None,
               ).write(metrics)
               submitterInfo
-                .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt, dbType))
+                .map(queries.prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                 .foreach(_.execute())
             case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
-              val _ = prepareRejectionInsert(
-                submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
-                offset = offset,
-                recordTime = recordTime,
-                reason = reason,
-                dbType,
-              ).execute()
+              val _ = queries
+                .prepareRejectionInsert(
+                  submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
+                  offset = offset,
+                  recordTime = recordTime,
+                  reason = reason,
+                )
+                .execute()
           }
         }
         ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd), dbType)
@@ -1144,6 +1151,26 @@ private[platform] object JdbcLedgerDao {
 
     //TODO BH: figure out why protected mechanism is not working here
     def limit(numberOfItems: Int): String
+
+    protected[JdbcLedgerDao] def prepareCompletionInsert(
+        submitterInfo: SubmitterInfo,
+        offset: Offset,
+        transactionId: TransactionId,
+        recordTime: Instant,
+    ): SimpleSql[Row] = {
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
+        .toArray[String]}, ${submitterInfo.commandId}, $transactionId)"
+    }
+
+    protected[JdbcLedgerDao] def prepareRejectionInsert(
+        submitterInfo: SubmitterInfo,
+        offset: Offset,
+        recordTime: Instant,
+        reason: RejectionReason,
+    ): SimpleSql[Row] = {
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+    }
   }
 
   object PostgresQueries extends Queries {
@@ -1234,6 +1261,7 @@ private[platform] object JdbcLedgerDao {
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
     ): Unit = ()
+
   }
 
   object OracleQueries extends Queries {
@@ -1302,6 +1330,27 @@ private[platform] object JdbcLedgerDao {
       // For now do nothing
       ()
     }
-  }
 
+    override protected[JdbcLedgerDao] def prepareCompletionInsert(
+        submitterInfo: SubmitterInfo,
+        offset: Offset,
+        transactionId: TransactionId,
+        recordTime: Instant,
+    ): SimpleSql[Row] = {
+      import com.daml.platform.store.OracleArrayConversions._
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
+        .toArray[String]}, ${submitterInfo.commandId}, $transactionId)"
+    }
+
+    override protected[JdbcLedgerDao] def prepareRejectionInsert(
+        submitterInfo: SubmitterInfo,
+        offset: Offset,
+        recordTime: Instant,
+        reason: RejectionReason,
+    ): SimpleSql[Row] = {
+      import com.daml.platform.store.OracleArrayConversions._
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+    }
+  }
 }
