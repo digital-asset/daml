@@ -202,8 +202,7 @@ CREATE TABLE participant_command_completions
 );
 
 -- TODO BH: submitters cannot be part of the index because it is a custom user-defined type
--- TODO BH: completion_offset cannot be part of the index because it is a BLOB
-CREATE INDEX participant_command_completions_idx ON participant_command_completions (application_id);
+create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
 
 ---------------------------------------------------------------------------------------------------
 -- V16: New command deduplication
@@ -263,7 +262,7 @@ create table participant_events
 );
 
 -- support ordering by offset and transaction, ready for serving via the Ledger API
-create index participant_events_offset_txn_node_idx on participant_events (ORA_HASH(event_offset), transaction_id, node_index);
+create index participant_events_offset_txn_node_idx on participant_events (event_offset, transaction_id, node_index);
 
 -- support looking up a create event by the identifier of the contract it created, so that
 -- consuming exercise events can use it to set the value of create_consumed_at
@@ -279,7 +278,7 @@ create index participant_events_template_ids on participant_events (template_id)
 create index participant_events_event_sequential_id on participant_events (event_sequential_id);
 
 -- 5. we need this index to convert event_offset to event_sequential_id
-create index participant_events_event_offset on participant_events (ORA_HASH(event_offset));
+create index participant_events_event_offset on participant_events (event_offset);
 
 -- TODO BH -- cannot create index on custom VARRAY fields
 -- https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/CREATE-INDEX.html#GUID-1F89BBC0-825F-4215-AF71-7588E31D8BFE

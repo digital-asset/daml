@@ -107,18 +107,17 @@ private[dao] object SqlFunctions {
 
     def limitClause(numRows: Int) = s"fetch next $numRows rows only"
 
-    def equalsClause(left: String) = s"DBMS_LOB.compare($left, "
+    def equalsClause(left: String) = s"$left = "
 
-    def equalsClauseEnd() = ") = 0"
+    def equalsClauseEnd(): String = ""
 
-    def greaterThanClause(left: String, right: Any) = s"DBMS_LOB.compare($left, $right) = 1"
+    def greaterThanClause(left: String, right: Any) = s"$left > $right"
 
-    def greaterThanClauseStart(left: String): String = s"DBMS_LOB.compare($left, "
+    def greaterThanClauseStart(left: String): String = s"$left > "
 
-    def greaterThanClauseEnd(): String = ") = 1"
+    def greaterThanClauseEnd(): String = ""
 
-    def lessThanOrEqualToClause(left: String, right: Any) =
-      s"DBMS_LOB.compare($left, $right) IN (0, -1)"
+    def lessThanOrEqualToClause(left: String, right: Any) = s"$left <= $right"
   }
 
 }
