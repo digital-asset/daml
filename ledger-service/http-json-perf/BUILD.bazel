@@ -13,6 +13,13 @@ scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
+perf_runtime_deps = {
+    "ce": [],
+    "ee": [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+}
+
 [
     da_scala_library(
         name = "http-json-perf-{}".format(edition),
@@ -92,7 +99,7 @@ scalacopts = lf_scalacopts + [
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
-        ],
+        ] + perf_runtime_deps.get(edition),
         deps = [
             ":http-json-perf-{}".format(edition),
             "//language-support/scala/bindings-akka",

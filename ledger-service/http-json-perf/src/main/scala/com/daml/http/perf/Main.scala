@@ -24,6 +24,8 @@ import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
 
+import Config.QueryStoreIndex
+
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
@@ -137,12 +139,12 @@ object Main extends StrictLogging {
       }
     }
 
-  private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: Boolean)(
+  private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: QueryStoreIndex)(
       fn: Option[JdbcConfig] => Future[A]
   )(implicit
       ec: ExecutionContext
-  ): Future[A] =
-    if (jsonApiQueryStoreEnabled) {
+  ): Future[A] = jsonApiQueryStoreEnabled match {
+    case QueryStoreIndex.Postgres =>
       for {
         dbInstance <- Future.successful(new PostgresRunner())
         dbConfig <- toFuture(dbInstance.start())
@@ -152,9 +154,12 @@ object Main extends StrictLogging {
           dbInstance.stop()
         ) // TODO: use something like `lf.data.TryOps.Bracket.bracket`
       } yield a
-    } else {
+
+    case QueryStoreIndex.Oracle => sys.error("TODO S11 Oracle")
+
+    case QueryStoreIndex.No =>
       fn(None)
-    }
+  }
 
   private def jsonApiJdbcConfig(c: PostgresDatabase): JdbcConfig =
     JdbcConfig(
