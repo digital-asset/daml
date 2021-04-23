@@ -28,7 +28,7 @@ import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStrea
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.telemetry
-import com.daml.telemetry.{ParticipantTracer, SpanAttribute, Spans}
+import com.daml.telemetry.{OpenTelemetryTracer, SpanAttribute, Spans}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -85,7 +85,7 @@ private[appendonlydao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder(
           "com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions"
         )
@@ -175,7 +175,7 @@ private[appendonlydao] final class TransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     val span =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder(
           "com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees"
         )
@@ -264,7 +264,7 @@ private[appendonlydao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val span =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder(
           "com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts"
         )

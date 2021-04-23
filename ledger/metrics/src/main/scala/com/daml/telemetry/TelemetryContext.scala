@@ -130,7 +130,7 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
       attributes: (SpanAttribute, String)*
   ): Span = {
     val subSpan =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder(spanName)
         .setParent(Context.current.`with`(span))
         .setSpanKind(kind.kind)
@@ -170,7 +170,7 @@ protected object RootDefaultTelemetryContext extends DefaultTelemetryContext(Spa
       attributes: (SpanAttribute, String)*
   ): Span = {
     val subSpan =
-      ParticipantTracer.spanBuilder(spanName).setNoParent().setSpanKind(kind.kind).startSpan()
+      OpenTelemetryTracer.spanBuilder(spanName).setNoParent().setSpanKind(kind.kind).startSpan()
     for {
       (attribute, value) <- attributes
     } {
