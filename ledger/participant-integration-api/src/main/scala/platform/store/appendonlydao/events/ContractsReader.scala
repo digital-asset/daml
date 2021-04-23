@@ -17,7 +17,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.appendonlydao.events.SqlFunctions.{
   H2SqlFunctions,
-  OracleSqlFunctions,
   PostgresSqlFunctions,
 }
 import com.daml.platform.store.appendonlydao.DbDispatcher
