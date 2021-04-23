@@ -51,6 +51,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:ch_qos_logback_logback_classic",
         ],
         deps = [
+            "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
