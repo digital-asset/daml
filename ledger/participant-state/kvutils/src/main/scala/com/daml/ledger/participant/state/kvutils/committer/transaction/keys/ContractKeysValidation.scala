@@ -144,17 +144,11 @@ private[transaction] object ContractKeysValidation {
     */
   private[keys] final class KeyValidationState private[ContractKeysValidation] (
       private[keys] val activeStateKeys: Set[DamlStateKey],
-      private[keys] val submittedContractKeysToContractIds: Map[DamlContractKey, Option[
-        RawContractId
-      ]],
+      private[keys] val submittedContractKeysToContractIds: KeyConsistencyValidation.State,
   ) {
 
     def onSubmittedContractKeysToContractIds(
-        f: Map[DamlContractKey, Option[
-          RawContractId
-        ]] => Either[KeyValidationError, Map[DamlContractKey, Option[
-          RawContractId
-        ]]]
+        f: KeyConsistencyValidation.State => KeyConsistencyValidation.Status
     ): KeyValidationStatus =
       f(submittedContractKeysToContractIds).map(newSubmitted =>
         new KeyValidationState(
