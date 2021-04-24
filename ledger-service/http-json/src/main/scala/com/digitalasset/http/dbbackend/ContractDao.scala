@@ -36,6 +36,9 @@ object ContractDao {
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
   )
 
+  def supportedJdbcDriverNames(available: Set[String]): Set[String] =
+    supportedJdbcDrivers.keySet intersect available
+
   def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
       ec: ExecutionContext
   ): ContractDao = {

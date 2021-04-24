@@ -31,7 +31,10 @@ object Main extends StrictLogging {
   }
 
   def main(args: Array[String]): Unit =
-    Cli.parseConfig(args, JdbcDrivers.supportedJdbcDriverNames) match {
+    Cli.parseConfig(
+      args,
+      ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
+    ) match {
       case Some(config) =>
         main(config)
       case None =>

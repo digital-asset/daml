@@ -332,6 +332,9 @@ object DbTriggerDao {
     "oracle.jdbc.OracleDriver" -> ((d, xa) => new DbTriggerDaoOracle(d, xa)),
   )
 
+  def supportedJdbcDriverNames(available: Set[String]): Set[String] =
+    supportedJdbcDrivers.keySet intersect available
+
   def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
       ec: ExecutionContext
   ): DbTriggerDao = {
