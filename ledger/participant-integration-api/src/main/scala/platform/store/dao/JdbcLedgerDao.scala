@@ -1140,7 +1140,7 @@ private[platform] object JdbcLedgerDao {
     // TODO: Avoid brittleness of error message checks
     protected[JdbcLedgerDao] def DUPLICATE_KEY_ERROR: String
 
-    //TODO BH: figure out why protected mechanism is not working here
+    //TODO https://github.com/digital-asset/daml/issues/9493
     def limit(numberOfItems: Int): String
 
     protected[JdbcLedgerDao] def prepareCompletionInsert(
@@ -1327,7 +1327,6 @@ private[platform] object JdbcLedgerDao {
     override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
         conn: Connection
     ): Unit = {
-      // TODO BH: figure out if Oracle has equivalent to synchronous commit
       // For now do nothing
       ()
     }

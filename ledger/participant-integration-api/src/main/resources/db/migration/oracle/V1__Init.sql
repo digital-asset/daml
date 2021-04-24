@@ -201,7 +201,7 @@ CREATE TABLE participant_command_completions
     status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
 );
 
--- TODO BH: submitters cannot be part of the index because it is a custom user-defined type
+-- TODO https://github.com/digital-asset/daml/issues/9493
 create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
 
 ---------------------------------------------------------------------------------------------------
@@ -280,8 +280,7 @@ create index participant_events_event_sequential_id on participant_events (event
 -- 5. we need this index to convert event_offset to event_sequential_id
 create index participant_events_event_offset on participant_events (event_offset);
 
--- TODO BH -- cannot create index on custom VARRAY fields
--- https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/CREATE-INDEX.html#GUID-1F89BBC0-825F-4215-AF71-7588E31D8BFE
+-- TODO https://github.com/digital-asset/daml/issues/9493
 -- create index participant_events_flat_event_witnesses_idx on participant_events (flat_event_witnesses);
 -- create index participant_events_tree_event_witnesses_idx on participant_events (tree_event_witnesses);
 

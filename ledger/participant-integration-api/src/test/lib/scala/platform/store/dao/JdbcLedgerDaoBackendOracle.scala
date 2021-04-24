@@ -12,7 +12,7 @@ private[dao] trait JdbcLedgerDaoBackendOracle extends JdbcLedgerDaoBackend with 
 
   override protected val dbType: DbType = DbType.Oracle
 
-  //TODO BH: figure out why username is not being picked up
+  //TODO https://github.com/digital-asset/daml/issues/9493
   override protected def jdbcUrl: String =
     s"jdbc:oracle:thin:$oracleUser/$oraclePwd@//localhost:$oraclePort/ORCLPDB1"
 }

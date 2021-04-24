@@ -38,9 +38,8 @@ private[platform] object DbType {
       extends DbType(
         "oracle",
         "oracle.jdbc.OracleDriver",
-        //TODO we should be able to enable this for Oracle
         supportsParallelWrites = true,
-        //TODO find out if there is an oracle equivalent
+        //TODO https://github.com/digital-asset/daml/issues/9493
         supportsAsynchronousCommits = false,
       )
 

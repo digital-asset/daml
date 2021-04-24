@@ -60,7 +60,8 @@ private[dao] object SqlFunctions {
   }
 
   object OracleSqlFunctions extends SqlFunctions {
-    //TODO BH: this is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
+    // TODO https://github.com/digital-asset/daml/issues/9493
+    // This is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
       parties
         .map(party => s"('$party') IN (SELECT * FROM TABLE($arrayColumn))")
@@ -74,7 +75,7 @@ private[dao] object SqlFunctions {
     override def limitClause(numRows: Int) = s"fetch next $numRows rows only"
 
     // Oracle cannot group by including columns which are BLOB or VARRAY
+    // TODO https://github.com/digital-asset/daml/issues/9493
     override def groupByIncludingBinaryAndArrayColumns(cols: Seq[String]): String = ""
   }
-
 }

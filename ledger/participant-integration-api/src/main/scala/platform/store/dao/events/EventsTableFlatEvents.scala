@@ -154,8 +154,6 @@ private[events] object EventsTableFlatEvents {
           order by event_sequential_id"""
   }
 
-  //TODO BH: existing groupByColumns need to match select and include BLOB and VARRAY columns you cannot group by with oracle
-
   private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
