@@ -421,7 +421,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     builder.add(exercise(builder, create3, parties, true), rollback)
     val (cid4, create4) = create(builder, parties)
     builder.add(create4, rollback)
-    val transaction = builder.build
+    val transaction = builder.build()
 
     "consumedContracs does not include rollbacks" in {
       transaction.consumedContracts shouldBe Set(cid0, cid2)
