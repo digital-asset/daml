@@ -137,8 +137,8 @@ message DamlSubmitterInfo {
   // DamlSubmitterInfo
   repeated string submitters = 1;
 
-  // Identifier of the intent, which SHOULD be reused when retrying executing
-  // the same intended change.
+  // Identifier of the intent, which is expected be reused when retrying
+  // executing the same intended change.
   string command_id = 2;
 
   // Opaque reference to application submitting this command. May be used for
@@ -424,7 +424,7 @@ message DamlCommandDedupKey {
 }
 
 // The DamlCommand deduplication logic ensures that Ledger API clients can
-// implement exactly-once submission of DamlCommands even when retrying.
+// implement exactly-once submission of DamlCommands using retries.
 // The logic, called rank-based deduplication, works on a
 // per-DamlCommandDedupKey basis. It stores the rank and result of the last
 // submission that was validated, and cancels any further submissions with the
@@ -434,8 +434,10 @@ message DamlCommandDedupKey {
 // guidance on how applications should manage submission ranks when retrying.
 //
 // DamlCommandDedupValues are tagged with an expiry date to allow ledgers to
-// reclaim storage space by deleting them, at the cost of providing a
-// limited-time deduplication guarantee to applications.
+// reclaim storage space by deleting them. The expiry date is provided either
+// directly or indirectly by Ledger API clients. They are expected to provide
+// a close, but not too close expiry data, so that ledger can reclaim storage
+// space quickly without the clients experiencing duplicate submissions.
 message DamlCommandDedupValue {
   reserved 1; // was record_time
 
@@ -459,16 +461,16 @@ message DamlCommandDedupValue {
 enum CommandSubmissionResult {
   // Used for DamlCommandDedupValues that were created before switching to
   // the rank-based deduplication logic.
-  COMMAND_SUBMSSION_RESULT_UNSPECIFIED = 0;
+  COMMAND_SUBMISSION_RESULT_UNSPECIFIED = 0;
   // The submission was executed, but did not pass validation, and was
   // rejected with a reason other than 'Duplicate'. The rank-based command
   // deduplication logic guarantees that all further submissions with the same
   // rank will be rejected as 'Duplicate'.
-  COMMAND_SUBMSSION_RESULT_REJECTED = 1;
+  COMMAND_SUBMISSION_RESULT_REJECTED = 1;
   // The submission was executed and accepted. The rank-based command
   // deduplication logic guarantees that all further submission, independent
   // of their rank, will be rejected as 'Duplicate'.
-  COMMAND_SUBMSSION_RESULT_ACCEPTED = 2;
+  COMMAND_SUBMISSION_RESULT_ACCEPTED = 2;
 }
 
 
