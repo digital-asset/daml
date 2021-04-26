@@ -3,9 +3,10 @@
 
 package com.daml.ledger.client.binding
 
-import com.github.ghik.silencer.silent
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import scala.annotation.nowarn
 import scala.collection.compat._
 import scala.collection.immutable.Map
 
@@ -41,6 +42,6 @@ object Primitive213Spec {
   private def ofType[T]: Proxy[T] = new Proxy(())
   // as a rule, the *singleton* type ac.type will not be ~ Ex; we are interested
   // in what expression `ac` infers to *absent context*.
-  @silent("parameter value (ex|ac|ev) .* is never used")
+  @nowarn("msg=parameter value (ex|ac|ev) .* is never used")
   private def isExactly[Ac, Ex](ac: Ac, ex: Proxy[Ex])(implicit ev: Ac =:= Ex): Unit = ()
 }

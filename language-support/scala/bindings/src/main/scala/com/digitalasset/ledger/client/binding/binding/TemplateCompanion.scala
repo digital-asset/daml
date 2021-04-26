@@ -7,9 +7,10 @@ import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
-
 import scalaz.Liskov
 import Liskov.<~<
+
+import scala.annotation.nowarn
 
 /** Common superclass of template classes' companions.
   *
@@ -80,7 +81,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
     )
   }
 
-  @com.github.ghik.silencer.silent(" actor .* is never used") // part of generated code API
+  @nowarn("msg=parameter value actor .* is never used") // part of generated code API
   protected final def ` exercise`[ExOn, Out](
       actor: Primitive.Party,
       receiver: ExOn,

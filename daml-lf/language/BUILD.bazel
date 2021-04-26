@@ -6,8 +6,8 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
-load("//bazel_tools:scala.bzl", "silencer_plugin")
 
 da_scala_library(
     name = "language",
@@ -27,7 +27,9 @@ da_scala_test(
     name = "language-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=signum",
     ],

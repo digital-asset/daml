@@ -1,7 +1,13 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "silencer_plugin",
+)
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
@@ -21,6 +27,9 @@ alias(
     da_scala_library(
         name = "sandbox-classic-{}".format(edition),
         srcs = glob(["src/main/scala/**/*.scala"]),
+        plugins = [
+            silencer_plugin,
+        ],
         # Do not include logback.xml into the library: let the user
         # of the sandbox-as-a-library decide how to log.
         resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
@@ -38,7 +47,6 @@ alias(
             # does not exist in 2.12.
             "-P:silencer:lineContentFilters=retain",
         ],
-        silent_annotations = True,
         tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
         visibility = [
             "//visibility:public",

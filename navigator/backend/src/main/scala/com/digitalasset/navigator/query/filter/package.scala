@@ -3,14 +3,14 @@
 
 package com.daml.navigator.query
 
+import com.daml.lf.value.json.ApiValueImplicits._
+import com.daml.lf.value.{Value => V}
 import com.daml.navigator.dotnot._
 import com.daml.navigator.model._
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.json.ApiValueImplicits._
-import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
 package object filter {
@@ -106,7 +106,7 @@ package object filter {
       checkValue(_, cursor, expectedValue, ps)
     )
 
-  @silent(" ps .* is never used") // conform to opaque's signature
+  @nowarn("msg=parameter value ps .* is never used") // conform to opaque's signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,

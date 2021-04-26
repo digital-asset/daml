@@ -3,20 +3,20 @@
 
 package com.daml.ledger.client.binding
 
-import encoding.ExerciseOn
-import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
-import scalaz.Id.Id
-import scalaz.syntax.std.boolean._
-import scalaz.syntax.tag._
-
-import com.github.ghik.silencer.silent
-import scala.collection.{mutable, immutable => imm}
-import scala.collection.compat._
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
 
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
+import com.daml.ledger.client.binding.encoding.ExerciseOn
+import scalaz.Id.Id
 import scalaz.Leibniz.===
+import scalaz.syntax.std.boolean._
+import scalaz.syntax.tag._
+
+import scala.annotation.nowarn
+import scala.collection.compat._
+import scala.collection.{mutable, immutable => imm}
 
 sealed abstract class Primitive extends PrimitiveInstances {
   type Int64 = Long
@@ -304,15 +304,16 @@ sealed abstract class PrimitiveInstances
 
 // do not import this._, use -Xsource:2.13 scalac option instead
 object PrimitiveInstances {
-  import language.implicitConversions
   import Primitive.{GenMap, TextMap}
+
+  import language.implicitConversions
 
   implicit def textMapFactory[V]: Factory[(String, V), TextMap[V]] =
     TextMap.factory
 
   implicit def genMapFactory[K, V]: Factory[(K, V), GenMap[K, V]] = {
     type CBF[M[_, _]] = Factory[(K, V), M[K, V]]
-    @silent("local val genMapFactory in method genMapFactory is never used")
+    @nowarn("msg=local val genMapFactory in method genMapFactory is never used")
     val genMapFactory = () // prevent recursion
     GenMap.subst[CBF](implicitly[CBF[imm.Map]])
   }

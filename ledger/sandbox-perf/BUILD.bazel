@@ -19,7 +19,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    silent_annotations = True,
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",

@@ -3,8 +3,7 @@
 
 package com.daml.logging
 
-import com.github.ghik.silencer.silent
-
+import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 /** [[LoggingContext]] with a phantom type parameter representing what kind of
@@ -37,13 +36,13 @@ object LoggingContextOf {
   def label[P]: label[P] = new label(())
   final class label[P] private[LoggingContextOf] (private val ignored: Unit) extends AnyVal
 
-  @silent(" label .* is never used") // Proxy only
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
   def newLoggingContext[P, Z](label: label[P], kvs: Map[String, String])(
       f: LoggingContextOf[P] => Z
   ): Z =
     LoggingContext.newLoggingContext(kvs)(lc => f((lc: LoggingContextOf[Any]).extend[P]))
 
-  @silent(" label .* is never used") // Proxy only
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
   def withEnrichedLoggingContext[P, A](label: label[P], kvs: Map[String, String])(implicit
       loggingContext: LoggingContextOf[A]
   ): withEnrichedLoggingContext[P, A] =

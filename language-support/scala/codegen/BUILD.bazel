@@ -84,7 +84,9 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",

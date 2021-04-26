@@ -245,7 +245,6 @@ alias(
             "@maven//:org_typelevel_cats_core",
             "@maven//:org_typelevel_cats_effect",
         ],
-        silent_annotations = True,
         visibility = ["//ledger-service:__subpackages__"],
         deps = [
             ":http-json-{}".format(edition),
@@ -376,7 +375,6 @@ alias(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
-        silent_annotations = False,
         deps = [
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",

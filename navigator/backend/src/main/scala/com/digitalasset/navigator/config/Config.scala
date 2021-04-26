@@ -3,8 +3,8 @@
 
 package com.daml.navigator.config
 
-import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption._
+import java.nio.file.{Files, Path}
 
 import com.daml.assistant.config.{
   ProjectConfig,
@@ -13,12 +13,13 @@ import com.daml.assistant.config.{
   ConfigParseError => SdkConfigParseError,
 }
 import com.daml.ledger.api.refinements.ApiTypes
-import com.github.ghik.silencer.silent
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
 import pureconfig.{ConfigConvert, ConfigSource, ConfigWriter}
 import pureconfig.generic.auto._
 import scalaz.Tag
+
+import scala.annotation.nowarn
 
 final case class UserConfig(party: ApiTypes.Party, role: Option[String], useDatabase: Boolean)
 
@@ -71,10 +72,12 @@ object Config {
       configFile: Path,
       useDatabase: Boolean,
   ): Either[ConfigReadError, Config] = {
-    @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
-    implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
-      useDatabase = useDatabase
-    )
+    @nowarn(
+      "msg=local val userConfigConvert .* is never used"
+    ) // false positive; macro uses aren't seen
+    implicit val userConfigConvert: ConfigConvert[UserConfig] =
+      mkUserConfigConvert(useDatabase = useDatabase)
+
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
@@ -86,7 +89,6 @@ object Config {
     } else {
       Left(ConfigNotFound(s"File $configFile not found"))
     }
-
   }
 
   def loadSdkConfig(useDatabase: Boolean): Either[ConfigReadError, Config] = {
@@ -128,7 +130,9 @@ object Config {
     )
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
-    @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
+    @nowarn(
+      "msg=local val userConfigConvert .* is never used"
+    ) // false positive; macro uses aren't seen
     implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
       useDatabase = useDatabase
     )
