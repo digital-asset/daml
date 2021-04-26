@@ -193,7 +193,7 @@ object Main extends StrictLogging {
       def jdbcConfig(user: St) =
         JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
 
-      def stop(user: St) = dropUser(user.name)
+      def stop(user: St) = Try(dropUser(user.name))
     }
 
     def lookup(q: QueryStoreIndex): Option[T] = q match {

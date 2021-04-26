@@ -7,7 +7,7 @@ import com.daml.ports._
 import java.sql._
 import scala.util.{Random, Using}
 
-private[oracle] final case class User(name: String, pwd: String)
+private[daml] final case class User(name: String, pwd: String)
 
 trait OracleAround {
   @volatile

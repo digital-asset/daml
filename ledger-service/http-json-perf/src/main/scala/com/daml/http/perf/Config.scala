@@ -12,6 +12,7 @@ import scopt.RenderingMode
 
 import Config.QueryStoreIndex
 import com.daml.http.dbbackend.ContractDao.supportedJdbcDriverNames
+import com.daml.runtime.JdbcDrivers.availableJdbcDriverNames
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
@@ -121,7 +122,8 @@ private[perf] object Config {
     case object Oracle extends QueryStoreIndex
 
     val names: Map[String, QueryStoreIndex] = Map("no" -> No, "postgres" -> Postgres) ++ (
-      if (supportedJdbcDriverNames("oracle.jdbc.OracleDriver")) Seq("oracle" -> Oracle)
+      if (supportedJdbcDriverNames(availableJdbcDriverNames)("oracle.jdbc.OracleDriver"))
+        Seq("oracle" -> Oracle)
       else Seq.empty
     )
 
