@@ -266,8 +266,8 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
           exerciseEnd = (acc, _, _) => acc,
           rollbackEnd = (acc, _, _) => {
             val (beforeRollback, rest) = acc.rollbackStates match {
-              case Seq() => sys.error("IMPOSSIBLE: Rollback end but rollback stack is empty")
-              case head +: tail => (head, tail)
+              case Nil => sys.error("IMPOSSIBLE: Rollback end but rollback stack is empty")
+              case head :: tail => (head, tail)
             }
             // Discard archives in the rollback but mark contracts created in the rollback as archived.
             // This means that at the end of the traversal, we can use archivedIds to filter out
