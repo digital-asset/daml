@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
+import com.daml.ledger.on.memory.InMemoryState
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 
@@ -15,6 +16,8 @@ trait CommitStrategySupport[LogResult] {
   def commit(
       submissionInfo: SubmissionInfo
   )(implicit materializer: Materializer): Future[WriteSet]
+
+  def currentState(): InMemoryState
 
   def newReadServiceFactory(): ReplayingReadServiceFactory
 

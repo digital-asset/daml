@@ -67,6 +67,8 @@ final class LogAppendingCommitStrategySupport(
     }
   }
 
+  override def currentState(): InMemoryState = state
+
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(metrics)
 

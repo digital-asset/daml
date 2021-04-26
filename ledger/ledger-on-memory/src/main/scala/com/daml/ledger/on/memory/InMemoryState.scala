@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
-private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
+private[ledger] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new StampedLock()
   @volatile private var lastLogEntryIndex = 0
 
@@ -37,6 +37,8 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
           lockCurrentState.unlock(stamp)
         }
     } yield result
+
+  def mutableState(): MutableState = state
 }
 
 object InMemoryState {

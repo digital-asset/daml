@@ -33,6 +33,7 @@ da_scala_library(
         "//daml-lf/kv-transaction-support",
         "//daml-lf/transaction",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-on-memory",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -81,6 +82,38 @@ da_scala_binary(
     name = "integrity-check",
     srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
     main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
+    resources = glob(["integrity-check/src/main/resources/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//ledger/ledger-api-health",
+        "//ledger/ledger-on-memory",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "//ledger/participant-state/kvutils/tools",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_binary(
+    name = "reindex-from-state",
+    srcs = glob([
+        "integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala",
+        "integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/reindexfromstate/**/*.scala",
+    ]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.reindexfromstate.Main",
     resources = glob(["integrity-check/src/main/resources/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
