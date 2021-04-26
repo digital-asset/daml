@@ -25,7 +25,14 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
     initialState: => ALS
 ) {
 
-  // State that is restored on rollback.
+  /** State that is restored on rollback.
+    * @param createdIds The set of local contract ids created in the transaction.
+    * @param archivedIds The set of contract ids
+    *  archived by the transaction or local contracts whose create has been rolled back.
+    *  In other words, contracts that we know won’t be active at the
+    *  end of the transaction.
+    * @param als The active ledger state
+    */
   private case class RollbackState(
       createdIds: Set[ContractId],
       archivedIds: Set[ContractId],
@@ -38,11 +45,12 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
   /** The accumulator state used while validating the transaction
     * and to record the required changes to the ledger state.
     * @param currentState The current state
+    * @param rollbackStates The stack of states at the beginning of a rollback node
+    *  so we can restore the previous state when leaving a rollback node.
+    *  The most recent rollback state comes first.
     * @param errs The list of errors produced during validation.
     * @param parties The set of parties that are used
     *  in the transaction and will be implicitly allocated
-    * @param archivedIds The set of contract ids
-    *  archived by the transaction or local contracts whose create has been rolled back.
     */
   private case class AddTransactionState(
       currentState: RollbackState,
