@@ -642,25 +642,6 @@ private object OracleQueries extends Queries {
       log: LogHandler,
       ipol: SqlInterpol,
   ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
-    def extractString(value: JsValue): Option[String] = {
-      value match {
-        case JsString(string) => Some(string)
-        case _ => None
-      }
-    }
-    def extractStringArray(value: JsValue): Option[Vector[String]] = {
-      import scalaz.syntax.traverse._
-      value match {
-        case JsArray(values) => values.traverse(extractString)
-        case _ => None
-      }
-    }
-    def assertStringArray(column: String, value: JsValue): Vector[String] =
-      extractStringArray(value).getOrElse(
-        sys.error(
-          s"Column '$column' should contain an array of strings, ${value.compactPrint} found instead"
-        )
-      )
 
     // we effectively shadow Mark because Scala 2.12 doesn't quite get
     // that it should use the GADT type equality otherwise
@@ -688,13 +669,14 @@ private object OracleQueries extends Queries {
       q.query[
         (String, Mark0, JsValue, JsValue, JsValue, JsValue, Option[String])
       ].map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
+        import spray.json.DefaultJsonProtocol._
         DBContract(
           contractId = cid,
           templateId = tpid,
           key = key.asJsObject.fields("key"),
           payload = payload,
-          signatories = assertStringArray("signatories", signatories),
-          observers = assertStringArray("observers", observers),
+          signatories = signatories.convertTo[Vector[String]],
+          observers = observers.convertTo[Vector[String]],
           agreementText = agreement getOrElse "",
         )
       }
