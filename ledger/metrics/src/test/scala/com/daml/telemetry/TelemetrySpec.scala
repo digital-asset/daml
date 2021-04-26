@@ -56,7 +56,7 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
 
       val context = DefaultTelemetry.contextFromMetadata(Some(metadata))
 
-      context.encodeMetadata().keySet contains "traceparent"
+      metadata.keySet contains "traceparent"
       context.encodeMetadata() shouldBe metadata
     }
 
@@ -77,8 +77,8 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
           aSpanName,
           SpanKind.Internal,
           anApplicationIdSpanAttribute,
-        ) { tc =>
-          tc.setAttribute(aCommandIdSpanAttribute._1, aCommandIdSpanAttribute._2)
+        ) { telemetryContext =>
+          telemetryContext.setAttribute(aCommandIdSpanAttribute._1, aCommandIdSpanAttribute._2)
         }
 
       val attributes = spanExporter.finishedSpanAttributes
@@ -94,8 +94,8 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
           aSpanName,
           SpanKind.Internal,
           anApplicationIdSpanAttribute,
-        ) { tc =>
-          tc.setAttribute(aCommandIdSpanAttribute._1, aCommandIdSpanAttribute._2)
+        ) { telemetryContext =>
+          telemetryContext.setAttribute(aCommandIdSpanAttribute._1, aCommandIdSpanAttribute._2)
           Future.unit
         }
         .map { _ =>
