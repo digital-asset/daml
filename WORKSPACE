@@ -60,7 +60,7 @@ load("//bazel_tools:scala_version.bzl", "scala_version_configure")
 
 scala_version_configure(name = "scala_version")
 
-load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version")
+load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "scala_major_version_suffix", "scala_version")
 
 dadew(name = "dadew")
 
@@ -719,26 +719,9 @@ load(
     "scala_repositories",
 )
 
-# note some dependencies in bazel-jvm-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
 scala_repositories(
     fetch_sources = True,
-    overriden_artifacts =
-        {
-            "2.12": {
-                "io_bazel_rules_scala_scala_compiler": {
-                    "artifact": "org.scala-lang:scala-compiler:%s" % scala_version,
-                    "sha256": "ea971e004e2f15d3b7569eee8b559f220e23b9993e688bbe986f97938d1dc9f9",
-                },
-                "io_bazel_rules_scala_scala_library": {
-                    "artifact": "org.scala-lang:scala-library:%s" % scala_version,
-                    "sha256": "1bb415cff43f792636556a1137b213b192ab0246be003680a3b006d01235dd89",
-                },
-                "io_bazel_rules_scala_scala_reflect": {
-                    "artifact": "org.scala-lang:scala-reflect:%s" % scala_version,
-                    "sha256": "2bd46318d87945e72eb186a7b5ea496c43cf8f0aabc6ff11b3e7962f8635e669",
-                },
-            },
-        }.get(scala_major_version, {}),
+    overriden_artifacts = scala_artifacts,
 )
 
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
