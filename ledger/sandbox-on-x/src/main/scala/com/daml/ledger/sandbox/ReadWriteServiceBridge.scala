@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
 
 case class ReadWriteServiceBridge(
@@ -35,7 +36,7 @@ case class ReadWriteServiceBridge(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.Transaction(
         submitterInfo = submitterInfo,

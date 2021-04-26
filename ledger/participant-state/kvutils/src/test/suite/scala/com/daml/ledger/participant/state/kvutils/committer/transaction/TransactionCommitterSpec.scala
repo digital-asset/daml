@@ -21,12 +21,13 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
 import com.daml.lf.transaction
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.test.TransactionBuilder.Create
+import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -595,57 +596,164 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   }
 
   "validateContractKeys" should {
+    def newCreateNodeWithFixedKey(contractId: String): Create =
+      create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
+
+    def freshContractId: String =
+      s"testContractId-${UUID.randomUUID().toString.take(10)}"
+
+    def newLookupByKeySubmittedTransaction(
+        found: Boolean,
+        inRollback: Boolean,
+    ): SubmittedTransaction = {
+      val lookup =
+        txBuilder.lookupByKey(newCreateNodeWithFixedKey(contractId = s"#$freshContractId"), found)
+      val builder = TransactionBuilder()
+      if (inRollback) {
+        val rollback = builder.add(txBuilder.rollback())
+        builder.add(lookup, rollback)
+      } else {
+        builder.add(lookup)
+      }
+      builder.buildSubmitted()
+    }
+
+    val conflictingKey = {
+      val aCreateNode = newCreateNodeWithFixedKey("#dummy")
+      Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
+    }
+
     "return Inconsistent when a contract key resolves to a different contract ID than submitted by a participant" in {
-      def createNode(contractId: String): Create =
-        create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
-      def newLookupByKeySubmittedTransaction(found: Boolean): SubmittedTransaction =
-        TransactionBuilder.justSubmitted(
-          txBuilder.lookupByKey(createNode(contractId = s"#$freshContractId"), found)
+      val cases =
+        Seq(
+          ("existing global key was not found", false, Some(s"#$freshContractId")),
+          (
+            "existing global key was mapped to the wrong contract id",
+            true,
+            Some(s"#$freshContractId"),
+          ),
+          ("no global key exists but lookup succeeded", true, None),
         )
+          .flatMap { case (name, found, contractIdAtCommitter) =>
+            Seq(false, true).map(inRollback =>
+              (name, newLookupByKeySubmittedTransaction(found, inRollback), contractIdAtCommitter)
+            )
+          }
 
-      val lookupByKeyNotFound =
-        newLookupByKeySubmittedTransaction(found = false)
-      val lookupByKeyFound1 = newLookupByKeySubmittedTransaction(found = true)
-      val lookupByKeyFound2 = newLookupByKeySubmittedTransaction(found = true)
-
-      val cases = Table(
-        "transaction" -> "contractIdAtCommitter",
-        lookupByKeyNotFound -> Some(s"#$freshContractId"),
-        lookupByKeyFound1 -> Some(s"#$freshContractId"),
-        lookupByKeyFound2 -> None,
+      val casesTable = Table(
+        ("name", "transaction", "contractIdAtCommitter"),
+        cases: _*
       )
 
-      val key = {
-        val aCreateNode = createNode("#dummy")
-        Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
-      }
-      forAll(cases) { (transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
-        val context = commitContextWithContractStateKeys(
-          key -> contractIdAtCommitter
-        )
-        val result =
-          ContractKeysValidation
-            .validateKeys(transactionCommitter)
-            .apply(
-              context,
-              DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
-            )
-        result shouldBe a[StepStop]
-        val rejectionReason =
-          getTransactionRejectionReason(result).getInconsistent.getDetails
-        rejectionReason should startWith("InconsistentKeys")
+      forAll(casesTable) {
+        (_, transaction: SubmittedTransaction, contractIdAtCommitter: Option[String]) =>
+          val context = commitContextWithContractStateKeys(
+            conflictingKey -> contractIdAtCommitter
+          )
+          val result = validate(context, transaction)
+          result shouldBe a[StepStop]
+          val rejectionReason =
+            getTransactionRejectionReason(result).getInconsistent.getDetails
+          rejectionReason should startWith("InconsistentKeys")
       }
     }
+
+    "return DuplicateKeys when two local contracts conflict" in {
+      val builder = TransactionBuilder()
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "return DuplicateKeys when a create in a rollback conflicts with a global key" in {
+      val builder = TransactionBuilder()
+      val rollback = builder.add(builder.rollback())
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#$freshContractId"))
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "not return DuplicateKeys between local contracts if first create is rolled back" in {
+      val builder = TransactionBuilder()
+      val rollback = builder.add(builder.rollback())
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepContinue[_]]
+    }
+
+    "return DuplicateKeys between local contracts even if second create is rolled back" in {
+      val builder = TransactionBuilder()
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val rollback = builder.add(builder.rollback())
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "return DuplicateKeys between local contracts even if the first one was archived in a rollback" in {
+      val builder = TransactionBuilder()
+      val create = newCreateNodeWithFixedKey(s"#$freshContractId")
+      builder.add(create)
+      val rollback = builder.add(builder.rollback())
+      builder.add(archive(create, Set("Alice")), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
+      val builder = TransactionBuilder()
+      val globalCid = s"#freshContractId"
+      val rollback = builder.add(builder.rollback())
+      builder.add(archive(globalCid, Set("Alice")), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("InconsistentKeys")
+    }
+
+    def validate(ctx: CommitContext, transaction: SubmittedTransaction) =
+      ContractKeysValidation
+        .validateKeys(transactionCommitter)
+        .apply(
+          ctx,
+          DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
+        )
 
     def contractKeyState(contractId: String): DamlContractKeyState =
       DamlContractKeyState
         .newBuilder()
         .setContractId(contractId)
         .build()
-
-    def freshContractId: String =
-      s"testContractId-${UUID.randomUUID().toString.take(10)}"
 
     def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
       DamlStateKey
@@ -744,4 +852,17 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         tuple(maintainer, key)
       },
     )
+
+  def archive(create: Create, actingParties: Set[String]): Exercise =
+    txBuilder.exercise(
+      create,
+      choice = "Archive",
+      consuming = true,
+      actingParties = actingParties,
+      argument = Value.ValueRecord(None, ImmArray.empty),
+      result = Some(Value.ValueUnit),
+    )
+
+  def archive(contractId: String, actingParties: Set[String]): Exercise =
+    archive(create(contractId), actingParties)
 }

@@ -36,6 +36,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.store.ErrorCause
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import io.grpc.Status
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, Mockito, MockitoSugar}
@@ -56,6 +57,7 @@ class ApiSubmissionServiceSpec
     with AkkaBeforeAndAfterAll
     with TestResourceContext {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   private val builder = TransactionBuilder()
   private val knownParties = (1 to 100).map(idx => s"party-$idx").toArray

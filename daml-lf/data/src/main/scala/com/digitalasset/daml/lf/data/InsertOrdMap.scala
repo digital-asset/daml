@@ -16,6 +16,7 @@ import scala.collection.immutable.{HashMap, Queue}
   *  remove: O(n)
   *  in order traversal: O(n)
   */
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],
     hashMap: HashMap[K, V],
@@ -42,6 +43,7 @@ final class InsertOrdMap[K, +V] private (
     new InsertOrdMap(keys.filter(_ != k), hashMap - k)
 }
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 object InsertOrdMap extends InsertOrdMapCompanion {
 
   private val Empty: InsertOrdMap[Unit, Nothing] = new InsertOrdMap(Queue.empty, HashMap.empty)

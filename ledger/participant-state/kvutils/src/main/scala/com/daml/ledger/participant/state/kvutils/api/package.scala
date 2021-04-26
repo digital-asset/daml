@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -68,7 +69,7 @@ package object api {
           correlationId: String,
           envelope: Raw.Envelope,
           metadata: CommitMetadata,
-      ): Future[SubmissionResult] =
+      )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] =
         writer.commit(correlationId, envelope, metadata)
     }
 }

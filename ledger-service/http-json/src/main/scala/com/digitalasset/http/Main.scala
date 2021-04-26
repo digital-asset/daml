@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.runtime.JdbcDrivers
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.typesafe.scalalogging.StrictLogging
@@ -30,7 +31,10 @@ object Main extends StrictLogging {
   }
 
   def main(args: Array[String]): Unit =
-    Cli.parseConfig(args, ContractDao.supportedJdbcDriverNames) match {
+    Cli.parseConfig(
+      args,
+      ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
+    ) match {
       case Some(config) =>
         main(config)
       case None =>

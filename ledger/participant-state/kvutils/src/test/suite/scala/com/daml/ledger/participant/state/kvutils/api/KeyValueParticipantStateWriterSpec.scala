@@ -8,7 +8,6 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
@@ -21,6 +20,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.mockito.captor.{ArgCaptor, Captor}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
@@ -34,6 +34,9 @@ class KeyValueParticipantStateWriterSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+
+  import KeyValueParticipantStateWriterSpec._
+
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = ArgCaptor[Raw.Envelope]
@@ -51,7 +54,9 @@ class KeyValueParticipantStateWriterSpec
         anInterpretationCost,
       )
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(transactionCaptor.value)(_.hasTransactionEntry)
       correlationIdCaptor.value should be(expectedCorrelationId)
       val actualCommitMetadata = metadataCaptor.value
@@ -68,7 +73,9 @@ class KeyValueParticipantStateWriterSpec
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(packageUploadCaptor.value)(_.hasPackageUploadEntry)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -83,7 +90,9 @@ class KeyValueParticipantStateWriterSpec
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(configurationCaptor.value)(_.hasConfigurationSubmission)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -98,7 +107,9 @@ class KeyValueParticipantStateWriterSpec
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
       verifyEnvelope(partyAllocationCaptor.value)(_.hasPartyAllocationEntry)
       val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -118,6 +129,8 @@ class KeyValueParticipantStateWriterSpec
 object KeyValueParticipantStateWriterSpec {
 
   import MockitoSugar._
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
@@ -141,7 +154,11 @@ object KeyValueParticipantStateWriterSpec {
       correlationIdCaptor: Captor[String] = ArgCaptor[String],
   ): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(correlationIdCaptor.capture, envelopeCaptor.capture, metadataCaptor.capture))
+    when(
+      writer.commit(correlationIdCaptor.capture, envelopeCaptor.capture, metadataCaptor.capture)(
+        ArgCaptor[TelemetryContext]
+      )
+    )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer

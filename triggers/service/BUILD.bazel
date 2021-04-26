@@ -18,9 +18,14 @@ tsvc_main_scalacopts = [
     ]
 ]
 
+triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
+
 da_scala_library(
     name = "trigger-service",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = [triggerMain],
+    ),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
@@ -71,10 +76,8 @@ da_scala_library(
         "//ledger-service/utils",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/doobie-slf4j",
-        "//libs-scala/ports",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
@@ -85,24 +88,51 @@ da_scala_library(
     ],
 )
 
+scala_binary_deps = [
+    "@maven//:com_typesafe_akka_akka_actor",
+    "@maven//:com_typesafe_akka_akka_actor_typed",
+    "@maven//:com_typesafe_akka_akka_http_core",
+    "@maven//:com_typesafe_scala_logging_scala_logging",
+    "@maven//:org_scalaz_scalaz_core",
+]
+
+binary_deps = [
+    ":trigger-service",
+    "//libs-scala/ports",
+    "//libs-scala/concurrent",
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+    "//daml-lf/data",
+    "//language-support/scala/bindings",
+    "//ledger/ledger-api-common",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/scala-utils",
+    "//triggers/service/auth:middleware-api",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
 da_scala_binary(
     name = "trigger-service-binary-ce",
+    srcs = [triggerMain],
     main_class = "com.daml.lf.engine.trigger.ServiceMain",
+    scala_deps = scala_binary_deps,
     visibility = ["//visibility:public"],
-    deps = [
-        ":trigger-service",
+    deps = binary_deps + [
+        "//runtime-components/jdbc-drivers:jdbc-drivers-ce",
     ],
 )
 
 da_scala_binary(
     name = "trigger-service-binary-ee",
+    srcs = [triggerMain],
     main_class = "com.daml.lf.engine.trigger.ServiceMain",
+    scala_deps = scala_binary_deps,
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
-    deps = [
-        ":trigger-service",
+    deps = binary_deps + [
+        "//runtime-components/jdbc-drivers:jdbc-drivers-ee",
     ],
 )
 
@@ -130,6 +160,7 @@ da_scala_library(
     ],
     deps = [
         ":trigger-service",
+        ":trigger-service-binary-ce",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -165,14 +196,13 @@ da_scala_library(
 
 test_deps = [
     ":trigger-service",
+    "//ledger-api/testing-utils",
+    "//ledger-api/rs-grpc-bridge",
     ":trigger-service-tests",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_proto_java",
     "//daml-lf/data",
     "//language-support/scala/bindings-akka",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/testing-utils",
-    "//ledger-service/cli-opts",
     "//ledger-service/jwt",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-common",
@@ -188,11 +218,12 @@ test_deps = [
     "//triggers/service/auth:oauth2-test-server",
     "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
     "@maven//:org_flywaydb_flyway_core",
+    "//ledger-service/cli-opts",
 ]
 
 scala_test_deps = [
-    "@maven//:com_typesafe_akka_akka_http_core",
     "@maven//:io_spray_spray_json",
+    "@maven//:com_typesafe_akka_akka_http_core",
     "@maven//:org_scalatest_scalatest",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:com_github_scopt_scopt",

@@ -334,6 +334,15 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
                 ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}")),
           )
 
+        case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
+          return ResultNeedLocalKeyVisible(
+            stakeholders,
+            result => {
+              cb(result.toSVisibleByKey)
+              interpretLoop(machine, time)
+            },
+          )
+
         case _: SResultScenarioCommit =>
           return ResultError(Error("unexpected ScenarioCommit"))
 

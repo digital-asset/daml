@@ -158,6 +158,7 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds),
     aborted = None,
     keys = Map.empty,
+    localContracts = Set.empty,
   )
 
   sealed abstract class Result extends Product with Serializable
@@ -201,6 +202,7 @@ private[lf] case class PartialTransaction(
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[GlobalKey, Option[Value.ContractId]],
+    localContracts: Set[Value.ContractId],
 ) {
 
   import PartialTransaction._
@@ -317,6 +319,7 @@ private[lf] case class PartialTransaction(
         context = context.addActionChild(nid),
         nodes = nodes.updated(nid, createNode),
         actionNodeSeeds = actionNodeSeeds :+ (nid -> actionNodeSeed),
+        localContracts = localContracts + cid,
       ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode), auth)
 
       // if we have a contract key being added, include it in the list of
