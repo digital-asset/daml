@@ -10,7 +10,7 @@ import com.daml.lf.data.Time.Timestamp
 
 import scala.collection.mutable.ListBuffer
 
-class StateReindexer(state: MutableState) {
+class StateToUpdateMapping(state: MutableState) {
   def generateUpdates(): Iterable[Update] = {
     val result = new ListBuffer[Update]
     for ((key, value) <- state) {

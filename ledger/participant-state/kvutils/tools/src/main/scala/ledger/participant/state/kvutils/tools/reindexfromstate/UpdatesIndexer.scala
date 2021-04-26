@@ -47,7 +47,7 @@ class UpdatesIndexer[LogResult](commitStrategySupportBuilder: Metrics => CommitS
     for {
       _ <- processSubmissions(importer)
       snapshotState = commitStrategySupport.currentState()
-      reindexer = new StateReindexer(snapshotState.mutableState())
+      reindexer = new StateToUpdateMapping(snapshotState.mutableState())
       updates = reindexer.generateUpdates()
       offsetPlusUpdates = updates.zipWithIndex.map { case (update, index) =>
         (OffsetBuilder.fromLong(index.toLong), update)
