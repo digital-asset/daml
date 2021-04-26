@@ -402,23 +402,32 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       byKey = false,
     )
 
-  "consumedContract" - {
-    "return the IDs of consumed contracts" in {
-      val builder = TransactionBuilder()
-      val parties = Seq("Alice")
-      val (cid0, create0) = create(builder, parties)
-      val (_, create1) = create(builder, parties)
-      val (cid2, create2) = create(builder, parties)
-      val (_, create3) = create(builder, parties)
-      builder.add(exercise(builder, create0, parties, true))
-      builder.add(create1)
-      builder.add(create2)
-      val exeNid1 = builder.add(exercise(builder, create1, parties, false))
-      val exeNid2 = builder.add(exercise(builder, create2, parties, true), exeNid1)
-      builder.add(exercise(builder, create3, parties, false), exeNid2)
-      val rollback = builder.add(builder.rollback(), exeNid2)
-      builder.add(exercise(builder, create3, parties, true), rollback)
-      builder.build().consumedContracts shouldBe Set(cid0, cid2)
+  val activenessTest = {}
+
+  "consumedContracts and inactiveContracts" - {
+    val builder = TransactionBuilder()
+    val parties = Seq("Alice")
+    val (cid0, create0) = create(builder, parties)
+    val (_, create1) = create(builder, parties)
+    val (cid2, create2) = create(builder, parties)
+    val (_, create3) = create(builder, parties)
+    builder.add(exercise(builder, create0, parties, true))
+    builder.add(create1)
+    builder.add(create2)
+    val exeNid1 = builder.add(exercise(builder, create1, parties, false))
+    val exeNid2 = builder.add(exercise(builder, create2, parties, true), exeNid1)
+    builder.add(exercise(builder, create3, parties, false), exeNid2)
+    val rollback = builder.add(builder.rollback(), exeNid2)
+    builder.add(exercise(builder, create3, parties, true), rollback)
+    val (cid4, create4) = create(builder, parties)
+    builder.add(create4, rollback)
+    val transaction = builder.build
+
+    "consumedContracs does not include rollbacks" in {
+      transaction.consumedContracts shouldBe Set(cid0, cid2)
+    }
+    "inactiveContracts includes rollbacks" in {
+      transaction.inactiveContracts shouldBe Set(cid0, cid2, cid4)
     }
   }
 
