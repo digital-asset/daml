@@ -58,8 +58,8 @@ private[dao] sealed class ContractsReader(
         dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
           implicit connection =>
             SQL"""select pc.contract_id from #$contractsTable
-                 where #$stakeholdersWhere and contract_witness in ($readers)
-                 and create_key_hash = ${key.hash}
+                 where #$stakeholdersWhere and pcw.contract_witness in ($readers)
+                 and pc.create_key_hash = ${key.hash}
                  #${sqlFunctions.limitClause(1)}"""
               .as(contractId("contract_id").singleOpt)
         }
@@ -105,7 +105,7 @@ private[dao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId #${sqlFunctions
+          SQL"select pc.contract_id, pc.template_id from #$contractsTable where pcw.contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions
             .limitClause(1)}"
             .as(contractWithoutValueRowParser.singleOpt)
         }
