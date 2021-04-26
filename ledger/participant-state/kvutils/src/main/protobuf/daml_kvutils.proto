@@ -133,11 +133,31 @@ message DamlLogEntryId {
 }
 
 message DamlSubmitterInfo {
+  // Parties authorizing the command submitted together with this
+  // DamlSubmitterInfo
   repeated string submitters = 1;
+
+  // Identifier of the intent, which SHOULD be reused when retrying executing
+  // the same intended change.
   string command_id = 2;
+
+  // Opaque reference to application submitting this command. May be used for
+  // request routing and response filtering.
   string application_id = 3;
+
   reserved 4; // was maximum_record_time
+
+  // Timestamp until which the ledger SHOULD deduplicate this submission.
+  // Measured against the ledger's clock.
   google.protobuf.Timestamp deduplicate_until = 5;
+
+  // Identity of the submission. This should always be freshly allocated by
+  // Ledger API clients.
+  string submission_id = 6;
+
+  // Rank of the submission, which is used to allow for safe retries. See
+  // DamlCommandDedupValue for details on the deduplication logic.
+  bytes submission_rank = 7;
 }
 
 // Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -392,18 +412,66 @@ message DamlStateValue {
   }
 }
 
+// These keys identify intents to change the Daml ledger using a Daml
+// transaction built from a DamlCommand.
 message DamlCommandDedupKey {
+  // Intents are namespaced to the list of submitting parties.
   repeated string submitters = 1;
   reserved 2; // was application_id
+
+  // An identifier for the intent.
   string command_id = 3;
 }
 
+// The DamlCommand deduplication logic ensures that Ledger API clients can
+// implement exactly-once submission of DamlCommands even when retrying.
+// The logic, called rank-based deduplication, works on a
+// per-DamlCommandDedupKey basis. It stores the rank and result of the last
+// submission that was validated, and cancels any further submissions with the
+// same rank instead of executing them.
+//
+// See TODO: add link to docs for
+// guidance on how applications should manage submission ranks when retrying.
+//
+// DamlCommandDedupValues are tagged with an expiry date to allow ledgers to
+// reclaim storage space by deleting them, at the cost of providing a
+// limited-time deduplication guarantee to applications.
 message DamlCommandDedupValue {
   reserved 1; // was record_time
-  // the time until when future commands with the same
-  // deduplication key will be rejected due to a duplicate submission
+
+  // The time until which ledgers MUST keep this DamlCommandDedupValue around.
+  // Ledgers MAY delete them after this time measured against their local
+  // clock.
+  // Note: we exploit that Ledger API clients are advised to not reuse
+  // DamlCommandDedupKeys, as they cannot assume that their timely removal.
   google.protobuf.Timestamp deduplicated_until = 2;
+
+  // The identity of the submission whose rank and result is stored.
+  // This identity is typically a UUID provided by Ledger API clients.
+  string submission_id = 5;
+  // The rank of the submission whose result is stored. Ranks are compared in
+  // lexicographic order.
+  bytes submission_rank = 4;
+  // The result of the submission.
+  CommandSubmissionResult submission_result = 3;
 }
+
+enum CommandSubmissionResult {
+  // Used for DamlCommandDedupValues that were created before switching to
+  // the rank-based deduplication logic.
+  COMMAND_SUBMSSION_RESULT_UNSPECIFIED = 0;
+  // The submission was executed, but did not pass validation, and was
+  // rejected with a reason other than 'Duplicate'. The rank-based command
+  // deduplication logic guarantees that all further submissions with the same
+  // rank will be rejected as 'Duplicate'.
+  COMMAND_SUBMSSION_RESULT_REJECTED = 1;
+  // The submission was executed and accepted. The rank-based command
+  // deduplication logic guarantees that all further submission, independent
+  // of their rank, will be rejected as 'Duplicate'.
+  COMMAND_SUBMSSION_RESULT_ACCEPTED = 2;
+}
+
+
 
 message DamlSubmissionDedupKey {
   enum SubmissionKind {
@@ -552,7 +620,28 @@ message InvalidLedgerTime {
 // The committer has already seen a command/submission with the same deduplication
 // key during its implementation specific deduplication window.
 message Duplicate {
+  // Error details are only set for methods that do not provide a
+  // duplicate_info.
   string details = 1;
+
+  oneof duplicate_info {
+    RankBasedDuplicateInfo rank_based_duplicate_info = 2;
+  }
+}
+
+// Info on a duplicate determined using rank-based deduplication. See
+// DamlCommandDedupValue for more information.
+message RankBasedDuplicateInfo {
+  // Identity and rank of the submission whose execution got cancelled by the
+  // deduplication logic.
+  string cancelled_submission_id = 1;
+  bytes cancelled_submission_rank = 2;
+
+  // Identity, rank, and result of the submission which was executed in the
+  // past, and which caused the cancellation.
+  string executed_submission_id = 3;
+  bytes executed_submission_rank = 4;
+  CommandSubmissionResult executed_submission_result = 5;
 }
 
 // A party mentioned as a stakeholder or actor has not been on-boarded on
