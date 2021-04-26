@@ -25,7 +25,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
         "//visibility:public",

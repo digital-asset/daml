@@ -15,7 +15,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
     ],
     scalacopts = ["-Xsource:2.13"],
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
     versioned_scala_deps = {
         "2.12": [

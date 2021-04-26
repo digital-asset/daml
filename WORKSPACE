@@ -721,7 +721,7 @@ load(
     "scala_repositories",
 )
 
-# note some dependencies in bazel-jvm-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
+# note some dependencies in bazel-java-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
 scala_repositories(
     fetch_sources = True,
     overriden_artifacts =

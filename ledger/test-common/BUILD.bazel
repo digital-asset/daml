@@ -110,7 +110,9 @@ da_scala_dar_resources_library(
                 srcs = [
                     ":%s-tests-%s.scala-codegen" % (test_name, target),
                 ],
-                plugins = [silencer_plugin],
+                plugins = [
+                    silencer_plugin,
+                ],
                 scala_deps = extra_deps,
                 scalacopts = [
                     "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",

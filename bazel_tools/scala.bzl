@@ -62,6 +62,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
+    "-Wconf:cat=deprecation:wv,cat=feature:wv,cat=optimizer:wv",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
@@ -82,6 +83,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
     "-Ywarn-unused:imports",
+    "-Ywarn-unused:-nowarn",
     "-Ywarn-unused",
 ]
 
@@ -157,7 +159,6 @@ default_compile_arguments = {
 }
 
 silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
-silencer_lib = "@maven//:com_github_ghik_silencer_lib_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"
@@ -206,15 +207,10 @@ def _wrap_rule(
         scala_runtime_deps = [],
         exports = [],
         scala_exports = [],
-        silent_annotations = False,
         **kwargs):
     deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     exports = resolve_scala_deps(exports, scala_exports)
-    if silent_annotations:
-        scalacopts = ["-P:silencer:checkUnused"] + scalacopts
-        plugins = [silencer_plugin] + plugins
-        deps = [silencer_lib] + deps
     if (len(exports) > 0):
         kwargs["exports"] = exports
     rule(
@@ -500,16 +496,11 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
+def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], **kwargs):
     deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
 
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        if silent_annotations:
-            # as with _wrap_rule
-            scalacopts = ["-P:silencer:checkUnused"] + scalacopts
-            plugins = [silencer_plugin] + plugins
-            deps = [silencer_lib] + deps
         scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,

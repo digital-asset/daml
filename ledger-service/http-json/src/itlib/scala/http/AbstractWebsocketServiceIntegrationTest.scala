@@ -22,6 +22,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json.{JsNull, JsObject, JsString, JsValue}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -269,7 +270,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
-      @com.github.ghik.silencer.silent("evtsWrapper.*never used")
+      @nowarn("msg=pattern var evtsWrapper .* is never used")
       def resp(
           iouCid: domain.ContractId,
           kill: UniqueKillSwitch,

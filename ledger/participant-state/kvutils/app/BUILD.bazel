@@ -19,7 +19,6 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
     ],
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
     visibility = [
         "//visibility:public",

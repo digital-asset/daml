@@ -6,8 +6,8 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
-load("//bazel_tools:scala.bzl", "silencer_plugin")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 da_scala_library(

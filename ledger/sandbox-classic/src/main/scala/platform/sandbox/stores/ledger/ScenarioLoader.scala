@@ -6,16 +6,19 @@ package com.daml.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.daml.lf.crypto
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref.DefinitionRef
 import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.Definition
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.mutable.ArrayBuffer
 
 private[sandbox] object ScenarioLoader {
@@ -116,11 +119,18 @@ private[sandbox] object ScenarioLoader {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
-    @com.github.ghik.silencer.silent("can be used only by sandbox classic.")
-    val scenarioLedger =
-      ScenarioRunner.getScenarioLedger(engine, scenarioRef, scenarioDef, transactionSeed)
+    val scenarioLedger = getScenarioLedger(engine, transactionSeed, scenarioRef, scenarioDef)
     (scenarioLedger, scenarioRef)
   }
+
+  //noinspection ScalaDeprecation
+  @nowarn("cat=deprecation&origin=com\\.daml\\.lf\\.speedy\\.ScenarioRunner\\.getScenarioLedger")
+  private def getScenarioLedger(
+      engine: Engine,
+      transactionSeed: Hash,
+      scenarioRef: DefinitionRef,
+      scenarioDef: Definition,
+  ) = ScenarioRunner.getScenarioLedger(engine, scenarioRef, scenarioDef, transactionSeed)
 
   private def identifyScenario(
       packages: InMemoryPackageStore,
