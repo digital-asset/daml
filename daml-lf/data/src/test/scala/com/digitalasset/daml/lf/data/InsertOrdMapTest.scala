@@ -6,6 +6,7 @@ package com.daml.lf.data
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 class InsertOrdMapTest extends AnyWordSpec with Matchers {
   "toSeq" should {
     "preserve order" in {
