@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.tools.reindexfromstate
 
 import java.util.concurrent.Executors
@@ -11,7 +14,11 @@ import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.`export`.LedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.IndexingFailureException
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.{CommitStrategySupport, Config, color}
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.{
+  CommitStrategySupport,
+  Config,
+  color,
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
@@ -26,24 +33,26 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class UpdatesIndexer[LogResult](commitStrategySupportBuilder: Metrics => CommitStrategySupport[LogResult]) {
+class UpdatesIndexer[LogResult](
+    commitStrategySupportBuilder: Metrics => CommitStrategySupport[LogResult]
+) {
   private val metricRegistry = new MetricRegistry
   private val metrics = new Metrics(metricRegistry)
   private val commitStrategySupport = commitStrategySupportBuilder(metrics)
 
   def run(
-           importer: LedgerDataImporter,
-           config: Config,
-         )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] =
+      importer: LedgerDataImporter,
+      config: Config,
+  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] =
     indexUpdatesFromState(config, importer)
 
   private def indexUpdatesFromState(
-                                     config: Config,
-                                     importer: LedgerDataImporter,
-                                   )(implicit
-                                     executionContext: ExecutionContext,
-                                     materializer: Materializer,
-                                   ): Future[Unit] =
+      config: Config,
+      importer: LedgerDataImporter,
+  )(implicit
+      executionContext: ExecutionContext,
+      materializer: Materializer,
+  ): Future[Unit] =
     for {
       _ <- processSubmissions(importer)
       snapshotState = commitStrategySupport.currentState()
@@ -56,14 +65,18 @@ class UpdatesIndexer[LogResult](commitStrategySupportBuilder: Metrics => CommitS
       _ <- indexStateItems(config, 0, readService)
     } yield ()
 
-  private def createReadServiceReplayingUpdates(offsetPlusUpdates: Iterable[(Offset, Update)]): ReadService =
+  private def createReadServiceReplayingUpdates(
+      offsetPlusUpdates: Iterable[(Offset, Update)]
+  ): ReadService =
     new ReadService {
       override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-        Source.single(LedgerInitialConditions(
-          "FakeId",
-          LedgerReader.DefaultConfiguration,
-          Time.Timestamp.Epoch,
-        ))
+        Source.single(
+          LedgerInitialConditions(
+            "FakeId",
+            LedgerReader.DefaultConfiguration,
+            Time.Timestamp.Epoch,
+          )
+        )
 
       override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
         Source.fromIterator(() => offsetPlusUpdates.toIterator)
@@ -72,10 +85,10 @@ class UpdatesIndexer[LogResult](commitStrategySupportBuilder: Metrics => CommitS
     }
 
   private def indexStateItems(
-                               config: Config,
-                               updateCount: Int,
-                               readService: ReadService,
-                             )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+      config: Config,
+      updateCount: Int,
+      readService: ReadService,
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
     // Start the indexer consuming the recorded state updates
@@ -125,8 +138,8 @@ class UpdatesIndexer[LogResult](commitStrategySupportBuilder: Metrics => CommitS
   }
 
   private def processSubmissions(
-                                  importer: LedgerDataImporter,
-                                )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+      importer: LedgerDataImporter
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     println("Processing the ledger export.".white)
 
     Source(importer.read())
@@ -148,15 +161,15 @@ class UpdatesIndexer[LogResult](commitStrategySupportBuilder: Metrics => CommitS
 
   // FIXME(miklos): Reuse from integritycheck package.
   private def migrateAndStartIndexer(
-                                      config: IndexerConfig,
-                                      readService: ReadService,
-                                      metrics: Metrics,
-                                      lfValueTranslationCache: LfValueTranslationCache.Cache,
-                                    )(implicit
-                                      resourceContext: ResourceContext,
-                                      materializer: Materializer,
-                                      loggingContext: LoggingContext,
-                                    ): ResourceOwner[Indexer] =
+      config: IndexerConfig,
+      readService: ReadService,
+      metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+  )(implicit
+      resourceContext: ResourceContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[Indexer] =
     for {
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
