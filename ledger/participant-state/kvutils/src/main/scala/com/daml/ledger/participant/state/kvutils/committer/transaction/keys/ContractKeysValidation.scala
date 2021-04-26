@@ -66,8 +66,10 @@ private[transaction] object ContractKeysValidation {
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       transactionEntry: DamlTransactionEntrySummary,
   ): StepResult[DamlTransactionEntrySummary] = {
+    type KeyValidationStackStatus = Either[KeyValidationError, List[KeyValidationState]]
+
     val keysValidationOutcome = transactionEntry.transaction
-      .foldInExecutionOrder[Either[KeyValidationError, List[KeyValidationState]]](
+      .foldInExecutionOrder[KeyValidationStackStatus](
         Right(List(KeyValidationState(activeStateKeys = contractKeyDamlStateKeys)))
       )(
         exerciseBegin = (status, _, exerciseBeginNode) => {
