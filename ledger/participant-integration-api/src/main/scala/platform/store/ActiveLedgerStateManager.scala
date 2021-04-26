@@ -271,7 +271,10 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
             }
             // Discard archives in the rollback but mark contracts created in the rollback as archived.
             // This means that at the end of the traversal, we can use archivedIds to filter out
-            // both local and global contracts that are no longer active.
+            // both local and global contracts that are no longer active. This is required because
+            // we use it to filter out the divulged contracts to those that are active at the end of the
+            // transaction. Divulgence also affects contracts in a rollback so we need to filter
+            // those out.
             val newArchived =
               beforeRollback.archivedIds union (acc.currentState.createdIds diff beforeRollback.createdIds)
             acc.copy(
