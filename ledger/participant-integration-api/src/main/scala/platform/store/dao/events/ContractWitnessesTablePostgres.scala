@@ -30,7 +30,7 @@ object ContractWitnessesTablePostgres extends ContractWitnessesTable {
   private def buildInsertExecutable(
       witnesses: TransactionIndexing.ContractWitnessesInfo
   ): Executable = {
-    import com.daml.platform.store.Conversions._
+    import com.daml.platform.store.JdbcArrayConversions._
 
     val flattened: Iterator[(ContractId, String)] = Relation.flatten(witnesses.netVisibility)
     val (witnessesContractIds, parties) = flattened

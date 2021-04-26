@@ -37,6 +37,7 @@ private[events] object ContractWitnessesTable {
     dbType match {
       case DbType.Postgres => ContractWitnessesTablePostgres
       case DbType.H2Database => ContractWitnessesTableH2
+      case DbType.Oracle => ContractWitnessesTableOracle
     }
 
 }

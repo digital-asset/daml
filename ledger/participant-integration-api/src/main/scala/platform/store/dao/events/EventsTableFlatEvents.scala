@@ -105,7 +105,7 @@ private[events] object EventsTableFlatEvents {
       "create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
-    ).mkString(", ")
+    )
 
   def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
@@ -122,8 +122,11 @@ private[events] object EventsTableFlatEvents {
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
-    SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
+    SQL"""select #$selectColumns, #${sqlFunctions.toArray(requestingParty)} as event_witnesses,
+                 case when #${sqlFunctions.arrayIntersectionWhereClause(
+      "submitters",
+      requestingParty,
+    )} then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
@@ -147,7 +150,7 @@ private[events] object EventsTableFlatEvents {
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
               and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
-          group by (#$groupByColumns)
+          #${sqlFunctions.groupByIncludingBinaryAndArrayColumns(groupByColumns)}
           order by event_sequential_id"""
   }
 

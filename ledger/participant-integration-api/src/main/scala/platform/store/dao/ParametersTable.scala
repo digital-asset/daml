@@ -84,13 +84,15 @@ private[dao] object ParametersTable {
     * @param offsetStep The offset step.
     * @param connection The SQL connection.
     */
-  def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
+
+  def updateLedgerEnd(offsetStep: OffsetStep)(implicit
+      connection: Connection
+  ): Unit =
     offsetStep match {
       case CurrentOffset(ledgerEnd) =>
-        discard(
+        val sqlQuery =
           SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
-            .execute()
-        )
+        discard(sqlQuery.execute())
       case IncrementalOffsetStep(previousOffset, ledgerEnd) =>
         val sqlStatement =
           SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where #$LedgerEndColumnName = $previousOffset"
@@ -113,4 +115,5 @@ private[dao] object ParametersTable {
       extends RuntimeException(
         s"Could not update ledger end. Previous ledger end does not match expected ${expected.toHexString}"
       )
+
 }

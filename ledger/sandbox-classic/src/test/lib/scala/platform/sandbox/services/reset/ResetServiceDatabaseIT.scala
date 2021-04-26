@@ -113,6 +113,9 @@ object ResetServiceDatabaseIT {
       case DbType.H2Database =>
         SQL"select table_name from information_schema.tables where table_schema <> 'INFORMATION_SCHEMA'"
           .as(str("table_name").*)(connection)
+      case DbType.Oracle =>
+        SQL"select * from USER_TABLES"
+          .as(str("table_name").*)(connection)
     }
 
   private def countRows(tableName: String)(connection: Connection): Int =

@@ -6,14 +6,17 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{Offset, SubmissionId}
 import com.daml.lf.data.Ref
 import com.daml.platform.indexer.{IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.entries.PartyLedgerEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoPartiesSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -39,6 +42,52 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       parties <- ledgerDao.listKnownParties()
     } yield {
       parties should contain.allOf(alice, bob)
+    }
+  }
+
+  it should "store and retrieve accepted and rejected parties" in {
+    val acceptedParty = Ref.Party.assertFromString(s"Accepted-${UUID.randomUUID()}")
+    val nonExistentParty = UUID.randomUUID().toString
+    val rejectionReason = s"$nonExistentParty is rejected"
+    val accepted = PartyDetails(
+      party = acceptedParty,
+      displayName = Some("Accepted Ackbar"),
+      isLocal = true,
+    )
+    val acceptedSubmissionId = UUID.randomUUID().toString
+    val acceptedRecordTime = Instant.now()
+    val accepted1 =
+      PartyLedgerEntry.AllocationAccepted(Some(acceptedSubmissionId), acceptedRecordTime, accepted)
+    val rejectedSubmissionId = UUID.randomUUID().toString
+    val rejectedRecordTime = Instant.now()
+    val rejected1 =
+      PartyLedgerEntry.AllocationRejected(rejectedSubmissionId, rejectedRecordTime, rejectionReason)
+    val originalOffset = previousOffset.get().get
+    val offset1 = nextOffset()
+    for {
+      response1 <- storePartyEntry(
+        accepted,
+        offset1,
+        Some(acceptedSubmissionId),
+        acceptedRecordTime,
+      )
+      _ = response1 should be(PersistenceResponse.Ok)
+      offset2 = nextOffset()
+      response2 <- storeRejectedPartyEntry(
+        rejectionReason,
+        offset2,
+        rejectedSubmissionId,
+        rejectedRecordTime,
+      )
+      _ = response2 should be(PersistenceResponse.Ok)
+      parties <- ledgerDao.getParties(Seq(acceptedParty, nonExistentParty))
+      partyEntries <- ledgerDao
+        .getPartyEntries(originalOffset, nextOffset())
+        .take(4)
+        .runWith(Sink.seq)
+    } yield {
+      parties should contain.only(accepted)
+      assert(partyEntries == Vector((offset1, accepted1), (offset2, rejected1)))
     }
   }
 
@@ -118,7 +167,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     recoverToSucceededIf[LedgerEndUpdateError](
       ledgerDao.storePartyEntry(
         IncrementalOffsetStep(nextOffset(), nextOffset()),
-        allocationAccepted(fred),
+        PartyLedgerEntry.AllocationAccepted(Some(UUID.randomUUID().toString), Instant.now(), fred),
       )
     )
   }
@@ -156,21 +205,32 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   private def storePartyEntry(
       partyDetails: PartyDetails,
       offset: Offset,
+      submissionIdOpt: Option[SubmissionId] = Some(UUID.randomUUID().toString),
+      recordTime: Instant = Instant.now(),
   ) =
     ledgerDao
       .storePartyEntry(
         OffsetStep(previousOffset.get(), offset),
-        allocationAccepted(partyDetails),
+        PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails),
       )
       .map { response =>
         previousOffset.set(Some(offset))
         response
       }
 
-  private def allocationAccepted(partyDetails: PartyDetails): PartyLedgerEntry.AllocationAccepted =
-    PartyLedgerEntry.AllocationAccepted(
-      submissionIdOpt = Some(UUID.randomUUID().toString),
-      recordTime = Instant.now,
-      partyDetails = partyDetails,
-    )
+  private def storeRejectedPartyEntry(
+      reason: String,
+      offset: Offset,
+      submissionIdOpt: SubmissionId,
+      recordTime: Instant,
+  ): Future[PersistenceResponse] =
+    ledgerDao
+      .storePartyEntry(
+        OffsetStep(previousOffset.get(), offset),
+        PartyLedgerEntry.AllocationRejected(submissionIdOpt, recordTime, reason),
+      )
+      .map { response =>
+        previousOffset.set(Some(offset))
+        response
+      }
 }

@@ -47,6 +47,9 @@ trait OracleAround {
       val stmt = con.createStatement()
       stmt.execute(s"""create user $name identified by $pwd""")
       stmt.execute(s"""grant connect, resource to $name""")
+      stmt.execute(
+        s"""grant create table, create view, create procedure, create sequence, create type to $name"""
+      )
       stmt.execute(s"""alter user $name quota unlimited on users""")
     }.get
     User(name, pwd)

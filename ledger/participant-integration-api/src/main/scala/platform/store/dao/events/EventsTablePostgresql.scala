@@ -10,6 +10,7 @@ import anorm.{BatchSql, NamedParameter, Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.JdbcArrayConversions._
 
 case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends EventsTable {
 
@@ -254,7 +255,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
       exerciseArgumentCompression: Array[Option[Int]],
       exerciseResultCompression: Array[Option[Int]],
   ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.IntToSmallIntConversions._
+    import com.daml.platform.store.JdbcArrayConversions.IntToSmallIntConversions._
     anorm
       .SQL(insertStmt)
       .on(
