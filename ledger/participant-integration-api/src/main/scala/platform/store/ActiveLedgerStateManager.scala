@@ -27,15 +27,10 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
 
   /** State that is restored on rollback.
     * @param createdIds The set of local contract ids created in the transaction.
-    * @param archivedIds The set of contract ids
-    *  archived by the transaction or local contracts whose create has been rolled back.
-    *  In other words, contracts that we know won’t be active at the
-    *  end of the transaction.
     * @param als The active ledger state
     */
   private case class RollbackState(
       createdIds: Set[ContractId],
-      archivedIds: Set[ContractId],
       als: Option[ALS],
   ) {
     def mapAcs(f: ALS => ALS): RollbackState =
@@ -85,7 +80,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
   private object AddTransactionState {
     def apply(acs: ALS): AddTransactionState =
       AddTransactionState(
-        RollbackState(Set.empty, Set.empty, Some(acs)),
+        RollbackState(Set.empty, Some(acs)),
         List(),
         Set.empty,
         Set.empty,
@@ -249,10 +244,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                       als.removeContract(ne.targetCoid)
                     } else {
                       als
-                    }),
-                    archivedIds =
-                      if (ne.consuming) acc.currentState.archivedIds + ne.targetCoid
-                      else acc.currentState.archivedIds,
+                    })
                   ),
                   parties = acc.parties.union(nodeParties),
                 )
@@ -269,23 +261,13 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               case Nil => sys.error("IMPOSSIBLE: Rollback end but rollback stack is empty")
               case head :: tail => (head, tail)
             }
-            // Discard archives in the rollback but mark contracts created in the rollback as archived.
-            // This means that at the end of the traversal, we can use archivedIds to filter out
-            // both local and global contracts that are no longer active. This is required because
-            // we use it to filter out the divulged contracts to those that are active at the end of the
-            // transaction. Divulgence also affects contracts in a rollback so we need to filter
-            // those out.
-            val newArchived =
-              beforeRollback.archivedIds union (acc.currentState.createdIds diff beforeRollback.createdIds)
             acc.copy(
-              currentState = beforeRollback.copy(
-                archivedIds = newArchived
-              ),
+              currentState = beforeRollback,
               rollbackStates = rest,
             )
           },
         )
-    val divulgedContractIds = divulgence -- st.currentState.archivedIds
+    val divulgedContractIds = divulgence -- transaction.inactiveContracts
     st.mapAcs(
       _.divulgeAlreadyCommittedContracts(transactionId, divulgedContractIds, divulgedContracts)
     ).mapAcs(_ addParties st.parties)
