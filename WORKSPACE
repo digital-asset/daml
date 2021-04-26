@@ -60,7 +60,7 @@ load("//bazel_tools:scala_version.bzl", "scala_version_configure")
 
 scala_version_configure(name = "scala_version")
 
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version")
 
 dadew(name = "dadew")
 
@@ -599,8 +599,6 @@ dev_env_tool(
     win_paths = ["bin/makensis.exe"],
     win_tool = "nsis-3.04",
 ) if is_windows else None
-
-load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 # Scaladoc
 nixpkgs_package(
