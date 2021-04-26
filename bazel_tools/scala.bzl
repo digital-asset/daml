@@ -62,6 +62,8 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
+    # enable verbose warnings instead of warning summaries
+    # ("-Wconf:cat=deprecation:ws,cat=feature:ws,cat=optimizer:ws" is the default)
     "-Wconf:cat=deprecation:wv,cat=feature:wv,cat=optimizer:wv",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
@@ -83,6 +85,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
     "-Ywarn-unused:imports",
+    # Allow `@nowarn` annotations that allegedly do nothing (necessary because of false positives)
     "-Ywarn-unused:-nowarn",
     "-Ywarn-unused",
 ]

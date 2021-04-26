@@ -123,7 +123,6 @@ private[sandbox] object ScenarioLoader {
     (scenarioLedger, scenarioRef)
   }
 
-  //noinspection ScalaDeprecation
   @nowarn("cat=deprecation&origin=com\\.daml\\.lf\\.speedy\\.ScenarioRunner\\.getScenarioLedger")
   private def getScenarioLedger(
       engine: Engine,
