@@ -3,13 +3,13 @@
 
 resolver: nightly-2021-01-05
 packages:
-  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-a21b2e125d275ff9df8dc515f88be6c6.tar.gz
-    sha256: "798861fd8fd9ea44ac5d8148169064589276bbcd8d14f9d7bef89dca4069858a"
-  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-a21b2e125d275ff9df8dc515f88be6c6.tar.gz
-    sha256: "b4b342e8cfd2ced4873ae63711cd410533fd124b1f84006eec175c3d7c15ffda"
+  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-369086ffb2f33597c132bd2d0fc0e163.tar.gz
+    sha256: "3473d0146f0350167c9b5fc14abdebbd5408a73b0827e8afcceffd74437fa4cc"
+  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-369086ffb2f33597c132bd2d0fc0e163.tar.gz
+    sha256: "250061679a68fd39af476ef6fbf168685d0428560f3fbdb361ee18c86e3cc5c5"
   - github: digital-asset/hlint
-    commit: "84402f268e10b162f5c90be70b687e54033a9a89"
-    sha256: "647f3e316f5afd4f661afc8bfb788382194040f833cdaf79305e3c76e037be29"
+    commit: "f02a8220530c45f9afa1ce3f5e6e928a6f36271d"
+    sha256: "508bc19b03c007345121f6d80937ce3a96eba959e20c7a81a5e7f8e9e2dd20bb"
   - aeson-extra-0.4.1.3
   - ghc-lib-parser-ex-8.8.5.8
   - bytestring-nums-0.3.6

@@ -1,8 +1,6 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=18:12-19:1; Empty record update
-
 module EmptyWith where
 
 data Foo = Foo with -- this should be fine
@@ -15,4 +13,4 @@ create = Foo with -- this should be fine
 match (Bar with) = 1 -- this should be fine
 
 update : Bar -> Bar
-update x = x with -- this should be an error (according to Haskell)
+update x = x with -- this should be be fine (since record dot updates)
