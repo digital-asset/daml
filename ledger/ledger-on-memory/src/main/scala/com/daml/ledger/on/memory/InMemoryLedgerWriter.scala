@@ -29,6 +29,7 @@ import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateRead
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
+import com.daml.telemetry.TelemetryContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,7 +48,7 @@ final class InMemoryLedgerWriter private[memory] (
       correlationId: String,
       envelope: Raw.Envelope,
       metadata: CommitMetadata,
-  ): Future[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] =
     committer
       .commit(
         participantId,

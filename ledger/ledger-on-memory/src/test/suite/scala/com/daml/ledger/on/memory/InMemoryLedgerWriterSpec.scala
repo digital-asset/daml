@@ -14,6 +14,7 @@ import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -27,6 +28,9 @@ class InMemoryLedgerWriterSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
+
   "commit" should {
     "not signal new head in case of failure" in {
       val mockDispatcher = mock[Dispatcher[Index]]

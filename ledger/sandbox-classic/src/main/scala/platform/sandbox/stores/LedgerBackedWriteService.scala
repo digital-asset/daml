@@ -23,6 +23,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.telemetry.TelemetryContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
 import io.grpc.Status
 
@@ -39,7 +40,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "actAs" -> submitterInfo.actAs.mkString(","),
       "applicationId" -> submitterInfo.applicationId,
