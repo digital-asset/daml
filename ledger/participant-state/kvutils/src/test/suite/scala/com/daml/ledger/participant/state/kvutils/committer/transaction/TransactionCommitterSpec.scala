@@ -726,6 +726,21 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       rejectionReason should startWith("DuplicateKeys")
     }
 
+    "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
+      val builder = TransactionBuilder()
+      val globalCid = s"#freshContractId"
+      val rollback = builder.add(builder.rollback())
+      builder.add(archive(globalCid, Set("Alice")), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("InconsistentKeys")
+    }
+
     def validate(ctx: CommitContext, transaction: SubmittedTransaction) =
       ContractKeysValidation
         .validateKeys(transactionCommitter)
@@ -847,4 +862,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       argument = Value.ValueRecord(None, ImmArray.empty),
       result = Some(Value.ValueUnit),
     )
+
+  def archive(contractId: String, actingParties: Set[String]): Exercise =
+    archive(create(contractId), actingParties)
 }
