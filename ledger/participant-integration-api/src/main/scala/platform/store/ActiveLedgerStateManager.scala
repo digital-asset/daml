@@ -84,7 +84,12 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
 
   private object AddTransactionState {
     def apply(acs: ALS): AddTransactionState =
-      AddTransactionState(RollbackState(Set.empty, Set.empty, Some(acs)), List(), Set(), Set.empty)
+      AddTransactionState(
+        RollbackState(Set.empty, Set.empty, Some(acs)),
+        List(),
+        Set.empty,
+        Set.empty,
+      )
   }
 
   /** A higher order function to update an abstract active ledger state (ALS) with the effects of the given transaction.
