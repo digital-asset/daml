@@ -98,14 +98,13 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
     val subSpan = createSubSpan(spanName, kind, attributes: _*)
 
     val result = body(DefaultTelemetryContext(subSpan))
-    result.onComplete {
+    result.andThen {
       case Failure(t) =>
         subSpan.recordException(t)
         subSpan.end()
       case Success(_) =>
         subSpan.end()
     }(DirectExecutionContext)
-    result
   }
 
   override def runInNewSpan[T](
