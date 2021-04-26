@@ -630,7 +630,7 @@ private object OracleQueries extends Queries {
       """,
       logHandler0 = log,
     ).updateMany(
-      dbcs.map(c => c.copy(signatories = c.signatories.toJson, observers = c.observers.toJson))
+      dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
     )
   }
 
