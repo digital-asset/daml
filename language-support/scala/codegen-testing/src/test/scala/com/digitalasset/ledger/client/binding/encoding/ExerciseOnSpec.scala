@@ -86,7 +86,7 @@ object ExerciseOnSpec {
       */
     implicit final class `Sth syntax`[+ ` ExOn`](private val id: ` ExOn`) extends AnyVal {
       @nowarn(
-        "msg=parameter value (controller|exOn) .* is never used"
+        "msg=parameter value (controller| exOn) .* is never used"
       ) // used only for arg typechecking
       def exerciseFoo(controller: P.Party)(implicit ` exOn`: ExerciseOn[` ExOn`, Sth]): Unit = ()
     }
