@@ -128,7 +128,7 @@ class StateToUpdateMapping(state: MutableState) {
               optByKeyNodes = None,
             ),
             transaction =
-              contractInstanceToTransaction(damlStateKey.getContractId, contract, contractInstance),
+              transactionFromContractState(damlStateKey.getContractId, contract, contractInstance),
             transactionId = TransactionId.assertFromString(
               UUID.randomUUID().toString
             ), // TODO: Can be determined from state?
@@ -147,7 +147,7 @@ class StateToUpdateMapping(state: MutableState) {
     }
   }
 
-  private def contractInstanceToTransaction(
+  private def transactionFromContractState(
       contractId: String,
       contract: DamlContractState,
       contractInstance: Value.ContractInst[Value.VersionedValue[Value.ContractId]],
