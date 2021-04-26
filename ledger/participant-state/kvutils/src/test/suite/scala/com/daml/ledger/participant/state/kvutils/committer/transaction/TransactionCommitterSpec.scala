@@ -21,12 +21,13 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
 import com.daml.lf.transaction
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.test.TransactionBuilder.Create
+import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -688,7 +689,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
-      builder.add(newCreateNodeWithFixedKey(s"#freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(conflictingKey -> None)
       val result = validate(context, transaction)
@@ -697,9 +698,25 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "return DuplicateKeys between local contracts even if second create is rolled back" in {
       val builder = TransactionBuilder()
-      builder.add(newCreateNodeWithFixedKey(s"#freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
       val rollback = builder.add(builder.rollback())
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "return DuplicateKeys between local contracts even if the first one was archived in a rollback" in {
+      val builder = TransactionBuilder()
+      val create = newCreateNodeWithFixedKey(s"#$freshContractId")
+      builder.add(create)
+      val rollback = builder.add(builder.rollback())
+      builder.add(archive(create, Set("Alice")), rollback)
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(conflictingKey -> None)
       val result = validate(context, transaction)
@@ -819,5 +836,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       key = keyAndMaintainer.map { case (key, maintainer) =>
         tuple(maintainer, key)
       },
+    )
+
+  def archive(create: Create, actingParties: Set[String]): Exercise =
+    txBuilder.exercise(
+      create,
+      choice = "Archive",
+      consuming = true,
+      actingParties = actingParties,
+      argument = Value.ValueRecord(None, ImmArray.empty),
+      result = Some(Value.ValueUnit),
     )
 }
