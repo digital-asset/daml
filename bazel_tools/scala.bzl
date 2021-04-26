@@ -62,9 +62,6 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
-    # enable verbose warnings instead of warning summaries
-    # ("-Wconf:cat=deprecation:ws,cat=feature:ws,cat=optimizer:ws" is the default)
-    "-Wconf:cat=deprecation:wv,cat=feature:wv,cat=optimizer:wv",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
