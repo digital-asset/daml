@@ -152,11 +152,24 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
 
     type Exe = Node.NodeExercises[Nid, Cid]
 
+    sealed trait StackEntry
+    final case class ExerciseEntry(exe1: Exercise, exe2: Exercise) extends StackEntry
+    final case class RollbackEntry(rb1: Rollback, rb2: Rollback) extends StackEntry
+    final case class Exercise(
+        nid: Nid,
+        exe: Exe,
+        children: LazyList[Nid],
+    )
+    final case class Rollback(
+        nid: Nid,
+        children: LazyList[Nid],
+    )
+
     @tailrec
     def loop(
         nids1: LazyList[Nid],
         nids2: LazyList[Nid],
-        stack: List[(Nid, Exe, LazyList[Nid], Nid, Exe, LazyList[Nid])] = List.empty,
+        stack: List[StackEntry] = List.empty,
     ): Either[ReplayMismatch[Nid, Cid], Unit] =
       (nids1, nids2) match {
         case (LazyList.cons(nid1, rest1), LazyList.cons(nid2, rest2)) =>
@@ -277,7 +290,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
               loop(
                 children1.iterator.to(LazyList),
                 children2.iterator.to(LazyList),
-                (nid1, exe1, rest1, nid2, exe2, rest2) :: stack,
+                ExerciseEntry(Exercise(nid1, exe1, rest1), Exercise(nid2, exe2, rest2)) :: stack,
               )
             case (
                   Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1, version1),
@@ -288,17 +301,34 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   keyIsReplayedBy(key1, key2) &&
                   result1 === result2 =>
               loop(rest1, rest2, stack)
+            case (
+                  Node.NodeRollback(
+                    children1,
+                    version1,
+                  ),
+                  Node.NodeRollback(
+                    children2,
+                    version2,
+                  ),
+                ) if version1 == version2 =>
+              loop(
+                children1.iterator.to(LazyList),
+                children2.iterator.to(LazyList),
+                RollbackEntry(Rollback(nid1, rest1), Rollback(nid2, rest2)) :: stack,
+              )
             case _ =>
               Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
           }
 
         case (LazyList(), LazyList()) =>
           stack match {
-            case (nid1, exe1, nids1, nid2, exe2, nids2) :: rest =>
+            case ExerciseEntry(Exercise(nid1, exe1, nids1), Exercise(nid2, exe2, nids2)) :: rest =>
               if (resultIsReplayedBy(exe1.exerciseResult, exe2.exerciseResult))
                 loop(nids1, nids2, rest)
               else
                 Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
+            case RollbackEntry(Rollback(_, nids1), Rollback(_, nids2)) :: rest =>
+              loop(nids1, nids2, rest)
             case Nil =>
               Right(())
           }

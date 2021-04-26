@@ -7,5 +7,5 @@ import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.Tracer
 
 package object telemetry {
-  val ParticipantTracer: Tracer = GlobalOpenTelemetry.getTracer("participant")
+  val OpenTelemetryTracer: Tracer = GlobalOpenTelemetry.getTracer("com.daml.telemetry")
 }

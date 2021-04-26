@@ -30,7 +30,7 @@ import com.daml.platform.store.dao.{
   PaginatingAsyncStream,
 }
 import com.daml.telemetry
-import com.daml.telemetry.{ParticipantTracer, SpanAttribute, Spans}
+import com.daml.telemetry.{OpenTelemetryTracer, SpanAttribute, Spans}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -84,7 +84,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions")
         .setNoParent()
         .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
@@ -172,7 +172,7 @@ private[dao] final class TransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     val span =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees")
         .setNoParent()
         .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
@@ -259,7 +259,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val span =
-      ParticipantTracer
+      OpenTelemetryTracer
         .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts")
         .setNoParent()
         .setAttribute(SpanAttribute.Offset.key, activeAt.toHexString)
