@@ -658,13 +658,15 @@ private object OracleQueries extends Queries {
             fr" OR ",
           )
       }
-      // Oracle SQL/JSON path expression syntax: https://docs.oracle.com/en/database/oracle/oracle-database/19/adjsn/json-path-expressions.html#GUID-AEBAD813-99AB-418A-93AB-F96BC1658618
       val quotedParties = parties.toVector.map(p => s""""$p"""").mkString(", ")
+      val partiesQuery = oracleShortPathEscape(
+        '$' -: Cord.stringToCord("[*]?(@ in (") :+ quotedParties :+ "))"
+      )
       val q =
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, signatories, observers, agreement_text
                 FROM contract c
-                WHERE (json_exists(signatories, '$$[*]?(@ in ($quotedParties))')
-                       OR json_exists(observers, '$$[*]?(@ in ($quotedParties))')
+                WHERE (JSON_EXISTS(signatories, $partiesQuery)
+                       OR JSON_EXISTS(observers, $partiesQuery))
                       AND $queriesCondition"""
       q.query[
         (String, Mark0, JsValue, JsValue, JsValue, JsValue, Option[String])
