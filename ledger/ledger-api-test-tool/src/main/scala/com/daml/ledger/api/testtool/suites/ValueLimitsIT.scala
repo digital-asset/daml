@@ -17,6 +17,7 @@ final class ValueLimitsIT extends LedgerTestSuite {
     "VLLargeSubmittersNumberCreateContract",
     "Create a contract with a large submitters number",
     allocate(NoParties),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
       // Need to manually allocate parties to avoid db string compression
