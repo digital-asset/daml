@@ -36,9 +36,8 @@ object ContractDao {
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
   )
 
-  lazy val supportedJdbcDriverNames = supportedJdbcDrivers.keySet filter { d =>
-    scala.util.Try(Class forName d).isSuccess
-  }
+  def supportedJdbcDriverNames(available: Set[String]): Set[String] =
+    supportedJdbcDrivers.keySet intersect available
 
   def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
       ec: ExecutionContext

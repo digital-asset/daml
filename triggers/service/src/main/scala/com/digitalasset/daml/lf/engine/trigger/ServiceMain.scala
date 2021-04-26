@@ -19,6 +19,7 @@ import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.logging.ContextualizedLogger
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
+import com.daml.runtime.JdbcDrivers
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -81,7 +82,10 @@ object ServiceMain {
   }
 
   def main(args: Array[String]): Unit = {
-    ServiceConfig.parse(args, DbTriggerDao.supportedJdbcDriverNames) match {
+    ServiceConfig.parse(
+      args,
+      DbTriggerDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
+    ) match {
       case None => sys.exit(1)
       case Some(config) =>
         val logger = ContextualizedLogger.get(this.getClass)
