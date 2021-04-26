@@ -66,7 +66,7 @@ message DamlSubmission {
     // that triggers the deduplication logic and generates a completion with
     // its own offset. This entry is either added to the ledger as-is or
     // converted to a 'Duplicate' rejection in case it is deduplicated.
-    DamlTransactionRejectionEntry transaction_rejection_entry = 6;
+    DamlTransactionRejectionEntry transaction_rejection_entry = 7;
   }
   bytes submission_seed = 6;
 }
