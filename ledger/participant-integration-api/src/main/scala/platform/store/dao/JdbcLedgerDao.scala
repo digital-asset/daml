@@ -1282,7 +1282,7 @@ private[platform] object JdbcLedgerDao {
         |on (pcs.deduplication_key ={deduplicationKey})
         |when matched then
         |  update set pcs.deduplicate_until={deduplicateUntil}
-        |  where pcs.pcs.deduplicate_until < {submittedAt}
+        |  where pcs.deduplicate_until < {submittedAt}
         |when not matched then
         | insert (pcs.deduplication_key, pcs.deduplicate_until)
         |  values ({deduplicationKey}, {deduplicateUntil})
