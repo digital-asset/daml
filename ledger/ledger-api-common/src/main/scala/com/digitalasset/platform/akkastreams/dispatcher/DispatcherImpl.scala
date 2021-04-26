@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.github.ghik.silencer.silent
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
@@ -17,6 +16,10 @@ final class DispatcherImpl[Index: Ordering](
     zeroIndex: Index,
     headAtInitialization: Index,
 ) extends Dispatcher[Index] {
+  private type State = DispatcherImpl.State[Index]
+  private type Closed = DispatcherImpl.Closed[Index]
+  private val Running = DispatcherImpl.Running
+  private val Closed = DispatcherImpl.Closed
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -25,29 +28,6 @@ final class DispatcherImpl[Index: Ordering](
     s"head supplied at Dispatcher initialization $headAtInitialization is before zero index $zeroIndex. " +
       s"This would imply that the ledger end is before the ledger begin, which makes this invalid configuration.",
   )
-
-  private sealed abstract class State extends Product with Serializable {
-    def getSignalDispatcher: Option[SignalDispatcher]
-
-    def getLastIndex: Index
-  }
-
-  // the following silent are due to
-  // <https://github.com/scala/bug/issues/4440>
-  @silent("The outer reference in this type test cannot be checked at run time")
-  private final case class Running(lastIndex: Index, signalDispatcher: SignalDispatcher)
-      extends State {
-    override def getLastIndex: Index = lastIndex
-
-    override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
-  }
-
-  @silent("The outer reference in this type test cannot be checked at run time")
-  private final case class Closed(lastIndex: Index) extends State {
-    override def getLastIndex: Index = lastIndex
-
-    override def getSignalDispatcher: Option[SignalDispatcher] = None
-  }
 
   // So why not broadcast the actual new index, instead of using a signaller?
   // The reason is if we do that, the new indices race with readHead
@@ -155,4 +135,25 @@ final class DispatcherImpl[Index: Ordering](
   private def closedError: IllegalStateException =
     new IllegalStateException(s"$name: Dispatcher is closed")
 
+}
+
+object DispatcherImpl {
+  private sealed abstract class State[Index] extends Product with Serializable {
+    def getSignalDispatcher: Option[SignalDispatcher]
+
+    def getLastIndex: Index
+  }
+
+  private final case class Running[Index](lastIndex: Index, signalDispatcher: SignalDispatcher)
+      extends State[Index] {
+    override def getLastIndex: Index = lastIndex
+
+    override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
+  }
+
+  private final case class Closed[Index](lastIndex: Index) extends State[Index] {
+    override def getLastIndex: Index = lastIndex
+
+    override def getSignalDispatcher: Option[SignalDispatcher] = None
+  }
 }

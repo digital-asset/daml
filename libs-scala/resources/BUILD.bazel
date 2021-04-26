@@ -37,7 +37,6 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    silent_annotations = True,
     deps = [
         ":resources",
         ":resources-test-lib",

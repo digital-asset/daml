@@ -63,6 +63,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -72,7 +75,6 @@ da_scala_test_suite(
     scalacopts = [
         "-P:silencer:lineContentFilters=import Compat._",
     ],
-    silent_annotations = True,
     deps = [
         ":ledger-api-client",
         ":ledger-api-client-tests-lib",

@@ -7,20 +7,19 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.ledger.Authorize
-import com.daml.lf.ledger.FailedAuthorization
+import com.daml.lf.ledger.{Authorize, FailedAuthorization}
 import com.daml.lf.transaction.{
   GenTransaction,
   GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion => TxVersion,
   Transaction => Tx,
+  TransactionVersion => TxVersion,
 }
 import com.daml.lf.value.Value
-import com.github.ghik.silencer.silent
 
+import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 
 private[lf] object PartialTransaction {
@@ -554,8 +553,7 @@ private[lf] case class PartialTransaction(
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
-  @silent("parameter value exceptionType in method rollbackTry is never used")
-  @silent("parameter value exception in method rollbackTry is never used")
+  @nowarn("msg=parameter value (exceptionType|exception) in method rollbackTry is never used")
   def rollbackTry(
       exceptionType: Ast.Type,
       exception: Value[Value.ContractId],

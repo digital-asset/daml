@@ -5,12 +5,12 @@ package com.daml.ledger.client.binding
 package encoding
 
 import com.daml.ledger.client.binding.{Primitive => P}
-
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.github.ghik.silencer.silent
 
-@silent(" exer .* is never used") // testing typechecking only
+import scala.annotation.nowarn
+
+@nowarn("msg=local method exer .* is never used") // testing typechecking only
 class ExerciseOnSpec extends AnyWordSpec with Matchers {
   import ExerciseOnSpec._
 
@@ -36,7 +36,8 @@ class ExerciseOnSpec extends AnyWordSpec with Matchers {
     }
 
     "discriminate among template types" in {
-      import LfTypeEncodingSpec.CallablePayout, Sth._
+      import LfTypeEncodingSpec.CallablePayout
+      import Sth._
       def exer(id: CallablePayout.ContractId) =
         id: `Sth syntax`[CallablePayout.ContractId]
       // ^ works, but...
@@ -84,7 +85,9 @@ object ExerciseOnSpec {
       * this all works without doing that.
       */
     implicit final class `Sth syntax`[+ ` ExOn`](private val id: ` ExOn`) extends AnyVal {
-      @silent("(controller|exOn) .* is never used") // used only for arg typechecking
+      @nowarn(
+        "msg=parameter value (controller| exOn) .* is never used"
+      ) // used only for arg typechecking
       def exerciseFoo(controller: P.Party)(implicit ` exOn`: ExerciseOn[` ExOn`, Sth]): Unit = ()
     }
   }

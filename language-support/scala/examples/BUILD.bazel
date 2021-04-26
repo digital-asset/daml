@@ -60,7 +60,9 @@ dar_to_scala(
 da_scala_library(
     name = "quickstart-scala-codegen-lib",
     srcs = [":quickstart-scala-codegen.srcjar"],
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     scalacopts = [
         "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
     ],

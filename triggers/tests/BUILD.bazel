@@ -79,7 +79,9 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
     ],
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalactic_scalactic",

@@ -46,7 +46,9 @@ proto_jars(
 da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -69,6 +71,9 @@ da_scala_test(
     name = "transaction-test",
     size = "medium",
     srcs = glob(["src/test/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
@@ -80,7 +85,6 @@ da_scala_test(
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
-    silent_annotations = True,
     deps = [
         ":transaction",
         ":transaction_proto_java",

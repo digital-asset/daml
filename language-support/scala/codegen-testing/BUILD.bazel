@@ -83,6 +83,9 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ) + glob(["src/test/{}/scala/**/*.scala".format(scala_major_version)]),
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
@@ -93,7 +96,6 @@ da_scala_test_suite(
     scalacopts = [
         "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
-    silent_annotations = True,
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",

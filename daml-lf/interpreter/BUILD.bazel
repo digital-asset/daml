@@ -20,7 +20,6 @@ da_scala_library(
         "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = lf_scalacopts,
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
     visibility = [
         "//compiler/repl-service:__subpackages__",
