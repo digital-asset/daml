@@ -61,6 +61,12 @@ message DamlSubmission {
     DamlPackageUploadEntry package_upload_entry = 3;
     DamlConfigurationSubmission configuration_submission = 4;
     DamlPartyAllocationEntry party_allocation_entry = 5;
+
+    // Report the rejection of a command by the Ledger API server in a way
+    // that triggers the deduplication logic and generates a completion with
+    // its own offset. This entry is either added to the ledger as-is or
+    // converted to a 'Duplicate' rejection in case it is deduplicated.
+    DamlTransactionRejectionEntry transaction_rejection_entry = 6;
   }
   bytes submission_seed = 6;
 }
