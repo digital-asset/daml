@@ -387,6 +387,68 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       rollbackEnd = (acc, _, _) => acc,
     )
 
+  /** Local and global contracts that are inactive at the end of the transaction.
+    * This includes both contracts that have been arachived and local
+    * contracts whose create has been rolled back.
+    */
+  final def inactiveContracts[Cid2 >: Cid]: Set[Cid2] = {
+    final case class LedgerState(
+        createdCids: Set[Cid2],
+        inactiveCids: Set[Cid2],
+    ) {
+      def create(cid: Cid2): LedgerState =
+        copy(
+          createdCids = createdCids + cid
+        )
+      def archive(cid: Cid2): LedgerState =
+        copy(
+          inactiveCids = inactiveCids + cid
+        )
+    }
+    final case class State(
+        currentState: LedgerState,
+        rollbackStack: List[LedgerState],
+    ) {
+      def create(cid: Cid2) = copy(
+        currentState = currentState.create(cid)
+      )
+      def archive(cid: Cid2) = copy(
+        currentState = currentState.archive(cid)
+      )
+      def beginRollback() = copy(
+        rollbackStack = currentState :: rollbackStack
+      )
+      def endRollback() = {
+        // In addition to archives we also need to mark contracts
+        // created in the rollback as inactive
+        val beginState = rollbackStack.head
+        copy(
+          currentState = beginState.copy(
+            inactiveCids =
+              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids)
+          ),
+          rollbackStack = rollbackStack.tail,
+        )
+      }
+    }
+    foldInExecutionOrder[State](State(LedgerState(Set.empty, Set.empty), Nil))(
+      exerciseBegin = (acc, _, exe) =>
+        if (exe.consuming) {
+          (acc.archive(exe.targetCoid), true)
+        } else {
+          (acc, true)
+        },
+      exerciseEnd = (acc, _, _) => acc,
+      rollbackBegin = (acc, _, _) => (acc.beginRollback(), true),
+      rollbackEnd = (acc, _, _) => acc.endRollback(),
+      leaf = (acc, _, leaf) =>
+        leaf match {
+          case c: Node.NodeCreate[Cid2] => acc.create(c.coid)
+          case _ => acc
+        },
+    ).currentState.inactiveCids
+  }
+
   /** Returns the IDs of all input contracts that are used by this transaction.
     */
   final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
