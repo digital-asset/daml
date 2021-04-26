@@ -95,8 +95,8 @@ class StateToUpdateMapping(state: MutableState) {
           None
         } else {
           val contractInstance = Conversions.decodeContractInstance(contract.getContractInstance)
-          val contractKey = contract.getContractKey
           //          // Look up contract key.
+          //          val contractKey = contract.getContractKey
           //          val damlContractKey = DamlKvutils.DamlStateKey.newBuilder
           //            .setContractKey(contractKey)
           //            .build
@@ -153,13 +153,14 @@ class StateToUpdateMapping(state: MutableState) {
       contractInstance: Value.ContractInst[Value.VersionedValue[Value.ContractId]],
   ): CommittedTransaction = {
     val transactionBuilder = TransactionBuilder()
+    // FIXME: Map from state.
     val observers = contract.getLocallyDisclosedToList.asScala ++ contract.getDivulgedToList.asScala
     val createNode = transactionBuilder.create(
       id = contractId,
       template = contractInstance.template.toString,
       argument = contractInstance.arg.value,
-      signatories = Seq.empty, // TODO: Map from state.
-      observers = observers,  // TODO: Map from state.
+      signatories = Seq.empty,
+      observers = observers.sorted,
       key = None,
     )
     transactionBuilder.add(createNode)
