@@ -13,6 +13,13 @@ scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
+perf_runtime_deps = {
+    "ce": [],
+    "ee": [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+}
+
 [
     da_scala_library(
         name = "http-json-perf-{}".format(edition),
@@ -45,9 +52,11 @@ scalacopts = lf_scalacopts + [
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
             "//libs-scala/gatling-utils",
+            "//libs-scala/oracle-testing",
             "//libs-scala/ports",
             "//libs-scala/postgresql-testing",
             "//libs-scala/scala-utils",
+            "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
             "@maven//:com_fasterxml_jackson_core_jackson_core",
             "@maven//:com_fasterxml_jackson_core_jackson_databind",
             "@maven//:io_gatling_gatling_app",
@@ -92,7 +101,7 @@ scalacopts = lf_scalacopts + [
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
-        ],
+        ] + perf_runtime_deps.get(edition),
         deps = [
             ":http-json-perf-{}".format(edition),
             "//language-support/scala/bindings-akka",
