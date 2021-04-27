@@ -276,7 +276,9 @@ private[kvutils] class TransactionCommitter(
             )
         } catch {
           case err: Err.MissingInputState =>
-            logger.warn("Exception during model conformance validation.", err)
+            logger.warn(
+              s"Model conformance validation failed due to a missing input state (most likely due to invalid state on the partcipant), correlationId=${transactionEntry.commandId}"
+            )
             reject(
               commitContext.recordTime,
               buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.getMessage)),

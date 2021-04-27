@@ -18,21 +18,25 @@ object Err {
   final case class InvalidSubmission(message: String) extends Err {
     override def getMessage: String = s"Invalid submission: $message"
   }
+
   final case class MissingInputState(key: DamlStateKey) extends Err {
     override def getMessage: String =
       s"Missing input state for key $key. Hint: the referenced contract might have been archived."
   }
+
   final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err {
     override def getMessage: String = s"Decoding of DAML-LF archive $packageId failed: $reason"
   }
+
   final case class DecodeError(kind: String, message: String) extends Err {
     override def getMessage: String = s"Decoding $kind failed: $message"
   }
+
   final case class EncodeError(kind: String, message: String) extends Err {
     override def getMessage: String = s"Encoding $kind failed: $message"
   }
+
   final case class InternalError(message: String) extends Err {
     override def getMessage: String = s"Internal error: $message"
   }
-
 }
