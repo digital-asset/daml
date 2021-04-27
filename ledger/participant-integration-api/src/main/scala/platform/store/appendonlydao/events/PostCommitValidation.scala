@@ -202,7 +202,7 @@ private[appendonlydao] object PostCommitValidation {
     *  restore the state at the end of the rollback. The most recent rollback
     *  comes first.
     * @param data Data about committed contracts for post-commit validation purposes.
-    *  This is never changed durng the traversal of the transaction.
+    *  This is never changed during the traversal of the transaction.
     */
   private final case class State(
       private val currentState: ActiveState,
@@ -236,7 +236,7 @@ private[appendonlydao] object PostCommitValidation {
 
     def endRollback(): State = rollbackStack match {
       case Nil =>
-        throw new IllegalStateException("Internal error: rollback end but rollbackStack was empty")
+        throw new IllegalStateException("Internal error: rollback ended but rollbackStack was empty")
       case head :: tail =>
         copy(
           currentState = head,

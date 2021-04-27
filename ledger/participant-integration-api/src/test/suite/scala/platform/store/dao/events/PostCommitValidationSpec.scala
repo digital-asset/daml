@@ -286,7 +286,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           )
 
         error shouldBe None
-
       }
 
     }
@@ -432,7 +431,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           )
 
         error shouldBe Some(DuplicateKey)
-
       }
 
       "reject a failed lookup in a rollback" in {
@@ -456,7 +454,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
       }
 
-      "accept a succesful lookup in a rollback" in {
+      "accept a successful lookup in a rollback" in {
         val builder = TxBuilder()
         val rollback = builder.add(builder.rollback())
         builder.add(builder.lookupByKey(committedContract, found = true), rollback)
@@ -547,7 +545,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         error shouldBe Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
       }
-      "reject if party is used in rollback." in {
+      "reject if party is used in rollback" in {
         val createWithKey = genTestCreate()
         val builder = TxBuilder()
         val rollback = builder.add(builder.rollback())
