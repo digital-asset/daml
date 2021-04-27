@@ -225,12 +225,13 @@ object KeyValueCommitting {
       node.getNodeTypeCase match {
 
         case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
-        // Rollback nodes themselves do not produce any outputs. However, children
-        // of rollback nodes potentially will, e.g., divulgence.
-        // At the moment, we overapproximate and treat
-        // a node the same regardless of whether it was under a rollback node.
-        // This matches the treatment of transient contracts which could also
-        // be trimmed from the output.
+        // Nodes under rollback will potentially produce outputs such as divulgence.
+        // Actual outputs must be a subset of, or the same as, computed outputs and
+        // we currently relax this check by widening the latter set, treating a node the
+        // same regardless of whether it was under a rollback node or not.
+        // Computed outputs that are not actual outputs can be safely trimmed: examples
+        // are transient contracts and, now, potentially also outputs from nodes under
+        // rollback.
 
         case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
           val protoCreate = node.getCreate
