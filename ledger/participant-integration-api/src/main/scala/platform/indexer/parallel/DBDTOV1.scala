@@ -20,7 +20,7 @@ object DBDTOV1 {
       tree_event_witnesses: Set[String],
       create_argument: Option[Array[Byte]],
       create_argument_compression: Option[Int],
-      // missing: event_sequential_id: Long - this will be assigned only at batches
+      event_sequential_id: Long,
   ) extends DBDTOV1
 
   case class EventCreate(
@@ -45,7 +45,7 @@ object DBDTOV1 {
       create_key_hash: Option[String],
       create_argument_compression: Option[Int],
       create_key_value_compression: Option[Int],
-      // missing: event_sequential_id: Long - this will be assigned only at batches
+      event_sequential_id: Long,
   ) extends DBDTOV1
 
   case class EventExercise(
@@ -72,7 +72,7 @@ object DBDTOV1 {
       create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
-      // missing: event_sequential_id: Long - this will be assigned only at batches
+      event_sequential_id: Long,
   ) extends DBDTOV1
 
   // TODO wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...

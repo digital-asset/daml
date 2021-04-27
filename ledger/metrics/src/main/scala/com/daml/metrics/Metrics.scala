@@ -549,6 +549,8 @@ final class Metrics(val registry: MetricRegistry) {
     object parallelIndexer {
       private val Prefix: MetricName = daml.Prefix :+ "parallel_indexer"
 
+      val initialization = new DatabaseMetrics(registry, Prefix, "initialization")
+
       // Number of state updates persisted to the database
       // (after the effect of the corresponding Update is persisted into the database,
       // and before this effect is visible via moving the ledger end forward)
@@ -573,18 +575,32 @@ final class Metrics(val registry: MetricRegistry) {
         val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
       }
 
-      // Ingestion stage
-      // Parallel ingestion of prepared data into the database
-      object ingestion {
-        private val Prefix: MetricName = parallelIndexer.Prefix :+ "ingestion"
+      // Batching stage
+      // Translating batch data objects to db-specific DTO batches
+      object batching {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "batching"
 
         // Bundle of metrics coming from instrumentation of the underlying thread-pool
         val executor: MetricName = Prefix :+ "executor"
+
+        // The latency, which during an update element is residing in the batching-stage.
+        // Since batches are involved, this duration is divided by the batch size.
+        val duration: Timer = registry.timer(Prefix :+ "duration")
+      }
+
+      // Ingestion stage
+      // Parallel ingestion of prepared data into the database
+      object ingestion extends DatabaseMetrics(registry, Prefix, "ingestion") {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "ingestion"
 
         // The latency, which during an update element is residing in the ingestion.
         // Since batches are involved, this duration is divided by the batch size.
         val duration: Timer = registry.timer(Prefix :+ "duration")
       }
+
+      // Tail ingestion stage
+      // The throttled update of ledger end parameters
+      val tailIngestion = new DatabaseMetrics(registry, Prefix, "tail_ingestion")
     }
 
     object services {
