@@ -51,7 +51,6 @@ final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
       val party = Party.assertFromString(partyStr)
       val bobStr = "Bob"
       val bob = Party.assertFromString(bobStr)
-//    val offset = LedgerOffset.Absolute(LedgerString.assertFromString("offset"))
 
       def create(builder: TransactionBuilder, id: String) =
         builder.create(
