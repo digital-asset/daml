@@ -5,19 +5,17 @@ package com.daml.telemetry
 
 import java.util.{Map => jMap}
 
-import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.{Span, Tracer}
 
 import scala.concurrent.Future
 
-trait Telemetry {
+/** @param tracer An OpenTelemetry Tracer that can be used for building spans. */
+abstract class Telemetry(protected val tracer: Tracer) {
 
   /** Returns a telemetry context from the OpenTelemetry context stored in the gRPC
     * thread local context.
     * This is used to recover the tracing metadata from an incoming gRPC call,
     * and used for the subsequent spans.
-    *
-    * Current implementation only works with OpenTelemetry < 0.10. Later versions of
-    * OpenTelemetry use a different context object.
     */
   def contextFromGrpcThreadLocalContext(): TelemetryContext
 
@@ -71,32 +69,33 @@ trait Telemetry {
   protected def rootContext: TelemetryContext
 }
 
-/** Default implementation of Telemetry. Uses OpenTelemetry to generate and gather traces.
-  */
-object DefaultTelemetry extends Telemetry {
+abstract class DefaultTelemetry(override protected val tracer: Tracer) extends Telemetry(tracer) {
 
   override def contextFromGrpcThreadLocalContext(): TelemetryContext = {
-    DefaultTelemetryContext(Span.current)
+    DefaultTelemetryContext(tracer, Span.current)
   }
 
   override def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext = {
     metadata
       .flatMap(Tracing.decodeTraceMetadata) match {
       case None =>
-        RootDefaultTelemetryContext
+        RootDefaultTelemetryContext(tracer)
       case Some(context) =>
-        DefaultTelemetryContext(Span.fromContext(context))
+        DefaultTelemetryContext(tracer, Span.fromContext(context))
     }
   }
 
-  override protected def rootContext: TelemetryContext = RootDefaultTelemetryContext
+  override protected def rootContext: TelemetryContext = RootDefaultTelemetryContext(tracer)
 }
+
+/** Default implementation of Telemetry. Uses OpenTelemetry to generate and gather traces. */
+object DefaultTelemetry extends DefaultTelemetry(OpenTelemetryTracer)
 
 /** Implementation of Telemetry that does nothing.
   *
   * It always returns NoOpTelemetryContext, and just executes without modification any given code block function.
   */
-object NoOpTelemetry extends Telemetry {
+object NoOpTelemetry extends Telemetry(Tracer.getDefault) {
 
   override def contextFromGrpcThreadLocalContext(): TelemetryContext = NoOpTelemetryContext
 
