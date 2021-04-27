@@ -236,7 +236,9 @@ private[appendonlydao] object PostCommitValidation {
 
     def endRollback(): State = rollbackStack match {
       case Nil =>
-        throw new IllegalStateException("Internal error: rollback ended but rollbackStack was empty")
+        throw new IllegalStateException(
+          "Internal error: rollback ended but rollbackStack was empty"
+        )
       case head :: tail =>
         copy(
           currentState = head,
