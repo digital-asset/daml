@@ -62,7 +62,10 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       exportRecordTime: Instant,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+    LoggingContext.newLoggingContext(
+      "participantId" -> submittingParticipantId,
+      "correlationId" -> correlationId,
+    ) { implicit loggingContext =>
       val submissionInfo =
         SubmissionInfo(submittingParticipantId, correlationId, submissionEnvelope, exportRecordTime)
       val submissionAggregator = ledgerDataExporter.addSubmission(submissionInfo)

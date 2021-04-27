@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
+import com.daml.logging.LoggingContext
 
 trait SubmissionExecutor {
   def run(
@@ -20,11 +21,11 @@ trait SubmissionExecutor {
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue])
+  )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue])
 
   def runWithPreExecution(
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): PreExecutionResult
+  )(implicit loggingContext: LoggingContext): PreExecutionResult
 }

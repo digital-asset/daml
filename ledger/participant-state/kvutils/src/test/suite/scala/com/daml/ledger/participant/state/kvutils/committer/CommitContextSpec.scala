@@ -11,10 +11,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
 import com.daml.lf.data.Time
+import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class CommitContextSpec extends AnyWordSpec with Matchers {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "get" should {
     "check output first" in {
       val context = newInstance(inputs = newDamlStateMap(aKey -> anotherValue))

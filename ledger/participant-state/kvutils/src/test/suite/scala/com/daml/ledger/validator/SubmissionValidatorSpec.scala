@@ -169,7 +169,7 @@ class SubmissionValidatorSpec
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
-        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
+        processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
@@ -209,7 +209,7 @@ class SubmissionValidatorSpec
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
-        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
+        processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
@@ -246,7 +246,7 @@ class SubmissionValidatorSpec
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
-        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
+        processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
@@ -291,7 +291,7 @@ class SubmissionValidatorSpec
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
-        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
+        processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,

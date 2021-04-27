@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.kvutils.committer.StepContinue
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.v1.RejectionReason
+import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -21,6 +22,7 @@ class KeyMonotonicityValidationSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val testKey = DamlStateKey.newBuilder().build()
   private val testSubmissionSeed = ByteString.copyFromUtf8("a" * 32)
@@ -60,7 +62,7 @@ class KeyMonotonicityValidationSpec
       verify(mockTransactionCommitter).buildRejectionLogEntry(
         eqTo(testTransactionEntry),
         any[RejectionReason.InvalidLedgerTime],
-      )
+      )(any[LoggingContext])
       verify(mockTransactionCommitter).reject(
         eqTo(None),
         any[DamlTransactionRejectionEntry.Builder],
