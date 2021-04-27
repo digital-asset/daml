@@ -225,7 +225,7 @@ object KeyValueCommitting {
       node.getNodeTypeCase match {
 
         case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
-        // Rollback nodes itself do not produce any outputs. However, children
+        // Rollback nodes themselves do not produce any outputs. However, children
         // of rollback nodes potentially will, e.g., divulgence.
         // At the moment, we overapproximate and treat
         // a node the same regardless of whether it was under a rollback node.

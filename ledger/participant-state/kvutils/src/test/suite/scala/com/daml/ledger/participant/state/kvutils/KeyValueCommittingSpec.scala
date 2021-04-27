@@ -27,7 +27,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import java.time.Instant
 
-class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
+class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
   private val metrics: Metrics = new Metrics(new MetricRegistry)
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
@@ -35,7 +35,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
   private val commandId = CommandId.assertFromString("cmdid")
 
   private def toSubmission(tx: SubmittedTransaction): DamlSubmission = {
-    val timestamp = Time.Timestamp.assertFromInstant(Instant.EPOCH)
+    val timestamp = Time.Timestamp.Epoch
     val meta = TransactionMeta(
       ledgerEffectiveTime = timestamp,
       workflowId = None,
@@ -184,7 +184,6 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       val builder = TransactionBuilder()
       builder.add(lookup(builder, "#1", found = false))
       KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(dedupKey)
-
     }
 
     "return no output for a successful lookup-by-key" in {
