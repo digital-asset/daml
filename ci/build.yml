@@ -238,7 +238,7 @@ jobs:
           sleep 1
         done
         # Actually run some tests
-        DAML_ORACLE_TESTING=true bazel test --//:oracle_testing=yes \
+        DAML_ORACLE_TESTING=true bazel test \
           --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
           //ledger-service/http-json-oracle/... \
           //triggers/service:test-oracle \

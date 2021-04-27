@@ -3,7 +3,7 @@
 
 load("@oracle//:index.bzl", "oracle_testing")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -14,7 +14,7 @@ load(
     "silencer_plugin",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@scala_version//:index.bzl", "scala_major_version_suffix")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",

@@ -1,6 +1,9 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@oracle//:index.bzl", "oracle_testing")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -8,8 +11,6 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
 )
-load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows")
 
 tsvc_main_scalacopts = [
     "-P:wartremover:traverser:org.wartremover.warts.%s" % wart
@@ -239,19 +240,16 @@ da_scala_test_suite(
     deps = test_deps,
 )
 
-da_scala_test_suite(
+# The "manual" test tag doesn't seem to work with `da_scala_test_suite`.
+da_scala_test(
     name = "test-oracle",
     srcs = glob(["src/test-suite/scala/**/*Oracle*.scala"]),
     scala_deps = scala_test_deps,
-    target_compatible_with = select({
-        "//:oracle_available": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = test_deps,
-)
+) if oracle_testing else None
 
 genrule(
     name = "test-model",
