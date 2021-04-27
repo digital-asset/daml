@@ -3,35 +3,29 @@
 
 package com.daml.telemetry
 
-import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.Span
-import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
-import io.opentelemetry.context.propagation.ContextPropagators
-import io.opentelemetry.sdk.OpenTelemetrySdk
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
-import io.opentelemetry.sdk.trace.SdkTracerProvider
-import io.opentelemetry.sdk.trace.`export`.SimpleSpanProcessor
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.AsyncWordSpecLike
 
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters._
 
-class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers {
-
-  import TelemetrySpec._
+class TelemetrySpec
+    extends TelemetrySpecBase
+    with AsyncWordSpecLike
+    with BeforeAndAfterEach
+    with Matchers {
 
   override protected def afterEach(): Unit = spanExporter.reset()
 
   "contextFromGrpcThreadLocalContext" should {
     "return a context" in {
-      tracerProvider
-        .get(InstrumentationName)
+      val tracer = tracerProvider.get(anInstrumentationName)
+      tracer
         .spanBuilder(aSpanName)
+        .setAttribute("existingKey", "existingValue")
         .startSpan()
         .makeCurrent()
-      Span.current.setAttribute("existingKey", "existingValue")
       val context = DefaultTelemetry.contextFromGrpcThreadLocalContext()
       context.setAttribute(anApplicationIdSpanAttribute._1, anApplicationIdSpanAttribute._2)
       Span.current.end()
@@ -48,11 +42,9 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
 
   "contextFromMetadata" should {
     "return an extracted context" in {
-      val span = tracerProvider
-        .get(InstrumentationName)
-        .spanBuilder(aSpanName)
-        .startSpan()
-      val metadata = DefaultTelemetryContext(span).encodeMetadata()
+      val tracer = tracerProvider.get(anInstrumentationName)
+      val span = tracer.spanBuilder(aSpanName).startSpan()
+      val metadata = DefaultTelemetryContext(tracer, span).encodeMetadata()
 
       val context = DefaultTelemetry.contextFromMetadata(Some(metadata))
 
@@ -72,7 +64,7 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
 
   "runInSpan" should {
     "create and finish a span" in {
-      DefaultTelemetry
+      TestTelemetry
         .runInSpan(
           aSpanName,
           SpanKind.Internal,
@@ -89,7 +81,7 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
 
   "runFutureInSpan" should {
     "create and finish a span" in {
-      DefaultTelemetry
+      TestTelemetry
         .runFutureInSpan(
           aSpanName,
           SpanKind.Internal,
@@ -103,40 +95,6 @@ class TelemetrySpec extends AsyncWordSpec with BeforeAndAfterEach with Matchers 
           attributes should contain(anApplicationIdSpanAttribute)
           attributes should contain(aCommandIdSpanAttribute)
         }
-    }
-  }
-}
-
-object TelemetrySpec {
-  private val aSpanName = "aSpan"
-  private val anApplicationIdSpanAttribute: (SpanAttribute, String) =
-    SpanAttribute.ApplicationId -> "anApplicationId"
-  private val aCommandIdSpanAttribute: (SpanAttribute, String) =
-    SpanAttribute.CommandId -> "aCommandId"
-
-  private val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create
-  private val tracerProvider: SdkTracerProvider = SdkTracerProvider
-    .builder()
-    .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-    .build()
-
-  GlobalOpenTelemetry.set(
-    OpenTelemetrySdk
-      .builder()
-      .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-      .setTracerProvider(tracerProvider)
-      .build()
-  )
-
-  private implicit class RichInMemorySpanExporter(exporter: InMemorySpanExporter) {
-    def finishedSpanAttributes: Map[SpanAttribute, String] = {
-      val finishedSpans = exporter.getFinishedSpanItems.asScala
-      finishedSpans.flatMap { span =>
-        val attributes = span.getAttributes.asMap.asScala
-        attributes.map { case (key, value) =>
-          SpanAttribute(key.toString) -> value.toString
-        }
-      }.toMap
     }
   }
 }
