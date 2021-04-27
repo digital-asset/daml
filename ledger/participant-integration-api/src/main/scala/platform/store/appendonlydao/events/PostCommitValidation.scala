@@ -176,8 +176,8 @@ private[appendonlydao] object PostCommitValidation {
     *  key will remove the entry again.
     */
   private final case class ActiveState(
-      val contracts: Map[Hash, ContractId],
-      val removed: Set[Hash],
+      contracts: Map[Hash, ContractId],
+      removed: Set[Hash],
   ) {
     def add(key: Key, id: ContractId): ActiveState =
       copy(
