@@ -110,7 +110,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       val createNode = create(builder, "#1")
       builder.add(createNode)
       val key = contractIdToStateKey(createNode.coid)
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(
         dedupKey,
         key,
       )
@@ -122,7 +123,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       builder.add(createNode)
       val contractIdKey = contractIdToStateKey(createNode.coid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(
         dedupKey,
         contractIdKey,
         contractKeyKey,
@@ -136,7 +138,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       builder.add(exercise(builder, "#1"))
       val contractIdKey = contractIdToStateKey(createNode.coid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(
         dedupKey,
         contractIdKey,
         contractKeyKey,
@@ -160,7 +163,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       builder.add(exerciseNode)
       val contractIdKey = contractIdToStateKey(exerciseNode.targetCoid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(
         dedupKey,
         contractIdKey,
         contractKeyKey,
@@ -173,7 +177,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       val fetchNode2 = fetch(builder, "#2", byKey = false)
       builder.add(fetchNode1)
       builder.add(fetchNode2)
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(
         dedupKey,
         contractIdToStateKey(fetchNode1.coid),
         contractIdToStateKey(fetchNode2.coid),
@@ -183,7 +188,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     "return no output for a failing lookup-by-key" in {
       val builder = TransactionBuilder()
       builder.add(lookup(builder, "#1", found = false))
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(dedupKey)
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(dedupKey)
     }
 
     "return no output for a successful lookup-by-key" in {
@@ -201,7 +207,8 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       builder.add(exerciseNode, rollback)
       val fetchNode = fetch(builder, "#3", byKey = true)
       builder.add(fetchNode, rollback)
-      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
+      val result = KeyValueCommitting.submissionOutputs(toSubmission(builder))
+      result shouldBe Set(
         dedupKey,
         contractIdToStateKey(createNode.coid),
         contractKeyToStateKey(templateId, keyValue),
