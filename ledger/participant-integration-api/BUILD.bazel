@@ -309,6 +309,7 @@ da_scala_test(
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
     ],
+    tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
@@ -335,7 +336,7 @@ da_scala_test(
         "//libs-scala/resources",
         "@maven//:org_slf4j_slf4j_api",
     ],
-) if oracle_testing else None
+)
 
 exports_files(["src/main/resources/logback.xml"])
 

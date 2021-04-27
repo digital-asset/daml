@@ -38,6 +38,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = hj_scalacopts,
+    tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
@@ -57,4 +58,4 @@ da_scala_test(
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
     ],
-) if oracle_testing else None
+)

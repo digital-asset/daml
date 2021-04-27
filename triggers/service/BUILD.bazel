@@ -245,11 +245,12 @@ da_scala_test(
     name = "test-oracle",
     srcs = glob(["src/test-suite/scala/**/*Oracle*.scala"]),
     scala_deps = scala_test_deps,
+    tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = test_deps,
-) if oracle_testing else None
+)
 
 genrule(
     name = "test-model",
