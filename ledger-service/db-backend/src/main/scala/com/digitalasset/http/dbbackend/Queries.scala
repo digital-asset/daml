@@ -660,7 +660,7 @@ private object OracleQueries extends Queries {
       }
       val quotedParties = parties.toVector.map(p => s""""$p"""").mkString(", ")
       val partiesQuery = oracleShortPathEscape(
-        '$' -: Cord.stringToCord("[*]?(@ in (") :+ quotedParties :+ "))"
+        '$' -: ("[*]?(@ in (": Cord) :+ quotedParties :+ "))"
       )
       val q =
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, signatories, observers, agreement_text
