@@ -103,9 +103,9 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
 
     "return a single output for a create without a key" in {
       val builder = TransactionBuilder()
-      val c = create(builder, "#1")
-      builder.add(c)
-      val key = contractIdToStateKey(c.coid)
+      val createNode = create(builder, "#1")
+      builder.add(createNode)
+      val key = contractIdToStateKey(createNode.coid)
       getOutputs(builder) shouldBe Set(
         dedupKey,
         key,
@@ -114,9 +114,9 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
 
     "return two outputs for a create with a key" in {
       val builder = TransactionBuilder()
-      val c = create(builder, "#1", true)
-      builder.add(c)
-      val contractIdKey = contractIdToStateKey(c.coid)
+      val createNode = create(builder, "#1", true)
+      builder.add(createNode)
+      val contractIdKey = contractIdToStateKey(createNode.coid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
       getOutputs(builder) shouldBe Set(
         dedupKey,
@@ -127,10 +127,10 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
 
     "return a single output for a transient contract" in {
       val builder = TransactionBuilder()
-      val c = create(builder, "#1", true)
-      builder.add(c)
+      val createNode = create(builder, "#1", true)
+      builder.add(createNode)
       builder.add(exercise(builder, "#1"))
-      val contractIdKey = contractIdToStateKey(c.coid)
+      val contractIdKey = contractIdToStateKey(createNode.coid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
       getOutputs(builder) shouldBe Set(
         dedupKey,
@@ -141,9 +141,9 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
 
     "return a single output for an exercise without a key" in {
       val builder = TransactionBuilder()
-      val e = exercise(builder, "#1")
-      builder.add(e)
-      val contractIdKey = contractIdToStateKey(e.targetCoid)
+      val exerciseNode = exercise(builder, "#1")
+      builder.add(exerciseNode)
+      val contractIdKey = contractIdToStateKey(exerciseNode.targetCoid)
       getOutputs(builder) shouldBe Set(
         dedupKey,
         contractIdKey,
@@ -152,9 +152,9 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
 
     "return two outputs for an exercise with a key" in {
       val builder = TransactionBuilder()
-      val e = exercise(builder, "#1", hasKey = true)
-      builder.add(e)
-      val contractIdKey = contractIdToStateKey(e.targetCoid)
+      val exerciseNode = exercise(builder, "#1", hasKey = true)
+      builder.add(exerciseNode)
+      val contractIdKey = contractIdToStateKey(exerciseNode.targetCoid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
       getOutputs(builder) shouldBe Set(
         dedupKey,
@@ -165,14 +165,14 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
 
     "return one output per fetch and fetch-by-key" in {
       val builder = TransactionBuilder()
-      val f1 = fetch(builder, "#1", byKey = true)
-      val f2 = fetch(builder, "#2", byKey = false)
-      builder.add(f1)
-      builder.add(f2)
+      val fetchNode1 = fetch(builder, "#1", byKey = true)
+      val fetchNode2 = fetch(builder, "#2", byKey = false)
+      builder.add(fetchNode1)
+      builder.add(fetchNode2)
       getOutputs(builder) shouldBe Set(
         dedupKey,
-        contractIdToStateKey(f1.coid),
-        contractIdToStateKey(f2.coid),
+        contractIdToStateKey(fetchNode1.coid),
+        contractIdToStateKey(fetchNode2.coid),
       )
     }
 
@@ -192,18 +192,18 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
     "return outputs for nodes under a rollback node" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      val c = create(builder, "#1", hasKey = true)
-      builder.add(c, rollback)
-      val e = exercise(builder, "#2", hasKey = true)
-      builder.add(e, rollback)
-      val f = fetch(builder, "#3", byKey = true)
-      builder.add(f, rollback)
+      val createNode = create(builder, "#1", hasKey = true)
+      builder.add(createNode, rollback)
+      val exerciseNode = exercise(builder, "#2", hasKey = true)
+      builder.add(exerciseNode, rollback)
+      val fetchNode = fetch(builder, "#3", byKey = true)
+      builder.add(fetchNode, rollback)
       getOutputs(builder) shouldBe Set(
         dedupKey,
-        contractIdToStateKey(c.coid),
+        contractIdToStateKey(createNode.coid),
         contractKeyToStateKey(templateId, keyValue),
-        contractIdToStateKey(e.targetCoid),
-        contractIdToStateKey(f.coid),
+        contractIdToStateKey(exerciseNode.targetCoid),
+        contractIdToStateKey(fetchNode.coid),
       )
     }
   }
