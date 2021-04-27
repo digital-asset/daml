@@ -100,6 +100,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
   import Conversions.{contractIdToStateKey, contractKeyToStateKey}
 
   "submissionOutputs" should {
+
     "return a single output for a create without a key" in {
       val builder = TransactionBuilder()
       val c = create(builder, "#1")
@@ -110,6 +111,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
         key,
       )
     }
+
     "return two outputs for a create with a key" in {
       val builder = TransactionBuilder()
       val c = create(builder, "#1", true)
@@ -122,6 +124,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
         contractKeyKey,
       )
     }
+
     "return a single output for a transient contract" in {
       val builder = TransactionBuilder()
       val c = create(builder, "#1", true)
@@ -135,6 +138,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
         contractKeyKey,
       )
     }
+
     "return a single output for an exercise without a key" in {
       val builder = TransactionBuilder()
       val e = exercise(builder, "#1")
@@ -145,6 +149,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
         contractIdKey,
       )
     }
+
     "return two outputs for an exercise with a key" in {
       val builder = TransactionBuilder()
       val e = exercise(builder, "#1", hasKey = true)
@@ -157,6 +162,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
         contractKeyKey,
       )
     }
+
     "return one output per fetch and fetch-by-key" in {
       val builder = TransactionBuilder()
       val f1 = fetch(builder, "#1", byKey = true)
@@ -169,17 +175,20 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
         contractIdToStateKey(f2.coid),
       )
     }
+
     "return no output for a failing lookup-by-key" in {
       val builder = TransactionBuilder()
       builder.add(lookup(builder, "#1", found = false))
       getOutputs(builder) shouldBe Set(dedupKey)
 
     }
+
     "return no output for a successful lookup-by-key" in {
       val builder = TransactionBuilder()
       builder.add(lookup(builder, "#1", found = true))
       getOutputs(builder) shouldBe Set(dedupKey)
     }
+
     "return outputs for nodes under a rollback node" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
