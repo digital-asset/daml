@@ -52,7 +52,7 @@ class TelemetrySpec
       context.encodeMetadata() shouldBe metadata
     }
 
-    "return a root context" in {
+    "return a root context if no metadata was provided" in {
       val context = DefaultTelemetry.contextFromMetadata(None)
       context.encodeMetadata() shouldBe empty
     }
