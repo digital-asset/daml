@@ -164,6 +164,7 @@ da_scala_test_suite(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",

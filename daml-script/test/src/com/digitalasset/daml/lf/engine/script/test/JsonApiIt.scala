@@ -7,7 +7,10 @@ import java.io.File
 import java.nio.file.Files
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -28,7 +31,11 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
-import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.ledgerinteraction.{
+  JsonLedgerClient,
+  ScriptLedgerClient,
+  ScriptTimeMode,
+}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -482,6 +489,45 @@ final class JsonApiIt
         )
       } yield {
         assert(r == SUnit)
+      }
+    }
+    "invalid response" in {
+      def withServer[A](f: ServerBinding => Future[A]) = {
+        val bindingF: Future[ServerBinding] = Http().newServerAt("localhost", 0).bind(reject)
+        val fa: Future[A] = bindingF.flatMap(f)
+        fa.transformWith { ta =>
+          Future
+            .sequence(
+              Seq(
+                bindingF.flatMap(_.unbind())
+              )
+            )
+            .transform(_ => ta)
+        }
+      }
+      withServer { binding =>
+        val participant = ApiParameters(
+          "http://localhost",
+          binding.localAddress.getPort,
+          Some(getToken(List(party), List(), true)),
+          None,
+        )
+        val participants = Participants(
+          Some(participant),
+          Map.empty,
+          Map.empty,
+        )
+        for {
+          clients <- Runner.jsonClients(participants, envIface)
+          exc <- recoverToExceptionIf[ScriptF.FailedCmd](
+            run(clients, QualifiedName.assertFromString("ScriptTest:jsonBasic"))
+          )
+        } yield {
+          exc.cause shouldBe a[JsonLedgerClient.FailedJsonApiRequest]
+          val cause = exc.cause.asInstanceOf[JsonLedgerClient.FailedJsonApiRequest]
+          cause.respStatus shouldBe StatusCodes.NotFound
+          cause.errors shouldBe List("The requested resource could not be found.")
+        }
       }
     }
   }
